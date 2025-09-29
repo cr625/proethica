@@ -23,18 +23,25 @@ except ImportError:
     get_provenance_service = lambda: None
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)  # Temporarily enable DEBUG for troubleshooting
 
 
-def create_enhanced_obligations_prompt(text: str, include_mcp_context: bool = False, existing_obligations: list = None) -> str:
+def create_enhanced_obligations_prompt(text: str, include_mcp_context: bool = False, existing_obligations: list = None, include_principles: bool = False) -> str:
     """
     Create an enhanced prompt for obligation extraction based on professional ethics literature.
-    
+
     Theoretical foundations:
     - NSPE Code of Ethics: Must/shall statements defining professional duties
     - Dennis et al. (2016): Obligations derived from role-principle combinations
     - Wooldridge & Jennings (1995): Obligations as behavioral constraints with deontic force
     - Kong et al. (2020): Context-dependent obligations requiring professional judgment
     - Hallamaa & Kalliokoski (2022): Obligations operationalize abstract principles
+
+    Args:
+        text: The text to analyze for obligations
+        include_mcp_context: Whether to include MCP ontology context
+        existing_obligations: Pre-fetched obligations (optional)
+        include_principles: Whether to also fetch and include principles context (for full normative pass)
     """
     
     mcp_context = ""
@@ -50,18 +57,24 @@ def create_enhanced_obligations_prompt(text: str, include_mcp_context: bool = Fa
                 
                 external_client = get_external_mcp_client()
                 existing_obligations = external_client.get_all_obligation_entities()
-                
-                # Also get existing principles for Pass 2 relationship
-                existing_principles = external_client.get_all_principle_entities()
-                logger.info(f"Retrieved {len(existing_obligations)} obligations and {len(existing_principles)} principles from MCP")
-            else:
-                # If obligations provided, still try to get principles for context
-                try:
-                    from app.services.external_mcp_client import get_external_mcp_client
-                    external_client = get_external_mcp_client()
+
+                # Only get existing principles if explicitly requested (for full normative pass)
+                existing_principles = []
+                if include_principles:
                     existing_principles = external_client.get_all_principle_entities()
-                except:
-                    existing_principles = []
+                    logger.info(f"Retrieved {len(existing_obligations)} obligations and {len(existing_principles)} principles from MCP")
+                else:
+                    logger.info(f"Retrieved {len(existing_obligations)} obligations from MCP (principles excluded for individual extraction)")
+            else:
+                existing_principles = []
+                # If obligations provided and principles needed, fetch them
+                if include_principles:
+                    try:
+                        from app.services.external_mcp_client import get_external_mcp_client
+                        external_client = get_external_mcp_client()
+                        existing_principles = external_client.get_all_principle_entities()
+                    except:
+                        existing_principles = []
         
             # Organize obligations hierarchically
             base_obligation = None
@@ -98,7 +111,9 @@ Found {len(seen_labels)} obligation concepts organized by hierarchy:
             for spec in sorted(specific_obligations, key=lambda x: x['label']):
                 mcp_context += f"- **{spec['label']}**: {spec['definition']}\n"
             
-            mcp_context += """
+            # Only add Pass 2 integration context if principles are included
+            if include_principles:
+                mcp_context += """
 **PASS 2 INTEGRATION (Principles → OBLIGATIONS → Constraints + Capabilities):**
 Obligations operationalize abstract principles into concrete duties:
 - Principles provide the WHY (ethical foundations)
@@ -112,13 +127,20 @@ Example: "Public Welfare Principle" → "Must report safety hazards" (Obligation
 Each obligation should trace back to one or more principles that justify it.
 This transforms abstract values into actionable requirements.
 """
-            
-            # Add principle names if available
-            if 'existing_principles' in locals() and existing_principles:
-                mcp_context += "\n**Available Principles for Reference:**\n"
-                principle_names = [p.get('label', '') for p in existing_principles if p.get('label')]
-                for principle in principle_names[:10]:  # Show first 10 principles
-                    mcp_context += f"- {principle}\n"
+
+                # Add principle names if available
+                if 'existing_principles' in locals() and existing_principles:
+                    mcp_context += "\n**Available Principles for Reference:**\n"
+                    principle_names = [p.get('label', '') for p in existing_principles if p.get('label')]
+                    for principle in principle_names[:10]:  # Show first 10 principles
+                        mcp_context += f"- {principle}\n"
+            else:
+                mcp_context += """
+**FOCUS: OBLIGATIONS ONLY**
+This is an individual extraction focusing solely on professional obligations.
+Extract concrete duties and responsibilities without referencing principles.
+Focus on MUST/SHALL/SHOULD statements that define professional requirements.
+"""
                     
         except Exception as e:
             logger.error(f"Failed to fetch MCP context: {e}")
@@ -313,14 +335,18 @@ class EnhancedObligationsExtractor:
                 )
             return []
     
-    def _extract_with_llm(self, text: str, prompt: str, activity: Optional[ProvenanceActivity]) -> List[ConceptCandidate]:
+    def _extract_with_llm(self, text: str, prompt: str, activity: Optional[ProvenanceActivity] = None) -> List[ConceptCandidate]:
         """Extract obligations using LLM with the enhanced prompt."""
         try:
+            # Import ModelConfig to get the proper model
+            from models import ModelConfig
+
             # Call LLM with proper API based on client type
             if hasattr(self.llm_client, 'messages') and hasattr(self.llm_client.messages, 'create'):
-                # Anthropic client
+                # Anthropic client - use Opus model for powerful extraction
+                model_name = ModelConfig.get_claude_model("powerful")  # This gets opus-4.1
                 llm_response = self.llm_client.messages.create(
-                    model="claude-3-5-sonnet-20241022",
+                    model=model_name,
                     max_tokens=2000,
                     messages=[{
                         "role": "user",
@@ -356,19 +382,47 @@ class EnhancedObligationsExtractor:
             
             # Parse JSON response
             try:
-                obligations_data = json.loads(response)
+                # Log first part of response for debugging
+                logger.debug(f"LLM response (first 500 chars): {response[:500]}")
+
+                # Try to extract JSON from the response
+                # Sometimes LLMs add explanatory text before/after JSON
+                import re
+                json_match = re.search(r'\[.*\]', response, re.DOTALL)
+                if json_match:
+                    json_str = json_match.group(0)
+                    obligations_data = json.loads(json_str)
+                else:
+                    # Try parsing the whole response as JSON
+                    obligations_data = json.loads(response)
+
                 if not isinstance(obligations_data, list):
                     obligations_data = [obligations_data]
-            except json.JSONDecodeError:
-                logger.warning("Failed to parse LLM response as JSON, attempting text extraction")
+            except (json.JSONDecodeError, AttributeError) as e:
+                logger.warning(f"Failed to parse LLM response as JSON: {e}")
+                logger.debug(f"Full response that failed to parse: {response[:1000]}")
                 obligations_data = self._parse_text_response(response)
             
             # Convert to ConceptCandidates
             candidates = []
             for item in obligations_data:
+                # Ensure item is a dict with the required fields
+                if not isinstance(item, dict):
+                    logger.warning(f"Skipping non-dict item: {item}")
+                    continue
+
+                # Get label and description with fallbacks
+                label = item.get('label') or item.get('name') or item.get('title') or 'Unknown Obligation'
+                description = item.get('description') or item.get('text') or item.get('content') or ''
+
+                # Skip if we have no useful content
+                if label == 'Unknown Obligation' and not description:
+                    logger.warning(f"Skipping item with no label or description: {item}")
+                    continue
+
                 candidate = ConceptCandidate(
-                    label=item.get('label', 'Unknown Obligation'),
-                    description=item.get('description', ''),
+                    label=label,
+                    description=description,
                     primary_type='obligation',
                     category='obligation',
                     confidence=0.85,  # Base confidence for LLM extraction

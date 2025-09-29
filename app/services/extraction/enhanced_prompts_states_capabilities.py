@@ -333,10 +333,12 @@ class EnhancedStatesExtractor:
     """
     Enhanced States extractor using Chapter 2 literature-grounded prompts.
     """
-    
+
     def __init__(self, llm_client=None, provenance_service=None):
         self.llm_client = llm_client
         self.provenance_service = provenance_service
+        import logging
+        self.logger = logging.getLogger(__name__)
     
     def extract(self, text, context=None, activity=None):
         """
@@ -375,11 +377,15 @@ class EnhancedStatesExtractor:
                         }
                     )
                 
+                # Import ModelConfig to get the proper model
+                from models import ModelConfig
+
                 # Check which type of client we have and use appropriate API
                 if hasattr(self.llm_client, 'messages') and hasattr(self.llm_client.messages, 'create'):
-                    # Anthropic client
+                    # Anthropic client - use Opus model for powerful extraction
+                    model_name = ModelConfig.get_claude_model("powerful")  # This gets opus-4.1
                     response = self.llm_client.messages.create(
-                        model="claude-3-5-sonnet-20241022",
+                        model=model_name,
                         max_tokens=2000,
                         messages=[{
                             "role": "user",
@@ -446,7 +452,7 @@ class EnhancedStatesExtractor:
                 return candidates
                 
             except Exception as e:
-                print(f"LLM extraction failed: {e}")
+                self.logger.error(f"LLM extraction failed: {e}")
         
         # Fallback to basic extraction
         return self._fallback_extraction(text)
@@ -480,19 +486,23 @@ class EnhancedCapabilitiesExtractor:
     """
     Enhanced Capabilities extractor using Chapter 2 literature-grounded prompts.
     """
-    
+
     def __init__(self, llm_client=None, provenance_service=None):
         self.llm_client = llm_client
         self.provenance_service = provenance_service
-    
+        import logging
+        self.logger = logging.getLogger(__name__)
+
     def extract(self, text, context=None, activity=None):
         """
         Extract capabilities using enhanced prompts with provenance tracking.
         """
         from app.services.extraction.base import ConceptCandidate
+        # Import ModelConfig to get the proper model
+        from models import ModelConfig
         
         # Create the enhanced prompt
-        prompt = create_enhanced_capabilities_prompt(text, include_ontology_context=True)
+        prompt = create_enhanced_capabilities_prompt(text, include_mcp_context=True)
         
         # Call LLM if available
         if self.llm_client:
@@ -510,11 +520,15 @@ class EnhancedCapabilitiesExtractor:
                         }
                     )
                 
+                # Import ModelConfig to get the proper model
+                from models import ModelConfig
+
                 # Check which type of client we have and use appropriate API
                 if hasattr(self.llm_client, 'messages') and hasattr(self.llm_client.messages, 'create'):
-                    # Anthropic client
+                    # Anthropic client - use Opus model for powerful extraction
+                    model_name = ModelConfig.get_claude_model("powerful")  # This gets opus-4.1
                     response = self.llm_client.messages.create(
-                        model="claude-3-5-sonnet-20241022",
+                        model=model_name,
                         max_tokens=2000,
                         messages=[{
                             "role": "user",
@@ -559,29 +573,88 @@ class EnhancedCapabilitiesExtractor:
                         }
                     )
                 
-                # Extract JSON from response
-                if '```json' in response_text:
-                    json_text = response_text.split('```json')[1].split('```')[0]
-                else:
-                    json_text = response_text
-                
-                capabilities = json.loads(json_text)
+                # Extract JSON from response with better error handling
+                capabilities = []
+                try:
+                    self.logger.info(f"Raw response length: {len(response_text)}")
+                    self.logger.debug(f"Raw response (first 500 chars): {response_text[:500]}")
+
+                    if '```json' in response_text:
+                        json_text = response_text.split('```json')[1].split('```')[0]
+                    else:
+                        json_text = response_text
+
+                    # Try direct JSON parsing
+                    result = json.loads(json_text)
+                    self.logger.info(f"JSON parse successful, type: {type(result)}")
+
+                    # Handle different response formats
+                    if isinstance(result, dict):
+                        if 'capabilities' in result:
+                            capabilities = result['capabilities']
+                            self.logger.info(f"Extracted {len(capabilities)} capabilities from 'capabilities' key")
+                        else:
+                            # Single capability dict
+                            capabilities = [result]
+                            self.logger.info("Wrapped single capability dict in list")
+                    elif isinstance(result, list):
+                        capabilities = result
+                        self.logger.info(f"Direct list with {len(capabilities)} capabilities")
+                    else:
+                        self.logger.warning(f"Unexpected JSON format: {type(result)}")
+                        capabilities = []
+
+                except json.JSONDecodeError as e:
+                    self.logger.warning(f"Failed to parse JSON directly, attempting extraction: {e}")
+                    # Try to extract JSON from mixed text response
+                    import re
+                    json_match = re.search(r'\{[\s\S]*\}|\[[\s\S]*\]', response_text)
+                    if json_match:
+                        try:
+                            result = json.loads(json_match.group())
+                            if isinstance(result, dict) and 'capabilities' in result:
+                                capabilities = result['capabilities']
+                                self.logger.info(f"Extracted {len(capabilities)} capabilities from regex-extracted JSON")
+                            elif isinstance(result, list):
+                                capabilities = result
+                                self.logger.info(f"Extracted list with {len(capabilities)} capabilities from regex")
+                            else:
+                                self.logger.warning("Extracted JSON but no capabilities found")
+                                capabilities = []
+                        except json.JSONDecodeError:
+                            self.logger.warning("Failed to parse extracted JSON")
+                            capabilities = []
+                    else:
+                        self.logger.warning("No JSON structure found in response")
+                        capabilities = []
                 
                 # Convert to ConceptCandidates
                 candidates = []
                 for capability in capabilities:
                     candidate = ConceptCandidate(
-                        label=capability.get('label', ''),
+                        label=capability.get('label', 'Unknown Capability'),
                         description=capability.get('description', ''),
-                        confidence=capability.get('confidence', 0.7),
-                        debug=capability
+                        primary_type='capability',
+                        category='capability',
+                        confidence=capability.get('confidence', 0.85),
+                        debug={
+                            'capability_type': capability.get('capability_type', capability.get('type', 'general')),
+                            'source_quote': capability.get('source_quote', ''),
+                            'is_existing': capability.get('is_existing', False),
+                            'ontology_match': capability.get('ontology_match'),
+                            'required_for': capability.get('required_for', []),
+                            'enables': capability.get('enables', []),
+                            'developed_through': capability.get('developed_through', ''),
+                            'assessment_criteria': capability.get('assessment_criteria', ''),
+                            'extraction_method': 'llm_enhanced'
+                        }
                     )
                     candidates.append(candidate)
                 
                 return candidates
                 
             except Exception as e:
-                print(f"LLM extraction failed: {e}")
+                self.logger.error(f"LLM extraction failed: {e}")
         
         # Fallback to basic extraction
         return self._fallback_extraction(text)

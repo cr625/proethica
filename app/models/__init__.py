@@ -68,3 +68,12 @@ from app.models.provenance_versioning import (
     ProvenanceRevision, ProvenanceVersion, ProvenanceAlternate,
     VersionConfiguration
 )
+
+# Candidate validation models (added 2025-09-22)
+from app.models.candidate_role_class import CandidateRoleClass, CandidateRoleIndividual
+
+# Temporary RDF storage (added 2025-09-24)
+from app.models.temporary_rdf_storage import TemporaryRDFStorage
+
+# Extraction prompt storage (added 2025-09-24)
+from app.models.extraction_prompt import ExtractionPrompt

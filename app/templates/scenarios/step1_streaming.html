@@ -1,0 +1,475 @@
+{% extends "scenarios/base_step.html" %}
+
+{% block step_title %}Step 1: Contextual Framework Pass - Facts Section{% endblock %}
+{% block step_header %}Step 1: Contextual Framework Pass (Facts){% endblock %}
+{% block step_subtitle %}Extract roles, states, and resources from the facts section{% endblock %}
+
+{% block head %}
+{{ super() }}
+<style>
+    .extraction-progress {
+        margin: 20px 0;
+    }
+
+    .extraction-item {
+        padding: 15px;
+        margin: 10px 0;
+        border-radius: 8px;
+        border: 1px solid #dee2e6;
+        background-color: #f8f9fa;
+        transition: all 0.3s ease;
+    }
+
+    .extraction-item.extracting {
+        background-color: #fff3cd;
+        border-color: #ffc107;
+    }
+
+    .extraction-item.success {
+        background-color: #d4edda;
+        border-color: #28a745;
+    }
+
+    .extraction-item.error {
+        background-color: #f8d7da;
+        border-color: #dc3545;
+    }
+
+    .extraction-status {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .extraction-status .spinner-border {
+        margin-right: 10px;
+    }
+
+    .extraction-results {
+        margin-top: 10px;
+        padding: 10px;
+        background-color: white;
+        border-radius: 4px;
+        display: none;
+    }
+
+    .extraction-results.show {
+        display: block;
+    }
+
+    .progress-indicator {
+        margin: 20px 0;
+    }
+
+    .entity-count {
+        display: inline-block;
+        padding: 2px 8px;
+        background-color: #007bff;
+        color: white;
+        border-radius: 12px;
+        font-size: 0.9em;
+        margin-left: 10px;
+    }
+
+    .retry-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        background-color: #ffc107;
+        color: #212529;
+        border-radius: 4px;
+        font-size: 0.8em;
+        margin-left: 10px;
+    }
+
+    .extraction-error {
+        color: #dc3545;
+        margin-top: 10px;
+        padding: 10px;
+        background-color: #f8d7da;
+        border-radius: 4px;
+    }
+</style>
+{% endblock %}
+
+{% block step_navigation %}
+<div class="d-flex justify-content-between mb-3">
+    <a href="{{ url_for('scenario_pipeline.scenario_builder', case_id=case.id) }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Case
+    </a>
+    <div>
+        <a href="{{ url_for('entity_review.review_case_entities', case_id=case.id) }}" class="btn btn-info me-2">
+            <i class="bi bi-list-check"></i> Review Pass 1 Entities
+        </a>
+        <a href="{{ url_for('scenario_pipeline.step2', case_id=case.id) }}" class="btn btn-outline-primary">
+            Step 2: Normative Pass <i class="bi bi-arrow-right"></i>
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block step_content %}
+<div class="step-card">
+    <div class="step-header">
+        <h4 class="mb-0">
+            <i class="bi bi-file-text"></i> Facts Section
+        </h4>
+    </div>
+    <div class="step-content">
+        {% if facts_section %}
+        <div class="alert alert-info mb-3">
+            <h6 class="mb-2"><i class="bi bi-info-circle"></i> Section Content:</h6>
+            <pre class="section-text">{{ facts_section.llm_text }}</pre>
+        </div>
+
+        <!-- Enhanced Contextual Framework Pass Button -->
+        <div class="d-grid gap-2 d-md-flex justify-content-md-center mb-3">
+            <button id="contextualPassBtn" class="btn btn-primary btn-lg" onclick="executeStreamingPass()">
+                <i class="bi bi-arrow-right-circle"></i> Full Contextual Framework Pass (Enhanced)
+                <small class="d-block">Extract Roles + States + Resources with Real-time Updates</small>
+            </button>
+        </div>
+
+        <!-- Progress Indicator (Hidden initially) -->
+        <div id="progressIndicator" class="progress-indicator" style="display: none;">
+            <div class="progress" style="height: 25px;">
+                <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated"
+                     role="progressbar" style="width: 0%">
+                    <span id="progressText">Starting...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Extraction Progress Container -->
+        <div id="extractionProgress" class="extraction-progress" style="display: none;">
+
+            <!-- Roles Extraction Item -->
+            <div id="rolesExtraction" class="extraction-item">
+                <div class="extraction-status">
+                    <div id="rolesSpinner" class="spinner-border spinner-border-sm text-primary" style="display: none;"></div>
+                    <h5 class="mb-0">
+                        <i class="bi bi-person-badge"></i> Roles Extraction
+                        <span id="rolesCount" class="entity-count" style="display: none;"></span>
+                        <span id="rolesRetry" class="retry-badge" style="display: none;"></span>
+                    </h5>
+                </div>
+                <div id="rolesResults" class="extraction-results">
+                    <!-- Results will be populated here -->
+                </div>
+                <div id="rolesError" class="extraction-error" style="display: none;">
+                    <!-- Error message will be shown here -->
+                </div>
+            </div>
+
+            <!-- States Extraction Item -->
+            <div id="statesExtraction" class="extraction-item">
+                <div class="extraction-status">
+                    <div id="statesSpinner" class="spinner-border spinner-border-sm text-warning" style="display: none;"></div>
+                    <h5 class="mb-0">
+                        <i class="bi bi-diagram-3"></i> States Extraction
+                        <span id="statesCount" class="entity-count" style="display: none;"></span>
+                        <span id="statesRetry" class="retry-badge" style="display: none;"></span>
+                    </h5>
+                </div>
+                <div id="statesResults" class="extraction-results">
+                    <!-- Results will be populated here -->
+                </div>
+                <div id="statesError" class="extraction-error" style="display: none;">
+                    <!-- Error message will be shown here -->
+                </div>
+            </div>
+
+            <!-- Resources Extraction Item -->
+            <div id="resourcesExtraction" class="extraction-item">
+                <div class="extraction-status">
+                    <div id="resourcesSpinner" class="spinner-border spinner-border-sm text-success" style="display: none;"></div>
+                    <h5 class="mb-0">
+                        <i class="bi bi-box-seam"></i> Resources Extraction
+                        <span id="resourcesCount" class="entity-count" style="display: none;"></span>
+                        <span id="resourcesRetry" class="retry-badge" style="display: none;"></span>
+                    </h5>
+                </div>
+                <div id="resourcesResults" class="extraction-results">
+                    <!-- Results will be populated here -->
+                </div>
+                <div id="resourcesError" class="extraction-error" style="display: none;">
+                    <!-- Error message will be shown here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Card (Hidden initially) -->
+        <div id="summaryCard" class="step-card mt-4" style="display: none;">
+            <div class="step-header bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-check-circle"></i> Extraction Complete
+                </h5>
+            </div>
+            <div class="step-content" id="summaryContent">
+                <!-- Summary will be displayed here -->
+            </div>
+        </div>
+
+        {% else %}
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle"></i>
+            No facts section found in this case.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+// Store the current section text globally
+const currentSectionText = `{{ facts_section.llm_text if facts_section else '' }}`;
+
+function executeStreamingPass() {
+    const contextualBtn = document.getElementById('contextualPassBtn');
+    const progressIndicator = document.getElementById('progressIndicator');
+    const extractionProgress = document.getElementById('extractionProgress');
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+
+    // Disable button and show progress
+    contextualBtn.disabled = true;
+    contextualBtn.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Extracting...';
+
+    progressIndicator.style.display = 'block';
+    extractionProgress.style.display = 'block';
+
+    // Reset all extraction items
+    ['roles', 'states', 'resources'].forEach(type => {
+        document.getElementById(`${type}Extraction`).className = 'extraction-item';
+        document.getElementById(`${type}Spinner`).style.display = 'none';
+        document.getElementById(`${type}Count`).style.display = 'none';
+        document.getElementById(`${type}Retry`).style.display = 'none';
+        document.getElementById(`${type}Results`).classList.remove('show');
+        document.getElementById(`${type}Error`).style.display = 'none';
+    });
+
+    // Create EventSource for streaming
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+    // We need to use fetch with ReadableStream since EventSource doesn't support POST with body
+    fetch(`{{ url_for('scenario_pipeline.entities_pass_execute_streaming', case_id=case.id) }}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({
+            section_text: currentSectionText
+        })
+    })
+    .then(response => {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        function processStream() {
+            reader.read().then(({ done, value }) => {
+                if (done) {
+                    return;
+                }
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop(); // Keep incomplete line in buffer
+
+                lines.forEach(line => {
+                    if (line.startsWith('data: ')) {
+                        const data = JSON.parse(line.substring(6));
+                        handleStreamData(data);
+                    }
+                });
+
+                processStream();
+            });
+        }
+
+        processStream();
+    })
+    .catch(error => {
+        console.error('Streaming error:', error);
+        contextualBtn.disabled = false;
+        contextualBtn.innerHTML = '<i class="bi bi-arrow-right-circle"></i> Full Contextual Framework Pass (Enhanced)';
+        alert('Error during extraction: ' + error.message);
+    });
+}
+
+function handleStreamData(data) {
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+
+    if (data.status === 'starting') {
+        progressBar.style.width = '10%';
+        progressText.textContent = 'Initializing...';
+
+    } else if (data.status === 'extracting') {
+        // Show spinner for current extraction
+        const typeEl = document.getElementById(`${data.current}Extraction`);
+        const spinner = document.getElementById(`${data.current}Spinner`);
+
+        typeEl.classList.add('extracting');
+        spinner.style.display = 'inline-block';
+
+        // Update progress bar
+        const percent = Math.round((data.progress / data.total) * 80) + 10;
+        progressBar.style.width = percent + '%';
+        progressText.textContent = `Extracting ${data.current} (${data.progress}/${data.total})`;
+
+    } else if (data.status === 'extracted') {
+        // Hide spinner and show results for extracted type
+        const type = data.entity_type;
+        const typeEl = document.getElementById(`${type}Extraction`);
+        const spinner = document.getElementById(`${type}Spinner`);
+        const resultsEl = document.getElementById(`${type}Results`);
+        const countEl = document.getElementById(`${type}Count`);
+        const retryEl = document.getElementById(`${type}Retry`);
+        const errorEl = document.getElementById(`${type}Error`);
+
+        spinner.style.display = 'none';
+
+        if (data.result.success) {
+            typeEl.classList.remove('extracting');
+            typeEl.classList.add('success');
+
+            // Show entity count
+            let entityCount = 0;
+            if (data.result.data) {
+                if (data.result.data.classes) entityCount += data.result.data.classes.length;
+                if (data.result.data.individuals) entityCount += data.result.data.individuals.length;
+                if (data.result.data.resources) entityCount += data.result.data.resources.length;
+                if (data.result.data.states) entityCount += data.result.data.states.length;
+            }
+
+            countEl.textContent = entityCount + ' entities';
+            countEl.style.display = 'inline-block';
+
+            // Show retry count if retries were needed
+            if (data.result.retry_count > 0) {
+                retryEl.textContent = `${data.result.retry_count} retries`;
+                retryEl.style.display = 'inline-block';
+            }
+
+            // Display results
+            displayExtractionResults(type, data.result.data);
+            resultsEl.classList.add('show');
+
+        } else {
+            typeEl.classList.remove('extracting');
+            typeEl.classList.add('error');
+            errorEl.textContent = 'Error: ' + data.result.error;
+            errorEl.style.display = 'block';
+        }
+
+        // Update progress bar
+        const percent = Math.round((data.progress / data.total) * 80) + 10;
+        progressBar.style.width = percent + '%';
+        progressText.textContent = `Completed ${type} (${data.progress}/${data.total})`;
+
+    } else if (data.status === 'complete') {
+        // Show summary
+        progressBar.style.width = '100%';
+        progressText.textContent = 'Complete!';
+        progressBar.classList.remove('progress-bar-animated');
+
+        displaySummary(data.summary, data.session_id);
+
+        // Re-enable button
+        const contextualBtn = document.getElementById('contextualPassBtn');
+        contextualBtn.disabled = false;
+        contextualBtn.innerHTML = '<i class="bi bi-check-circle"></i> Extraction Complete - Run Again';
+
+    } else if (data.status === 'error') {
+        // Handle error
+        progressBar.classList.add('bg-danger');
+        progressText.textContent = 'Error: ' + data.error;
+
+        const contextualBtn = document.getElementById('contextualPassBtn');
+        contextualBtn.disabled = false;
+        contextualBtn.innerHTML = '<i class="bi bi-arrow-right-circle"></i> Full Contextual Framework Pass (Enhanced)';
+    }
+}
+
+function displayExtractionResults(type, data) {
+    const resultsEl = document.getElementById(`${type}Results`);
+    let html = '';
+
+    if (type === 'roles' && data) {
+        if (data.classes && data.classes.length > 0) {
+            html += '<h6>Role Classes:</h6><ul>';
+            data.classes.forEach(cls => {
+                html += `<li><strong>${cls.label}</strong> - ${cls.definition}
+                         <span class="badge bg-secondary">${(cls.confidence * 100).toFixed(0)}%</span></li>`;
+            });
+            html += '</ul>';
+        }
+
+        if (data.individuals && data.individuals.length > 0) {
+            html += '<h6>Individuals:</h6><ul>';
+            data.individuals.forEach(ind => {
+                html += `<li><strong>${ind.name}</strong> (${ind.role_class})
+                         <span class="badge bg-info">${ind.is_new_role_class ? 'New Role' : 'Existing Role'}</span></li>`;
+            });
+            html += '</ul>';
+        }
+
+    } else if (type === 'states' && data && data.states) {
+        html += '<ul>';
+        data.states.forEach(state => {
+            html += `<li><strong>${state.label}</strong> - ${state.description}
+                     <span class="badge bg-secondary">${(state.confidence * 100).toFixed(0)}%</span></li>`;
+        });
+        html += '</ul>';
+
+    } else if (type === 'resources' && data && data.resources) {
+        html += '<ul>';
+        data.resources.forEach(resource => {
+            html += `<li><strong>${resource.label}</strong> - ${resource.description}
+                     <span class="badge bg-secondary">${(resource.confidence * 100).toFixed(0)}%</span></li>`;
+        });
+        html += '</ul>';
+    }
+
+    resultsEl.innerHTML = html || '<p class="text-muted">No entities found</p>';
+}
+
+function displaySummary(summary, sessionId) {
+    const summaryCard = document.getElementById('summaryCard');
+    const summaryContent = document.getElementById('summaryContent');
+
+    summaryCard.style.display = 'block';
+    summaryContent.innerHTML = `
+        <div class="row">
+            <div class="col-md-4">
+                <div class="text-center">
+                    <h3 class="text-success">${summary.total_success}</h3>
+                    <p>Successful Extractions</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="text-center">
+                    <h3 class="text-primary">${summary.total_entities}</h3>
+                    <p>Total Entities Found</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="text-center">
+                    <h3 class="text-danger">${summary.total_failed}</h3>
+                    <p>Failed Extractions</p>
+                </div>
+            </div>
+        </div>
+        <hr>
+        <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+            <a href="{{ url_for('entity_review.review_case_entities', case_id=case.id) }}" class="btn btn-primary">
+                <i class="bi bi-list-check"></i> Review Extracted Entities
+            </a>
+            <a href="/tools/provenance?case_id={{ case.id }}&session_id=${sessionId}" class="btn btn-outline-secondary">
+                <i class="bi bi-clock-history"></i> View Provenance
+            </a>
+        </div>
+    `;
+}
+</script>
+{% endblock %}

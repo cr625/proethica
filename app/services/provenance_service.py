@@ -461,6 +461,45 @@ class ProvenanceService:
         
         return graph
 
+    def record_entity(self, entity_content: Union[Dict, str], activity: ProvenanceActivity,
+                     entity_name: str, metadata: Optional[Dict] = None) -> ProvenanceEntity:
+        """
+        Record a general entity in the provenance system.
+
+        Args:
+            entity_content: The content of the entity (dict or string)
+            activity: The activity that generated this entity
+            entity_name: Name/identifier for the entity
+            metadata: Additional metadata for the entity
+
+        Returns:
+            The created ProvenanceEntity
+        """
+        # Serialize content if it's a dict
+        if isinstance(entity_content, dict):
+            content_text = json.dumps(entity_content, indent=2)
+        else:
+            content_text = str(entity_content)
+
+        # Create content hash for integrity
+        content_hash = hashlib.sha256(content_text.encode()).hexdigest()
+
+        # Create the entity
+        entity = ProvenanceEntity(
+            activity_id=activity.id,
+            entity_type='general_entity',
+            entity_name=entity_name,
+            entity_content=content_text,
+            content_hash=content_hash,
+            generation_time=datetime.utcnow(),
+            entity_metadata=metadata or {}
+        )
+
+        self.session.add(entity)
+        self.session.flush()
+
+        return entity
+
 
 # Singleton instance
 _provenance_service = None

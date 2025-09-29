@@ -1,0 +1,572 @@
+{% extends "scenarios/base_step.html" %}
+
+{% block step_title %}Step 1: Contextual Framework Pass - Facts Section{% endblock %}
+{% block step_header %}Step 1: Contextual Framework Pass (Facts){% endblock %}
+{% block step_subtitle %}Extract roles, states, and resources from the facts section{% endblock %}
+
+{% block step_navigation %}
+<div class="d-flex justify-content-between mb-3">
+    <a href="{{ url_for('scenario_pipeline.overview', case_id=case.id) }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Overview
+    </a>
+    <a href="{{ url_for('scenario_pipeline.step2', case_id=case.id) }}" class="btn btn-outline-primary">
+        Step 2: Normative Pass (Facts) <i class="bi bi-arrow-right"></i>
+    </a>
+</div>
+{% endblock %}
+
+{% block step_content %}
+<div class="step-card">
+    <div class="step-header">
+        <h4 class="mb-0">
+            <i class="bi bi-file-text"></i> Facts Section
+        </h4>
+    </div>
+    <div class="step-content">
+        {% if facts_section %}
+        <div class="alert alert-info mb-3">
+            <h6 class="mb-2"><i class="bi bi-info-circle"></i> Section Content:</h6>
+            <pre class="facts-text">{{ facts_section.llm_text }}</pre>
+        </div>
+
+        <!-- Full Contextual Framework Pass Button -->
+        <div class="d-grid gap-2 d-md-flex justify-content-md-center mb-4">
+            <button id="contextualPassBtn" class="btn btn-primary btn-lg" onclick="executeFullContextualPass()">
+                <i class="bi bi-arrow-right-circle"></i> Full Contextual Framework Pass
+                <small class="d-block">Extract All: Roles + States + Resources</small>
+            </button>
+        </div>
+
+        <!-- Individual Extractor Sections -->
+
+        <!-- ROLES EXTRACTION SECTION -->
+        <div class="extractor-section mb-4" id="rolesSection">
+            <div class="step-card border-info">
+                <div class="step-header bg-info bg-opacity-10">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-person-badge text-info"></i> Roles Extraction
+                        </h5>
+                        <button class="btn btn-info btn-sm" onclick="extractIndividualConcept('roles')">
+                            <i class="bi bi-play-fill"></i> Extract Roles
+                        </button>
+                    </div>
+                </div>
+                <div class="step-content">
+                    <!-- Roles Prompt Preview -->
+                    <div class="prompt-preview mb-3" id="rolesPromptSection" style="{% if not saved_prompts.roles %}display: none;{% endif %}">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0"><i class="bi bi-cpu"></i> LLM Prompt</h6>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="regenerateConceptPrompt('roles')">
+                                <i class="bi bi-arrow-clockwise"></i> Regenerate
+                            </button>
+                        </div>
+                        <div class="prompt-text" id="rolesPromptText">
+                            {% if saved_prompts.roles %}
+                            {{ saved_prompts.roles.prompt_text }}
+                            {% else %}
+                            <div class="text-center text-muted">
+                                <i class="bi bi-hourglass-split"></i> Prompt will be generated when you click Extract Roles
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% if saved_prompts.roles %}
+                        <small class="text-muted">Saved: {{ saved_prompts.roles.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                        {% endif %}
+                    </div>
+
+                    <!-- Roles Results -->
+                    <div class="results-preview" id="rolesResults" style="display: none;">
+                        <h6><i class="bi bi-check-circle text-success"></i> Extraction Results</h6>
+                        <div id="rolesResultsContent">
+                            <!-- Results will be displayed here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- STATES EXTRACTION SECTION -->
+        <div class="extractor-section mb-4" id="statesSection">
+            <div class="step-card border-warning">
+                <div class="step-header bg-warning bg-opacity-10">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-diagram-3 text-warning"></i> States Extraction
+                        </h5>
+                        <button class="btn btn-warning btn-sm" onclick="extractIndividualConcept('states')">
+                            <i class="bi bi-play-fill"></i> Extract States
+                        </button>
+                    </div>
+                </div>
+                <div class="step-content">
+                    <!-- States Prompt Preview -->
+                    <div class="prompt-preview mb-3" id="statesPromptSection" style="{% if not saved_prompts.states %}display: none;{% endif %}">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0"><i class="bi bi-cpu"></i> LLM Prompt</h6>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="regenerateConceptPrompt('states')">
+                                <i class="bi bi-arrow-clockwise"></i> Regenerate
+                            </button>
+                        </div>
+                        <div class="prompt-text" id="statesPromptText">
+                            {% if saved_prompts.states %}
+                            {{ saved_prompts.states.prompt_text }}
+                            {% else %}
+                            <div class="text-center text-muted">
+                                <i class="bi bi-hourglass-split"></i> Prompt will be generated when you click Extract States
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% if saved_prompts.states %}
+                        <small class="text-muted">Saved: {{ saved_prompts.states.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                        {% endif %}
+                    </div>
+
+                    <!-- States Results -->
+                    <div class="results-preview" id="statesResults" style="display: none;">
+                        <h6><i class="bi bi-check-circle text-success"></i> Extraction Results</h6>
+                        <div id="statesResultsContent">
+                            <!-- Results will be displayed here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RESOURCES EXTRACTION SECTION -->
+        <div class="extractor-section mb-4" id="resourcesSection">
+            <div class="step-card border-success">
+                <div class="step-header bg-success bg-opacity-10">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-box-seam text-success"></i> Resources Extraction
+                        </h5>
+                        <button class="btn btn-success btn-sm" onclick="extractIndividualConcept('resources')">
+                            <i class="bi bi-play-fill"></i> Extract Resources
+                        </button>
+                    </div>
+                </div>
+                <div class="step-content">
+                    <!-- Resources Prompt Preview -->
+                    <div class="prompt-preview mb-3" id="resourcesPromptSection" style="{% if not saved_prompts.resources %}display: none;{% endif %}">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0"><i class="bi bi-cpu"></i> LLM Prompt</h6>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="regenerateConceptPrompt('resources')">
+                                <i class="bi bi-arrow-clockwise"></i> Regenerate
+                            </button>
+                        </div>
+                        <div class="prompt-text" id="resourcesPromptText">
+                            {% if saved_prompts.resources %}
+                            {{ saved_prompts.resources.prompt_text }}
+                            {% else %}
+                            <div class="text-center text-muted">
+                                <i class="bi bi-hourglass-split"></i> Prompt will be generated when you click Extract Resources
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% if saved_prompts.resources %}
+                        <small class="text-muted">Saved: {{ saved_prompts.resources.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                        {% endif %}
+                    </div>
+
+                    <!-- Resources Results -->
+                    <div class="results-preview" id="resourcesResults" style="display: none;">
+                        <h6><i class="bi bi-check-circle text-success"></i> Extraction Results</h6>
+                        <div id="resourcesResultsContent">
+                            <!-- Results will be displayed here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation to entity review -->
+        <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4">
+            <a href="{{ url_for('entity_review.review_case_entities', case_id=case.id) }}" class="btn btn-outline-primary">
+                <i class="bi bi-eye"></i> Review Pass 1 Entities
+            </a>
+        </div>
+
+        {% else %}
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle"></i>
+            No facts section found in this case. Using first available section.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block step_styles %}
+<style>
+    .facts-text {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.9rem;
+        background-color: #f8f9fa;
+        padding: 0.75rem;
+        border-radius: 0.25rem;
+        border: none;
+        margin: 0;
+        white-space: pre-wrap;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+    .extractor-section .step-card {
+        transition: all 0.3s ease;
+    }
+
+    .extractor-section .step-card:hover {
+        box-shadow: 0 0.25rem 2rem 0 rgba(58, 59, 69, 0.2);
+    }
+
+    .prompt-preview {
+        background-color: #f8f9fa;
+        border-radius: 0.5rem;
+        padding: 1rem;
+    }
+
+    .prompt-text {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.85rem;
+        max-height: 300px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        background-color: white;
+        padding: 0.75rem;
+        border-radius: 0.25rem;
+        border: 1px solid #dee2e6;
+    }
+
+    .results-preview {
+        background-color: #f0fff4;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        border: 1px solid #d4edda;
+    }
+
+    /* Contextual Framework Pass Button Styling */
+    #contextualPassBtn {
+        padding: 1rem 2rem;
+        font-size: 1.1rem;
+        border-radius: 50px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+    }
+
+    #contextualPassBtn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+    }
+
+    .entity-item {
+        background: white;
+        border-left: 3px solid #4e73df;
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+        border-radius: 0.25rem;
+    }
+
+    .entity-label {
+        font-weight: bold;
+        color: #2e59d9;
+    }
+
+    .entity-description {
+        color: #5a5c69;
+        margin-top: 0.25rem;
+        font-size: 0.9rem;
+    }
+
+    .entity-confidence {
+        color: #858796;
+        font-size: 0.85rem;
+        margin-top: 0.25rem;
+    }
+</style>
+{% endblock %}
+
+{% block step_scripts %}
+<script>
+const caseId = {{ case.id }};
+const currentSectionText = `{{ facts_section.llm_text if facts_section else '' }}`;
+
+// Load saved prompts on page load - using vanilla JS instead of jQuery
+document.addEventListener('DOMContentLoaded', function() {
+    // Load saved prompts for all three concept types
+    ['roles', 'states', 'resources'].forEach(conceptType => {
+        loadSavedPrompt(conceptType);
+    });
+});
+
+function loadSavedPrompt(conceptType) {
+    fetch(`/scenario_pipeline/case/${caseId}/step1/get_saved_prompt?concept_type=${conceptType}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.prompt_text) {
+                // Show the prompt section and display the saved prompt
+                const promptSection = document.getElementById(`${conceptType}PromptSection`);
+                const promptText = document.getElementById(`${conceptType}PromptText`);
+
+                promptSection.style.display = 'block';
+                promptText.innerHTML = data.prompt_text;
+
+                // If there's a saved raw response, display it in the results section
+                if (data.raw_response) {
+                    const resultsSection = document.getElementById(`${conceptType}Results`);
+                    const resultsContent = document.getElementById(`${conceptType}ResultsContent`);
+
+                    // Display the raw response
+                    const tempDiv = document.createElement('div');
+                    tempDiv.textContent = data.raw_response;
+                    const escapedResponse = tempDiv.innerHTML;
+                    resultsContent.innerHTML = `<pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; max-height: 500px; overflow-y: auto;">${escapedResponse}</pre>`;
+
+                    // Show the results section
+                    resultsSection.style.display = 'block';
+                }
+
+                // Timestamp is already shown in the template, no need to add it here
+            }
+        })
+        .catch(error => {
+            console.log(`No saved prompt for ${conceptType}`, error);
+        });
+}
+
+function extractIndividualConcept(conceptType) {
+    const button = event.target.closest('button');
+    const promptSection = document.getElementById(`${conceptType}PromptSection`);
+    const promptText = document.getElementById(`${conceptType}PromptText`);
+    const resultsSection = document.getElementById(`${conceptType}Results`);
+    const resultsContent = document.getElementById(`${conceptType}ResultsContent`);
+
+    // Disable button and show loading
+    button.disabled = true;
+    button.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Extracting...';
+
+    // Show prompt section with loading
+    promptSection.style.display = 'block';
+    promptText.innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Generating prompt...</span>
+            </div>
+            <p class="mt-2">Generating prompt and extracting ${conceptType}...</p>
+        </div>
+    `;
+
+    // Execute extraction
+    fetch(`{{ url_for('scenario_pipeline.step1_extract_individual', case_id=case.id) }}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+        },
+        body: JSON.stringify({
+            concept_type: conceptType,
+            section_text: currentSectionText
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Display the prompt (should be the prompt sent TO the LLM)
+            if (data.prompt) {
+                // Escape HTML and display as preformatted text
+                const tempDiv = document.createElement('div');
+                tempDiv.textContent = data.prompt;
+                const escapedPrompt = tempDiv.innerHTML;
+                promptText.innerHTML = `<pre style="white-space: pre-wrap; word-wrap: break-word;">${escapedPrompt}</pre>`;
+            } else {
+                promptText.innerHTML = 'No prompt available';
+            }
+
+            // Display the raw LLM response directly in the results section
+            if (data.raw_llm_response) {
+                // Simply display the raw response as-is
+                const tempDiv = document.createElement('div');
+                tempDiv.textContent = data.raw_llm_response;
+                const escapedResponse = tempDiv.innerHTML;
+                resultsContent.innerHTML = `<pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; max-height: 500px; overflow-y: auto;">${escapedResponse}</pre>`;
+            } else {
+                resultsContent.innerHTML = '<div class="alert alert-info">No response received from LLM</div>';
+            }
+
+            // Show results section
+            resultsSection.style.display = 'block';
+        } else {
+            resultsContent.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    Error: ${data.error}
+                </div>
+            `;
+            resultsSection.style.display = 'block';
+        }
+    })
+    .catch(error => {
+        resultsContent.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle"></i>
+                Network error: ${error.message}
+            </div>
+        `;
+        resultsSection.style.display = 'block';
+    })
+    .finally(() => {
+        // Re-enable button with appropriate icon
+        const iconClass = conceptType === 'roles' ? 'person-badge' :
+                         conceptType === 'states' ? 'diagram-3' : 'box-seam';
+        const btnClass = conceptType === 'roles' ? 'info' :
+                        conceptType === 'states' ? 'warning' : 'success';
+        button.disabled = false;
+        button.innerHTML = `<i class="bi bi-play-fill"></i> Extract ${conceptType.charAt(0).toUpperCase() + conceptType.slice(1)}`;
+    });
+}
+
+function displayConceptResults(conceptType, data) {
+    const resultsContent = document.getElementById(`${conceptType}ResultsContent`);
+    let html = '';
+
+    if (conceptType === 'roles' && (data.role_classes || data.individuals)) {
+        // Display role classes
+        if (data.role_classes && data.role_classes.length > 0) {
+            html += `<h6>Role Classes (${data.role_classes.length})</h6>`;
+            data.role_classes.forEach(role => {
+                html += `
+                    <div class="entity-item">
+                        <div class="entity-label">${role.label}</div>
+                        ${role.description ? `<div class="entity-description">${role.description}</div>` : ''}
+                        <div class="entity-confidence">Confidence: ${(role.confidence * 100).toFixed(0)}%</div>
+                    </div>
+                `;
+            });
+        }
+
+        // Display individuals
+        if (data.individuals && data.individuals.length > 0) {
+            html += `<h6 class="mt-3">Individuals (${data.individuals.length})</h6>`;
+            data.individuals.forEach(individual => {
+                html += `
+                    <div class="entity-item">
+                        <div class="entity-label">${individual.name}</div>
+                        ${individual.role_class ? `<div class="entity-description">Role: ${individual.role_class}</div>` : ''}
+                        ${individual.case_involvement ? `<div class="entity-description">${individual.case_involvement}</div>` : ''}
+                    </div>
+                `;
+            });
+        }
+
+        if (!data.role_classes && !data.individuals) {
+            html = `
+                <div class="alert alert-warning">
+                    No roles extracted from this section.
+                </div>
+            `;
+        }
+    } else if (conceptType === 'states' && (data.state_classes || data.state_individuals)) {
+        // Display state classes
+        if (data.state_classes && data.state_classes.length > 0) {
+            html += `<h6>State Classes (${data.state_classes.length})</h6>`;
+            data.state_classes.forEach(state => {
+                html += `
+                    <div class="entity-item">
+                        <div class="entity-label">${state.label}</div>
+                        ${state.description ? `<div class="entity-description">${state.description}</div>` : ''}
+                        ${state.persistence_type ? `<div class="entity-description"><small>Persistence: ${state.persistence_type}</small></div>` : ''}
+                        <div class="entity-confidence">Confidence: ${(state.confidence * 100).toFixed(0)}%</div>
+                    </div>
+                `;
+            });
+        }
+
+        // Display state individuals
+        if (data.state_individuals && data.state_individuals.length > 0) {
+            html += `<h6 class="mt-3">State Instances (${data.state_individuals.length})</h6>`;
+            data.state_individuals.forEach(individual => {
+                html += `
+                    <div class="entity-item">
+                        <div class="entity-label">${individual.identifier}</div>
+                        ${individual.state_class ? `<div class="entity-description">Type: ${individual.state_class}</div>` : ''}
+                        ${individual.active_period ? `<div class="entity-description">Active: ${individual.active_period}</div>` : ''}
+                        ${individual.triggering_event ? `<div class="entity-description">Triggered by: ${individual.triggering_event}</div>` : ''}
+                    </div>
+                `;
+            });
+        }
+
+        if (!data.state_classes && !data.state_individuals) {
+            html = `
+                <div class="alert alert-warning">
+                    No states extracted from this section.
+                </div>
+            `;
+        }
+    } else if (data.results && data.results.length > 0) {
+        html += `<h6>${conceptType.charAt(0).toUpperCase() + conceptType.slice(1)} (${data.results.length})</h6>`;
+        data.results.forEach(item => {
+            html += `
+                <div class="entity-item">
+                    <div class="entity-label">${item.label}</div>
+                    ${item.description ? `<div class="entity-description">${item.description}</div>` : ''}
+                    <div class="entity-confidence">Confidence: ${(item.confidence * 100).toFixed(0)}%</div>
+                </div>
+            `;
+        });
+    } else {
+        html = `
+            <div class="alert alert-warning">
+                No ${conceptType} extracted from this section.
+            </div>
+        `;
+    }
+
+    // Add metadata
+    if (data.metadata) {
+        html += `
+            <div class="mt-3 text-muted small">
+                <strong>Model:</strong> ${data.metadata.model || 'Unknown'} |
+                <strong>Method:</strong> ${data.metadata.extraction_method || 'Unknown'}
+            </div>
+        `;
+    }
+
+    resultsContent.innerHTML = html;
+}
+
+function regenerateConceptPrompt(conceptType) {
+    // Clear the saved prompt and regenerate
+    const promptText = document.getElementById(`${conceptType}PromptText`);
+
+    // Show loading
+    promptText.innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Regenerating prompt...</span>
+            </div>
+            <p class="mt-2">Regenerating ${conceptType} prompt...</p>
+        </div>
+    `;
+
+    // Clear results if any
+    const resultsSection = document.getElementById(`${conceptType}Results`);
+    resultsSection.style.display = 'none';
+
+    // Trigger extraction which will generate a new prompt
+    extractIndividualConcept(conceptType);
+}
+
+function executeFullContextualPass() {
+    // Execute all three extractions
+    ['roles', 'states', 'resources'].forEach(conceptType => {
+        // Simulate button click for each
+        const button = document.querySelector(`#${conceptType}Section button`);
+        if (button) {
+            button.click();
+        }
+    });
+}
+</script>
+{% endblock %}

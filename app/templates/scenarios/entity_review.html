@@ -1,0 +1,1122 @@
+{% extends "base.html" %}
+
+{% block title %}Entity Review - Case {{ case.id }}{% endblock %}
+
+{% block head %}
+{{ super() }}
+<style>
+    /* Enhanced styling for entity review page */
+    .entity-section-header {
+        border-left: 4px solid;
+        padding-left: 15px;
+        margin-bottom: 20px;
+    }
+
+    .classes-section .entity-section-header {
+        border-left-color: #007bff;
+    }
+
+    .individuals-section .entity-section-header {
+        border-left-color: #17a2b8;
+    }
+
+    .section-icon-circle {
+        width: 45px;
+        height: 45px;
+        font-size: 20px;
+        font-weight: bold;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .card.border-primary {
+        border-width: 2px;
+    }
+
+    .card.border-info {
+        border-width: 2px;
+    }
+
+    /* Hover effects for entity rows */
+    .table-hover tbody tr:hover {
+        background-color: rgba(0,123,255,0.05);
+    }
+
+    .card.border-info .table-hover tbody tr:hover {
+        background-color: rgba(23,162,184,0.05);
+    }
+
+    /* Visual indicators for entity types */
+    .entity-type-indicator {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-right: 5px;
+    }
+
+    .entity-type-class {
+        background-color: #007bff;
+    }
+
+    .entity-type-individual {
+        background-color: #17a2b8;
+    }
+
+    /* Section separators */
+    .ontology-section-divider {
+        border: 0;
+        height: 2px;
+        background: linear-gradient(to right, transparent, #dee2e6, transparent);
+        margin: 40px 0;
+    }
+
+    /* Property editing preparation */
+    .property-item {
+        transition: background-color 0.2s;
+        padding: 2px 4px;
+        border-radius: 3px;
+        position: relative;
+    }
+
+    .property-item:hover {
+        background-color: rgba(0, 0, 0, 0.03);
+    }
+
+    .property-name {
+        color: #495057;
+        font-weight: 600;
+    }
+
+    .property-value {
+        color: #212529;
+    }
+
+    .property-value.text-info {
+        color: #17a2b8 !important;
+    }
+
+    /* Future edit button placeholder */
+    .property-edit-btn {
+        display: none; /* Hidden for now */
+        position: absolute;
+        right: 0;
+        top: 2px;
+        padding: 2px 6px;
+        font-size: 0.75rem;
+        line-height: 1;
+        border-radius: 3px;
+        cursor: pointer;
+    }
+
+    .property-item:hover .property-edit-btn {
+        /* Will be enabled when edit functionality is added */
+        /* display: inline-block; */
+    }
+
+    /* Editable property styling (for future) */
+    .property-item.editing {
+        background-color: #fff3cd;
+        border: 1px solid #ffc107;
+        padding: 4px 6px;
+    }
+
+    .property-item.editing input,
+    .property-item.editing textarea {
+        background: white;
+        border: 1px solid #ced4da;
+        padding: 2px 6px;
+        font-size: 0.85rem;
+        width: 100%;
+    }
+
+    /* RDF-style formatting */
+    .rdf-properties {
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    }
+
+    .rdf-triple {
+        margin-bottom: 0.5rem;
+        line-height: 1.4;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <!-- Top Menu Bar -->
+            <div class="bg-light border rounded p-3 mb-4">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <a href="{{ url_for('scenario_pipeline.step1', case_id=case.id) }}" class="btn btn-sm btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Back to Step 1
+                        </a>
+                        <button id="refreshFromOntServeBtn" class="btn btn-sm btn-info">
+                            <i class="bi bi-arrow-repeat"></i> Refresh from OntServe
+                        </button>
+                    </div>
+                    <div>
+                        <button id="clearAllEntitiesBtn" class="btn btn-sm btn-warning">
+                            <i class="bi bi-trash"></i> Clear Pass 1 Uncommitted
+                        </button>
+                        <button id="clearExtractedClassesBtn" class="btn btn-sm btn-danger">
+                            <i class="bi bi-x-circle"></i> Clear Extracted Classes
+                        </button>
+                        <button id="commitSelectedBtn" class="btn btn-sm btn-success">
+                            <i class="bi bi-check-circle"></i> Commit Selected to OntServe
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pass Information Header -->
+            <div class="bg-primary bg-gradient text-white rounded p-3 mb-3">
+                <div class="row align-items-center">
+                    <div class="col-12">
+                        <h2 class="mb-1">
+                            <i class="bi bi-layers"></i> PASS 1: Contextual Framework
+                        </h2>
+                        <p class="mb-0">Case {{ case.id }}: {{ case.title }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Entity Type Counts -->
+            <div class="row mb-3">
+                <!-- Roles -->
+                <div class="col-md-4 mb-2">
+                    <div class="card border-primary">
+                        <div class="card-body">
+                            <h5 class="card-title text-primary">
+                                <i class="bi bi-person-badge"></i> Roles
+                            </h5>
+                            <div class="row text-center">
+                                <div class="col-6">
+                                    <div class="fs-3 fw-bold">{{ rdf_data.by_type.roles.classes|length if rdf_data and rdf_data.by_type and rdf_data.by_type.roles else 0 }}</div>
+                                    <small class="text-muted">Classes</small>
+                                </div>
+                                <div class="col-6">
+                                    <div class="fs-3 fw-bold">{{ rdf_data.by_type.roles.individuals|length if rdf_data and rdf_data.by_type and rdf_data.by_type.roles else 0 }}</div>
+                                    <small class="text-muted">Individuals</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- States -->
+                <div class="col-md-4 mb-2">
+                    <div class="card border-warning">
+                        <div class="card-body">
+                            <h5 class="card-title text-warning">
+                                <i class="bi bi-diagram-3"></i> States
+                            </h5>
+                            <div class="row text-center">
+                                <div class="col-6">
+                                    <div class="fs-3 fw-bold">{{ rdf_data.by_type.states.classes|length if rdf_data and rdf_data.by_type and rdf_data.by_type.states else 0 }}</div>
+                                    <small class="text-muted">Classes</small>
+                                </div>
+                                <div class="col-6">
+                                    <div class="fs-3 fw-bold">{{ rdf_data.by_type.states.individuals|length if rdf_data and rdf_data.by_type and rdf_data.by_type.states else 0 }}</div>
+                                    <small class="text-muted">Individuals</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Resources -->
+                <div class="col-md-4 mb-2">
+                    <div class="card border-success">
+                        <div class="card-body">
+                            <h5 class="card-title text-success">
+                                <i class="bi bi-box-seam"></i> Resources
+                            </h5>
+                            <div class="row text-center">
+                                <div class="col-6">
+                                    <div class="fs-3 fw-bold">{{ rdf_data.by_type.resources.classes|length if rdf_data and rdf_data.by_type and rdf_data.by_type.resources else 0 }}</div>
+                                    <small class="text-muted">Classes</small>
+                                </div>
+                                <div class="col-6">
+                                    <div class="fs-3 fw-bold">{{ rdf_data.by_type.resources.individuals|length if rdf_data and rdf_data.by_type and rdf_data.by_type.resources else 0 }}</div>
+                                    <small class="text-muted">Individuals</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- RDF Entities Section -->
+            {% if rdf_data and rdf_data.total_rdf_entities > 0 %}
+
+            <!-- Section Header with Clear Separation -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <hr class="my-4">
+                    <h2 class="mb-3">Extracted Ontology Entities</h2>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>{{ rdf_data.total_rdf_entities }} RDF entities extracted</strong> organized by concept type
+                    </div>
+                </div>
+            </div>
+
+            <!-- CONCEPT TYPE PANELS -->
+            {% for concept_type, type_data in rdf_data.by_type.items() %}
+            {% if type_data.classes or type_data.individuals %}
+            <div class="row mb-5">
+                <div class="col-12">
+                    <!-- Panel Header for {{ concept_type|title }} -->
+                    <div class="card {% if concept_type == 'roles' %}border-primary{% elif concept_type == 'states' %}border-warning{% else %}border-success{% endif %}">
+                        <div class="card-header {% if concept_type == 'roles' %}bg-primary{% elif concept_type == 'states' %}bg-warning{% else %}bg-success{% endif %} text-white">
+                            <h4 class="mb-0">
+                                <i class="fas fa-{% if concept_type == 'roles' %}user-tie{% elif concept_type == 'states' %}diagram-3{% else %}box{% endif %}"></i>
+                                {{ concept_type|title }} Extraction
+                            </h4>
+                        </div>
+                        <div class="card-body">
+
+            <!-- NEW CLASSES SUB-SECTION -->
+            {% if type_data.classes %}
+            <div class="row mb-5">
+                <div class="col-12">
+                    <h5 class="mb-3">New {{ concept_type|title }} Classes</h5>
+                    <div class="card border-primary shadow-sm">
+                        <div class="card-header bg-primary text-white">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-0">
+                                        <i class="fas fa-sitemap"></i>
+                                        Classes to Add to proethica-intermediate
+                                    </h6>
+                                    <small>These are new {{ concept_type }} types not currently in the ontology</small>
+                                </div>
+                                <span class="badge bg-light text-primary">{{ type_data.classes|length }} Classes</span>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th width="3%">
+                                                <input type="checkbox" class="rdf-class-select-all" data-concept-type="{{ concept_type }}">
+                                            </th>
+                                            <th width="20%">Class Label</th>
+                                            <th width="35%">Definition</th>
+                                            <th width="40%">Properties & Relations</th>
+                                            <th width="2%">Source</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for cls in type_data.classes %}
+                                        <tr>
+                                            <td>
+                                                <input type="checkbox" class="rdf-entity-checkbox"
+                                                       data-entity-id="{{ cls.id }}"
+                                                       data-entity-type="class"
+                                                       data-concept-type="{{ concept_type }}"
+                                                       {% if cls.is_committed %}disabled title="Already committed to OntServe"{% elif not cls.is_committed %}checked{% endif %}>
+                                            </td>
+                                            <td>
+                                                <strong>{{ cls.entity_label }}</strong>
+                                                {% if cls.is_committed %}
+                                                <span class="badge bg-success ms-2">
+                                                    <i class="fas fa-check-circle"></i> Committed
+                                                </span>
+                                                {% endif %}
+                                                <br/>
+                                                <small class="text-muted">rdfs:subClassOf {{ concept_type|title }}</small>
+                                            </td>
+                                            <td><small>{{ cls.entity_definition or '-' }}</small></td>
+                                            <td>
+                                                <div class="rdf-properties" style="font-size: 0.85rem;">
+                                                    {% if cls.rdf_json_ld and cls.rdf_json_ld.properties %}
+                                                        {% for prop_name, prop_values in cls.rdf_json_ld.properties.items() if prop_name not in ['wasGeneratedAt', 'wasAttributedTo', 'discoveredInCase'] and prop_values %}
+                                                            <div class="mb-1 property-item" data-property="{{ prop_name }}">
+                                                                <strong class="property-name">
+                                                                    {{ prop_name | camel_to_readable }}:
+                                                                </strong>
+                                                                <span class="property-value">
+                                                                    {% if prop_values is string %}
+                                                                        {{ prop_values }}
+                                                                    {% elif prop_values is iterable %}
+                                                                        {% if prop_values|length > 1 %}
+                                                                            {# Check if first item is a single character (indicates string treated as list) #}
+                                                                            {% if prop_values[0]|length == 1 %}
+                                                                                {# It's a string that was split into characters, join it back #}
+                                                                                {{ prop_values|join('') }}
+                                                                            {% else %}
+                                                                                {# It's a real list, display as list #}
+                                                                                <ul class="list-unstyled ms-3 mb-0">
+                                                                                {% for val in prop_values if val %}
+                                                                                    <li>• {{ val }}</li>
+                                                                                {% endfor %}
+                                                                                </ul>
+                                                                            {% endif %}
+                                                                        {% elif prop_values|length == 1 %}
+                                                                            {{ prop_values[0] }}
+                                                                        {% else %}
+                                                                            <small class="text-muted">-</small>
+                                                                        {% endif %}
+                                                                    {% else %}
+                                                                        {{ prop_values }}
+                                                                    {% endif %}
+                                                                </span>
+                                                            </div>
+                                                        {% endfor %}
+                                                    {% else %}
+                                                        <small class="text-muted">No additional properties</small>
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+                                            <td><small>C{{ cls.case_id }}</small></td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- INDIVIDUALS SUB-SECTION -->
+            {% if type_data.individuals %}
+            <div class="row mb-5">
+                <div class="col-12">
+                    <h5 class="mb-3">{{ concept_type|title }} Individuals</h5>
+                    <div class="card border-info shadow-sm">
+                        <div class="card-header bg-info text-white">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-users"></i>
+                                        Individuals to Add to proethica-case-{{ case.id }}
+                                    </h5>
+                                    <small>These are specific people, organizations, and entities in this case</small>
+                                </div>
+                                <span class="badge bg-light text-info">{{ type_data.individuals|length }} Individuals</span>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th width="3%">
+                                                <input type="checkbox" class="rdf-individual-select-all" data-concept-type="{{ concept_type }}">
+                                            </th>
+                                            <th width="20%">Individual</th>
+                                            <th width="15%">rdf:type</th>
+                                            <th width="60%">Properties & Relations</th>
+                                            <th width="2%">Source</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for indiv in type_data.individuals %}
+                                        <tr>
+                                            <td>
+                                                <input type="checkbox" class="rdf-entity-checkbox"
+                                                       data-entity-id="{{ indiv.id }}"
+                                                       data-entity-type="individual"
+                                                       data-concept-type="{{ concept_type }}"
+                                                       {% if indiv.is_committed %}disabled title="Already committed to OntServe"{% elif not indiv.is_committed %}checked{% endif %}>
+                                            </td>
+                                            <td>
+                                                <strong>{{ indiv.entity_label }}</strong>
+                                                {% if indiv.is_committed %}
+                                                <span class="badge bg-success ms-2">
+                                                    <i class="fas fa-check-circle"></i> Committed
+                                                </span>
+                                                {% endif %}
+                                                <br/>
+                                                <small class="text-muted">Individual Instance</small>
+                                            </td>
+                                            <td>
+                                                {% if indiv.rdf_json_ld and indiv.rdf_json_ld.types %}
+                                                    {% for type in indiv.rdf_json_ld.types %}
+                                                        <span class="badge bg-secondary">{{ type.split('#')[-1] if '#' in type else type.split('/')[-1] }}</span><br/>
+                                                    {% endfor %}
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="rdf-properties" style="font-size: 0.85rem;">
+                                                    {# Display properties - same approach as classes #}
+                                                    {# Use namespace to persist variable across loops #}
+                                                    {% set ns = namespace(has_content=false) %}
+                                                    {% if indiv.rdf_json_ld and indiv.rdf_json_ld.properties %}
+                                                        {% for prop_name, prop_values in indiv.rdf_json_ld.properties.items() if prop_name not in ['wasGeneratedAt', 'wasAttributedTo', 'discoveredInCase'] and prop_values %}
+                                                            {% set ns.has_content = true %}
+                                                            <div class="mb-1 property-item" data-property="{{ prop_name }}" data-type="property">
+                                                                <strong class="property-name">
+                                                                    {{ prop_name | camel_to_readable }}:
+                                                                </strong>
+                                                                <span class="property-value">
+                                                                    {% if prop_values is string %}
+                                                                        {{ prop_values }}
+                                                                    {% elif prop_values is iterable %}
+                                                                        {% if prop_values|length > 1 %}
+                                                                            {# Check if first item is a single character (indicates string treated as list) #}
+                                                                            {% if prop_values[0]|length == 1 %}
+                                                                                {# It's a string that was split into characters, join it back #}
+                                                                                {{ prop_values|join('') }}
+                                                                            {% else %}
+                                                                                {# It's a real list, display as list #}
+                                                                                <ul class="list-unstyled ms-3 mb-0">
+                                                                                {% for val in prop_values if val %}
+                                                                                    <li>• {{ val }}</li>
+                                                                                {% endfor %}
+                                                                                </ul>
+                                                                            {% endif %}
+                                                                        {% elif prop_values|length == 1 %}
+                                                                            {{ prop_values[0] }}
+                                                                        {% else %}
+                                                                            <small class="text-muted">-</small>
+                                                                        {% endif %}
+                                                                    {% else %}
+                                                                        {{ prop_values }}
+                                                                    {% endif %}
+                                                                </span>
+                                                            </div>
+                                                        {% endfor %}
+                                                    {% endif %}
+
+                                                    {# Display relationships #}
+                                                    {% if indiv.rdf_json_ld and indiv.rdf_json_ld.relationships %}
+                                                        {% set ns.has_content = true %}
+                                                        {% for rel in indiv.rdf_json_ld.relationships %}
+                                                            <div class="mb-1 property-item" data-property="{{ rel.type }}" data-type="relation">
+                                                                <strong class="property-name">
+                                                                    {{ rel.type | camel_to_readable }}:
+                                                                </strong>
+                                                                <span class="property-value text-info">
+                                                                    {{ rel.target }}
+                                                                </span>
+                                                            </div>
+                                                        {% endfor %}
+                                                    {% endif %}
+
+                                                    {# Show message if no content #}
+                                                    {% if not ns.has_content %}
+                                                        <small class="text-muted">No properties or relations</small>
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+                                            <td><small>C{{ indiv.case_id if indiv.case_id else case.id }}</small></td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+                        </div> <!-- End card-body -->
+                    </div> <!-- End card -->
+                </div> <!-- End col-12 -->
+            </div> <!-- End row for concept type panel -->
+            {% endif %} <!-- End if type_data.classes or type_data.individuals -->
+            {% endfor %} <!-- End for concept_type loop -->
+
+            <!-- End of RDF Entities Section -->
+            <hr class="my-4">
+            {% endif %}
+
+            {% if section_data and (not rdf_data or rdf_data.total_rdf_entities == 0) %}
+            <!-- Legacy Format Notice -->
+            <div class="alert alert-warning mb-4">
+                <h4><i class="fas fa-exclamation-triangle"></i> Legacy Format Detected</h4>
+                <p>These entities were extracted using the old format. To see the enhanced display with all properties:</p>
+                <ol>
+                    <li>Clear all entities using the "Clear All Entities" button above</li>
+                    <li>Go back to <a href="{{ url_for('scenario_pipeline.step1', case_id=case.id) }}">Step 1</a></li>
+                    <li>Click "Extract Roles Only" to re-extract with the new format</li>
+                </ol>
+                <p>The new format will show:</p>
+                <ul>
+                    <li><strong>Classes</strong>: New professional role types with distinguishing features, scope, and qualifications</li>
+                    <li><strong>Individuals</strong>: Specific people with attributes, relationships, and case involvement</li>
+                </ul>
+            </div>
+            {% endif %}
+
+            {% if not section_data and (not rdf_data or rdf_data.total_rdf_entities == 0) %}
+            <!-- No entities found -->
+            <div class="alert alert-info">
+                <h4>No Extracted Entities Found</h4>
+                <p>No entities have been extracted for this case yet. Try:</p>
+                <ul>
+                    <li>Go to <a href="{{ url_for('scenario_pipeline.step1', case_id=case.id) }}">Step 1</a> and extract roles, states, or resources individually</li>
+                    <li>Run the complete entity extraction pass</li>
+                    <li>Check the console logs for any extraction errors</li>
+                </ul>
+            </div>
+            {% else %}
+
+            <!-- Entity Sections (Old Format - only show if no RDF data) -->
+            {% if not rdf_data or rdf_data.total_rdf_entities == 0 %}
+            {% for section_type, section in section_data.items() %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4>{{ section.info.label }}</h4>
+                            <p class="mb-0 text-muted">{{ section.info.description }}</p>
+                        </div>
+                        <div>
+                            <span class="badge badge-primary">{{ section.count }} entities</span>
+                            <span class="badge badge-success">{{ section.selected_count }} selected</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if section.entities %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th width="5%">
+                                        <input type="checkbox" class="section-select-all"
+                                               data-section="{{ section_type }}">
+                                    </th>
+                                    <th>Label</th>
+                                    <th>Category</th>
+                                    <th>Description</th>
+                                    <th>Confidence</th>
+                                    <th>Session</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for entity in section.entities %}
+                                <tr data-entity-id="{{ entity.id }}">
+                                    <td>
+                                        <input type="checkbox" class="entity-select"
+                                               data-entity-id="{{ entity.id }}"
+                                               {% if entity.concept_data.get('selected', False) %}checked{% endif %}>
+                                    </td>
+                                    <td>
+                                        <strong>{{ entity.concept_data.get('label', 'Unknown') }}</strong>
+                                        {% if entity.concept_data.get('category') == 'Role' %}
+                                            <span class="badge badge-primary badge-sm ms-1">Role Class</span>
+                                        {% elif entity.concept_data.get('category') == 'Individual' %}
+                                            <span class="badge badge-info badge-sm ms-1">Individual</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-secondary">
+                                            {{ entity.concept_data.get('category', 'Unknown') }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {{ entity.concept_data.get('description', '')[:100] }}
+                                        {% if entity.concept_data.get('description', '') | length > 100 %}...{% endif %}
+                                    </td>
+                                    <td>
+                                        {% set confidence = entity.concept_data.get('confidence', 0.8) %}
+                                        <span class="badge {% if confidence > 0.8 %}badge-success{% elif confidence > 0.6 %}badge-warning{% else %}badge-danger{% endif %}">
+                                            {{ "%.2f" | format(confidence) }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <small>{{ entity.session_id[-8:] }}</small>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary edit-entity"
+                                                data-entity-id="{{ entity.id }}">
+                                            Edit
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted">No entities in this section.</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+            {% endif %}
+            {% endif %}
+
+        </div>
+    </div>
+</div>
+
+<!-- Edit Entity Modal -->
+<div class="modal fade" id="editEntityModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Entity</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="editEntityForm">
+                    <input type="hidden" id="editEntityId">
+                    <div class="form-group">
+                        <label for="editLabel">Label</label>
+                        <input type="text" class="form-control" id="editLabel" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="editDescription">Description</label>
+                        <textarea class="form-control" id="editDescription" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="editReviewNotes">Review Notes</label>
+                        <textarea class="form-control" id="editReviewNotes" rows="2"
+                                  placeholder="Add any review notes or modifications..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveEntityBtn">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const caseId = {{ case.id }};
+
+    // Load session count
+    appFetch(`/scenario_pipeline/case/${caseId}/entities/sessions`)
+        .then(response => response.json())
+        .then(data => {
+            const sessionCountElement = document.getElementById('sessionCount');
+            if (sessionCountElement && data.total_sessions !== undefined) {
+                sessionCountElement.textContent = data.total_sessions;
+            }
+        })
+        .catch(error => {
+            const sessionCountElement = document.getElementById('sessionCount');
+            if (sessionCountElement) {
+                sessionCountElement.textContent = 'Error';
+            }
+            console.error('Error loading sessions:', error);
+        });
+
+    // Auto-select all uncommitted entities on page load
+    // and update their selection status in the database
+    const uncommittedCheckboxes = document.querySelectorAll('.rdf-entity-checkbox:checked');
+    uncommittedCheckboxes.forEach(checkbox => {
+        const entityId = checkbox.dataset.entityId;
+        const entityType = checkbox.dataset.entityType;
+        // Update selection status in database for pre-checked items
+        updateRDFEntitySelection(entityId, entityType, true);
+    });
+
+    // Also update the select-all checkboxes to match the state
+    document.querySelectorAll('.rdf-class-select-all').forEach(selectAll => {
+        const conceptType = selectAll.dataset.conceptType;
+        const allClassBoxes = document.querySelectorAll(`.rdf-entity-checkbox[data-entity-type="class"][data-concept-type="${conceptType}"]`);
+        const checkedClassBoxes = document.querySelectorAll(`.rdf-entity-checkbox[data-entity-type="class"][data-concept-type="${conceptType}"]:checked`);
+        if (allClassBoxes.length > 0 && allClassBoxes.length === checkedClassBoxes.length) {
+            selectAll.checked = true;
+        }
+    });
+
+    document.querySelectorAll('.rdf-individual-select-all').forEach(selectAll => {
+        const conceptType = selectAll.dataset.conceptType;
+        const allIndivBoxes = document.querySelectorAll(`.rdf-entity-checkbox[data-entity-type="individual"][data-concept-type="${conceptType}"]`);
+        const checkedIndivBoxes = document.querySelectorAll(`.rdf-entity-checkbox[data-entity-type="individual"][data-concept-type="${conceptType}"]:checked`);
+        if (allIndivBoxes.length > 0 && allIndivBoxes.length === checkedIndivBoxes.length) {
+            selectAll.checked = true;
+        }
+    });
+
+    // Entity selection handling
+    document.querySelectorAll('.entity-select').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const entityId = this.dataset.entityId;
+            const selected = this.checked;
+            updateEntitySelection(entityId, selected);
+        });
+    });
+
+    // RDF Entity selection handling
+    document.querySelectorAll('.rdf-entity-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const entityId = this.dataset.entityId;
+            const entityType = this.dataset.entityType;
+            const selected = this.checked;
+            updateRDFEntitySelection(entityId, entityType, selected);
+        });
+    });
+
+    // RDF Class select all handling - per concept type
+    document.querySelectorAll('.rdf-class-select-all').forEach(selectAll => {
+        selectAll.addEventListener('change', function() {
+            const checked = this.checked;
+            const conceptType = this.dataset.conceptType;
+            // Only select checkboxes within the same concept type
+            document.querySelectorAll(`.rdf-entity-checkbox[data-entity-type="class"][data-concept-type="${conceptType}"]`).forEach(checkbox => {
+                checkbox.checked = checked;
+                updateRDFEntitySelection(checkbox.dataset.entityId, 'class', checked);
+            });
+        });
+    });
+
+    // RDF Individual select all handling - per concept type
+    document.querySelectorAll('.rdf-individual-select-all').forEach(selectAll => {
+        selectAll.addEventListener('change', function() {
+            const checked = this.checked;
+            const conceptType = this.dataset.conceptType;
+            // Only select checkboxes within the same concept type
+            document.querySelectorAll(`.rdf-entity-checkbox[data-entity-type="individual"][data-concept-type="${conceptType}"]`).forEach(checkbox => {
+                checkbox.checked = checked;
+                updateRDFEntitySelection(checkbox.dataset.entityId, 'individual', checked);
+            });
+        });
+    });
+
+    // Section select all handling
+    document.querySelectorAll('.section-select-all').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const section = this.dataset.section;
+            const checked = this.checked;
+
+            const card = this.closest('.card');
+            card.querySelectorAll('.entity-select').forEach(entityCheckbox => {
+                entityCheckbox.checked = checked;
+                const entityId = entityCheckbox.dataset.entityId;
+                updateEntitySelection(entityId, checked);
+            });
+        });
+    });
+
+    // Edit entity handling (placeholder for future functionality)
+    document.querySelectorAll('.edit-entity').forEach(button => {
+        button.addEventListener('click', function() {
+            const entityId = this.dataset.entityId;
+            // For now, just show a placeholder modal
+            document.getElementById('editEntityId').value = entityId;
+            // Note: Bootstrap modal would need to be handled differently without jQuery
+            console.log('Edit entity:', entityId);
+        });
+    });
+
+    // Foundation for property editing (future functionality)
+    // This code prepares for inline property editing capability
+    function preparePropertyEditing() {
+        // Add data attributes to property items for future editing
+        document.querySelectorAll('.property-item').forEach(item => {
+            const entityRow = item.closest('tr');
+            const entityCheckbox = entityRow?.querySelector('.rdf-entity-checkbox');
+            if (entityCheckbox) {
+                item.setAttribute('data-entity-id', entityCheckbox.dataset.entityId);
+                item.setAttribute('data-entity-type', entityCheckbox.dataset.entityType);
+            }
+
+            // Double-click handler (currently disabled)
+            item.addEventListener('dblclick', function(e) {
+                // Uncomment when edit functionality is implemented
+                // e.preventDefault();
+                // startPropertyEdit(this);
+            });
+        });
+    }
+
+    // Call preparation function
+    preparePropertyEditing();
+
+    // Future edit functions (placeholders)
+    function startPropertyEdit(propertyElement) {
+        // Will be implemented to enable inline editing
+        console.log('Property editing will be available in future update');
+    }
+
+    function savePropertyEdit(propertyElement, newValue) {
+        // Will be implemented to save edited properties
+        console.log('Property saving will be available in future update');
+    }
+
+    function cancelPropertyEdit(propertyElement) {
+        // Will be implemented to cancel property editing
+        console.log('Cancel editing will be available in future update');
+    }
+
+    // Commit selected entities
+    const commitBtn = document.getElementById('commitSelectedBtn');
+    if (commitBtn) {
+        commitBtn.addEventListener('click', function() {
+            console.log('Commit button clicked');
+            if (confirm('Commit selected entities to OntServe permanent storage?')) {
+                console.log('User confirmed commit');
+                this.disabled = true;
+                this.textContent = 'Committing...';
+
+                console.log('Making appFetch request to:', `/scenario_pipeline/case/${caseId}/entities/commit`);
+                appFetch(`/scenario_pipeline/case/${caseId}/entities/commit`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        commit_all_reviewed: false
+                    })
+                })
+                .then(response => {
+                    console.log('Response status:', response.status);
+                    console.log('Response headers:', response.headers);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Response data:', data);
+                    if (data.success) {
+                        // Updated to show classes and individuals separately
+                        let message = `Successfully committed:\n`;
+                        message += `• ${data.result.classes_committed || 0} new classes to proethica-intermediate-extracted\n`;
+                        message += `• ${data.result.individuals_committed || 0} individuals to proethica-case-${caseId}`;
+
+                        if (data.result.errors && data.result.errors.length > 0) {
+                            message += `\n\nWarnings:\n` + data.result.errors.join('\n');
+                        }
+
+                        alert(message);
+                        location.reload();
+                    } else {
+                        alert(`Error: ${data.error}`);
+                    }
+                })
+                .catch(error => {
+                    console.error('Fetch error:', error);
+                    alert(`Error: ${error}`);
+                })
+                .finally(() => {
+                    this.disabled = false;
+                    this.textContent = 'Commit Selected to OntServe';
+                });
+            }
+        });
+    }
+
+    // Refresh from OntServe button
+    const refreshBtn = document.getElementById('refreshFromOntServeBtn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', function() {
+            this.disabled = true;
+            const originalText = this.innerHTML;
+            this.innerHTML = '<i class="bi bi-arrow-repeat"></i> Refreshing...';
+
+            appFetch(`/scenario_pipeline/case/${caseId}/entities/refresh_committed`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show detailed refresh results
+                    let message = data.message || 'Refresh completed';
+
+                    if (data.result && data.result.details) {
+                        const modified = data.result.details.filter(d => d.status === 'modified').length;
+                        const unchanged = data.result.details.filter(d => d.status === 'unchanged').length;
+                        const notFound = data.result.details.filter(d => d.status === 'not_found').length;
+
+                        if (modified > 0) {
+                            message += `\n\nChanges detected:\n`;
+                            data.result.details.filter(d => d.status === 'modified').forEach(entity => {
+                                message += `- ${entity.entity_label}: ${entity.changes ? entity.changes.length : 0} field(s) updated\n`;
+                            });
+                        }
+
+                        if (notFound > 0) {
+                            message += `\n⚠ ${notFound} entities not found in OntServe (may have been deleted)`;
+                        }
+                    }
+
+                    alert(message);
+
+                    // Reload the page to show updated data
+                    if ((data.result && data.result.modified > 0) || data.deleted_count > 0) {
+                        location.reload();
+                    }
+                } else {
+                    alert('Error refreshing entities: ' + (data.error || 'Unknown error'));
+                }
+
+                this.disabled = false;
+                this.innerHTML = originalText;
+            })
+            .catch(error => {
+                console.error('Error refreshing entities:', error);
+                alert('Error refreshing entities: ' + error.message);
+                this.disabled = false;
+                this.innerHTML = originalText;
+            });
+        });
+    }
+
+    // Clear extracted classes button
+    const clearExtractedBtn = document.getElementById('clearExtractedClassesBtn');
+    if (clearExtractedBtn) {
+        clearExtractedBtn.addEventListener('click', function() {
+            if (confirm('This will clear ALL extracted classes from proethica-intermediate-extracted.ttl.\n\nA backup will be created before clearing.\n\nAre you sure you want to continue?')) {
+                this.disabled = true;
+                const originalText = this.innerHTML;
+                this.innerHTML = 'Clearing Classes...';
+
+                appFetch('/scenario_pipeline/ontology/clear_extracted_classes', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        let message = data.message || 'Successfully cleared extracted classes';
+                        if (data.result && data.result.backup_file) {
+                            message += `\n\nBackup saved to: ${data.result.backup_file}`;
+                        }
+                        alert(message);
+
+                        // Reload to reflect changes
+                        location.reload();
+                    } else {
+                        alert('Error clearing extracted classes: ' + (data.error || 'Unknown error'));
+                    }
+
+                    this.disabled = false;
+                    this.innerHTML = originalText;
+                })
+                .catch(error => {
+                    console.error('Error clearing extracted classes:', error);
+                    alert('Error clearing extracted classes: ' + error.message);
+                    this.disabled = false;
+                    this.innerHTML = originalText;
+                });
+            }
+        });
+    }
+
+    // Clear all uncommitted entities button
+    const clearBtn = document.getElementById('clearAllEntitiesBtn');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function() {
+            if (confirm('This will clear ONLY uncommitted Pass 1 entities (Roles, States, Resources) for this case.\n\nPass 2 and Pass 3 entities will be preserved.\nCommitted entities in OntServe will be preserved.\n\nContinue?')) {
+                this.disabled = true;
+                this.textContent = 'Clearing Pass 1...';
+
+                // Clear only Pass 1 extraction types
+                appFetch(`/scenario_pipeline/case/${caseId}/entities/clear_by_types`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        extraction_types: ['roles', 'states', 'resources']
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Show detailed message about what was cleared and preserved
+                        let message = data.message || `Cleared ${data.cleared_count} entities`;
+
+                        if (data.preserved_count && data.preserved_count > 0) {
+                            message += `\n\nNote: ${data.preserved_count} committed entities were preserved in OntServe and remain visible there.`;
+                        }
+
+                        alert(message);
+                        location.reload();
+                    } else {
+                        alert(`Error: ${data.error}`);
+                    }
+                })
+                .catch(error => {
+                    console.error('Clear error:', error);
+                    alert(`Error: ${error}`);
+                })
+                .finally(() => {
+                    this.disabled = false;
+                    this.textContent = 'Clear Pass 1 Uncommitted';
+                });
+            }
+        });
+    }
+
+    function updateEntitySelection(entityId, selected) {
+        appFetch(`/scenario_pipeline/case/${caseId}/entities/update_selection`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                entity_id: entityId,
+                selected: selected,
+                review_notes: ''
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update selected count
+                updateSelectedCount();
+            } else {
+                console.error('Error updating selection:', data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error updating selection:', error);
+        });
+    }
+
+    function updateRDFEntitySelection(entityId, entityType, selected) {
+        appFetch(`/scenario_pipeline/case/${caseId}/rdf_entities/update_selection`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                entity_id: entityId,
+                entity_type: entityType,
+                selected: selected
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update selected count
+                updateSelectedCount();
+            } else {
+                console.error('Error updating RDF entity selection:', data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error updating RDF entity selection:', error);
+        });
+    }
+
+    function updateSelectedCount() {
+        const selectedCount = document.querySelectorAll('.entity-select:checked').length;
+        const rdfSelectedCount = document.querySelectorAll('.rdf-entity-checkbox:checked').length;
+        const totalSelected = selectedCount + rdfSelectedCount;
+        const selectedCountElement = document.getElementById('selectedCount');
+        if (selectedCountElement) {
+            selectedCountElement.textContent = totalSelected;
+        }
+    }
+});
+</script>
+
+{% endblock %}

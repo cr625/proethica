@@ -5,22 +5,25 @@ Part of Pass 2: Normative Requirements (Principles → Obligations → Constrain
 
 import logging
 from typing import List, Dict, Any, Optional
+from app.services.extraction.base import ConceptCandidate
 
 logger = logging.getLogger(__name__)
 
-def create_enhanced_constraints_prompt(text: str, include_mcp_context: bool = False, 
-                                      existing_constraints: Optional[List[Dict[str, Any]]] = None) -> str:
+def create_enhanced_constraints_prompt(text: str, include_mcp_context: bool = False,
+                                      existing_constraints: Optional[List[Dict[str, Any]]] = None,
+                                      include_related_entities: bool = False) -> str:
     """
     Create an enhanced prompt for extracting constraints with MCP context.
-    
-    CRITICAL: Following the pattern from obligations fix - must fetch MCP data 
+
+    CRITICAL: Following the pattern from obligations fix - must fetch MCP data
     dynamically when include_mcp_context=True even if existing_constraints is None.
-    
+
     Args:
         text: Input text to analyze
         include_mcp_context: Whether to include MCP ontology context
         existing_constraints: Pre-fetched constraints (optional)
-    
+        include_related_entities: Whether to fetch principles/obligations (for full pass only)
+
     Returns:
         Enhanced prompt with Pass 2 integration and MCP context
     """
@@ -35,22 +38,32 @@ def create_enhanced_constraints_prompt(text: str, include_mcp_context: bool = Fa
                 from app.services.external_mcp_client import get_external_mcp_client
                 external_client = get_external_mcp_client()
                 existing_constraints = external_client.get_all_constraint_entities()
-                
-                # Also get related Pass 2 entities for context
-                existing_principles = external_client.get_all_principle_entities()
-                existing_obligations = external_client.get_all_obligation_entities()
+
+                # Only get related Pass 2 entities if explicitly requested
+                existing_principles = []
+                existing_obligations = []
+                if include_related_entities:
+                    existing_principles = external_client.get_all_principle_entities()
+                    existing_obligations = external_client.get_all_obligation_entities()
+                    logger.info(f"Retrieved {len(existing_constraints)} constraints with {len(existing_principles)} principles and {len(existing_obligations)} obligations")
+                else:
+                    logger.info(f"Retrieved {len(existing_constraints)} constraints (related entities excluded for individual extraction)")
             else:
-                # If constraints provided, still fetch related entities
-                from app.services.external_mcp_client import get_external_mcp_client
-                external_client = get_external_mcp_client()
-                existing_principles = external_client.get_all_principle_entities()
-                existing_obligations = external_client.get_all_obligation_entities()
+                # If constraints provided, only fetch related entities if requested
+                existing_principles = []
+                existing_obligations = []
+                if include_related_entities:
+                    from app.services.external_mcp_client import get_external_mcp_client
+                    external_client = get_external_mcp_client()
+                    existing_principles = external_client.get_all_principle_entities()
+                    existing_obligations = external_client.get_all_obligation_entities()
             
             # Build hierarchical context for constraints
             constraint_context = organize_constraints_hierarchically(existing_constraints)
             
-            # Build Pass 2 integration context
-            pass2_context = f"""
+            # Build Pass 2 integration context only if related entities included
+            if include_related_entities:
+                pass2_context = f"""
 ==========================
 PASS 2 INTEGRATION: NORMATIVE REQUIREMENTS
 ==========================
@@ -58,12 +71,12 @@ PASS 2 INTEGRATION: NORMATIVE REQUIREMENTS
 Pass 2 focuses on the normative requirements that guide professional behavior:
 
 1. **PRINCIPLES** (Abstract Foundations - WHY):
-   Found {len(existing_principles) if existing_principles else 0} principles that provide ethical foundations
+   Found {len(existing_principles) if 'existing_principles' in locals() else 0} principles that provide ethical foundations
    - Examples: Public Welfare, Integrity, Competence
    - Function: Provide abstract guidance and justification
 
 2. **OBLIGATIONS** (Concrete Requirements - WHAT MUST):
-   Found {len(existing_obligations) if existing_obligations else 0} obligations that specify duties
+   Found {len(existing_obligations) if 'existing_obligations' in locals() else 0} obligations that specify duties
    - Examples: Must report violations, Must maintain competence
    - Function: Transform principles into specific requirements
 
@@ -77,6 +90,17 @@ KEY RELATIONSHIPS:
 - Obligations are bounded by Constraints (requirements ← limits)
 - Constraints prevent violation of principles (boundaries protect values)
 
+==========================
+"""
+            else:
+                pass2_context = """
+==========================
+FOCUS: CONSTRAINTS ONLY
+==========================
+
+This is an individual extraction focusing solely on professional constraints.
+Extract boundaries and limitations without referencing principles or obligations.
+Focus on what CANNOT be done, what limits exist, and what boundaries constrain action.
 ==========================
 """
             
@@ -299,16 +323,17 @@ class EnhancedConstraintsExtractor:
         self.provenance_service = provenance_service
         self.logger = logger
         
-    def extract(self, text: str, context: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+    def extract(self, text: str, context: Optional[Dict[str, Any]] = None, activity: Optional[Any] = None) -> List[ConceptCandidate]:
         """
         Extract constraints with enhanced prompt based on Chapter 2 literature.
-        
+
         Args:
             text: The text to extract constraints from
             context: Optional context including case metadata
-            
+            activity: Optional provenance activity for tracking
+
         Returns:
-            List of constraint dictionaries
+            List of ConceptCandidate objects representing extracted constraints
         """
         if not text:
             return []
@@ -333,11 +358,45 @@ class EnhancedConstraintsExtractor:
             
             # Get LLM extraction if available
             if self.llm_client:
-                constraints = self._extract_with_llm(text, prompt)
+                self.logger.info("Using LLM extraction for constraints")
+                constraint_dicts = self._extract_with_llm(text, prompt)
+                self.logger.info(f"LLM extraction returned {len(constraint_dicts)} constraints")
             else:
-                constraints = self._fallback_extraction(text)
-            
-            return constraints
+                self.logger.info("No LLM client available, using fallback extraction")
+                constraint_dicts = self._fallback_extraction(text)
+
+            # Convert dictionaries to ConceptCandidate objects
+            candidates = []
+            for constraint in constraint_dicts:
+                if not isinstance(constraint, dict):
+                    self.logger.warning(f"Skipping non-dict constraint: {constraint}")
+                    continue
+
+                candidate = ConceptCandidate(
+                    label=constraint.get('label', 'Unknown Constraint'),
+                    description=constraint.get('description', ''),
+                    primary_type='constraint',
+                    category='constraint',
+                    confidence=0.85,  # Base confidence for LLM extraction
+                    debug={
+                        'constraint_category': constraint.get('type', constraint.get('constraint_category', 'resource')),
+                        'defeasible': constraint.get('defeasible', False),
+                        'source_quote': constraint.get('source_quote', ''),
+                        'is_existing': constraint.get('is_existing', False),
+                        'ontology_match': constraint.get('ontology_match'),
+                        'flexibility': 'defeasible' if constraint.get('defeasible') else 'non-negotiable',
+                        'impact_on_decisions': constraint.get('impact_on_decisions', ''),
+                        'affected_stakeholders': constraint.get('affected_stakeholders', []),
+                        'potential_violations': constraint.get('potential_violations', ''),
+                        'mitigation_strategies': constraint.get('mitigation_strategies', []),
+                        'temporal_aspect': constraint.get('temporal_aspect', 'permanent'),
+                        'quantifiable_metrics': constraint.get('quantifiable_metrics', ''),
+                        'extraction_method': 'llm_enhanced'
+                    }
+                )
+                candidates.append(candidate)
+
+            return candidates
             
         except Exception as e:
             self.logger.error(f"Error in enhanced constraints extraction: {str(e)}")
@@ -347,12 +406,15 @@ class EnhancedConstraintsExtractor:
         """Extract constraints using LLM with the enhanced prompt."""
         try:
             import json
-            
+            # Import ModelConfig to get the proper model
+            from models import ModelConfig
+
             # Call LLM with proper API based on client type
             if hasattr(self.llm_client, 'messages') and hasattr(self.llm_client.messages, 'create'):
-                # Anthropic client
+                # Anthropic client - use Opus model for powerful extraction
+                model_name = ModelConfig.get_claude_model("powerful")  # This gets opus-4.1
                 llm_response = self.llm_client.messages.create(
-                    model="claude-3-5-sonnet-20241022",
+                    model=model_name,
                     max_tokens=2000,
                     messages=[{
                         "role": "user",
@@ -376,6 +438,16 @@ class EnhancedConstraintsExtractor:
             
             # Parse JSON response
             try:
+                # Log the raw response for debugging
+                self.logger.debug(f"Raw LLM response type: {type(response)}")
+                self.logger.debug(f"Raw LLM response (first 500 chars): {str(response)[:500]}")
+
+                # Ensure response is a string before parsing
+                if not isinstance(response, str):
+                    self.logger.error(f"Response is not a string: {type(response)}")
+                    return []
+
+                # First try direct JSON parsing
                 result = json.loads(response)
                 if isinstance(result, dict) and 'constraints' in result:
                     return result['constraints']
@@ -384,8 +456,31 @@ class EnhancedConstraintsExtractor:
                 else:
                     return []
             except json.JSONDecodeError:
-                self.logger.warning("Failed to parse LLM response as JSON")
-                return self._parse_text_response(response)
+                self.logger.warning("Failed to parse LLM response as JSON directly, attempting extraction")
+
+                # Try to extract JSON from mixed text response
+                import re
+                json_match = re.search(r'\{[\s\S]*\}|\[[\s\S]*\]', response)
+                if json_match:
+                    try:
+                        result = json.loads(json_match.group())
+                        if isinstance(result, dict) and 'constraints' in result:
+                            return result['constraints']
+                        elif isinstance(result, list):
+                            return result
+                        else:
+                            self.logger.warning("Extracted JSON but no constraints found")
+                            return []
+                    except json.JSONDecodeError:
+                        self.logger.warning("Failed to parse extracted JSON")
+                        pass
+
+                # Fall back to text parsing
+                if isinstance(response, str):
+                    return self._parse_text_response(response)
+                else:
+                    self.logger.error(f"Cannot parse non-string response: {type(response)}")
+                    return []
                 
         except Exception as e:
             self.logger.error(f"LLM extraction failed: {str(e)}")
@@ -427,7 +522,12 @@ class EnhancedConstraintsExtractor:
     def _fallback_extraction(self, text: str) -> List[Dict[str, Any]]:
         """Fallback heuristic extraction when LLM is unavailable."""
         constraints = []
-        
+
+        # Ensure text is a string
+        if not isinstance(text, str):
+            self.logger.error(f"_fallback_extraction received non-string text: {type(text)}")
+            return []
+
         # Simple keyword-based extraction for constraints
         constraint_patterns = [
             (r'\bcannot\s+(\w+(?:\s+\w+){0,3})', 'prohibition'),
@@ -438,7 +538,7 @@ class EnhancedConstraintsExtractor:
             (r'\bconstraints?\s+(?:on|upon)\s+(\w+(?:\s+\w+){0,3})', 'limitation'),
             (r'\bboundary\s+(?:on|for)\s+(\w+(?:\s+\w+){0,3})', 'boundary'),
         ]
-        
+
         import re
         for pattern, constraint_type in constraint_patterns:
             matches = re.finditer(pattern, text, re.IGNORECASE)

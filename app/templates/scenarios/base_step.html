@@ -123,16 +123,20 @@
                 </h5>
 
                 <a href="{{ url_for('scenario_pipeline.overview', case_id=case.id) }}"
-                    class="pipeline-step {% if current_step == 1 %}active{% endif %}">
+                    class="pipeline-step {% if request.endpoint == 'scenario_pipeline.overview' %}active{% endif %}">
                     <i class="bi bi-file-text"></i> Overview
                 </a>
+                <a href="{{ url_for('scenario_pipeline.step1', case_id=case.id) }}"
+                    class="pipeline-step {% if request.endpoint == 'scenario_pipeline.step1' %}active{% endif %}">
+                    <i class="bi bi-1-circle"></i> Step 1: Contextual Framework
+                </a>
                 <a href="{{ url_for('scenario_pipeline.step2', case_id=case.id) }}"
-                    class="pipeline-step {% if current_step == 2 %}active{% endif %}">
-                    <i class="bi bi-2-circle"></i> Normative Pass
+                    class="pipeline-step {% if request.endpoint == 'scenario_pipeline.step2' %}active{% endif %}">
+                    <i class="bi bi-2-circle"></i> Step 2: Normative Requirements
                 </a>
                 <a href="{{ url_for('scenario_pipeline.step3', case_id=case.id) }}"
-                    class="pipeline-step {% if current_step == 3 %}active{% endif %}">
-                    <i class="bi bi-3-circle"></i> Temporal Dynamics
+                    class="pipeline-step {% if request.endpoint == 'scenario_pipeline.step3' %}active{% endif %}">
+                    <i class="bi bi-3-circle"></i> Step 3: Temporal Dynamics
                 </a>
                 <div class="pipeline-step disabled" style="opacity: 0.5; cursor: not-allowed;">
                     <i class="bi bi-magic"></i> Generate Scenario (Coming Soon)

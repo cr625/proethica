@@ -91,7 +91,7 @@
         <div class="col-md-6 mb-4">
             <div class="card h-100">
                 <div class="card-header">
-                    <h5 class="mb-0"><i class="bi bi-diagram-3 me-2"></i>Manage Ontologies</h5>
+                    <h5 class="mb-0"><i class="bi bi-diagram-3 me-2"></i>Manage Linked Data</h5>
                 </div>
                 <div class="card-body">
                     <!-- Static ontology links -->
@@ -135,21 +135,6 @@
                         </div>
                     </div>
 
-                    <!-- Quick Actions -->
-                    <div class="mt-4">
-                        <div class="d-grid gap-2">
-                            <a href="/type-management/" class="btn btn-outline-secondary btn-sm">
-                                <i class="bi bi-gear me-1"></i>Type Management
-                            </a>
-                            <a href="/type-management/concepts?filter=needs_review"
-                                class="btn btn-outline-warning btn-sm">
-                                <i class="bi bi-exclamation-triangle me-1"></i>Review Types
-                                {% if pending_reviews > 0 %}
-                                <span class="badge bg-warning text-dark ms-1">{{ pending_reviews }}</span>
-                                {% endif %}
-                            </a>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>

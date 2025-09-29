@@ -1,3 +1,0 @@
-"""
-Environment-specific configurations package.
-"""

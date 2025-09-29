@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pass 3 Entity Review - Case 8</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="/static/css/concept-hierarchy.css" rel="stylesheet">
+    
+    <meta name="csrf-token" content="IjI1ZmYzMzZkN2EzMmI4OGQ3ZmFlYzdkNWQ0NzRiZDBmZmYwMGNhMTgi.aNkaqg.n9JJcUflKzsRDEmIVFISu-Zgskw">
+    
+    <style>
+        body {
+            padding-top: 20px;
+            padding-bottom: 20px;
+        }
+
+        .header {
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e5e5e5;
+            margin-bottom: 30px;
+        }
+
+        .footer {
+            padding-top: 20px;
+            color: #777;
+            border-top: 1px solid #e5e5e5;
+            margin-top: 30px;
+            font-size: 14px;
+        }
+
+        .text-truncate {
+            display: -webkit-box;
+            -webkit-line-clamp: 10;
+            /* Limit to 2 lines */
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: normal;
+            /* Ensure text wraps */
+        }
+    </style>
+    
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <nav class="navbar navbar-expand-lg navbar-light">
+                <div class="container-fluid">
+                    <a class="navbar-brand" href="/"></a>
+                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+                    <div class="collapse navbar-collapse" id="navbarNav">
+                        <ul class="navbar-nav me-auto">
+                            <li class="nav-item">
+                                <a class="nav-link" href="/">
+                                    <i class="bi bi-house"></i> Home
+                                </a>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="worldsDropdown" role="button"
+                                    data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bi bi-globe2"></i> Domain
+                                </a>
+                                <ul class="dropdown-menu" aria-labelledby="worldsDropdown">
+                                    <li><a class="dropdown-item" href="/worlds">
+                                            <i class="bi bi-list-ul me-2"></i>View All Domains
+                                        </a></li>
+                                    <li><a class="dropdown-item" href="/worlds/new">
+                                            <i class="bi bi-plus-circle me-2"></i>Create New Domain
+                                        </a></li>
+                                    <li>
+                                        <hr class="dropdown-divider">
+                                    </li>
+                                    <li>
+                                        <h6 class="dropdown-header">Quick Access</h6>
+                                    </li>
+                                    <li><a class="dropdown-item" href="/cases">
+                                            <i class="bi bi-folder2-open me-2"></i>All Cases
+                                        </a></li>
+                                    <li><a class="dropdown-item" href="/scenarios">
+                                            <i class="bi bi-collection-play me-2"></i>All Scenarios
+                                        </a></li>
+                                    <li><a class="dropdown-item" href="/guidelines">
+                                            <i class="bi bi-book me-2"></i>All Guidelines
+                                        </a></li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="ontologyDropdown" role="button"
+                                    data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bi bi-diagram-3"></i> Linked Data
+                                </a>
+                                <ul class="dropdown-menu" aria-labelledby="ontologyDropdown">
+                                    <li><a class="dropdown-item" href="http://localhost:5003?origin=proethica"
+                                            target="_blank">
+                                            <i class="bi bi-server me-2"></i>OntServe Web <i
+                                                class="bi bi-box-arrow-up-right ms-1"></i>
+                                        </a></li>
+                                    <li><a class="dropdown-item"
+                                            href="http://localhost:5003/ontologies?origin=proethica&filter=proethica" target="_blank">
+                                            <i class="bi bi-collection me-2"></i>Browse ProEthica Ontologies <i
+                                                class="bi bi-box-arrow-up-right ms-1"></i>
+                                        </a></li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="toolsDropdown" role="button"
+                                    data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bi bi-tools"></i> Tools
+                                </a>
+                                <ul class="dropdown-menu" aria-labelledby="toolsDropdown">
+                                    <li><a class="dropdown-item" href="/agent">
+                                            <i class="bi bi-chat-dots me-2"></i>AI Agent Assistant
+                                        </a></li>
+                                    <li><a class="dropdown-item" href="/experiment">
+                                            <i class="bi bi-flask me-2"></i>Experiments
+                                        </a></li>
+                                    <li><a class="dropdown-item" href="/tools/provenance">
+                                            <i class="bi bi-diagram-3 me-2"></i>Provenance Viewer
+                                        </a></li>
+                                    
+                                </ul>
+                            </li>
+                        </ul>
+                        <ul class="navbar-nav">
+                            <!-- Environment Indicator (Development Only) -->
+                            <li class="nav-item">
+                                <span class="navbar-text me-2">
+                                    
+                                    <span class="badge bg-info" title="Development Environment - Full access enabled">
+                                        <i class="bi bi-gear"></i> Development
+                                    </span>
+                                    
+                                </span>
+                            </li>
+
+                            <!-- User/Login Section -->
+                            
+                            <li class="nav-item">
+                                <a class="nav-link" href="/auth/login">
+                                    <i class="bi bi-box-arrow-in-right"></i> Login
+                                </a>
+                            </li>
+                            
+                        </ul>
+                    </div>
+                </div>
+            </nav>
+        </div>
+
+        <div class="content">
+            
+            
+            
+
+            
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <!-- Top Menu Bar -->
+            <div class="bg-light border rounded p-3 mb-4">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <a href="/scenario_pipeline/case/8/step3" class="btn btn-sm btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Back to Step 3
+                        </a>
+                        <button id="refreshFromOntServeBtn" class="btn btn-sm btn-info">
+                            <i class="bi bi-arrow-repeat"></i> Refresh from OntServe
+                        </button>
+                    </div>
+                    <div>
+                        <button id="clearAllEntitiesBtn" class="btn btn-sm btn-warning">
+                            <i class="bi bi-trash"></i> Clear Pass 3 Uncommitted
+                        </button>
+                        <button id="clearExtractedClassesBtn" class="btn btn-sm btn-danger">
+                            <i class="bi bi-x-circle"></i> Clear Extracted Classes
+                        </button>
+                        <button id="commitSelectedBtn" class="btn btn-sm btn-success">
+                            <i class="bi bi-check-circle"></i> Commit Selected to OntServe
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pass Information Header -->
+            <div class="bg-info bg-gradient text-white rounded p-3 mb-3">
+                <div class="row align-items-center">
+                    <div class="col-12">
+                        <h2 class="mb-1">
+                            <i class="bi bi-clock-history"></i> PASS 3: Temporal Dynamics
+                        </h2>
+                        <p class="mb-0">Case 8: Balancing Client Directives and Public Welfare: Stormwater Management Dilemma</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Entity Type Counts -->
+            <div class="row mb-3">
+                <!-- Actions -->
+                <div class="col-md-6 mb-2">
+                    <div class="card border-primary">
+                        <div class="card-body">
+                            <h5 class="card-title text-primary">
+                                <i class="bi bi-lightning"></i> Actions
+                            </h5>
+                            <div class="row text-center">
+                                <div class="col-6">
+                                    <div class="fs-3 fw-bold">0</div>
+                                    <small class="text-muted">Classes</small>
+                                </div>
+                                <div class="col-6">
+                                    <div class="fs-3 fw-bold">0</div>
+                                    <small class="text-muted">Individuals</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Events -->
+                <div class="col-md-6 mb-2">
+                    <div class="card border-warning">
+                        <div class="card-body">
+                            <h5 class="card-title text-warning">
+                                <i class="bi bi-calendar-event"></i> Events
+                            </h5>
+                            <div class="row text-center">
+                                <div class="col-6">
+                                    <div class="fs-3 fw-bold">0</div>
+                                    <small class="text-muted">Classes</small>
+                                </div>
+                                <div class="col-6">
+                                    <div class="fs-3 fw-bold">0</div>
+                                    <small class="text-muted">Individuals</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- RDF Entities Section -->
+            
+
+            
+
+            
+            <!-- No entities found -->
+            <div class="alert alert-info">
+                <h4>No Extracted Entities Found</h4>
+                <p>No entities have been extracted for this case yet. Try:</p>
+                <ul>
+                    <li>Go to <a href="/scenario_pipeline/case/8/step3">Step 3</a> and extract actions or events individually</li>
+                    <li>Run the complete entity extraction pass</li>
+                    <li>Check the console logs for any extraction errors</li>
+                </ul>
+            </div>
+            
+
+        </div>
+    </div>
+</div>
+
+<!-- Edit Entity Modal -->
+<div class="modal fade" id="editEntityModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Entity</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="editEntityForm">
+                    <input type="hidden" id="editEntityId">
+                    <div class="form-group">
+                        <label for="editLabel">Label</label>
+                        <input type="text" class="form-control" id="editLabel" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="editDescription">Description</label>
+                        <textarea class="form-control" id="editDescription" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="editReviewNotes">Review Notes</label>
+                        <textarea class="form-control" id="editReviewNotes" rows="2"
+                                  placeholder="Add any review notes or modifications..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveEntityBtn">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const caseId = 8;
+
+    // Load session count
+    appFetch(`/scenario_pipeline/case/${caseId}/entities/sessions`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.total_sessions !== undefined) {
+                document.getElementById('sessionCount').textContent = data.total_sessions;
+            }
+        })
+        .catch(error => {
+            document.getElementById('sessionCount').textContent = 'Error';
+            console.error('Error loading sessions:', error);
+        });
+
+    // Entity selection handling
+    document.querySelectorAll('.entity-select').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const entityId = this.dataset.entityId;
+            const selected = this.checked;
+            updateEntitySelection(entityId, selected);
+        });
+    });
+
+    // RDF Entity selection handling
+    document.querySelectorAll('.rdf-entity-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const entityId = this.dataset.entityId;
+            const entityType = this.dataset.entityType;
+            const selected = this.checked;
+            updateRDFEntitySelection(entityId, entityType, selected);
+        });
+    });
+
+    // RDF Class select all handling
+    const rdfClassSelectAll = document.querySelector('.rdf-class-select-all');
+    if (rdfClassSelectAll) {
+        rdfClassSelectAll.addEventListener('change', function() {
+            const checked = this.checked;
+            document.querySelectorAll('.rdf-entity-checkbox[data-entity-type="class"]').forEach(checkbox => {
+                checkbox.checked = checked;
+                updateRDFEntitySelection(checkbox.dataset.entityId, 'class', checked);
+            });
+        });
+    }
+
+    // RDF Individual select all handling
+    const rdfIndividualSelectAll = document.querySelector('.rdf-individual-select-all');
+    if (rdfIndividualSelectAll) {
+        rdfIndividualSelectAll.addEventListener('change', function() {
+            const checked = this.checked;
+            document.querySelectorAll('.rdf-entity-checkbox[data-entity-type="individual"]').forEach(checkbox => {
+                checkbox.checked = checked;
+                updateRDFEntitySelection(checkbox.dataset.entityId, 'individual', checked);
+            });
+        });
+    }
+
+    // Section select all handling
+    document.querySelectorAll('.section-select-all').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const section = this.dataset.section;
+            const checked = this.checked;
+
+            const card = this.closest('.card');
+            card.querySelectorAll('.entity-select').forEach(entityCheckbox => {
+                entityCheckbox.checked = checked;
+                const entityId = entityCheckbox.dataset.entityId;
+                updateEntitySelection(entityId, checked);
+            });
+        });
+    });
+
+    // Edit entity handling (placeholder for future functionality)
+    document.querySelectorAll('.edit-entity').forEach(button => {
+        button.addEventListener('click', function() {
+            const entityId = this.dataset.entityId;
+            // For now, just show a placeholder modal
+            document.getElementById('editEntityId').value = entityId;
+            // Note: Bootstrap modal would need to be handled differently without jQuery
+            console.log('Edit entity:', entityId);
+        });
+    });
+
+    // Foundation for property editing (future functionality)
+    // This code prepares for inline property editing capability
+    function preparePropertyEditing() {
+        // Add data attributes to property items for future editing
+        document.querySelectorAll('.property-item').forEach(item => {
+            const entityRow = item.closest('tr');
+            const entityCheckbox = entityRow?.querySelector('.rdf-entity-checkbox');
+            if (entityCheckbox) {
+                item.setAttribute('data-entity-id', entityCheckbox.dataset.entityId);
+                item.setAttribute('data-entity-type', entityCheckbox.dataset.entityType);
+            }
+
+            // Double-click handler (currently disabled)
+            item.addEventListener('dblclick', function(e) {
+                // Uncomment when edit functionality is implemented
+                // e.preventDefault();
+                // startPropertyEdit(this);
+            });
+        });
+    }
+
+    // Call preparation function
+    preparePropertyEditing();
+
+    // Future edit functions (placeholders)
+    function startPropertyEdit(propertyElement) {
+        // Will be implemented to enable inline editing
+        console.log('Property editing will be available in future update');
+    }
+
+    function savePropertyEdit(propertyElement, newValue) {
+        // Will be implemented to save edited properties
+        console.log('Property saving will be available in future update');
+    }
+
+    function cancelPropertyEdit(propertyElement) {
+        // Will be implemented to cancel property editing
+        console.log('Cancel editing will be available in future update');
+    }
+
+    // Commit selected entities
+    const commitBtn = document.getElementById('commitSelectedBtn');
+    if (commitBtn) {
+        commitBtn.addEventListener('click', function() {
+            console.log('Commit button clicked');
+            if (confirm('Commit selected entities to OntServe permanent storage?')) {
+                console.log('User confirmed commit');
+                this.disabled = true;
+                this.textContent = 'Committing...';
+
+                console.log('Making appFetch request to:', `/scenario_pipeline/case/${caseId}/entities/commit`);
+                appFetch(`/scenario_pipeline/case/${caseId}/entities/commit`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        commit_all_reviewed: false
+                    })
+                })
+                .then(response => {
+                    console.log('Response status:', response.status);
+                    console.log('Response headers:', response.headers);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Response data:', data);
+                    if (data.success) {
+                        // Updated to show classes and individuals separately
+                        let message = `Successfully committed:\n`;
+                        message += `• ${data.result.classes_committed || 0} new classes to proethica-intermediate-extracted\n`;
+                        message += `• ${data.result.individuals_committed || 0} individuals to proethica-case-${caseId}`;
+
+                        if (data.result.errors && data.result.errors.length > 0) {
+                            message += `\n\nWarnings:\n` + data.result.errors.join('\n');
+                        }
+
+                        alert(message);
+                        location.reload();
+                    } else {
+                        alert(`Error: ${data.error}`);
+                    }
+                })
+                .catch(error => {
+                    console.error('Fetch error:', error);
+                    alert(`Error: ${error}`);
+                })
+                .finally(() => {
+                    this.disabled = false;
+                    this.textContent = 'Commit Selected to OntServe';
+                });
+            }
+        });
+    }
+
+    // Refresh from OntServe button
+    const refreshBtn = document.getElementById('refreshFromOntServeBtn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', function() {
+            this.disabled = true;
+            const originalText = this.innerHTML;
+            this.innerHTML = '<i class="bi bi-arrow-repeat"></i> Refreshing...';
+
+            appFetch(`/scenario_pipeline/case/${caseId}/entities/refresh_committed`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show detailed refresh results
+                    let message = data.message || 'Refresh completed';
+
+                    if (data.result && data.result.details) {
+                        const modified = data.result.details.filter(d => d.status === 'modified').length;
+                        const unchanged = data.result.details.filter(d => d.status === 'unchanged').length;
+                        const notFound = data.result.details.filter(d => d.status === 'not_found').length;
+
+                        if (modified > 0) {
+                            message += `\n\nChanges detected:\n`;
+                            data.result.details.filter(d => d.status === 'modified').forEach(entity => {
+                                message += `- ${entity.entity_label}: ${entity.changes ? entity.changes.length : 0} field(s) updated\n`;
+                            });
+                        }
+
+                        if (notFound > 0) {
+                            message += `\n⚠ ${notFound} entities not found in OntServe (may have been deleted)`;
+                        }
+                    }
+
+                    alert(message);
+
+                    // Reload the page to show updated data
+                    if ((data.result && data.result.modified > 0) || data.deleted_count > 0) {
+                        location.reload();
+                    }
+                } else {
+                    alert('Error refreshing entities: ' + (data.error || 'Unknown error'));
+                }
+
+                this.disabled = false;
+                this.innerHTML = originalText;
+            })
+            .catch(error => {
+                console.error('Error refreshing entities:', error);
+                alert('Error refreshing entities: ' + error.message);
+                this.disabled = false;
+                this.innerHTML = originalText;
+            });
+        });
+    }
+
+    // Clear extracted classes button
+    const clearExtractedBtn = document.getElementById('clearExtractedClassesBtn');
+    if (clearExtractedBtn) {
+        clearExtractedBtn.addEventListener('click', function() {
+            if (confirm('This will clear ALL extracted classes from proethica-intermediate-extracted.ttl.\n\nA backup will be created before clearing.\n\nAre you sure you want to continue?')) {
+                this.disabled = true;
+                const originalText = this.innerHTML;
+                this.innerHTML = 'Clearing Classes...';
+
+                appFetch('/scenario_pipeline/ontology/clear_extracted_classes', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        let message = data.message || 'Successfully cleared extracted classes';
+                        if (data.result && data.result.backup_file) {
+                            message += `\n\nBackup saved to: ${data.result.backup_file}`;
+                        }
+                        alert(message);
+
+                        // Reload to reflect changes
+                        location.reload();
+                    } else {
+                        alert('Error clearing extracted classes: ' + (data.error || 'Unknown error'));
+                    }
+
+                    this.disabled = false;
+                    this.innerHTML = originalText;
+                })
+                .catch(error => {
+                    console.error('Error clearing extracted classes:', error);
+                    alert('Error clearing extracted classes: ' + error.message);
+                    this.disabled = false;
+                    this.innerHTML = originalText;
+                });
+            }
+        });
+    }
+
+    // Clear all uncommitted entities button
+    const clearBtn = document.getElementById('clearAllEntitiesBtn');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function() {
+            if (confirm('This will clear ONLY uncommitted Pass 3 entities (Actions and Events) for this case.\n\nPass 1 and Pass 2 entities will be preserved.\nCommitted entities in OntServe will be preserved.\n\nContinue?')) {
+                this.disabled = true;
+                this.textContent = 'Clearing Pass 3...';
+
+                // Clear only Pass 3 extraction types
+                appFetch(`/scenario_pipeline/case/${caseId}/entities/clear_by_types`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        extraction_types: ['actions', 'events']
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Show detailed message about what was cleared and preserved
+                        let message = data.message || `Cleared ${data.cleared_count} entities`;
+
+                        if (data.preserved_count && data.preserved_count > 0) {
+                            message += `\n\nNote: ${data.preserved_count} committed entities were preserved in OntServe and remain visible there.`;
+                        }
+
+                        alert(message);
+                        location.reload();
+                    } else {
+                        alert(`Error: ${data.error}`);
+                    }
+                })
+                .catch(error => {
+                    console.error('Clear error:', error);
+                    alert(`Error: ${error}`);
+                })
+                .finally(() => {
+                    this.disabled = false;
+                    this.textContent = 'Clear Pass 3 Uncommitted';
+                });
+            }
+        });
+    }
+
+    function updateEntitySelection(entityId, selected) {
+        appFetch(`/scenario_pipeline/case/${caseId}/entities/update_selection`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                entity_id: entityId,
+                selected: selected,
+                review_notes: ''
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update selected count
+                updateSelectedCount();
+            } else {
+                console.error('Error updating selection:', data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error updating selection:', error);
+        });
+    }
+
+    function updateRDFEntitySelection(entityId, entityType, selected) {
+        appFetch(`/scenario_pipeline/case/${caseId}/rdf_entities/update_selection`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                entity_id: entityId,
+                entity_type: entityType,
+                selected: selected
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update selected count
+                updateSelectedCount();
+            } else {
+                console.error('Error updating RDF entity selection:', data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error updating RDF entity selection:', error);
+        });
+    }
+
+    function updateSelectedCount() {
+        const selectedCount = document.querySelectorAll('.entity-select:checked').length;
+        const rdfSelectedCount = document.querySelectorAll('.rdf-entity-checkbox:checked').length;
+        const totalSelected = selectedCount + rdfSelectedCount;
+        document.getElementById('selectedCount').textContent = totalSelected;
+    }
+});
+</script>
+
+
+        </div>
+
+        <div class="footer">
+            <p>&copy; Christopher Rauch 2025. Licensed under the <a href="https://www.gnu.org/licenses/gpl-3.0.html">GNU
+                    GPL v3</a>.</p>
+            <div class="template-info mt-2" style="font-size: 12px; color: #aaa;">
+                <p class="mb-0">Template: entity_review.review_case_entities_pass3</p>
+                <p class="mb-0">Path: app/templates/scenarios/entity_review_pass3.html</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Global fetch helper with CSRF and auth redirect
+        (function () {
+            const loginUrl = "/auth/login";
+            function getCsrfToken() {
+                const el = document.querySelector('meta[name="csrf-token"]');
+                return el ? el.content : null;
+            }
+            function redirectToLogin() {
+                const nextUrl = encodeURIComponent(window.location.pathname + window.location.search + window.location.hash);
+                window.location.href = `${loginUrl}?next=${nextUrl}`;
+            }
+            async function appFetch(url, options = {}) {
+                const opts = { credentials: 'same-origin', ...options };
+                const method = (opts.method || 'GET').toUpperCase();
+                const headers = new Headers(opts.headers || {});
+                if (method !== 'GET' && !headers.has('X-CSRFToken')) {
+                    const token = getCsrfToken();
+                    if (token) headers.set('X-CSRFToken', token);
+                }
+                opts.headers = headers;
+                const resp = await fetch(url, opts);
+                if (resp.status === 401 || resp.status === 403) {
+                    redirectToLogin();
+                    return resp;
+                }
+                if (resp.redirected && resp.url && resp.url.includes('/auth/login')) {
+                    redirectToLogin();
+                    return resp;
+                }
+                return resp;
+            }
+            window.APP_LOGIN_URL = loginUrl;
+            window.appFetch = appFetch;
+        })();
+    </script>
+    
+    <script>
+        function toggleDescription(worldId) {
+            const description = document.getElementById(`description-${worldId}`);
+            const toggleBtn = document.getElementById(`toggle-btn-${worldId}`);
+            if (description.classList.contains('text-truncate')) {
+                description.classList.remove('text-truncate');
+                toggleBtn.textContent = 'Show Less';
+            } else {
+                description.classList.add('text-truncate');
+                toggleBtn.textContent = 'Show More';
+            }
+        }
+    </script>
+    
+</body>
+
+</html>
