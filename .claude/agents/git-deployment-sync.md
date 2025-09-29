@@ -72,3 +72,76 @@ Keep the repository clean and organized, ensuring that all deployment-related sc
 
 Your responses are structured, methodical, and include verification steps at each stage of deployment. You proactively identify potential issues and suggest preventive measures.
 
+## ProEthica Deployment Lessons Learned (September 2025)
+
+### SSH Key Management
+- If SSH passphrase blocks deployment, user can remove it with: `ssh-keygen -p -f ~/.ssh/id_ed25519`
+- Ensure SSH key is added to ssh-agent for seamless authentication
+- Test SSH connection before deployment: `ssh digitalocean "echo connected"`
+
+### Database Migration Strategy
+- **Preferred Method**: Dump development database and restore to production
+  - Development: `pg_dump -U postgres -h localhost ai_ethical_dm > /tmp/proethica_dev_backup.sql`
+  - Copy to server: `scp /tmp/proethica_dev_backup.sql digitalocean:/tmp/`
+  - Production restore: `PGPASSWORD=ProEthicaSecure2025 psql -U proethica_user -h localhost -d ai_ethical_dm < /tmp/proethica_dev_backup.sql`
+- This preserves all data, relationships, and schema from development
+- More reliable than running migrations from scratch
+
+### Environment Configuration
+- **Critical Files to Configure**:
+  - `/opt/proethica/.env` - Must contain all API keys and database credentials
+  - Database URL format: `postgresql://proethica_user:ProEthicaSecure2025@localhost:5432/ai_ethical_dm`
+  - Required API keys: ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY
+- **Python Dependencies Often Missing**: psutil, scikit-learn, openai, google-generativeai
+  - Install with: `pip install psutil scikit-learn openai google-generativeai`
+
+### nginx Configuration for ProEthica
+- Main application should be served at root `/`
+- Demo page at `/demo` path (not redirect from root)
+- Correct configuration:
+  ```nginx
+  location / {
+      proxy_pass http://127.0.0.1:5000;
+      proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
+  }
+
+  location /demo {
+      alias /opt/proethica/demo;
+      index index.html;
+  }
+  ```
+- After nginx changes: `sudo nginx -s reload`
+
+### Service Management
+- ProEthica runs as Flask development server (not systemd service initially)
+- Start with: `cd /opt/proethica && source venv/bin/activate && python run.py`
+- For background running: `nohup python run.py > proethica.log 2>&1 &`
+- Check if running: `ps aux | grep 'python run.py' | grep -v grep`
+
+### Common Deployment Issues and Solutions
+1. **Database Authentication Errors**:
+   - Create user if needed: `CREATE USER proethica_user WITH PASSWORD 'ProEthicaSecure2025';`
+   - Update existing user password: `ALTER USER proethica_user WITH PASSWORD 'ProEthicaSecure2025';`
+   - Grant privileges: `GRANT ALL PRIVILEGES ON DATABASE ai_ethical_dm TO proethica_user;`
+
+2. **Missing Python Dependencies**:
+   - Always check requirements.txt but be prepared to install additional packages
+   - Common missing: psutil, scikit-learn, openai, google-generativeai
+
+3. **API Key Issues**:
+   - Claude may fall back to mock mode if ANTHROPIC_API_KEY format is incorrect
+   - Verify all keys are in .env file on production server
+
+4. **Browser Cache Issues**:
+   - Users may see old redirects due to browser caching
+   - Advise users to clear cache or use incognito mode after deployment changes
+
+### Verification Steps
+1. Test Flask directly: `curl -I http://127.0.0.1:5000/`
+2. Test nginx proxy: `curl -I https://proethica.org/`
+3. Check page content: `curl -s https://proethica.org/ | grep '<title>'`
+4. Verify demo page: `curl -s https://proethica.org/demo/ | grep '<title>'`
+5. Check process: `ps aux | grep 'python run.py'`
+6. Review logs: `tail -f /opt/proethica/proethica.log`
+
