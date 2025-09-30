@@ -58,10 +58,24 @@ class TestingConfig(Config):
     SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
 
 
+class ProductionSimulationConfig(Config):
+    """Production simulation configuration for local testing.
+
+    This configuration mimics production authentication behavior
+    while running locally. Use this to test authentication requirements
+    before deploying to production.
+    """
+    DEBUG = True  # Keep debug on for local development
+    ENVIRONMENT = 'production'  # Mimics production auth behavior
+    # Can add a visual indicator that we're in simulation mode
+    PRODUCTION_SIMULATION = True
+
+
 # Configuration mapping
 config = {
     'development': DevelopmentConfig,
     'production': ProductionConfig,
     'testing': TestingConfig,
+    'production-simulation': ProductionSimulationConfig,
     'default': DevelopmentConfig
 }

@@ -12,6 +12,10 @@ from flask import Blueprint, render_template, request, jsonify, redirect, url_fo
 from app.models import Document, db, TemporaryRDFStorage
 from app.services.case_entity_storage_service import CaseEntityStorageService
 from app.models.temporary_concept import TemporaryConcept
+from app.utils.environment_auth import (
+    auth_optional,
+    auth_required_for_write
+)
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +47,7 @@ def update_rdf_entity_selection(case_id):
 
 @bp.route('/case/<int:case_id>/entities/review')
 @bp.route('/case/<int:case_id>/entities/review/pass1')  # Explicit Pass 1
+@auth_optional  # Allow viewing without auth
 def review_case_entities(case_id):
     """Display PASS 1 (Contextual Framework) extracted entities for a case."""
     try:
@@ -130,6 +135,7 @@ def review_case_entities(case_id):
 
 
 @bp.route('/case/<int:case_id>/entities/review/pass2')
+@auth_optional  # Allow viewing without auth
 def review_case_entities_pass2(case_id):
     """Display PASS 2 (Normative Requirements) extracted entities for a case."""
     try:
@@ -192,6 +198,7 @@ def review_case_entities_pass2(case_id):
 
 
 @bp.route('/case/<int:case_id>/entities/review/pass3')
+@auth_optional  # Allow viewing without auth
 def review_case_entities_pass3(case_id):
     """Display PASS 3 (Temporal Dynamics) extracted entities for a case."""
     try:
@@ -368,6 +375,7 @@ def update_entity_selection(case_id):
 
 
 @bp.route('/case/<int:case_id>/entities/commit', methods=['POST'])
+@auth_required_for_write  # Require auth for write operations
 def commit_entities_to_ontserve(case_id):
     """Commit selected RDF entities to OntServe permanent storage."""
     try:
@@ -526,6 +534,7 @@ def list_extraction_sessions(case_id):
 
 
 @bp.route('/case/<int:case_id>/entities/clear_by_types', methods=['POST'])
+@auth_required_for_write  # Require auth for write operations
 def clear_entities_by_types(case_id):
     """Clear temporary entities for specific extraction types."""
     try:
@@ -616,6 +625,7 @@ def clear_entities_by_types(case_id):
 
 
 @bp.route('/case/<int:case_id>/entities/clear_all', methods=['POST'])
+@auth_required_for_write  # Require auth for write operations
 def clear_all_entities(case_id):
     """Clear all temporary entities, RDF storage, and extraction prompts for a case."""
     try:
@@ -818,6 +828,7 @@ def clear_extracted_classes():
 
 
 @bp.route('/case/<int:case_id>/entities/refresh_committed', methods=['POST'])
+@auth_required_for_write  # Require auth for write operations
 def refresh_committed_from_ontserve(case_id):
     """Refresh committed entities with live data from OntServe.
 

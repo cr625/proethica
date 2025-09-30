@@ -61,12 +61,14 @@ def scenario_pipeline_builder(case_id):
         return redirect(url_for('cases.view_case', id=case_id))
 
 @interactive_scenario_bp.route('/case/<int:case_id>/overview')
+@auth_optional  # Allow viewing without auth
 def overview(case_id):
     """Route handler for Case Overview"""
     from .overview import step1 as overview_handler
     return overview_handler(case_id)
 
 @interactive_scenario_bp.route('/case/<int:case_id>/step1')
+@auth_optional  # Allow viewing without auth
 def step1(case_id):
     """Route handler for Step 1: Entities Pass (Roles + Resources) on Facts Section"""
     from .step1 import step1 as step1_handler
@@ -112,18 +114,21 @@ def entities_pass_prompt(case_id):
     return prompt_handler(case_id)
 
 @interactive_scenario_bp.route('/case/<int:case_id>/entities_pass_execute', methods=['POST'])
+@auth_required_for_llm
 def entities_pass_execute(case_id):
     """API endpoint to execute entities pass extraction"""
     from .step1 import entities_pass_execute as execute_handler
     return execute_handler(case_id)
 
 @interactive_scenario_bp.route('/case/<int:case_id>/entities_pass_execute_streaming', methods=['POST'])
+@auth_required_for_llm
 def entities_pass_execute_streaming(case_id):
     """API endpoint to execute entities pass extraction with streaming updates"""
     from .step1_enhanced import entities_pass_execute_streaming as streaming_handler
     return streaming_handler(case_id)
 
 @interactive_scenario_bp.route('/case/<int:case_id>/step2')
+@auth_optional  # Allow viewing without auth
 def step2(case_id):
     """Route handler for Step 2: Normative Pass (Principles + Obligations + Constraints) on Facts Section"""
     from .step2 import step2 as step2_handler
@@ -136,6 +141,7 @@ def normative_pass_prompt(case_id):
     return prompt_handler(case_id)
 
 @interactive_scenario_bp.route('/case/<int:case_id>/normative_pass_execute', methods=['POST'])
+@auth_required_for_llm
 def normative_pass_execute(case_id):
     """API endpoint to execute normative pass extraction"""
     from .step2 import normative_pass_execute as execute_handler
@@ -194,12 +200,14 @@ def step2_streaming(case_id):
                          saved_prompts=saved_prompts)
 
 @interactive_scenario_bp.route('/case/<int:case_id>/normative_pass_execute_streaming', methods=['POST'])
+@auth_required_for_llm
 def normative_pass_execute_streaming(case_id):
     """API endpoint to execute normative pass extraction with streaming updates"""
     from .step2_enhanced import normative_pass_execute_streaming as streaming_handler
     return streaming_handler(case_id)
 
 @interactive_scenario_bp.route('/case/<int:case_id>/step3')
+@auth_optional  # Allow viewing without auth
 def step3(case_id):
     """Route handler for Step 3: Behavioral Pass (States + Actions + Events + Capabilities) on Facts Section"""
     from .step3 import step3 as step3_handler
@@ -212,6 +220,7 @@ def behavioral_pass_prompt(case_id):
     return prompt_handler(case_id)
 
 @interactive_scenario_bp.route('/case/<int:case_id>/behavioral_pass_execute', methods=['POST'])
+@auth_required_for_llm
 def behavioral_pass_execute(case_id):
     """API endpoint to execute behavioral pass extraction"""
     from .step3 import behavioral_pass_execute as execute_handler
