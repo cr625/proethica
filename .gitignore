@@ -1,5 +1,3 @@
-# Server-specific configuration
-server_config/
 # Python
 __pycache__/
 *.py[cod]
@@ -38,6 +36,7 @@ instance/
 # Environment variables
 .env
 *.env
+.env.backup
 !.env.example
 !.env.enc
 !mcp.env.example
@@ -48,10 +47,6 @@ instance/
 *.swp
 *.swo
 
-# Ignore scripts and scratch directories
-scripts/
-scratch/
-
 # OS
 .DS_Store
 .DS_Store?
@@ -61,17 +56,24 @@ scratch/
 ehthumbs.db
 Thumbs.db
 
-# Logs
+# Logs and temporary files
 logs/
 *.log
-migrations
+app.log
+server.log
 .outfile
+*.pid
+.mcp_server.pid
 mcp/profile.out
 mcp/server.log
-.secretsserver_config/
-run_with_agents_gunicorn.sh
-.secrets
-.env.backup
+
+# Temporary HTML/output files
+*.html
+!app/templates/**/*.html
+pass3_output.html
+pass3_page.html
+login_page.html
+scenario_demo.html
 
 # Lock files
 *.lock
@@ -83,12 +85,14 @@ package-lock.json
 
 # External Repositories
 _src/
+
 # Backup files
 *.bak*
-mcp_server.pid
 
-# Development documentation (not for public version control)
+# Claude AI related files
+.claude/
 CLAUDE.md
+**/CLAUDE.md
 
 # Documentation directories (development/internal only)
 docs/
@@ -112,14 +116,31 @@ cache/
 *_cache/
 */*_cache/
 
-# Test and temporary files
+# Test directories and files
+tests/
+*/tests/
 test_*.py
 *_test.py
+
+# Temporary files
 *.temp
 temp_*/
 *_temp/
-scenario_demo.html
 add_decision_points*.sql
 check_decisions.py
 *_analysis.py
 *_refined.py
+
+# Server-specific configuration
+server_config/
+run_with_agents_gunicorn.sh
+.secrets
+migrations
+
+# Ontology editor and legacy directories
+ontology_editor/
+mclaren/
+realm/
+nspe-pipeline/
+ttl_triple_association/
+demo/
