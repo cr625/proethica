@@ -6,6 +6,11 @@ import os
 from flask import Blueprint, request, jsonify, current_app, send_file
 from werkzeug.utils import secure_filename
 import logging
+from app.utils.environment_auth import (
+    auth_optional,
+    auth_required_for_write,
+    auth_required_for_llm
+)
 
 from app import db
 from app.models import Document, DocumentChunk
@@ -32,6 +37,7 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 @documents_bp.route('', methods=['POST'])
+@auth_required_for_write
 def upload_document():
     """Upload a document and process it for embeddings."""
     try:
@@ -103,6 +109,7 @@ def upload_document():
         return jsonify({"error": str(e)}), 500
 
 @documents_bp.route('', methods=['GET'])
+@auth_optional
 def get_documents():
     """Get all documents, optionally filtered by world_id or document_type."""
     try:
@@ -138,6 +145,7 @@ def get_documents():
         return jsonify({"error": str(e)}), 500
 
 @documents_bp.route('/<int:document_id>', methods=['GET'])
+@auth_optional
 def get_document(document_id):
     """Get a specific document by ID."""
     try:
@@ -177,6 +185,7 @@ def download_document(document_id):
         return jsonify({"error": str(e)}), 500
 
 @documents_bp.route('/<int:document_id>', methods=['DELETE'])
+@auth_required_for_write
 def delete_document(document_id):
     """Delete a document by ID."""
     try:

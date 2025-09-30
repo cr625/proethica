@@ -9,6 +9,12 @@ from urllib.parse import urlparse
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
 from flask_login import login_required, current_user
 from flask_wtf.csrf import CSRFProtect
+from app.utils.environment_auth import (
+    auth_optional,
+    auth_required_for_write,
+    auth_required_for_llm,
+    development_only
+)
 from app.models import Document
 from app.models.document import PROCESSING_STATUS
 from app.models.world import World
@@ -40,6 +46,7 @@ def init_cases_csrf_exemption(app):
         app.csrf.exempt(clear_scenario)
 
 @cases_bp.route('/', methods=['GET'])
+@auth_optional
 def list_cases():
     """Display all cases."""
     # Get world filter from query parameters
@@ -333,6 +340,7 @@ def search_cases():
     )
 
 @cases_bp.route('/<int:id>', methods=['GET'])
+@auth_optional
 def view_case(id):
     """Display a specific case."""
     # Try to get the case as a document
@@ -820,6 +828,7 @@ def upload_document_form():
     return render_template('create_case_from_document.html', worlds=worlds)
 
 @cases_bp.route('/<int:id>/delete', methods=['POST'])
+@auth_required_for_write
 def delete_case(id):
     """Delete a case by ID."""
     # Try to get the case as a document
@@ -856,6 +865,7 @@ def delete_case(id):
     return redirect(url_for('cases.list_cases'))
 
 @cases_bp.route('/new/manual', methods=['POST'])
+@auth_required_for_write
 def create_case_manual():
     """Create a new case manually."""
     # Get form data
@@ -979,6 +989,7 @@ def create_case_manual():
     return redirect(url_for('cases.view_case', id=document.id))
     
 @cases_bp.route('/new/url', methods=['POST'])
+@auth_required_for_write
 def create_from_url():
     """Create a new case from URL."""
     # Get form data
@@ -1181,6 +1192,7 @@ def create_from_url():
         return redirect(url_for('cases.url_form'))
 
 @cases_bp.route('/new/document', methods=['POST'])
+@auth_required_for_write
 def create_from_document():
     """Create a new case from document upload."""
     # Get form data
@@ -1313,6 +1325,7 @@ def edit_case_form(id):
     return render_template('edit_case_details.html', document=document, world=world)
 
 @cases_bp.route('/<int:id>/edit', methods=['POST'])
+@auth_required_for_write
 def edit_case(id):
     """Process the case edit form submission."""
     # Try to get the case as a document
@@ -1705,7 +1718,7 @@ def get_related_cases():
 
 # Scenario Generation Routes
 @cases_bp.route('/<int:case_id>/generate_scenario', methods=['POST'])
-@login_required
+@auth_required_for_llm
 def generate_scenario_from_case(case_id):
     """Generate a scenario from a case using background processing."""
     try:
@@ -1822,7 +1835,7 @@ def get_scenario_status(case_id):
 
 
 @cases_bp.route('/<int:case_id>/create_scenario_template', methods=['POST'])
-@login_required
+@auth_required_for_llm
 def create_scenario_template(case_id):
     """Create a scenario template from a deconstructed case."""
     try:
@@ -1862,7 +1875,7 @@ def create_scenario_template(case_id):
 
 
 @cases_bp.route('/templates/<int:template_id>/create_scenario', methods=['POST'])
-@login_required
+@auth_required_for_llm
 def create_scenario_from_template(template_id):
     """Create a playable scenario from a template."""
     try:
@@ -1978,6 +1991,7 @@ def generate_direct_scenario(case_id):
 
 
 @cases_bp.route('/<int:case_id>/scenario', methods=['GET'])
+@auth_optional
 def view_case_scenario(case_id):
     """Display the generated scenario timeline and ProEthica categories for a case."""
     try:
@@ -2200,7 +2214,7 @@ def clear_scenario(case_id):
 
 
 @cases_bp.route('/new/agent', methods=['GET'])
-@login_required
+@auth_required_for_write
 def agent_assisted_creation():
     """Display agent-assisted case creation interface with ontology integration."""
     try:
@@ -2244,7 +2258,7 @@ def agent_assisted_creation():
 
 
 @cases_bp.route('/new/agent/api', methods=['POST'])
-@login_required
+@auth_required_for_llm
 def agent_creation_api():
     """API endpoint for agent interactions with ontology integration."""
     try:
@@ -2306,7 +2320,7 @@ def agent_creation_api():
 
 
 @cases_bp.route('/new/agent/concepts/<category>', methods=['GET'])
-@login_required 
+@auth_optional
 def get_category_concepts(category):
     """Get concepts for a specific ontological category."""
     try:
@@ -2339,7 +2353,7 @@ def get_category_concepts(category):
 
 
 @cases_bp.route('/new/agent/generate', methods=['POST'])
-@login_required
+@auth_required_for_llm
 def generate_case_from_conversation():
     """Generate NSPE-format case from agent conversation."""
     try:

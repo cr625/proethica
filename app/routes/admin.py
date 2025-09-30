@@ -17,6 +17,7 @@ import requests
 import psycopg2
 import json
 from app.utils.auth_utils import admin_required
+from app.utils.environment_auth import admin_required_production
 from app.services.test_data_reset_service import TestDataResetService
 from app.models.user import User
 from app.models.world import World
@@ -97,8 +98,7 @@ def get_ontology_sync_status():
     return sync_status
 
 @admin_bp.route('/')
-@login_required
-@admin_required
+@admin_required_production
 def dashboard():
     """Admin dashboard with system overview and management tools."""
     
@@ -186,8 +186,7 @@ def dashboard():
 
 # Cleanup endpoint for guideline triples
 @admin_bp.route('/cleanup/guideline-triples', methods=['POST'])
-@login_required
-@admin_required
+@admin_required_production
 def cleanup_guideline_triples():
     """Delete non-core guideline triples and nullify orphan references.
 
@@ -213,8 +212,7 @@ def cleanup_guideline_triples():
     return jsonify(result), status
 
 @admin_bp.route('/users')
-@login_required
-@admin_required
+@admin_required_production
 def users():
     """User management interface."""
     
@@ -241,8 +239,7 @@ def users():
     return render_template('admin/users.html', users=user_data)
 
 @admin_bp.route('/user/<int:user_id>/summary')
-@login_required
-@admin_required
+@admin_required_production
 def user_data_summary(user_id):
     """Get detailed data summary for a specific user."""
     
@@ -255,8 +252,7 @@ def user_data_summary(user_id):
     return jsonify(summary)
 
 @admin_bp.route('/user/<int:user_id>/reset', methods=['POST'])
-@login_required
-@admin_required
+@admin_required_production
 def reset_user_data(user_id):
     """Reset data for a specific user."""
     
@@ -278,8 +274,7 @@ def reset_user_data(user_id):
         return jsonify(result), 500
 
 @admin_bp.route('/users/bulk-reset', methods=['POST'])
-@login_required
-@admin_required
+@admin_required_production
 def bulk_reset_users():
     """Reset data for all test users."""
     
@@ -303,8 +298,7 @@ def bulk_reset_users():
     # --- Guideline management ----------------------------------------------------
 
     @admin_bp.route('/guidelines/<int:guideline_id>/delete', methods=['POST'])
-    @login_required
-    @admin_required
+    @admin_required_production
     def delete_guideline_by_id(guideline_id: int):
         """Hard delete a guideline and cascade-related records.
 
@@ -388,8 +382,7 @@ def bulk_reset_users():
             return jsonify({'success': False, 'error': str(e)}), 500
 
 @admin_bp.route('/data-overview')
-@login_required
-@admin_required
+@admin_required_production
 def data_overview():
     """Detailed data breakdown and management interface."""
     
@@ -462,8 +455,7 @@ def data_overview():
     return render_template('admin/data_overview.html', data_stats=data_stats)
 
 @admin_bp.route('/audit-log')
-@login_required
-@admin_required
+@admin_required_production
 def audit_log():
     """View audit log of admin actions."""
     
@@ -491,8 +483,7 @@ def audit_log():
     return render_template('admin/audit_log.html', audit_entries=audit_entries)
 
 @admin_bp.route('/system-health')
-@login_required
-@admin_required
+@admin_required_production
 def system_health():
     """System diagnostics page showing real-time technical status and debugging information."""
     

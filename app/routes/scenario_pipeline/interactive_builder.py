@@ -8,6 +8,11 @@ for building scenarios from cases.
 import logging
 from flask import Blueprint, render_template, redirect, url_for, flash
 from app.models import Document
+from app.utils.environment_auth import (
+    auth_optional,
+    auth_required_for_write,
+    auth_required_for_llm
+)
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +20,7 @@ logger = logging.getLogger(__name__)
 interactive_scenario_bp = Blueprint('scenario_pipeline', __name__, url_prefix='/scenario_pipeline')
 
 @interactive_scenario_bp.route('/case/<int:case_id>')
+@auth_optional
 def scenario_pipeline_builder(case_id):
     """
     Interactive scenario pipeline builder starting page.
@@ -136,12 +142,14 @@ def normative_pass_execute(case_id):
     return execute_handler(case_id)
 
 @interactive_scenario_bp.route('/case/<int:case_id>/step2/extract', methods=['POST'])
+@auth_required_for_llm
 def step2_extract(case_id):
     """API endpoint for Step 2 extraction (alias for normative_pass_execute)"""
     from .step2 import normative_pass_execute as execute_handler
     return execute_handler(case_id)
 
 @interactive_scenario_bp.route('/case/<int:case_id>/step1/extract_individual', methods=['POST'])
+@auth_required_for_llm
 def step1_extract_individual(case_id):
     """API endpoint for individual concept extraction in Step 1"""
     from .step1 import extract_individual_concept as individual_handler
@@ -154,6 +162,7 @@ def step1_get_saved_prompt(case_id):
     return prompt_handler(case_id)
 
 @interactive_scenario_bp.route('/case/<int:case_id>/step2/extract_individual', methods=['POST'])
+@auth_required_for_llm
 def step2_extract_individual(case_id):
     """API endpoint for individual concept extraction in Step 2"""
     from .step2 import extract_individual_concept as individual_handler
@@ -209,12 +218,14 @@ def behavioral_pass_execute(case_id):
     return execute_handler(case_id)
 
 @interactive_scenario_bp.route('/case/<int:case_id>/step3/extract', methods=['POST'])
+@auth_required_for_llm
 def step3_extract(case_id):
     """API endpoint for Step 3 extraction (alias for behavioral_pass_execute)"""
     from .step3 import behavioral_pass_execute as execute_handler
     return execute_handler(case_id)
 
 @interactive_scenario_bp.route('/case/<int:case_id>/step3/extract_individual', methods=['POST'])
+@auth_required_for_llm
 def step3_extract_individual(case_id):
     """API endpoint for individual actions & events extraction in Step 3"""
     from .step3 import extract_individual_actions_events as individual_handler
