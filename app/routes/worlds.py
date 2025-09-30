@@ -1,6 +1,11 @@
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash, session
 from flask_login import login_required, current_user
 from app.utils.auth_utils import admin_required, data_owner_required
+from app.utils.environment_auth import (
+    auth_optional,
+    auth_required_for_write,
+    auth_required_for_llm
+)
 import json
 import ast
 import re
@@ -58,12 +63,14 @@ def api_get_world(id):
 
 # Web routes
 @worlds_bp.route('/', methods=['GET'])
+@auth_optional
 def list_worlds():
     """Display all worlds."""
     worlds = World.query.all()
     return render_template('worlds.html', worlds=worlds)
 
 @worlds_bp.route('/new', methods=['GET'])
+@auth_required_for_write
 def new_world():
     """Display form to create a new world."""
     # Fetch all available ontologies for the dropdown
@@ -94,6 +101,7 @@ def new_world():
     return render_template('create_world.html', ontologies=ontologies)
 
 @worlds_bp.route('/', methods=['POST'])
+@auth_required_for_write
 def create_world():
     """Create a new world."""
     # Check if the request is JSON or form data
@@ -232,7 +240,7 @@ def edit_world(id):
     return render_template('edit_world.html', world=world, ontologies=ontologies)
 
 @worlds_bp.route('/<int:id>/edit', methods=['POST'])
-@login_required
+@auth_required_for_write
 def update_world_form(id):
     """Update an existing world from form data."""
     world = World.query.get_or_404(id)
@@ -484,7 +492,7 @@ def delete_world(id):
     })
 
 @worlds_bp.route('/<int:id>/delete', methods=['POST'])
-@login_required
+@auth_required_for_write
 def delete_world_confirm(id):
     """Delete a world from web form."""
     world = World.query.get_or_404(id)
