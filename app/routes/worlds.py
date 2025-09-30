@@ -4,7 +4,8 @@ from app.utils.auth_utils import admin_required, data_owner_required
 from app.utils.environment_auth import (
     auth_optional,
     auth_required_for_write,
-    auth_required_for_llm
+    auth_required_for_llm,
+    auth_required_for_create
 )
 import json
 import ast
@@ -70,9 +71,9 @@ def list_worlds():
     return render_template('worlds.html', worlds=worlds)
 
 @worlds_bp.route('/new', methods=['GET'])
-@auth_required_for_write
+@auth_required_for_create
 def new_world():
-    """Display form to create a new world."""
+    """Display form to create a new world - requires login in production."""
     # Fetch all available ontologies for the dropdown
     ontologies = Ontology.query.all()
     

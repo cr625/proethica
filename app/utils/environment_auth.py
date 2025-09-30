@@ -129,3 +129,27 @@ def admin_required_production(f):
         return f(*args, **kwargs)
 
     return decorated_function
+
+
+def auth_required_for_create(f):
+    """
+    Decorator that requires authentication for creation forms and actions.
+    This includes both GET requests (forms) and POST requests (actions).
+    In development mode, authentication is optional.
+    """
+    @functools.wraps(f)
+    def decorated_function(*args, **kwargs):
+        # In development mode, bypass authentication
+        if not is_production():
+            return f(*args, **kwargs)
+
+        # In production, always require authentication
+        if not current_user.is_authenticated:
+            if request.is_json or request.path.startswith('/api/'):
+                abort(401)
+            flash('Please log in to create content.', 'warning')
+            return redirect(url_for('auth.login', next=request.url))
+
+        return f(*args, **kwargs)
+
+    return decorated_function
