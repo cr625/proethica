@@ -87,6 +87,102 @@ Your responses are structured, methodical, and include verification steps at eac
 - This preserves all data, relationships, and schema from development
 - More reliable than running migrations from scratch
 
+### Database Synchronization for Sample Data
+**Purpose**: Periodically sync development sample data to production for testing and demonstration
+**Note**: Production database uses different credentials than development
+
+#### Development to Production Data Sync Process
+1. **Create Development Database Dump**:
+   ```bash
+   # Full database dump with all sample data
+   pg_dump -U postgres -h localhost ai_ethical_dm \
+     --data-only \
+     --table=documents \
+     --table=worlds \
+     --table=scenarios \
+     --table=document_sections \
+     --table=document_chunks \
+     > /home/chris/onto/proethica/database_backups/proethica_sample_data_$(date +%Y%m%d).sql
+   ```
+
+2. **Transfer to Production Server**:
+   ```bash
+   scp /home/chris/onto/proethica/database_backups/proethica_sample_data_*.sql \
+     digitalocean:/tmp/
+   ```
+
+3. **Restore on Production Server**:
+   ```bash
+   # SSH to server
+   ssh digitalocean
+
+   # Restore with production credentials
+   PGPASSWORD=ProEthicaSecure2025 psql \
+     -U proethica_user \
+     -h localhost \
+     -d ai_ethical_dm \
+     < /tmp/proethica_sample_data_*.sql
+   ```
+
+#### Handling Import Conflicts
+**Note**: Some tables may have existing data causing duplicate key violations
+
+**Non-Destructive Import** (ADD to existing data):
+```bash
+# Use simple_restore.sh script for non-destructive import
+ssh digitalocean "cd /opt/proethica/database_backups && ./simple_restore.sh"
+```
+
+**Destructive Import** (REPLACE existing data):
+```bash
+# Use restore_sample_data.sh for complete replacement
+# WARNING: This will delete existing cases!
+ssh digitalocean "cd /opt/proethica/database_backups && ./restore_sample_data.sh"
+```
+
+#### Automated Sync Script
+Create `/home/chris/onto/proethica/scripts/sync_data_to_production.sh`:
+```bash
+#!/bin/bash
+# Sync ProEthica sample data from development to production
+
+set -e
+
+echo "Creating development database dump..."
+pg_dump -U postgres -h localhost ai_ethical_dm \
+  --data-only \
+  --table=documents \
+  --table=worlds \
+  --table=scenarios \
+  > /tmp/proethica_sync_$(date +%Y%m%d_%H%M%S).sql
+
+echo "Transferring to production..."
+scp /tmp/proethica_sync_*.sql digitalocean:/tmp/
+
+echo "Restoring on production..."
+ssh digitalocean "PGPASSWORD=ProEthicaSecure2025 psql -U proethica_user -h localhost -d ai_ethical_dm < /tmp/proethica_sync_*.sql"
+
+echo "Data sync complete!"
+```
+
+#### Incremental Updates Only
+For adding new cases without affecting existing data:
+```bash
+# Export only new cases (e.g., cases created today)
+pg_dump -U postgres -h localhost ai_ethical_dm \
+  --data-only \
+  --table=documents \
+  --where="created_at >= CURRENT_DATE" \
+  > /tmp/proethica_new_cases.sql
+```
+
+#### Production Database Credentials
+- **User**: proethica_user
+- **Password**: ProEthicaSecure2025
+- **Database**: ai_ethical_dm
+- **Host**: localhost
+- **Connection String**: `postgresql://proethica_user:ProEthicaSecure2025@localhost:5432/ai_ethical_dm`
+
 ### Environment Configuration
 - **Critical Files to Configure**:
   - `/opt/proethica/.env` - Must contain all API keys and database credentials
