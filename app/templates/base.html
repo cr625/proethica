@@ -41,6 +41,31 @@
             white-space: normal;
             /* Ensure text wraps */
         }
+
+        /* Disabled menu items styling */
+        .dropdown-item.disabled-tool {
+            color: #999 !important;
+            cursor: not-allowed !important;
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .dropdown-item.disabled-tool:hover {
+            background-color: transparent !important;
+            color: #999 !important;
+        }
+
+        /* Auth required indicators */
+        .auth-indicator {
+            font-size: 0.75em;
+            opacity: 0.7;
+            margin-left: auto;
+        }
+
+        .dropdown-item .auth-indicator {
+            float: right;
+            margin-left: 10px;
+        }
     </style>
     {% block styles %}{% endblock %}
 </head>
@@ -70,24 +95,32 @@
                                     <li><a class="dropdown-item" href="/worlds">
                                             <i class="bi bi-list-ul me-2"></i>View All Domains
                                         </a></li>
-                                    <li><a class="dropdown-item" href="/worlds/new">
-                                            <i class="bi bi-plus-circle me-2"></i>Create New Domain
-                                        </a></li>
+                                    <li>
+                                        <a class="dropdown-item" href="/worlds/new">
+                                            <i class="bi bi-plus-circle me-2"></i>Create New Domain{% if environment == 'production' %} <small><i class="bi bi-lock-fill"></i></small>{% endif %}
+                                        </a>
+                                    </li>
                                     <li>
                                         <hr class="dropdown-divider">
                                     </li>
                                     <li>
                                         <h6 class="dropdown-header">Quick Access</h6>
                                     </li>
-                                    <li><a class="dropdown-item" href="/cases">
+                                    <li>
+                                        <a class="dropdown-item" href="/cases">
                                             <i class="bi bi-folder2-open me-2"></i>All Cases
-                                        </a></li>
-                                    <li><a class="dropdown-item" href="/scenarios">
-                                            <i class="bi bi-collection-play me-2"></i>All Scenarios
-                                        </a></li>
-                                    <li><a class="dropdown-item" href="/guidelines">
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="/scenarios">
+                                            <i class="bi bi-collection-play me-2"></i>All Scenarios{% if environment == 'production' %} <small><i class="bi bi-lock-fill"></i></small>{% endif %}
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="/guidelines">
                                             <i class="bi bi-book me-2"></i>All Guidelines
-                                        </a></li>
+                                        </a>
+                                    </li>
                                 </ul>
                             </li>
                             <li class="nav-item dropdown">
@@ -96,13 +129,13 @@
                                     <i class="bi bi-diagram-3"></i> Linked Data
                                 </a>
                                 <ul class="dropdown-menu" aria-labelledby="ontologyDropdown">
-                                    <li><a class="dropdown-item" href="http://localhost:5003?origin=proethica"
+                                    <li><a class="dropdown-item" href="{{ config.ONTSERVE_WEB_URL }}?origin=proethica"
                                             target="_blank">
                                             <i class="bi bi-server me-2"></i>OntServe Web <i
                                                 class="bi bi-box-arrow-up-right ms-1"></i>
                                         </a></li>
                                     <li><a class="dropdown-item"
-                                            href="http://localhost:5003/ontologies?origin=proethica&filter=proethica" target="_blank">
+                                            href="{{ config.ONTSERVE_WEB_URL }}?origin=proethica&filter=proethica" target="_blank">
                                             <i class="bi bi-collection me-2"></i>Browse ProEthica Ontologies <i
                                                 class="bi bi-box-arrow-up-right ms-1"></i>
                                         </a></li>
@@ -114,40 +147,30 @@
                                     <i class="bi bi-tools"></i> Tools
                                 </a>
                                 <ul class="dropdown-menu" aria-labelledby="toolsDropdown">
-                                    <li><a class="dropdown-item" href="/agent">
-                                            <i class="bi bi-chat-dots me-2"></i>AI Agent Assistant
+                                    <li><a class="dropdown-item disabled-tool" href="#" title="Coming Soon">
+                                            <i class="bi bi-chat-dots me-2"></i>Ethics Oracle
+                                            <i class="bi bi-lock-fill ms-1"></i>
                                         </a></li>
-                                    <li><a class="dropdown-item" href="/experiment">
+                                    <li><a class="dropdown-item disabled-tool" href="#" title="Coming Soon">
                                             <i class="bi bi-flask me-2"></i>Experiments
+                                            <i class="bi bi-lock-fill ms-1"></i>
                                         </a></li>
                                     <li><a class="dropdown-item" href="/tools/provenance">
                                             <i class="bi bi-diagram-3 me-2"></i>Provenance Viewer
                                         </a></li>
-                                    {% if current_user and current_user.is_authenticated and current_user.is_admin %}
-                                    <li>
-                                        <hr class="dropdown-divider">
-                                    </li>
-                                    <li>
-                                        <h6 class="dropdown-header">Admin Tools</h6>
-                                    </li>
-                                    <li><a class="dropdown-item" href="/admin">
-                                            <i class="bi bi-shield-check me-2"></i>Admin Dashboard
-                                        </a></li>
-                                    <li><a class="dropdown-item" href="/admin/system-health">
-                                            <i class="bi bi-activity me-2"></i>System Health
-                                        </a></li>
-                                    {% endif %}
                                 </ul>
                             </li>
                         </ul>
                         <ul class="navbar-nav">
-                            <!-- Environment Indicator (Development Only) -->
+                            <!-- Environment Indicator -->
                             <li class="nav-item">
                                 <span class="navbar-text me-2">
                                     {% if environment == 'development' %}
                                     <span class="badge bg-info" title="Development Environment - Full access enabled">
                                         <i class="bi bi-gear"></i> Development
                                     </span>
+                                    {% elif environment == 'production' %}
+                                    <!-- Production mode - no badge but auth indicators show -->
                                     {% endif %}
                                 </span>
                             </li>

@@ -38,6 +38,9 @@ class Config:
     ENABLE_EXTERNAL_MCP_ACCESS = True  # Always true - external MCP is required
     ONTSERVE_MCP_URL = os.environ.get('ONTSERVE_MCP_URL', 'http://localhost:8082')
 
+    # OntServe Web Interface URL - for navigation links
+    ONTSERVE_WEB_URL = os.environ.get('ONTSERVE_WEB_URL', 'http://localhost:5003')
+
 
 class DevelopmentConfig(Config):
     """Development configuration."""
@@ -49,6 +52,8 @@ class ProductionConfig(Config):
     """Production configuration."""
     DEBUG = False
     ENVIRONMENT = 'production'
+    # Override OntServe Web URL for production
+    ONTSERVE_WEB_URL = os.environ.get('ONTSERVE_WEB_URL', 'https://ontserve.ontorealm.net')
 
 
 class TestingConfig(Config):

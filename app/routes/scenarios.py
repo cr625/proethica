@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash
 from flask_login import login_required
+from app.utils.environment_auth import auth_required_for_write
 import json
 from app import db
 from app.models.scenario import Scenario
@@ -86,6 +87,7 @@ def api_get_scenario(id):
 
 # Web routes
 @scenarios_bp.route('/', methods=['GET'])
+@login_required  # Require login until scenarios feature is complete
 def list_scenarios():
     """Display all scenarios."""
     # Get world filter from query parameters
