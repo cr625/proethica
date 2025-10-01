@@ -13,6 +13,7 @@ from app.utils.environment_auth import (
     auth_optional,
     auth_required_for_write,
     auth_required_for_llm,
+    auth_required_for_create,
     development_only
 )
 from app.models import Document
@@ -448,24 +449,27 @@ def view_case(id):
                           annotation_count=annotation_count)
 
 @cases_bp.route('/new', methods=['GET'])
+@auth_required_for_create  # Require login to see case creation options
 def case_options():
     """Display case creation options."""
     return render_template('create_case_options.html')
 
 @cases_bp.route('/new/manual', methods=['GET'])
+@auth_required_for_create  # Require login to see manual creation form
 def manual_create_form():
     """Display form to manually create a new case."""
     # Get all worlds for the dropdown
     worlds = World.query.all()
-    
+
     return render_template('create_case_manual.html', worlds=worlds)
 
 @cases_bp.route('/new/url', methods=['GET'])
+@auth_required_for_create  # Require login to see URL creation form
 def url_form():
     """Display form to create a case from URL."""
     # Get all worlds for the dropdown
     worlds = World.query.all()
-    
+
     return render_template('create_case_from_url.html', worlds=worlds)
 
 @cases_bp.route('/process/url', methods=['GET', 'POST'])
