@@ -3,7 +3,6 @@ Provenance viewer routes for PROV-O tracking visualization.
 """
 
 from flask import Blueprint, render_template, jsonify, request
-from flask_login import login_required
 from sqlalchemy import desc, func
 import json
 from datetime import datetime
@@ -16,11 +15,12 @@ from app.models.provenance import (
 )
 from app.models.document import Document
 from app.services.provenance_service import get_provenance_service
+from app.utils.environment_auth import auth_optional
 
 provenance_bp = Blueprint('provenance', __name__)
 
 @provenance_bp.route('/tools/provenance')
-@login_required
+@auth_optional
 def provenance_viewer():
     """Main provenance viewer page."""
     # Get recent cases with provenance data
@@ -55,7 +55,7 @@ def provenance_viewer():
                          stats=stats)
 
 @provenance_bp.route('/api/provenance/case/<int:case_id>')
-@login_required
+@auth_optional
 def get_case_provenance(case_id):
     """Get provenance data for a specific case."""
     # Get the document
@@ -139,7 +139,7 @@ def get_case_provenance(case_id):
     })
 
 @provenance_bp.route('/api/provenance/entity/<int:entity_id>')
-@login_required
+@auth_optional
 def get_entity_details(entity_id):
     """Get detailed information about a specific entity."""
     entity = ProvenanceEntity.query.get_or_404(entity_id)
@@ -200,7 +200,7 @@ def get_entity_details(entity_id):
     })
 
 @provenance_bp.route('/api/provenance/activity/<int:activity_id>')
-@login_required
+@auth_optional
 def get_activity_details(activity_id):
     """Get detailed information about a specific activity."""
     activity = ProvenanceActivity.query.get_or_404(activity_id)
@@ -278,7 +278,7 @@ def get_activity_details(activity_id):
     })
 
 @provenance_bp.route('/api/provenance/search')
-@login_required
+@auth_optional
 def search_provenance():
     """Search provenance records."""
     query_type = request.args.get('type', 'all')
