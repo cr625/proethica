@@ -1,13 +1,13 @@
 {% extends "scenarios/base_step.html" %}
 
-{% block step_title %}Step 1: Contextual Framework Pass - Facts Section{% endblock %}
-{% block step_header %}Step 1: Contextual Framework Pass (Facts){% endblock %}
-{% block step_subtitle %}Extract roles, states, and resources from the facts section{% endblock %}
+{% block step_title %}Step 1b: Contextual Framework Pass - Discussion Section{% endblock %}
+{% block step_header %}Step 1b: Contextual Framework Pass (Discussion){% endblock %}
+{% block step_subtitle %}Extract roles, states, and resources from the discussion section{% endblock %}
 
 {% block step_navigation %}
 <div class="d-flex justify-content-between mb-3">
-    <a href="{{ url_for('scenario_pipeline.overview', case_id=case.id) }}" class="btn btn-outline-secondary">
-        <i class="bi bi-arrow-left"></i> Back to Overview
+    <a href="{{ url_for('scenario_pipeline.step1', case_id=case.id) }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Facts
     </a>
     <a href="{{ url_for('scenario_pipeline.step2', case_id=case.id) }}" class="btn btn-outline-primary">
         Step 2: Normative Pass (Facts) <i class="bi bi-arrow-right"></i>
@@ -19,14 +19,14 @@
 <div class="step-card">
     <div class="step-header">
         <h4 class="mb-0">
-            <i class="bi bi-file-text"></i> Facts Section
+            <i class="bi bi-chat-left-text"></i> Discussion Section
         </h4>
     </div>
     <div class="step-content">
-        {% if facts_section %}
+        {% if discussion_section %}
         <div class="alert alert-info mb-3">
             <h6 class="mb-2"><i class="bi bi-info-circle"></i> Section Content:</h6>
-            <pre class="facts-text">{{ facts_section.llm_text }}</pre>
+            <pre class="discussion-text">{{ discussion_section.llm_text }}</pre>
         </div>
 
         <!-- Full Contextual Framework Pass Button -->
@@ -195,11 +195,19 @@
         {% endif %}
     </div>
 </div>
+
+<!-- Navigation to Discussion Section -->
+<div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4 mb-4">
+    <a href="{{ url_for('scenario_pipeline.step1b', case_id=case.id) }}" class="btn btn-primary btn-lg">
+        Continue to Step 2: Normative Pass <i class="bi bi-arrow-right"></i>
+    </a>
+</div>
+
 {% endblock %}
 
 {% block step_styles %}
 <style>
-    .facts-text {
+    .discussion-text {
         font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
         font-size: 0.9rem;
         background-color: #f8f9fa;
@@ -290,7 +298,7 @@
 {% block step_scripts %}
 <script>
 const caseId = {{ case.id }};
-const currentSectionText = `{{ facts_section.llm_text if facts_section else '' }}`;
+const currentSectionText = `{{ discussion_section.llm_text if discussion_section else '' }}`;
 
 // Load saved prompts on page load - using vanilla JS instead of jQuery
 document.addEventListener('DOMContentLoaded', function() {

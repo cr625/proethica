@@ -74,6 +74,13 @@ def step1(case_id):
     from .step1 import step1 as step1_handler
     return step1_handler(case_id)
 
+@interactive_scenario_bp.route('/case/<int:case_id>/step1b')
+@auth_optional  # Allow viewing without auth
+def step1b(case_id):
+    """Route handler for Step 1b: Contextual Framework Pass (Discussion Section)"""
+    from .step1 import step1b as step1b_handler
+    return step1b_handler(case_id)
+
 @interactive_scenario_bp.route('/case/<int:case_id>/step1_streaming')
 def step1_streaming(case_id):
     """Route handler for Step 1: Enhanced version with streaming updates"""

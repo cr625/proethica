@@ -131,7 +131,29 @@ def step1(case_id):
     }
 
     # Use multi-section template with separate extractors
-    return render_template('scenarios/step1_multi_section.html', **context)
+    return render_template('scenarios/step1.html', **context)
+
+def step1b(case_id):
+    """
+    Step 1b: Contextual Framework Pass for Discussion Section
+    Same exact structure as step1 but shows Discussion section content
+    """
+    case, facts_section, discussion_section, saved_prompts = step1_data(case_id)
+
+    # Template context
+    context = {
+        'case': case,
+        'facts_section': facts_section,
+        'discussion_section': discussion_section,
+        'current_step': 1,
+        'step_title': 'Contextual Framework Pass - Discussion',
+        'next_step_url': url_for('scenario_pipeline.step2', case_id=case_id),
+        'prev_step_url': url_for('scenario_pipeline.step1', case_id=case_id),
+        'saved_prompts': saved_prompts
+    }
+
+    # Use step1b.html template
+    return render_template('scenarios/step1b.html', **context)
 
 def entities_pass_prompt(case_id):
     """

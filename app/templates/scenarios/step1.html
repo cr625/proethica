@@ -28,47 +28,165 @@
             <h6 class="mb-2"><i class="bi bi-info-circle"></i> Section Content:</h6>
             <pre class="facts-text">{{ facts_section.llm_text }}</pre>
         </div>
-        
-        <!-- Contextual Framework Pass Buttons -->
-        <div class="d-grid gap-2 d-md-flex justify-content-md-center mb-3">
-            <button id="contextualPassBtn" class="btn btn-primary btn-lg" onclick="showPrompt()">
+
+        <!-- Full Contextual Framework Pass Button -->
+        <div class="d-grid gap-2 d-md-flex justify-content-md-center mb-4">
+            <button id="contextualPassBtn" class="btn btn-primary btn-lg" onclick="executeFullContextualPass()">
                 <i class="bi bi-arrow-right-circle"></i> Full Contextual Framework Pass
-                <small class="d-block">Extract Roles + States + Resources</small>
-            </button>
-            <button id="enhancedPassBtn" class="btn btn-success btn-lg" onclick="useEnhancedVersion()">
-                <i class="bi bi-lightning-charge"></i> Enhanced Pass (With Retry & Live Updates)
-                <small class="d-block">Real-time progress & fault tolerance</small>
+                <small class="d-block">Extract All: Roles + States + Resources</small>
             </button>
         </div>
 
-        <!-- Debug Individual Extractors -->
-        <div class="alert alert-secondary mb-3">
-            <h6 class="mb-2"><i class="bi bi-bug"></i> Debug Individual Extractors:</h6>
-            <div class="d-grid gap-2 d-md-flex justify-content-md-center">
-                <button class="btn btn-info" onclick="extractIndividual('roles')">
-                    <i class="bi bi-person-badge"></i> Extract Roles Only
-                </button>
-                <button class="btn btn-warning" onclick="extractIndividual('states')">
-                    <i class="bi bi-diagram-3"></i> Extract States Only
-                </button>
-                <button class="btn btn-success" onclick="extractIndividual('resources')">
-                    <i class="bi bi-box-seam"></i> Extract Resources Only
-                </button>
+        <!-- Individual Extractor Sections -->
+
+        <!-- ROLES EXTRACTION SECTION -->
+        <div class="extractor-section mb-4" id="rolesSection">
+            <div class="step-card border-info">
+                <div class="step-header bg-info bg-opacity-10">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-person-badge text-info"></i> Roles Extraction
+                        </h5>
+                        <button class="btn btn-info btn-sm" onclick="extractIndividualConcept('roles')">
+                            <i class="bi bi-play-fill"></i> Extract Roles
+                        </button>
+                    </div>
+                </div>
+                <div class="step-content">
+                    <!-- Roles Prompt Preview -->
+                    <div class="prompt-preview mb-3" id="rolesPromptSection" style="{% if not saved_prompts.roles %}display: none;{% endif %}">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0"><i class="bi bi-cpu"></i> LLM Prompt</h6>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="regenerateConceptPrompt('roles')">
+                                <i class="bi bi-arrow-clockwise"></i> Regenerate
+                            </button>
+                        </div>
+                        <div class="prompt-text" id="rolesPromptText">
+                            {% if saved_prompts.roles %}
+                            {{ saved_prompts.roles.prompt_text }}
+                            {% else %}
+                            <div class="text-center text-muted">
+                                <i class="bi bi-hourglass-split"></i> Prompt will be generated when you click Extract Roles
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% if saved_prompts.roles %}
+                        <small class="text-muted">Saved: {{ saved_prompts.roles.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                        {% endif %}
+                    </div>
+
+                    <!-- Roles Results -->
+                    <div class="results-preview" id="rolesResults" style="display: none;">
+                        <h6><i class="bi bi-check-circle text-success"></i> Extraction Results</h6>
+                        <div id="rolesResultsContent">
+                            <!-- Results will be displayed here -->
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- Individual Extraction Results (Hidden initially) -->
-        <div id="individualResultsCard" class="step-card" style="display: none;">
-            <div class="step-header">
-                <h5 class="mb-0">
-                    <i class="bi bi-check-circle"></i> <span id="individualResultsTitle">Individual Extraction Results</span>
-                </h5>
-            </div>
-            <div class="step-content" id="individualResultsContent">
-                <!-- Results will be displayed here -->
+        <!-- STATES EXTRACTION SECTION -->
+        <div class="extractor-section mb-4" id="statesSection">
+            <div class="step-card border-warning">
+                <div class="step-header bg-warning bg-opacity-10">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-diagram-3 text-warning"></i> States Extraction
+                        </h5>
+                        <button class="btn btn-warning btn-sm" onclick="extractIndividualConcept('states')">
+                            <i class="bi bi-play-fill"></i> Extract States
+                        </button>
+                    </div>
+                </div>
+                <div class="step-content">
+                    <!-- States Prompt Preview -->
+                    <div class="prompt-preview mb-3" id="statesPromptSection" style="{% if not saved_prompts.states %}display: none;{% endif %}">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0"><i class="bi bi-cpu"></i> LLM Prompt</h6>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="regenerateConceptPrompt('states')">
+                                <i class="bi bi-arrow-clockwise"></i> Regenerate
+                            </button>
+                        </div>
+                        <div class="prompt-text" id="statesPromptText">
+                            {% if saved_prompts.states %}
+                            {{ saved_prompts.states.prompt_text }}
+                            {% else %}
+                            <div class="text-center text-muted">
+                                <i class="bi bi-hourglass-split"></i> Prompt will be generated when you click Extract States
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% if saved_prompts.states %}
+                        <small class="text-muted">Saved: {{ saved_prompts.states.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                        {% endif %}
+                    </div>
+
+                    <!-- States Results -->
+                    <div class="results-preview" id="statesResults" style="display: none;">
+                        <h6><i class="bi bi-check-circle text-success"></i> Extraction Results</h6>
+                        <div id="statesResultsContent">
+                            <!-- Results will be displayed here -->
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-        
+
+        <!-- RESOURCES EXTRACTION SECTION -->
+        <div class="extractor-section mb-4" id="resourcesSection">
+            <div class="step-card border-success">
+                <div class="step-header bg-success bg-opacity-10">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-box-seam text-success"></i> Resources Extraction
+                        </h5>
+                        <button class="btn btn-success btn-sm" onclick="extractIndividualConcept('resources')">
+                            <i class="bi bi-play-fill"></i> Extract Resources
+                        </button>
+                    </div>
+                </div>
+                <div class="step-content">
+                    <!-- Resources Prompt Preview -->
+                    <div class="prompt-preview mb-3" id="resourcesPromptSection" style="{% if not saved_prompts.resources %}display: none;{% endif %}">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0"><i class="bi bi-cpu"></i> LLM Prompt</h6>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="regenerateConceptPrompt('resources')">
+                                <i class="bi bi-arrow-clockwise"></i> Regenerate
+                            </button>
+                        </div>
+                        <div class="prompt-text" id="resourcesPromptText">
+                            {% if saved_prompts.resources %}
+                            {{ saved_prompts.resources.prompt_text }}
+                            {% else %}
+                            <div class="text-center text-muted">
+                                <i class="bi bi-hourglass-split"></i> Prompt will be generated when you click Extract Resources
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% if saved_prompts.resources %}
+                        <small class="text-muted">Saved: {{ saved_prompts.resources.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                        {% endif %}
+                    </div>
+
+                    <!-- Resources Results -->
+                    <div class="results-preview" id="resourcesResults" style="display: none;">
+                        <h6><i class="bi bi-check-circle text-success"></i> Extraction Results</h6>
+                        <div id="resourcesResultsContent">
+                            <!-- Results will be displayed here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation to entity review -->
+        <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4">
+            <a href="{{ url_for('entity_review.review_case_entities', case_id=case.id) }}" class="btn btn-outline-primary">
+                <i class="bi bi-eye"></i> Review Pass 1 Entities
+            </a>
+        </div>
+
         {% else %}
         <div class="alert alert-warning">
             <i class="bi bi-exclamation-triangle"></i>
@@ -78,87 +196,11 @@
     </div>
 </div>
 
-<!-- LLM Prompt Display (Show if saved prompt exists) -->
-<div id="promptCard" class="step-card" style="{% if not saved_prompts.roles %}display: none;{% endif %}">
-    <div class="step-header">
-        <div class="d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">
-                <i class="bi bi-cpu"></i> LLM Prompt Preview
-            </h5>
-            {% if saved_prompts.roles %}
-            <button class="btn btn-sm btn-outline-primary" onclick="regeneratePrompt()">
-                <i class="bi bi-arrow-clockwise"></i> Regenerate Prompt
-            </button>
-            {% endif %}
-        </div>
-    </div>
-    <div class="step-content">
-        <div class="alert alert-warning mb-3">
-            <i class="bi bi-info-circle"></i>
-            {% if saved_prompts.roles %}
-            This is the saved prompt from the last extraction (created {{ saved_prompts.roles.created_at.strftime('%Y-%m-%d %H:%M') if saved_prompts.roles else '' }}):
-            {% else %}
-            This is the prompt that will be sent to the LLM for contextual framework extraction:
-            {% endif %}
-        </div>
-
-        <div id="promptContent">
-            <div class="loading-spinner">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Generating prompt...</span>
-                </div>
-                <span class="ms-2">Generating prompt...</span>
-            </div>
-        </div>
-        
-        <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-3" id="executeButtonContainer" style="display: none;">
-            <button id="executeBtn" class="btn btn-success btn-lg" onclick="executeContextualPass()">
-                <i class="bi bi-play-circle"></i> Execute Contextual Framework Pass
-            </button>
-        </div>
-    </div>
-</div>
-
-<!-- Raw Response Display (Hidden initially) -->
-<div id="responseCard" class="step-card response-card" style="display: none;">
-    <div class="step-header">
-        <h5 class="mb-0">
-            <i class="bi bi-code-square"></i> LLM Response
-        </h5>
-    </div>
-    <div class="step-content">
-        <div class="alert alert-success mb-3">
-            <i class="bi bi-check-circle"></i>
-            Raw response from the LLM entities extraction:
-        </div>
-        <div id="responseContent">
-            <div class="loading-spinner">
-                <div class="spinner-border text-success" role="status">
-                    <span class="visually-hidden">Extracting entities...</span>
-                </div>
-                <span class="ms-2">Extracting entities...</span>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Results Display (Hidden initially) -->
-<div id="resultsCard" class="step-card" style="display: none;">
-    <div class="step-header">
-        <h5 class="mb-0">
-            <i class="bi bi-check-circle"></i> Contextual Framework Pass Results
-        </h5>
-    </div>
-    <div class="step-content">
-        <div id="resultsContent">
-            <div class="loading-spinner">
-                <div class="spinner-border text-success" role="status">
-                    <span class="visually-hidden">Extracting entities...</span>
-                </div>
-                <span class="ms-2">Extracting entities...</span>
-            </div>
-        </div>
-    </div>
+<!-- Navigation to Discussion Section -->
+<div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4 mb-4">
+    <a href="{{ url_for('scenario_pipeline.step1b', case_id=case.id) }}" class="btn btn-primary btn-lg">
+        Continue to Step 1b: Discussion Section <i class="bi bi-arrow-right"></i>
+    </a>
 </div>
 
 {% endblock %}
@@ -178,10 +220,38 @@
         overflow-y: auto;
     }
 
-    .alert-info {
-        background-color: #d1ecf1;
-        border-color: #bee5eb;
-        color: #0c5460;
+    .extractor-section .step-card {
+        transition: all 0.3s ease;
+    }
+
+    .extractor-section .step-card:hover {
+        box-shadow: 0 0.25rem 2rem 0 rgba(58, 59, 69, 0.2);
+    }
+
+    .prompt-preview {
+        background-color: #f8f9fa;
+        border-radius: 0.5rem;
+        padding: 1rem;
+    }
+
+    .prompt-text {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.85rem;
+        max-height: 300px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        background-color: white;
+        padding: 0.75rem;
+        border-radius: 0.25rem;
+        border: 1px solid #dee2e6;
+    }
+
+    .results-preview {
+        background-color: #f0fff4;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        border: 1px solid #d4edda;
     }
 
     /* Contextual Framework Pass Button Styling */
@@ -198,557 +268,109 @@
         box-shadow: 0 6px 12px rgba(0,0,0,0.15);
     }
 
-    /* Prompt Display Styling */
-    #promptCard {
-        background-color: #fff8dc;
-        border-color: #ffc107;
-    }
-
-    #promptCard .step-header {
-        background-color: #fff3cd;
-        border-color: #ffc107;
-    }
-
-    .prompt-section {
-        background-color: #f8f9fa;
-        border: 1px solid #dee2e6;
-        border-radius: 0.25rem;
-        padding: 1rem;
-        margin-bottom: 1rem;
-    }
-
-    .prompt-section h6 {
-        color: #495057;
-        margin-bottom: 0.5rem;
-    }
-
-    .prompt-text {
-        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-        font-size: 0.85rem;
-        background-color: #ffffff;
-        border: 1px solid #ced4da;
-        border-radius: 0.25rem;
-        padding: 0.75rem;
-        max-height: 300px;
-        overflow-y: auto;
-        white-space: pre-wrap;
-    }
-
-    /* Response Card Styling - Green Border */
-    .response-card {
-        border: 2px solid #28a745 !important;
-        background-color: #f8f9fa;
-    }
-
-    .response-card .step-header {
-        background-color: #d4edda;
-        border-bottom: 2px solid #28a745;
-    }
-
-    .response-text {
-        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-        font-size: 0.85rem;
-        background-color: #ffffff;
-        border: 1px solid #28a745;
-        border-radius: 0.25rem;
-        padding: 1rem;
-        max-height: 400px;
-        overflow-y: auto;
-        white-space: pre-wrap;
-        word-wrap: break-word;
-    }
-
-    /* Results Display Styling */
-    #resultsCard {
-        background-color: #d4edda;
-        border-color: #28a745;
-    }
-
-    #resultsCard .step-header {
-        background-color: #d1ecf1;
-        border-color: #28a745;
-    }
-
-    .entity-type {
-        margin-bottom: 1.5rem;
-    }
-
-    .entity-type h6 {
-        color: #495057;
-        margin-bottom: 0.75rem;
-        padding-bottom: 0.5rem;
-        border-bottom: 2px solid #28a745;
-    }
-
     .entity-item {
-        background-color: #ffffff;
-        border: 1px solid #dee2e6;
-        border-radius: 0.25rem;
+        background: white;
+        border-left: 3px solid #4e73df;
         padding: 0.75rem;
         margin-bottom: 0.5rem;
+        border-radius: 0.25rem;
     }
 
     .entity-label {
-        font-weight: 600;
-        color: #495057;
+        font-weight: bold;
+        color: #2e59d9;
     }
 
     .entity-description {
-        font-size: 0.9rem;
-        color: #6c757d;
+        color: #5a5c69;
         margin-top: 0.25rem;
+        font-size: 0.9rem;
     }
 
     .entity-confidence {
-        font-size: 0.8rem;
-        color: #28a745;
-        font-weight: 500;
-    }
-
-    .loading-spinner {
-        text-align: center;
-        padding: 2rem;
-    }
-
-    .summary-stats {
-        background-color: #f8f9fa;
-        border: 1px solid #dee2e6;
-        border-radius: 0.25rem;
-        padding: 1rem;
-        margin-bottom: 1rem;
-    }
-
-    .summary-stats .stat {
-        display: inline-block;
-        margin-right: 2rem;
-        font-weight: 600;
+        color: #858796;
+        font-size: 0.85rem;
+        margin-top: 0.25rem;
     }
 </style>
 {% endblock %}
 
 {% block step_scripts %}
 <script>
-let currentSectionText = '';
+const caseId = {{ case.id }};
+const currentSectionText = `{{ facts_section.llm_text if facts_section else '' }}`;
 
-// Initialize section text
+// Load saved prompts on page load - using vanilla JS instead of jQuery
 document.addEventListener('DOMContentLoaded', function() {
-    const factsTextElement = document.querySelector('.facts-text');
-    if (factsTextElement) {
-        currentSectionText = factsTextElement.textContent.trim();
-    }
-
-    // Display saved prompt if it exists
-    {% if saved_prompts.roles %}
-    const savedPromptText = {{ saved_prompts.roles.prompt_text | tojson }};
-    displayPrompt(savedPromptText, true);
-    {% endif %}
+    // Load saved prompts for all three concept types
+    ['roles', 'states', 'resources'].forEach(conceptType => {
+        loadSavedPrompt(conceptType);
+    });
 });
 
-function useEnhancedVersion() {
-    // Redirect to the enhanced streaming version
-    window.location.href = '{{ url_for("scenario_pipeline.step1_streaming", case_id=case.id) }}';
-}
+function loadSavedPrompt(conceptType) {
+    fetch(`/scenario_pipeline/case/${caseId}/step1/get_saved_prompt?concept_type=${conceptType}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.prompt_text) {
+                // Show the prompt section and display the saved prompt
+                const promptSection = document.getElementById(`${conceptType}PromptSection`);
+                const promptText = document.getElementById(`${conceptType}PromptText`);
 
-function showPrompt() {
-    const promptCard = document.getElementById('promptCard');
-    const contextualBtn = document.getElementById('contextualPassBtn');
+                promptSection.style.display = 'block';
+                promptText.innerHTML = data.prompt_text;
 
-    // Disable the button and show loading
-    contextualBtn.disabled = true;
-    contextualBtn.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Generating Prompt...';
+                // If there's a saved raw response, display it in the results section
+                if (data.raw_response) {
+                    const resultsSection = document.getElementById(`${conceptType}Results`);
+                    const resultsContent = document.getElementById(`${conceptType}ResultsContent`);
 
-    // Show prompt card
-    promptCard.style.display = 'block';
-    promptCard.scrollIntoView({ behavior: 'smooth' });
+                    // Display the raw response
+                    const tempDiv = document.createElement('div');
+                    tempDiv.textContent = data.raw_response;
+                    const escapedResponse = tempDiv.innerHTML;
+                    resultsContent.innerHTML = `<pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; max-height: 500px; overflow-y: auto;">${escapedResponse}</pre>`;
 
-    // Fetch the prompt from the server
-    // Get CSRF token
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+                    // Show the results section
+                    resultsSection.style.display = 'block';
+                }
 
-    fetch(`{{ url_for('scenario_pipeline.entities_pass_prompt', case_id=case.id) }}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': csrfToken
-        },
-        body: JSON.stringify({
-            section_text: currentSectionText
+                // Timestamp is already shown in the template, no need to add it here
+            }
         })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            displayPrompt(data);
-            // Show execute button
-            document.getElementById('executeButtonContainer').style.display = 'block';
-        } else {
-            displayError('Error generating prompt: ' + data.error);
-        }
-    })
-    .catch(error => {
-        displayError('Network error: ' + error.message);
-    })
-    .finally(() => {
-        // Re-enable the button
-        contextualBtn.disabled = false;
-        contextualBtn.innerHTML = '<i class="bi bi-arrow-right-circle"></i> Contextual Framework Pass <small class="d-block">Extract Roles + States + Resources</small>';
-    });
+        .catch(error => {
+            console.log(`No saved prompt for ${conceptType}`, error);
+        });
 }
 
-function displayPrompt(data, isSaved = false) {
-    const content = document.getElementById('promptContent');
+function extractIndividualConcept(conceptType) {
+    const button = event.target.closest('button');
+    const promptSection = document.getElementById(`${conceptType}PromptSection`);
+    const promptText = document.getElementById(`${conceptType}PromptText`);
+    const resultsSection = document.getElementById(`${conceptType}Results`);
+    const resultsContent = document.getElementById(`${conceptType}ResultsContent`);
 
-    // If saved prompt (just text), display it directly
-    if (isSaved && typeof data === 'string') {
-        content.innerHTML = `
-            <div class="prompt-section">
-                <h6><i class="bi bi-people"></i> Roles Extraction Prompt (Saved):</h6>
-                <div class="prompt-text">${data}</div>
-            </div>
-        `;
-    } else {
-        // Display freshly generated prompts
-        content.innerHTML = `
-            <div class="prompt-section">
-                <h6><i class="bi bi-people"></i> Roles Extraction Prompt:</h6>
-                <div class="prompt-text">${data.roles_prompt || 'Role extraction prompt will be generated'}</div>
-            </div>
-            <div class="prompt-section">
-                <h6><i class="bi bi-diagram-3"></i> States Extraction Prompt:</h6>
-                <div class="prompt-text">${data.states_prompt || 'States extraction prompt will be generated'}</div>
-            </div>
-            <div class="prompt-section">
-                <h6><i class="bi bi-gear"></i> Resources Extraction Prompt:</h6>
-                <div class="prompt-text">${data.resources_prompt || 'Resources extraction prompt will be generated'}</div>
-            </div>
-            <div class="alert alert-info">
-                <strong>Section Length:</strong> ${data.section_length} characters
-            </div>
-        `;
-    }
-}
+    // Disable button and show loading
+    button.disabled = true;
+    button.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Extracting...';
 
-function regeneratePrompt() {
-    // Clear the saved prompt and regenerate
-    const promptCard = document.getElementById('promptCard');
-    const promptContent = document.getElementById('promptContent');
-
-    // Show loading spinner
-    promptContent.innerHTML = `
-        <div class="loading-spinner text-center">
+    // Show prompt section with loading
+    promptSection.style.display = 'block';
+    promptText.innerHTML = `
+        <div class="text-center">
             <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Regenerating prompt...</span>
+                <span class="visually-hidden">Generating prompt...</span>
             </div>
-            <p class="mt-2">Regenerating prompt...</p>
+            <p class="mt-2">Generating prompt and extracting ${conceptType}...</p>
         </div>
     `;
 
-    // Call showPrompt to fetch and display new prompt
-    showPrompt();
-}
-
-function executeContextualPass() {
-    const responseCard = document.getElementById('responseCard');
-    const resultsCard = document.getElementById('resultsCard');
-    const executeBtn = document.getElementById('executeBtn');
-    
-    // Disable execute button and show loading
-    executeBtn.disabled = true;
-    executeBtn.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Extracting...';
-    
-    // Show response card with loading
-    responseCard.style.display = 'block';
-    responseCard.scrollIntoView({ behavior: 'smooth' });
-    
-    // Hide results card initially (we'll show it later if needed)
-    resultsCard.style.display = 'none';
-    
-    // Execute the entities pass
-    // Get CSRF token
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-
-    fetch(`{{ url_for('scenario_pipeline.entities_pass_execute', case_id=case.id) }}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': csrfToken
-        },
-        body: JSON.stringify({
-            section_text: currentSectionText
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            // Display raw response first
-            displayRawResponse(data);
-            // Optionally also display formatted results
-            // Uncomment the following lines to show formatted results too
-            // resultsCard.style.display = 'block';
-            // displayResults(data);
-        } else {
-            displayResponseError('Error executing contextual framework pass: ' + data.error);
-        }
-    })
-    .catch(error => {
-        displayResponseError('Network error: ' + error.message);
-    })
-    .finally(() => {
-        // Re-enable execute button
-        executeBtn.disabled = false;
-        executeBtn.innerHTML = '<i class="bi bi-play-circle"></i> Execute Contextual Framework Pass';
-    });
-}
-
-function displayResults(data) {
-    const content = document.getElementById('resultsContent');
-    
-    let html = `
-        <div class="summary-stats">
-            <div class="stat"><i class="bi bi-people"></i> Roles: ${data.summary.roles_count || 0}</div>
-            <div class="stat"><i class="bi bi-diagram-3"></i> States: ${data.summary.states_count || 0}</div>
-            <div class="stat"><i class="bi bi-gear"></i> Resources: ${data.summary.resources_count || 0}</div>
-            <div class="stat"><i class="bi bi-collection"></i> Total: ${data.summary.total_entities || 0}</div>
-        </div>
-    `;
-    
-    // Display roles
-    if (data.roles && data.roles.length > 0) {
-        html += `
-            <div class="entity-type">
-                <h6><i class="bi bi-people"></i> Extracted Role Classes (${data.roles.length})</h6>
-        `;
-
-        data.roles.forEach(role => {
-            html += `
-                <div class="entity-item">
-                    <div class="entity-label">${role.label}</div>
-                    ${role.description ? `<div class="entity-description">${role.description}</div>` : ''}
-                    <div class="entity-confidence">Confidence: ${(role.confidence * 100).toFixed(0)}%</div>
-                </div>
-            `;
-        });
-
-        html += '</div>';
-    }
-
-    // Display individuals
-    if (data.individuals && data.individuals.length > 0) {
-        html += `
-            <div class="entity-type">
-                <h6><i class="bi bi-person-badge"></i> Extracted Individuals (${data.individuals.length})</h6>
-        `;
-
-        data.individuals.forEach(individual => {
-            html += `
-                <div class="entity-item">
-                    <div class="entity-label">${individual.name}</div>
-                    ${individual.role_class ? `<div class="entity-description"><strong>Role:</strong> ${individual.role_class}</div>` : ''}
-                    ${individual.attributes ? `<div class="entity-description"><strong>Attributes:</strong> ${Object.entries(individual.attributes).map(([key, value]) => `${key}: ${value}`).join(', ')}</div>` : ''}
-                    ${individual.case_involvement ? `<div class="entity-description"><strong>Case Involvement:</strong> ${individual.case_involvement}</div>` : ''}
-                    ${individual.is_new_role_class ? `<div class="badge bg-success">Fulfills New Role Class</div>` : `<div class="badge bg-info">Fulfills Existing Role Class</div>`}
-                    <div class="entity-confidence">Confidence: ${(individual.confidence * 100).toFixed(0)}%</div>
-                </div>
-            `;
-        });
-
-        html += '</div>';
-    }
-    
-    // Display states
-    if (data.states && data.states.length > 0) {
-        html += `
-            <div class="entity-type">
-                <h6><i class="bi bi-diagram-3"></i> Extracted States (${data.states.length})</h6>
-        `;
-        
-        data.states.forEach(state => {
-            html += `
-                <div class="entity-item">
-                    <div class="entity-label">${state.label}</div>
-                    ${state.description ? `<div class="entity-description">${state.description}</div>` : ''}
-                    <div class="entity-confidence">Confidence: ${(state.confidence * 100).toFixed(0)}%</div>
-                </div>
-            `;
-        });
-        
-        html += '</div>';
-    }
-    
-    // Display resources
-    if (data.resources && data.resources.length > 0) {
-        html += `
-            <div class="entity-type">
-                <h6><i class="bi bi-gear"></i> Extracted Resources (${data.resources.length})</h6>
-        `;
-        
-        data.resources.forEach(resource => {
-            html += `
-                <div class="entity-item">
-                    <div class="entity-label">${resource.label}</div>
-                    ${resource.description ? `<div class="entity-description">${resource.description}</div>` : ''}
-                    <div class="entity-confidence">Confidence: ${(resource.confidence * 100).toFixed(0)}%</div>
-                </div>
-            `;
-        });
-        
-        html += '</div>';
-    }
-    
-    if (data.summary.total_entities === 0) {
-        html += `
-            <div class="alert alert-warning">
-                <i class="bi bi-exclamation-triangle"></i>
-                No entities were extracted from this section.
-            </div>
-        `;
-    }
-    
-    content.innerHTML = html;
-}
-
-// Store the response data globally for the formatted view
-let currentResponseData = null;
-
-function displayRawResponse(data) {
-    const content = document.getElementById('responseContent');
-    
-    // Store for formatted view
-    currentResponseData = data;
-    
-    // Create a nicely formatted JSON display
-    const responseData = {
-        roles: data.roles || [],
-        states: data.states || [],
-        resources: data.resources || [],
-        summary: data.summary || {},
-        metadata: {
-            extraction_time: data.extraction_time || 'N/A',
-            model_used: data.model_used || 'N/A',
-            total_entities: data.summary?.total_entities || 0
-        }
-    };
-    
-    // Format JSON with proper indentation
-    const formattedJson = JSON.stringify(responseData, null, 2);
-    
-    // Escape the JSON for HTML display
-    const escapedJson = formattedJson
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-    
-    content.innerHTML = `
-        <div class="response-text">${escapedJson}</div>
-        <div class="mt-3">
-            <button class="btn btn-sm btn-outline-secondary" onclick="copyJsonToClipboard()">
-                <i class="bi bi-clipboard"></i> Copy JSON
-            </button>
-            <button class="btn btn-sm btn-outline-primary ms-2" onclick="toggleFormattedView()">
-                <i class="bi bi-eye"></i> Show Formatted View
-            </button>
-        </div>
-    `;
-    
-    // Store the JSON for copying
-    window.lastJsonResponse = formattedJson;
-}
-
-function copyJsonToClipboard() {
-    const text = window.lastJsonResponse;
-    navigator.clipboard.writeText(text).then(() => {
-        // Show a temporary success message
-        const btn = event.target.closest('button');
-        const originalHtml = btn.innerHTML;
-        btn.innerHTML = '<i class="bi bi-check"></i> Copied!';
-        btn.classList.add('btn-success');
-        btn.classList.remove('btn-outline-secondary');
-        
-        setTimeout(() => {
-            btn.innerHTML = originalHtml;
-            btn.classList.remove('btn-success');
-            btn.classList.add('btn-outline-secondary');
-        }, 2000);
-    });
-}
-
-function toggleFormattedView() {
-    const resultsCard = document.getElementById('resultsCard');
-    const btn = event.target.closest('button');
-    
-    if (resultsCard.style.display === 'none' || resultsCard.style.display === '') {
-        // Show formatted view and populate it if needed
-        resultsCard.style.display = 'block';
-        if (currentResponseData) {
-            displayResults(currentResponseData);
-        }
-        btn.innerHTML = '<i class="bi bi-eye-slash"></i> Hide Formatted View';
-    } else {
-        resultsCard.style.display = 'none';
-        btn.innerHTML = '<i class="bi bi-eye"></i> Show Formatted View';
-    }
-}
-
-function displayError(message) {
-    const content = document.getElementById('promptContent');
-    content.innerHTML = `
-        <div class="alert alert-danger">
-            <i class="bi bi-exclamation-triangle"></i>
-            ${message}
-        </div>
-    `;
-}
-
-function displayResponseError(message) {
-    const content = document.getElementById('responseContent');
-    content.innerHTML = `
-        <div class="alert alert-danger">
-            <i class="bi bi-exclamation-triangle"></i>
-            ${message}
-        </div>
-    `;
-}
-
-function displayResultsError(message) {
-    const content = document.getElementById('resultsContent');
-    content.innerHTML = `
-        <div class="alert alert-danger">
-            <i class="bi bi-exclamation-triangle"></i>
-            ${message}
-        </div>
-    `;
-}
-
-// Individual extraction function for Step 1 entities
-function extractIndividual(conceptType) {
-    // Show loading state on button
-    const buttons = document.querySelectorAll('.btn-info, .btn-warning, .btn-success');
-    buttons.forEach(btn => btn.disabled = true);
-
-    // Determine which button was clicked and update it
-    let clickedBtn;
-    if (conceptType === 'roles') {
-        clickedBtn = document.querySelector('.btn-info');
-        clickedBtn.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Extracting Roles...';
-    } else if (conceptType === 'states') {
-        clickedBtn = document.querySelector('.btn-warning');
-        clickedBtn.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Extracting States...';
-    } else if (conceptType === 'resources') {
-        clickedBtn = document.querySelector('.btn-success');
-        clickedBtn.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Extracting Resources...';
-    }
-
-    // Get CSRF token
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-
-    // Make the API call
+    // Execute extraction
     fetch(`{{ url_for('scenario_pipeline.step1_extract_individual', case_id=case.id) }}`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRFToken': csrfToken
+            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
         },
         body: JSON.stringify({
             concept_type: conceptType,
@@ -758,152 +380,201 @@ function extractIndividual(conceptType) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            displayIndividualResults(data, conceptType);
+            // Display the prompt (should be the prompt sent TO the LLM)
+            if (data.prompt) {
+                // Escape HTML and display as preformatted text
+                const tempDiv = document.createElement('div');
+                tempDiv.textContent = data.prompt;
+                const escapedPrompt = tempDiv.innerHTML;
+                promptText.innerHTML = `<pre style="white-space: pre-wrap; word-wrap: break-word;">${escapedPrompt}</pre>`;
+            } else {
+                promptText.innerHTML = 'No prompt available';
+            }
+
+            // Display the raw LLM response directly in the results section
+            if (data.raw_llm_response) {
+                // Simply display the raw response as-is
+                const tempDiv = document.createElement('div');
+                tempDiv.textContent = data.raw_llm_response;
+                const escapedResponse = tempDiv.innerHTML;
+                resultsContent.innerHTML = `<pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; max-height: 500px; overflow-y: auto;">${escapedResponse}</pre>`;
+            } else {
+                resultsContent.innerHTML = '<div class="alert alert-info">No response received from LLM</div>';
+            }
+
+            // Show results section
+            resultsSection.style.display = 'block';
         } else {
-            alert('Error extracting ' + conceptType + ': ' + (data.error || 'Unknown error'));
+            resultsContent.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    Error: ${data.error}
+                </div>
+            `;
+            resultsSection.style.display = 'block';
         }
     })
     .catch(error => {
-        alert('Network error: ' + error.message);
+        resultsContent.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle"></i>
+                Network error: ${error.message}
+            </div>
+        `;
+        resultsSection.style.display = 'block';
     })
     .finally(() => {
-        // Re-enable buttons
-        buttons.forEach(btn => btn.disabled = false);
-
-        // Reset button text
-        document.querySelector('.btn-info').innerHTML = '<i class="bi bi-person-badge"></i> Extract Roles Only';
-        document.querySelector('.btn-warning').innerHTML = '<i class="bi bi-diagram-3"></i> Extract States Only';
-        document.querySelector('.btn-success').innerHTML = '<i class="bi bi-box-seam"></i> Extract Resources Only';
+        // Re-enable button with appropriate icon
+        const iconClass = conceptType === 'roles' ? 'person-badge' :
+                         conceptType === 'states' ? 'diagram-3' : 'box-seam';
+        const btnClass = conceptType === 'roles' ? 'info' :
+                        conceptType === 'states' ? 'warning' : 'success';
+        button.disabled = false;
+        button.innerHTML = `<i class="bi bi-play-fill"></i> Extract ${conceptType.charAt(0).toUpperCase() + conceptType.slice(1)}`;
     });
 }
 
-function displayIndividualResults(data, conceptType) {
-    const resultsCard = document.getElementById('individualResultsCard');
-    const resultsTitle = document.getElementById('individualResultsTitle');
-    const resultsContent = document.getElementById('individualResultsContent');
+function displayConceptResults(conceptType, data) {
+    const resultsContent = document.getElementById(`${conceptType}ResultsContent`);
+    let html = '';
 
-    // Update title
-    const typeLabel = conceptType.charAt(0).toUpperCase() + conceptType.slice(1);
-    resultsTitle.textContent = `${typeLabel} Extraction Results`;
-
-    // Build results HTML
-    let html = `
-        <div class="alert alert-info mb-3">
-            <strong>Extraction Method:</strong> ${data.extraction_metadata?.extraction_method || 'enhanced_individual'}<br>
-            <strong>Model Used:</strong> ${data.extraction_metadata?.model_used || 'Unknown'}<br>
-            <strong>Count:</strong> ${data.count || 0} ${conceptType} extracted
-        </div>
-    `;
-
-    if (data.prompt) {
-        html += `
-            <div class="alert alert-secondary mb-3">
-                <h6>Extraction Prompt Used:</h6>
-                <pre style="max-height: 300px; overflow-y: auto;">${data.prompt}</pre>
-            </div>
-        `;
-    }
-
-    // Display raw LLM response for debugging (only for roles)
-    if (data.raw_llm_response) {
-        html += `
-            <div class="alert alert-warning mb-3">
-                <h6>Raw LLM Response (Debug):</h6>
-                <pre style="max-height: 400px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word; background: #f8f9fa; padding: 10px; border: 1px solid #dee2e6; border-radius: 4px;">${data.raw_llm_response}</pre>
-            </div>
-        `;
-    }
-
-    if (data.results && data.results.length > 0) {
-        // Special handling for roles - separate classes from individuals
-        if (conceptType === 'roles') {
-            const roleClasses = data.results.filter(item => item.type === 'role_class');
-            const roleIndividuals = data.results.filter(item => item.type === 'role_individual');
-
-            html += '<div class="results-list">';
-
-            // Display Role Classes
-            if (roleClasses.length > 0) {
-                html += '<div class="mb-4">';
-                html += `<h6 class="text-primary"><i class="bi bi-diagram-3"></i> New Role Classes Discovered (${roleClasses.length}):</h6>`;
-                html += '<ul class="list-group mb-3">';
-
-                roleClasses.forEach(roleClass => {
-                    html += `
-                        <li class="list-group-item border-left border-primary">
-                            <strong>${roleClass.label}</strong>
-                            <span class="badge badge-primary ml-2">Class</span>
-                            ${roleClass.description ? `<br><small class="text-muted">${roleClass.description}</small>` : ''}
-                            ${roleClass.professional_scope ? `<br><small class="text-info"><strong>Scope:</strong> ${roleClass.professional_scope}</small>` : ''}
-                            ${roleClass.confidence ? `<br><small class="text-success">Confidence: ${(roleClass.confidence * 100).toFixed(0)}%</small>` : ''}
-                        </li>
-                    `;
-                });
-
-                html += '</ul>';
-                html += '</div>';
-            }
-
-            // Display Role Individuals
-            if (roleIndividuals.length > 0) {
-                html += '<div class="mb-4">';
-                html += `<h6 class="text-info"><i class="bi bi-person-badge"></i> Role Individuals Found (${roleIndividuals.length}):</h6>`;
-                html += '<ul class="list-group mb-3">';
-
-                roleIndividuals.forEach(individual => {
-                    html += `
-                        <li class="list-group-item border-left border-info">
-                            <strong>${individual.label}</strong>
-                            <span class="badge badge-info ml-2">Individual</span>
-                            ${individual.role_class ? `<br><small class="text-primary"><strong>Role:</strong> ${individual.role_class}</small>` : ''}
-                            ${individual.description ? `<br><small class="text-muted">${individual.description}</small>` : ''}
-                            ${individual.attributes ? `<br><small class="text-secondary"><strong>Attributes:</strong> ${JSON.stringify(individual.attributes)}</small>` : ''}
-                            ${individual.confidence ? `<br><small class="text-success">Confidence: ${(individual.confidence * 100).toFixed(0)}%</small>` : ''}
-                        </li>
-                    `;
-                });
-
-                html += '</ul>';
-                html += '</div>';
-            }
-
-            // Summary and link to review
-            html += `<div class="alert alert-success">
-                <div><strong>Summary:</strong> Found ${roleClasses.length} new role classes and ${roleIndividuals.length} specific individuals.</div>
-                <div class="mt-2">
-                    <a href="{{ url_for('entity_review.review_case_entities', case_id=case.id) }}" class="btn btn-sm btn-primary">
-                        <i class="bi bi-list-check"></i> Review Extracted Entities
-                    </a>
-                </div>
-            </div>`;
-
-            html += '</div>';
-        } else {
-            // Original handling for non-role extractions
-            html += '<div class="results-list">';
-            html += `<h6>Extracted ${typeLabel}:</h6>`;
-            html += '<ul class="list-group">';
-
-            data.results.forEach(item => {
+    if (conceptType === 'roles' && (data.role_classes || data.individuals)) {
+        // Display role classes
+        if (data.role_classes && data.role_classes.length > 0) {
+            html += `<h6>Role Classes (${data.role_classes.length})</h6>`;
+            data.role_classes.forEach(role => {
                 html += `
-                    <li class="list-group-item">
-                        <strong>${item.label || 'Unnamed'}</strong>
-                        ${item.description ? `<br><small class="text-muted">${item.description}</small>` : ''}
-                        ${item.confidence ? `<br><small class="text-success">Confidence: ${(item.confidence * 100).toFixed(0)}%</small>` : ''}
-                    </li>
+                    <div class="entity-item">
+                        <div class="entity-label">${role.label}</div>
+                        ${role.description ? `<div class="entity-description">${role.description}</div>` : ''}
+                        <div class="entity-confidence">Confidence: ${(role.confidence * 100).toFixed(0)}%</div>
+                    </div>
                 `;
             });
-
-            html += '</ul>';
-            html += '</div>';
         }
+
+        // Display individuals
+        if (data.individuals && data.individuals.length > 0) {
+            html += `<h6 class="mt-3">Individuals (${data.individuals.length})</h6>`;
+            data.individuals.forEach(individual => {
+                html += `
+                    <div class="entity-item">
+                        <div class="entity-label">${individual.name}</div>
+                        ${individual.role_class ? `<div class="entity-description">Role: ${individual.role_class}</div>` : ''}
+                        ${individual.case_involvement ? `<div class="entity-description">${individual.case_involvement}</div>` : ''}
+                    </div>
+                `;
+            });
+        }
+
+        if (!data.role_classes && !data.individuals) {
+            html = `
+                <div class="alert alert-warning">
+                    No roles extracted from this section.
+                </div>
+            `;
+        }
+    } else if (conceptType === 'states' && (data.state_classes || data.state_individuals)) {
+        // Display state classes
+        if (data.state_classes && data.state_classes.length > 0) {
+            html += `<h6>State Classes (${data.state_classes.length})</h6>`;
+            data.state_classes.forEach(state => {
+                html += `
+                    <div class="entity-item">
+                        <div class="entity-label">${state.label}</div>
+                        ${state.description ? `<div class="entity-description">${state.description}</div>` : ''}
+                        ${state.persistence_type ? `<div class="entity-description"><small>Persistence: ${state.persistence_type}</small></div>` : ''}
+                        <div class="entity-confidence">Confidence: ${(state.confidence * 100).toFixed(0)}%</div>
+                    </div>
+                `;
+            });
+        }
+
+        // Display state individuals
+        if (data.state_individuals && data.state_individuals.length > 0) {
+            html += `<h6 class="mt-3">State Instances (${data.state_individuals.length})</h6>`;
+            data.state_individuals.forEach(individual => {
+                html += `
+                    <div class="entity-item">
+                        <div class="entity-label">${individual.identifier}</div>
+                        ${individual.state_class ? `<div class="entity-description">Type: ${individual.state_class}</div>` : ''}
+                        ${individual.active_period ? `<div class="entity-description">Active: ${individual.active_period}</div>` : ''}
+                        ${individual.triggering_event ? `<div class="entity-description">Triggered by: ${individual.triggering_event}</div>` : ''}
+                    </div>
+                `;
+            });
+        }
+
+        if (!data.state_classes && !data.state_individuals) {
+            html = `
+                <div class="alert alert-warning">
+                    No states extracted from this section.
+                </div>
+            `;
+        }
+    } else if (data.results && data.results.length > 0) {
+        html += `<h6>${conceptType.charAt(0).toUpperCase() + conceptType.slice(1)} (${data.results.length})</h6>`;
+        data.results.forEach(item => {
+            html += `
+                <div class="entity-item">
+                    <div class="entity-label">${item.label}</div>
+                    ${item.description ? `<div class="entity-description">${item.description}</div>` : ''}
+                    <div class="entity-confidence">Confidence: ${(item.confidence * 100).toFixed(0)}%</div>
+                </div>
+            `;
+        });
     } else {
-        html += '<div class="alert alert-warning">No ' + conceptType + ' extracted from this section.</div>';
+        html = `
+            <div class="alert alert-warning">
+                No ${conceptType} extracted from this section.
+            </div>
+        `;
+    }
+
+    // Add metadata
+    if (data.metadata) {
+        html += `
+            <div class="mt-3 text-muted small">
+                <strong>Model:</strong> ${data.metadata.model || 'Unknown'} |
+                <strong>Method:</strong> ${data.metadata.extraction_method || 'Unknown'}
+            </div>
+        `;
     }
 
     resultsContent.innerHTML = html;
-    resultsCard.style.display = 'block';
-    resultsCard.scrollIntoView({ behavior: 'smooth' });
+}
+
+function regenerateConceptPrompt(conceptType) {
+    // Clear the saved prompt and regenerate
+    const promptText = document.getElementById(`${conceptType}PromptText`);
+
+    // Show loading
+    promptText.innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Regenerating prompt...</span>
+            </div>
+            <p class="mt-2">Regenerating ${conceptType} prompt...</p>
+        </div>
+    `;
+
+    // Clear results if any
+    const resultsSection = document.getElementById(`${conceptType}Results`);
+    resultsSection.style.display = 'none';
+
+    // Trigger extraction which will generate a new prompt
+    extractIndividualConcept(conceptType);
+}
+
+function executeFullContextualPass() {
+    // Execute all three extractions
+    ['roles', 'states', 'resources'].forEach(conceptType => {
+        // Simulate button click for each
+        const button = document.querySelector(`#${conceptType}Section button`);
+        if (button) {
+            button.click();
+        }
+    });
 }
 </script>
 {% endblock %}
