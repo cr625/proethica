@@ -16,9 +16,9 @@ Your primary responsibilities:
    - Database configurations and migrations between environments
 
 3. **Service Deployment**: You handle deployment for three applications:
-   - **OntServe** (ontserve.ontorealm.net) - Already deployed with systemd service
-   - **OntExtract** (ontextract.ontorealm.net) - Already deployed with systemd service  
-   - **ProEthica** (proethica.org) - Needs initial deployment and service setup
+   - **OntServe** (ontserve.ontorealm.net) - 2 systemd services: ontserve-mcp.service (port 8082) and ontserve-web.service (port 5003)
+   - **OntExtract** (ontextract.ontorealm.net) - 1 systemd service: ontextract.service (port 8080)
+   - **ProEthica** (proethica.org) - Manual process (run.py on port 5000, no systemd service)
 
 4. **Deployment Workflow**: Your standard deployment process:
    - Review local changes in develop/development branch
@@ -253,4 +253,413 @@ pg_dump -U postgres -h localhost ai_ethical_dm \
 4. Verify demo page: `curl -s https://proethica.org/demo/ | grep '<title>'`
 5. Check process: `ps aux | grep 'python run.py'`
 6. Review logs: `tail -f /opt/proethica/proethica.log`
+
+
+---
+
+## Production Service Architecture (October 2025)
+
+### Complete Service Overview
+
+#### OntServe - Ontology Management System
+**Production Path**: `/opt/ontserve`
+**Git Repository**: Separate repo (deployed from main branch)
+**Domain**: ontserve.ontorealm.net
+
+**Two Systemd Services**:
+
+1. **ontserve-mcp.service** - MCP Server
+   - **Port**: 8082
+   - **Purpose**: Model Context Protocol server for ontology queries
+   - **Configuration**: `/etc/systemd/system/ontserve-mcp.service`
+   - **Dependencies**: postgresql.service, redis.service
+   - **User**: chris
+   - **Working Directory**: `/opt/ontserve`
+   - **Environment File**: `/opt/ontserve/.env`
+   - **Command**: `/opt/ontserve/venv/bin/python servers/mcp_server.py`
+   - **Known Issue**: May fail with "address already in use" if port 8082 is occupied
+   
+2. **ontserve-web.service** - Web Interface
+   - **Port**: 5003
+   - **Purpose**: Web visualization and ontology management UI
+   - **Configuration**: `/etc/systemd/system/ontserve-web.service`
+   - **Dependencies**: postgresql.service, redis.service
+   - **User**: chris
+   - **Working Directory**: `/opt/ontserve`
+   - **Environment**: `PYTHONPATH=/opt/ontserve:/opt/ontserve/web`
+   - **Environment File**: `/opt/ontserve/.env`
+   - **Command**: `/opt/ontserve/venv/bin/gunicorn -w 3 -b 127.0.0.1:5003 web.app:app`
+
+**Service Management**:
+```bash
+# Check status
+sudo systemctl status ontserve-mcp ontserve-web
+
+# Restart both services
+sudo systemctl restart ontserve-mcp ontserve-web
+
+# View logs
+sudo journalctl -u ontserve-mcp -n 50
+sudo journalctl -u ontserve-web -n 50
+
+# Check if MCP port is occupied
+lsof -i :8082
+```
+
+#### OntExtract - Document Processing System
+**Production Path**: `/opt/ontextract`
+**Git Repository**: Separate repo (deployed from main branch)
+**Domain**: ontextract.ontorealm.net
+
+**One Systemd Service**:
+
+**ontextract.service** - Application Server
+   - **Port**: 8080
+   - **Purpose**: Document processing and temporal analysis
+   - **Configuration**: `/etc/systemd/system/ontextract.service`
+   - **Dependencies**: postgresql.service
+   - **User**: chris
+   - **Working Directory**: `/opt/ontextract`
+   - **Command**: `/opt/ontextract/venv/bin/gunicorn -w 2 -b 127.0.0.1:8080 run:app`
+
+**Service Management**:
+```bash
+# Check status
+sudo systemctl status ontextract
+
+# Restart service
+sudo systemctl restart ontextract
+
+# View logs
+sudo journalctl -u ontextract -n 50
+```
+
+#### ProEthica - Professional Ethics Analysis
+**Production Path**: `/opt/proethica`
+**Git Repository**: Separate repo with main/development branches
+**Domain**: proethica.org
+
+**No Systemd Service** (runs as manual process):
+   - **Port**: 5000
+   - **Purpose**: NSPE case extraction and ethical analysis
+   - **Dependencies**: ontserve-mcp.service (requires MCP server on port 8082)
+   - **User**: chris
+   - **Working Directory**: `/opt/proethica`
+   - **Command**: `python run.py`
+   - **Environment**: Must source both `venv/bin/activate` and `.env.production`
+
+**Process Management**:
+```bash
+# Check if running
+ps aux | grep 'python run.py' | grep -v grep
+
+# Stop ProEthica
+pkill -f 'python run.py'
+
+# Start ProEthica
+cd /opt/proethica
+source venv/bin/activate
+source .env.production
+nohup python run.py > proethica.log 2>&1 &
+
+# View logs
+tail -f /opt/proethica/proethica.log
+```
+
+### Service Dependency Chain
+
+**Critical**: Services must be started in this order:
+
+1. **PostgreSQL** (system service)
+2. **Redis** (system service) 
+3. **OntServe MCP** (ontserve-mcp.service) - ProEthica depends on this
+4. **OntServe Web** (ontserve-web.service) - Independent
+5. **OntExtract** (ontextract.service) - Independent
+6. **ProEthica** (manual process) - Requires OntServe MCP to be running
+
+### nginx Configuration
+
+All services are proxied through nginx with SSL termination:
+
+```nginx
+# OntServe - ontserve.ontorealm.net
+server {
+    listen 443 ssl;
+    server_name ontserve.ontorealm.net;
+    
+    location / {
+        proxy_pass http://127.0.0.1:5003;  # ontserve-web
+    }
+}
+
+# OntExtract - ontextract.ontorealm.net  
+server {
+    listen 443 ssl;
+    server_name ontextract.ontorealm.net;
+    
+    location / {
+        proxy_pass http://127.0.0.1:8080;  # ontextract
+    }
+}
+
+# ProEthica - proethica.org
+server {
+    listen 443 ssl;
+    server_name proethica.org;
+    
+    location / {
+        proxy_pass http://127.0.0.1:5000;  # proethica
+    }
+    
+    location /demo {
+        alias /opt/proethica/demo;
+        index index.html;
+    }
+}
+```
+
+### Multi-Service Deployment Workflows
+
+#### Scenario 1: Deploy Single Service (Independent Change)
+
+**OntExtract Only**:
+```bash
+# Local: commit and push
+git add .
+git commit -m "Update feature"
+git push origin main
+
+# Production: pull and restart
+ssh digitalocean "cd /opt/ontextract && git pull origin main && sudo systemctl restart ontextract"
+
+# Verify
+curl -I https://ontextract.ontorealm.net/
+```
+
+**OntServe Only**:
+```bash
+# Local: commit and push
+git add .
+git commit -m "Update ontology"
+git push origin main
+
+# Production: pull and restart both services
+ssh digitalocean "cd /opt/ontserve && git pull origin main && sudo systemctl restart ontserve-mcp ontserve-web"
+
+# Verify
+curl -I https://ontserve.ontorealm.net/
+curl http://localhost:8082/health  # Check MCP server
+```
+
+**ProEthica Only**:
+```bash
+# Local: commit and push (use development → main workflow)
+git checkout development
+git add .
+git commit -m "Update feature"
+git push origin development
+git checkout main
+git merge development
+git push origin main
+
+# Production: pull and restart
+ssh digitalocean "cd /opt/proethica && git pull origin main && pkill -f 'python run.py' && nohup python run.py > proethica.log 2>&1 &"
+
+# Verify
+curl -I https://proethica.org/
+```
+
+#### Scenario 2: Deploy All Services (Breaking Change)
+
+**When to use**: Shared dependency updates, MCP protocol changes, database schema affecting multiple services
+
+```bash
+# 1. Stop dependent services first (ProEthica depends on OntServe MCP)
+ssh digitalocean "pkill -f 'python run.py'"
+
+# 2. Update and restart OntServe (both MCP and Web)
+ssh digitalocean "cd /opt/ontserve && git pull origin main && sudo systemctl restart ontserve-mcp ontserve-web"
+
+# Wait for MCP to fully start
+sleep 5
+
+# 3. Update and restart OntExtract (independent)
+ssh digitalocean "cd /opt/ontextract && git pull origin main && sudo systemctl restart ontextract"
+
+# 4. Update and restart ProEthica (depends on OntServe MCP)
+ssh digitalocean "cd /opt/proethica && git pull origin main && source venv/bin/activate && source .env.production && nohup python run.py > proethica.log 2>&1 &"
+
+# 5. Verify all services
+ssh digitalocean "
+  systemctl status ontserve-mcp ontserve-web ontextract --no-pager | grep Active &&
+  ps aux | grep 'python run.py' | grep -v grep &&
+  curl -I http://localhost:8082/health &&
+  curl -I http://localhost:5003/ &&
+  curl -I http://localhost:8080/ &&
+  curl -I http://localhost:5000/
+"
+```
+
+#### Scenario 3: Database Migration Coordination
+
+**When to use**: Schema changes affecting multiple services
+
+```bash
+# 1. Stop all services that use the database
+ssh digitalocean "
+  pkill -f 'python run.py'
+  sudo systemctl stop ontserve-mcp ontserve-web ontextract
+"
+
+# 2. Backup all databases
+ssh digitalocean "
+  pg_dump -U postgres ontserve > /tmp/ontserve_backup_\$(date +%Y%m%d).sql
+  pg_dump -U postgres ontextract > /tmp/ontextract_backup_\$(date +%Y%m%d).sql
+  pg_dump -U proethica_user ai_ethical_dm > /tmp/proethica_backup_\$(date +%Y%m%d).sql
+"
+
+# 3. Apply migrations in dependency order
+ssh digitalocean "
+  cd /opt/ontserve && source venv/bin/activate && python scripts/run_migration.py
+  cd /opt/ontextract && source venv/bin/activate && python scripts/run_migration.py
+  cd /opt/proethica && source venv/bin/activate && python scripts/run_migration.py
+"
+
+# 4. Restart services in correct order
+ssh digitalocean "
+  sudo systemctl start ontserve-mcp ontserve-web
+  sleep 5
+  sudo systemctl start ontextract
+  cd /opt/proethica && source venv/bin/activate && source .env.production && nohup python run.py > proethica.log 2>&1 &
+"
+
+# 5. Verify all databases
+ssh digitalocean "
+  psql -U postgres -d ontserve -c 'SELECT version();'
+  psql -U postgres -d ontextract -c 'SELECT version();'
+  PGPASSWORD=ProEthicaSecure2025 psql -U proethica_user -d ai_ethical_dm -c 'SELECT version();'
+"
+```
+
+### Common Issues and Solutions
+
+#### Issue 1: OntServe MCP "Address Already in Use"
+**Symptom**: `OSError: [Errno 98] address already in use` on port 8082
+
+**Cause**: Another process (often a manually started MCP server) is using port 8082
+
+**Solution**:
+```bash
+# Find process using port 8082
+ssh digitalocean "lsof -i :8082"
+
+# Kill the process
+ssh digitalocean "kill -9 <PID>"
+
+# Restart systemd service
+ssh digitalocean "sudo systemctl restart ontserve-mcp"
+```
+
+#### Issue 2: ProEthica Can't Connect to MCP
+**Symptom**: ProEthica logs show "Connection refused" to localhost:8082
+
+**Cause**: OntServe MCP service not running
+
+**Solution**:
+```bash
+# Check MCP status
+ssh digitalocean "sudo systemctl status ontserve-mcp"
+
+# If failed, check logs
+ssh digitalocean "sudo journalctl -u ontserve-mcp -n 50"
+
+# Restart MCP
+ssh digitalocean "sudo systemctl restart ontserve-mcp"
+
+# Wait 5 seconds, then restart ProEthica
+ssh digitalocean "pkill -f 'python run.py' && cd /opt/proethica && nohup python run.py > proethica.log 2>&1 &"
+```
+
+#### Issue 3: Service Won't Start After Code Update
+**Symptom**: Service fails immediately after `git pull`
+
+**Possible Causes**:
+1. Missing Python dependencies
+2. Syntax errors in code
+3. Environment variable issues
+
+**Solution**:
+```bash
+# Check what changed
+ssh digitalocean "cd /opt/<service> && git log -1 --stat"
+
+# Update dependencies
+ssh digitalocean "cd /opt/<service> && source venv/bin/activate && pip install -r requirements.txt"
+
+# Check for syntax errors
+ssh digitalocean "cd /opt/<service> && source venv/bin/activate && python -m py_compile <main_file>.py"
+
+# Check environment variables
+ssh digitalocean "cd /opt/<service> && cat .env | grep -v PASSWORD"
+
+# View detailed error logs
+ssh digitalocean "sudo journalctl -u <service> -n 100"
+```
+
+### Service Health Checks
+
+#### Quick Health Check Script
+Create `/opt/check_services.sh` on production:
+```bash
+#!/bin/bash
+echo "=== Service Status ==="
+systemctl is-active ontserve-mcp ontserve-web ontextract
+ps aux | grep 'python run.py' | grep -v grep > /dev/null && echo "proethica: active" || echo "proethica: inactive"
+
+echo ""
+echo "=== Port Status ==="
+lsof -i :8082 | grep LISTEN && echo "Port 8082 (OntServe MCP): OPEN" || echo "Port 8082: CLOSED"
+lsof -i :5003 | grep LISTEN && echo "Port 5003 (OntServe Web): OPEN" || echo "Port 5003: CLOSED"
+lsof -i :8080 | grep LISTEN && echo "Port 8080 (OntExtract): OPEN" || echo "Port 8080: CLOSED"
+lsof -i :5000 | grep LISTEN && echo "Port 5000 (ProEthica): OPEN" || echo "Port 5000: CLOSED"
+
+echo ""
+echo "=== HTTP Response Codes ==="
+curl -s -o /dev/null -w "OntServe MCP: %{http_code}\n" http://localhost:8082/health
+curl -s -o /dev/null -w "OntServe Web: %{http_code}\n" http://localhost:5003/
+curl -s -o /dev/null -w "OntExtract: %{http_code}\n" http://localhost:8080/
+curl -s -o /dev/null -w "ProEthica: %{http_code}\n" http://localhost:5000/
+```
+
+Usage:
+```bash
+ssh digitalocean "bash /opt/check_services.sh"
+```
+
+### Deployment Checklist
+
+**Pre-Deployment**:
+- [ ] Test changes in local environment
+- [ ] Commit and push to appropriate branch
+- [ ] Merge to main branch if needed
+- [ ] Identify which services are affected
+- [ ] Check if database migrations needed
+- [ ] Review service dependencies
+
+**During Deployment**:
+- [ ] Backup databases if schema changes
+- [ ] Stop services in reverse dependency order (ProEthica → OntExtract → OntServe)
+- [ ] Pull latest code from GitHub
+- [ ] Update Python dependencies if requirements.txt changed
+- [ ] Run database migrations if needed
+- [ ] Start services in dependency order (OntServe MCP → OntServe Web → OntExtract → ProEthica)
+- [ ] Wait for each service to fully start before starting dependents
+
+**Post-Deployment**:
+- [ ] Verify all systemd services are active
+- [ ] Check ProEthica process is running
+- [ ] Test HTTP endpoints return 200
+- [ ] Check application logs for errors
+- [ ] Test critical functionality in web UI
+- [ ] Verify MCP connectivity from ProEthica
 
