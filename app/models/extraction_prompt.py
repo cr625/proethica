@@ -16,6 +16,7 @@ class ExtractionPrompt(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     case_id = db.Column(db.Integer, nullable=False, index=True)
+    section_type = db.Column(db.String(50), nullable=False, default='facts')  # 'facts', 'discussion', 'questions', etc.
     concept_type = db.Column(db.String(50), nullable=False)  # 'roles', 'states', 'resources', etc.
     step_number = db.Column(db.Integer, nullable=False)  # 1, 2, or 3
 
@@ -47,29 +48,31 @@ class ExtractionPrompt(db.Model):
 
     # Index for faster lookups of active prompts
     __table_args__ = (
-        db.Index('ix_active_prompts', 'case_id', 'concept_type', 'is_active'),
+        db.Index('ix_active_prompts', 'case_id', 'section_type', 'concept_type', 'is_active'),
     )
 
     def __repr__(self):
         return f'<ExtractionPrompt case={self.case_id} type={self.concept_type} created={self.created_at}>'
 
     @classmethod
-    def get_active_prompt(cls, case_id, concept_type):
-        """Get the current active prompt for a case and concept type."""
+    def get_active_prompt(cls, case_id, concept_type, section_type='facts'):
+        """Get the current active prompt for a case, section, and concept type."""
         return cls.query.filter_by(
             case_id=case_id,
+            section_type=section_type,
             concept_type=concept_type,
             is_active=True
         ).first()
 
     @classmethod
     def save_prompt(cls, case_id, concept_type, prompt_text, step_number=1,
-                   llm_model=None, extraction_session_id=None, results_summary=None,
-                   raw_response=None):
+                   section_type='facts', llm_model=None, extraction_session_id=None,
+                   results_summary=None, raw_response=None):
         """Save a new prompt, deactivating any previous active prompt."""
-        # Deactivate any existing active prompts
+        # Deactivate any existing active prompts for this section
         existing = cls.query.filter_by(
             case_id=case_id,
+            section_type=section_type,
             concept_type=concept_type,
             is_active=True
         ).all()
@@ -80,6 +83,7 @@ class ExtractionPrompt(db.Model):
         # Create new active prompt
         new_prompt = cls(
             case_id=case_id,
+            section_type=section_type,
             concept_type=concept_type,
             step_number=step_number,
             prompt_text=prompt_text,

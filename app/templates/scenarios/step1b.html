@@ -309,7 +309,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function loadSavedPrompt(conceptType) {
-    fetch(`/scenario_pipeline/case/${caseId}/step1/get_saved_prompt?concept_type=${conceptType}`)
+    fetch(`/scenario_pipeline/case/${caseId}/step1/get_saved_prompt?concept_type=${conceptType}&section_type=discussion`)
         .then(response => response.json())
         .then(data => {
             if (data.success && data.prompt_text) {
@@ -365,8 +365,8 @@ function extractIndividualConcept(conceptType) {
         </div>
     `;
 
-    // Execute extraction
-    fetch(`{{ url_for('scenario_pipeline.step1_extract_individual', case_id=case.id) }}`, {
+    // Execute extraction using discussion-specific route
+    fetch(`/scenario_pipeline/case/${caseId}/step1/extract_individual`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -374,7 +374,8 @@ function extractIndividualConcept(conceptType) {
         },
         body: JSON.stringify({
             concept_type: conceptType,
-            section_text: currentSectionText
+            section_text: currentSectionText,
+            section_type: 'discussion'  // Mark as Discussion section
         })
     })
     .then(response => response.json())

@@ -25,15 +25,19 @@ def init_step1_csrf_exemption(app):
         app.csrf.exempt(entities_pass_prompt)
         app.csrf.exempt(entities_pass_execute)
 
-def step1_data(case_id):
+def step1_data(case_id, section_type='facts'):
     """
     Helper function to get Step 1 data without rendering template.
     Returns tuple of (case_doc, facts_section, discussion_section, saved_prompts).
+
+    Args:
+        case_id: The case ID
+        section_type: Which section's prompts to load ('facts' or 'discussion')
     """
     try:
         # Get the case
         case = Document.query.get_or_404(case_id)
-        
+
         # Extract sections using the same logic as before
         raw_sections = {}
         if case.doc_metadata:
@@ -46,47 +50,47 @@ def step1_data(case_id):
             # Priority 3: document_structure sections
             elif 'document_structure' in case.doc_metadata and 'sections' in case.doc_metadata['document_structure']:
                 raw_sections = case.doc_metadata['document_structure']['sections']
-        
+
         # If no sections found, create basic structure
         if not raw_sections:
             raw_sections = {
                 'full_content': case.content or 'No content available'
             }
-        
+
         # Find the facts section
         facts_section = None
         facts_section_key = None
-        
+
         # Look for facts/factual section (case insensitive)
         for section_key, section_content in raw_sections.items():
             if 'fact' in section_key.lower():
                 facts_section_key = section_key
                 facts_section = _format_section_for_llm(section_key, section_content, case_doc=case)
                 break
-        
+
         # If no facts section found, use first available section as fallback
         if not facts_section and raw_sections:
             first_key = list(raw_sections.keys())[0]
             facts_section_key = first_key
             facts_section = _format_section_for_llm(first_key, raw_sections[first_key], case_doc=case)
-        
+
         # Find the discussion section
         discussion_section = None
         discussion_section_key = None
-        
+
         # Look for discussion section (case insensitive)
         for section_key, section_content in raw_sections.items():
             if 'discussion' in section_key.lower():
                 discussion_section_key = section_key
                 discussion_section = _format_section_for_llm(section_key, section_content, case_doc=case)
                 break
-        
-        # Load any saved prompts for this case
+
+        # Load any saved prompts for this case - use section_type parameter
         from app.models import ExtractionPrompt
         saved_prompts = {
-            'roles': ExtractionPrompt.get_active_prompt(case_id, 'roles'),
-            'states': ExtractionPrompt.get_active_prompt(case_id, 'states'),
-            'resources': ExtractionPrompt.get_active_prompt(case_id, 'resources')
+            'roles': ExtractionPrompt.get_active_prompt(case_id, 'roles', section_type=section_type),
+            'states': ExtractionPrompt.get_active_prompt(case_id, 'states', section_type=section_type),
+            'resources': ExtractionPrompt.get_active_prompt(case_id, 'resources', section_type=section_type)
         }
 
         # Template context
@@ -136,9 +140,10 @@ def step1(case_id):
 def step1b(case_id):
     """
     Step 1b: Contextual Framework Pass for Discussion Section
-    Same exact structure as step1 but shows Discussion section content
+    Same exact structure as step1 but shows Discussion section content and prompts
     """
-    case, facts_section, discussion_section, saved_prompts = step1_data(case_id)
+    # Load data with section_type='discussion' to get discussion prompts
+    case, facts_section, discussion_section, saved_prompts = step1_data(case_id, section_type='discussion')
 
     # Template context
     context = {
@@ -149,7 +154,7 @@ def step1b(case_id):
         'step_title': 'Contextual Framework Pass - Discussion',
         'next_step_url': url_for('scenario_pipeline.step2', case_id=case_id),
         'prev_step_url': url_for('scenario_pipeline.step1', case_id=case_id),
-        'saved_prompts': saved_prompts
+        'saved_prompts': saved_prompts  # These are now discussion-specific prompts
     }
 
     # Use step1b.html template
@@ -527,6 +532,320 @@ def entities_pass_execute(case_id):
         }), 500
 
 
+def entities_pass_prompt_discussion(case_id):
+    """
+    API endpoint to generate entities pass prompt for Discussion section.
+    Same structure as entities_pass_prompt but for discussion section_type.
+    """
+    try:
+        if request.method != 'POST':
+            return jsonify({'error': 'POST method required'}), 405
+
+        # Get request data
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No JSON data provided'}), 400
+
+        section_text = data.get('section_text')
+        if not section_text:
+            return jsonify({'error': 'section_text is required'}), 400
+
+        logger.info(f"Generating entities pass prompt for Discussion section, case {case_id}")
+
+        # Import the extraction services
+        from app.services.extraction.roles import RolesExtractor
+        from app.services.extraction.resources import ResourcesExtractor
+        from app.services.extraction.enhanced_prompts_states_capabilities import create_enhanced_states_prompt
+
+        # Create extractors
+        roles_extractor = RolesExtractor()
+        resources_extractor = ResourcesExtractor()
+
+        # Get prompts (same extractors, different section context)
+        roles_prompt = roles_extractor._get_prompt_for_preview(section_text)
+        resources_prompt = resources_extractor._get_prompt_for_preview(section_text)
+
+        # Get existing states from MCP
+        existing_states = []
+        try:
+            from app.services.external_mcp_client import get_external_mcp_client
+            external_client = get_external_mcp_client()
+            existing_states = external_client.get_all_state_entities()
+            logger.info(f"Retrieved {len(existing_states)} existing states from MCP for Discussion prompt preview")
+        except Exception as e:
+            logger.warning(f"Could not fetch existing states for prompt preview: {e}")
+
+        # Get the enhanced states prompt
+        states_prompt = create_enhanced_states_prompt(section_text, include_ontology_context=True, existing_states=existing_states)
+
+        return jsonify({
+            'success': True,
+            'roles_prompt': roles_prompt,
+            'states_prompt': states_prompt,
+            'resources_prompt': resources_prompt,
+            'combined_prompt': f"ROLES EXTRACTION (Discussion):\n{roles_prompt}\n\n---\n\nSTATES EXTRACTION (Discussion):\n{states_prompt}\n\n---\n\nRESOURCES EXTRACTION (Discussion):\n{resources_prompt}",
+            'section_length': len(section_text),
+            'section_type': 'discussion'
+        })
+
+    except Exception as e:
+        logger.error(f"Error generating Discussion entities pass prompt for case {case_id}: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+def entities_pass_execute_discussion(case_id):
+    """
+    API endpoint to execute the entities pass on the Discussion section.
+    Same structure as entities_pass_execute but stores with section_type='discussion'.
+    """
+    try:
+        if request.method != 'POST':
+            return jsonify({'error': 'POST method required'}), 405
+
+        # Get request data
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No JSON data provided'}), 400
+
+        section_text = data.get('section_text')
+        if not section_text:
+            return jsonify({'error': 'section_text is required'}), 400
+
+        logger.info(f"Starting entities pass execution for Discussion section, case {case_id}")
+
+        # Import services
+        from app.services.extraction.dual_role_extractor import DualRoleExtractor
+        from app.services.extraction.resources import ResourcesExtractor
+        from app.services.extraction.enhanced_prompts_states_capabilities import EnhancedStatesExtractor
+        from app.services.provenance_service import get_provenance_service
+        try:
+            from app.services.provenance_versioning_service import get_versioned_provenance_service
+            USE_VERSIONED_PROVENANCE = True
+        except ImportError:
+            USE_VERSIONED_PROVENANCE = False
+        from app.models import db
+        import uuid
+
+        # Initialize provenance service
+        if USE_VERSIONED_PROVENANCE:
+            prov = get_versioned_provenance_service(session=db.session)
+            logger.info("Using versioned provenance service for Discussion section tracking")
+        else:
+            prov = get_provenance_service(session=db.session)
+
+        # Create a session ID
+        session_id = str(uuid.uuid4())
+
+        # Initialize extractors - Pass section_type='discussion' to all
+        dual_role_extractor = DualRoleExtractor()
+        resources_extractor = ResourcesExtractor()
+
+        from app.utils.llm_utils import get_llm_client
+        llm_client = get_llm_client()
+        states_extractor = EnhancedStatesExtractor(llm_client=llm_client, provenance_service=prov)
+
+        # Track versioned workflow
+        version_context = nullcontext()
+        if USE_VERSIONED_PROVENANCE:
+            version_context = prov.track_versioned_workflow(
+                workflow_name='step1b_extraction_discussion',
+                description='Discussion section entities pass extraction',
+                version_tag='discussion_section',
+                auto_version=True
+            )
+
+        with version_context:
+            # Track main activity
+            with prov.track_activity(
+                activity_type='extraction',
+                activity_name='entities_pass_step1_discussion',
+                case_id=case_id,
+                session_id=session_id,
+                agent_type='extraction_service',
+                agent_name='proethica_entities_pass_discussion',
+                execution_plan={
+                    'section_length': len(section_text),
+                    'section_type': 'discussion',
+                    'extraction_types': ['roles', 'states', 'resources'],
+                    'pass_name': 'Contextual Framework (Pass 1 - Discussion)'
+                }
+            ) as main_activity:
+
+                # Extract roles with section_type='discussion'
+                with prov.track_activity(
+                    activity_type='llm_query',
+                    activity_name='dual_roles_extraction_discussion',
+                    case_id=case_id,
+                    session_id=session_id,
+                    agent_type='extraction_service',
+                    agent_name='DualRoleExtractor'
+                ) as roles_activity:
+                    logger.info("Extracting roles from Discussion section...")
+                    candidate_role_classes, role_individuals = dual_role_extractor.extract_dual_roles(
+                        case_text=section_text,
+                        case_id=case_id,
+                        section_type='discussion'  # Key difference: Discussion section
+                    )
+
+                    roles_results_entity = prov.record_extraction_results(
+                        results=[{
+                            'label': c.label,
+                            'definition': c.definition,
+                            'confidence': c.discovery_confidence,
+                            'type': 'role_class'
+                        } for c in candidate_role_classes],
+                        activity=roles_activity,
+                        entity_type='extracted_role_classes',
+                        metadata={'count': len(candidate_role_classes), 'section_type': 'discussion'}
+                    )
+
+                    individuals_results_entity = prov.record_extraction_results(
+                        results=[{
+                            'name': ind.name,
+                            'role_class': ind.role_class,
+                            'confidence': ind.confidence
+                        } for ind in role_individuals],
+                        activity=roles_activity,
+                        entity_type='extracted_role_individuals',
+                        metadata={'count': len(role_individuals), 'section_type': 'discussion'}
+                    )
+
+                # Extract resources with section_type='discussion'
+                with prov.track_activity(
+                    activity_type='llm_query',
+                    activity_name='resources_extraction_discussion',
+                    case_id=case_id,
+                    session_id=session_id,
+                    agent_type='extraction_service',
+                    agent_name='ResourcesExtractor'
+                ) as resources_activity:
+                    logger.info("Extracting resources from Discussion section...")
+                    resource_candidates = resources_extractor.extract(
+                        section_text,
+                        guideline_id=case_id,
+                        activity=resources_activity
+                    )
+
+                    resources_results_entity = prov.record_extraction_results(
+                        results=[{
+                            'label': c.label,
+                            'description': c.description,
+                            'confidence': c.confidence
+                        } for c in resource_candidates],
+                        activity=resources_activity,
+                        entity_type='extracted_resources',
+                        metadata={'count': len(resource_candidates), 'section_type': 'discussion'}
+                    )
+
+                # Extract states with section_type='discussion'
+                with prov.track_activity(
+                    activity_type='llm_query',
+                    activity_name='states_extraction_discussion',
+                    case_id=case_id,
+                    session_id=session_id,
+                    agent_type='extraction_service',
+                    agent_name='EnhancedStatesExtractor'
+                ) as states_activity:
+                    logger.info("Extracting states from Discussion section...")
+                    state_candidates = states_extractor.extract(
+                        section_text,
+                        context={'case_id': case_id},
+                        activity=states_activity
+                    )
+
+                    states_results_entity = prov.record_extraction_results(
+                        results=[{
+                            'label': c.label,
+                            'description': c.description,
+                            'confidence': c.confidence
+                        } for c in state_candidates],
+                        activity=states_activity,
+                        entity_type='extracted_states',
+                        metadata={'count': len(state_candidates), 'section_type': 'discussion'}
+                    )
+
+                # Link activities
+                prov.link_activities(roles_activity, main_activity, 'sequence')
+                prov.link_activities(states_activity, roles_activity, 'sequence')
+                prov.link_activities(resources_activity, states_activity, 'sequence')
+
+        # Commit provenance
+        db.session.commit()
+
+        # Format results (same as entities_pass_execute)
+        roles_data = []
+        for candidate in candidate_role_classes:
+            roles_data.append({
+                'label': candidate.label,
+                'definition': candidate.definition,
+                'type': 'role_class',
+                'confidence': candidate.discovery_confidence,
+                'section_type': 'discussion'  # Mark section
+            })
+
+        individuals_data = []
+        for individual in role_individuals:
+            individuals_data.append({
+                'name': individual.name,
+                'role_class': individual.role_class,
+                'confidence': individual.confidence,
+                'type': 'role_individual',
+                'section_type': 'discussion'  # Mark section
+            })
+
+        resources_data = []
+        for candidate in resource_candidates:
+            resources_data.append({
+                'label': candidate.label,
+                'description': candidate.description,
+                'type': candidate.primary_type,
+                'confidence': candidate.confidence,
+                'section_type': 'discussion'  # Mark section
+            })
+
+        states_data = []
+        for candidate in state_candidates:
+            states_data.append({
+                'label': candidate.label,
+                'description': candidate.description,
+                'type': candidate.primary_type,
+                'confidence': candidate.confidence,
+                'section_type': 'discussion'  # Mark section
+            })
+
+        logger.info(f"Discussion entities pass completed: {len(roles_data)} role classes, {len(individuals_data)} individuals, {len(states_data)} states, {len(resources_data)} resources")
+
+        return jsonify({
+            'success': True,
+            'section_type': 'discussion',
+            'roles': roles_data,
+            'individuals': individuals_data,
+            'states': states_data,
+            'resources': resources_data,
+            'summary': {
+                'roles_count': len(roles_data),
+                'individuals_count': len(individuals_data),
+                'states_count': len(states_data),
+                'resources_count': len(resources_data),
+                'total_entities': len(roles_data) + len(individuals_data) + len(states_data) + len(resources_data)
+            },
+            'provenance': {
+                'session_id': session_id,
+                'viewer_url': f'/tools/provenance?case_id={case_id}&session_id={session_id}'
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"Error in Discussion entities pass execution for case {case_id}: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 def discussion_contextual_prompt(case_id):
     """
     API endpoint to generate dual prompts for Discussion section analysis.
@@ -706,16 +1025,17 @@ def discussion_contextual_execute(case_id):
 
 def get_saved_prompt(case_id):
     """
-    API endpoint to get saved extraction prompt for a specific concept type.
+    API endpoint to get saved extraction prompt for a specific concept type and section.
     """
     from flask import request, jsonify
     from app.models import ExtractionPrompt
 
     try:
         concept_type = request.args.get('concept_type', 'roles')
+        section_type = request.args.get('section_type', 'facts')  # Support section_type parameter
 
-        # Get the saved prompt from database
-        saved_prompt = ExtractionPrompt.get_active_prompt(case_id, concept_type)
+        # Get the saved prompt from database with section_type
+        saved_prompt = ExtractionPrompt.get_active_prompt(case_id, concept_type, section_type=section_type)
 
         if saved_prompt:
             return jsonify({
@@ -723,12 +1043,13 @@ def get_saved_prompt(case_id):
                 'prompt_text': saved_prompt.prompt_text,
                 'raw_response': saved_prompt.raw_response,  # Include the raw response
                 'created_at': saved_prompt.created_at.strftime('%Y-%m-%d %H:%M'),
-                'llm_model': saved_prompt.llm_model
+                'llm_model': saved_prompt.llm_model,
+                'section_type': saved_prompt.section_type
             })
         else:
             return jsonify({
                 'success': False,
-                'message': 'No saved prompt found'
+                'message': f'No saved prompt found for {concept_type} in {section_type} section'
             })
 
     except Exception as e:
@@ -755,6 +1076,7 @@ def extract_individual_concept(case_id):
 
         concept_type = data.get('concept_type')
         section_text = data.get('section_text')
+        section_type = data.get('section_type', 'facts')  # Support section_type parameter
 
         if not concept_type:
             return jsonify({'error': 'concept_type is required'}), 400
@@ -765,7 +1087,7 @@ def extract_individual_concept(case_id):
         if concept_type not in ['roles', 'states', 'resources']:
             return jsonify({'error': 'Invalid concept_type. Must be roles, states, or resources'}), 400
 
-        logger.info(f"Executing individual {concept_type} extraction for case {case_id}")
+        logger.info(f"Executing individual {concept_type} extraction for case {case_id}, section: {section_type}")
 
         # Import necessary services
         from app.utils.llm_utils import get_llm_client
@@ -809,18 +1131,18 @@ def extract_individual_concept(case_id):
             extractor = DualRoleExtractor()
 
             # Generate the prompt for display (dual extraction)
-            extraction_prompt = extractor._create_dual_role_extraction_prompt(section_text, 'facts')
+            extraction_prompt = extractor._create_dual_role_extraction_prompt(section_text, section_type)
             logger.info(f"DEBUG: Generated extraction prompt (first 200 chars): {extraction_prompt[:200] if extraction_prompt else 'None'}")
 
             # Use dual extraction to get both classes and individuals
             # Skip complex provenance tracking for individual extraction to avoid session issues
             try:
-                logger.info(f"DEBUG: About to call extract_dual_roles with case_id={case_id}, section_type='facts'")
+                logger.info(f"DEBUG: About to call extract_dual_roles with case_id={case_id}, section_type={section_type}")
                 logger.info(f"DEBUG: section_text length: {len(section_text)}")
                 candidate_role_classes, role_individuals = extractor.extract_dual_roles(
                     case_text=section_text,
                     case_id=case_id,
-                    section_type='facts'
+                    section_type=section_type  # Use the section_type parameter
                 )
                 logger.info(f"DEBUG: extract_dual_roles completed successfully")
             except Exception as e:
@@ -841,6 +1163,7 @@ def extract_individual_concept(case_id):
                     prompt_text=extraction_prompt,
                     raw_response=raw_llm_response,  # Save the raw LLM response
                     step_number=1,
+                    section_type=section_type,  # Include section_type
                     llm_model=ModelConfig.get_claude_model("powerful") if llm_client else "fallback",
                     extraction_session_id=session_id
                 )
@@ -951,11 +1274,11 @@ def extract_individual_concept(case_id):
             extractor = DualStatesExtractor()
 
             # Generate the prompt for display (dual extraction)
-            extraction_prompt = extractor._create_dual_states_extraction_prompt(section_text, 'facts')
+            extraction_prompt = extractor._create_dual_states_extraction_prompt(section_text, section_type)
 
             # Perform dual extraction (classes + individuals)
             # Skip provenance tracking for now - focusing on extraction functionality
-            candidate_state_classes, state_individuals = extractor.extract_dual_states(section_text, case_id, 'facts')
+            candidate_state_classes, state_individuals = extractor.extract_dual_states(section_text, case_id, section_type)
 
             logger.info(f"Dual states extraction for case {case_id}: {len(candidate_state_classes)} new classes, {len(state_individuals)} individuals")
 
@@ -971,10 +1294,11 @@ def extract_individual_concept(case_id):
                     prompt_text=extraction_prompt,
                     raw_response=raw_llm_response,  # Save the raw LLM response
                     step_number=1,
+                    section_type=section_type,  # Include section_type
                     llm_model=ModelConfig.get_claude_model("powerful") if llm_client else "fallback",
                     extraction_session_id=session_id
                 )
-                logger.info(f"Saved states extraction prompt and response for case {case_id}")
+                logger.info(f"Saved states extraction prompt and response for case {case_id}, section: {section_type}")
             except Exception as e:
                 logger.warning(f"Could not save extraction prompt: {e}")
             logger.info(f"DEBUG RDF: raw_llm_response available: {raw_llm_response is not None}, length: {len(raw_llm_response) if raw_llm_response else 0}")
@@ -1063,11 +1387,11 @@ def extract_individual_concept(case_id):
             extractor = DualResourcesExtractor()
 
             # Generate the prompt for display (dual extraction)
-            extraction_prompt = extractor._create_dual_resources_extraction_prompt(section_text, 'facts')
+            extraction_prompt = extractor._create_dual_resources_extraction_prompt(section_text, section_type)
 
             # Perform dual extraction (classes + individuals)
             # Skip provenance tracking for now - focusing on extraction functionality
-            candidate_resource_classes, resource_individuals = extractor.extract_dual_resources(section_text, case_id, 'facts')
+            candidate_resource_classes, resource_individuals = extractor.extract_dual_resources(section_text, case_id, section_type)
 
             logger.info(f"Dual resources extraction for case {case_id}: {len(candidate_resource_classes)} new classes, {len(resource_individuals)} individuals")
 
@@ -1083,10 +1407,11 @@ def extract_individual_concept(case_id):
                     prompt_text=extraction_prompt,
                     raw_response=raw_llm_response,  # Save the raw LLM response
                     step_number=1,
+                    section_type=section_type,  # Include section_type
                     llm_model=ModelConfig.get_claude_model("powerful") if llm_client else "fallback",
                     extraction_session_id=session_id
                 )
-                logger.info(f"Saved resources extraction prompt and response for case {case_id}")
+                logger.info(f"Saved resources extraction prompt and response for case {case_id}, section: {section_type}")
             except Exception as e:
                 logger.warning(f"Could not save extraction prompt: {e}")
             logger.info(f"DEBUG RDF: raw_llm_response available: {raw_llm_response is not None}, length: {len(raw_llm_response) if raw_llm_response else 0}")
