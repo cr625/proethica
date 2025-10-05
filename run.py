@@ -14,6 +14,11 @@ from pathlib import Path
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
+# Add the shared directory to Python path (for llm_orchestration imports)
+shared_dir = project_root.parent / "shared"
+if shared_dir.exists():
+    sys.path.insert(0, str(shared_dir.parent))
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,

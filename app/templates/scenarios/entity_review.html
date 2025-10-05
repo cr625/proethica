@@ -195,13 +195,17 @@
                                 <i class="bi bi-person-badge"></i> Roles
                             </h5>
                             <div class="row text-center">
-                                <div class="col-6">
+                                <div class="col-4">
                                     <div class="fs-3 fw-bold">{{ rdf_data.by_type.roles.classes|length if rdf_data and rdf_data.by_type and rdf_data.by_type.roles else 0 }}</div>
                                     <small class="text-muted">Classes</small>
                                 </div>
-                                <div class="col-6">
+                                <div class="col-4">
                                     <div class="fs-3 fw-bold">{{ rdf_data.by_type.roles.individuals|length if rdf_data and rdf_data.by_type and rdf_data.by_type.roles else 0 }}</div>
                                     <small class="text-muted">Individuals</small>
+                                </div>
+                                <div class="col-4">
+                                    <div class="fs-3 fw-bold">{{ rdf_data.by_type.roles.relationships|length if rdf_data and rdf_data.by_type and rdf_data.by_type.roles and rdf_data.by_type.roles.relationships else 0 }}</div>
+                                    <small class="text-muted">References</small>
                                 </div>
                             </div>
                         </div>
@@ -216,13 +220,17 @@
                                 <i class="bi bi-diagram-3"></i> States
                             </h5>
                             <div class="row text-center">
-                                <div class="col-6">
+                                <div class="col-4">
                                     <div class="fs-3 fw-bold">{{ rdf_data.by_type.states.classes|length if rdf_data and rdf_data.by_type and rdf_data.by_type.states else 0 }}</div>
                                     <small class="text-muted">Classes</small>
                                 </div>
-                                <div class="col-6">
+                                <div class="col-4">
                                     <div class="fs-3 fw-bold">{{ rdf_data.by_type.states.individuals|length if rdf_data and rdf_data.by_type and rdf_data.by_type.states else 0 }}</div>
                                     <small class="text-muted">Individuals</small>
+                                </div>
+                                <div class="col-4">
+                                    <div class="fs-3 fw-bold">{{ rdf_data.by_type.states.relationships|length if rdf_data and rdf_data.by_type and rdf_data.by_type.states and rdf_data.by_type.states.relationships else 0 }}</div>
+                                    <small class="text-muted">References</small>
                                 </div>
                             </div>
                         </div>
@@ -237,13 +245,17 @@
                                 <i class="bi bi-box-seam"></i> Resources
                             </h5>
                             <div class="row text-center">
-                                <div class="col-6">
+                                <div class="col-4">
                                     <div class="fs-3 fw-bold">{{ rdf_data.by_type.resources.classes|length if rdf_data and rdf_data.by_type and rdf_data.by_type.resources else 0 }}</div>
                                     <small class="text-muted">Classes</small>
                                 </div>
-                                <div class="col-6">
+                                <div class="col-4">
                                     <div class="fs-3 fw-bold">{{ rdf_data.by_type.resources.individuals|length if rdf_data and rdf_data.by_type and rdf_data.by_type.resources else 0 }}</div>
                                     <small class="text-muted">Individuals</small>
+                                </div>
+                                <div class="col-4">
+                                    <div class="fs-3 fw-bold">{{ rdf_data.by_type.resources.relationships|length if rdf_data and rdf_data.by_type and rdf_data.by_type.resources and rdf_data.by_type.resources.relationships else 0 }}</div>
+                                    <small class="text-muted">References</small>
                                 </div>
                             </div>
                         </div>
@@ -269,7 +281,7 @@
 
             <!-- CONCEPT TYPE PANELS -->
             {% for concept_type, type_data in rdf_data.by_type.items() %}
-            {% if type_data.classes or type_data.individuals %}
+            {% if type_data.classes or type_data.individuals or type_data.relationships %}
             <div class="row mb-5">
                 <div class="col-12">
                     <!-- Panel Header for {{ concept_type|title }} -->
@@ -534,11 +546,110 @@
             </div>
             {% endif %}
 
+            <!-- RELATIONSHIPS SUB-SECTION (Cross-section entity references) -->
+            {% if type_data.relationships %}
+            <div class="row mb-5">
+                <div class="col-12">
+                    <h5 class="mb-3">{{ concept_type|title }} Cross-Section References</h5>
+                    <div class="card border-secondary shadow-sm">
+                        <div class="card-header bg-secondary text-white">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-0">
+                                        <i class="fas fa-link"></i>
+                                        Entities Referenced from Other Sections
+                                    </h6>
+                                    <small>These entities were extracted from other sections and referenced in this section</small>
+                                </div>
+                                <span class="badge bg-light text-dark">{{ type_data.relationships|length }} References</span>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th width="3%">
+                                                <input type="checkbox" class="rdf-relationship-select-all" data-concept-type="{{ concept_type }}">
+                                            </th>
+                                            <th width="30%">Entity Referenced</th>
+                                            <th width="15%">Source Section</th>
+                                            <th width="50%">Reference Context</th>
+                                            <th width="2%">Info</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for rel in type_data.relationships %}
+                                        <tr>
+                                            <td>
+                                                <input type="checkbox" class="rdf-entity-checkbox"
+                                                       data-entity-id="{{ rel.id }}"
+                                                       data-entity-type="relationship"
+                                                       data-concept-type="{{ concept_type }}"
+                                                       {% if rel.is_committed %}disabled title="Already committed"{% elif not rel.is_committed %}checked{% endif %}>
+                                            </td>
+                                            <td>
+                                                <strong>{{ rel.entity_label }}</strong>
+                                                {% if rel.is_committed %}
+                                                <span class="badge bg-success ms-1">
+                                                    <i class="fas fa-check-circle"></i> Committed
+                                                </span>
+                                                {% endif %}
+                                                <br/>
+                                                <small class="text-muted">{{ rel.entity_type or 'EntityReference' }}</small>
+                                            </td>
+                                            <td>
+                                                {% if rel.rdf_json_ld and rel.rdf_json_ld.sourceSection %}
+                                                    <span class="badge bg-info">{{ rel.rdf_json_ld.sourceSection | title }}</span>
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <small>
+                                                    {% if rel.rdf_json_ld %}
+                                                        {% if rel.rdf_json_ld.mentionText %}
+                                                            <strong>Mentioned as:</strong> "{{ rel.rdf_json_ld.mentionText }}"<br/>
+                                                        {% endif %}
+                                                        {% if rel.rdf_json_ld.confidence %}
+                                                            <strong>Confidence:</strong> {{ "%.0f"|format(rel.rdf_json_ld.confidence * 100) }}%
+                                                        {% endif %}
+                                                    {% else %}
+                                                        {{ rel.entity_definition or '-' }}
+                                                    {% endif %}
+                                                </small>
+                                            </td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-info" type="button"
+                                                        data-bs-toggle="collapse"
+                                                        data-bs-target="#rel-details-{{ rel.id }}">
+                                                    <i class="fas fa-info-circle"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        <tr class="collapse" id="rel-details-{{ rel.id }}">
+                                            <td colspan="5" class="bg-light">
+                                                <div class="p-2">
+                                                    <strong>Full Details:</strong>
+                                                    <pre class="mb-0" style="font-size: 0.8rem;">{{ rel.rdf_json_ld | tojson(indent=2) if rel.rdf_json_ld else 'No additional details' }}</pre>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
                         </div> <!-- End card-body -->
                     </div> <!-- End card -->
                 </div> <!-- End col-12 -->
             </div> <!-- End row for concept type panel -->
-            {% endif %} <!-- End if type_data.classes or type_data.individuals -->
+            {% endif %} <!-- End if type_data.classes or type_data.individuals or type_data.relationships -->
             {% endfor %} <!-- End for concept_type loop -->
 
             <!-- End of RDF Entities Section -->
