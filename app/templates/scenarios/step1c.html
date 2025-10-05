@@ -54,32 +54,67 @@
                 </div>
                 <div class="step-content">
                     <!-- Roles Prompt Preview -->
-                    <div class="prompt-preview mb-3" id="rolesPromptSection" style="{% if not saved_prompts.roles %}display: none;{% endif %}">
+                    <div class="prompt-preview mb-3" id="rolesPromptSection" style="{% if saved_prompts.roles and saved_prompts.roles is mapping and (saved_prompts.roles.matching or saved_prompts.roles.extraction) %}{% else %}display: none;{% endif %}">
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="mb-0"><i class="bi bi-cpu"></i> LLM Prompt</h6>
+                            <h6 class="mb-0"><i class="bi bi-cpu"></i> LLM Prompts</h6>
                             <button class="btn btn-outline-secondary btn-sm" onclick="regenerateConceptPrompt('roles')">
                                 <i class="bi bi-arrow-clockwise"></i> Regenerate
                             </button>
                         </div>
                         <div class="prompt-text" id="rolesPromptText">
-                            {% if saved_prompts.roles %}
-                            {{ saved_prompts.roles.prompt_text }}
-                            {% else %}
-                            <div class="text-center text-muted">
-                                <i class="bi bi-hourglass-split"></i> Prompt will be generated when you click Tag Referenced Roles
-                            </div>
-                            {% endif %}
+{%- if saved_prompts.roles and saved_prompts.roles is mapping -%}
+{%- if saved_prompts.roles.matching -%}
+<div class="mb-3">
+<h6 class="text-primary"><i class="bi bi-1-circle"></i> Entity Matching Prompt</h6>
+<small class="text-muted">Matches entities from Facts/Discussion to Questions section</small>
+<pre style="white-space: pre-wrap; word-wrap: break-word; margin-top: 0.5rem;">{{ saved_prompts.roles.matching.prompt_text }}</pre>
+<small class="text-muted">Saved: {{ saved_prompts.roles.matching.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+</div>
+{%- endif -%}
+{%- if saved_prompts.roles.extraction -%}
+<div class="mb-3 border-top pt-3">
+<h6 class="text-warning"><i class="bi bi-2-circle"></i> New Entity Extraction Prompt</h6>
+<small class="text-muted">Extracts NEW entities not found in Facts/Discussion</small>
+<pre style="white-space: pre-wrap; word-wrap: break-word; margin-top: 0.5rem;">{{ saved_prompts.roles.extraction.prompt_text }}</pre>
+<small class="text-muted">Saved: {{ saved_prompts.roles.extraction.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+</div>
+{%- endif -%}
+{%- else -%}
+<div class="text-center text-muted">
+<i class="bi bi-hourglass-split"></i> Prompt will be generated when you click Tag Referenced Roles
+</div>
+{%- endif -%}
                         </div>
-                        {% if saved_prompts.roles %}
-                        <small class="text-muted">Saved: {{ saved_prompts.roles.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
-                        {% endif %}
                     </div>
 
                     <!-- Roles Results -->
-                    <div class="results-preview" id="rolesResults" style="display: none;">
-                        <h6><i class="bi bi-check-circle text-success"></i> Extraction Results</h6>
+                    <div class="results-preview" id="rolesResults" style="{% if saved_prompts.roles and saved_prompts.roles is mapping and (saved_prompts.roles.matching or saved_prompts.roles.extraction) %}{% else %}display: none;{% endif %}">
+                        <h6><i class="bi bi-check-circle text-success"></i> LLM Responses</h6>
                         <div id="rolesResultsContent">
-                            <!-- Results will be displayed here -->
+{%- if saved_prompts.roles and saved_prompts.roles is mapping -%}
+{%- if saved_prompts.roles.matching and saved_prompts.roles.matching.raw_response -%}
+<div class="mb-3">
+<button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#rolesMatchingResponseCollapse">
+<i class="bi bi-code-square"></i> Show Matching Response
+</button>
+<div class="collapse mt-2" id="rolesMatchingResponseCollapse">
+<h6 class="text-primary"><i class="bi bi-1-circle"></i> Matching Response</h6>
+<pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; max-height: 400px; overflow-y: auto;">{{ saved_prompts.roles.matching.raw_response }}</pre>
+</div>
+</div>
+{%- endif -%}
+{%- if saved_prompts.roles.extraction and saved_prompts.roles.extraction.raw_response -%}
+<div class="mb-3">
+<button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#rolesExtractionResponseCollapse">
+<i class="bi bi-code-square"></i> Show Extraction Response
+</button>
+<div class="collapse mt-2" id="rolesExtractionResponseCollapse">
+<h6 class="text-warning"><i class="bi bi-2-circle"></i> New Entity Extraction Response</h6>
+<pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #fff8e1; padding: 1rem; border-radius: 0.5rem; max-height: 400px; overflow-y: auto;">{{ saved_prompts.roles.extraction.raw_response }}</pre>
+</div>
+</div>
+{%- endif -%}
+{%- endif -%}
                         </div>
                     </div>
                 </div>
@@ -101,32 +136,67 @@
                 </div>
                 <div class="step-content">
                     <!-- States Prompt Preview -->
-                    <div class="prompt-preview mb-3" id="statesPromptSection" style="{% if not saved_prompts.states %}display: none;{% endif %}">
+                    <div class="prompt-preview mb-3" id="statesPromptSection" style="{% if saved_prompts.states and saved_prompts.states is mapping and (saved_prompts.states.matching or saved_prompts.states.extraction) %}{% else %}display: none;{% endif %}">
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="mb-0"><i class="bi bi-cpu"></i> LLM Prompt</h6>
+                            <h6 class="mb-0"><i class="bi bi-cpu"></i> LLM Prompts</h6>
                             <button class="btn btn-outline-secondary btn-sm" onclick="regenerateConceptPrompt('states')">
                                 <i class="bi bi-arrow-clockwise"></i> Regenerate
                             </button>
                         </div>
                         <div class="prompt-text" id="statesPromptText">
-                            {% if saved_prompts.states %}
-                            {{ saved_prompts.states.prompt_text }}
-                            {% else %}
-                            <div class="text-center text-muted">
-                                <i class="bi bi-hourglass-split"></i> Prompt will be generated when you click Tag Referenced States
-                            </div>
-                            {% endif %}
+{%- if saved_prompts.states and saved_prompts.states is mapping -%}
+{%- if saved_prompts.states.matching -%}
+<div class="mb-3">
+<h6 class="text-primary"><i class="bi bi-1-circle"></i> Entity Matching Prompt</h6>
+<small class="text-muted">Matches entities from Facts/Discussion to Questions section</small>
+<pre style="white-space: pre-wrap; word-wrap: break-word; margin-top: 0.5rem;">{{ saved_prompts.states.matching.prompt_text }}</pre>
+<small class="text-muted">Saved: {{ saved_prompts.states.matching.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+</div>
+{%- endif -%}
+{%- if saved_prompts.states.extraction -%}
+<div class="mb-3 border-top pt-3">
+<h6 class="text-warning"><i class="bi bi-2-circle"></i> New Entity Extraction Prompt</h6>
+<small class="text-muted">Extracts NEW entities not found in Facts/Discussion</small>
+<pre style="white-space: pre-wrap; word-wrap: break-word; margin-top: 0.5rem;">{{ saved_prompts.states.extraction.prompt_text }}</pre>
+<small class="text-muted">Saved: {{ saved_prompts.states.extraction.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+</div>
+{%- endif -%}
+{%- else -%}
+<div class="text-center text-muted">
+<i class="bi bi-hourglass-split"></i> Prompt will be generated when you click Tag Referenced States
+</div>
+{%- endif -%}
                         </div>
-                        {% if saved_prompts.states %}
-                        <small class="text-muted">Saved: {{ saved_prompts.states.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
-                        {% endif %}
                     </div>
 
                     <!-- States Results -->
-                    <div class="results-preview" id="statesResults" style="display: none;">
-                        <h6><i class="bi bi-check-circle text-success"></i> Extraction Results</h6>
+                    <div class="results-preview" id="statesResults" style="{% if saved_prompts.states and saved_prompts.states is mapping and (saved_prompts.states.matching or saved_prompts.states.extraction) %}{% else %}display: none;{% endif %}">
+                        <h6><i class="bi bi-check-circle text-success"></i> LLM Responses</h6>
                         <div id="statesResultsContent">
-                            <!-- Results will be displayed here -->
+{%- if saved_prompts.states and saved_prompts.states is mapping -%}
+{%- if saved_prompts.states.matching and saved_prompts.states.matching.raw_response -%}
+<div class="mb-3">
+<button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#statesMatchingResponseCollapse">
+<i class="bi bi-code-square"></i> Show Matching Response
+</button>
+<div class="collapse mt-2" id="statesMatchingResponseCollapse">
+<h6 class="text-primary"><i class="bi bi-1-circle"></i> Matching Response</h6>
+<pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; max-height: 400px; overflow-y: auto;">{{ saved_prompts.states.matching.raw_response }}</pre>
+</div>
+</div>
+{%- endif -%}
+{%- if saved_prompts.states.extraction and saved_prompts.states.extraction.raw_response -%}
+<div class="mb-3">
+<button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#statesExtractionResponseCollapse">
+<i class="bi bi-code-square"></i> Show Extraction Response
+</button>
+<div class="collapse mt-2" id="statesExtractionResponseCollapse">
+<h6 class="text-warning"><i class="bi bi-2-circle"></i> New Entity Extraction Response</h6>
+<pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #fff8e1; padding: 1rem; border-radius: 0.5rem; max-height: 400px; overflow-y: auto;">{{ saved_prompts.states.extraction.raw_response }}</pre>
+</div>
+</div>
+{%- endif -%}
+{%- endif -%}
                         </div>
                     </div>
                 </div>
@@ -148,32 +218,67 @@
                 </div>
                 <div class="step-content">
                     <!-- Resources Prompt Preview -->
-                    <div class="prompt-preview mb-3" id="resourcesPromptSection" style="{% if not saved_prompts.resources %}display: none;{% endif %}">
+                    <div class="prompt-preview mb-3" id="resourcesPromptSection" style="{% if saved_prompts.resources and saved_prompts.resources is mapping and (saved_prompts.resources.matching or saved_prompts.resources.extraction) %}{% else %}display: none;{% endif %}">
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="mb-0"><i class="bi bi-cpu"></i> LLM Prompt</h6>
+                            <h6 class="mb-0"><i class="bi bi-cpu"></i> LLM Prompts</h6>
                             <button class="btn btn-outline-secondary btn-sm" onclick="regenerateConceptPrompt('resources')">
                                 <i class="bi bi-arrow-clockwise"></i> Regenerate
                             </button>
                         </div>
                         <div class="prompt-text" id="resourcesPromptText">
-                            {% if saved_prompts.resources %}
-                            {{ saved_prompts.resources.prompt_text }}
-                            {% else %}
-                            <div class="text-center text-muted">
-                                <i class="bi bi-hourglass-split"></i> Prompt will be generated when you click Tag Referenced Resources
-                            </div>
-                            {% endif %}
+{%- if saved_prompts.resources and saved_prompts.resources is mapping -%}
+{%- if saved_prompts.resources.matching -%}
+<div class="mb-3">
+<h6 class="text-primary"><i class="bi bi-1-circle"></i> Entity Matching Prompt</h6>
+<small class="text-muted">Matches entities from Facts/Discussion to Questions section</small>
+<pre style="white-space: pre-wrap; word-wrap: break-word; margin-top: 0.5rem;">{{ saved_prompts.resources.matching.prompt_text }}</pre>
+<small class="text-muted">Saved: {{ saved_prompts.resources.matching.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+</div>
+{%- endif -%}
+{%- if saved_prompts.resources.extraction -%}
+<div class="mb-3 border-top pt-3">
+<h6 class="text-warning"><i class="bi bi-2-circle"></i> New Entity Extraction Prompt</h6>
+<small class="text-muted">Extracts NEW entities not found in Facts/Discussion</small>
+<pre style="white-space: pre-wrap; word-wrap: break-word; margin-top: 0.5rem;">{{ saved_prompts.resources.extraction.prompt_text }}</pre>
+<small class="text-muted">Saved: {{ saved_prompts.resources.extraction.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+</div>
+{%- endif -%}
+{%- else -%}
+<div class="text-center text-muted">
+<i class="bi bi-hourglass-split"></i> Prompt will be generated when you click Tag Referenced Resources
+</div>
+{%- endif -%}
                         </div>
-                        {% if saved_prompts.resources %}
-                        <small class="text-muted">Saved: {{ saved_prompts.resources.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
-                        {% endif %}
                     </div>
 
                     <!-- Resources Results -->
-                    <div class="results-preview" id="resourcesResults" style="display: none;">
-                        <h6><i class="bi bi-check-circle text-success"></i> Extraction Results</h6>
+                    <div class="results-preview" id="resourcesResults" style="{% if saved_prompts.resources and saved_prompts.resources is mapping and (saved_prompts.resources.matching or saved_prompts.resources.extraction) %}{% else %}display: none;{% endif %}">
+                        <h6><i class="bi bi-check-circle text-success"></i> LLM Responses</h6>
                         <div id="resourcesResultsContent">
-                            <!-- Results will be displayed here -->
+{%- if saved_prompts.resources and saved_prompts.resources is mapping -%}
+{%- if saved_prompts.resources.matching and saved_prompts.resources.matching.raw_response -%}
+<div class="mb-3">
+<button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#resourcesMatchingResponseCollapse">
+<i class="bi bi-code-square"></i> Show Matching Response
+</button>
+<div class="collapse mt-2" id="resourcesMatchingResponseCollapse">
+<h6 class="text-primary"><i class="bi bi-1-circle"></i> Matching Response</h6>
+<pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; max-height: 400px; overflow-y: auto;">{{ saved_prompts.resources.matching.raw_response }}</pre>
+</div>
+</div>
+{%- endif -%}
+{%- if saved_prompts.resources.extraction and saved_prompts.resources.extraction.raw_response -%}
+<div class="mb-3">
+<button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#resourcesExtractionResponseCollapse">
+<i class="bi bi-code-square"></i> Show Extraction Response
+</button>
+<div class="collapse mt-2" id="resourcesExtractionResponseCollapse">
+<h6 class="text-warning"><i class="bi bi-2-circle"></i> New Entity Extraction Response</h6>
+<pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #fff8e1; padding: 1rem; border-radius: 0.5rem; max-height: 400px; overflow-y: auto;">{{ saved_prompts.resources.extraction.raw_response }}</pre>
+</div>
+</div>
+{%- endif -%}
+{%- endif -%}
                         </div>
                     </div>
                 </div>
@@ -310,10 +415,13 @@ function escapeHtml(text) {
 // For Questions section, we DON'T load saved extraction prompts
 // Instead, prompts are generated on-demand when user clicks "Tag Referenced..."
 document.addEventListener('DOMContentLoaded', function() {
-    // Show placeholder text in prompt sections
+    // Show placeholder text ONLY if no saved prompts exist
     ['roles', 'states', 'resources'].forEach(conceptType => {
         const promptText = document.getElementById(`${conceptType}PromptText`);
-        if (promptText) {
+        const promptSection = document.getElementById(`${conceptType}PromptSection`);
+
+        // Only show placeholder if the section is hidden (no saved prompts)
+        if (promptText && promptSection && promptSection.style.display === 'none') {
             promptText.innerHTML = '<div class="text-center text-muted p-3"><i class="bi bi-info-circle"></i> Click "Tag Referenced ' + conceptType.charAt(0).toUpperCase() + conceptType.slice(1) + '" to generate matching prompt</div>';
         }
     });
@@ -614,14 +722,28 @@ function tagReferencedEntities(entityType) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // Display the prompt in the prompt section
+            // Display the matching prompt in the prompt section
             const promptSection = document.getElementById(`${entityType}PromptSection`);
             const promptText = document.getElementById(`${entityType}PromptText`);
 
-            if (data.prompt) {
+            if (data.matching_prompt) {
                 promptSection.style.display = 'block';
-                const escapedPrompt = escapeHtml(data.prompt);
-                promptText.innerHTML = `<pre style="white-space: pre-wrap; word-wrap: break-word;">${escapedPrompt}</pre>`;
+                let promptHtml = '<div class="mb-3">';
+                promptHtml += '<h6 class="text-primary"><i class="bi bi-1-circle"></i> Entity Matching Prompt</h6>';
+                promptHtml += '<small class="text-muted">Matches entities from Facts/Discussion to Questions section</small>';
+                promptHtml += `<pre style="white-space: pre-wrap; word-wrap: break-word; margin-top: 0.5rem;">${escapeHtml(data.matching_prompt)}</pre>`;
+                promptHtml += '</div>';
+
+                // If there's also an extraction prompt for NEW entities, show it
+                if (data.extraction_prompt) {
+                    promptHtml += '<div class="mb-3 border-top pt-3">';
+                    promptHtml += '<h6 class="text-warning"><i class="bi bi-2-circle"></i> New Entity Extraction Prompt</h6>';
+                    promptHtml += '<small class="text-muted">Extracts NEW entities not found in Facts/Discussion</small>';
+                    promptHtml += `<pre style="white-space: pre-wrap; word-wrap: break-word; margin-top: 0.5rem;">${escapeHtml(data.extraction_prompt)}</pre>`;
+                    promptHtml += '</div>';
+                }
+
+                promptText.innerHTML = promptHtml;
             }
 
             // Display the LLM response and matches
@@ -633,15 +755,18 @@ function tagReferencedEntities(entityType) {
 
             // Show matches summary
             html += '<div class="alert alert-success">';
-            html += `<strong>Matches Found:</strong> ${data.summary.total_matches} total<br>`;
+            html += `<strong>Matched Entities:</strong> ${data.summary.total_matches} total<br>`;
             html += `<strong>From Facts:</strong> ${data.summary.from_facts}<br>`;
             html += `<strong>From Discussion:</strong> ${data.summary.from_discussion}<br>`;
+            if (data.summary.total_new > 0) {
+                html += `<strong class="text-warning">NEW Entities Found:</strong> ${data.summary.total_new} (not in Facts/Discussion)<br>`;
+            }
             html += `<strong>Avg Confidence:</strong> ${(data.summary.avg_confidence * 100).toFixed(1)}%`;
             html += '</div>';
 
             // Show individual matches
             if (data.matches && data.matches.length > 0) {
-                html += '<h6 class="mt-3">Matched Entities:</h6>';
+                html += '<h6 class="mt-3"><i class="bi bi-link-45deg"></i> Matched Entities (from Facts/Discussion):</h6>';
                 data.matches.forEach(match => {
                     html += '<div class="entity-item">';
                     html += `<div class="entity-label">${escapeHtml(match.entity_label)}</div>`;
@@ -653,16 +778,49 @@ function tagReferencedEntities(entityType) {
                 });
             }
 
-            // Show raw LLM response in collapsible section
-            if (data.llm_response) {
+            // Show NEW entities identified in Questions
+            if (data.new_entities && data.new_entities.length > 0) {
+                html += '<h6 class="mt-4"><i class="bi bi-star text-warning"></i> NEW Entities (not in Facts/Discussion):</h6>';
+                html += '<div class="alert alert-warning"><i class="bi bi-exclamation-triangle"></i> <strong>Gap Analysis:</strong> These entities appear in Questions but were not extracted from Facts/Discussion sections.</div>';
+                data.new_entities.forEach(entity => {
+                    html += '<div class="entity-item" style="border-left-color: #ffc107;">';
+                    html += `<div class="entity-label">${escapeHtml(entity.label)} <span class="badge bg-warning text-dark">NEW</span></div>`;
+                    html += `<div class="entity-description">${escapeHtml(entity.definition)}</div>`;
+                    html += `<div class="entity-description"><strong>Type:</strong> ${entity.storage_type === 'class' ? 'Class (general concept)' : 'Individual (specific instance)'}</div>`;
+                    html += `<div class="entity-description"><small><strong>Why new:</strong> ${escapeHtml(entity.reasoning)}</small></div>`;
+                    html += `<div class="entity-confidence">Confidence: ${(entity.confidence * 100).toFixed(0)}%</div>`;
+                    html += '</div>';
+                });
+            }
+
+            // Show raw LLM responses in collapsible section
+            if (data.matching_response || data.extraction_response) {
                 html += '<div class="mt-3">';
                 html += '<button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#llmResponseCollapse' + entityType + '">';
-                html += '<i class="bi bi-code-square"></i> Show Raw LLM Response';
+                html += '<i class="bi bi-code-square"></i> Show Raw LLM Responses';
                 html += '</button>';
                 html += '<div class="collapse mt-2" id="llmResponseCollapse' + entityType + '">';
-                html += '<pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; max-height: 400px; overflow-y: auto;">';
-                html += escapeHtml(data.llm_response);
-                html += '</pre>';
+
+                // Matching response
+                if (data.matching_response) {
+                    html += '<div class="mb-3">';
+                    html += '<h6 class="text-primary"><i class="bi bi-1-circle"></i> Matching Response</h6>';
+                    html += '<pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; max-height: 400px; overflow-y: auto;">';
+                    html += escapeHtml(data.matching_response);
+                    html += '</pre>';
+                    html += '</div>';
+                }
+
+                // Extraction response (for NEW entities)
+                if (data.extraction_response) {
+                    html += '<div class="mb-3 border-top pt-3">';
+                    html += '<h6 class="text-warning"><i class="bi bi-2-circle"></i> New Entity Extraction Response</h6>';
+                    html += '<pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #fff8e1; padding: 1rem; border-radius: 0.5rem; max-height: 400px; overflow-y: auto;">';
+                    html += escapeHtml(data.extraction_response);
+                    html += '</pre>';
+                    html += '</div>';
+                }
+
                 html += '</div>';
                 html += '</div>';
             }

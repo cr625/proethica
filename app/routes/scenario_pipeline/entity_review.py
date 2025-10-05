@@ -85,6 +85,7 @@ def review_case_entities(case_id, section_type='facts'):
                 TemporaryRDFStorage.case_id == case_id,
                 TemporaryRDFStorage.extraction_session_id.in_(section_session_ids)
             ).all()
+            logger.info(f"Retrieved {len(all_rdf_entities)} RDF entities for {section_type} section")
         else:
             all_rdf_entities = []
             logger.info(f"No extraction sessions found for {section_type} section")
@@ -92,10 +93,24 @@ def review_case_entities(case_id, section_type='facts'):
         # Group entities by extraction_type and storage_type
         # PASS 1 entities only (Contextual Framework)
         pass1_types = ['roles', 'states', 'resources']
+
+        # For Questions section, also include special extraction types
+        if section_type == 'questions':
+            pass1_types.extend([
+                'questions_entity_refs',  # Matched entities from Facts/Discussion
+                'roles_new_from_questions',
+                'states_new_from_questions',
+                'resources_new_from_questions',
+                'roles_matching',
+                'states_matching',
+                'resources_matching'
+            ])
+            logger.info(f"Extended pass1_types for questions section: {pass1_types}")
+
         rdf_by_type = {
-            'roles': {'classes': [], 'individuals': []},
-            'states': {'classes': [], 'individuals': []},
-            'resources': {'classes': [], 'individuals': []}
+            'roles': {'classes': [], 'individuals': [], 'relationships': []},
+            'states': {'classes': [], 'individuals': [], 'relationships': []},
+            'resources': {'classes': [], 'individuals': [], 'relationships': []}
         }
 
         # Count only Pass 1 entities
@@ -105,12 +120,39 @@ def review_case_entities(case_id, section_type='facts'):
             extraction_type = entity.extraction_type or 'unknown'
             storage_type = entity.storage_type
 
+            # Map Questions-specific types to their base types
+            base_type = extraction_type
+
+            # For questions_entity_refs, check the entityType field in JSON
+            if extraction_type == 'questions_entity_refs' and entity.rdf_json_ld:
+                json_entity_type = entity.rdf_json_ld.get('entityType', '')
+                json_entity_type_lower = json_entity_type.lower()
+                logger.info(f"Processing entity_ref: {entity.entity_label}, JSON entityType: {json_entity_type}, storage_type: {storage_type}")
+                if 'role' in json_entity_type_lower:
+                    base_type = 'roles'
+                elif 'state' in json_entity_type_lower:
+                    base_type = 'states'
+                elif 'resource' in json_entity_type_lower:
+                    base_type = 'resources'
+                else:
+                    base_type = 'roles'  # Default to roles for backward compatibility
+                logger.info(f"  -> Mapped to base_type: {base_type}")
+            elif 'roles' in extraction_type:
+                base_type = 'roles'
+            elif 'states' in extraction_type:
+                base_type = 'states'
+            elif 'resources' in extraction_type:
+                base_type = 'resources'
+
             if extraction_type in pass1_types:
                 pass1_entity_count += 1
                 if storage_type == 'class':
-                    rdf_by_type[extraction_type]['classes'].append(entity.to_dict())
+                    rdf_by_type[base_type]['classes'].append(entity.to_dict())
                 elif storage_type == 'individual':
-                    rdf_by_type[extraction_type]['individuals'].append(entity.to_dict())
+                    rdf_by_type[base_type]['individuals'].append(entity.to_dict())
+                elif storage_type == 'relationship':
+                    rdf_by_type[base_type]['relationships'].append(entity.to_dict())
+                    logger.info(f"  -> Added to {base_type}/relationships")
 
         # Get all entities grouped by section (old format for backward compatibility)
         entities_by_section = CaseEntityStorageService.get_all_case_entities(

@@ -47,8 +47,10 @@ class EntityMatchingService:
             llm_client: LLM client for intelligent matching
         """
         self.llm_client = llm_client
-        self.last_prompt = None  # Store last prompt for UI display
-        self.last_response = None  # Store last response for UI display
+        self.last_matching_prompt = None  # Store matching prompt for UI display
+        self.last_matching_response = None  # Store matching response for UI display
+        self.last_extraction_prompt = None  # Store new entity extraction prompt
+        self.last_extraction_response = None  # Store new entity extraction response
         logger.info("EntityMatchingService initialized")
 
     def match_entities_in_text(
@@ -56,19 +58,23 @@ class EntityMatchingService:
         section_text: str,
         entity_type: str,
         case_id: int,
-        previous_sections: List[str] = None
-    ) -> List[EntityMatch]:
+        previous_sections: List[str] = None,
+        extract_new: bool = True
+    ) -> Tuple[List[EntityMatch], List[Dict]]:
         """
-        Find entities of given type mentioned in section text.
+        Find entities of given type mentioned in section text, and optionally extract new ones.
 
         Args:
             section_text: Text to search for entity mentions
             entity_type: Type to match ('roles', 'states', 'resources')
             case_id: Case identifier
             previous_sections: Which sections to search (default: ['facts', 'discussion'])
+            extract_new: If True, also extract entities not found in previous sections
 
         Returns:
-            List of EntityMatch objects with confidence scores
+            Tuple of (matched_entities, new_entities)
+            - matched_entities: List of EntityMatch objects for entities found in previous sections
+            - new_entities: List of new entity dicts extracted from this section
         """
         if previous_sections is None:
             previous_sections = ['facts', 'discussion']
@@ -76,6 +82,7 @@ class EntityMatchingService:
         logger.info(f"Matching {entity_type} entities in section for case {case_id}")
         logger.info(f"Section text length: {len(section_text)} chars")
         logger.info(f"Previous sections to search: {previous_sections}")
+        logger.info(f"Extract new entities: {extract_new}")
 
         # Get entities from previous sections
         available_entities = self._get_available_entities(
@@ -88,40 +95,53 @@ class EntityMatchingService:
         if available_entities:
             logger.info(f"Sample entities: {[e['label'] for e in available_entities[:5]]}")
 
-        if not available_entities:
-            logger.warning(f"No {entity_type} entities found in previous sections")
-            return []
-
         # Use LLM to match entities
-        if self.llm_client:
-            logger.info(f"Using LLM-based entity matching")
-            try:
-                matches = self._llm_match_entities(
-                    section_text,
-                    available_entities,
-                    entity_type
-                )
-                logger.info(f"LLM matching returned {len(matches)} matches")
-            except Exception as e:
-                logger.error(f"LLM matching failed, falling back to string matching: {e}")
-                import traceback
-                traceback.print_exc()
+        matches = []
+        if available_entities:
+            if self.llm_client:
+                logger.info(f"Using LLM-based entity matching")
+                try:
+                    matches = self._llm_match_entities(
+                        section_text,
+                        available_entities,
+                        entity_type
+                    )
+                    logger.info(f"LLM matching returned {len(matches)} matches")
+                except Exception as e:
+                    logger.error(f"LLM matching failed, falling back to string matching: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    matches = self._fallback_match_entities(
+                        section_text,
+                        available_entities,
+                        entity_type
+                    )
+            else:
+                # Fallback: simple string matching
+                logger.info(f"No LLM client, using fallback string matching")
                 matches = self._fallback_match_entities(
                     section_text,
                     available_entities,
                     entity_type
                 )
         else:
-            # Fallback: simple string matching
-            logger.info(f"No LLM client, using fallback string matching")
-            matches = self._fallback_match_entities(
-                section_text,
-                available_entities,
-                entity_type
-            )
+            logger.warning(f"No {entity_type} entities found in previous sections")
 
         logger.info(f"Found {len(matches)} {entity_type} entity matches")
-        return matches
+
+        # Extract new entities if requested
+        new_entities = []
+        if extract_new and self.llm_client:
+            logger.info(f"Extracting NEW {entity_type} entities from section text")
+            new_entities = self._extract_new_entities(
+                section_text,
+                entity_type,
+                case_id,
+                matched_labels=[m.entity_label for m in matches]
+            )
+            logger.info(f"Found {len(new_entities)} NEW {entity_type} entities")
+
+        return matches, new_entities
 
     def _get_available_entities(
         self,
@@ -227,8 +247,8 @@ class EntityMatchingService:
             entity_type
         )
 
-        # Store prompt for UI display
-        self.last_prompt = prompt
+        # Store matching prompt for UI display
+        self.last_matching_prompt = prompt
 
         logger.info(f"Prompt created, length: {len(prompt)} chars")
 
@@ -251,8 +271,8 @@ class EntityMatchingService:
             # Extract content from Anthropic response
             content = response.content[0].text if response.content else ""
 
-            # Store response for UI display
-            self.last_response = content
+            # Store matching response for UI display
+            self.last_matching_response = content
 
             logger.info(f"LLM response received, length: {len(content)} chars")
             logger.info(f"Response content: {content[:200]}...")
@@ -507,3 +527,183 @@ Return ONLY valid JSON array.
             storage_entries.append(storage_entry)
 
         return storage_entries
+
+    def _extract_new_entities(
+        self,
+        section_text: str,
+        entity_type: str,
+        case_id: int,
+        matched_labels: List[str]
+    ) -> List[Dict]:
+        """
+        Extract NEW entities from section text that weren't matched to existing ones.
+
+        Args:
+            section_text: Text to extract from
+            entity_type: Type of entities ('roles', 'states', 'resources')
+            case_id: Case identifier
+            matched_labels: Labels of entities already matched (to exclude)
+
+        Returns:
+            List of new entity dicts with label, definition, confidence
+        """
+        logger.info(f"Extracting new {entity_type} not in matched list: {matched_labels}")
+
+        # Create extraction prompt
+        prompt = self._create_new_entity_extraction_prompt(
+            section_text,
+            entity_type,
+            matched_labels
+        )
+
+        # Store extraction prompt for UI display
+        self.last_extraction_prompt = prompt
+
+        try:
+            from models import ModelConfig
+
+            model_name = ModelConfig.get_claude_model("powerful")
+
+            # Call LLM
+            response = self.llm_client.messages.create(
+                model=model_name,
+                max_tokens=4000,
+                temperature=0.3,
+                messages=[
+                    {"role": "user", "content": prompt}
+                ]
+            )
+
+            content = response.content[0].text if response.content else ""
+            logger.info(f"New entity extraction response length: {len(content)} chars")
+
+            # Store extraction response for UI display
+            self.last_extraction_response = content
+
+            # Parse response
+            new_entities = self._parse_new_entity_response(content, entity_type)
+            logger.info(f"Parsed {len(new_entities)} new entities")
+
+            return new_entities
+
+        except Exception as e:
+            logger.error(f"New entity extraction failed: {e}")
+            import traceback
+            traceback.print_exc()
+            return []
+
+    def _create_new_entity_extraction_prompt(
+        self,
+        section_text: str,
+        entity_type: str,
+        matched_labels: List[str]
+    ) -> str:
+        """Create prompt for extracting NEW entities not already matched."""
+
+        already_matched = "\n".join([f"- {label}" for label in matched_labels]) if matched_labels else "(none)"
+
+        if entity_type == 'roles':
+            entity_desc = "professional roles (e.g., 'Engineer', 'Client', 'Project Manager')"
+            example = {
+                "label": "Environmental Consultant",
+                "definition": "Professional who assesses environmental impact",
+                "confidence": 0.9,
+                "is_class": True,
+                "reasoning": "Mentioned as a distinct professional role"
+            }
+        elif entity_type == 'states':
+            entity_desc = "ethical or situational states (e.g., 'Conflict of Interest', 'Safety Risk Identified')"
+            example = {
+                "label": "Refusal to Address Risk",
+                "definition": "State where identified safety risk is knowingly not addressed",
+                "confidence": 0.85,
+                "is_class": True,
+                "reasoning": "Describes a problematic ethical state"
+            }
+        else:  # resources
+            entity_desc = "knowledge resources (e.g., 'Code of Ethics', 'Safety Regulations')"
+            example = {
+                "label": "Engineering Standards",
+                "definition": "Professional standards governing engineering practice",
+                "confidence": 0.8,
+                "is_class": True,
+                "reasoning": "Referenced as authoritative resource"
+            }
+
+        prompt = f"""You are analyzing an NSPE engineering ethics case Questions section.
+
+# TASK: Extract NEW {entity_type.upper()}
+
+We have already identified these {entity_type} from Facts/Discussion sections:
+
+{already_matched}
+
+Now analyze this Questions section text:
+
+{section_text}
+
+# TASK:
+Extract ANY ADDITIONAL {entity_type} mentioned in the Questions that are NOT in the already-identified list above.
+
+Look for {entity_desc} that represent concepts, situations, or entities that should have been captured but weren't.
+
+For each NEW {entity_type.rstrip('s')} you find:
+1. Check it's NOT in the already-matched list
+2. Determine if it's a CLASS (general concept) or INDIVIDUAL (specific instance)
+3. Provide clear definition and reasoning
+
+# OUTPUT FORMAT (JSON):
+
+```json
+[
+  {example}
+]
+```
+
+Return ONLY new {entity_type} with confidence >= 0.7.
+Return empty array [] if no new {entity_type} found.
+Return ONLY valid JSON array.
+"""
+        return prompt
+
+    def _parse_new_entity_response(
+        self,
+        response: str,
+        entity_type: str
+    ) -> List[Dict]:
+        """Parse LLM response for new entity extraction."""
+        entities = []
+
+        try:
+            import json
+
+            # Extract JSON from response
+            json_str = response.strip()
+            if '```json' in json_str:
+                json_str = json_str.split('```json')[1].split('```')[0].strip()
+            elif '```' in json_str:
+                json_str = json_str.split('```')[1].split('```')[0].strip()
+
+            data = json.loads(json_str)
+
+            for item in data:
+                entity = {
+                    'label': item.get('label', ''),
+                    'definition': item.get('definition', ''),
+                    'confidence': item.get('confidence', 0.7),
+                    'is_class': item.get('is_class', True),
+                    'reasoning': item.get('reasoning', ''),
+                    'entity_type': entity_type,
+                    'storage_type': 'class' if item.get('is_class', True) else 'individual'
+                }
+                entities.append(entity)
+
+            logger.info(f"Parsed {len(entities)} new entities from response")
+
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON parsing failed: {e}")
+            logger.error(f"Response was: {response[:500]}")
+        except Exception as e:
+            logger.error(f"Error parsing new entity response: {e}")
+
+        return entities
