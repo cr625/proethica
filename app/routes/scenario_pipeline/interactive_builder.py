@@ -81,6 +81,13 @@ def step1b(case_id):
     from .step1 import step1b as step1b_handler
     return step1b_handler(case_id)
 
+@interactive_scenario_bp.route('/case/<int:case_id>/step1c')
+@auth_optional  # Allow viewing without auth
+def step1c(case_id):
+    """Route handler for Step 1c: Contextual Framework Pass (Questions Section)"""
+    from .step1 import step1c as step1c_handler
+    return step1c_handler(case_id)
+
 @interactive_scenario_bp.route('/case/<int:case_id>/step1_streaming')
 def step1_streaming(case_id):
     """Route handler for Step 1: Enhanced version with streaming updates"""
@@ -146,6 +153,20 @@ def entities_pass_execute_discussion(case_id):
     """API endpoint to execute entities pass extraction for Discussion section"""
     from .step1 import entities_pass_execute_discussion as execute_handler
     return execute_handler(case_id)
+
+@interactive_scenario_bp.route('/case/<int:case_id>/extract_questions', methods=['POST'])
+@auth_required_for_llm
+def extract_questions_route(case_id):
+    """API endpoint to extract ethical questions using McLaren framework"""
+    from .step1 import extract_questions
+    return extract_questions(case_id)
+
+@interactive_scenario_bp.route('/case/<int:case_id>/tag_entities_in_questions', methods=['POST'])
+@auth_required_for_llm
+def tag_entities_in_questions_route(case_id):
+    """API endpoint to tag entities from Facts/Discussion in Questions section"""
+    from .step1 import tag_entities_in_questions
+    return tag_entities_in_questions(case_id)
 
 @interactive_scenario_bp.route('/case/<int:case_id>/step2')
 @auth_optional  # Allow viewing without auth

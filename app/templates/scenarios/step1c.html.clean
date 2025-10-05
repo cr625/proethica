@@ -1,7 +1,7 @@
 {% extends "scenarios/base_step.html" %}
 
-{% block step_title %}Step 1b: Contextual Framework Pass - Discussion Section{% endblock %}
-{% block step_header %}Step 1b: Contextual Framework Pass (Discussion){% endblock %}
+{% block step_title %}Step 1c: Contextual Framework Pass - Questions Section{% endblock %}
+{% block step_header %}Step 1c: Contextual Framework Pass (Questions){% endblock %}
 {% block step_subtitle %}Extract roles, states, and resources from the discussion section{% endblock %}
 
 {% block step_navigation %}
@@ -19,14 +19,14 @@
 <div class="step-card">
     <div class="step-header">
         <h4 class="mb-0">
-            <i class="bi bi-chat-left-text"></i> Discussion Section
+            <i class="bi bi-chat-left-text"></i> Questions Section
         </h4>
     </div>
     <div class="step-content">
-        {% if discussion_section %}
+        {% if questions_section %}
         <div class="alert alert-info mb-3">
             <h6 class="mb-2"><i class="bi bi-info-circle"></i> Section Content:</h6>
-            <pre class="discussion-text">{{ discussion_section.llm_text }}</pre>
+            <pre class="discussion-text">{{ questions_section.llm_text }}</pre>
         </div>
 
         <!-- Full Contextual Framework Pass Button -->
@@ -47,8 +47,8 @@
                         <h5 class="mb-0">
                             <i class="bi bi-person-badge text-info"></i> Roles Extraction
                         </h5>
-                        <button class="btn btn-info btn-sm" onclick="extractIndividualConcept('roles')">
-                            <i class="bi bi-play-fill"></i> Extract Roles
+                        <button class="btn btn-info btn-sm" onclick="tagReferencedEntities('roles')">
+                            <i class="bi bi-play-fill"></i> Tag Referenced Roles
                         </button>
                     </div>
                 </div>
@@ -66,7 +66,7 @@
                             {{ saved_prompts.roles.prompt_text }}
                             {% else %}
                             <div class="text-center text-muted">
-                                <i class="bi bi-hourglass-split"></i> Prompt will be generated when you click Extract Roles
+                                <i class="bi bi-hourglass-split"></i> Prompt will be generated when you click Tag Referenced Roles
                             </div>
                             {% endif %}
                         </div>
@@ -94,8 +94,8 @@
                         <h5 class="mb-0">
                             <i class="bi bi-diagram-3 text-warning"></i> States Extraction
                         </h5>
-                        <button class="btn btn-warning btn-sm" onclick="extractIndividualConcept('states')">
-                            <i class="bi bi-play-fill"></i> Extract States
+                        <button class="btn btn-warning btn-sm" onclick="tagReferencedEntities('states')">
+                            <i class="bi bi-play-fill"></i> Tag Referenced States
                         </button>
                     </div>
                 </div>
@@ -113,7 +113,7 @@
                             {{ saved_prompts.states.prompt_text }}
                             {% else %}
                             <div class="text-center text-muted">
-                                <i class="bi bi-hourglass-split"></i> Prompt will be generated when you click Extract States
+                                <i class="bi bi-hourglass-split"></i> Prompt will be generated when you click Tag Referenced States
                             </div>
                             {% endif %}
                         </div>
@@ -141,8 +141,8 @@
                         <h5 class="mb-0">
                             <i class="bi bi-box-seam text-success"></i> Resources Extraction
                         </h5>
-                        <button class="btn btn-success btn-sm" onclick="extractIndividualConcept('resources')">
-                            <i class="bi bi-play-fill"></i> Extract Resources
+                        <button class="btn btn-success btn-sm" onclick="tagReferencedEntities('resources')">
+                            <i class="bi bi-play-fill"></i> Tag Referenced Resources
                         </button>
                     </div>
                 </div>
@@ -160,7 +160,7 @@
                             {{ saved_prompts.resources.prompt_text }}
                             {% else %}
                             <div class="text-center text-muted">
-                                <i class="bi bi-hourglass-split"></i> Prompt will be generated when you click Extract Resources
+                                <i class="bi bi-hourglass-split"></i> Prompt will be generated when you click Tag Referenced Resources
                             </div>
                             {% endif %}
                         </div>
@@ -182,8 +182,8 @@
 
         <!-- Navigation to entity review -->
         <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4">
-            <a href="{{ url_for('entity_review.review_case_entities', case_id=case.id, section_type='discussion') }}" class="btn btn-outline-primary">
-                <i class="bi bi-eye"></i> Review Pass 1 Entities (Discussion Section)
+            <a href="{{ url_for('entity_review.review_case_entities', case_id=case.id, section_type='questions') }}" class="btn btn-outline-primary">
+                <i class="bi bi-eye"></i> Review Pass 1 Entities (Questions Section)
             </a>
         </div>
 
@@ -196,9 +196,9 @@
     </div>
 </div>
 
-<!-- Navigation to Discussion Section -->
+<!-- Navigation to Questions Section -->
 <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4 mb-4">
-    <a href="{{ url_for('scenario_pipeline.step1b', case_id=case.id) }}" class="btn btn-primary btn-lg">
+    <a href="{{ url_for('scenario_pipeline.step1c', case_id=case.id) }}" class="btn btn-primary btn-lg">
         Continue to Step 2: Normative Pass <i class="bi bi-arrow-right"></i>
     </a>
 </div>
@@ -298,7 +298,7 @@
 {% block step_scripts %}
 <script>
 const caseId = {{ case.id }};
-const currentSectionText = `{{ discussion_section.llm_text if discussion_section else '' }}`;
+const currentSectionText = `{{ questions_section.llm_text if questions_section else '' }}`;
 
 // Load saved prompts on page load - using vanilla JS instead of jQuery
 document.addEventListener('DOMContentLoaded', function() {
@@ -375,7 +375,7 @@ function extractIndividualConcept(conceptType) {
         body: JSON.stringify({
             concept_type: conceptType,
             section_text: currentSectionText,
-            section_type: 'discussion'  // Mark as Discussion section
+            section_type: 'discussion'  // Mark as Questions section
         })
     })
     .then(response => response.json())
@@ -575,6 +575,143 @@ function executeFullContextualPass() {
         if (button) {
             button.click();
         }
+    });
+}
+</script>
+{% endblock %}
+// Tag Referenced Entities (instead of extracting new ones)
+function tagReferencedEntities(entityType) {
+    console.log('Tagging referenced ' + entityType + '...');
+
+    const btn = event.target;
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Tagging...';
+
+    fetch('/scenario_pipeline/case/' + caseId + '/tag_entities_in_questions', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+        },
+        body: JSON.stringify({
+            questions_text: currentSectionText,
+            entity_type: entityType
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const resultDiv = document.getElementById(entityType + 'Results');
+            const promptDiv = document.getElementById(entityType + 'Prompt');
+
+            let html = '<div class="alert alert-success"><h6>Found ' + data.summary.total_matches + ' ' + entityType + ' referenced:</h6><ul>';
+
+            data.matches.forEach(match => {
+                const badge = match.source_section === 'facts' ? 'primary' : 'info';
+                html += '<li><strong>' + match.entity_label + '</strong> ';
+                html += '<span class="badge bg-' + badge + '">' + match.source_section + '</span>';
+                html += '<br><small class="text-muted">Mentioned as: "' + match.mention_text + '" (' + (match.confidence * 100).toFixed(0) + '% confidence)</small>';
+                html += '<br><small>' + match.reasoning + '</small></li>';
+            });
+
+            html += '</ul></div>';
+
+            promptDiv.innerHTML = html;
+            promptDiv.style.display = 'block';
+            resultDiv.style.display = 'block';
+
+            alert('Tagged ' + data.summary.total_matches + ' ' + entityType + '!\n\n' +
+                  'From Facts: ' + data.summary.from_facts + '\n' +
+                  'From Questions: ' + data.summary.from_discussion);
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Network error: ' + error);
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    });
+}
+
+// Extract Ethical Questions using McLaren Framework
+function extractQuestions() {
+    console.log('Extracting ethical questions...');
+
+    const btn = event.target;
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Extracting...';
+
+    fetch('/scenario_pipeline/case/' + caseId + '/extract_questions', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+        },
+        body: JSON.stringify({
+            question_text: currentSectionText
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const resultDiv = document.getElementById('questions-results');
+            const listDiv = document.getElementById('questions-list');
+
+            let html = '';
+            data.questions.forEach(q => {
+                html += '<div class="mb-3 p-3 border rounded">';
+                html += '<h6><strong>Question ' + q.question_number + ':</strong> ' + q.question_text + '</h6>';
+
+                if (q.invoked_principles.length > 0) {
+                    html += '<div class="mt-2"><strong>Invoked Principles:</strong><ul>';
+                    q.invoked_principles.forEach(p => {
+                        html += '<li><em>' + p.code + '</em>: ' + p.label;
+                        html += '<br><small class="text-muted">' + p.rationale + '</small></li>';
+                    });
+                    html += '</ul></div>';
+                }
+
+                if (q.principle_conflicts.length > 0) {
+                    html += '<div class="mt-2"><strong>Principle Conflicts:</strong><ul>';
+                    q.principle_conflicts.forEach(c => {
+                        html += '<li><span class="badge bg-warning">' + c.principle1 + '</span> vs ';
+                        html += '<span class="badge bg-warning">' + c.principle2 + '</span>';
+                        html += '<br><small>' + c.description + '</small></li>';
+                    });
+                    html += '</ul></div>';
+                }
+
+                if (q.precedent_pattern) {
+                    html += '<div class="mt-2"><strong>Precedent Pattern:</strong> ';
+                    html += '<span class="badge bg-info">' + q.precedent_pattern + '</span></div>';
+                }
+
+                html += '</div>';
+            });
+
+            listDiv.innerHTML = html;
+            resultDiv.style.display = 'block';
+
+            alert('Successfully extracted ' + data.summary.total_questions + ' ethical questions!\n\n' +
+                  'Questions with conflicts: ' + data.summary.with_conflicts + '\n' +
+                  'Avg principles per question: ' + data.summary.avg_principles_per_question.toFixed(1));
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Network error: ' + error);
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
     });
 }
 </script>

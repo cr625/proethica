@@ -152,13 +152,43 @@ def step1b(case_id):
         'discussion_section': discussion_section,
         'current_step': 1,
         'step_title': 'Contextual Framework Pass - Discussion',
-        'next_step_url': url_for('scenario_pipeline.step2', case_id=case_id),
+        'next_step_url': url_for('scenario_pipeline.step1c', case_id=case_id),
         'prev_step_url': url_for('scenario_pipeline.step1', case_id=case_id),
         'saved_prompts': saved_prompts  # These are now discussion-specific prompts
     }
 
     # Use step1b.html template
     return render_template('scenarios/step1b.html', **context)
+
+def step1c(case_id):
+    """
+    Step 1c: Contextual Framework Pass for Questions Section
+    Extracts roles, states, and resources from the Questions section
+    """
+    # Load data with section_type='questions' to get questions prompts
+    case, facts_section, discussion_section, saved_prompts = step1_data(case_id, section_type='questions')
+
+    # Get the questions section
+    questions_section = None
+    if case.doc_metadata and 'sections_dual' in case.doc_metadata:
+        for section_key, section_content in case.doc_metadata['sections_dual'].items():
+            if 'question' in section_key.lower():
+                questions_section = _format_section_for_llm(section_key, section_content, case_doc=case)
+                break
+
+    # Template context
+    context = {
+        'case': case,
+        'questions_section': questions_section,
+        'current_step': 1,
+        'step_title': 'Contextual Framework Pass - Questions',
+        'next_step_url': url_for('scenario_pipeline.step2', case_id=case_id),
+        'prev_step_url': url_for('scenario_pipeline.step1b', case_id=case_id),
+        'saved_prompts': saved_prompts  # These are questions-specific prompts
+    }
+
+    # Use step1c.html template
+    return render_template('scenarios/step1c.html', **context)
 
 def entities_pass_prompt(case_id):
     """
@@ -840,6 +870,268 @@ def entities_pass_execute_discussion(case_id):
 
     except Exception as e:
         logger.error(f"Error in Discussion entities pass execution for case {case_id}: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+def extract_questions(case_id):
+    """
+    Extract ethical questions from Questions section using McLaren framework.
+    Implements principle instantiation and conflict resolution techniques.
+    """
+    try:
+        if request.method != 'POST':
+            return jsonify({'error': 'POST method required'}), 405
+
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No JSON data provided'}), 400
+
+        question_text = data.get('question_text')
+        if not question_text:
+            return jsonify({'error': 'question_text is required'}), 400
+
+        logger.info(f"Extracting questions for case {case_id} using McLaren framework")
+
+        # Get previously extracted entities for context
+        from app.models import TemporaryRDFStorage, ExtractionPrompt
+
+        # Get Facts entities
+        facts_prompts = ExtractionPrompt.query.filter_by(
+            case_id=case_id,
+            section_type='facts'
+        ).all()
+        facts_session_ids = {p.extraction_session_id for p in facts_prompts if p.extraction_session_id}
+
+        facts_entities = {}
+        if facts_session_ids:
+            facts_rdf = TemporaryRDFStorage.query.filter(
+                TemporaryRDFStorage.case_id == case_id,
+                TemporaryRDFStorage.extraction_session_id.in_(facts_session_ids)
+            ).all()
+            for entity in facts_rdf:
+                et = entity.extraction_type
+                if et not in facts_entities:
+                    facts_entities[et] = []
+                facts_entities[et].append(entity.to_dict())
+
+        # Get Discussion entities
+        discussion_prompts = ExtractionPrompt.query.filter_by(
+            case_id=case_id,
+            section_type='discussion'
+        ).all()
+        discussion_session_ids = {p.extraction_session_id for p in discussion_prompts if p.extraction_session_id}
+
+        discussion_entities = {}
+        if discussion_session_ids:
+            discussion_rdf = TemporaryRDFStorage.query.filter(
+                TemporaryRDFStorage.case_id == case_id,
+                TemporaryRDFStorage.extraction_session_id.in_(discussion_session_ids)
+            ).all()
+            for entity in discussion_rdf:
+                et = entity.extraction_type
+                if et not in discussion_entities:
+                    discussion_entities[et] = []
+                discussion_entities[et].append(entity.to_dict())
+
+        # Initialize question extraction service
+        from app.services.question_extraction_service import QuestionExtractionService
+        from app.utils.llm_utils import get_llm_client
+
+        llm_client = get_llm_client()
+        question_service = QuestionExtractionService(llm_client=llm_client)
+
+        # Extract questions with McLaren framework
+        questions = question_service.extract_questions(
+            question_section_text=question_text,
+            case_id=case_id,
+            facts_entities=facts_entities,
+            discussion_entities=discussion_entities
+        )
+
+        # Create session ID for this extraction
+        import uuid
+        session_id = str(uuid.uuid4())
+
+        # Store in temporary RDF storage
+        storage_entries = question_service.to_rdf_storage(
+            questions=questions,
+            case_id=case_id,
+            extraction_session_id=session_id
+        )
+
+        from app.models import db
+        for entry in storage_entries:
+            rdf_entity = TemporaryRDFStorage(
+                case_id=entry['case_id'],
+                extraction_session_id=entry['extraction_session_id'],
+                extraction_type=entry['extraction_type'],
+                storage_type=entry['storage_type'],
+                ontology_target=entry['ontology_target'],
+                entity_label=entry['entity_label'],
+                entity_type=entry['entity_type'],
+                entity_definition=entry['entity_definition'],
+                rdf_json_ld=entry['rdf_json_ld'],
+                is_selected=True  # Auto-select for review
+            )
+            db.session.add(rdf_entity)
+
+        db.session.commit()
+
+        # Format response
+        questions_data = []
+        for q in questions:
+            questions_data.append({
+                'question_number': q.question_number,
+                'question_text': q.question_text,
+                'invoked_principles': [
+                    {
+                        'label': p.principle_label,
+                        'code': p.principle_code,
+                        'facts': p.instantiated_facts,
+                        'rationale': p.rationale
+                    }
+                    for p in q.invoked_principles
+                ],
+                'principle_conflicts': [
+                    {
+                        'principle1': c.principle1,
+                        'principle2': c.principle2,
+                        'description': c.conflict_description,
+                        'critical_facts': c.critical_facts
+                    }
+                    for c in q.principle_conflicts
+                ],
+                'critical_facts': q.critical_facts,
+                'referenced_entities': q.referenced_entities,
+                'precedent_pattern': q.precedent_pattern,
+                'professional_context': q.professional_context,
+                'confidence': q.confidence
+            })
+
+        logger.info(f"Successfully extracted {len(questions)} questions for case {case_id}")
+
+        return jsonify({
+            'success': True,
+            'questions': questions_data,
+            'summary': {
+                'total_questions': len(questions),
+                'with_conflicts': sum(1 for q in questions if q.principle_conflicts),
+                'avg_principles_per_question': sum(len(q.invoked_principles) for q in questions) / len(questions) if questions else 0
+            },
+            'session_id': session_id
+        })
+
+    except Exception as e:
+        logger.error(f"Error extracting questions for case {case_id}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+def tag_entities_in_questions(case_id):
+    """
+    Tag/match entities from Facts/Discussion that are referenced in Questions section.
+    This creates cross-section links instead of extracting new entities.
+    """
+    try:
+        if request.method != 'POST':
+            return jsonify({'error': 'POST method required'}), 405
+
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No JSON data provided'}), 400
+
+        questions_text = data.get('questions_text')
+        entity_type = data.get('entity_type')  # 'roles', 'states', or 'resources'
+
+        if not questions_text or not entity_type:
+            return jsonify({'error': 'questions_text and entity_type required'}), 400
+
+        logger.info(f"Tagging {entity_type} entities in Questions section for case {case_id}")
+
+        # Initialize entity matching service
+        from app.services.entity_matching_service import EntityMatchingService
+        from app.utils.llm_utils import get_llm_client
+
+        llm_client = get_llm_client()
+        matching_service = EntityMatchingService(llm_client=llm_client)
+
+        # Match entities from Facts/Discussion
+        matches = matching_service.match_entities_in_text(
+            section_text=questions_text,
+            entity_type=entity_type,
+            case_id=case_id,
+            previous_sections=['facts', 'discussion']
+        )
+
+        # Create session ID
+        import uuid
+        session_id = str(uuid.uuid4())
+
+        # Store matches as relationships
+        storage_entries = matching_service.store_entity_matches(
+            matches=matches,
+            case_id=case_id,
+            target_section='questions',
+            extraction_session_id=session_id
+        )
+
+        # Save to database
+        from app.models import TemporaryRDFStorage, db
+
+        for entry in storage_entries:
+            rdf_entity = TemporaryRDFStorage(
+                case_id=entry['case_id'],
+                extraction_session_id=entry['extraction_session_id'],
+                extraction_type=entry['extraction_type'],
+                storage_type=entry['storage_type'],
+                ontology_target=entry['ontology_target'],
+                entity_label=entry['entity_label'],
+                entity_type=entry['entity_type'],
+                entity_definition=entry['entity_definition'],
+                rdf_json_ld=entry['rdf_json_ld'],
+                is_selected=True  # Auto-select for review
+            )
+            db.session.add(rdf_entity)
+
+        db.session.commit()
+
+        # Format response
+        matches_data = [{
+            'entity_label': m.entity_label,
+            'entity_type': m.entity_type,
+            'source_section': m.source_section,
+            'mention_text': m.mention_text,
+            'confidence': m.confidence,
+            'reasoning': m.reasoning,
+            'is_committed': m.is_committed
+        } for m in matches]
+
+        logger.info(f"Tagged {len(matches)} {entity_type} entities in Questions section")
+
+        return jsonify({
+            'success': True,
+            'entity_type': entity_type,
+            'matches': matches_data,
+            'summary': {
+                'total_matches': len(matches),
+                'from_facts': sum(1 for m in matches if m.source_section == 'facts'),
+                'from_discussion': sum(1 for m in matches if m.source_section == 'discussion'),
+                'avg_confidence': sum(m.confidence for m in matches) / len(matches) if matches else 0
+            },
+            'session_id': session_id
+        })
+
+    except Exception as e:
+        logger.error(f"Error tagging entities in Questions for case {case_id}: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'error': str(e)

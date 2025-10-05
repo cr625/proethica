@@ -158,7 +158,7 @@
                     </div>
                     <div>
                         <button id="clearAllEntitiesBtn" class="btn btn-sm btn-warning">
-                            <i class="bi bi-trash"></i> Clear Pass 1 Uncommitted
+                            <i class="bi bi-trash"></i> Clear Pass 1 Uncommitted{% if section_label %} ({{ section_label }}){% endif %}
                         </button>
                         <button id="clearExtractedClassesBtn" class="btn btn-sm btn-danger">
                             <i class="bi bi-x-circle"></i> Clear Extracted Classes
@@ -176,6 +176,9 @@
                     <div class="col-12">
                         <h2 class="mb-1">
                             <i class="bi bi-layers"></i> PASS 1: Contextual Framework
+                            {% if section_label %}
+                            <span class="badge bg-primary">{{ section_label }} Section</span>
+                            {% endif %}
                         </h2>
                         <p class="mb-0">Case {{ case.id }}: {{ case.title }}</p>
                     </div>
@@ -328,6 +331,11 @@
                                                     <i class="fas fa-check-circle"></i> Committed
                                                 </span>
                                                 {% endif %}
+                                                {% if cls.cross_section_matches %}
+                                                <span class="badge bg-info ms-2" title="Also extracted from other section(s)">
+                                                    <i class="bi bi-info-circle"></i> Also in: {{ cls.cross_section_matches | map(attribute='section_label') | join(', ') }}
+                                                </span>
+                                                {% endif %}
                                                 <br/>
                                                 <small class="text-muted">rdfs:subClassOf {{ concept_type|title }}</small>
                                             </td>
@@ -432,6 +440,11 @@
                                                 {% if indiv.is_committed %}
                                                 <span class="badge bg-success ms-2">
                                                     <i class="fas fa-check-circle"></i> Committed
+                                                </span>
+                                                {% endif %}
+                                                {% if indiv.cross_section_matches %}
+                                                <span class="badge bg-info ms-2" title="Also extracted from other section(s)">
+                                                    <i class="bi bi-info-circle"></i> Also in: {{ indiv.cross_section_matches | map(attribute='section_label') | join(', ') }}
                                                 </span>
                                                 {% endif %}
                                                 <br/>
@@ -1011,20 +1024,24 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Clear all uncommitted entities button
     const clearBtn = document.getElementById('clearAllEntitiesBtn');
+    const sectionType = '{{ section_type }}' || 'facts';
+    const sectionLabel = '{{ section_label }}' || 'Facts';
+
     if (clearBtn) {
         clearBtn.addEventListener('click', function() {
-            if (confirm('This will clear ONLY uncommitted Pass 1 entities (Roles, States, Resources) for this case.\n\nPass 2 and Pass 3 entities will be preserved.\nCommitted entities in OntServe will be preserved.\n\nContinue?')) {
+            if (confirm(`This will clear ONLY uncommitted Pass 1 entities (Roles, States, Resources) from the ${sectionLabel} section.\n\nOther sections will be preserved.\nCommitted entities in OntServe will be preserved.\n\nContinue?`)) {
                 this.disabled = true;
-                this.textContent = 'Clearing Pass 1...';
+                this.textContent = `Clearing ${sectionLabel}...`;
 
-                // Clear only Pass 1 extraction types
+                // Clear only Pass 1 extraction types for this section
                 appFetch(`/scenario_pipeline/case/${caseId}/entities/clear_by_types`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        extraction_types: ['roles', 'states', 'resources']
+                        extraction_types: ['roles', 'states', 'resources'],
+                        section_type: sectionType  // Add section filter
                     })
                 })
                 .then(response => response.json())

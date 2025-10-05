@@ -48,17 +48,46 @@ def update_rdf_entity_selection(case_id):
 @bp.route('/case/<int:case_id>/entities/review')
 @bp.route('/case/<int:case_id>/entities/review/pass1')  # Explicit Pass 1
 @auth_optional  # Allow viewing without auth
-def review_case_entities(case_id):
-    """Display PASS 1 (Contextual Framework) extracted entities for a case."""
+def review_case_entities(case_id, section_type='facts'):
+    """Display PASS 1 (Contextual Framework) extracted entities for a case.
+
+    Args:
+        case_id: The case ID
+        section_type: Which section to show entities from ('facts' or 'discussion')
+    """
     try:
+        # Get section_type from query param if provided
+        from flask import request
+        section_type = request.args.get('section_type', 'facts')
+
         # Get case information
         case_doc = Document.query.get(case_id)
         if not case_doc:
             flash(f'Case {case_id} not found', 'error')
             return redirect(url_for('index.index'))
 
-        # Get RDF entities grouped by extraction_type
-        all_rdf_entities = TemporaryRDFStorage.query.filter_by(case_id=case_id).all()
+        # Get extraction session IDs for this section type
+        from app.models import ExtractionPrompt
+        section_session_ids = set()
+        section_prompts = ExtractionPrompt.query.filter_by(
+            case_id=case_id,
+            section_type=section_type
+        ).all()
+        for prompt in section_prompts:
+            if prompt.extraction_session_id:
+                section_session_ids.add(prompt.extraction_session_id)
+
+        logger.info(f"Found {len(section_session_ids)} extraction sessions for {section_type} section")
+
+        # Get RDF entities for this section's extraction sessions
+        if section_session_ids:
+            all_rdf_entities = TemporaryRDFStorage.query.filter(
+                TemporaryRDFStorage.case_id == case_id,
+                TemporaryRDFStorage.extraction_session_id.in_(section_session_ids)
+            ).all()
+        else:
+            all_rdf_entities = []
+            logger.info(f"No extraction sessions found for {section_type} section")
 
         # Group entities by extraction_type and storage_type
         # PASS 1 entities only (Contextual Framework)
@@ -113,6 +142,58 @@ def review_case_entities(case_id):
             }
             total_entities += len(entities)
 
+        # Detect cross-section duplicates
+        # Get entities from OTHER sections for comparison
+        other_sections = ['facts', 'discussion', 'questions', 'conclusions', 'dissenting_opinion']
+        other_sections.remove(section_type) if section_type in other_sections else None
+
+        cross_section_entities = {}
+        for other_section in other_sections:
+            other_prompts = ExtractionPrompt.query.filter_by(
+                case_id=case_id,
+                section_type=other_section
+            ).all()
+            other_session_ids = {p.extraction_session_id for p in other_prompts if p.extraction_session_id}
+
+            if other_session_ids:
+                other_entities = TemporaryRDFStorage.query.filter(
+                    TemporaryRDFStorage.case_id == case_id,
+                    TemporaryRDFStorage.extraction_session_id.in_(other_session_ids)
+                ).all()
+
+                cross_section_entities[other_section] = {
+                    e.entity_label.lower(): {
+                        'label': e.entity_label,
+                        'section': other_section,
+                        'type': e.entity_type,
+                        'id': e.id
+                    } for e in other_entities
+                }
+
+        # Add cross-section duplicate info to each entity
+        for concept_type in rdf_by_type:
+            for entity in rdf_by_type[concept_type]['classes']:
+                entity['cross_section_matches'] = []
+                entity_label_lower = entity['entity_label'].lower()
+
+                for other_section, other_entities in cross_section_entities.items():
+                    if entity_label_lower in other_entities:
+                        entity['cross_section_matches'].append({
+                            'section': other_section,
+                            'section_label': other_section.replace('_', ' ').title()
+                        })
+
+            for entity in rdf_by_type[concept_type]['individuals']:
+                entity['cross_section_matches'] = []
+                entity_label_lower = entity['entity_label'].lower()
+
+                for other_section, other_entities in cross_section_entities.items():
+                    if entity_label_lower in other_entities:
+                        entity['cross_section_matches'].append({
+                            'section': other_section,
+                            'section_label': other_section.replace('_', ' ').title()
+                        })
+
         # Prepare RDF data organized by concept type
         rdf_data = {
             'by_type': rdf_by_type,
@@ -125,7 +206,9 @@ def review_case_entities(case_id):
             section_data=section_data,
             total_entities=total_entities,
             sections_info=sections_info,
-            rdf_data=rdf_data
+            rdf_data=rdf_data,
+            section_type=section_type,  # Pass section_type to template
+            section_label=section_type.replace('_', ' ').title()  # 'facts' -> 'Facts', 'discussion' -> 'Discussion'
         )
 
     except Exception as e:
@@ -536,11 +619,12 @@ def list_extraction_sessions(case_id):
 @bp.route('/case/<int:case_id>/entities/clear_by_types', methods=['POST'])
 @auth_required_for_write  # Require auth for write operations
 def clear_entities_by_types(case_id):
-    """Clear temporary entities for specific extraction types."""
+    """Clear temporary entities for specific extraction types, optionally filtered by section."""
     try:
         # Get the extraction types to clear from request
         data = request.get_json() or {}
         extraction_types = data.get('extraction_types', [])
+        section_type = data.get('section_type')  # Optional section filter
 
         if not extraction_types:
             return jsonify({'success': False, 'error': 'No extraction types specified'})
@@ -553,42 +637,71 @@ def clear_entities_by_types(case_id):
         cleared_stats = {
             'rdf_triples': 0,
             'extraction_prompts': 0,
-            'types_cleared': extraction_types
+            'types_cleared': extraction_types,
+            'section_type': section_type
         }
 
-        # Clear ONLY UNCOMMITTED RDF storage for specified types
-        from app.models import TemporaryRDFStorage
+        # If section_type is specified, get session IDs for that section
+        from app.models import TemporaryRDFStorage, ExtractionPrompt
+
+        section_session_ids = None
+        if section_type:
+            section_prompts = ExtractionPrompt.query.filter_by(
+                case_id=case_id,
+                section_type=section_type
+            ).all()
+            section_session_ids = {p.extraction_session_id for p in section_prompts if p.extraction_session_id}
+            logger.info(f"Clearing entities from {section_type} section (sessions: {section_session_ids})")
 
         # Count and delete entities for specified types
         for extraction_type in extraction_types:
-            type_count = db.session.query(TemporaryRDFStorage).filter_by(
+            query = db.session.query(TemporaryRDFStorage).filter_by(
                 case_id=case_id,
                 extraction_type=extraction_type,
                 is_committed=False
-            ).count()
+            )
+
+            # Add section filter if specified
+            if section_session_ids is not None:
+                query = query.filter(TemporaryRDFStorage.extraction_session_id.in_(section_session_ids))
+
+            type_count = query.count()
             cleared_stats['rdf_triples'] += type_count
 
-            db.session.query(TemporaryRDFStorage).filter_by(
+            # Delete with same filters
+            delete_query = db.session.query(TemporaryRDFStorage).filter_by(
                 case_id=case_id,
                 extraction_type=extraction_type,
                 is_committed=False
-            ).delete()
+            )
+            if section_session_ids is not None:
+                delete_query = delete_query.filter(TemporaryRDFStorage.extraction_session_id.in_(section_session_ids))
+            delete_query.delete()
 
-        # Clear extraction prompts for specified types
-        from app.models.extraction_prompt import ExtractionPrompt
+        # Clear extraction prompts for specified types and section
         for extraction_type in extraction_types:
-            prompt_count = db.session.query(ExtractionPrompt).filter_by(
+            prompt_query = db.session.query(ExtractionPrompt).filter_by(
                 case_id=case_id,
                 concept_type=extraction_type,
                 is_active=True
-            ).count()
+            )
+
+            # Add section filter if specified
+            if section_type:
+                prompt_query = prompt_query.filter_by(section_type=section_type)
+
+            prompt_count = prompt_query.count()
             cleared_stats['extraction_prompts'] += prompt_count
 
-            db.session.query(ExtractionPrompt).filter_by(
+            # Update with same filters
+            update_query = db.session.query(ExtractionPrompt).filter_by(
                 case_id=case_id,
                 concept_type=extraction_type,
                 is_active=True
-            ).update({'is_active': False})
+            )
+            if section_type:
+                update_query = update_query.filter_by(section_type=section_type)
+            update_query.update({'is_active': False})
 
         db.session.commit()
 
@@ -603,9 +716,10 @@ def clear_entities_by_types(case_id):
             is_committed=True
         ).count()
 
-        message = f"Cleared {cleared_stats['rdf_triples']} entities for types: {', '.join(extraction_types)}"
+        section_label = section_type.replace('_', ' ').title() if section_type else 'all sections'
+        message = f"Cleared {cleared_stats['rdf_triples']} entities from {section_label} for types: {', '.join(extraction_types)}"
         if remaining_count > 0:
-            message += f"\n{remaining_count} entities from other passes remain."
+            message += f"\n{remaining_count} entities from other passes/sections remain."
         if committed_count > 0:
             message += f"\n{committed_count} committed entities preserved."
 
