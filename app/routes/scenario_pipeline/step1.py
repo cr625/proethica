@@ -1125,7 +1125,9 @@ def tag_entities_in_questions(case_id):
                 'from_discussion': sum(1 for m in matches if m.source_section == 'discussion'),
                 'avg_confidence': sum(m.confidence for m in matches) / len(matches) if matches else 0
             },
-            'session_id': session_id
+            'session_id': session_id,
+            'prompt': matching_service.last_prompt,  # Include prompt for UI display
+            'llm_response': matching_service.last_response  # Include LLM response for UI display
         })
 
     except Exception as e:

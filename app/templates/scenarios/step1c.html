@@ -300,6 +300,13 @@
 const caseId = {{ case.id }};
 const currentSectionText = `{{ questions_section.llm_text if questions_section else '' }}`;
 
+// Helper function to escape HTML
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 // For Questions section, we DON'T load saved extraction prompts
 // Instead, prompts are generated on-demand when user clicks "Tag Referenced..."
 document.addEventListener('DOMContentLoaded', function() {
@@ -607,6 +614,64 @@ function tagReferencedEntities(entityType) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
+            // Display the prompt in the prompt section
+            const promptSection = document.getElementById(`${entityType}PromptSection`);
+            const promptText = document.getElementById(`${entityType}PromptText`);
+
+            if (data.prompt) {
+                promptSection.style.display = 'block';
+                const escapedPrompt = escapeHtml(data.prompt);
+                promptText.innerHTML = `<pre style="white-space: pre-wrap; word-wrap: break-word;">${escapedPrompt}</pre>`;
+            }
+
+            // Display the LLM response and matches
+            const resultsSection = document.getElementById(`${entityType}Results`);
+            const resultsContent = document.getElementById(`${entityType}ResultsContent`);
+
+            let html = '<div class="mb-3">';
+            html += `<h6><i class="bi bi-check-circle text-success"></i> Tagged ${data.summary.total_matches} ${entityType}</h6>`;
+
+            // Show matches summary
+            html += '<div class="alert alert-success">';
+            html += `<strong>Matches Found:</strong> ${data.summary.total_matches} total<br>`;
+            html += `<strong>From Facts:</strong> ${data.summary.from_facts}<br>`;
+            html += `<strong>From Discussion:</strong> ${data.summary.from_discussion}<br>`;
+            html += `<strong>Avg Confidence:</strong> ${(data.summary.avg_confidence * 100).toFixed(1)}%`;
+            html += '</div>';
+
+            // Show individual matches
+            if (data.matches && data.matches.length > 0) {
+                html += '<h6 class="mt-3">Matched Entities:</h6>';
+                data.matches.forEach(match => {
+                    html += '<div class="entity-item">';
+                    html += `<div class="entity-label">${escapeHtml(match.entity_label)}</div>`;
+                    html += `<div class="entity-description"><strong>Mentioned as:</strong> "${escapeHtml(match.mention_text)}"</div>`;
+                    html += `<div class="entity-description"><strong>Source:</strong> ${match.source_section} section</div>`;
+                    html += `<div class="entity-description"><small>${escapeHtml(match.reasoning)}</small></div>`;
+                    html += `<div class="entity-confidence">Confidence: ${(match.confidence * 100).toFixed(0)}%</div>`;
+                    html += '</div>';
+                });
+            }
+
+            // Show raw LLM response in collapsible section
+            if (data.llm_response) {
+                html += '<div class="mt-3">';
+                html += '<button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#llmResponseCollapse' + entityType + '">';
+                html += '<i class="bi bi-code-square"></i> Show Raw LLM Response';
+                html += '</button>';
+                html += '<div class="collapse mt-2" id="llmResponseCollapse' + entityType + '">';
+                html += '<pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; max-height: 400px; overflow-y: auto;">';
+                html += escapeHtml(data.llm_response);
+                html += '</pre>';
+                html += '</div>';
+                html += '</div>';
+            }
+
+            html += '</div>';
+            resultsContent.innerHTML = html;
+            resultsSection.style.display = 'block';
+
+            // Show success message
             alert('Tagged ' + data.summary.total_matches + ' ' + entityType + ' from Facts/Discussion!');
         } else {
             alert('Error: ' + data.error);

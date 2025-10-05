@@ -47,6 +47,8 @@ class EntityMatchingService:
             llm_client: LLM client for intelligent matching
         """
         self.llm_client = llm_client
+        self.last_prompt = None  # Store last prompt for UI display
+        self.last_response = None  # Store last response for UI display
         logger.info("EntityMatchingService initialized")
 
     def match_entities_in_text(
@@ -72,6 +74,8 @@ class EntityMatchingService:
             previous_sections = ['facts', 'discussion']
 
         logger.info(f"Matching {entity_type} entities in section for case {case_id}")
+        logger.info(f"Section text length: {len(section_text)} chars")
+        logger.info(f"Previous sections to search: {previous_sections}")
 
         # Get entities from previous sections
         available_entities = self._get_available_entities(
@@ -80,19 +84,36 @@ class EntityMatchingService:
             previous_sections
         )
 
+        logger.info(f"Retrieved {len(available_entities)} available entities")
+        if available_entities:
+            logger.info(f"Sample entities: {[e['label'] for e in available_entities[:5]]}")
+
         if not available_entities:
             logger.warning(f"No {entity_type} entities found in previous sections")
             return []
 
         # Use LLM to match entities
         if self.llm_client:
-            matches = self._llm_match_entities(
-                section_text,
-                available_entities,
-                entity_type
-            )
+            logger.info(f"Using LLM-based entity matching")
+            try:
+                matches = self._llm_match_entities(
+                    section_text,
+                    available_entities,
+                    entity_type
+                )
+                logger.info(f"LLM matching returned {len(matches)} matches")
+            except Exception as e:
+                logger.error(f"LLM matching failed, falling back to string matching: {e}")
+                import traceback
+                traceback.print_exc()
+                matches = self._fallback_match_entities(
+                    section_text,
+                    available_entities,
+                    entity_type
+                )
         else:
             # Fallback: simple string matching
+            logger.info(f"No LLM client, using fallback string matching")
             matches = self._fallback_match_entities(
                 section_text,
                 available_entities,
@@ -113,17 +134,23 @@ class EntityMatchingService:
         """
         from app.models import TemporaryRDFStorage, ExtractionPrompt
 
+        logger.info(f"_get_available_entities: case_id={case_id}, entity_type={entity_type}, sections={sections}")
         entities = []
 
         # Get temporary entities from specified sections
         for section in sections:
+            logger.info(f"Processing section: {section}")
             section_prompts = ExtractionPrompt.query.filter_by(
                 case_id=case_id,
                 section_type=section,
                 concept_type=entity_type
             ).all()
 
+            logger.info(f"  Found {len(section_prompts)} prompts for {section}/{entity_type}")
+
             session_ids = {p.extraction_session_id for p in section_prompts if p.extraction_session_id}
+
+            logger.info(f"  Session IDs: {len(session_ids)} unique sessions")
 
             if session_ids:
                 rdf_entities = TemporaryRDFStorage.query.filter(
@@ -131,6 +158,8 @@ class EntityMatchingService:
                     TemporaryRDFStorage.extraction_type == entity_type,
                     TemporaryRDFStorage.extraction_session_id.in_(session_ids)
                 ).all()
+
+                logger.info(f"  Found {len(rdf_entities)} RDF entities in {section}")
 
                 for entity in rdf_entities:
                     entities.append({
@@ -189,6 +218,8 @@ class EntityMatchingService:
         """
         Use LLM to match entity mentions to available entities.
         """
+        logger.info(f"_llm_match_entities: Creating prompt with {len(available_entities)} available entities")
+
         # Create prompt for LLM
         prompt = self._create_matching_prompt(
             section_text,
@@ -196,25 +227,48 @@ class EntityMatchingService:
             entity_type
         )
 
-        try:
-            from app.config import ModelConfig
+        # Store prompt for UI display
+        self.last_prompt = prompt
 
-            response = self.llm_client.generate(
-                prompt=prompt,
-                model=ModelConfig.get_claude_model("powerful"),
+        logger.info(f"Prompt created, length: {len(prompt)} chars")
+
+        try:
+            from models import ModelConfig
+
+            model_name = ModelConfig.get_claude_model("powerful")
+            logger.info(f"Calling LLM with model: {model_name}")
+
+            # Use Anthropic messages API
+            response = self.llm_client.messages.create(
+                model=model_name,
+                max_tokens=4000,
                 temperature=0.2,  # Lower for matching task
-                max_tokens=4000
+                messages=[
+                    {"role": "user", "content": prompt}
+                ]
             )
 
+            # Extract content from Anthropic response
+            content = response.content[0].text if response.content else ""
+
+            # Store response for UI display
+            self.last_response = content
+
+            logger.info(f"LLM response received, length: {len(content)} chars")
+            logger.info(f"Response content: {content[:200]}...")
+
             matches = self._parse_matching_response(
-                response.get('content', ''),
+                content,
                 available_entities
             )
 
+            logger.info(f"Parsed {len(matches)} matches from LLM response")
             return matches
 
         except Exception as e:
             logger.error(f"LLM matching failed: {e}")
+            import traceback
+            traceback.print_exc()
             return []
 
     def _create_matching_prompt(

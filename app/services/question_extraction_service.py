@@ -285,18 +285,27 @@ Now extract all questions from the Questions section above. Return ONLY valid JS
     def _call_llm(self, prompt: str) -> str:
         """Call LLM with the extraction prompt."""
         try:
-            from app.config import ModelConfig
+            from models import ModelConfig
 
-            response = self.llm_client.generate(
-                prompt=prompt,
-                model=ModelConfig.get_claude_model("powerful"),
+            model_name = ModelConfig.get_claude_model("powerful")
+
+            # Use Anthropic messages API
+            response = self.llm_client.messages.create(
+                model=model_name,
+                max_tokens=8000,
                 temperature=0.3,  # Lower for structured extraction
-                max_tokens=8000
+                messages=[
+                    {"role": "user", "content": prompt}
+                ]
             )
 
-            return response.get('content', '')
+            # Extract content from Anthropic response
+            content = response.content[0].text if response.content else ""
+            return content
         except Exception as e:
             logger.error(f"LLM call failed: {e}")
+            import traceback
+            traceback.print_exc()
             return ""
 
     def _parse_llm_response(self, response: str) -> List[EthicalQuestion]:
