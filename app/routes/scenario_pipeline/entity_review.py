@@ -107,6 +107,19 @@ def review_case_entities(case_id, section_type='facts'):
             ])
             logger.info(f"Extended pass1_types for questions section: {pass1_types}")
 
+        # For Conclusions section, also include special extraction types
+        if section_type == 'conclusions':
+            pass1_types.extend([
+                'conclusions_entity_refs',  # Matched entities from Facts/Discussion/Questions
+                'roles_new_from_conclusions',
+                'states_new_from_conclusions',
+                'resources_new_from_conclusions',
+                'roles_matching',
+                'states_matching',
+                'resources_matching'
+            ])
+            logger.info(f"Extended pass1_types for conclusions section: {pass1_types}")
+
         rdf_by_type = {
             'roles': {'classes': [], 'individuals': [], 'relationships': []},
             'states': {'classes': [], 'individuals': [], 'relationships': []},

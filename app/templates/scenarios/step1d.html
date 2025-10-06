@@ -1,16 +1,16 @@
 {% extends "scenarios/base_step.html" %}
 
-{% block step_title %}Step 1c: Contextual Framework Pass - Questions Section{% endblock %}
-{% block step_header %}Step 1c: Contextual Framework Pass (Questions){% endblock %}
-{% block step_subtitle %}Extract roles, states, and resources from the discussion section{% endblock %}
+{% block step_title %}Step 1d: Contextual Framework Pass - Conclusions Section{% endblock %}
+{% block step_header %}Step 1d: Contextual Framework Pass (Conclusions){% endblock %}
+{% block step_subtitle %}Extract roles, states, and resources from the conclusions section{% endblock %}
 
 {% block step_navigation %}
 <div class="d-flex justify-content-between mb-3">
-    <a href="{{ url_for('scenario_pipeline.step1b', case_id=case.id) }}" class="btn btn-outline-secondary">
-        <i class="bi bi-arrow-left"></i> Back to Discussion
+    <a href="{{ url_for('scenario_pipeline.step1c', case_id=case.id) }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Questions
     </a>
-    <a href="{{ url_for('scenario_pipeline.step1d', case_id=case.id) }}" class="btn btn-outline-primary">
-        Step 1d: Conclusions Section <i class="bi bi-arrow-right"></i>
+    <a href="{{ url_for('scenario_pipeline.step2', case_id=case.id) }}" class="btn btn-outline-primary">
+        Step 2: Normative Pass (Facts) <i class="bi bi-arrow-right"></i>
     </a>
 </div>
 {% endblock %}
@@ -19,14 +19,14 @@
 <div class="step-card">
     <div class="step-header">
         <h4 class="mb-0">
-            <i class="bi bi-chat-left-text"></i> Questions Section
+            <i class="bi bi-check-circle"></i> Conclusions Section
         </h4>
     </div>
     <div class="step-content">
-        {% if questions_section %}
+        {% if conclusions_section %}
         <div class="alert alert-info mb-3">
             <h6 class="mb-2"><i class="bi bi-info-circle"></i> Section Content:</h6>
-            <pre class="discussion-text">{{ questions_section.llm_text }}</pre>
+            <pre class="discussion-text">{{ conclusions_section.llm_text }}</pre>
         </div>
 
         <!-- Full Contextual Framework Pass Button -->
@@ -66,7 +66,7 @@
 {%- if saved_prompts.roles.matching -%}
 <div class="mb-3">
 <h6 class="text-primary"><i class="bi bi-1-circle"></i> Entity Matching Prompt</h6>
-<small class="text-muted">Matches entities from Facts/Discussion to Questions section</small>
+<small class="text-muted">Matches entities from Facts/Discussion/Questions to Conclusions section</small>
 <pre style="white-space: pre-wrap; word-wrap: break-word; margin-top: 0.5rem;">{{ saved_prompts.roles.matching.prompt_text }}</pre>
 <small class="text-muted">Saved: {{ saved_prompts.roles.matching.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
 </div>
@@ -148,7 +148,7 @@
 {%- if saved_prompts.states.matching -%}
 <div class="mb-3">
 <h6 class="text-primary"><i class="bi bi-1-circle"></i> Entity Matching Prompt</h6>
-<small class="text-muted">Matches entities from Facts/Discussion to Questions section</small>
+<small class="text-muted">Matches entities from Facts/Discussion/Questions to Conclusions section</small>
 <pre style="white-space: pre-wrap; word-wrap: break-word; margin-top: 0.5rem;">{{ saved_prompts.states.matching.prompt_text }}</pre>
 <small class="text-muted">Saved: {{ saved_prompts.states.matching.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
 </div>
@@ -230,7 +230,7 @@
 {%- if saved_prompts.resources.matching -%}
 <div class="mb-3">
 <h6 class="text-primary"><i class="bi bi-1-circle"></i> Entity Matching Prompt</h6>
-<small class="text-muted">Matches entities from Facts/Discussion to Questions section</small>
+<small class="text-muted">Matches entities from Facts/Discussion/Questions to Conclusions section</small>
 <pre style="white-space: pre-wrap; word-wrap: break-word; margin-top: 0.5rem;">{{ saved_prompts.resources.matching.prompt_text }}</pre>
 <small class="text-muted">Saved: {{ saved_prompts.resources.matching.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
 </div>
@@ -287,8 +287,8 @@
 
         <!-- Navigation to entity review -->
         <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4">
-            <a href="{{ url_for('entity_review.review_case_entities', case_id=case.id, section_type='questions') }}" class="btn btn-outline-primary">
-                <i class="bi bi-eye"></i> Review Pass 1 Entities (Questions Section)
+            <a href="{{ url_for('entity_review.review_case_entities', case_id=case.id, section_type='conclusions') }}" class="btn btn-outline-primary">
+                <i class="bi bi-eye"></i> Review Pass 1 Entities (Conclusions Section)
             </a>
         </div>
 
@@ -403,7 +403,7 @@
 {% block step_scripts %}
 <script>
 const caseId = {{ case.id }};
-const currentSectionText = `{{ questions_section.llm_text if questions_section else '' }}`;
+const currentSectionText = `{{ conclusions_section.llm_text if conclusions_section else '' }}`;
 
 // Helper function to escape HTML
 function escapeHtml(text) {
@@ -430,7 +430,7 @@ document.addEventListener('DOMContentLoaded', function() {
 function loadSavedPrompt(conceptType) {
     // This function is not used in Questions section
     // Keeping it for compatibility but it won't be called
-    fetch(`/scenario_pipeline/case/${caseId}/step1/get_saved_prompt?concept_type=${conceptType}&section_type=questions`)
+    fetch(`/scenario_pipeline/case/${caseId}/step1/get_saved_prompt?concept_type=${conceptType}&section_type=conclusions`)
         .then(response => response.json())
         .then(data => {
             if (data.success && data.prompt_text) {
@@ -496,7 +496,7 @@ function extractIndividualConcept(conceptType) {
         body: JSON.stringify({
             concept_type: conceptType,
             section_text: currentSectionText,
-            section_type: 'discussion'  // Mark as Questions section
+            section_type: 'conclusions'  // Mark as Conclusions section
         })
     })
     .then(response => response.json())
@@ -708,14 +708,14 @@ function tagReferencedEntities(entityType) {
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Tagging...';
 
-    fetch('/scenario_pipeline/case/' + caseId + '/tag_entities_in_questions', {
+    fetch('/scenario_pipeline/case/' + caseId + '/tag_entities_in_conclusions', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
         },
         body: JSON.stringify({
-            questions_text: currentSectionText,
+            conclusions_text: currentSectionText,
             entity_type: entityType
         })
     })
@@ -730,7 +730,7 @@ function tagReferencedEntities(entityType) {
                 promptSection.style.display = 'block';
                 let promptHtml = '<div class="mb-3">';
                 promptHtml += '<h6 class="text-primary"><i class="bi bi-1-circle"></i> Entity Matching Prompt</h6>';
-                promptHtml += '<small class="text-muted">Matches entities from Facts/Discussion to Questions section</small>';
+                promptHtml += '<small class="text-muted">Matches entities from Facts/Discussion/Questions to Conclusions section</small>';
                 promptHtml += `<pre style="white-space: pre-wrap; word-wrap: break-word; margin-top: 0.5rem;">${escapeHtml(data.matching_prompt)}</pre>`;
                 promptHtml += '</div>';
 
@@ -751,22 +751,23 @@ function tagReferencedEntities(entityType) {
             const resultsContent = document.getElementById(`${entityType}ResultsContent`);
 
             let html = '<div class="mb-3">';
-            html += `<h6><i class="bi bi-check-circle text-success"></i> Tagged ${data.summary.total_matches} ${entityType}</h6>`;
+            html += `<h6><i class="bi bi-check-circle text-success"></i> Tagged ${data.stats.total_matches} ${entityType}</h6>`;
 
             // Show matches summary
             html += '<div class="alert alert-success">';
-            html += `<strong>Matched Entities:</strong> ${data.summary.total_matches} total<br>`;
-            html += `<strong>From Facts:</strong> ${data.summary.from_facts}<br>`;
-            html += `<strong>From Discussion:</strong> ${data.summary.from_discussion}<br>`;
-            if (data.summary.total_new > 0) {
-                html += `<strong class="text-warning">NEW Entities Found:</strong> ${data.summary.total_new} (not in Facts/Discussion)<br>`;
+            html += `<strong>Matched Entities:</strong> ${data.stats.total_matches} total<br>`;
+            html += `<strong>From Facts:</strong> ${data.stats.from_facts}<br>`;
+            html += `<strong>From Discussion:</strong> ${data.stats.from_discussion}<br>`;
+            html += `<strong>From Questions:</strong> ${data.stats.from_questions}<br>`;
+            if (data.stats.total_new_entities > 0) {
+                html += `<strong class="text-warning">NEW Entities Found:</strong> ${data.stats.total_new_entities} (not in Facts/Discussion/Questions)<br>`;
             }
-            html += `<strong>Avg Confidence:</strong> ${(data.summary.avg_confidence * 100).toFixed(1)}%`;
+            html += `<strong>Avg Confidence:</strong> ${(data.stats.avg_confidence * 100).toFixed(1)}%`;
             html += '</div>';
 
             // Show individual matches
             if (data.matches && data.matches.length > 0) {
-                html += '<h6 class="mt-3"><i class="bi bi-link-45deg"></i> Matched Entities (from Facts/Discussion):</h6>';
+                html += '<h6 class="mt-3"><i class="bi bi-link-45deg"></i> Matched Entities (from Facts/Discussion/Questions):</h6>';
                 data.matches.forEach(match => {
                     html += '<div class="entity-item">';
                     html += `<div class="entity-label">${escapeHtml(match.label)}</div>`;
@@ -777,10 +778,10 @@ function tagReferencedEntities(entityType) {
                 });
             }
 
-            // Show NEW entities identified in Questions
+            // Show NEW entities identified in Conclusions
             if (data.new_entities && data.new_entities.length > 0) {
-                html += '<h6 class="mt-4"><i class="bi bi-star text-warning"></i> NEW Entities (not in Facts/Discussion):</h6>';
-                html += '<div class="alert alert-warning"><i class="bi bi-exclamation-triangle"></i> <strong>Gap Analysis:</strong> These entities appear in Questions but were not extracted from Facts/Discussion sections.</div>';
+                html += '<h6 class="mt-4"><i class="bi bi-star text-warning"></i> NEW Entities (not in Facts/Discussion/Questions):</h6>';
+                html += '<div class="alert alert-warning"><i class="bi bi-exclamation-triangle"></i> <strong>Gap Analysis:</strong> These entities appear in Conclusions but were not extracted from Facts/Discussion/Questions sections.</div>';
                 data.new_entities.forEach(entity => {
                     html += '<div class="entity-item" style="border-left-color: #ffc107;">';
                     html += `<div class="entity-label">${escapeHtml(entity.label)} <span class="badge bg-warning text-dark">NEW</span></div>`;
@@ -826,7 +827,7 @@ function tagReferencedEntities(entityType) {
             resultsSection.style.display = 'block';
 
             // Show success message
-            alert('Tagged ' + data.summary.total_matches + ' ' + entityType + ' from Facts/Discussion!');
+            alert('Tagged ' + data.stats.total_matches + ' ' + entityType + ' from Facts/Discussion/Questions!');
         } else {
             alert('Error: ' + data.error);
         }

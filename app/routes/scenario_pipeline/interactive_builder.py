@@ -19,6 +19,13 @@ logger = logging.getLogger(__name__)
 # Create the blueprint
 interactive_scenario_bp = Blueprint('scenario_pipeline', __name__, url_prefix='/scenario_pipeline')
 
+def init_csrf_exemption(app):
+    """Exempt entity tagging routes from CSRF protection since they're API endpoints"""
+    if hasattr(app, 'csrf') and app.csrf:
+        # Exempt the tag entity routes
+        app.csrf.exempt(tag_entities_in_questions_route)
+        app.csrf.exempt(tag_entities_in_conclusions_route)
+
 @interactive_scenario_bp.route('/case/<int:case_id>')
 @auth_optional
 def scenario_pipeline_builder(case_id):
@@ -87,6 +94,13 @@ def step1c(case_id):
     """Route handler for Step 1c: Contextual Framework Pass (Questions Section)"""
     from .step1 import step1c as step1c_handler
     return step1c_handler(case_id)
+
+@interactive_scenario_bp.route('/case/<int:case_id>/step1d')
+@auth_optional  # Allow viewing without auth
+def step1d(case_id):
+    """Route handler for Step 1d: Contextual Framework Pass (Conclusions Section)"""
+    from .step1 import step1d as step1d_handler
+    return step1d_handler(case_id)
 
 @interactive_scenario_bp.route('/case/<int:case_id>/step1_streaming')
 def step1_streaming(case_id):
@@ -167,6 +181,13 @@ def tag_entities_in_questions_route(case_id):
     """API endpoint to tag entities from Facts/Discussion in Questions section"""
     from .step1 import tag_entities_in_questions
     return tag_entities_in_questions(case_id)
+
+@interactive_scenario_bp.route('/case/<int:case_id>/tag_entities_in_conclusions', methods=['POST'])
+@auth_required_for_llm
+def tag_entities_in_conclusions_route(case_id):
+    """API endpoint to tag entities from Facts/Discussion/Questions in Conclusions section"""
+    from .step1 import tag_entities_in_conclusions
+    return tag_entities_in_conclusions(case_id)
 
 @interactive_scenario_bp.route('/case/<int:case_id>/step2')
 @auth_optional  # Allow viewing without auth

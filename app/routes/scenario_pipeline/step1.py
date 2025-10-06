@@ -88,8 +88,8 @@ def step1_data(case_id, section_type='facts'):
         # Load any saved prompts for this case - use section_type parameter
         from app.models import ExtractionPrompt
 
-        # For questions section, load both matching and extraction prompts
-        if section_type == 'questions':
+        # For questions and conclusions sections, load both matching and extraction prompts
+        if section_type in ['questions', 'conclusions']:
             saved_prompts = {
                 'roles': {
                     'matching': ExtractionPrompt.get_active_prompt(case_id, 'roles_matching', section_type=section_type),
@@ -201,7 +201,7 @@ def step1c(case_id):
         'questions_section': questions_section,
         'current_step': 1,
         'step_title': 'Contextual Framework Pass - Questions',
-        'next_step_url': url_for('scenario_pipeline.step2', case_id=case_id),
+        'next_step_url': url_for('scenario_pipeline.step1d', case_id=case_id),
         'prev_step_url': url_for('scenario_pipeline.step1b', case_id=case_id),
         'saved_prompts': saved_prompts  # These are questions-specific prompts
     }
@@ -213,6 +213,41 @@ def step1c(case_id):
 
     # Use step1c.html template
     return render_template('scenarios/step1c.html', **context)
+
+def step1d(case_id):
+    """
+    Step 1d: Contextual Framework Pass for Conclusions Section
+    Extracts roles, states, and resources from the Conclusions section
+    """
+    # Load data with section_type='conclusions' to get conclusions prompts
+    case, facts_section, discussion_section, saved_prompts = step1_data(case_id, section_type='conclusions')
+
+    # Get the conclusions section
+    conclusions_section = None
+    if case.doc_metadata and 'sections_dual' in case.doc_metadata:
+        for section_key, section_content in case.doc_metadata['sections_dual'].items():
+            if 'conclusion' in section_key.lower():
+                conclusions_section = _format_section_for_llm(section_key, section_content, case_doc=case)
+                break
+
+    # Template context
+    context = {
+        'case': case,
+        'conclusions_section': conclusions_section,
+        'current_step': 1,
+        'step_title': 'Contextual Framework Pass - Conclusions',
+        'next_step_url': url_for('scenario_pipeline.step2', case_id=case_id),
+        'prev_step_url': url_for('scenario_pipeline.step1c', case_id=case_id),
+        'saved_prompts': saved_prompts  # These are conclusions-specific prompts
+    }
+
+    # Debug: Log what we're passing to template
+    logger.info(f"Step1d saved_prompts structure: {type(saved_prompts)}")
+    for key in saved_prompts:
+        logger.info(f"  {key}: {type(saved_prompts[key])}, value: {saved_prompts[key] if not isinstance(saved_prompts[key], dict) else {k: type(v) for k, v in saved_prompts[key].items()}}")
+
+    # Use step1d.html template
+    return render_template('scenarios/step1d.html', **context)
 
 def entities_pass_prompt(case_id):
     """
@@ -1125,8 +1160,8 @@ def tag_entities_in_questions(case_id):
         )
         db.session.add(matching_prompt)
 
-        # Save new entity extraction prompt (second LLM call) if there were new entities
-        if new_entities and matching_service.last_extraction_prompt:
+        # Save new entity extraction prompt (second LLM call) if extraction was attempted
+        if matching_service.last_extraction_prompt:
             extraction_prompt = ExtractionPrompt(
                 case_id=case_id,
                 concept_type=f'{entity_type}_new_extraction',  # Distinguish extraction from matching
@@ -1230,6 +1265,189 @@ def tag_entities_in_questions(case_id):
 
     except Exception as e:
         logger.error(f"Error tagging entities in Questions for case {case_id}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+def tag_entities_in_conclusions(case_id):
+    """
+    Tag/match entities from Facts/Discussion/Questions that are referenced in Conclusions section.
+    This creates cross-section links instead of extracting new entities.
+    """
+    try:
+        if request.method != 'POST':
+            return jsonify({'error': 'POST method required'}), 405
+
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No JSON data provided'}), 400
+
+        conclusions_text = data.get('conclusions_text')
+        entity_type = data.get('entity_type')  # 'roles', 'states', or 'resources'
+
+        if not conclusions_text or not entity_type:
+            return jsonify({'error': 'conclusions_text and entity_type required'}), 400
+
+        logger.info(f"Tagging {entity_type} entities in Conclusions section for case {case_id}")
+
+        # Initialize entity matching service
+        from app.services.entity_matching_service import EntityMatchingService
+        from app.utils.llm_utils import get_llm_client
+
+        llm_client = get_llm_client()
+        matching_service = EntityMatchingService(llm_client=llm_client)
+
+        # Match entities from Facts/Discussion/Questions AND extract new ones
+        matches, new_entities = matching_service.match_entities_in_text(
+            section_text=conclusions_text,
+            entity_type=entity_type,
+            case_id=case_id,
+            previous_sections=['facts', 'discussion', 'questions'],  # Include questions
+            extract_new=True  # Also extract entities not found in previous sections
+        )
+
+        # Create session ID
+        import uuid
+        session_id = str(uuid.uuid4())
+
+        # Save the prompts and responses to extraction_prompts table
+        from app.models import ExtractionPrompt, TemporaryRDFStorage, db
+        from datetime import datetime
+
+        # Save matching prompt (first LLM call)
+        matching_prompt = ExtractionPrompt(
+            case_id=case_id,
+            concept_type=f'{entity_type}_matching',  # Distinguish matching from extraction
+            step_number=1,  # Step 1d - Conclusions section
+            section_type='conclusions',
+            prompt_text=matching_service.last_matching_prompt or '',
+            llm_model='claude-opus-4-1-20250805',
+            extraction_session_id=session_id,
+            raw_response=matching_service.last_matching_response or '',
+            results_summary={
+                'matches': len(matches),
+                'from_facts': sum(1 for m in matches if m.source_section == 'facts'),
+                'from_discussion': sum(1 for m in matches if m.source_section == 'discussion'),
+                'from_questions': sum(1 for m in matches if m.source_section == 'questions')
+            },
+            is_active=True,
+            times_used=1,
+            created_at=datetime.utcnow(),
+            last_used_at=datetime.utcnow()
+        )
+        db.session.add(matching_prompt)
+
+        # Save new entity extraction prompt (second LLM call) if extraction was attempted
+        if matching_service.last_extraction_prompt:
+            extraction_prompt = ExtractionPrompt(
+                case_id=case_id,
+                concept_type=f'{entity_type}_new_extraction',  # Distinguish extraction from matching
+                step_number=1,  # Step 1d - Conclusions section
+                section_type='conclusions',
+                prompt_text=matching_service.last_extraction_prompt,
+                llm_model='claude-opus-4-1-20250805',
+                extraction_session_id=session_id,
+                raw_response=matching_service.last_extraction_response or '',
+                results_summary={
+                    'new_entities': len(new_entities)
+                },
+                is_active=True,
+                times_used=1,
+                created_at=datetime.utcnow(),
+                last_used_at=datetime.utcnow()
+            )
+            db.session.add(extraction_prompt)
+
+        # Store matches as relationships
+        storage_entries = matching_service.store_entity_matches(
+            matches=matches,
+            case_id=case_id,
+            target_section='conclusions',
+            extraction_session_id=session_id
+        )
+
+        # Save matched entities to database
+        for entry in storage_entries:
+            rdf_entity = TemporaryRDFStorage(
+                case_id=entry['case_id'],
+                extraction_session_id=entry['extraction_session_id'],
+                extraction_type=entry['extraction_type'],  # 'conclusions_entity_refs'
+                storage_type=entry['storage_type'],  # 'relationship'
+                entity_type=entry['entity_type'],
+                entity_label=entry['entity_label'],
+                entity_definition=entry.get('entity_definition'),
+                rdf_json_ld=entry.get('rdf_json_ld'),
+                is_selected=True
+            )
+            db.session.add(rdf_entity)
+
+        # Store new entities extracted from Conclusions
+        for new_entity in new_entities:
+            rdf_entity = TemporaryRDFStorage(
+                case_id=case_id,
+                extraction_session_id=session_id,
+                extraction_type=f'{entity_type}_new_from_conclusions',
+                storage_type=new_entity['storage_type'],
+                ontology_target=f'proethica-case-{case_id}',
+                entity_label=new_entity['label'],
+                entity_type=new_entity['entity_type'],
+                entity_definition=new_entity['definition'],
+                rdf_json_ld={
+                    '@type': f'proeth-case:{new_entity["label"].replace(" ", "")}',
+                    'label': new_entity['label'],
+                    'definition': new_entity['definition'],
+                    'extractedFrom': 'conclusions',
+                    'isNewEntity': True,
+                    'reasoning': new_entity['reasoning'],
+                    'confidence': new_entity['confidence']
+                },
+                is_selected=True
+            )
+            db.session.add(rdf_entity)
+
+        db.session.commit()
+
+        logger.info(f"Successfully tagged {len(matches)} matches and extracted {len(new_entities)} new entities for {entity_type}")
+
+        return jsonify({
+            'success': True,
+            'matches': [
+                {
+                    'label': m.entity_label,
+                    'source_section': m.source_section,
+                    'confidence': m.confidence,
+                    'mention': m.mention_text[:100] if m.mention_text else ''
+                }
+                for m in matches
+            ],
+            'new_entities': [
+                {
+                    'label': e.get('label', 'Unknown'),
+                    'storage_type': e.get('storage_type', 'individual')
+                }
+                for e in new_entities
+            ],
+            'stats': {
+                'total_matches': len(matches),
+                'total_new_entities': len(new_entities),
+                'from_facts': sum(1 for m in matches if m.source_section == 'facts'),
+                'from_discussion': sum(1 for m in matches if m.source_section == 'discussion'),
+                'from_questions': sum(1 for m in matches if m.source_section == 'questions'),
+                'avg_confidence': sum(m.confidence for m in matches) / len(matches) if matches else 0
+            },
+            'session_id': session_id,
+            'matching_prompt': matching_service.last_matching_prompt,  # Matching prompt for UI display
+            'matching_response': matching_service.last_matching_response,  # Matching response for UI display
+            'extraction_prompt': matching_service.last_extraction_prompt,  # New entity extraction prompt
+            'extraction_response': matching_service.last_extraction_response  # New entity extraction response
+        })
+
+    except Exception as e:
+        logger.error(f"Error tagging entities in Conclusions for case {case_id}: {str(e)}")
         import traceback
         traceback.print_exc()
         return jsonify({

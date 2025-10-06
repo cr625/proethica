@@ -149,9 +149,23 @@
             <div class="bg-light border rounded p-3 mb-4">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <a href="{{ url_for('scenario_pipeline.step1', case_id=case.id) }}" class="btn btn-sm btn-secondary">
-                            <i class="bi bi-arrow-left"></i> Back to Step 1
+                        {% if section_type == 'questions' %}
+                        <a href="{{ url_for('scenario_pipeline.step1c', case_id=case.id) }}" class="btn btn-sm btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Back to Questions
                         </a>
+                        {% elif section_type == 'conclusions' %}
+                        <a href="{{ url_for('scenario_pipeline.step1d', case_id=case.id) }}" class="btn btn-sm btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Back to Conclusions
+                        </a>
+                        {% elif section_type == 'discussion' %}
+                        <a href="{{ url_for('scenario_pipeline.step1b', case_id=case.id) }}" class="btn btn-sm btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Back to Discussion
+                        </a>
+                        {% else %}
+                        <a href="{{ url_for('scenario_pipeline.step1', case_id=case.id) }}" class="btn btn-sm btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Back to Facts
+                        </a>
+                        {% endif %}
                         <button id="refreshFromOntServeBtn" class="btn btn-sm btn-info">
                             <i class="bi bi-arrow-repeat"></i> Refresh from OntServe
                         </button>
@@ -295,7 +309,6 @@
                         <div class="card-body">
 
             <!-- NEW CLASSES SUB-SECTION -->
-            {% if type_data.classes %}
             <div class="row mb-5">
                 <div class="col-12">
                     <h5 class="mb-3">New {{ concept_type|title }} Classes</h5>
@@ -309,10 +322,11 @@
                                     </h6>
                                     <small>These are new {{ concept_type }} types not currently in the ontology</small>
                                 </div>
-                                <span class="badge bg-light text-primary">{{ type_data.classes|length }} Classes</span>
+                                <span class="badge bg-light text-primary">{{ type_data.classes|length if type_data.classes else 0 }} Classes</span>
                             </div>
                         </div>
                         <div class="card-body">
+                            {% if type_data.classes %}
                             <div class="table-responsive">
                                 <table class="table table-hover">
                                     <thead>
@@ -399,14 +413,21 @@
                                     </tbody>
                                 </table>
                             </div>
+                            {% else %}
+                            <div class="alert alert-info mb-0">
+                                <i class="fas fa-info-circle"></i>
+                                No new {{ concept_type }} classes were identified in this section.
+                                {% if type_data.relationships %}
+                                All {{ concept_type }} references point to entities already extracted from previous sections.
+                                {% endif %}
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
             </div>
-            {% endif %}
 
             <!-- INDIVIDUALS SUB-SECTION -->
-            {% if type_data.individuals %}
             <div class="row mb-5">
                 <div class="col-12">
                     <h5 class="mb-3">{{ concept_type|title }} Individuals</h5>
@@ -420,10 +441,11 @@
                                     </h5>
                                     <small>These are specific people, organizations, and entities in this case</small>
                                 </div>
-                                <span class="badge bg-light text-info">{{ type_data.individuals|length }} Individuals</span>
+                                <span class="badge bg-light text-info">{{ type_data.individuals|length if type_data.individuals else 0 }} Individuals</span>
                             </div>
                         </div>
                         <div class="card-body">
+            {% if type_data.individuals %}
                             <div class="table-responsive">
                                 <table class="table table-hover">
                                     <thead>
@@ -540,11 +562,19 @@
                                     </tbody>
                                 </table>
                             </div>
+            {% else %}
+                            <div class="alert alert-info mb-0">
+                                <i class="fas fa-info-circle"></i>
+                                No new {{ concept_type }} individuals were identified in this section.
+                                {% if type_data.relationships %}
+                                All {{ concept_type }} references point to entities already extracted from previous sections.
+                                {% endif %}
+                            </div>
+            {% endif %}
                         </div>
                     </div>
                 </div>
             </div>
-            {% endif %}
 
             <!-- RELATIONSHIPS SUB-SECTION (Cross-section entity references) -->
             {% if type_data.relationships %}
