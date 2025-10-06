@@ -602,9 +602,29 @@
                                                         {% endfor %}
                                                     {% endif %}
 
-                                                    {# Show message if no content #}
+                                                    {# Show alternative info if no properties/relations #}
                                                     {% if not ns.has_content %}
-                                                        <small class="text-muted">No properties or relations</small>
+                                                        {# For new entities from Questions/Conclusions, show their definition and reasoning #}
+                                                        {% if indiv.rdf_json_ld and indiv.rdf_json_ld.definition %}
+                                                            <div class="mb-2">
+                                                                <strong class="text-muted">Definition:</strong>
+                                                                <p class="mb-1 small">{{ indiv.rdf_json_ld.definition }}</p>
+                                                            </div>
+                                                            {% if indiv.rdf_json_ld.reasoning %}
+                                                                <div class="mb-2">
+                                                                    <strong class="text-muted">Extraction Reasoning:</strong>
+                                                                    <p class="mb-0 small text-muted">{{ indiv.rdf_json_ld.reasoning }}</p>
+                                                                </div>
+                                                            {% endif %}
+                                                            {% if indiv.rdf_json_ld.confidence %}
+                                                                <div>
+                                                                    <strong class="text-muted">Confidence:</strong>
+                                                                    <span class="badge bg-secondary">{{ (indiv.rdf_json_ld.confidence * 100)|round(0)|int }}%</span>
+                                                                </div>
+                                                            {% endif %}
+                                                        {% else %}
+                                                            <small class="text-muted">No properties or relations</small>
+                                                        {% endif %}
                                                     {% endif %}
                                                 </div>
                                             </td>
