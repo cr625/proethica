@@ -228,13 +228,21 @@ class RDFExtractionConverter:
 
             # Add active obligations (NEW)
             if "active_obligations" in individual:
-                for obligation in individual["active_obligations"]:
+                # Ensure it's a list, not a string
+                obligations = individual["active_obligations"]
+                if isinstance(obligations, str):
+                    obligations = [obligations]
+                for obligation in obligations:
                     self.individual_graph.add((individual_uri, self.PROETHICA.hasActiveObligation,
                                              Literal(obligation)))
 
             # Add ethical tensions (NEW)
             if "ethical_tensions" in individual:
-                for tension in individual["ethical_tensions"]:
+                # Ensure it's a list, not a string
+                tensions = individual["ethical_tensions"]
+                if isinstance(tensions, str):
+                    tensions = [tensions]
+                for tension in tensions:
                     self.individual_graph.add((individual_uri, self.PROETHICA.hasEthicalTension,
                                              Literal(tension)))
 

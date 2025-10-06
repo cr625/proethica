@@ -230,6 +230,36 @@ def step1d(case_id):
                 conclusions_section = _format_section_for_llm(section_key, section_content, case_doc=case)
                 break
 
+    # Get existing Question→Conclusion links if any
+    from app.models import TemporaryRDFStorage, ExtractionPrompt
+    question_conclusion_links = []
+
+    # Get extraction sessions for conclusions section
+    section_prompts = ExtractionPrompt.query.filter_by(
+        case_id=case_id,
+        section_type='conclusions'
+    ).all()
+    section_session_ids = {p.extraction_session_id for p in section_prompts if p.extraction_session_id}
+
+    if section_session_ids:
+        qc_links = TemporaryRDFStorage.query.filter(
+            TemporaryRDFStorage.case_id == case_id,
+            TemporaryRDFStorage.extraction_type == 'question_conclusion_link',
+            TemporaryRDFStorage.extraction_session_id.in_(section_session_ids)
+        ).all()
+
+        for link in qc_links:
+            if link.rdf_json_ld:
+                question_conclusion_links.append({
+                    'question_number': link.rdf_json_ld.get('questionNumber'),
+                    'question_text': link.rdf_json_ld.get('questionText', ''),
+                    'conclusion_text': link.rdf_json_ld.get('conclusionText', ''),
+                    'confidence': link.rdf_json_ld.get('confidence', 0),
+                    'reasoning': link.rdf_json_ld.get('reasoning', '')
+                })
+
+        logger.info(f"Found {len(question_conclusion_links)} existing Question→Conclusion links")
+
     # Template context
     context = {
         'case': case,
@@ -238,7 +268,8 @@ def step1d(case_id):
         'step_title': 'Contextual Framework Pass - Conclusions',
         'next_step_url': url_for('scenario_pipeline.step2', case_id=case_id),
         'prev_step_url': url_for('scenario_pipeline.step1c', case_id=case_id),
-        'saved_prompts': saved_prompts  # These are conclusions-specific prompts
+        'saved_prompts': saved_prompts,  # These are conclusions-specific prompts
+        'question_conclusion_links': question_conclusion_links  # Existing Q→C links
     }
 
     # Debug: Log what we're passing to template
@@ -1523,13 +1554,39 @@ def link_questions_to_conclusions(case_id):
 
         logger.info(f"Created {len(pairs)} question→conclusion pairs")
 
+        # IMPORTANT: Delete old Q→C links to avoid stacking/duplication
+        from app.models import ExtractionPrompt, TemporaryRDFStorage, db
+        from datetime import datetime
+
+        # Find existing Q→C link session IDs for this case
+        old_linking_prompts = ExtractionPrompt.query.filter_by(
+            case_id=case_id,
+            concept_type='question_conclusion_linking',
+            section_type='conclusions'
+        ).all()
+
+        old_session_ids = [p.extraction_session_id for p in old_linking_prompts if p.extraction_session_id]
+
+        if old_session_ids:
+            # Delete old Q→C links
+            old_links_count = TemporaryRDFStorage.query.filter(
+                TemporaryRDFStorage.case_id == case_id,
+                TemporaryRDFStorage.extraction_type == 'question_conclusion_link',
+                TemporaryRDFStorage.extraction_session_id.in_(old_session_ids)
+            ).delete(synchronize_session=False)
+
+            # Delete old prompts
+            ExtractionPrompt.query.filter(
+                ExtractionPrompt.case_id == case_id,
+                ExtractionPrompt.concept_type == 'question_conclusion_linking',
+                ExtractionPrompt.section_type == 'conclusions'
+            ).delete(synchronize_session=False)
+
+            logger.info(f"Deleted {old_links_count} old Q→C links and {len(old_linking_prompts)} old prompts")
+
         # Create session ID for this linking operation
         import uuid
         session_id = str(uuid.uuid4())
-
-        # Save the linking prompt/response to extraction_prompts
-        from app.models import ExtractionPrompt, TemporaryRDFStorage, db
-        from datetime import datetime
 
         linking_prompt_record = ExtractionPrompt(
             case_id=case_id,

@@ -293,6 +293,58 @@
             </button>
         </div>
 
+        <!-- Question→Conclusion Links Results -->
+        <div id="qcLinksResults" class="mt-4" style="{% if question_conclusion_links %}display: block;{% else %}display: none;{% endif %}">
+            <div class="card border-primary">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-link-45deg"></i> Question→Conclusion Relationships
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-success" id="qcLinksStats">
+                        {% if question_conclusion_links %}
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <i class="bi bi-check-circle-fill"></i>
+                                <strong>Successfully linked {{ question_conclusion_links|length }} question(s) to conclusion(s)</strong>
+                            </div>
+                            <div>
+                                <span class="badge bg-success">Average Confidence: {{ (question_conclusion_links|sum(attribute='confidence') / question_conclusion_links|length * 100)|round(0)|int }}%</span>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div id="qcLinksList" class="list-group">
+                        {% if question_conclusion_links %}
+                            {% for link in question_conclusion_links %}
+                            <div class="list-group-item">
+                                <div class="d-flex w-100 justify-content-between align-items-start mb-2">
+                                    <h6 class="mb-1 text-primary">
+                                        <i class="bi bi-{{ link.question_number }}-circle"></i>
+                                        Question {{ link.question_number }}
+                                    </h6>
+                                    <span class="badge bg-success">{{ (link.confidence * 100)|round(0)|int }}% confidence</span>
+                                </div>
+                                <div class="mb-2">
+                                    <strong class="text-primary">Question:</strong>
+                                    <p class="mb-1 ms-3">{{ link.question_text }}</p>
+                                </div>
+                                <div class="mb-2">
+                                    <strong class="text-success">Conclusion:</strong>
+                                    <p class="mb-1 ms-3">{{ link.conclusion_text }}</p>
+                                </div>
+                                <div class="text-muted small">
+                                    <i class="bi bi-info-circle"></i> {{ link.reasoning }}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Navigation to entity review -->
         <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-3">
             <a href="{{ url_for('entity_review.review_case_entities', case_id=case.id, section_type='conclusions') }}" class="btn btn-outline-primary">
@@ -887,6 +939,97 @@ function extractQuestions() {
     });
 }
 
+// Display Question→Conclusion Links Results
+function displayQCLinksResults(data) {
+    const resultsContainer = document.getElementById('qcLinksResults');
+    const statsDiv = document.getElementById('qcLinksStats');
+    const linksList = document.getElementById('qcLinksList');
+
+    // Show results container
+    resultsContainer.style.display = 'block';
+
+    // Populate stats
+    const pairsCount = data.stats.total_pairs;
+    const avgConfidence = (data.stats.avg_confidence * 100).toFixed(0);
+    statsDiv.innerHTML = `
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <i class="bi bi-check-circle-fill"></i>
+                <strong>Successfully linked ${pairsCount} question(s) to conclusion(s)</strong>
+            </div>
+            <div>
+                <span class="badge bg-success">Average Confidence: ${avgConfidence}%</span>
+            </div>
+        </div>
+    `;
+
+    // Populate links list
+    linksList.innerHTML = '';
+    data.pairs.forEach(pair => {
+        const confidence = (pair.confidence * 100).toFixed(0);
+
+        const linkItem = document.createElement('div');
+        linkItem.className = 'list-group-item';
+        linkItem.innerHTML = `
+            <div class="d-flex w-100 justify-content-between align-items-start mb-2">
+                <h6 class="mb-1 text-primary">
+                    <i class="bi bi-${pair.question_number}-circle"></i>
+                    Question ${pair.question_number}
+                </h6>
+                <span class="badge bg-success">${confidence}% confidence</span>
+            </div>
+            <div class="mb-2">
+                <strong class="text-primary">Question:</strong>
+                <p class="mb-1 ms-3">${escapeHtml(pair.question_text)}</p>
+            </div>
+            <div class="mb-2">
+                <strong class="text-success">Conclusion:</strong>
+                <p class="mb-1 ms-3">${escapeHtml(pair.conclusion_text)}</p>
+            </div>
+            <div class="text-muted small">
+                <i class="bi bi-info-circle"></i> ${escapeHtml(pair.reasoning)}
+            </div>
+        `;
+        linksList.appendChild(linkItem);
+    });
+
+    // Also display the LLM verification prompt if available (collapsible)
+    if (data.linking_prompt) {
+        const promptSection = document.createElement('div');
+        promptSection.className = 'mt-3';
+        promptSection.innerHTML = `
+            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#qcLinkingPromptCollapse">
+                <i class="bi bi-code-square"></i> Show LLM Verification Prompt
+            </button>
+            <div class="collapse mt-2" id="qcLinkingPromptCollapse">
+                <div class="card card-body bg-light">
+                    <h6 class="text-muted">LLM Verification Prompt:</h6>
+                    <pre style="white-space: pre-wrap; word-wrap: break-word; max-height: 400px; overflow-y: auto;">${escapeHtml(data.linking_prompt)}</pre>
+                </div>
+            </div>
+        `;
+        linksList.appendChild(promptSection);
+    }
+
+    // Also display the LLM response if available
+    if (data.linking_response) {
+        const responseSection = document.createElement('div');
+        responseSection.className = 'mt-2';
+        responseSection.innerHTML = `
+            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#qcLinkingResponseCollapse">
+                <i class="bi bi-code-square"></i> Show LLM Verification Response
+            </button>
+            <div class="collapse mt-2" id="qcLinkingResponseCollapse">
+                <div class="card card-body bg-light">
+                    <h6 class="text-muted">LLM Verification Response:</h6>
+                    <pre style="white-space: pre-wrap; word-wrap: break-word; max-height: 400px; overflow-y: auto;">${escapeHtml(data.linking_response)}</pre>
+                </div>
+            </div>
+        `;
+        linksList.appendChild(responseSection);
+    }
+}
+
 // Link Questions to Conclusions
 function linkQuestionsToConclusions() {
     const btn = document.getElementById('linkQuestionsBtn');
@@ -910,21 +1053,13 @@ function linkQuestionsToConclusions() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // Show success message with details
+            // Display results on the page
+            displayQCLinksResults(data);
+
+            // Show success alert
             const pairsCount = data.stats.total_pairs;
             const avgConfidence = (data.stats.avg_confidence * 100).toFixed(0);
-
-            let message = `Successfully linked ${pairsCount} question(s) to conclusion(s)!\n`;
-            message += `Average confidence: ${avgConfidence}%\n\n`;
-
-            // Show pairs
-            data.pairs.forEach(pair => {
-                message += `Q${pair.question_number}: ${pair.question_text.substring(0, 80)}...\n`;
-                message += `→ ${pair.conclusion_text.substring(0, 80)}...\n`;
-                message += `Confidence: ${(pair.confidence * 100).toFixed(0)}%\n\n`;
-            });
-
-            alert(message);
+            alert(`Successfully linked ${pairsCount} question(s) to conclusion(s)!\nAverage confidence: ${avgConfidence}%\n\nSee results below.`);
 
             // Enable review button highlighting
             const reviewBtn = document.querySelector('a[href*="review_case_entities"]');
@@ -932,6 +1067,9 @@ function linkQuestionsToConclusions() {
                 reviewBtn.classList.add('btn-success');
                 reviewBtn.classList.remove('btn-outline-primary');
             }
+
+            // Scroll to results
+            document.getElementById('qcLinksResults').scrollIntoView({ behavior: 'smooth', block: 'start' });
         } else {
             alert('Error linking questions to conclusions: ' + data.error);
         }

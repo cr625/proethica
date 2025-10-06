@@ -526,9 +526,21 @@
                                             </td>
                                             <td>
                                                 {% if indiv.rdf_json_ld and indiv.rdf_json_ld.types %}
+                                                    {# Use types array if available (from Facts/Discussion extraction) - shows specific class #}
                                                     {% for type in indiv.rdf_json_ld.types %}
                                                         <span class="badge bg-secondary">{{ type.split('#')[-1] if '#' in type else type.split('/')[-1] }}</span><br/>
                                                     {% endfor %}
+                                                {% elif indiv.entity_type %}
+                                                    {# For new entities from Questions/Conclusions, show the base ontology class #}
+                                                    {% if indiv.entity_type.lower() == 'roles' or indiv.entity_type.lower() == 'role' %}
+                                                        <span class="badge bg-info" title="Base class from ProEthica ontology">Role</span>
+                                                    {% elif indiv.entity_type.lower() == 'states' or indiv.entity_type.lower() == 'state' %}
+                                                        <span class="badge bg-warning text-dark" title="Base class from ProEthica ontology">State</span>
+                                                    {% elif indiv.entity_type.lower() == 'resources' or indiv.entity_type.lower() == 'resource' %}
+                                                        <span class="badge bg-success" title="Base class from ProEthica ontology">Resource</span>
+                                                    {% else %}
+                                                        <span class="badge bg-info">{{ indiv.entity_type | title }}</span>
+                                                    {% endif %}
                                                 {% else %}
                                                     <span class="text-muted">-</span>
                                                 {% endif %}
@@ -692,8 +704,9 @@
                                             <td>
                                                 <button class="btn btn-sm btn-outline-info" type="button"
                                                         data-bs-toggle="collapse"
-                                                        data-bs-target="#rel-details-{{ rel.id }}">
-                                                    <i class="fas fa-info-circle"></i>
+                                                        data-bs-target="#rel-details-{{ rel.id }}"
+                                                        title="Show full details">
+                                                    <i class="fas fa-info-circle"></i> Details
                                                 </button>
                                             </td>
                                         </tr>
