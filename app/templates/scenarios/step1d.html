@@ -285,8 +285,16 @@
             </div>
         </div>
 
-        <!-- Navigation to entity review -->
+        <!-- Link Questions to Conclusions Button -->
         <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4">
+            <button id="linkQuestionsBtn" class="btn btn-success btn-lg" onclick="linkQuestionsToConclusions()">
+                <i class="bi bi-link-45deg"></i> Link Questions to Conclusions
+                <small class="d-block">Map which conclusion answers which question</small>
+            </button>
+        </div>
+
+        <!-- Navigation to entity review -->
+        <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-3">
             <a href="{{ url_for('entity_review.review_case_entities', case_id=case.id, section_type='conclusions') }}" class="btn btn-outline-primary">
                 <i class="bi bi-eye"></i> Review Pass 1 Entities (Conclusions Section)
             </a>
@@ -876,6 +884,65 @@ function extractQuestions() {
     .finally(() => {
         btn.disabled = false;
         btn.innerHTML = originalText;
+    });
+}
+
+// Link Questions to Conclusions
+function linkQuestionsToConclusions() {
+    const btn = document.getElementById('linkQuestionsBtn');
+    const originalHTML = btn.innerHTML;
+
+    // Disable button and show loading
+    btn.disabled = true;
+    btn.innerHTML = `
+        <div class="spinner-border spinner-border-sm" role="status"></div>
+        Linking Questions to Conclusions...
+    `;
+
+    // Call the linking endpoint
+    fetch(`/scenario_pipeline/case/${caseId}/link_questions_conclusions`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success message with details
+            const pairsCount = data.stats.total_pairs;
+            const avgConfidence = (data.stats.avg_confidence * 100).toFixed(0);
+
+            let message = `Successfully linked ${pairsCount} question(s) to conclusion(s)!\n`;
+            message += `Average confidence: ${avgConfidence}%\n\n`;
+
+            // Show pairs
+            data.pairs.forEach(pair => {
+                message += `Q${pair.question_number}: ${pair.question_text.substring(0, 80)}...\n`;
+                message += `→ ${pair.conclusion_text.substring(0, 80)}...\n`;
+                message += `Confidence: ${(pair.confidence * 100).toFixed(0)}%\n\n`;
+            });
+
+            alert(message);
+
+            // Enable review button highlighting
+            const reviewBtn = document.querySelector('a[href*="review_case_entities"]');
+            if (reviewBtn) {
+                reviewBtn.classList.add('btn-success');
+                reviewBtn.classList.remove('btn-outline-primary');
+            }
+        } else {
+            alert('Error linking questions to conclusions: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Network error: ' + error);
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalHTML;
     });
 }
 </script>

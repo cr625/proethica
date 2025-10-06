@@ -1456,6 +1456,158 @@ def tag_entities_in_conclusions(case_id):
         }), 500
 
 
+def link_questions_to_conclusions(case_id):
+    """
+    Create Question→Conclusion relationship mappings.
+    This should be called AFTER entity extraction to link questions to their answers.
+    """
+    try:
+        if request.method != 'POST':
+            return jsonify({'error': 'POST method required'}), 405
+
+        logger.info(f"Linking questions to conclusions for case {case_id}")
+
+        # Get the case document
+        from app.models import Document
+        case = Document.query.get_or_404(case_id)
+
+        # Extract questions and conclusions sections
+        questions_text = None
+        conclusions_text = None
+
+        if case.doc_metadata and 'sections_dual' in case.doc_metadata:
+            sections = case.doc_metadata['sections_dual']
+
+            # Get questions section (check both 'question' and 'questions')
+            for key in ['question', 'questions']:
+                if key in sections:
+                    question_data = sections[key]
+                    if isinstance(question_data, dict):
+                        questions_text = question_data.get('text', '')
+                    else:
+                        questions_text = str(question_data)
+                    break
+
+            # Get conclusions section (check both 'conclusion' and 'conclusions')
+            for key in ['conclusion', 'conclusions']:
+                if key in sections:
+                    conclusion_data = sections[key]
+                    if isinstance(conclusion_data, dict):
+                        conclusions_text = conclusion_data.get('text', '')
+                    else:
+                        conclusions_text = str(conclusion_data)
+                    break
+
+        if not questions_text or not conclusions_text:
+            return jsonify({
+                'success': False,
+                'error': 'Questions or Conclusions section not found in case metadata'
+            }), 400
+
+        logger.info(f"Questions text length: {len(questions_text)}")
+        logger.info(f"Conclusions text length: {len(conclusions_text)}")
+
+        # Initialize linking service
+        from app.services.question_conclusion_linking_service import QuestionConclusionLinkingService
+        from app.utils.llm_utils import get_llm_client
+
+        llm_client = get_llm_client()
+        linking_service = QuestionConclusionLinkingService(llm_client=llm_client)
+
+        # Create question→conclusion mappings
+        pairs = linking_service.link_questions_to_conclusions(
+            questions_text=questions_text,
+            conclusions_text=conclusions_text,
+            use_llm_verification=True
+        )
+
+        logger.info(f"Created {len(pairs)} question→conclusion pairs")
+
+        # Create session ID for this linking operation
+        import uuid
+        session_id = str(uuid.uuid4())
+
+        # Save the linking prompt/response to extraction_prompts
+        from app.models import ExtractionPrompt, TemporaryRDFStorage, db
+        from datetime import datetime
+
+        linking_prompt_record = ExtractionPrompt(
+            case_id=case_id,
+            concept_type='question_conclusion_linking',
+            step_number=1,  # Step 1d - Conclusions section
+            section_type='conclusions',
+            prompt_text=linking_service.last_linking_prompt or '',
+            llm_model='claude-opus-4-20250514',
+            extraction_session_id=session_id,
+            raw_response=linking_service.last_linking_response or '',
+            results_summary={
+                'total_pairs': len(pairs),
+                'avg_confidence': sum(p.confidence for p in pairs) / len(pairs) if pairs else 0
+            },
+            is_active=True,
+            times_used=1,
+            created_at=datetime.utcnow(),
+            last_used_at=datetime.utcnow()
+        )
+        db.session.add(linking_prompt_record)
+
+        # Store the question→conclusion links
+        storage_entries = linking_service.store_question_conclusion_links(
+            pairs=pairs,
+            case_id=case_id,
+            extraction_session_id=session_id
+        )
+
+        # Save to database
+        for entry in storage_entries:
+            rdf_entity = TemporaryRDFStorage(
+                case_id=entry['case_id'],
+                extraction_session_id=entry['extraction_session_id'],
+                extraction_type=entry['extraction_type'],  # 'question_conclusion_link'
+                storage_type=entry['storage_type'],  # 'relationship'
+                entity_type=entry['entity_type'],
+                entity_label=entry['entity_label'],
+                entity_definition=entry['entity_definition'],
+                rdf_json_ld=entry['rdf_json_ld'],
+                is_selected=True
+            )
+            db.session.add(rdf_entity)
+
+        db.session.commit()
+
+        logger.info(f"Successfully stored {len(pairs)} question→conclusion links")
+
+        # Format response
+        pairs_data = [{
+            'question_number': p.question_number,
+            'question_text': p.question_text[:200] + '...' if len(p.question_text) > 200 else p.question_text,
+            'conclusion_text': p.conclusion_text[:200] + '...' if len(p.conclusion_text) > 200 else p.conclusion_text,
+            'confidence': p.confidence,
+            'reasoning': p.reasoning
+        } for p in pairs]
+
+        return jsonify({
+            'success': True,
+            'pairs': pairs_data,
+            'session_id': session_id,
+            'linking_prompt': linking_service.last_linking_prompt,
+            'linking_response': linking_service.last_linking_response,
+            'stats': {
+                'total_pairs': len(pairs),
+                'avg_confidence': sum(p.confidence for p in pairs) / len(pairs) if pairs else 0
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"Error linking questions to conclusions for case {case_id}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 def discussion_contextual_prompt(case_id):
     """
     API endpoint to generate dual prompts for Discussion section analysis.

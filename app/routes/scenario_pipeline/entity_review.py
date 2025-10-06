@@ -136,8 +136,8 @@ def review_case_entities(case_id, section_type='facts'):
             # Map Questions-specific types to their base types
             base_type = extraction_type
 
-            # For questions_entity_refs, check the entityType field in JSON
-            if extraction_type == 'questions_entity_refs' and entity.rdf_json_ld:
+            # For questions_entity_refs or conclusions_entity_refs, check the entityType field in JSON
+            if extraction_type in ['questions_entity_refs', 'conclusions_entity_refs'] and entity.rdf_json_ld:
                 json_entity_type = entity.rdf_json_ld.get('entityType', '')
                 json_entity_type_lower = json_entity_type.lower()
                 logger.info(f"Processing entity_ref: {entity.entity_label}, JSON entityType: {json_entity_type}, storage_type: {storage_type}")
@@ -255,6 +255,27 @@ def review_case_entities(case_id, section_type='facts'):
             'total_rdf_entities': pass1_entity_count  # Use Pass 1 count, not all entities
         }
 
+        # For Conclusions section, also get Question→Conclusion links
+        question_conclusion_links = []
+        if section_type == 'conclusions' and section_session_ids:
+            qc_links = TemporaryRDFStorage.query.filter(
+                TemporaryRDFStorage.case_id == case_id,
+                TemporaryRDFStorage.extraction_type == 'question_conclusion_link',
+                TemporaryRDFStorage.extraction_session_id.in_(section_session_ids)
+            ).all()
+
+            for link in qc_links:
+                if link.rdf_json_ld:
+                    question_conclusion_links.append({
+                        'question_number': link.rdf_json_ld.get('questionNumber'),
+                        'question_text': link.rdf_json_ld.get('questionText', ''),
+                        'conclusion_text': link.rdf_json_ld.get('conclusionText', ''),
+                        'confidence': link.rdf_json_ld.get('confidence', 0),
+                        'reasoning': link.rdf_json_ld.get('reasoning', '')
+                    })
+
+            logger.info(f"Found {len(question_conclusion_links)} Question→Conclusion links")
+
         return render_template(
             'scenarios/entity_review.html',
             case=case_doc,
@@ -263,7 +284,8 @@ def review_case_entities(case_id, section_type='facts'):
             sections_info=sections_info,
             rdf_data=rdf_data,
             section_type=section_type,  # Pass section_type to template
-            section_label=section_type.replace('_', ' ').title()  # 'facts' -> 'Facts', 'discussion' -> 'Discussion'
+            section_label=section_type.replace('_', ' ').title(),  # 'facts' -> 'Facts', 'discussion' -> 'Discussion'
+            question_conclusion_links=question_conclusion_links  # Pass Q→C links for Conclusions section
         )
 
     except Exception as e:

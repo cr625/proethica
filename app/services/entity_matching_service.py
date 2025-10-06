@@ -160,11 +160,31 @@ class EntityMatchingService:
         # Get temporary entities from specified sections
         for section in sections:
             logger.info(f"Processing section: {section}")
-            section_prompts = ExtractionPrompt.query.filter_by(
-                case_id=case_id,
-                section_type=section,
-                concept_type=entity_type
-            ).all()
+
+            # For Questions and Conclusions sections, we need to match multiple concept_type patterns:
+            # - entity_type (e.g., 'roles') for Facts/Discussion
+            # - {entity_type}_matching (e.g., 'roles_matching') for Questions/Conclusions
+            # - {entity_type}_new_extraction (e.g., 'roles_new_extraction') for Questions/Conclusions
+            from sqlalchemy import or_
+
+            if section in ['questions', 'conclusions']:
+                # Use OR to match all relevant patterns
+                section_prompts = ExtractionPrompt.query.filter(
+                    ExtractionPrompt.case_id == case_id,
+                    ExtractionPrompt.section_type == section,
+                    or_(
+                        ExtractionPrompt.concept_type == entity_type,
+                        ExtractionPrompt.concept_type == f'{entity_type}_matching',
+                        ExtractionPrompt.concept_type == f'{entity_type}_new_extraction'
+                    )
+                ).all()
+            else:
+                # For Facts/Discussion, use simple match
+                section_prompts = ExtractionPrompt.query.filter_by(
+                    case_id=case_id,
+                    section_type=section,
+                    concept_type=entity_type
+                ).all()
 
             logger.info(f"  Found {len(section_prompts)} prompts for {section}/{entity_type}")
 
@@ -173,11 +193,44 @@ class EntityMatchingService:
             logger.info(f"  Session IDs: {len(session_ids)} unique sessions")
 
             if session_ids:
-                rdf_entities = TemporaryRDFStorage.query.filter(
-                    TemporaryRDFStorage.case_id == case_id,
-                    TemporaryRDFStorage.extraction_type == entity_type,
-                    TemporaryRDFStorage.extraction_session_id.in_(session_ids)
-                ).all()
+                # For Questions/Conclusions, also need to check for different extraction_type patterns
+                if section in ['questions', 'conclusions']:
+                    # Build the section-specific extraction_type patterns
+                    section_entity_refs = f'{section}_entity_refs'
+                    section_new_entities = f'{entity_type}_new_from_{section}'
+
+                    rdf_entities = TemporaryRDFStorage.query.filter(
+                        TemporaryRDFStorage.case_id == case_id,
+                        TemporaryRDFStorage.extraction_session_id.in_(session_ids),
+                        or_(
+                            TemporaryRDFStorage.extraction_type == entity_type,
+                            TemporaryRDFStorage.extraction_type == section_new_entities,
+                            TemporaryRDFStorage.extraction_type == section_entity_refs
+                        )
+                    ).all()
+
+                    # For entity_refs, we need to filter by the JSON entityType field
+                    # because all entity types are stored with extraction_type = 'questions_entity_refs'
+                    filtered_entities = []
+                    for entity in rdf_entities:
+                        if entity.extraction_type == section_entity_refs:
+                            # Check the entityType in JSON
+                            json_entity_type = entity.rdf_json_ld.get('entityType', '').lower() if entity.rdf_json_ld else ''
+                            # Match if the entityType contains the requested entity_type
+                            if entity_type.rstrip('s') in json_entity_type:  # 'role' in 'roles'
+                                filtered_entities.append(entity)
+                        else:
+                            # Not an entity_ref, so include it
+                            filtered_entities.append(entity)
+
+                    rdf_entities = filtered_entities
+                else:
+                    # For Facts/Discussion, use simple extraction_type match
+                    rdf_entities = TemporaryRDFStorage.query.filter(
+                        TemporaryRDFStorage.case_id == case_id,
+                        TemporaryRDFStorage.extraction_type == entity_type,
+                        TemporaryRDFStorage.extraction_session_id.in_(session_ids)
+                    ).all()
 
                 logger.info(f"  Found {len(rdf_entities)} RDF entities in {section}")
 

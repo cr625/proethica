@@ -189,6 +189,13 @@ def tag_entities_in_conclusions_route(case_id):
     from .step1 import tag_entities_in_conclusions
     return tag_entities_in_conclusions(case_id)
 
+@interactive_scenario_bp.route('/case/<int:case_id>/link_questions_conclusions', methods=['POST'])
+@auth_required_for_llm  # Requires LLM for verification
+def link_questions_conclusions_route(case_id):
+    """API endpoint to create Question→Conclusion relationship mappings"""
+    from .step1 import link_questions_to_conclusions
+    return link_questions_to_conclusions(case_id)
+
 @interactive_scenario_bp.route('/case/<int:case_id>/step2')
 @auth_optional  # Allow viewing without auth
 def step2(case_id):

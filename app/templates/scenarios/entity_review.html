@@ -275,6 +275,46 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Question→Conclusion Links (only for Conclusions section) -->
+                {% if section_type == 'conclusions' and question_conclusion_links is defined %}
+                <div class="col-md-12 mb-2">
+                    <div class="card border-primary">
+                        <div class="card-body">
+                            <h5 class="card-title text-primary">
+                                <i class="bi bi-link-45deg"></i> Question→Conclusion Relationships
+                            </h5>
+                            <div class="row text-center">
+                                <div class="col-12">
+                                    <div class="fs-3 fw-bold">{{ question_conclusion_links|length }}</div>
+                                    <small class="text-muted">Linked Q→C Pairs</small>
+                                </div>
+                            </div>
+                            {% if question_conclusion_links %}
+                            <div class="mt-3">
+                                <h6 class="text-muted mb-2">Mapped Relationships:</h6>
+                                <div class="list-group">
+                                    {% for link in question_conclusion_links %}
+                                    <div class="list-group-item">
+                                        <div class="d-flex w-100 justify-content-between align-items-start">
+                                            <h6 class="mb-1 text-primary">
+                                                <i class="bi bi-{{ link.question_number }}-circle"></i>
+                                                Question {{ link.question_number }}
+                                            </h6>
+                                            <small class="badge bg-success">{{ (link.confidence * 100)|round(0) }}% confidence</small>
+                                        </div>
+                                        <p class="mb-1 small"><strong>Q:</strong> {{ link.question_text[:150] }}{% if link.question_text|length > 150 %}...{% endif %}</p>
+                                        <p class="mb-1 small text-success"><strong>A:</strong> {{ link.conclusion_text[:150] }}{% if link.conclusion_text|length > 150 %}...{% endif %}</p>
+                                        <small class="text-muted">{{ link.reasoning }}</small>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
             </div>
 
 
