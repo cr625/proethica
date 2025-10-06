@@ -280,6 +280,66 @@ def step1d(case_id):
     # Use step1d.html template
     return render_template('scenarios/step1d.html', **context)
 
+
+def step1e(case_id):
+    """
+    Step 1e: NSPE Code of Ethics References
+    Extracts and links NSPE Board-selected code provisions to case entities
+    """
+    # Load data
+    case, facts_section, discussion_section, saved_prompts = step1_data(case_id, section_type='facts')
+
+    # Get the references section
+    references_section = None
+    references_html = None
+    if case.doc_metadata and 'sections_dual' in case.doc_metadata:
+        for section_key, section_content in case.doc_metadata['sections_dual'].items():
+            if 'reference' in section_key.lower():
+                references_section = _format_section_for_llm(section_key, section_content, case_doc=case)
+                # Also get the HTML for parsing links
+                if isinstance(section_content, dict):
+                    references_html = section_content.get('html', '')
+                break
+
+    # Get existing CodeProvisionReference entities if any
+    from app.models import TemporaryRDFStorage, ExtractionPrompt
+    code_provisions = []
+
+    # Look for existing code provision references
+    existing_provisions = TemporaryRDFStorage.query.filter_by(
+        case_id=case_id,
+        extraction_type='code_provision_reference',
+        storage_type='individual'
+    ).all()
+
+    for provision in existing_provisions:
+        if provision.rdf_json_ld:
+            code_provisions.append({
+                'id': provision.id,
+                'code_provision': provision.rdf_json_ld.get('codeProvision', ''),
+                'provision_text': provision.rdf_json_ld.get('provisionText', ''),
+                'subject_references': provision.rdf_json_ld.get('subjectReferences', []),
+                'applies_to': provision.rdf_json_ld.get('appliesTo', []),
+                'relevant_excerpts': provision.rdf_json_ld.get('relevantExcerpts', [])
+            })
+
+    logger.info(f"Found {len(code_provisions)} existing code provision references")
+
+    # Template context
+    context = {
+        'case': case,
+        'references_section': references_section,
+        'references_html': references_html,
+        'code_provisions': code_provisions,
+        'current_step': 1,
+        'step_title': 'NSPE Code of Ethics References',
+        'next_step_url': url_for('scenario_pipeline.step2', case_id=case_id),
+        'prev_step_url': url_for('scenario_pipeline.step1d', case_id=case_id)
+    }
+
+    return render_template('scenarios/step1e.html', **context)
+
+
 def entities_pass_prompt(case_id):
     """
     API endpoint to generate and return the LLM prompt for entities pass before execution.
@@ -1657,6 +1717,268 @@ def link_questions_to_conclusions(case_id):
 
     except Exception as e:
         logger.error(f"Error linking questions to conclusions for case {case_id}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+def extract_code_provisions(case_id):
+    """
+    Extract NSPE code provisions and link them to case entities.
+    This creates CodeProvisionReference individuals with applies_to relationships.
+    """
+    try:
+        if request.method != 'POST':
+            return jsonify({'error': 'POST method required'}), 405
+
+        logger.info(f"Extracting code provisions for case {case_id}")
+
+        # Get the case document
+        from app.models import Document
+        case = Document.query.get_or_404(case_id)
+
+        # Get references section HTML
+        references_html = None
+        if case.doc_metadata and 'sections_dual' in case.doc_metadata:
+            for section_key, section_content in case.doc_metadata['sections_dual'].items():
+                if 'reference' in section_key.lower():
+                    if isinstance(section_content, dict):
+                        references_html = section_content.get('html', '')
+                    break
+
+        if not references_html:
+            return jsonify({
+                'success': False,
+                'error': 'No references section HTML found in case metadata'
+            }), 400
+
+        # Parse HTML to extract code provisions
+        from app.services.nspe_references_parser import NSPEReferencesParser
+        parser = NSPEReferencesParser()
+        provisions = parser.parse_references_html(references_html)
+
+        if not provisions:
+            return jsonify({
+                'success': False,
+                'error': 'No code provisions could be parsed from references section'
+            }), 400
+
+        logger.info(f"Parsed {len(provisions)} code provisions")
+
+        # Get existing case entities for linking
+        from app.models import TemporaryRDFStorage
+        roles = TemporaryRDFStorage.query.filter(
+            TemporaryRDFStorage.case_id == case_id,
+            TemporaryRDFStorage.entity_type.in_(['Roles', 'roles', 'role']),
+            TemporaryRDFStorage.storage_type == 'individual'
+        ).all()
+
+        states = TemporaryRDFStorage.query.filter(
+            TemporaryRDFStorage.case_id == case_id,
+            TemporaryRDFStorage.entity_type.in_(['States', 'states', 'state']),
+            TemporaryRDFStorage.storage_type == 'individual'
+        ).all()
+
+        resources = TemporaryRDFStorage.query.filter(
+            TemporaryRDFStorage.case_id == case_id,
+            TemporaryRDFStorage.entity_type.in_(['Resources', 'resources', 'resource']),
+            TemporaryRDFStorage.storage_type == 'individual'
+        ).all()
+
+        logger.info(f"Found {len(roles)} roles, {len(states)} states, {len(resources)} resources for linking")
+
+        # Format entities for linker
+        roles_data = [{'label': r.entity_label, 'definition': r.entity_definition} for r in roles]
+        states_data = [{'label': s.entity_label, 'definition': s.entity_definition} for s in states]
+        resources_data = [{'label': res.entity_label, 'definition': res.entity_definition} for res in resources]
+
+        # Link provisions to entities using LLM
+        from app.services.code_provision_linker import CodeProvisionLinker
+        from app.utils.llm_utils import get_llm_client
+
+        llm_client = get_llm_client()
+        linker = CodeProvisionLinker(llm_client=llm_client)
+
+        # Get case summary for context
+        case_summary = f"Case {case_id}: {case.title}"
+
+        linked_provisions = linker.link_provisions_to_entities(
+            provisions=provisions,
+            roles=roles_data,
+            states=states_data,
+            resources=resources_data,
+            case_text_summary=case_summary
+        )
+
+        logger.info(f"Linked provisions to entities")
+
+        # Extract relevant case text excerpts - HYBRID APPROACH
+        # Step 1: Find DIRECT mentions (simple text search - fast and reliable)
+        # Step 2: Find INDIRECT mentions (LLM - intelligent but slower)
+        case_sections = {}
+        if case.doc_metadata and 'sections_dual' in case.doc_metadata:
+            sections = case.doc_metadata['sections_dual']
+            for section_key in ['facts', 'discussion', 'question', 'conclusion']:
+                if section_key in sections:
+                    section_data = sections[section_key]
+                    if isinstance(section_data, dict):
+                        case_sections[section_key] = section_data.get('text', '')
+                    else:
+                        case_sections[section_key] = str(section_data)
+
+        # STEP 1: Find direct mentions using simple text search
+        for provision in linked_provisions:
+            excerpts = []
+            code = provision['code_provision']
+
+            # Remove trailing period from code for better matching
+            # "I.1." becomes "I.1" to match "I.1," or "I.1." or "I.1 "
+            code_search = code.rstrip('.')
+
+            for section_name, section_text in case_sections.items():
+                # Split into sentences
+                sentences = section_text.replace('? ', '?|').replace('. ', '.|').split('|')
+
+                for sentence in sentences:
+                    sentence = sentence.strip()
+                    # Simple check: does the sentence contain the code?
+                    if code_search in sentence and len(sentence) > 20:
+                        excerpts.append({
+                            'section': section_name,
+                            'text': sentence,
+                            'mention_type': 'direct'  # Mark as direct mention
+                        })
+
+            provision['relevant_excerpts'] = excerpts[:5]  # Keep up to 5 direct mentions
+            logger.info(f"Provision {code}: found {len(excerpts)} direct mentions")
+
+        logger.info(f"Found direct mentions using text search")
+
+        # STEP 2: Use LLM ONLY for provisions with few/no direct mentions
+        # This optimizes LLM usage
+        provisions_needing_llm = [p for p in linked_provisions if len(p.get('relevant_excerpts', [])) < 2]
+
+        if provisions_needing_llm and case_sections:
+            # Ask LLM to find indirect/conceptual mentions
+            enhanced_provisions = linker.extract_relevant_excerpts(
+                provisions=provisions_needing_llm,
+                case_sections=case_sections
+            )
+
+            # Merge LLM results back, marking them as indirect
+            for enhanced in enhanced_provisions:
+                code = enhanced['code_provision']
+                llm_excerpts = enhanced.get('relevant_excerpts', [])
+
+                logger.info(f"LLM returned {len(llm_excerpts)} excerpts for provision {code}")
+
+                # Find the original provision
+                found = False
+                for provision in linked_provisions:
+                    if provision['code_provision'] == code:
+                        # Add LLM excerpts as indirect mentions
+                        for excerpt in llm_excerpts:
+                            excerpt['mention_type'] = 'indirect'  # Mark as indirect/conceptual
+                        # Combine direct + indirect
+                        before_count = len(provision['relevant_excerpts'])
+                        provision['relevant_excerpts'].extend(llm_excerpts[:3])
+                        after_count = len(provision['relevant_excerpts'])
+                        logger.info(f"  Added {after_count - before_count} indirect excerpts to {code} (total now: {after_count})")
+                        found = True
+                        break
+
+                if not found:
+                    logger.warning(f"  Could not find provision {code} to add excerpts to!")
+
+            logger.info(f"Enhanced {len(provisions_needing_llm)} provisions with LLM indirect mentions")
+
+        # Clear old code provision references
+        from app.models import ExtractionPrompt, db
+        from datetime import datetime
+        import uuid
+
+        old_provisions = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            extraction_type='code_provision_reference'
+        ).delete(synchronize_session=False)
+
+        logger.info(f"Cleared {old_provisions} old code provision references")
+
+        # Create session ID
+        session_id = str(uuid.uuid4())
+
+        # Save extraction prompt
+        extraction_prompt = ExtractionPrompt(
+            case_id=case_id,
+            concept_type='code_provision_reference',
+            step_number=1,  # Step 1e
+            section_type='references',
+            prompt_text=linker.last_linking_prompt or 'HTML parsing + LLM entity linking',
+            llm_model='claude-opus-4-20250514',
+            extraction_session_id=session_id,
+            raw_response=linker.last_linking_response or '',
+            results_summary={
+                'total_provisions': len(linked_provisions),
+                'total_entity_links': sum(len(p.get('applies_to', [])) for p in linked_provisions)
+            },
+            is_active=True,
+            times_used=1,
+            created_at=datetime.utcnow(),
+            last_used_at=datetime.utcnow()
+        )
+        db.session.add(extraction_prompt)
+
+        # Store code provisions as Resource individuals
+        for provision in linked_provisions:
+            # Create label
+            label = f"NSPE_{provision['code_provision'].replace('.', '_')}"
+
+            rdf_entity = TemporaryRDFStorage(
+                case_id=case_id,
+                extraction_session_id=session_id,
+                extraction_type='code_provision_reference',
+                storage_type='individual',
+                entity_type='resources',  # Code provisions are Resources
+                entity_label=label,
+                entity_definition=provision['provision_text'],
+                rdf_json_ld={
+                    '@type': 'proeth-case:CodeProvisionReference',
+                    'label': label,
+                    'codeProvision': provision['code_provision'],
+                    'provisionText': provision['provision_text'],
+                    'subjectReferences': provision.get('subject_references', []),
+                    'appliesTo': provision.get('applies_to', []),
+                    'relevantExcerpts': provision.get('relevant_excerpts', []),
+                    'providedBy': 'NSPE Board of Ethical Review',
+                    'authoritative': True
+                },
+                is_selected=True
+            )
+            db.session.add(rdf_entity)
+
+        db.session.commit()
+
+        logger.info(f"Successfully stored {len(linked_provisions)} code provision references")
+
+        return jsonify({
+            'success': True,
+            'total_provisions': len(linked_provisions),
+            'provisions': [{
+                'code_provision': p['code_provision'],
+                'provision_text': p['provision_text'],
+                'subject_references_count': len(p.get('subject_references', [])),
+                'applies_to_count': len(p.get('applies_to', []))
+            } for p in linked_provisions],
+            'session_id': session_id,
+            'linking_prompt': linker.last_linking_prompt,
+            'linking_response': linker.last_linking_response
+        })
+
+    except Exception as e:
+        logger.error(f"Error extracting code provisions for case {case_id}: {str(e)}")
         import traceback
         traceback.print_exc()
         return jsonify({

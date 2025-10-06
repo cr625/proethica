@@ -1,0 +1,281 @@
+{% extends "scenarios/base_step.html" %}
+
+{% block step_title %}Step 1e: NSPE Code of Ethics References{% endblock %}
+{% block step_header %}Step 1e: NSPE Code of Ethics References{% endblock %}
+{% block step_subtitle %}Board-selected code provisions and precedent references{% endblock %}
+
+{% block step_navigation %}
+<div class="d-flex justify-content-between mb-3">
+    <a href="{{ url_for('scenario_pipeline.step1d', case_id=case.id) }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Conclusions
+    </a>
+    <a href="{{ url_for('scenario_pipeline.step2', case_id=case.id) }}" class="btn btn-outline-primary">
+        Step 2: Normative Pass <i class="bi bi-arrow-right"></i>
+    </a>
+</div>
+{% endblock %}
+
+{% block step_content %}
+<div class="step-card">
+    <div class="step-header">
+        <h4 class="mb-0">
+            <i class="bi bi-book"></i> NSPE Code of Ethics References
+        </h4>
+    </div>
+    <div class="step-content">
+        {% if references_section %}
+
+        <!-- Information Alert -->
+        <div class="alert alert-info mb-4">
+            <h6 class="mb-2"><i class="bi bi-info-circle"></i> About This Section:</h6>
+            <p class="mb-2">This section contains <strong>NSPE Board of Ethical Review</strong> selected code provisions and precedent references.</p>
+            <ul class="mb-0">
+                <li><span class="badge bg-warning text-dark">Board Reference</span> indicates authoritative Board selection</li>
+                <li>Subject reference links point to collections of related precedent cases</li>
+                <li>Code provisions will be linked to extracted Roles, States, and Resources</li>
+            </ul>
+        </div>
+
+        <!-- Raw References Section (Collapsible) -->
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <button class="btn btn-link text-start w-100 text-decoration-none" type="button" data-bs-toggle="collapse" data-bs-target="#rawReferencesCollapse">
+                    <h6 class="mb-0">
+                        <i class="bi bi-file-text"></i> Original References Section
+                        <i class="bi bi-chevron-down float-end"></i>
+                    </h6>
+                </button>
+            </div>
+            <div id="rawReferencesCollapse" class="collapse">
+                <div class="card-body">
+                    <pre class="references-text">{{ references_section.llm_text }}</pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- Extract Code Provisions Button -->
+        <div class="d-grid gap-2 d-md-flex justify-content-md-center mb-4">
+            <button id="extractProvisionsBtn" class="btn btn-success btn-lg" onclick="extractCodeProvisions()">
+                <i class="bi bi-arrow-down-circle"></i> Extract Code Provisions
+                <small class="d-block">Parse and link NSPE references to case entities</small>
+            </button>
+        </div>
+
+        <!-- Extracted Code Provisions Display -->
+        <div id="provisionsResults" class="mt-4" style="{% if code_provisions %}display: block;{% else %}display: none;{% endif %}">
+            <div class="card border-warning">
+                <div class="card-header bg-warning bg-opacity-10">
+                    <h5 class="mb-0">
+                        <i class="bi bi-book-half"></i> Extracted Code Provisions
+                        <span class="badge bg-warning text-dark float-end">Board Reference</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-success" id="provisionsStats" style="{% if not code_provisions %}display: none;{% endif %}">
+                        {% if code_provisions %}
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <i class="bi bi-check-circle-fill"></i>
+                                <strong>Extracted {{ code_provisions|length }} code provision(s)</strong>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div id="provisionsList">
+                        {% if code_provisions %}
+                            {% for provision in code_provisions %}
+                            <div class="card mb-3 border-warning">
+                                <div class="card-header bg-warning bg-opacity-10">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <h6 class="mb-0 text-dark">
+                                            <i class="bi bi-bookmark-fill text-warning"></i>
+                                            Code Provision {{ provision.code_provision }}
+                                        </h6>
+                                        <span class="badge bg-warning text-dark">NSPE BER</span>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <strong class="text-primary">Provision Text:</strong>
+                                        <p class="mb-0 mt-1">{{ provision.provision_text }}</p>
+                                    </div>
+
+                                    {% if provision.subject_references %}
+                                    <div class="mb-3">
+                                        <strong class="text-info">Subject References:</strong>
+                                        <ul class="list-group list-group-flush mt-2">
+                                            {% for ref in provision.subject_references %}
+                                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                <span>
+                                                    <i class="bi bi-link-45deg"></i>
+                                                    {{ ref.category }}
+                                                </span>
+                                                <a href="{{ ref.url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                                    <i class="bi bi-box-arrow-up-right"></i> View Precedents
+                                                </a>
+                                            </li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
+                                    {% endif %}
+
+                                    {% if provision.applies_to %}
+                                    <div class="mb-3">
+                                        <strong class="text-success">Applies To:</strong>
+                                        <div class="mt-2">
+                                            {% for application in provision.applies_to %}
+                                            <div class="card mb-2">
+                                                <div class="card-body py-2">
+                                                    <div class="d-flex justify-content-between align-items-start">
+                                                        <div>
+                                                            <span class="badge bg-secondary">{{ application.entity_type|title }}</span>
+                                                            <strong class="ms-2">{{ application.target }}</strong>
+                                                        </div>
+                                                    </div>
+                                                    <small class="text-muted d-block mt-1">
+                                                        <i class="bi bi-info-circle"></i> {{ application.reasoning }}
+                                                    </small>
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    {% endif %}
+
+                                    <!-- Relevant Case Text Excerpts -->
+                                    <div class="mt-3">
+                                        <strong class="text-info"><i class="bi bi-quote"></i> Relevant Case Text:</strong>
+                                        {% if provision.relevant_excerpts and provision.relevant_excerpts|length > 0 %}
+                                        <div class="mt-2">
+                                            {% for excerpt in provision.relevant_excerpts %}
+                                            <div class="card mb-2 {% if excerpt.mention_type == 'direct' %}bg-light{% else %}bg-white border-secondary{% endif %}">
+                                                <div class="card-body py-2">
+                                                    <div class="mb-1 d-flex justify-content-between align-items-center">
+                                                        <span class="badge bg-info text-dark">{{ excerpt.section|title }}</span>
+                                                        {% if excerpt.mention_type == 'indirect' %}
+                                                        <span class="badge bg-secondary" title="LLM identified this as conceptually related">Indirect</span>
+                                                        {% else %}
+                                                        <span class="badge bg-success" title="Provision explicitly cited in text">Direct</span>
+                                                        {% endif %}
+                                                    </div>
+                                                    <blockquote class="mb-0">
+                                                        <small class="text-dark">"{{ excerpt.text }}"</small>
+                                                    </blockquote>
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                        {% else %}
+                                        <div class="alert alert-warning mt-2">
+                                            <small>
+                                                <i class="bi bi-exclamation-triangle"></i>
+                                                <strong>No direct mentions found in case text.</strong>
+                                                This provision may apply conceptually without being explicitly cited.
+                                                Manual review recommended.
+                                            </small>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation to Review -->
+        <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4">
+            <a href="{{ url_for('entity_review.review_case_entities', case_id=case.id, section_type='facts') }}" class="btn btn-outline-primary">
+                <i class="bi bi-eye"></i> Review All Entities
+            </a>
+        </div>
+
+        {% else %}
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle"></i>
+            No references section found in this case.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Navigation to Step 2 -->
+<div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4 mb-4">
+    <a href="{{ url_for('scenario_pipeline.step2', case_id=case.id) }}" class="btn btn-primary btn-lg">
+        Continue to Step 2: Normative Pass <i class="bi bi-arrow-right"></i>
+    </a>
+</div>
+
+{% endblock %}
+
+{% block step_styles %}
+<style>
+    .references-text {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.9rem;
+        background-color: #f8f9fa;
+        padding: 0.75rem;
+        border-radius: 0.25rem;
+        max-height: 400px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+
+    .badge.bg-warning.text-dark {
+        background-color: #ffc107 !important;
+        color: #000 !important;
+        font-weight: 600;
+    }
+
+    .border-warning {
+        border-color: #ffc107 !important;
+    }
+</style>
+{% endblock %}
+
+{% block step_scripts %}
+<script>
+    const caseId = {{ case.id }};
+
+    // Extract Code Provisions
+    function extractCodeProvisions() {
+        const btn = document.getElementById('extractProvisionsBtn');
+        const originalHTML = btn.innerHTML;
+
+        btn.disabled = true;
+        btn.innerHTML = `
+            <div class="spinner-border spinner-border-sm" role="status"></div>
+            Extracting Code Provisions...
+        `;
+
+        // Call extraction endpoint
+        fetch(`/scenario_pipeline/case/${caseId}/extract_code_provisions`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(`Successfully extracted ${data.total_provisions} code provision(s)!`);
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Network error: ' + error);
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = originalHTML;
+        });
+    }
+</script>
+{% endblock %}

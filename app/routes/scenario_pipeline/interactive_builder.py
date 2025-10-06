@@ -25,6 +25,8 @@ def init_csrf_exemption(app):
         # Exempt the tag entity routes
         app.csrf.exempt(tag_entities_in_questions_route)
         app.csrf.exempt(tag_entities_in_conclusions_route)
+        # Exempt code provision extraction
+        app.csrf.exempt(extract_code_provisions_route)
 
 @interactive_scenario_bp.route('/case/<int:case_id>')
 @auth_optional
@@ -101,6 +103,13 @@ def step1d(case_id):
     """Route handler for Step 1d: Contextual Framework Pass (Conclusions Section)"""
     from .step1 import step1d as step1d_handler
     return step1d_handler(case_id)
+
+@interactive_scenario_bp.route('/case/<int:case_id>/step1e')
+@auth_optional  # Allow viewing without auth
+def step1e(case_id):
+    """Route handler for Step 1e: NSPE Code of Ethics References"""
+    from .step1 import step1e as step1e_handler
+    return step1e_handler(case_id)
 
 @interactive_scenario_bp.route('/case/<int:case_id>/step1_streaming')
 def step1_streaming(case_id):
@@ -195,6 +204,13 @@ def link_questions_conclusions_route(case_id):
     """API endpoint to create Question→Conclusion relationship mappings"""
     from .step1 import link_questions_to_conclusions
     return link_questions_to_conclusions(case_id)
+
+@interactive_scenario_bp.route('/case/<int:case_id>/extract_code_provisions', methods=['POST'])
+@auth_required_for_llm  # Requires LLM for entity linking
+def extract_code_provisions_route(case_id):
+    """API endpoint to extract and link NSPE code provisions"""
+    from .step1 import extract_code_provisions
+    return extract_code_provisions(case_id)
 
 @interactive_scenario_bp.route('/case/<int:case_id>/step2')
 @auth_optional  # Allow viewing without auth
