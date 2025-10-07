@@ -157,7 +157,8 @@ def review_case_entities(case_id, section_type='facts'):
             elif 'resources' in extraction_type:
                 base_type = 'resources'
 
-            if extraction_type in pass1_types:
+            # Case-insensitive check for extraction_type
+            if extraction_type.lower() in pass1_types:
                 pass1_entity_count += 1
                 if storage_type == 'class':
                     rdf_by_type[base_type]['classes'].append(entity.to_dict())

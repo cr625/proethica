@@ -357,8 +357,20 @@ class EntityMatchingService:
         for i, entity in enumerate(available_entities):
             storage_info = f" [{entity['storage_type']}]" if entity.get('storage_type') else ""
             section_info = f" (from {entity['source_section']})"
+
+            # Smart truncation: if definition > 150 chars, truncate at word boundary
+            definition = entity.get('definition', '')
+            if len(definition) > 150:
+                # Find last space before 150 chars
+                truncated = definition[:150]
+                last_space = truncated.rfind(' ')
+                if last_space > 0:
+                    definition = truncated[:last_space] + '...'
+                else:
+                    definition = truncated + '...'
+
             entity_list.append(
-                f"{i}. {entity['label']}{storage_info}{section_info}: {entity.get('definition', '')[:100]}"
+                f"{i}. {entity['label']}{storage_info}{section_info}: {definition}"
             )
 
         prompt = f"""You are analyzing an NSPE engineering ethics case to identify entity references across sections.

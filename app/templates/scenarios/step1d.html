@@ -831,7 +831,10 @@ function tagReferencedEntities(entityType) {
                 data.matches.forEach(match => {
                     html += '<div class="entity-item">';
                     html += `<div class="entity-label">${escapeHtml(match.label)}</div>`;
-                    html += `<div class="entity-description"><strong>Mentioned as:</strong> "${escapeHtml(match.mention)}"</div>`;
+                    // Only show "Mentioned as" if we have actual mention text
+                    if (match.mention && match.mention.trim()) {
+                        html += `<div class="entity-description"><strong>Mentioned as:</strong> "${escapeHtml(match.mention)}"</div>`;
+                    }
                     html += `<div class="entity-description"><strong>Source:</strong> ${match.source_section} section</div>`;
                     html += `<div class="entity-confidence">Confidence: ${(match.confidence * 100).toFixed(0)}%</div>`;
                     html += '</div>';
