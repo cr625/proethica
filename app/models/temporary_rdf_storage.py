@@ -177,14 +177,15 @@ class TemporaryRDFStorage(db.Model):
 
         created_entities = []
 
-        # Clear any existing temporary entities for this case and extraction type
-        # (as per requirement to replace old temporary ones of the same type)
+        # Clear any existing temporary entities for this case, extraction type, AND session
+        # Only delete entities from the SAME extraction session to avoid deleting entities from other sections
         deleted_count = cls.query.filter_by(
             case_id=case_id,
             extraction_type=extraction_type,
+            extraction_session_id=extraction_session_id,
             is_committed=False
         ).delete()
-        logger.info(f"DEBUG Deleted {deleted_count} existing {extraction_type} entities")
+        logger.info(f"DEBUG Deleted {deleted_count} existing {extraction_type} entities from session {extraction_session_id}")
 
         # Store new classes
         for class_info in rdf_data.get('new_classes', []):

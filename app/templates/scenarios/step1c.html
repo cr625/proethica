@@ -496,7 +496,7 @@ function extractIndividualConcept(conceptType) {
         body: JSON.stringify({
             concept_type: conceptType,
             section_text: currentSectionText,
-            section_type: 'discussion'  // Mark as Questions section
+            section_type: 'questions'  // Mark as Questions section
         })
     })
     .then(response => response.json())

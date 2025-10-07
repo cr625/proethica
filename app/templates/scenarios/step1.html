@@ -182,8 +182,8 @@
 
         <!-- Navigation to entity review -->
         <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4">
-            <a href="{{ url_for('entity_review.review_case_entities', case_id=case.id) }}" class="btn btn-outline-primary">
-                <i class="bi bi-eye"></i> Review Pass 1 Entities
+            <a href="{{ url_for('entity_review.review_case_entities', case_id=case.id, section_type='facts') }}" class="btn btn-outline-primary">
+                <i class="bi bi-eye"></i> Review Pass 1 Entities (Facts)
             </a>
         </div>
 
@@ -374,7 +374,8 @@ function extractIndividualConcept(conceptType) {
         },
         body: JSON.stringify({
             concept_type: conceptType,
-            section_text: currentSectionText
+            section_text: currentSectionText,
+            section_type: 'facts'  // Step 1 is always Facts section
         })
     })
     .then(response => response.json())
