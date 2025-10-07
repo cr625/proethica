@@ -149,9 +149,27 @@
             <div class="bg-light border rounded p-3 mb-4">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <a href="{{ url_for('scenario_pipeline.step2', case_id=case.id) }}" class="btn btn-sm btn-secondary">
-                            <i class="bi bi-arrow-left"></i> Back to Step 2
-                        </a>
+                        {% if section_type == 'discussion' %}
+                            <a href="{{ url_for('scenario_pipeline.step2b', case_id=case.id) }}" class="btn btn-sm btn-secondary">
+                                <i class="bi bi-arrow-left"></i> Back to Step 2b (Discussion)
+                            </a>
+                        {% elif section_type == 'questions' %}
+                            <a href="{{ url_for('scenario_pipeline.step2c', case_id=case.id) }}" class="btn btn-sm btn-secondary">
+                                <i class="bi bi-arrow-left"></i> Back to Step 2c (Questions)
+                            </a>
+                        {% elif section_type == 'conclusions' %}
+                            <a href="{{ url_for('scenario_pipeline.step2d', case_id=case.id) }}" class="btn btn-sm btn-secondary">
+                                <i class="bi bi-arrow-left"></i> Back to Step 2d (Conclusions)
+                            </a>
+                        {% elif section_type == 'references' %}
+                            <a href="{{ url_for('scenario_pipeline.step2e', case_id=case.id) }}" class="btn btn-sm btn-secondary">
+                                <i class="bi bi-arrow-left"></i> Back to Step 2e (References)
+                            </a>
+                        {% else %}
+                            <a href="{{ url_for('scenario_pipeline.step2', case_id=case.id) }}" class="btn btn-sm btn-secondary">
+                                <i class="bi bi-arrow-left"></i> Back to Step 2 (Facts)
+                            </a>
+                        {% endif %}
                         <button id="refreshFromOntServeBtn" class="btn btn-sm btn-info">
                             <i class="bi bi-arrow-repeat"></i> Refresh from OntServe
                         </button>
@@ -176,6 +194,9 @@
                     <div class="col-12">
                         <h2 class="mb-1">
                             <i class="bi bi-diagram-2"></i> PASS 2: Normative Requirements
+                            {% if section_display and section_display != 'All Sections' %}
+                                <span class="badge bg-info">{{ section_display }}</span>
+                            {% endif %}
                         </h2>
                         <p class="mb-0">Case {{ case.id }}: {{ case.title }}</p>
                     </div>
@@ -715,6 +736,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const caseId = {{ case.id }};
+    const sectionType = {{ section_type | tojson if section_type else 'null' }};
 
     // Load session count
     appFetch(`/scenario_pipeline/case/${caseId}/entities/sessions`)
@@ -878,7 +900,9 @@ document.addEventListener('DOMContentLoaded', function() {
     if (commitBtn) {
         commitBtn.addEventListener('click', function() {
             console.log('Commit button clicked');
-            if (confirm('Commit selected entities to OntServe permanent storage?')) {
+            const sectionText = sectionType ? ` from ${sectionType.charAt(0).toUpperCase() + sectionType.slice(1)} section` : '';
+            const confirmMsg = `Commit selected entities${sectionText} to OntServe permanent storage?`;
+            if (confirm(confirmMsg)) {
                 console.log('User confirmed commit');
                 this.disabled = true;
                 this.textContent = 'Committing...';
@@ -1034,19 +1058,28 @@ document.addEventListener('DOMContentLoaded', function() {
     const clearBtn = document.getElementById('clearAllEntitiesBtn');
     if (clearBtn) {
         clearBtn.addEventListener('click', function() {
-            if (confirm('This will clear ONLY uncommitted Pass 2 entities (Principles, Obligations, Constraints, Capabilities) for this case.\n\nPass 1 and Pass 3 entities will be preserved.\nCommitted entities in OntServe will be preserved.\n\nContinue?')) {
+            const sectionText = sectionType ? ` from ${sectionType.charAt(0).toUpperCase() + sectionType.slice(1)} section` : '';
+            const confirmMsg = `This will clear ONLY uncommitted Pass 2 entities (Principles, Obligations, Constraints, Capabilities)${sectionText} for this case.\n\nPass 1 and Pass 3 entities will be preserved.\nCommitted entities in OntServe will be preserved.\n\nContinue?`;
+
+            if (confirm(confirmMsg)) {
                 this.disabled = true;
                 this.textContent = 'Clearing Pass 2...';
 
-                // Clear only Pass 2 extraction types
+                // Clear only Pass 2 extraction types, optionally filtered by section
+                const requestBody = {
+                    extraction_types: ['principles', 'obligations', 'constraints', 'capabilities']
+                };
+
+                if (sectionType) {
+                    requestBody.section_type = sectionType;
+                }
+
                 appFetch(`/scenario_pipeline/case/${caseId}/entities/clear_by_types`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({
-                        extraction_types: ['principles', 'obligations', 'constraints', 'capabilities']
-                    })
+                    body: JSON.stringify(requestBody)
                 })
                 .then(response => response.json())
                 .then(data => {

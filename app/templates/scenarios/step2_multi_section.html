@@ -1,30 +1,64 @@
 {% extends "scenarios/base_step.html" %}
 
-{% block step_title %}Step 2: Normative Requirements Pass - Discussion Section{% endblock %}
-{% block step_header %}Step 2: Normative Requirements Pass (Discussion){% endblock %}
-{% block step_subtitle %}Extract principles, obligations, constraints, and capabilities from the discussion section{% endblock %}
+{% block step_title %}Step 2: Normative Requirements Pass - {{ section_display_name }}{% endblock %}
+{% block step_header %}Step 2: Normative Requirements Pass ({{ section_display_name }}){% endblock %}
+{% block step_subtitle %}Extract principles, obligations, constraints, and capabilities from the {{ section_display_name.lower() }}{% endblock %}
 
 {% block step_navigation %}
 <div class="d-flex justify-content-between mb-3">
-    <a href="{{ url_for('scenario_pipeline.step1', case_id=case.id) }}" class="btn btn-outline-secondary">
-        <i class="bi bi-arrow-left"></i> Back to Step 1
+    <a href="{{ prev_step_url }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Previous
     </a>
     <div>
         <a href="{{ url_for('entity_review.review_case_entities_pass2', case_id=case.id) }}" class="btn btn-info me-2">
             <i class="bi bi-list-check"></i> Review Pass 2 Entities
         </a>
-        <a href="{{ url_for('scenario_pipeline.step3', case_id=case.id) }}" class="btn btn-outline-primary">
-            Step 3: Temporal Dynamics Pass (Facts) <i class="bi bi-arrow-right"></i>
+        <a href="{{ next_step_url }}" class="btn btn-outline-primary">
+            Next <i class="bi bi-arrow-right"></i>
         </a>
     </div>
 </div>
+
+<!-- Section tabs for easy navigation -->
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item">
+        <a class="nav-link {% if step_title == 'Normative Pass - Facts Section' %}active{% endif %}"
+           href="{{ url_for('scenario_pipeline.step2', case_id=case.id) }}">
+            Facts
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if step_title == 'Normative Pass - Discussion' %}active{% endif %}"
+           href="{{ url_for('scenario_pipeline.step2b', case_id=case.id) }}">
+            Discussion
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if step_title == 'Normative Pass - Questions' %}active{% endif %}"
+           href="{{ url_for('scenario_pipeline.step2c', case_id=case.id) }}">
+            Questions
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if step_title == 'Normative Pass - Conclusions' %}active{% endif %}"
+           href="{{ url_for('scenario_pipeline.step2d', case_id=case.id) }}">
+            Conclusions
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if step_title == 'Normative Pass - References' %}active{% endif %}"
+           href="{{ url_for('scenario_pipeline.step2e', case_id=case.id) }}">
+            References
+        </a>
+    </li>
+</ul>
 {% endblock %}
 
 {% block step_content %}
 <div class="step-card">
     <div class="step-header">
         <h4 class="mb-0">
-            <i class="bi bi-file-text"></i> Discussion Section
+            <i class="bi bi-file-text"></i> {{ section_display_name }}
         </h4>
     </div>
     <div class="step-content">
@@ -234,19 +268,75 @@
 
         <!-- Navigation to entity review -->
         <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4">
-            <a href="{{ url_for('entity_review.review_case_entities_pass2', case_id=case.id) }}" class="btn btn-outline-primary">
-                <i class="bi bi-eye"></i> Review Pass 2 Entities
-            </a>
+            {% if step_title == 'Normative Pass - Facts Section' %}
+                <a href="{{ url_for('entity_review.review_case_entities_pass2', case_id=case.id, section_type='facts') }}" class="btn btn-outline-primary">
+                    <i class="bi bi-eye"></i> Review Pass 2 Entities (Facts)
+                </a>
+            {% elif step_title == 'Normative Pass - Discussion' %}
+                <a href="{{ url_for('entity_review.review_case_entities_pass2', case_id=case.id, section_type='discussion') }}" class="btn btn-outline-primary">
+                    <i class="bi bi-eye"></i> Review Pass 2 Entities (Discussion)
+                </a>
+            {% elif step_title == 'Normative Pass - Questions' %}
+                <a href="{{ url_for('entity_review.review_case_entities_pass2', case_id=case.id, section_type='questions') }}" class="btn btn-outline-primary">
+                    <i class="bi bi-eye"></i> Review Pass 2 Entities (Questions)
+                </a>
+            {% elif step_title == 'Normative Pass - Conclusions' %}
+                <a href="{{ url_for('entity_review.review_case_entities_pass2', case_id=case.id, section_type='conclusions') }}" class="btn btn-outline-primary">
+                    <i class="bi bi-eye"></i> Review Pass 2 Entities (Conclusions)
+                </a>
+            {% elif step_title == 'Normative Pass - References' %}
+                <a href="{{ url_for('entity_review.review_case_entities_pass2', case_id=case.id, section_type='references') }}" class="btn btn-outline-primary">
+                    <i class="bi bi-eye"></i> Review Pass 2 Entities (References)
+                </a>
+            {% else %}
+                <a href="{{ url_for('entity_review.review_case_entities_pass2', case_id=case.id) }}" class="btn btn-outline-primary">
+                    <i class="bi bi-eye"></i> Review Pass 2 Entities
+                </a>
+            {% endif %}
         </div>
 
         {% else %}
         <div class="alert alert-warning">
             <i class="bi bi-exclamation-triangle"></i>
-            No discussion/analysis section found in this case.
+            No section content found in this case.
         </div>
         {% endif %}
     </div>
 </div>
+
+<!-- Navigation to Next Section -->
+{% if step_title == 'Normative Pass - Facts Section' %}
+    <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4 mb-4">
+        <a href="{{ url_for('scenario_pipeline.step2b', case_id=case.id) }}" class="btn btn-primary btn-lg">
+            Continue to Step 2b: Discussion Section <i class="bi bi-arrow-right"></i>
+        </a>
+    </div>
+{% elif step_title == 'Normative Pass - Discussion' %}
+    <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4 mb-4">
+        <a href="{{ url_for('scenario_pipeline.step2c', case_id=case.id) }}" class="btn btn-primary btn-lg">
+            Continue to Step 2c: Questions Section <i class="bi bi-arrow-right"></i>
+        </a>
+    </div>
+{% elif step_title == 'Normative Pass - Questions' %}
+    <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4 mb-4">
+        <a href="{{ url_for('scenario_pipeline.step2d', case_id=case.id) }}" class="btn btn-primary btn-lg">
+            Continue to Step 2d: Conclusions Section <i class="bi bi-arrow-right"></i>
+        </a>
+    </div>
+{% elif step_title == 'Normative Pass - Conclusions' %}
+    <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4 mb-4">
+        <a href="{{ url_for('scenario_pipeline.step2e', case_id=case.id) }}" class="btn btn-primary btn-lg">
+            Continue to Step 2e: References Section <i class="bi bi-arrow-right"></i>
+        </a>
+    </div>
+{% elif step_title == 'Normative Pass - References' %}
+    <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4 mb-4">
+        <a href="{{ url_for('scenario_pipeline.step3', case_id=case.id) }}" class="btn btn-success btn-lg">
+            Continue to Step 3: Temporal Dynamics Pass <i class="bi bi-arrow-right"></i>
+        </a>
+    </div>
+{% endif %}
+
 {% endblock %}
 
 {% block step_styles %}
@@ -282,6 +372,20 @@
 <script>
 const caseId = {{ case.id }};
 let currentSectionText = {{ discussion_section.llm_text | tojson if discussion_section else '""' }};
+// Determine section type based on step_title
+{% if step_title == 'Normative Pass - Facts Section' %}
+const currentSectionType = 'facts';
+{% elif step_title == 'Normative Pass - Discussion' %}
+const currentSectionType = 'discussion';
+{% elif step_title == 'Normative Pass - Questions' %}
+const currentSectionType = 'questions';
+{% elif step_title == 'Normative Pass - Conclusions' %}
+const currentSectionType = 'conclusions';
+{% elif step_title == 'Normative Pass - References' %}
+const currentSectionType = 'references';
+{% else %}
+const currentSectionType = 'facts';
+{% endif %}
 
 // Load saved prompts on page load
 document.addEventListener('DOMContentLoaded', function() {
@@ -292,7 +396,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function loadSavedPrompt(conceptType) {
-    fetch(`/scenario_pipeline/case/${caseId}/step2/get_saved_prompt?concept_type=${conceptType}`)
+    fetch(`/scenario_pipeline/case/${caseId}/step2/get_saved_prompt?concept_type=${conceptType}&section_type=${currentSectionType}`)
         .then(response => response.json())
         .then(data => {
             if (data.success && data.prompt_text) {
@@ -352,7 +456,9 @@ function extractIndividualConcept(conceptType) {
             'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
         },
         body: JSON.stringify({
-            concept_type: conceptType
+            concept_type: conceptType,
+            section_text: currentSectionText,
+            section_type: currentSectionType
         })
     })
     .then(response => response.json())
@@ -458,7 +564,9 @@ function extractConcept(conceptType) {
                 'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
             },
             body: JSON.stringify({
-                concept_type: conceptType
+                concept_type: conceptType,
+                section_text: currentSectionText,
+                section_type: currentSectionType
             })
         })
         .then(response => response.json())

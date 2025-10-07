@@ -219,6 +219,34 @@ def step2(case_id):
     from .step2 import step2 as step2_handler
     return step2_handler(case_id)
 
+@interactive_scenario_bp.route('/case/<int:case_id>/step2b')
+@auth_optional
+def step2b(case_id):
+    """Route handler for Step 2b: Normative Pass on Discussion Section"""
+    from .step2 import step2b as step2b_handler
+    return step2b_handler(case_id)
+
+@interactive_scenario_bp.route('/case/<int:case_id>/step2c')
+@auth_optional
+def step2c(case_id):
+    """Route handler for Step 2c: Normative Pass on Questions Section"""
+    from .step2 import step2c as step2c_handler
+    return step2c_handler(case_id)
+
+@interactive_scenario_bp.route('/case/<int:case_id>/step2d')
+@auth_optional
+def step2d(case_id):
+    """Route handler for Step 2d: Normative Pass on Conclusions Section"""
+    from .step2 import step2d as step2d_handler
+    return step2d_handler(case_id)
+
+@interactive_scenario_bp.route('/case/<int:case_id>/step2e')
+@auth_optional
+def step2e(case_id):
+    """Route handler for Step 2e: Normative Pass on References Section"""
+    from .step2 import step2e as step2e_handler
+    return step2e_handler(case_id)
+
 @interactive_scenario_bp.route('/case/<int:case_id>/normative_pass_prompt', methods=['POST'])
 def normative_pass_prompt(case_id):
     """API endpoint to generate normative pass prompt"""

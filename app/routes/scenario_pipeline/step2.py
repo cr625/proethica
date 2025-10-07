@@ -45,6 +45,7 @@ def extract_individual_concept(case_id):
     """
     API endpoint to extract an individual concept type from the normative pass.
     This allows debugging of individual extractors (principles, obligations, constraints, capabilities).
+    Supports section_type parameter for multi-section extraction.
     """
     from app import db  # Import db at the start of the function
 
@@ -58,6 +59,9 @@ def extract_individual_concept(case_id):
             return jsonify({'error': 'No JSON data provided'}), 400
 
         concept_type = data.get('concept_type')
+        section_text = data.get('section_text')  # Get section text from request
+        section_type = data.get('section_type', 'facts')  # Default to facts if not provided
+
         if not concept_type:
             return jsonify({'error': 'concept_type is required'}), 400
 
@@ -67,37 +71,47 @@ def extract_individual_concept(case_id):
         # Get the case
         case = Document.query.get_or_404(case_id)
 
-        # Get the facts section text (same logic as normative_pass_execute)
-        section_text = None
-        raw_sections = {}
-
-        if case.doc_metadata:
-            # Get sections from metadata
-            if 'sections_dual' in case.doc_metadata:
-                raw_sections = case.doc_metadata['sections_dual']
-            elif 'sections' in case.doc_metadata:
-                raw_sections = case.doc_metadata['sections']
-            elif 'document_structure' in case.doc_metadata and 'sections' in case.doc_metadata['document_structure']:
-                raw_sections = case.doc_metadata['document_structure']['sections']
-
-        # Look for facts section
-        for section_key, section_content in raw_sections.items():
-            if 'fact' in section_key.lower():
-                section_text = _format_section_for_llm(section_key, section_content, case)
-                break
-
-        # If no facts section found, use first available section
-        if not section_text and raw_sections:
-            first_key = list(raw_sections.keys())[0]
-            section_text = _format_section_for_llm(first_key, raw_sections[first_key], case)
-
+        # If section_text was not provided, extract it from case metadata
         if not section_text:
-            # Fallback to using available content
-            section_text = case.content or case.description or ""
-            if not section_text:
-                return jsonify({'error': 'No facts section found'}), 400
+            raw_sections = {}
 
-        logger.info(f"Executing individual {concept_type} extraction for case {case_id}")
+            if case.doc_metadata:
+                # Get sections from metadata
+                if 'sections_dual' in case.doc_metadata:
+                    raw_sections = case.doc_metadata['sections_dual']
+                elif 'sections' in case.doc_metadata:
+                    raw_sections = case.doc_metadata['sections']
+                elif 'document_structure' in case.doc_metadata and 'sections' in case.doc_metadata['document_structure']:
+                    raw_sections = case.doc_metadata['document_structure']['sections']
+
+            # Look for the appropriate section based on section_type
+            section_keywords = {
+                'facts': 'fact',
+                'discussion': 'discussion',
+                'questions': 'question',
+                'conclusions': 'conclusion',
+                'references': 'reference'
+            }
+
+            search_keyword = section_keywords.get(section_type, 'fact')
+
+            for section_key, section_content in raw_sections.items():
+                if search_keyword in section_key.lower():
+                    section_text = _format_section_for_llm(section_key, section_content, case)
+                    break
+
+            # If no matching section found, use first available section
+            if not section_text and raw_sections:
+                first_key = list(raw_sections.keys())[0]
+                section_text = _format_section_for_llm(first_key, raw_sections[first_key], case)
+
+            if not section_text:
+                # Fallback to using available content
+                section_text = case.content or case.description or ""
+                if not section_text:
+                    return jsonify({'error': f'No {section_type} section found'}), 400
+
+        logger.info(f"Executing individual {concept_type} extraction for case {case_id}, section: {section_type}")
 
         # Initialize LLM client
         try:
@@ -136,13 +150,13 @@ def extract_individual_concept(case_id):
             extractor = DualPrinciplesExtractor()
 
             # Generate the prompt for display
-            extraction_prompt = extractor._create_dual_principle_extraction_prompt(section_text, 'discussion')
+            extraction_prompt = extractor._create_dual_principle_extraction_prompt(section_text, section_type)
 
             # Extract both classes and individuals
             candidate_classes, principle_individuals = extractor.extract_dual_principles(
                 case_text=section_text,
                 case_id=case_id,
-                section_type='discussion'
+                section_type=section_type
             )
 
             # Get raw LLM response for RDF conversion
@@ -158,7 +172,8 @@ def extract_individual_concept(case_id):
                     raw_response=raw_llm_response,
                     step_number=2,
                     llm_model=ModelConfig.get_claude_model("powerful"),
-                    extraction_session_id=session_id
+                    extraction_session_id=session_id,
+                    section_type=section_type
                 )
             except Exception as e:
                 logger.warning(f"Could not save extraction prompt: {e}")
@@ -258,13 +273,13 @@ def extract_individual_concept(case_id):
             extractor = DualObligationsExtractor()
 
             # Generate the prompt for display
-            extraction_prompt = extractor._create_dual_obligations_extraction_prompt(section_text, 'discussion')
+            extraction_prompt = extractor._create_dual_obligations_extraction_prompt(section_text, section_type)
 
             # Extract both classes and individuals
             candidate_classes, obligation_individuals = extractor.extract_dual_obligations(
                 case_text=section_text,
                 case_id=case_id,
-                section_type='discussion'
+                section_type=section_type
             )
 
             # Get raw LLM response for RDF conversion
@@ -280,7 +295,8 @@ def extract_individual_concept(case_id):
                     raw_response=raw_llm_response,
                     step_number=2,
                     llm_model=ModelConfig.get_claude_model("powerful"),
-                    extraction_session_id=session_id
+                    extraction_session_id=session_id,
+                    section_type=section_type
                 )
             except Exception as e:
                 logger.warning(f"Could not save extraction prompt: {e}")
@@ -379,13 +395,13 @@ def extract_individual_concept(case_id):
             extractor = DualConstraintsExtractor()
 
             # Generate the prompt for display
-            extraction_prompt = extractor._create_dual_constraints_extraction_prompt(section_text, 'discussion')
+            extraction_prompt = extractor._create_dual_constraints_extraction_prompt(section_text, section_type)
 
             # Extract both classes and individuals
             candidate_classes, constraint_individuals = extractor.extract_dual_constraints(
                 case_text=section_text,
                 case_id=case_id,
-                section_type='discussion'
+                section_type=section_type
             )
 
             # Get raw LLM response for RDF conversion
@@ -401,7 +417,8 @@ def extract_individual_concept(case_id):
                     raw_response=raw_llm_response,
                     step_number=2,
                     llm_model=ModelConfig.get_claude_model("powerful"),
-                    extraction_session_id=session_id
+                    extraction_session_id=session_id,
+                    section_type=section_type
                 )
             except Exception as e:
                 logger.warning(f"Could not save extraction prompt: {e}")
@@ -500,13 +517,13 @@ def extract_individual_concept(case_id):
             extractor = DualCapabilitiesExtractor()
 
             # Generate the prompt for display
-            extraction_prompt = extractor._create_dual_capabilities_extraction_prompt(section_text, 'discussion')
+            extraction_prompt = extractor._create_dual_capabilities_extraction_prompt(section_text, section_type)
 
             # Extract both classes and individuals
             candidate_classes, capability_individuals = extractor.extract_dual_capabilities(
                 case_text=section_text,
                 case_id=case_id,
-                section_type='discussion'
+                section_type=section_type
             )
 
             # Get raw LLM response for RDF conversion
@@ -523,7 +540,8 @@ def extract_individual_concept(case_id):
                     raw_response=raw_llm_response,
                     step_number=2,
                     llm_model=ModelConfig.get_claude_model("powerful"),
-                    extraction_session_id=session_id
+                    extraction_session_id=session_id,
+                    section_type=section_type
                 )
             except Exception as e:
                 logger.warning(f"Could not save extraction prompt: {e}")
@@ -743,10 +761,14 @@ def extract_individual_concept(case_id):
         logger.error(f"Error extracting individual {concept_type} for case {case_id}: {str(e)}", exc_info=True)
         return jsonify({'error': str(e), 'success': False}), 500
 
-def step2_data(case_id):
+def step2_data(case_id, section_type='facts'):
     """
     Helper function to get Step 2 data without rendering template.
     Used by both regular step2 and step2_streaming views.
+
+    Args:
+        case_id: The case ID
+        section_type: Which section to load ('facts', 'discussion', 'questions', 'conclusions', 'references')
     """
     # Get the case
     case = Document.query.get_or_404(case_id)
@@ -787,15 +809,16 @@ def step2_data(case_id):
         facts_section_key = first_key
         facts_section = _format_section_for_llm(first_key, raw_sections[first_key], case_doc=case)
 
-    # Load saved prompts for all concept types
+    # Load saved prompts for all concept types (filtered by section_type)
     from app.models import ExtractionPrompt
     saved_prompts = {}
     for concept_type in ['principles', 'obligations', 'constraints', 'capabilities']:
-        # Get active prompt and check if it's for step 2
+        # Get active prompt and check if it's for step 2 AND this section_type
         prompt = ExtractionPrompt.query.filter_by(
             case_id=case_id,
             concept_type=concept_type,
             step_number=2,
+            section_type=section_type,
             is_active=True
         ).first()
         saved_prompts[concept_type] = prompt
@@ -849,10 +872,11 @@ def step2(case_id):
             'case': case,
             'discussion_section': facts_section,  # Keep variable name for template compatibility
             'discussion_section_key': facts_section_key,
+            'section_display_name': 'Facts Section',
             'current_step': 2,
             'step_title': 'Normative Pass - Facts Section',
-            'next_step_url': url_for('scenario_pipeline.step3', case_id=case_id),
-            'prev_step_url': url_for('scenario_pipeline.overview', case_id=case_id),
+            'next_step_url': url_for('scenario_pipeline.step2b', case_id=case_id),
+            'prev_step_url': url_for('scenario_pipeline.step1e', case_id=case_id),
             'saved_prompts': saved_prompts
         }
 
@@ -868,6 +892,8 @@ def get_saved_prompt(case_id):
     from app.models import ExtractionPrompt
 
     concept_type = request.args.get('concept_type')
+    section_type = request.args.get('section_type', 'facts')  # Default to facts if not provided
+
     if not concept_type:
         return jsonify({'error': 'concept_type is required'}), 400
 
@@ -875,6 +901,7 @@ def get_saved_prompt(case_id):
         case_id=case_id,
         concept_type=concept_type,
         step_number=2,
+        section_type=section_type,
         is_active=True
     ).first()
 
@@ -883,10 +910,11 @@ def get_saved_prompt(case_id):
             'success': True,
             'prompt_text': saved_prompt.prompt_text,
             'raw_response': saved_prompt.raw_response,
-            'created_at': saved_prompt.created_at.isoformat() if saved_prompt.created_at else None
+            'created_at': saved_prompt.created_at.isoformat() if saved_prompt.created_at else None,
+            'section_type': saved_prompt.section_type
         })
     else:
-        return jsonify({'success': False, 'message': 'No saved prompt found'})
+        return jsonify({'success': False, 'message': f'No saved prompt found for {concept_type} in {section_type} section'})
 
 def clear_saved_prompt(case_id):
     """Clear saved extraction prompt for a concept type in Step 2"""
@@ -1322,3 +1350,164 @@ def normative_pass_execute(case_id):
     except Exception as e:
         logger.error(f"Error executing normative pass for case {case_id}: {str(e)}")
         return jsonify({'error': str(e), 'success': False}), 500
+
+def step2b(case_id):
+    """
+    Step 2b: Normative Pass for Discussion Section
+    Extracts principles, obligations, constraints, and capabilities from Discussion section
+    """
+    # Load data with section_type='discussion' to get discussion prompts
+    case, facts_section, saved_prompts = step2_data(case_id, section_type='discussion')
+
+    # Get the discussion section
+    discussion_section = None
+    discussion_section_key = None
+    raw_sections = {}
+
+    if case.doc_metadata:
+        if 'sections_dual' in case.doc_metadata:
+            raw_sections = case.doc_metadata['sections_dual']
+        elif 'sections' in case.doc_metadata:
+            raw_sections = case.doc_metadata['sections']
+
+    for section_key, section_content in raw_sections.items():
+        if 'discussion' in section_key.lower():
+            discussion_section_key = section_key
+            discussion_section = _format_section_for_llm(section_key, section_content, case_doc=case)
+            break
+
+    # Template context
+    context = {
+        'case': case,
+        'discussion_section': discussion_section,
+        'discussion_section_key': discussion_section_key,
+        'section_display_name': 'Discussion Section',
+        'current_step': 2,
+        'step_title': 'Normative Pass - Discussion',
+        'next_step_url': url_for('scenario_pipeline.step2c', case_id=case_id),
+        'prev_step_url': url_for('scenario_pipeline.step2', case_id=case_id),
+        'saved_prompts': saved_prompts
+    }
+
+    return render_template('scenarios/step2_multi_section.html', **context)
+
+def step2c(case_id):
+    """
+    Step 2c: Normative Pass for Questions Section
+    Extracts principles, obligations, constraints, and capabilities from Questions section
+    """
+    # Load data with section_type='questions' to get questions prompts
+    case, facts_section, saved_prompts = step2_data(case_id, section_type='questions')
+
+    # Get the questions section
+    questions_section = None
+    questions_section_key = None
+    raw_sections = {}
+
+    if case.doc_metadata:
+        if 'sections_dual' in case.doc_metadata:
+            raw_sections = case.doc_metadata['sections_dual']
+        elif 'sections' in case.doc_metadata:
+            raw_sections = case.doc_metadata['sections']
+
+    for section_key, section_content in raw_sections.items():
+        if 'question' in section_key.lower():
+            questions_section_key = section_key
+            questions_section = _format_section_for_llm(section_key, section_content, case_doc=case)
+            break
+
+    # Template context
+    context = {
+        'case': case,
+        'discussion_section': questions_section,  # Keep variable name for template compatibility
+        'discussion_section_key': questions_section_key,
+        'section_display_name': 'Questions Section',
+        'current_step': 2,
+        'step_title': 'Normative Pass - Questions',
+        'next_step_url': url_for('scenario_pipeline.step2d', case_id=case_id),
+        'prev_step_url': url_for('scenario_pipeline.step2b', case_id=case_id),
+        'saved_prompts': saved_prompts
+    }
+
+    return render_template('scenarios/step2_multi_section.html', **context)
+
+def step2d(case_id):
+    """
+    Step 2d: Normative Pass for Conclusions Section
+    Extracts principles, obligations, constraints, and capabilities from Conclusions section
+    """
+    # Load data with section_type='conclusions' to get conclusions prompts
+    case, facts_section, saved_prompts = step2_data(case_id, section_type='conclusions')
+
+    # Get the conclusions section
+    conclusions_section = None
+    conclusions_section_key = None
+    raw_sections = {}
+
+    if case.doc_metadata:
+        if 'sections_dual' in case.doc_metadata:
+            raw_sections = case.doc_metadata['sections_dual']
+        elif 'sections' in case.doc_metadata:
+            raw_sections = case.doc_metadata['sections']
+
+    for section_key, section_content in raw_sections.items():
+        if 'conclusion' in section_key.lower():
+            conclusions_section_key = section_key
+            conclusions_section = _format_section_for_llm(section_key, section_content, case_doc=case)
+            break
+
+    # Template context
+    context = {
+        'case': case,
+        'discussion_section': conclusions_section,  # Keep variable name for template compatibility
+        'discussion_section_key': conclusions_section_key,
+        'section_display_name': 'Conclusions Section',
+        'current_step': 2,
+        'step_title': 'Normative Pass - Conclusions',
+        'next_step_url': url_for('scenario_pipeline.step2e', case_id=case_id),
+        'prev_step_url': url_for('scenario_pipeline.step2c', case_id=case_id),
+        'saved_prompts': saved_prompts
+    }
+
+    return render_template('scenarios/step2_multi_section.html', **context)
+
+def step2e(case_id):
+    """
+    Step 2e: Normative Pass for References Section
+    Extracts principles, obligations, constraints, and capabilities from References section
+    Note: References section may reference NSPE Code provisions
+    """
+    # Load data with section_type='references' to get references prompts
+    case, facts_section, saved_prompts = step2_data(case_id, section_type='references')
+
+    # Get the references section
+    references_section = None
+    references_section_key = None
+    raw_sections = {}
+
+    if case.doc_metadata:
+        if 'sections_dual' in case.doc_metadata:
+            raw_sections = case.doc_metadata['sections_dual']
+        elif 'sections' in case.doc_metadata:
+            raw_sections = case.doc_metadata['sections']
+
+    for section_key, section_content in raw_sections.items():
+        if 'reference' in section_key.lower():
+            references_section_key = section_key
+            references_section = _format_section_for_llm(section_key, section_content, case_doc=case)
+            break
+
+    # Template context
+    context = {
+        'case': case,
+        'discussion_section': references_section,  # Keep variable name for template compatibility
+        'discussion_section_key': references_section_key,
+        'section_display_name': 'References Section',
+        'current_step': 2,
+        'step_title': 'Normative Pass - References',
+        'next_step_url': url_for('scenario_pipeline.step3', case_id=case_id),  # Last section goes to step3
+        'prev_step_url': url_for('scenario_pipeline.step2d', case_id=case_id),
+        'saved_prompts': saved_prompts
+    }
+
+    return render_template('scenarios/step2_multi_section.html', **context)

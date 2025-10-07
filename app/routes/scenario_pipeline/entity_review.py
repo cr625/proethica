@@ -297,8 +297,13 @@ def review_case_entities(case_id, section_type='facts'):
 
 @bp.route('/case/<int:case_id>/entities/review/pass2')
 @auth_optional  # Allow viewing without auth
-def review_case_entities_pass2(case_id):
-    """Display PASS 2 (Normative Requirements) extracted entities for a case."""
+def review_case_entities_pass2(case_id, section_type=None):
+    """Display PASS 2 (Normative Requirements) extracted entities for a case.
+
+    Args:
+        case_id: The case ID
+        section_type: Optional section filter ('facts', 'discussion', 'questions', 'conclusions', 'references')
+    """
     try:
         # Get case information
         case_doc = Document.query.get(case_id)
@@ -306,8 +311,32 @@ def review_case_entities_pass2(case_id):
             flash(f'Case {case_id} not found', 'error')
             return redirect(url_for('index.index'))
 
-        # Get RDF entities grouped by extraction_type
-        all_rdf_entities = TemporaryRDFStorage.query.filter_by(case_id=case_id).all()
+        # Get section_type from query params if not provided as argument
+        if section_type is None:
+            section_type = request.args.get('section_type')
+
+        # Get RDF entities - filter by section_type if provided
+        if section_type:
+            # Filter by section_type using the extraction_session_id relationship
+            from app.models import ExtractionPrompt
+            # Get extraction sessions for this case and section
+            session_ids = db.session.query(ExtractionPrompt.extraction_session_id).filter(
+                ExtractionPrompt.case_id == case_id,
+                ExtractionPrompt.section_type == section_type,
+                ExtractionPrompt.step_number == 2
+            ).distinct().all()
+            session_ids = [sid[0] for sid in session_ids if sid[0]]
+
+            if session_ids:
+                all_rdf_entities = TemporaryRDFStorage.query.filter(
+                    TemporaryRDFStorage.case_id == case_id,
+                    TemporaryRDFStorage.extraction_session_id.in_(session_ids)
+                ).all()
+            else:
+                all_rdf_entities = []
+        else:
+            # Get all Pass 2 entities for this case
+            all_rdf_entities = TemporaryRDFStorage.query.filter_by(case_id=case_id).all()
 
         # Group entities by extraction_type and storage_type
         # PASS 2 entities only (Normative Requirements)
@@ -343,6 +372,9 @@ def review_case_entities_pass2(case_id):
             'total_rdf_entities': total_rdf_entities
         }
 
+        # Determine section display name
+        section_display = section_type.capitalize() if section_type else "All Sections"
+
         # Return the entity review page for Pass 2
         return render_template('scenarios/entity_review_pass2.html',
                              case=case_doc,
@@ -350,7 +382,9 @@ def review_case_entities_pass2(case_id):
                              section_data={},  # Empty for new RDF format
                              has_entities=has_entities,
                              pass_number=2,
-                             pass_name="Normative Requirements")
+                             pass_name="Normative Requirements",
+                             section_type=section_type,
+                             section_display=section_display)
 
     except Exception as e:
         logger.error(f"Error displaying Pass 2 entity review for case {case_id}: {e}")
