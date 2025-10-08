@@ -90,26 +90,29 @@ def step1b(case_id):
     from .step1 import step1b as step1b_handler
     return step1b_handler(case_id)
 
-@interactive_scenario_bp.route('/case/<int:case_id>/step1c')
-@auth_optional  # Allow viewing without auth
-def step1c(case_id):
-    """Route handler for Step 1c: Contextual Framework Pass (Questions Section)"""
-    from .step1 import step1c as step1c_handler
-    return step1c_handler(case_id)
-
-@interactive_scenario_bp.route('/case/<int:case_id>/step1d')
-@auth_optional  # Allow viewing without auth
-def step1d(case_id):
-    """Route handler for Step 1d: Contextual Framework Pass (Conclusions Section)"""
-    from .step1 import step1d as step1d_handler
-    return step1d_handler(case_id)
-
-@interactive_scenario_bp.route('/case/<int:case_id>/step1e')
-@auth_optional  # Allow viewing without auth
-def step1e(case_id):
-    """Route handler for Step 1e: NSPE Code of Ethics References"""
-    from .step1 import step1e as step1e_handler
-    return step1e_handler(case_id)
+# DEPRECATED: Questions, Conclusions, and References moved to Step 4 Whole-Case Synthesis
+# These routes are commented out but preserved for reference
+#
+# @interactive_scenario_bp.route('/case/<int:case_id>/step1c')
+# @auth_optional  # Allow viewing without auth
+# def step1c(case_id):
+#     """Route handler for Step 1c: Contextual Framework Pass (Questions Section)"""
+#     from .step1 import step1c as step1c_handler
+#     return step1c_handler(case_id)
+#
+# @interactive_scenario_bp.route('/case/<int:case_id>/step1d')
+# @auth_optional  # Allow viewing without auth
+# def step1d(case_id):
+#     """Route handler for Step 1d: Contextual Framework Pass (Conclusions Section)"""
+#     from .step1 import step1d as step1d_handler
+#     return step1d_handler(case_id)
+#
+# @interactive_scenario_bp.route('/case/<int:case_id>/step1e')
+# @auth_optional  # Allow viewing without auth
+# def step1e(case_id):
+#     """Route handler for Step 1e: NSPE Code of Ethics References"""
+#     from .step1 import step1e as step1e_handler
+#     return step1e_handler(case_id)
 
 @interactive_scenario_bp.route('/case/<int:case_id>/step1_streaming')
 def step1_streaming(case_id):

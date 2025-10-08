@@ -171,7 +171,7 @@ def step1b(case_id):
         'discussion_section': discussion_section,
         'current_step': 1,
         'step_title': 'Contextual Framework Pass - Discussion',
-        'next_step_url': url_for('scenario_pipeline.step1c', case_id=case_id),
+        'next_step_url': url_for('scenario_pipeline.step2', case_id=case_id),  # Go to Pass 2 (Questions/Conclusions moved to Step 4)
         'prev_step_url': url_for('scenario_pipeline.step1', case_id=case_id),
         'saved_prompts': saved_prompts  # These are now discussion-specific prompts
     }

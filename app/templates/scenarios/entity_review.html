@@ -150,12 +150,12 @@
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         {% if section_type == 'questions' %}
-                        <a href="{{ url_for('scenario_pipeline.step1c', case_id=case.id) }}" class="btn btn-sm btn-secondary">
-                            <i class="bi bi-arrow-left"></i> Back to Questions
+                        <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}" class="btn btn-sm btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Back to Step 4: Questions
                         </a>
                         {% elif section_type == 'conclusions' %}
-                        <a href="{{ url_for('scenario_pipeline.step1d', case_id=case.id) }}" class="btn btn-sm btn-secondary">
-                            <i class="bi bi-arrow-left"></i> Back to Conclusions
+                        <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}" class="btn btn-sm btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Back to Step 4: Conclusions
                         </a>
                         {% elif section_type == 'discussion' %}
                         <a href="{{ url_for('scenario_pipeline.step1b', case_id=case.id) }}" class="btn btn-sm btn-secondary">
@@ -752,6 +752,32 @@
                     </div> <!-- End card -->
                 </div> <!-- End col-12 -->
             </div> <!-- End row for concept type panel -->
+            {% else %}
+            <!-- Empty state: No entities extracted for this concept type -->
+            <div class="row mb-5">
+                <div class="col-12">
+                    <div class="card {% if concept_type == 'roles' %}border-primary{% elif concept_type == 'states' %}border-warning{% else %}border-success{% endif %}">
+                        <div class="card-header {% if concept_type == 'roles' %}bg-primary{% elif concept_type == 'states' %}bg-warning{% else %}bg-success{% endif %} text-white">
+                            <h4 class="mb-0">
+                                <i class="fas fa-{% if concept_type == 'roles' %}user-tie{% elif concept_type == 'states' %}diagram-3{% else %}box{% endif %}"></i>
+                                {{ concept_type|title }} Extraction
+                            </h4>
+                        </div>
+                        <div class="card-body">
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle"></i>
+                                <strong>No new {{ concept_type }} extracted for this section.</strong>
+                                <p class="mb-0 mt-2">This could mean:</p>
+                                <ul class="mb-0">
+                                    <li>All {{ concept_type }} were already captured in the Facts section</li>
+                                    <li>The LLM determined no new {{ concept_type }} types or individuals appear in this section</li>
+                                    <li>Check the Facts section entities if you expected to see {{ concept_type }} here</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
             {% endif %} <!-- End if type_data.classes or type_data.individuals or type_data.relationships -->
             {% endfor %} <!-- End for concept_type loop -->
 

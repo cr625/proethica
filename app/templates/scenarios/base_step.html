@@ -138,6 +138,10 @@
                     class="pipeline-step {% if request.endpoint == 'scenario_pipeline.step3' %}active{% endif %}">
                     <i class="bi bi-3-circle"></i> Step 3: Temporal Dynamics
                 </a>
+                <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}"
+                    class="pipeline-step {% if request.endpoint == 'step4.step4_synthesis' %}active{% endif %}">
+                    <i class="bi bi-4-circle"></i> Step 4: Whole-Case Synthesis
+                </a>
                 <div class="pipeline-step disabled" style="opacity: 0.5; cursor: not-allowed;">
                     <i class="bi bi-magic"></i> Generate Scenario (Coming Soon)
                 </div>

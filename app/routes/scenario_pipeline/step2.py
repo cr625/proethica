@@ -876,7 +876,7 @@ def step2(case_id):
             'current_step': 2,
             'step_title': 'Normative Pass - Facts Section',
             'next_step_url': url_for('scenario_pipeline.step2b', case_id=case_id),
-            'prev_step_url': url_for('scenario_pipeline.step1e', case_id=case_id),
+            'prev_step_url': url_for('scenario_pipeline.step1b', case_id=case_id),  # Back to Pass 1 Discussion (step1e deprecated)
             'saved_prompts': saved_prompts
         }
 
@@ -1384,7 +1384,7 @@ def step2b(case_id):
         'section_display_name': 'Discussion Section',
         'current_step': 2,
         'step_title': 'Normative Pass - Discussion',
-        'next_step_url': url_for('scenario_pipeline.step2c', case_id=case_id),
+        'next_step_url': url_for('scenario_pipeline.step3', case_id=case_id),  # Go to Pass 3 (Questions moved to Step 4)
         'prev_step_url': url_for('scenario_pipeline.step2', case_id=case_id),
         'saved_prompts': saved_prompts
     }

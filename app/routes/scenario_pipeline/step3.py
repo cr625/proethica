@@ -99,8 +99,8 @@ def step3(case_id):
             'discussion_section_key': facts_section_key,
             'current_step': 3,
             'step_title': 'Temporal Dynamics Pass - Facts Section',
-            'next_step_url': url_for('cases.view_case', id=case_id),  # Final step, return to case view
-            'prev_step_url': url_for('scenario_pipeline.step2', case_id=case_id)
+            'next_step_url': url_for('step4.step4_synthesis', case_id=case_id),  # Go to Step 4 Whole-Case Synthesis
+            'prev_step_url': url_for('scenario_pipeline.step2b', case_id=case_id)  # Back to Pass 2 Discussion
         }
         
         return render_template('scenarios/step3_dual_extraction.html', **context)
@@ -422,14 +422,17 @@ def behavioral_pass_execute(case_id):
                         entity_type='extracted_events',
                         metadata={'count': len(event_candidates)}
                     )
-                
-                # Link sub-activities to main activity
+
+                # Link sub-activities to main activity BEFORE committing
                 prov.link_activities(actions_activity, main_activity, 'sequence')
                 prov.link_activities(events_activity, actions_activity, 'sequence')
-        
-        # Commit provenance records
-        db.session.commit()
-        
+
+                # Commit provenance records
+                db.session.commit()
+
+        # Expunge all objects to prevent detached instance errors (after context managers close)
+        db.session.expunge_all()
+
         # Convert candidates to response format
         actions = []
         for candidate in action_candidates:
@@ -502,6 +505,11 @@ def behavioral_pass_execute(case_id):
         
     except Exception as e:
         logger.error(f"Error executing temporal dynamics pass for case {case_id}: {str(e)}")
+        # Rollback any uncommitted changes to avoid session issues
+        try:
+            db.session.rollback()
+        except:
+            pass
         return jsonify({'error': str(e), 'success': False}), 500
 
 def step3_extract():
