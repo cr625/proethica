@@ -30,20 +30,32 @@ class CodeProvisionLinker:
     def link_provisions_to_entities(
         self,
         provisions: List[Dict],
-        roles: List[Dict],
-        states: List[Dict],
-        resources: List[Dict],
+        roles: List[Dict] = None,
+        states: List[Dict] = None,
+        resources: List[Dict] = None,
+        principles: List[Dict] = None,
+        obligations: List[Dict] = None,
+        constraints: List[Dict] = None,
+        capabilities: List[Dict] = None,
+        actions: List[Dict] = None,
+        events: List[Dict] = None,
         case_text_summary: str = ""
     ) -> List[Dict]:
         """
-        Link code provisions to applicable case entities.
+        Link code provisions to applicable case entities (all 9 types).
 
         Args:
             provisions: List of parsed code provisions
-            roles: List of role entities from case
-            states: List of state entities from case
-            resources: List of resource entities from case
-            case_text_summary: Brief summary of the case for context
+            roles: List of role entities
+            states: List of state entities
+            resources: List of resource entities
+            principles: List of principle entities
+            obligations: List of obligation entities
+            constraints: List of constraint entities
+            capabilities: List of capability entities
+            actions: List of action entities
+            events: List of event entities
+            case_text_summary: Brief summary of the case
 
         Returns:
             List of provisions with 'applies_to' relationships added
@@ -56,11 +68,36 @@ class CodeProvisionLinker:
             logger.info("No provisions to link")
             return []
 
-        logger.info(f"Linking {len(provisions)} provisions to {len(roles)} roles, {len(states)} states, {len(resources)} resources")
+        # Count total entities
+        entity_counts = {
+            'roles': len(roles or []),
+            'states': len(states or []),
+            'resources': len(resources or []),
+            'principles': len(principles or []),
+            'obligations': len(obligations or []),
+            'constraints': len(constraints or []),
+            'capabilities': len(capabilities or []),
+            'actions': len(actions or []),
+            'events': len(events or [])
+        }
+        total_entities = sum(entity_counts.values())
+
+        logger.info(f"Linking {len(provisions)} provisions to {total_entities} total entities across 9 types")
+        logger.info(f"Entity breakdown: {entity_counts}")
 
         # Create LLM prompt
         prompt = self._create_linking_prompt(
-            provisions, roles, states, resources, case_text_summary
+            provisions,
+            roles or [],
+            states or [],
+            resources or [],
+            principles or [],
+            obligations or [],
+            constraints or [],
+            capabilities or [],
+            actions or [],
+            events or [],
+            case_text_summary
         )
         self.last_linking_prompt = prompt
 
@@ -96,14 +133,26 @@ class CodeProvisionLinker:
         roles: List[Dict],
         states: List[Dict],
         resources: List[Dict],
+        principles: List[Dict],
+        obligations: List[Dict],
+        constraints: List[Dict],
+        capabilities: List[Dict],
+        actions: List[Dict],
+        events: List[Dict],
         case_summary: str
     ) -> str:
-        """Create prompt for LLM to link provisions to entities."""
+        """Create prompt for LLM to link provisions to all entity types."""
 
-        # Format entities for prompt
+        # Format all entities for prompt
         roles_text = self._format_entities_for_prompt(roles, "Roles")
         states_text = self._format_entities_for_prompt(states, "States")
         resources_text = self._format_entities_for_prompt(resources, "Resources")
+        principles_text = self._format_entities_for_prompt(principles, "Principles")
+        obligations_text = self._format_entities_for_prompt(obligations, "Obligations")
+        constraints_text = self._format_entities_for_prompt(constraints, "Constraints")
+        capabilities_text = self._format_entities_for_prompt(capabilities, "Capabilities")
+        actions_text = self._format_entities_for_prompt(actions, "Actions")
+        events_text = self._format_entities_for_prompt(events, "Events")
 
         # Format provisions
         provisions_text = ""
@@ -113,12 +162,12 @@ class CodeProvisionLinker:
         prompt = f"""You are analyzing NSPE Code of Ethics provisions selected by the Board of Ethical Review for this engineering ethics case.
 
 **Case Context:**
-{case_summary if case_summary else "Engineering professional ethics case involving roles, ethical states, and resources."}
+{case_summary if case_summary else "Engineering professional ethics case with entities across all concept types."}
 
 **NSPE Code Provisions (Board-Selected):**
 {provisions_text}
 
-**Extracted Case Entities:**
+**Extracted Case Entities (All Types):**
 
 {roles_text}
 
@@ -126,11 +175,29 @@ class CodeProvisionLinker:
 
 {resources_text}
 
+{principles_text}
+
+{obligations_text}
+
+{constraints_text}
+
+{capabilities_text}
+
+{actions_text}
+
+{events_text}
+
 **Task:**
-For each code provision, identify which specific case entities it applies to. A provision "applies to" an entity if:
+For each code provision, identify which specific case entities it applies to across ALL entity types. A provision "applies to" an entity if:
 - For Roles: The provision governs the professional conduct of that role
 - For States: The provision addresses or relates to that ethical situation
 - For Resources: The provision references or requires that resource/document
+- For Principles: The provision embodies or relates to that principle
+- For Obligations: The provision specifies or relates to that obligation
+- For Constraints: The provision creates or relates to that constraint
+- For Capabilities: The provision requires or relates to that capability
+- For Actions: The provision governs or prohibits that action
+- For Events: The provision addresses that event or occurrence
 
 For each provision, provide:
 1. Which entities it applies to (by label)
