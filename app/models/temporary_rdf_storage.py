@@ -57,6 +57,13 @@ class TemporaryRDFStorage(db.Model):
     property_count = db.Column(db.Integer, default=0)
     relationship_count = db.Column(db.Integer, default=0)
 
+    # IAO Document References (Phase 1 - Added 2025-10-07)
+    iao_document_uri = db.Column(db.String(500))  # URI of IAO document (iao:0000300 or iao:0000310)
+    iao_document_label = db.Column(db.String(500))  # Human-readable label (e.g., "NSPE Code Section II.4.a")
+    iao_document_type = db.Column(db.String(50))  # 'document' or 'document_part'
+    cited_by_role = db.Column(db.String(200))  # Which role cited this (for References section)
+    available_to_role = db.Column(db.String(200))  # Which role has access (for case context)
+
     # Relationships
     case = db.relationship('Document', backref='temporary_rdf_entities', lazy=True)
 
@@ -89,7 +96,13 @@ class TemporaryRDFStorage(db.Model):
             'triple_count': self.triple_count,
             'property_count': self.property_count,
             'relationship_count': self.relationship_count,
-            'rdf_json_ld': clean_rdf
+            'rdf_json_ld': clean_rdf,
+            # IAO document references
+            'iao_document_uri': self.iao_document_uri,
+            'iao_document_label': self.iao_document_label,
+            'iao_document_type': self.iao_document_type,
+            'cited_by_role': self.cited_by_role,
+            'available_to_role': self.available_to_role
         }
 
     def _ensure_serializable(self, data):

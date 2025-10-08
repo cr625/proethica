@@ -148,19 +148,63 @@
                                         {% if provision.relevant_excerpts and provision.relevant_excerpts|length > 0 %}
                                         <div class="mt-2">
                                             {% for excerpt in provision.relevant_excerpts %}
-                                            <div class="card mb-2 {% if excerpt.mention_type == 'direct' %}bg-light{% else %}bg-white border-secondary{% endif %}">
+                                            <div class="card mb-2
+                                                {% if excerpt.mention_type == 'violation' %}border-danger bg-light{% elif excerpt.mention_type == 'compliance' %}border-success bg-light{% elif excerpt.mention_type == 'interpretation' or excerpt.mention_type == 'Board_reasoning' %}border-info bg-white{% else %}border-secondary bg-white{% endif %}">
                                                 <div class="card-body py-2">
-                                                    <div class="mb-1 d-flex justify-content-between align-items-center">
-                                                        <span class="badge bg-info text-dark">{{ excerpt.section|title }}</span>
-                                                        {% if excerpt.mention_type == 'indirect' %}
-                                                        <span class="badge bg-secondary" title="LLM identified this as conceptually related">Indirect</span>
-                                                        {% else %}
-                                                        <span class="badge bg-success" title="Provision explicitly cited in text">Direct</span>
+                                                    <div class="mb-2 d-flex justify-content-between align-items-center flex-wrap gap-1">
+                                                        <div class="d-flex gap-1 align-items-center">
+                                                            <span class="badge bg-info text-dark">{{ excerpt.section|title }}</span>
+
+                                                            {% if excerpt.mention_type == 'violation' %}
+                                                            <span class="badge bg-danger" title="Discusses violation: {{ excerpt.confidence|round(2) }} confidence">
+                                                                ⚠️ Violation
+                                                            </span>
+                                                            {% elif excerpt.mention_type == 'compliance' %}
+                                                            <span class="badge bg-success" title="Discusses compliance: {{ excerpt.confidence|round(2) }} confidence">
+                                                                ✓ Compliance
+                                                            </span>
+                                                            {% elif excerpt.mention_type == 'interpretation' %}
+                                                            <span class="badge bg-info text-dark" title="Discusses interpretation: {{ excerpt.confidence|round(2) }} confidence">
+                                                                📖 Interpretation
+                                                            </span>
+                                                            {% elif excerpt.mention_type == 'Board_reasoning' %}
+                                                            <span class="badge bg-primary" title="Board reasoning: {{ excerpt.confidence|round(2) }} confidence">
+                                                                ⚖️ Board Reasoning
+                                                            </span>
+                                                            {% else %}
+                                                            <span class="badge bg-light text-dark border" title="Content type: {{ excerpt.mention_type }}">
+                                                                {{ excerpt.mention_type|replace('_', ' ')|title }}
+                                                            </span>
+                                                            {% endif %}
+
+                                                            {% if excerpt.confidence %}
+                                                            <small class="text-muted">{{ (excerpt.confidence * 100)|round }}% confidence</small>
+                                                            {% endif %}
+                                                        </div>
+
+                                                        {% if excerpt.matched_citation %}
+                                                        <small class="text-muted">
+                                                            <em>Cited as: "{{ excerpt.matched_citation }}"</em>
+                                                        </small>
                                                         {% endif %}
                                                     </div>
-                                                    <blockquote class="mb-0">
+
+                                                    <blockquote class="mb-2">
                                                         <small class="text-dark">"{{ excerpt.text }}"</small>
                                                     </blockquote>
+
+                                                    {% if excerpt.validation_reasoning %}
+                                                    <details class="mt-2">
+                                                        <summary class="text-muted" style="cursor: pointer; font-size: 0.85rem;">
+                                                            ✓ Validation Details
+                                                        </summary>
+                                                        <div class="mt-2 p-2 bg-light rounded border">
+                                                            <small class="text-secondary">
+                                                                <strong>Content Analysis:</strong> {{ excerpt.validation_reasoning }}
+                                                            </small>
+                                                        </div>
+                                                    </details>
+                                                    {% endif %}
                                                 </div>
                                             </div>
                                             {% endfor %}

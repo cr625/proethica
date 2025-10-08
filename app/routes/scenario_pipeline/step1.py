@@ -1815,9 +1815,12 @@ def extract_code_provisions(case_id):
 
         logger.info(f"Linked provisions to entities")
 
-        # Extract relevant case text excerpts - HYBRID APPROACH
-        # Step 1: Find DIRECT mentions (simple text search - fast and reliable)
-        # Step 2: Find INDIRECT mentions (LLM - intelligent but slower)
+        # MENTION-FIRST EXCERPT EXTRACTION - 3-STAGE PIPELINE
+        # Stage 1: Detect ALL provision mentions in case (universal detection)
+        # Stage 2: Group mentions by which Board provision they reference
+        # Stage 3: Validate that grouped mentions discuss the provision content
+
+        # Prepare case sections
         case_sections = {}
         if case.doc_metadata and 'sections_dual' in case.doc_metadata:
             sections = case.doc_metadata['sections_dual']
@@ -1829,71 +1832,73 @@ def extract_code_provisions(case_id):
                     else:
                         case_sections[section_key] = str(section_data)
 
-        # STEP 1: Find direct mentions using simple text search
+        logger.info(f"Extracted {len(case_sections)} case sections for excerpt matching")
+
+        # STAGE 1: Universal provision detection - Find ALL mentions
+        from app.services.universal_provision_detector import UniversalProvisionDetector
+
+        detector = UniversalProvisionDetector()
+        all_mentions = detector.detect_all_provisions(case_sections=case_sections)
+
+        logger.info(
+            f"Universal detection found {len(all_mentions)} total provision mentions"
+        )
+
+        # STAGE 2: Group mentions by Board provision
+        from app.services.provision_grouper import ProvisionGrouper
+
+        grouper = ProvisionGrouper()
+        grouped_mentions = grouper.group_mentions_by_provision(
+            all_mentions=all_mentions,
+            board_provisions=linked_provisions
+        )
+
+        # Log grouping summary
+        summary = grouper.get_grouping_summary(grouped_mentions)
+        logger.info(
+            f"Grouped mentions: {summary['provisions_with_mentions']} provisions have mentions, "
+            f"{summary['provisions_without_mentions']} have none"
+        )
+
+        # STAGE 3: Validate grouped mentions with LLM
+        from app.services.provision_group_validator import ProvisionGroupValidator
+
+        validator = ProvisionGroupValidator(llm_client=llm_client)
+
         for provision in linked_provisions:
-            excerpts = []
             code = provision['code_provision']
+            mentions = grouped_mentions.get(code, [])
 
-            # Remove trailing period from code for better matching
-            # "I.1." becomes "I.1" to match "I.1," or "I.1." or "I.1 "
-            code_search = code.rstrip('.')
+            if not mentions:
+                provision['relevant_excerpts'] = []
+                logger.info(f"Provision {code}: no mentions found in case")
+                continue
 
-            for section_name, section_text in case_sections.items():
-                # Split into sentences
-                sentences = section_text.replace('? ', '?|').replace('. ', '.|').split('|')
-
-                for sentence in sentences:
-                    sentence = sentence.strip()
-                    # Simple check: does the sentence contain the code?
-                    if code_search in sentence and len(sentence) > 20:
-                        excerpts.append({
-                            'section': section_name,
-                            'text': sentence,
-                            'mention_type': 'direct'  # Mark as direct mention
-                        })
-
-            provision['relevant_excerpts'] = excerpts[:5]  # Keep up to 5 direct mentions
-            logger.info(f"Provision {code}: found {len(excerpts)} direct mentions")
-
-        logger.info(f"Found direct mentions using text search")
-
-        # STEP 2: Use LLM ONLY for provisions with few/no direct mentions
-        # This optimizes LLM usage
-        provisions_needing_llm = [p for p in linked_provisions if len(p.get('relevant_excerpts', [])) < 2]
-
-        if provisions_needing_llm and case_sections:
-            # Ask LLM to find indirect/conceptual mentions
-            enhanced_provisions = linker.extract_relevant_excerpts(
-                provisions=provisions_needing_llm,
-                case_sections=case_sections
+            # Validate that mentions discuss this provision's content
+            validated = validator.validate_group(
+                provision_code=code,
+                provision_text=provision['provision_text'],
+                mentions=mentions
             )
 
-            # Merge LLM results back, marking them as indirect
-            for enhanced in enhanced_provisions:
-                code = enhanced['code_provision']
-                llm_excerpts = enhanced.get('relevant_excerpts', [])
+            # Convert ValidatedMention objects to dict format for storage
+            provision['relevant_excerpts'] = [
+                {
+                    'section': v.section,
+                    'text': v.excerpt,
+                    'matched_citation': v.citation_text,
+                    'mention_type': v.content_type,  # 'compliance', 'violation', etc.
+                    'confidence': v.confidence,
+                    'validation_reasoning': v.reasoning,
+                    'is_relevant': v.is_relevant
+                }
+                for v in validated
+            ]
 
-                logger.info(f"LLM returned {len(llm_excerpts)} excerpts for provision {code}")
-
-                # Find the original provision
-                found = False
-                for provision in linked_provisions:
-                    if provision['code_provision'] == code:
-                        # Add LLM excerpts as indirect mentions
-                        for excerpt in llm_excerpts:
-                            excerpt['mention_type'] = 'indirect'  # Mark as indirect/conceptual
-                        # Combine direct + indirect
-                        before_count = len(provision['relevant_excerpts'])
-                        provision['relevant_excerpts'].extend(llm_excerpts[:3])
-                        after_count = len(provision['relevant_excerpts'])
-                        logger.info(f"  Added {after_count - before_count} indirect excerpts to {code} (total now: {after_count})")
-                        found = True
-                        break
-
-                if not found:
-                    logger.warning(f"  Could not find provision {code} to add excerpts to!")
-
-            logger.info(f"Enhanced {len(provisions_needing_llm)} provisions with LLM indirect mentions")
+            logger.info(
+                f"Provision {code}: {len(provision['relevant_excerpts'])} relevant excerpts "
+                f"(from {len(mentions)} total mentions)"
+            )
 
         # Clear old code provision references
         from app.models import ExtractionPrompt, db
