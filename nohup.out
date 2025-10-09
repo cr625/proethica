@@ -1,46 +1,83 @@
-2025-10-08 19:55:35,176 - __main__ - INFO - ✓ OntServe MCP server detected on port 8082
-2025-10-08 19:55:36,373 - app.services.direct_llm_service - INFO - ✅ Claude client initialized successfully
-2025-10-08 19:55:36,373 - app.services.direct_llm_service - ERROR - ❌ OpenAI library not installed
-2025-10-08 19:55:36,373 - app.services.direct_llm_service - ERROR - ❌ Google GenerativeAI library not installed
-2025-10-08 19:55:36,377 - app.services.semantic_router_service - INFO - Semantic Router Service initialized
-2025-10-08 19:55:36,377 - llm_orchestration.integrations.mcp_context - INFO - MCP Context Manager singleton initialized for: http://localhost:8082
-2025-10-08 19:55:36,377 - app.services.proethica_orchestrator_service - INFO - ProEthica Orchestrator Service initialized
-2025-10-08 19:55:36,377 - app.services.unified_agent_service - INFO - ✅ ProEthica orchestrator initialized with MCP ontology integration
-2025-10-08 19:55:36,377 - app.services.unified_agent_service - INFO - Hybrid LLM Service initialized:
-2025-10-08 19:55:36,377 - app.services.unified_agent_service - INFO -   ✅ Claude: Available with ProEthica MCP ontology integration
-2025-10-08 19:55:36,377 - app.services.unified_agent_service - INFO -   ❌ Openai: Not configured
-2025-10-08 19:55:36,377 - app.services.unified_agent_service - INFO -   ❌ Gemini: Not configured
-2025-10-08 19:55:38,220 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-10-08 19:55:38,844 - app.services.domain_registry - INFO - Loaded domain configuration: engineering
-2025-10-08 19:55:39,087 - app.services.scenario_pipeline.scenario_generation_phase_a - INFO - ✅ EnhancedLLMScenarioService imported successfully
-2025-10-08 19:55:39,088 - app.services.scenario_pipeline.scenario_generation_phase_a - INFO - ✅ MCP Context Manager imported successfully
-2025-10-08 19:55:39,088 - app.services.scenario_pipeline.scenario_generation_phase_a - INFO - ✅ EnhancedScenarioModelGenerator imported successfully
-2025-10-08 19:55:39,091 - app.services.scenario_pipeline.scenario_generation_phase_a - INFO - ✅ LLMMediatedTemporalReasoningService imported successfully
-2025-10-08 19:55:39,091 - app.services.scenario_pipeline.scenario_generation_phase_a - INFO - Enhanced features enabled with available services
-2025-10-08 19:55:39,091 - app.services.scenario_pipeline.scenario_generation_phase_a - INFO - Enhanced services status: {'enhanced_llm': True, 'mcp_ontology': True, 'model_generator': True, 'llm_temporal': True}
-2025-10-08 19:55:39,108 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-10-08 19:55:39,164 - app.services.semantic_router_service - INFO - Semantic Router Service initialized
-2025-10-08 19:55:39,164 - app.services.proethica_orchestrator_service - INFO - ProEthica Orchestrator Service initialized
-2025-10-08 19:55:39,164 - app.services.multi_agent_coordinator - INFO - Multi-agent coordinator initialized with 3 agents
-2025-10-08 19:55:39,165 - app.services.guideline_annotation_orchestrator - INFO - Guideline Annotation Orchestrator initialized with cascading support
-2025-10-08 19:55:39,165 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-10-08 19:55:39,217 - app.services.intelligent_annotation_service - INFO - Intelligent Annotation Service initialized
-2025-10-08 19:55:39,234 - app.services.direct_llm_service - INFO - ✅ Claude client initialized successfully
-2025-10-08 19:55:39,234 - app.services.direct_llm_service - ERROR - ❌ OpenAI library not installed
-2025-10-08 19:55:39,235 - app.services.direct_llm_service - ERROR - ❌ Google GenerativeAI library not installed
-2025-10-08 19:55:39,410 - app.utils.prompt_seeder - INFO - Prompt templates already exist (6 found), skipping seed
-2025-10-08 19:55:39,410 - __main__ - INFO - Starting ProEthica application...
-2025-10-08 19:55:39,411 - __main__ - INFO - Debug mode: False
-2025-10-08 19:55:39,411 - __main__ - INFO - Host: 0.0.0.0
-2025-10-08 19:55:39,411 - __main__ - INFO - Port: 5000
+2025-10-09 09:16:54,646 - __main__ - INFO - ✓ OntServe MCP server detected on port 8082
+2025-10-09 09:16:55,808 - app.services.direct_llm_service - INFO - ✅ Claude client initialized successfully
+2025-10-09 09:16:55,808 - app.services.direct_llm_service - ERROR - ❌ OpenAI library not installed
+2025-10-09 09:16:55,808 - app.services.direct_llm_service - ERROR - ❌ Google GenerativeAI library not installed
+2025-10-09 09:16:55,812 - app.services.semantic_router_service - INFO - Semantic Router Service initialized
+2025-10-09 09:16:55,812 - llm_orchestration.integrations.mcp_context - INFO - MCP Context Manager singleton initialized for: http://localhost:8082
+2025-10-09 09:16:55,812 - app.services.proethica_orchestrator_service - INFO - ProEthica Orchestrator Service initialized
+2025-10-09 09:16:55,812 - app.services.unified_agent_service - INFO - ✅ ProEthica orchestrator initialized with MCP ontology integration
+2025-10-09 09:16:55,812 - app.services.unified_agent_service - INFO - Hybrid LLM Service initialized:
+2025-10-09 09:16:55,812 - app.services.unified_agent_service - INFO -   ✅ Claude: Available with ProEthica MCP ontology integration
+2025-10-09 09:16:55,812 - app.services.unified_agent_service - INFO -   ❌ Openai: Not configured
+2025-10-09 09:16:55,812 - app.services.unified_agent_service - INFO -   ❌ Gemini: Not configured
+2025-10-09 09:16:57,803 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-10-09 09:16:58,299 - app.services.domain_registry - INFO - Loaded domain configuration: engineering
+2025-10-09 09:16:58,545 - app.services.scenario_pipeline.scenario_generation_phase_a - INFO - ✅ EnhancedLLMScenarioService imported successfully
+2025-10-09 09:16:58,545 - app.services.scenario_pipeline.scenario_generation_phase_a - INFO - ✅ MCP Context Manager imported successfully
+2025-10-09 09:16:58,545 - app.services.scenario_pipeline.scenario_generation_phase_a - INFO - ✅ EnhancedScenarioModelGenerator imported successfully
+2025-10-09 09:16:58,548 - app.services.scenario_pipeline.scenario_generation_phase_a - INFO - ✅ LLMMediatedTemporalReasoningService imported successfully
+2025-10-09 09:16:58,548 - app.services.scenario_pipeline.scenario_generation_phase_a - INFO - Enhanced features enabled with available services
+2025-10-09 09:16:58,548 - app.services.scenario_pipeline.scenario_generation_phase_a - INFO - Enhanced services status: {'enhanced_llm': True, 'mcp_ontology': True, 'model_generator': True, 'llm_temporal': True}
+2025-10-09 09:16:58,565 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-10-09 09:16:58,618 - app.services.semantic_router_service - INFO - Semantic Router Service initialized
+2025-10-09 09:16:58,618 - app.services.proethica_orchestrator_service - INFO - ProEthica Orchestrator Service initialized
+2025-10-09 09:16:58,618 - app.services.multi_agent_coordinator - INFO - Multi-agent coordinator initialized with 3 agents
+2025-10-09 09:16:58,618 - app.services.guideline_annotation_orchestrator - INFO - Guideline Annotation Orchestrator initialized with cascading support
+2025-10-09 09:16:58,618 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-10-09 09:16:58,669 - app.services.intelligent_annotation_service - INFO - Intelligent Annotation Service initialized
+2025-10-09 09:16:58,686 - app.services.direct_llm_service - INFO - ✅ Claude client initialized successfully
+2025-10-09 09:16:58,687 - app.services.direct_llm_service - ERROR - ❌ OpenAI library not installed
+2025-10-09 09:16:58,687 - app.services.direct_llm_service - ERROR - ❌ Google GenerativeAI library not installed
+2025-10-09 09:16:58,858 - app.utils.prompt_seeder - INFO - Prompt templates already exist (6 found), skipping seed
+2025-10-09 09:16:58,858 - __main__ - INFO - Starting ProEthica application...
+2025-10-09 09:16:58,858 - __main__ - INFO - Debug mode: False
+2025-10-09 09:16:58,858 - __main__ - INFO - Host: 0.0.0.0
+2025-10-09 09:16:58,858 - __main__ - INFO - Port: 5000
 Using 'development' configuration
 Database URL: postgresql://postgres:PASS@localhost:5432/ai_ethical_dm
 ApplicationContextService v1.0.0 initialized with 1 providers
 Embedding service initialized: [Local:all-MiniLM-L6-v2(cuda), OpenAI:ready] Priority: local,openai,anthropic,google
  * Serving Flask app 'app'
  * Debug mode: off
-2025-10-08 19:55:39,414 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+2025-10-09 09:16:58,861 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
  * Running on all addresses (0.0.0.0)
  * Running on http://127.0.0.1:5000
  * Running on http://172.23.68.185:5000
-2025-10-08 19:55:39,414 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-10-09 09:16:58,861 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-10-09 09:18:28,286 - werkzeug - INFO - 127.0.0.1 - - [09/Oct/2025 09:18:28] "GET /scenario_pipeline/case/13/step3 HTTP/1.1" 200 -
+2025-10-09 09:18:28,300 - werkzeug - INFO - 127.0.0.1 - - [09/Oct/2025 09:18:28] "[33mGET /.well-known/appspecific/com.chrome.devtools.json HTTP/1.1[0m" 404 -
+2025-10-09 09:18:28,521 - werkzeug - INFO - 127.0.0.1 - - [09/Oct/2025 09:18:28] "[36mGET /static/css/concept-hierarchy.css HTTP/1.1[0m" 304 -
+2025-10-09 09:18:28,846 - werkzeug - INFO - 127.0.0.1 - - [09/Oct/2025 09:18:28] "GET /scenario_pipeline/case/13/step3/get_saved_prompt?concept_type=actions_events HTTP/1.1" 200 -
+2025-10-09 09:18:28,955 - werkzeug - INFO - 127.0.0.1 - - [09/Oct/2025 09:18:28] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+2025-10-09 09:18:30,431 - app.routes.scenario_pipeline.step3 - INFO - Executing temporal dynamics pass for case 13
+2025-10-09 09:18:30,471 - app.routes.scenario_pipeline.step3 - INFO - Using versioned provenance service for Step 3
+2025-10-09 09:18:30,481 - app.routes.scenario_pipeline.step3 - INFO - Extracting actions with Pass integration...
+2025-10-09 09:18:30,481 - app.services.extraction.enhanced_prompts_actions - INFO - Fetching actions context from external MCP server...
+2025-10-09 09:18:30,482 - app.services.external_mcp_client - INFO - External MCP client initialized for: http://localhost:8082
+2025-10-09 09:18:30,486 - app.services.external_mcp_client - INFO - Retrieved 13 action entities from external MCP
+2025-10-09 09:18:30,486 - app.services.extraction.enhanced_prompts_actions - INFO - Retrieved 13 existing actions from MCP
+2025-10-09 09:18:30,488 - app.services.external_mcp_client - INFO - Retrieved 13 role entities from external MCP
+2025-10-09 09:18:30,491 - app.services.external_mcp_client - INFO - Retrieved 16 state entities from external MCP
+2025-10-09 09:18:30,494 - app.services.external_mcp_client - INFO - Retrieved 8 resource entities from external MCP
+2025-10-09 09:18:30,497 - app.services.external_mcp_client - INFO - Retrieved 16 principle entities from external MCP
+2025-10-09 09:18:30,500 - app.services.external_mcp_client - INFO - Retrieved 19 obligation entities from external MCP
+2025-10-09 09:18:30,502 - app.services.external_mcp_client - INFO - Retrieved 19 constraint entities from external MCP
+2025-10-09 09:18:30,505 - app.services.external_mcp_client - INFO - Retrieved 10 capability entities from external MCP
+2025-10-09 09:18:30,505 - app.services.extraction.enhanced_prompts_actions - INFO - Generated enhanced actions prompt with MCP context: True
+2025-10-09 09:19:00,137 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-10-09 09:19:00,141 - app.routes.scenario_pipeline.step3 - INFO - Actions LLM response length: 5331
+2025-10-09 09:19:00,146 - app.routes.scenario_pipeline.step3 - INFO - Extracting events with Pass integration...
+2025-10-09 09:19:00,146 - app.services.extraction.enhanced_prompts_events - INFO - Fetching events context from external MCP server...
+2025-10-09 09:19:00,152 - app.services.external_mcp_client - INFO - Retrieved 14 event entities from external MCP
+2025-10-09 09:19:00,152 - app.services.extraction.enhanced_prompts_events - INFO - Retrieved 14 existing events from MCP
+2025-10-09 09:19:00,153 - app.services.external_mcp_client - INFO - Retrieved 13 role entities from external MCP
+2025-10-09 09:19:00,157 - app.services.external_mcp_client - INFO - Retrieved 16 state entities from external MCP
+2025-10-09 09:19:00,160 - app.services.external_mcp_client - INFO - Retrieved 8 resource entities from external MCP
+2025-10-09 09:19:00,162 - app.services.external_mcp_client - INFO - Retrieved 16 principle entities from external MCP
+2025-10-09 09:19:00,166 - app.services.external_mcp_client - INFO - Retrieved 19 obligation entities from external MCP
+2025-10-09 09:19:00,167 - app.services.external_mcp_client - INFO - Retrieved 19 constraint entities from external MCP
+2025-10-09 09:19:00,170 - app.services.external_mcp_client - INFO - Retrieved 10 capability entities from external MCP
+2025-10-09 09:19:00,170 - app.services.extraction.enhanced_prompts_events - INFO - Generated enhanced events prompt with MCP context: True
+2025-10-09 09:19:44,661 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-10-09 09:19:44,661 - app.routes.scenario_pipeline.step3 - INFO - Events LLM response length: 8379
+2025-10-09 09:19:44,670 - werkzeug - INFO - 127.0.0.1 - - [09/Oct/2025 09:19:44] "POST /scenario_pipeline/case/13/step3/extract HTTP/1.1" 200 -

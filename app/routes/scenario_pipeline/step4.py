@@ -139,20 +139,81 @@ def get_entities_summary(case_id: int) -> Dict:
     Returns:
         Dict with entity counts by type
     """
-    entity_types = [
-        'roles', 'states', 'resources',                    # Pass 1
-        'principles', 'obligations', 'constraints', 'capabilities',  # Pass 2
-        'actions', 'events'                                # Pass 3
-    ]
+    from sqlalchemy import func
 
+    # Use case-insensitive queries with func.lower()
     summary = {}
-    for entity_type in entity_types:
-        count = TemporaryRDFStorage.query.filter_by(
-            case_id=case_id,
-            entity_type=entity_type,
-            storage_type='individual'
-        ).count()
-        summary[entity_type] = count
+
+    # Pass 1
+    summary['roles'] = TemporaryRDFStorage.query.filter(
+        TemporaryRDFStorage.case_id == case_id,
+        func.lower(TemporaryRDFStorage.entity_type) == 'roles',
+        TemporaryRDFStorage.storage_type == 'individual'
+    ).count()
+
+    summary['states'] = TemporaryRDFStorage.query.filter(
+        TemporaryRDFStorage.case_id == case_id,
+        func.lower(TemporaryRDFStorage.entity_type) == 'states',
+        TemporaryRDFStorage.storage_type == 'individual'
+    ).count()
+
+    summary['resources'] = TemporaryRDFStorage.query.filter(
+        TemporaryRDFStorage.case_id == case_id,
+        func.lower(TemporaryRDFStorage.entity_type) == 'resources',
+        TemporaryRDFStorage.storage_type == 'individual'
+    ).count()
+
+    # Pass 2
+    summary['principles'] = TemporaryRDFStorage.query.filter(
+        TemporaryRDFStorage.case_id == case_id,
+        func.lower(TemporaryRDFStorage.entity_type) == 'principles',
+        TemporaryRDFStorage.storage_type == 'individual'
+    ).count()
+
+    summary['obligations'] = TemporaryRDFStorage.query.filter(
+        TemporaryRDFStorage.case_id == case_id,
+        func.lower(TemporaryRDFStorage.entity_type) == 'obligations',
+        TemporaryRDFStorage.storage_type == 'individual'
+    ).count()
+
+    summary['constraints'] = TemporaryRDFStorage.query.filter(
+        TemporaryRDFStorage.case_id == case_id,
+        func.lower(TemporaryRDFStorage.entity_type) == 'constraints',
+        TemporaryRDFStorage.storage_type == 'individual'
+    ).count()
+
+    summary['capabilities'] = TemporaryRDFStorage.query.filter(
+        TemporaryRDFStorage.case_id == case_id,
+        func.lower(TemporaryRDFStorage.entity_type) == 'capabilities',
+        TemporaryRDFStorage.storage_type == 'individual'
+    ).count()
+
+    # Pass 3 - Handle combined Actions_events or separate actions/events
+    actions_events_count = TemporaryRDFStorage.query.filter(
+        TemporaryRDFStorage.case_id == case_id,
+        func.lower(TemporaryRDFStorage.entity_type) == 'actions_events',
+        TemporaryRDFStorage.storage_type == 'individual'
+    ).count()
+
+    actions_only = TemporaryRDFStorage.query.filter(
+        TemporaryRDFStorage.case_id == case_id,
+        func.lower(TemporaryRDFStorage.entity_type) == 'actions',
+        TemporaryRDFStorage.storage_type == 'individual'
+    ).count()
+
+    events_only = TemporaryRDFStorage.query.filter(
+        TemporaryRDFStorage.case_id == case_id,
+        func.lower(TemporaryRDFStorage.entity_type) == 'events',
+        TemporaryRDFStorage.storage_type == 'individual'
+    ).count()
+
+    # If combined, split evenly for display (or query individually)
+    if actions_events_count > 0 and actions_only == 0 and events_only == 0:
+        summary['actions'] = actions_events_count  # Show all as actions
+        summary['events'] = 0  # Combined format
+    else:
+        summary['actions'] = actions_only
+        summary['events'] = events_only
 
     # Calculate totals
     summary['pass1_total'] = sum([

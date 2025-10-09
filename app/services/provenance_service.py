@@ -56,17 +56,27 @@ class ProvenanceService:
             ProvenanceAgent instance
         """
         cache_key = f"{agent_type}:{agent_name}:{agent_version}"
-        
+
         if cache_key in self._agent_cache:
-            return self._agent_cache[cache_key]
-        
+            cached_agent = self._agent_cache[cache_key]
+            # Re-merge the cached agent into the current session to avoid detached instance errors
+            try:
+                # Check if agent is in session, if not merge it back
+                if cached_agent not in self.session:
+                    cached_agent = self.session.merge(cached_agent)
+                    self._agent_cache[cache_key] = cached_agent
+                return cached_agent
+            except:
+                # If merge fails, clear cache and recreate
+                del self._agent_cache[cache_key]
+
         # Look for existing agent
         agent = ProvenanceAgent.query.filter_by(
             agent_type=agent_type,
             agent_name=agent_name,
             agent_version=agent_version
         ).first()
-        
+
         if not agent:
             agent = ProvenanceAgent(
                 agent_type=agent_type,
@@ -76,7 +86,7 @@ class ProvenanceService:
             )
             self.session.add(agent)
             self.session.flush()
-        
+
         self._agent_cache[cache_key] = agent
         return agent
     

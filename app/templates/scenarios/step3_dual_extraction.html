@@ -37,61 +37,32 @@
         <!-- Full Temporal Dynamics Pass Button -->
         <div class="d-grid gap-2 d-md-flex justify-content-md-center mb-4">
             <button id="temporalPassBtn" class="btn btn-warning btn-lg" onclick="executeFullTemporalPass()">
-                <i class="bi bi-clock-history"></i> Full Temporal Dynamics Pass
-                <small class="d-block">Original Implementation: Legacy Actions + Events Extraction</small>
+                <i class="bi bi-clock-history"></i> Extract Actions & Events (Pass 3)
             </button>
         </div>
 
-        <!-- Individual Dual Extractor Section -->
+        <!-- Temporal Pass Results Container -->
+        <div id="temporalPassResults" style="display: none;" class="mb-4"></div>
 
-        <!-- ACTIONS & EVENTS DUAL EXTRACTION SECTION -->
-        <div class="extractor-section mb-4" id="actionsEventsSection">
-            <div class="step-card border-warning">
-                <div class="step-header bg-warning bg-opacity-10">
-                    <h5 class="mb-0 d-flex justify-content-between align-items-center">
-                        <span><i class="bi bi-clock text-warning"></i> Actions & Events Dual Extraction</span>
-                        <div>
-                            <button class="btn btn-sm btn-outline-warning me-2" onclick="regenerateActionsEventsPrompt()">
-                                <i class="bi bi-arrow-clockwise"></i> Regenerate
-                            </button>
-                            <button class="btn btn-warning" onclick="extractIndividualConcept('actions_events')">
-                                <i class="bi bi-play-circle"></i> Extract Actions & Events
-                            </button>
-                        </div>
-                    </h5>
+        <!-- Saved Extraction Display (shows on page reload if extraction exists) -->
+        <div id="actionsEventsRawResponse" class="step-card" style="display: none;">
+            <div class="step-header bg-success bg-opacity-10">
+                <h5 class="mb-0">
+                    <i class="bi bi-check-circle text-success"></i> Previous Extraction Results
+                </h5>
+            </div>
+            <div class="step-content">
+                <div class="alert alert-info mb-3">
+                    <i class="bi bi-info-circle"></i>
+                    This extraction has already been performed. Results are saved and available in the entity review page.
                 </div>
-                <div class="step-content">
-                    <!-- Prompt Preview -->
-                    <div class="mb-3">
-                        <h6 class="text-muted">
-                            <i class="bi bi-cpu"></i> LLM Prompt
-                            <small>(Will be displayed after generation)</small>
-                        </h6>
-                        <div id="actionsEventsPrompt" class="prompt-preview">
-                            <em class="text-muted">Click "Extract Actions & Events" to generate and view the prompt...</em>
-                        </div>
-                    </div>
-
-                    <!-- Results Container -->
-                    <div id="actionsEventsResults" class="results-container" style="display: none;">
-                        <h6 class="text-success"><i class="bi bi-check-circle"></i> Extraction Results</h6>
-                        <div id="actionsEventsResultsContent"></div>
-                    </div>
-
-                    <!-- Raw Response Container -->
-                    <div id="actionsEventsRawResponse" class="raw-response-container" style="display: none;">
-                        <h6 class="text-info"><i class="bi bi-code-square"></i> Raw LLM Response</h6>
-                        <div id="actionsEventsRawResponseContent"></div>
-                    </div>
-
-                    <!-- Metadata Container -->
-                    <div id="actionsEventsMetadata" class="metadata-container" style="display: none;">
-                        <h6 class="text-secondary"><i class="bi bi-info-circle"></i> Extraction Metadata</h6>
-                        <div id="actionsEventsMetadataContent"></div>
-                    </div>
-                </div>
+                <div id="actionsEventsRawResponseContent"></div>
             </div>
         </div>
+
+        {% else %}
+        <div class="alert alert-warning">No facts section found.</div>
+        {% endif %}
 
         <!-- Allen's Interval Algebra Reference -->
         <div class="step-card border-info mb-4">
@@ -127,13 +98,6 @@
                 </div>
             </div>
         </div>
-
-        {% else %}
-        <div class="alert alert-warning">
-            <i class="bi bi-exclamation-triangle"></i>
-            No facts section found in this case. Using available section.
-        </div>
-        {% endif %}
     </div>
 </div>
 
@@ -352,12 +316,52 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success && data.raw_response) {
-                    // Display the raw response
+                    // Display the prompt and raw response
                     const rawResponseDiv = document.getElementById('actionsEventsRawResponse');
                     const rawResponseContent = document.getElementById('actionsEventsRawResponseContent');
 
                     if (rawResponseDiv && rawResponseContent) {
-                        rawResponseContent.innerHTML = `<div class="raw-response-text">${escapeHtml(data.raw_response)}</div>`;
+                        let html = '<div class="mb-4">';
+
+                        // Show prompt if available
+                        if (data.prompt_text) {
+                            html += `
+                                <div class="mb-3">
+                                    <h6><i class="bi bi-file-text"></i> Extraction Prompt</h6>
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <pre class="mb-0" style="max-height: 400px; overflow-y: auto; white-space: pre-wrap; font-size: 0.85rem;">${escapeHtml(data.prompt_text)}</pre>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }
+
+                        // Show response
+                        html += `
+                            <div class="mb-3">
+                                <h6><i class="bi bi-code-square"></i> LLM Response</h6>
+                                <div class="card">
+                                    <div class="card-body">
+                                        <pre class="mb-0" style="max-height: 400px; overflow-y: auto; white-space: pre-wrap; font-size: 0.85rem;">${escapeHtml(data.raw_response)}</pre>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+
+                        // Show metadata
+                        if (data.created_at || data.llm_model) {
+                            html += `
+                                <div class="small text-muted">
+                                    ${data.created_at ? `<div><strong>Extracted:</strong> ${data.created_at}</div>` : ''}
+                                    ${data.llm_model ? `<div><strong>Model:</strong> ${data.llm_model}</div>` : ''}
+                                </div>
+                            `;
+                        }
+
+                        html += '</div>';
+
+                        rawResponseContent.innerHTML = html;
                         rawResponseDiv.style.display = 'block';
                     }
                 }
@@ -370,37 +374,221 @@
     function executeFullTemporalPass() {
         // This calls the original behavioral_pass_execute endpoint
         const temporalBtn = document.getElementById('temporalPassBtn');
+        const resultsArea = document.getElementById('temporalPassResults');
 
         // Disable the button and show loading
         temporalBtn.disabled = true;
         temporalBtn.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Executing Temporal Pass...';
 
-        // Call the existing endpoint
+        // Show results area
+        if (resultsArea) {
+            resultsArea.innerHTML = '<div class="alert alert-info"><i class="bi bi-hourglass-split"></i> Executing temporal dynamics pass...</div>';
+            resultsArea.style.display = 'block';
+        }
+
+        // Call the existing endpoint with required concept_type parameter
         fetch(`/scenario_pipeline/case/${currentCaseId}/step3/extract`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': getCsrfToken()
-            }
+            },
+            body: JSON.stringify({
+                concept_type: 'actions_events'
+            })
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // Redirect to the standard step3 template to show full results
-                window.location.href = `/scenario_pipeline/case/${currentCaseId}/step3`;
+                // Display results instead of redirecting
+                displayTemporalPassResults(data);
             } else {
-                alert('Error executing temporal pass: ' + data.error);
+                if (resultsArea) {
+                    resultsArea.innerHTML = `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> Error: ${data.error}</div>`;
+                }
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('Network error during temporal pass execution');
+            if (resultsArea) {
+                resultsArea.innerHTML = `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> Network error: ${error.message}</div>`;
+            }
         })
         .finally(() => {
             // Re-enable the button
             temporalBtn.disabled = false;
-            temporalBtn.innerHTML = '<i class="bi bi-clock-history"></i> Full Temporal Dynamics Pass <small class="d-block">Original Implementation: Legacy Actions + Events Extraction</small>';
+            temporalBtn.innerHTML = '<i class="bi bi-clock-history"></i> Extract Actions & Events (Pass 3)';
         });
+    }
+
+    function displayTemporalPassResults(data) {
+        const resultsArea = document.getElementById('temporalPassResults');
+        if (!resultsArea) return;
+
+        // Extract metadata
+        const metadata = data.metadata || {};
+        const conceptCounts = metadata.concept_counts || {};
+        const totalConcepts = conceptCounts.total || (data.concepts ? data.concepts.length : 0);
+
+        let html = `<div class="alert alert-success"><i class="bi bi-check-circle"></i> Temporal dynamics pass completed successfully!
+                    Extracted ${totalConcepts} entities (${conceptCounts.action_classes || 0} action classes,
+                    ${conceptCounts.action_individuals || 0} action individuals,
+                    ${conceptCounts.event_classes || 0} event classes,
+                    ${conceptCounts.event_individuals || 0} event individuals)</div>`;
+
+        // Prompt and Response (dual extractor format)
+        if (data.prompt || data.raw_response) {
+            html += `<div class="card mb-3"><div class="card-header bg-light"><h6 class="mb-0"><i class="bi bi-file-text"></i> Extraction Details</h6></div><div class="card-body">`;
+
+            // Prompt
+            if (data.prompt) {
+                html += `
+                    <div class="mb-3">
+                        <h6 class="text-info"><i class="bi bi-clock-history"></i> Temporal Dynamics Extraction Prompt</h6>
+                        <pre class="bg-light p-3 border rounded" style="max-height: 300px; overflow-y: auto; white-space: pre-wrap;">${escapeHtml(data.prompt)}</pre>
+                    </div>
+                `;
+            }
+
+            // Raw Response
+            if (data.raw_response) {
+                html += `
+                    <div>
+                        <h6 class="text-success"><i class="bi bi-code-square"></i> LLM Response</h6>
+                        <pre class="bg-light p-3 border rounded" style="max-height: 300px; overflow-y: auto; white-space: pre-wrap;">${escapeHtml(data.raw_response)}</pre>
+                    </div>
+                `;
+            }
+
+            html += `</div></div>`;
+        }
+
+        // Display extracted concepts grouped by type
+        if (data.concepts && data.concepts.length > 0) {
+            // Group concepts by type
+            const actionClasses = data.concepts.filter(c => c.type === 'action_class');
+            const actionIndividuals = data.concepts.filter(c => c.type === 'action_individual');
+            const eventClasses = data.concepts.filter(c => c.type === 'event_class');
+            const eventIndividuals = data.concepts.filter(c => c.type === 'event_individual');
+
+            // Action Classes
+            if (actionClasses.length > 0) {
+                html += `
+                    <div class="card mb-3">
+                        <div class="card-header bg-warning bg-opacity-10">
+                            <h6 class="mb-0"><i class="bi bi-sitemap text-warning"></i> Action Classes (${actionClasses.length})</h6>
+                        </div>
+                        <div class="card-body">
+                `;
+                actionClasses.forEach(concept => {
+                    html += `
+                        <div class="concept-item mb-3 p-3 border-start border-warning border-3">
+                            <h6>${escapeHtml(concept.label)}</h6>
+                            <p>${escapeHtml(concept.description)}</p>
+                            <div class="small text-muted">
+                                <div><strong>Category:</strong> ${escapeHtml(concept.category)}</div>
+                                <div><strong>Confidence:</strong> ${(concept.confidence * 100).toFixed(0)}%</div>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div></div>';
+            }
+
+            // Action Individuals
+            if (actionIndividuals.length > 0) {
+                html += `
+                    <div class="card mb-3">
+                        <div class="card-header bg-warning bg-opacity-25">
+                            <h6 class="mb-0"><i class="bi bi-play-circle text-warning"></i> Action Individuals (${actionIndividuals.length})</h6>
+                        </div>
+                        <div class="card-body">
+                `;
+                actionIndividuals.forEach(concept => {
+                    html += `
+                        <div class="concept-item mb-3 p-3 border-start border-warning border-3">
+                            <h6>${escapeHtml(concept.label)}</h6>
+                            <p>${escapeHtml(concept.description)}</p>
+                            <div class="small text-muted">
+                                <div><strong>Class:</strong> ${escapeHtml(concept.category)}</div>
+                                <div><strong>Confidence:</strong> ${(concept.confidence * 100).toFixed(0)}%</div>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div></div>';
+            }
+
+            // Event Classes
+            if (eventClasses.length > 0) {
+                html += `
+                    <div class="card mb-3">
+                        <div class="card-header bg-info bg-opacity-10">
+                            <h6 class="mb-0"><i class="bi bi-sitemap text-info"></i> Event Classes (${eventClasses.length})</h6>
+                        </div>
+                        <div class="card-body">
+                `;
+                eventClasses.forEach(concept => {
+                    html += `
+                        <div class="concept-item mb-3 p-3 border-start border-info border-3">
+                            <h6>${escapeHtml(concept.label)}</h6>
+                            <p>${escapeHtml(concept.description)}</p>
+                            <div class="small text-muted">
+                                <div><strong>Category:</strong> ${escapeHtml(concept.category)}</div>
+                                <div><strong>Confidence:</strong> ${(concept.confidence * 100).toFixed(0)}%</div>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div></div>';
+            }
+
+            // Event Individuals
+            if (eventIndividuals.length > 0) {
+                html += `
+                    <div class="card mb-3">
+                        <div class="card-header bg-info bg-opacity-25">
+                            <h6 class="mb-0"><i class="bi bi-calendar-event text-info"></i> Event Individuals (${eventIndividuals.length})</h6>
+                        </div>
+                        <div class="card-body">
+                `;
+                eventIndividuals.forEach(concept => {
+                    html += `
+                        <div class="concept-item mb-3 p-3 border-start border-info border-3">
+                            <h6>${escapeHtml(concept.label)}</h6>
+                            <p>${escapeHtml(concept.description)}</p>
+                            <div class="small text-muted">
+                                <div><strong>Class:</strong> ${escapeHtml(concept.category)}</div>
+                                <div><strong>Confidence:</strong> ${(concept.confidence * 100).toFixed(0)}%</div>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div></div>';
+            }
+        }
+
+        // Metadata
+        if (data.extraction_metadata) {
+            html += `
+                <div class="card mb-3">
+                    <div class="card-header bg-secondary bg-opacity-10">
+                        <h6 class="mb-0"><i class="bi bi-info-circle"></i> Extraction Metadata</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="small">
+                            ${data.extraction_metadata.extraction_method ? `<div><strong>Method:</strong> ${escapeHtml(data.extraction_metadata.extraction_method)}</div>` : ''}
+                            ${data.extraction_metadata.model_used ? `<div><strong>Model:</strong> ${escapeHtml(data.extraction_metadata.model_used)}</div>` : ''}
+                            ${data.extraction_metadata.timestamp ? `<div><strong>Timestamp:</strong> ${escapeHtml(data.extraction_metadata.timestamp)}</div>` : ''}
+                            ${data.extraction_metadata.provenance_tracked !== undefined ? `<div><strong>Provenance Tracked:</strong> ${data.extraction_metadata.provenance_tracked ? 'Yes' : 'No'}</div>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        resultsArea.innerHTML = html;
+        resultsArea.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
     async function extractIndividualConcept(conceptType) {

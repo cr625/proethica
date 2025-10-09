@@ -555,14 +555,17 @@
 
             {% if not section_data and (not rdf_data or rdf_data.total_rdf_entities == 0) %}
             <!-- No entities found -->
-            <div class="alert alert-info">
-                <h4>No Extracted Entities Found</h4>
-                <p>No entities have been extracted for this case yet. Try:</p>
-                <ul>
-                    <li>Go to <a href="{{ url_for('scenario_pipeline.step3', case_id=case.id) }}">Step 3</a> and extract actions or events individually</li>
-                    <li>Run the complete entity extraction pass</li>
-                    <li>Check the console logs for any extraction errors</li>
-                </ul>
+            <div class="alert alert-warning">
+                <h4><i class="bi bi-info-circle"></i> No Pass 3 Entities Extracted Yet</h4>
+                <p>Actions and Events have not been extracted for this case.</p>
+                <p><strong>To extract Pass 3 entities:</strong></p>
+                <ol>
+                    <li>Go to <a href="{{ url_for('scenario_pipeline.step3', case_id=case.id) }}" class="alert-link"><strong>Step 3: Temporal Dynamics Pass</strong></a></li>
+                    <li>Click the <strong>"Extract Actions & Events (Pass 3)"</strong> button</li>
+                    <li>Wait for the extraction to complete</li>
+                    <li>Return to this review page to see the extracted entities</li>
+                </ol>
+                <p class="mb-0"><small class="text-muted">Note: Pass 3 extracts Actions (volitional professional decisions) and Events (temporal occurrences) from the Facts section.</small></p>
             </div>
             {% else %}
 

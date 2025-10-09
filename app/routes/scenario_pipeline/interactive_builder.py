@@ -345,8 +345,8 @@ def behavioral_pass_execute(case_id):
 @interactive_scenario_bp.route('/case/<int:case_id>/step3/extract', methods=['POST'])
 @auth_required_for_llm
 def step3_extract(case_id):
-    """API endpoint for Step 3 extraction (alias for behavioral_pass_execute)"""
-    from .step3 import behavioral_pass_execute as execute_handler
+    """API endpoint for Step 3 extraction using dual extractor that saves to database"""
+    from .step3 import extract_individual_actions_events as execute_handler
     return execute_handler(case_id)
 
 @interactive_scenario_bp.route('/case/<int:case_id>/step3/extract_individual', methods=['POST'])

@@ -274,11 +274,37 @@ def behavioral_pass_execute(case_id):
                         text=section_text,
                         include_mcp_context=True
                     )
-                    
-                    # For demonstration, create mock action candidates
+
+                    # Capture the actions prompt for display
+                    actions_prompt = actions_result.get('prompt', '') if isinstance(actions_result, dict) else ''
+
+                    # Call LLM with the actions prompt
+                    actions_llm_response = ""
                     action_candidates = []
-                    if isinstance(actions_result, dict) and 'prompt' in actions_result:
-                        # This is the prompt generation result - create mock candidates for testing
+                    if not actions_prompt:
+                        raise Exception("No actions prompt generated")
+                    if not llm_client:
+                        raise Exception("LLM client not available")
+
+                    response = llm_client.messages.create(
+                        model=ModelConfig.get_claude_model("powerful"),
+                        max_tokens=6000,
+                        temperature=0.7,
+                        messages=[{"role": "user", "content": actions_prompt}]
+                    )
+                    actions_llm_response = response.content[0].text if response.content else ""
+                    logger.info(f"Actions LLM response length: {len(actions_llm_response)}")
+
+                    if not actions_llm_response:
+                        raise Exception("Empty response from LLM for actions")
+
+                    # TODO: Parse the LLM response to extract action candidates
+                    # For now, we'll just capture the response for display
+                    # The actual parsing will be implemented separately
+                    action_candidates = []
+
+                    # Placeholder for mock actions (to be removed after implementing parser)
+                    if False:  # Disabled mock data
                         mock_actions = [
                             {
                                 'label': 'Disclose Conflict of Interest',
@@ -356,11 +382,37 @@ def behavioral_pass_execute(case_id):
                         text=section_text,
                         include_mcp_context=True
                     )
-                    
-                    # For demonstration, create mock event candidates
+
+                    # Capture the events prompt for display
+                    events_prompt = events_result.get('prompt', '') if isinstance(events_result, dict) else ''
+
+                    # Call LLM with the events prompt
+                    events_llm_response = ""
                     event_candidates = []
-                    if isinstance(events_result, dict) and 'prompt' in events_result:
-                        # Create mock candidates for testing
+                    if not events_prompt:
+                        raise Exception("No events prompt generated")
+                    if not llm_client:
+                        raise Exception("LLM client not available")
+
+                    response = llm_client.messages.create(
+                        model=ModelConfig.get_claude_model("powerful"),
+                        max_tokens=6000,
+                        temperature=0.7,
+                        messages=[{"role": "user", "content": events_prompt}]
+                    )
+                    events_llm_response = response.content[0].text if response.content else ""
+                    logger.info(f"Events LLM response length: {len(events_llm_response)}")
+
+                    if not events_llm_response:
+                        raise Exception("Empty response from LLM for events")
+
+                    # TODO: Parse the LLM response to extract event candidates
+                    # For now, we'll just capture the response for display
+                    # The actual parsing will be implemented separately
+                    event_candidates = []
+
+                    # Placeholder for mock events (to be removed after implementing parser)
+                    if False:  # Disabled mock data
                         mock_events = [
                             {
                                 'label': 'Safety Incident Discovery',
@@ -500,7 +552,15 @@ def behavioral_pass_execute(case_id):
             'actions': actions,
             'events': events,
             'summary': summary,
-            'extraction_metadata': extraction_metadata
+            'extraction_metadata': extraction_metadata,
+            'prompts': {
+                'actions_prompt': actions_prompt,
+                'events_prompt': events_prompt
+            },
+            'llm_responses': {
+                'actions_response': actions_llm_response,
+                'events_response': events_llm_response
+            }
         })
         
     except Exception as e:
@@ -514,14 +574,14 @@ def behavioral_pass_execute(case_id):
 
 def step3_extract():
     """
-    Direct extraction endpoint for step3 - wrapper for behavioral_pass_execute.
+    Direct extraction endpoint for step3 - uses dual extractor that saves to database.
     This maintains consistency with step2 naming patterns.
     """
     case_id = request.view_args.get('case_id')
     if not case_id:
         return jsonify({'error': 'Case ID required'}), 400
 
-    return behavioral_pass_execute(case_id)
+    return extract_individual_actions_events(case_id)
 
 def extract_individual_actions_events(case_id):
     """

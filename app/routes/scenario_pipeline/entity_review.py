@@ -45,6 +45,32 @@ def update_rdf_entity_selection(case_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@bp.route('/case/<int:case_id>/entities/review/all')
+@auth_optional
+def review_all_case_entities(case_id):
+    """Display summary and links to ALL pass reviews."""
+    try:
+        case_doc = Document.query.get(case_id)
+        if not case_doc:
+            flash(f'Case {case_id} not found', 'error')
+            return redirect(url_for('index.index'))
+
+        # Get entity counts from Step 4 helper
+        from app.routes.scenario_pipeline.step4 import get_entities_summary
+        entities_summary = get_entities_summary(case_id)
+
+        return render_template(
+            'scenarios/entity_review_all.html',
+            case=case_doc,
+            entities_summary=entities_summary
+        )
+
+    except Exception as e:
+        logger.error(f"Error displaying all entity review for case {case_id}: {e}")
+        flash(f'Error loading entity review: {str(e)}', 'error')
+        return redirect(url_for('index.index'))
+
+
 @bp.route('/case/<int:case_id>/entities/review')
 @bp.route('/case/<int:case_id>/entities/review/pass1')  # Explicit Pass 1
 @auth_optional  # Allow viewing without auth
