@@ -10,6 +10,11 @@ import logging
 from .state import TemporalDynamicsState
 from .nodes.stage1_analysis import analyze_sections
 from .nodes.stage2_temporal import extract_temporal_markers
+from .nodes.stage3_actions import extract_actions
+from .nodes.stage4_events import extract_events
+from .nodes.stage5_causal import analyze_causal_relationships
+from .nodes.stage6_sequencing import construct_timeline
+from .nodes.stage7_storage import store_rdf_entities
 
 logger = logging.getLogger(__name__)
 
@@ -18,56 +23,63 @@ def build_temporal_dynamics_graph():
     """
     Build the LangGraph state machine for enhanced temporal dynamics extraction.
 
-    Currently implements:
+    Implements all 7 stages:
     - Stage 1: Combined section analysis
-
-    TODO: Add stages 2-7:
     - Stage 2: Temporal marker extraction
-    - Stage 3: Action extraction
-    - Stage 4: Event extraction
-    - Stage 5: Causal chain analysis
-    - Stage 6: Temporal sequencing
-    - Stage 7: RDF storage
+    - Stage 3: Action extraction (volitional decisions)
+    - Stage 4: Event extraction (occurrences)
+    - Stage 5: Causal chain analysis (NESS test, responsibility)
+    - Stage 6: Temporal sequencing (timeline construction)
+    - Stage 7: RDF storage (separate actions/events)
 
     Returns:
         CompiledGraph ready for execution with streaming
     """
-    logger.info("Building temporal dynamics LangGraph")
+    logger.info("Building temporal dynamics LangGraph with all 7 stages")
 
     # Create StateGraph with our state type
     builder = StateGraph(TemporalDynamicsState)
 
     # === ADD NODES ===
+    # NOTE: Node names must not conflict with state field names
+    # State has: unified_narrative, temporal_markers, actions, events, causal_chains, timeline
+    # So we use different node names: analyze_*, extract_*, construct_*, store_*
+
     logger.info("Adding Stage 1: Section Analysis")
-    builder.add_node("section_analysis", analyze_sections)
+    builder.add_node("analyze_sections_node", analyze_sections)
 
     logger.info("Adding Stage 2: Temporal Markers")
-    builder.add_node("temporal_markers", extract_temporal_markers)
+    builder.add_node("extract_temporal_node", extract_temporal_markers)
 
-    # TODO: Add more stages as they're implemented
-    # builder.add_node("action_extraction", extract_actions)
-    # builder.add_node("event_extraction", extract_events)
-    # builder.add_node("causal_analysis", analyze_causal_chains)
-    # builder.add_node("temporal_sequencing", build_timeline)
-    # builder.add_node("rdf_storage", store_rdf_entities)
+    logger.info("Adding Stage 3: Action Extraction")
+    builder.add_node("extract_actions_node", extract_actions)
 
-    # === DEFINE EDGES ===
-    builder.add_edge(START, "section_analysis")
-    builder.add_edge("section_analysis", "temporal_markers")
-    builder.add_edge("temporal_markers", END)
+    logger.info("Adding Stage 4: Event Extraction")
+    builder.add_node("extract_events_node", extract_events)
 
-    # TODO: Add remaining pipeline edges
-    # builder.add_edge("temporal_markers", "action_extraction")
-    # builder.add_edge("action_extraction", "event_extraction")
-    # builder.add_edge("event_extraction", "causal_analysis")
-    # builder.add_edge("causal_analysis", "temporal_sequencing")
-    # builder.add_edge("temporal_sequencing", "rdf_storage")
-    # builder.add_edge("rdf_storage", END)
+    logger.info("Adding Stage 5: Causal Analysis")
+    builder.add_node("analyze_causal_node", analyze_causal_relationships)
+
+    logger.info("Adding Stage 6: Temporal Sequencing")
+    builder.add_node("construct_timeline_node", construct_timeline)
+
+    logger.info("Adding Stage 7: RDF Storage")
+    builder.add_node("store_rdf_node", store_rdf_entities)
+
+    # === DEFINE EDGES (Linear pipeline flow) ===
+    builder.add_edge(START, "analyze_sections_node")
+    builder.add_edge("analyze_sections_node", "extract_temporal_node")
+    builder.add_edge("extract_temporal_node", "extract_actions_node")
+    builder.add_edge("extract_actions_node", "extract_events_node")
+    builder.add_edge("extract_events_node", "analyze_causal_node")
+    builder.add_edge("analyze_causal_node", "construct_timeline_node")
+    builder.add_edge("construct_timeline_node", "store_rdf_node")
+    builder.add_edge("store_rdf_node", END)
 
     # Compile the graph
     graph = builder.compile()
 
     logger.info("Temporal dynamics LangGraph compiled successfully")
-    logger.info("Current stages: 2 (Section Analysis, Temporal Markers)")
+    logger.info("All 7 stages wired and ready for execution")
 
     return graph
