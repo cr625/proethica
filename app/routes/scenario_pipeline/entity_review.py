@@ -1186,3 +1186,43 @@ def refresh_committed_from_ontserve(case_id):
             'success': False,
             'error': str(e)
         })
+
+
+@bp.route('/case/<int:case_id>/enhanced_temporal/review')
+@auth_optional
+def review_enhanced_temporal(case_id):
+    """
+    Review page for Enhanced Temporal Dynamics extraction results.
+
+    Displays:
+    - Extracted actions and events
+    - Temporal markers and Allen relations
+    - Complete LLM prompt/response trace for all stages
+    - Timeline visualization
+    """
+    try:
+        # Get the case
+        case = Document.query.get_or_404(case_id)
+
+        # TODO: Retrieve llm_trace from database once we implement storage
+        # For now, show placeholder message
+
+        context = {
+            'case': case,
+            'current_step': 3,
+            'step_title': 'Enhanced Temporal Dynamics - Review',
+            'extraction_complete': False,  # Will be True once we store results
+            'stages': [],  # Will contain stage results
+            'llm_trace': [],  # Will contain full prompt/response trace
+            'actions': [],
+            'events': [],
+            'temporal_markers': {},
+            'timeline': {}
+        }
+
+        return render_template('entity_review/enhanced_temporal_review.html', **context)
+
+    except Exception as e:
+        logger.error(f"Error loading enhanced temporal review for case {case_id}: {e}")
+        flash(f"Error loading review page: {str(e)}", 'danger')
+        return redirect(url_for('scenario_pipeline.step3', case_id=case_id))

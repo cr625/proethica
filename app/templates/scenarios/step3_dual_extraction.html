@@ -24,28 +24,59 @@
 <div class="step-card">
     <div class="step-header">
         <h4 class="mb-0">
-            <i class="bi bi-file-text"></i> Facts Section
+            <i class="bi bi-file-text"></i> Case Sections
         </h4>
     </div>
     <div class="step-content">
-        {% if discussion_section %}
-        <div class="alert alert-info mb-3">
-            <h6 class="mb-2"><i class="bi bi-info-circle"></i> Section Content:</h6>
-            <pre class="discussion-text">{{ discussion_section.llm_text }}</pre>
+        <!-- Section Tabs -->
+        <ul class="nav nav-tabs mb-3" id="sectionTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="facts-tab" data-bs-toggle="tab" data-bs-target="#facts-content"
+                        type="button" role="tab" aria-controls="facts-content" aria-selected="true">
+                    <i class="bi bi-file-earmark-text"></i> Facts Section
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="discussion-tab" data-bs-toggle="tab" data-bs-target="#discussion-content"
+                        type="button" role="tab" aria-controls="discussion-content" aria-selected="false">
+                    <i class="bi bi-chat-left-text"></i> Discussion Section
+                </button>
+            </li>
+        </ul>
+
+        <!-- Tab Content -->
+        <div class="tab-content" id="sectionTabsContent">
+            <!-- Facts Tab -->
+            <div class="tab-pane fade show active" id="facts-content" role="tabpanel" aria-labelledby="facts-tab">
+                {% if discussion_section %}
+                <div class="alert alert-info mb-3">
+                    <h6 class="mb-2"><i class="bi bi-info-circle"></i> Facts Section Content:</h6>
+                    <pre class="discussion-text">{{ discussion_section.llm_text }}</pre>
+                </div>
+                {% else %}
+                <div class="alert alert-warning">No facts section found.</div>
+                {% endif %}
+            </div>
+
+            <!-- Discussion Tab -->
+            <div class="tab-pane fade" id="discussion-content" role="tabpanel" aria-labelledby="discussion-tab">
+                {% if case.doc_metadata and case.doc_metadata.sections and case.doc_metadata.sections.discussion %}
+                <div class="alert alert-info mb-3">
+                    <h6 class="mb-2"><i class="bi bi-info-circle"></i> Discussion Section Content:</h6>
+                    <pre class="discussion-text">{{ case.doc_metadata.sections.discussion }}</pre>
+                </div>
+                {% else %}
+                <div class="alert alert-warning">No discussion section found.</div>
+                {% endif %}
+            </div>
         </div>
 
-        <!-- Full Temporal Dynamics Pass Button -->
+        <!-- Enhanced Temporal Dynamics Pass Button -->
         <div class="d-grid gap-2 d-md-flex justify-content-md-center mb-4">
-            <button id="temporalPassBtn" class="btn btn-warning btn-lg" onclick="executeFullTemporalPass()">
-                <i class="bi bi-clock-history"></i> Extract Actions & Events (Pass 3)
-            </button>
-            <button id="enhancedTemporalBtn" class="btn btn-success btn-lg" onclick="executeEnhancedTemporalPass()">
-                <i class="bi bi-stars"></i> Enhanced Temporal (Beta)
+            <button id="enhancedTemporalBtn" class="btn btn-primary btn-lg" onclick="executeEnhancedTemporalPass()">
+                <i class="bi bi-stars"></i> Extract Temporal Dynamics (Pass 3)
             </button>
         </div>
-
-        <!-- Temporal Pass Results Container -->
-        <div id="temporalPassResults" style="display: none;" class="mb-4"></div>
 
         <!-- Enhanced Temporal Progress Container -->
         <div id="enhancedTemporalProgress" class="card mb-4" style="display: none;">
@@ -87,31 +118,11 @@
                     </div>
                 </div>
 
-                <button id="enhanced-refresh-btn" class="btn btn-success mt-3" style="display: none;" onclick="location.reload()">
-                    <i class="bi bi-arrow-clockwise"></i> Refresh to See Results
-                </button>
+                <a id="enhanced-review-btn" class="btn btn-success mt-3" style="display: none;" href="{{ url_for('entity_review.review_enhanced_temporal', case_id=case.id) }}">
+                    <i class="bi bi-eye"></i> View Extracted Entities & Trace
+                </a>
             </div>
         </div>
-
-        <!-- Saved Extraction Display (shows on page reload if extraction exists) -->
-        <div id="actionsEventsRawResponse" class="step-card" style="display: none;">
-            <div class="step-header bg-success bg-opacity-10">
-                <h5 class="mb-0">
-                    <i class="bi bi-check-circle text-success"></i> Previous Extraction Results
-                </h5>
-            </div>
-            <div class="step-content">
-                <div class="alert alert-info mb-3">
-                    <i class="bi bi-info-circle"></i>
-                    This extraction has already been performed. Results are saved and available in the entity review page.
-                </div>
-                <div id="actionsEventsRawResponseContent"></div>
-            </div>
-        </div>
-
-        {% else %}
-        <div class="alert alert-warning">No facts section found.</div>
-        {% endif %}
 
         <!-- Allen's Interval Algebra Reference -->
         <div class="step-card border-info mb-4">
@@ -152,8 +163,8 @@
 
 <!-- Navigation to entity review -->
 <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4">
-    <a href="{{ url_for('entity_review.review_case_entities_pass3', case_id=case.id) }}" class="btn btn-outline-primary">
-        <i class="bi bi-eye"></i> Review Pass 3 Entities
+    <a href="{{ url_for('entity_review.review_enhanced_temporal', case_id=case.id) }}" class="btn btn-outline-primary">
+        <i class="bi bi-eye"></i> Review Temporal Dynamics Extraction
     </a>
 </div>
 
@@ -901,7 +912,7 @@
         const progressIcon = document.getElementById("enhanced-progress-icon");
         const progressHeader = document.getElementById("enhanced-progress-header");
         const messagesDiv = document.getElementById("enhanced-messages");
-        const refreshBtn = document.getElementById("enhanced-refresh-btn");
+        const reviewBtn = document.getElementById("enhanced-review-btn");
         const stageInfo = document.getElementById("enhanced-stage-info");
         const currentStage = document.getElementById("enhanced-current-stage");
         const summaryCard = document.getElementById("enhanced-summary");
@@ -921,7 +932,7 @@
         progressBar.style.width = "0%";
         progressBar.textContent = "0%";
         messagesDiv.innerHTML = "";
-        refreshBtn.style.display = "none";
+        reviewBtn.style.display = "none";
         summaryCard.style.display = "none";
         stageInfo.style.display = "block";
         progressIcon.className = "bi bi-hourglass-split";
@@ -977,7 +988,7 @@
                 `;
 
                 addEnhancedMessage("success", `✓ Extraction completed in ${duration} seconds`);
-                refreshBtn.style.display = "block";
+                reviewBtn.style.display = "block";
                 return;
             }
 

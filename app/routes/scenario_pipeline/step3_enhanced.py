@@ -67,7 +67,8 @@ def extract_enhanced_temporal_dynamics(case_id):
             'stage_messages': [],
             'errors': [],
             'start_time': datetime.utcnow().isoformat(),
-            'end_time': ''
+            'end_time': '',
+            'llm_trace': []
         }
 
         # Build graph

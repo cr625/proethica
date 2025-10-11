@@ -100,3 +100,16 @@ class TemporalDynamicsState(TypedDict):
     # === METADATA ===
     start_time: str  # ISO timestamp when extraction started
     end_time: str  # ISO timestamp when extraction completed
+
+    # === PROMPT/RESPONSE TRACE ===
+    # Track all LLM interactions for complete traceability
+    llm_trace: List[Dict]
+    # [{
+    #   'stage': str,  # Which stage this prompt belongs to
+    #   'timestamp': str,  # ISO timestamp
+    #   'prompt': str,  # Full prompt sent to LLM
+    #   'response': str,  # Raw response from LLM
+    #   'model': str,  # Model used (e.g., 'claude-sonnet-4-20250514')
+    #   'parsed_output': Dict,  # Parsed JSON/structured output
+    #   'tokens': Dict  # Token usage if available
+    # }]
