@@ -37,9 +37,10 @@ def analyze_causal_relationships(state: TemporalDynamicsState) -> Dict:
 
         logger.info(f"[Stage 5] Identified {len(causal_chains)} causal chains")
 
-        # Return state updates
+        # Return state updates (including accumulated llm_trace)
         return {
             'causal_chains': causal_chains,
+            'llm_trace': state.get('llm_trace', []),  # Return accumulated trace
             'current_stage': 'causal_analysis',
             'progress_percentage': 80,
             'stage_messages': [f'✓ Identified {len(causal_chains)} causal chains with responsibility attribution']

@@ -13,7 +13,7 @@ import os
 logger = logging.getLogger(__name__)
 
 
-def extract_temporal_markers_llm(facts: str, discussion: str, timeline_summary: str) -> Dict:
+def extract_temporal_markers_llm(facts: str, discussion: str, timeline_summary: str, llm_trace: List[Dict]) -> Dict:
     """
     Use LLM to extract temporal markers from case text
 
@@ -21,6 +21,7 @@ def extract_temporal_markers_llm(facts: str, discussion: str, timeline_summary: 
         facts: Facts section text
         discussion: Discussion section text
         timeline_summary: Timeline summary from Stage 1
+        llm_trace: List to append LLM trace to
 
     Returns:
         {
@@ -31,6 +32,8 @@ def extract_temporal_markers_llm(facts: str, discussion: str, timeline_summary: 
         }
     """
     logger.info("[Temporal Extractor] Extracting temporal markers with LLM")
+
+    from datetime import datetime
 
     # Initialize Anthropic client directly
     try:
@@ -96,14 +99,34 @@ Focus on precision. If unsure about a temporal marker, note it as "approximate" 
 
 JSON Response:"""
 
+    # Record prompt in trace
+    model_name = "claude-sonnet-4-20250514"
+    trace_entry = {
+        'stage': 'temporal_markers',
+        'timestamp': datetime.utcnow().isoformat(),
+        'prompt': prompt,
+        'model': model_name,
+    }
+
     try:
         # Call LLM
         response = llm_client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model=model_name,
             max_tokens=4000,
             messages=[{"role": "user", "content": prompt}]
         )
         response_text = response.content[0].text
+
+        # Record response in trace
+        trace_entry['response'] = response_text
+
+        # Add token usage if available
+        if hasattr(response, 'usage'):
+            trace_entry['tokens'] = {
+                'input_tokens': response.usage.input_tokens,
+                'output_tokens': response.usage.output_tokens,
+                'total_tokens': response.usage.input_tokens + response.usage.output_tokens
+            }
 
         logger.info(f"[Temporal Extractor] LLM response length: {len(response_text)} chars")
 
@@ -111,6 +134,13 @@ JSON Response:"""
         try:
             markers = json.loads(response_text)
             logger.info("[Temporal Extractor] Successfully parsed JSON directly")
+            trace_entry['parsed_output'] = {
+                'explicit_dates': len(markers.get('explicit_dates', [])),
+                'temporal_phrases': len(markers.get('temporal_phrases', [])),
+                'durations': len(markers.get('durations', [])),
+                'allen_relations': len(markers.get('allen_relations', []))
+            }
+            llm_trace.append(trace_entry)
             return markers
         except json.JSONDecodeError:
             # Try to extract JSON from markdown code block
@@ -119,6 +149,13 @@ JSON Response:"""
             if json_match:
                 markers = json.loads(json_match.group(1))
                 logger.info("[Temporal Extractor] Successfully parsed JSON from code block")
+                trace_entry['parsed_output'] = {
+                    'explicit_dates': len(markers.get('explicit_dates', [])),
+                    'temporal_phrases': len(markers.get('temporal_phrases', [])),
+                    'durations': len(markers.get('durations', [])),
+                    'allen_relations': len(markers.get('allen_relations', []))
+                }
+                llm_trace.append(trace_entry)
                 return markers
             else:
                 # Try to find JSON object anywhere in response
@@ -126,13 +163,24 @@ JSON Response:"""
                 if json_match:
                     markers = json.loads(json_match.group(0))
                     logger.info("[Temporal Extractor] Successfully parsed JSON from response body")
+                    trace_entry['parsed_output'] = {
+                        'explicit_dates': len(markers.get('explicit_dates', [])),
+                        'temporal_phrases': len(markers.get('temporal_phrases', [])),
+                        'durations': len(markers.get('durations', [])),
+                        'allen_relations': len(markers.get('allen_relations', []))
+                    }
+                    llm_trace.append(trace_entry)
                     return markers
                 else:
                     logger.error("[Temporal Extractor] No valid JSON found in response")
+                    trace_entry['error'] = "No valid JSON found in response"
+                    llm_trace.append(trace_entry)
                     raise ValueError("LLM did not return valid JSON")
 
     except Exception as e:
         logger.error(f"[Temporal Extractor] Error: {e}", exc_info=True)
+        trace_entry['error'] = str(e)
+        llm_trace.append(trace_entry)
         # Return empty structure
         return {
             'explicit_dates': [],

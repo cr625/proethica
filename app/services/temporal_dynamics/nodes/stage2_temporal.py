@@ -46,7 +46,8 @@ def extract_temporal_markers(state: TemporalDynamicsState) -> Dict:
         temporal_markers = extract_temporal_markers_llm(
             facts=facts_text,
             discussion=discussion_text,
-            timeline_summary=timeline_summary
+            timeline_summary=timeline_summary,
+            llm_trace=state.get('llm_trace', [])
         )
 
         logger.info(f"[Stage 2] Extracted {len(temporal_markers.get('explicit_dates', []))} explicit dates")
@@ -70,9 +71,10 @@ def extract_temporal_markers(state: TemporalDynamicsState) -> Dict:
         if validation_warnings:
             messages.append(f'  ⚠ NLTK validation warnings: {len(validation_warnings)}')
 
-        # Return state updates
+        # Return state updates (including accumulated llm_trace)
         return {
             'temporal_markers': temporal_markers,
+            'llm_trace': state.get('llm_trace', []),  # Return accumulated trace
             'current_stage': 'temporal_markers',
             'progress_percentage': 30,
             'stage_messages': messages,

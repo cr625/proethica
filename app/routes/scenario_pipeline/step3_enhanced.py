@@ -99,10 +99,11 @@ def extract_enhanced_temporal_dynamics(case_id):
                             'stage': updates.get('current_stage', ''),
                             'progress': updates.get('progress_percentage', 0),
                             'messages': updates.get('stage_messages', []),
-                            'errors': updates.get('errors', [])
+                            'errors': updates.get('errors', []),
+                            'llm_trace': updates.get('llm_trace', [])  # Include LLM trace data
                         }
 
-                        logger.info(f"[Enhanced TD] Streaming: {node_name} - {progress_data['progress']}%")
+                        logger.info(f"[Enhanced TD] Streaming: {node_name} - {progress_data['progress']}% - Trace entries: {len(progress_data['llm_trace'])}")
 
                         # Send as SSE
                         yield f"data: {json.dumps(progress_data)}\n\n"

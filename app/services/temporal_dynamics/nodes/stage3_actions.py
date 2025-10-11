@@ -37,9 +37,10 @@ def extract_actions(state: TemporalDynamicsState) -> Dict:
 
         logger.info(f"[Stage 3] Extracted {len(actions)} actions")
 
-        # Return state updates
+        # Return state updates (including accumulated llm_trace)
         return {
             'actions': actions,
+            'llm_trace': state.get('llm_trace', []),  # Return accumulated trace
             'current_stage': 'action_extraction',
             'progress_percentage': 45,
             'stage_messages': [f'✓ Extracted {len(actions)} volitional actions with intentions']

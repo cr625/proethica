@@ -49,9 +49,10 @@ def extract_events(state: TemporalDynamicsState) -> Dict:
         if emergency_count > 0:
             message += f' ({emergency_count} emergency)'
 
-        # Return state updates
+        # Return state updates (including accumulated llm_trace)
         return {
             'events': events,
+            'llm_trace': state.get('llm_trace', []),  # Return accumulated trace
             'current_stage': 'event_extraction',
             'progress_percentage': 65,
             'stage_messages': [message]
