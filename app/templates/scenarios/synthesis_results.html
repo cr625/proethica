@@ -1,0 +1,442 @@
+{% extends "scenarios/base_step.html" %}
+
+{% block step_title %}Synthesis Results - Case {{ case.id }}{% endblock %}
+{% block step_header %}Whole-Case Synthesis Results{% endblock %}
+{% block step_subtitle %}Entity Graph, Causal-Normative Links, Question Emergence, Resolution Patterns{% endblock %}
+
+{% block step_content %}
+
+{% if not synthesis_data %}
+    <!-- No synthesis results -->
+    <div class="alert alert-warning">
+        <i class="bi bi-exclamation-triangle"></i> {{ error_message }}
+    </div>
+    <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}" class="btn btn-primary">
+        <i class="bi bi-arrow-left"></i> Back to Step 4
+    </a>
+{% else %}
+    <!-- Navigation -->
+    <div class="mb-3">
+        <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i> Back to Step 4
+        </a>
+        <span class="text-muted ms-2">
+            Synthesis performed: {{ synthesis_timestamp.strftime('%Y-%m-%d %H:%M:%S') }}
+        </span>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="text-primary">{{ synthesis_data.entity_graph.total_nodes }}</h3>
+                    <p class="text-muted mb-0">Total Entities</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="text-info">{{ synthesis_data.causal_normative_links|length }}</h3>
+                    <p class="text-muted mb-0">Causal-Normative Links</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="text-warning">{{ synthesis_data.question_emergence|length }}</h3>
+                    <p class="text-muted mb-0">Questions Analyzed</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="text-success">{{ synthesis_data.resolution_patterns|length }}</h3>
+                    <p class="text-muted mb-0">Resolution Patterns</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs for different views -->
+    <ul class="nav nav-tabs mb-3" id="synthesisTab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="graph-tab" data-bs-toggle="tab" data-bs-target="#graph" type="button" role="tab">
+                <i class="bi bi-diagram-3"></i> Entity Graph
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="causal-tab" data-bs-toggle="tab" data-bs-target="#causal" type="button" role="tab">
+                <i class="bi bi-arrow-left-right"></i> Causal-Normative Links
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="questions-tab" data-bs-toggle="tab" data-bs-target="#questions" type="button" role="tab">
+                <i class="bi bi-question-circle"></i> Question Emergence
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="patterns-tab" data-bs-toggle="tab" data-bs-target="#patterns" type="button" role="tab">
+                <i class="bi bi-lightbulb"></i> Resolution Patterns
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="synthesisTabContent">
+        <!-- Entity Graph Tab -->
+        <div class="tab-pane fade show active" id="graph" role="tabpanel">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Entity Graph Structure</h5>
+                </div>
+                <div class="card-body">
+                    <h6>Entities by Type</h6>
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Entity Type</th>
+                                <th>Count</th>
+                                <th>Percentage</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for entity_type, count in synthesis_data.entity_graph.by_type.items() %}
+                            <tr>
+                                <td><span class="badge bg-secondary">{{ entity_type }}</span></td>
+                                <td>{{ count }}</td>
+                                <td>
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar" role="progressbar"
+                                             style="width: {{ (count / synthesis_data.entity_graph.total_nodes * 100)|round(1) }}%">
+                                            {{ (count / synthesis_data.entity_graph.total_nodes * 100)|round(1) }}%
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+
+                    <hr>
+
+                    <h6>Entities by Section</h6>
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Section</th>
+                                <th>Count</th>
+                                <th>Percentage</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for section, count in synthesis_data.entity_graph.by_section.items() %}
+                            <tr>
+                                <td><span class="badge bg-info">{{ section }}</span></td>
+                                <td>{{ count }}</td>
+                                <td>
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar bg-info" role="progressbar"
+                                             style="width: {{ (count / synthesis_data.entity_graph.total_nodes * 100)|round(1) }}%">
+                                            {{ (count / synthesis_data.entity_graph.total_nodes * 100)|round(1) }}%
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Causal-Normative Links Tab -->
+        <div class="tab-pane fade" id="causal" role="tabpanel">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Causal-Normative Integration</h5>
+                </div>
+                <div class="card-body">
+                    {% if synthesis_data.causal_normative_links %}
+                        {% for link in synthesis_data.causal_normative_links %}
+                        <div class="card mb-3">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0">
+                                    <i class="bi bi-arrow-right-circle"></i> {{ link.action_label }}
+                                </h6>
+                                <small class="text-muted">{{ link.action_id }}</small>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    {% if link.fulfills_obligations %}
+                                    <div class="col-md-6">
+                                        <strong class="text-success">Fulfills Obligations:</strong>
+                                        <ul class="mb-2">
+                                            {% for obl in link.fulfills_obligations %}
+                                            <li><code>{{ obl }}</code></li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
+                                    {% endif %}
+
+                                    {% if link.violates_obligations %}
+                                    <div class="col-md-6">
+                                        <strong class="text-danger">Violates Obligations:</strong>
+                                        <ul class="mb-2">
+                                            {% for obl in link.violates_obligations %}
+                                            <li><code>{{ obl }}</code></li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
+                                    {% endif %}
+
+                                    {% if link.guided_by_principles %}
+                                    <div class="col-md-6">
+                                        <strong class="text-primary">Guided by Principles:</strong>
+                                        <ul class="mb-2">
+                                            {% for prin in link.guided_by_principles %}
+                                            <li><code>{{ prin }}</code></li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
+                                    {% endif %}
+
+                                    {% if link.constrained_by %}
+                                    <div class="col-md-6">
+                                        <strong class="text-warning">Constrained By:</strong>
+                                        <ul class="mb-2">
+                                            {% for const in link.constrained_by %}
+                                            <li><code>{{ const }}</code></li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
+                                    {% endif %}
+                                </div>
+
+                                {% if link.reasoning %}
+                                <div class="mt-2">
+                                    <strong>Analysis:</strong>
+                                    <p class="text-muted mb-0">{{ link.reasoning }}</p>
+                                    <small class="text-muted">Confidence: {{ (link.confidence * 100)|round(1) }}%</small>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted">No causal-normative links found.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Question Emergence Tab -->
+        <div class="tab-pane fade" id="questions" role="tabpanel">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Question Emergence Analysis</h5>
+                </div>
+                <div class="card-body">
+                    {% if synthesis_data.question_emergence %}
+                        {% for qe in synthesis_data.question_emergence %}
+                        <div class="card mb-3 border-warning">
+                            <div class="card-header bg-warning bg-opacity-10">
+                                <h6 class="mb-0">
+                                    <i class="bi bi-question-circle"></i> Question {{ qe.question_number }}
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <p class="mb-3"><strong>{{ qe.question_text }}</strong></p>
+
+                                <h6 class="text-muted">Why This Question Emerged:</h6>
+
+                                {% if qe.triggered_by_events %}
+                                <div class="mb-2">
+                                    <strong>Triggered by Events:</strong>
+                                    <ul>
+                                        {% for event in qe.triggered_by_events %}
+                                        <li><code>{{ event }}</code></li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                                {% endif %}
+
+                                {% if qe.triggered_by_actions %}
+                                <div class="mb-2">
+                                    <strong>Following Actions:</strong>
+                                    <ul>
+                                        {% for action in qe.triggered_by_actions %}
+                                        <li><code>{{ action }}</code></li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                                {% endif %}
+
+                                {% if qe.involves_roles %}
+                                <div class="mb-2">
+                                    <strong>Involves Roles:</strong>
+                                    <ul>
+                                        {% for role in qe.involves_roles %}
+                                        <li><code>{{ role }}</code></li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                                {% endif %}
+
+                                {% if qe.involves_states %}
+                                <div class="mb-2">
+                                    <strong>Involves States:</strong>
+                                    <ul>
+                                        {% for state in qe.involves_states %}
+                                        <li><code>{{ state }}</code></li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                                {% endif %}
+
+                                {% if qe.competing_obligations %}
+                                <div class="mb-2">
+                                    <strong class="text-danger">Competing Obligations:</strong>
+                                    <ul>
+                                        {% for obl in qe.competing_obligations %}
+                                        <li><code>{{ obl }}</code></li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                                {% endif %}
+
+                                {% if qe.emergence_narrative %}
+                                <div class="alert alert-info mt-3 mb-0">
+                                    <strong>Emergence Narrative:</strong><br>
+                                    {{ qe.emergence_narrative }}
+                                    <br><small class="text-muted">Confidence: {{ (qe.confidence * 100)|round(1) }}%</small>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted">No question emergence analysis found.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Resolution Patterns Tab -->
+        <div class="tab-pane fade" id="patterns" role="tabpanel">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Resolution Pattern Extraction</h5>
+                </div>
+                <div class="card-body">
+                    {% if synthesis_data.resolution_patterns %}
+                        {% for rp in synthesis_data.resolution_patterns %}
+                        <div class="card mb-3 border-success">
+                            <div class="card-header bg-success bg-opacity-10">
+                                <h6 class="mb-0">
+                                    <i class="bi bi-check-circle"></i> Conclusion {{ rp.conclusion_number }}
+                                </h6>
+                                <span class="badge bg-secondary">{{ rp.pattern_type }}</span>
+                            </div>
+                            <div class="card-body">
+                                <p class="mb-3"><strong>{{ rp.conclusion_text }}</strong></p>
+
+                                {% if rp.answers_questions %}
+                                <div class="mb-2">
+                                    <strong>Answers Questions:</strong>
+                                    <span class="badge bg-warning text-dark ms-2">
+                                        {% for q in rp.answers_questions %}Q{{ q }}{% if not loop.last %}, {% endif %}{% endfor %}
+                                    </span>
+                                </div>
+                                {% endif %}
+
+                                <h6 class="text-muted mt-3">How This Was Resolved:</h6>
+
+                                {% if rp.determinative_principles %}
+                                <div class="mb-2">
+                                    <strong class="text-primary">Determinative Principles:</strong>
+                                    <ul>
+                                        {% for prin in rp.determinative_principles %}
+                                        <li><code>{{ prin }}</code></li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                                {% endif %}
+
+                                {% if rp.cited_provisions %}
+                                <div class="mb-2">
+                                    <strong>Cited NSPE Provisions:</strong>
+                                    <ul>
+                                        {% for prov in rp.cited_provisions %}
+                                        <li><span class="badge bg-info">{{ prov }}</span></li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                                {% endif %}
+
+                                {% if rp.determinative_facts %}
+                                <div class="mb-2">
+                                    <strong>Determinative Facts:</strong>
+                                    <ul>
+                                        {% for fact in rp.determinative_facts %}
+                                        <li><code>{{ fact }}</code></li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                                {% endif %}
+
+                                {% if rp.resolution_narrative %}
+                                <div class="alert alert-success mt-3 mb-0">
+                                    <strong>Resolution Narrative:</strong><br>
+                                    {{ rp.resolution_narrative }}
+                                    <br><small class="text-muted">Confidence: {{ (rp.confidence * 100)|round(1) }}%</small>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted">No resolution patterns found.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+{% endif %}
+
+{% endblock %}
+
+{% block step_scripts %}
+<script>
+// Bootstrap tabs initialization is automatic in Bootstrap 5
+</script>
+{% endblock %}
+
+{% block step_styles %}
+<style>
+    .card {
+        box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
+    }
+
+    .progress {
+        background-color: #f8f9fa;
+    }
+
+    code {
+        font-size: 0.9em;
+        background-color: #f8f9fa;
+        padding: 2px 6px;
+        border-radius: 3px;
+    }
+
+    .nav-tabs .nav-link {
+        color: #495057;
+    }
+
+    .nav-tabs .nav-link.active {
+        font-weight: 600;
+    }
+</style>
+{% endblock %}

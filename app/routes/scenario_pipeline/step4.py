@@ -28,6 +28,10 @@ from app.services.code_provision_linker import CodeProvisionLinker
 from app.services.question_analyzer import QuestionAnalyzer
 from app.services.conclusion_analyzer import ConclusionAnalyzer
 from app.services.question_conclusion_linker import QuestionConclusionLinker
+from app.services.case_synthesis_service import CaseSynthesisService
+
+# Import streaming synthesis
+from app.routes.scenario_pipeline.step4_streaming import synthesize_case_streaming
 
 logger = logging.getLogger(__name__)
 
@@ -72,10 +76,109 @@ def step4_synthesis(case_id):
         return str(e), 500
 
 
+@bp.route('/case/<int:case_id>/synthesis_results')
+def view_synthesis_results(case_id):
+    """
+    Display detailed synthesis results visualization.
+
+    Shows:
+    - Entity graph structure
+    - Causal-normative links
+    - Question emergence analysis
+    - Resolution patterns
+    """
+    try:
+        case = Document.query.get_or_404(case_id)
+
+        # Load synthesis results from database
+        synthesis_prompt = ExtractionPrompt.query.filter_by(
+            case_id=case_id,
+            concept_type='whole_case_synthesis'
+        ).order_by(ExtractionPrompt.created_at.desc()).first()
+
+        if not synthesis_prompt:
+            return render_template(
+                'scenarios/synthesis_results.html',
+                case=case,
+                synthesis_data=None,
+                error_message="No synthesis results found. Please run synthesis first.",
+                current_step=4,
+                prev_step_url=f"/scenario_pipeline/case/{case_id}/step4",
+                next_step_url="#"
+            )
+
+        # Parse synthesis data
+        import json
+        synthesis_data = json.loads(synthesis_prompt.raw_response)
+
+        # Load entity graph for displaying node details
+        entity_graph_data = _load_entity_graph_details(case_id, synthesis_data)
+
+        return render_template(
+            'scenarios/synthesis_results.html',
+            case=case,
+            synthesis_data=synthesis_data,
+            entity_graph_data=entity_graph_data,
+            synthesis_timestamp=synthesis_prompt.created_at,
+            results_summary=synthesis_prompt.results_summary,
+            current_step=4,
+            prev_step_url=f"/scenario_pipeline/case/{case_id}/step4",
+            next_step_url="#"
+        )
+
+    except Exception as e:
+        logger.error(f"Error viewing synthesis results for case {case_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return str(e), 500
+
+
+def _load_entity_graph_details(case_id: int, synthesis_data: Dict) -> Dict:
+    """
+    Load detailed entity information for graph visualization
+
+    Returns:
+        Dict with entity details indexed by entity_id
+    """
+    entity_details = {}
+
+    # Load all entities from database
+    entities = TemporaryRDFStorage.query.filter_by(
+        case_id=case_id,
+        storage_type='individual'
+    ).all()
+
+    for entity in entities:
+        entity_id = f"{entity.entity_type}_{entity.id}"
+        entity_details[entity_id] = {
+            'id': entity_id,
+            'type': entity.entity_type,
+            'label': entity.entity_label,
+            'definition': entity.entity_definition,
+            'rdf_json_ld': entity.rdf_json_ld
+        }
+
+    return entity_details
+
+
+@bp.route('/case/<int:case_id>/synthesize_streaming')
+def synthesize_streaming(case_id):
+    """
+    Execute whole-case synthesis with Server-Sent Events streaming.
+
+    Real-time progress updates showing:
+    - Part A: Code Provisions extraction
+    - Part B: Questions & Conclusions extraction
+    - Part C: Cross-section synthesis
+    - LLM prompts and responses for each stage
+    """
+    return synthesize_case_streaming(case_id)
+
+
 @bp.route('/case/<int:case_id>/synthesize', methods=['POST'])
 def synthesize_case(case_id):
     """
-    Execute whole-case synthesis.
+    Execute whole-case synthesis (legacy endpoint).
 
     Three-part process:
     1. Extract and link code provisions
@@ -636,36 +739,179 @@ def perform_cross_section_synthesis(
     """
     Part C: Cross-section synthesis operations.
 
+    Uses CaseSynthesisService to:
+    - Build entity knowledge graph
+    - Link causal chains to normative requirements
+    - Analyze question emergence
+    - Extract resolution patterns
+
     Returns:
         Dict with synthesis results
     """
     logger.info(f"Part C: Starting cross-section synthesis for case {case_id}")
 
-    # For now, return basic statistics
-    # Future: Entity consolidation, relationship inference, consistency checking
-    all_entities = get_all_case_entities(case_id)
+    # Initialize synthesis service
+    llm_client = get_llm_client()
+    synthesis_service = CaseSynthesisService(llm_client)
 
-    synthesis_results = {
-        'entity_consolidation': {
-            'status': 'pending',
-            'message': 'Entity consolidation not yet implemented'
-        },
-        'relationship_inference': {
-            'status': 'pending',
-            'message': 'Relationship inference not yet implemented'
-        },
-        'consistency_checking': {
-            'status': 'pending',
-            'message': 'Consistency checking not yet implemented'
-        },
-        'statistics': {
-            'total_entities': sum(len(all_entities[t]) for t in all_entities),
-            'total_provisions': len(provisions),
-            'total_questions': len(questions),
-            'total_conclusions': len(conclusions)
+    try:
+        # Run comprehensive synthesis
+        synthesis = synthesis_service.synthesize_case(case_id)
+
+        # Convert to dict for JSON response
+        synthesis_results = {
+            'entity_graph': {
+                'status': 'complete',
+                'total_nodes': synthesis.total_nodes,
+                'node_types': len(synthesis.entity_graph.by_type),
+                'sections': len(synthesis.entity_graph.by_section)
+            },
+            'causal_normative_links': {
+                'status': 'complete',
+                'total_links': len(synthesis.causal_normative_links),
+                'actions_linked': len([l for l in synthesis.causal_normative_links if 'actions' in l.action_id]),
+                'events_linked': len([l for l in synthesis.causal_normative_links if 'events' in l.action_id])
+            },
+            'question_emergence': {
+                'status': 'complete',
+                'total_questions': len(synthesis.question_emergence),
+                'questions_with_triggers': len([q for q in synthesis.question_emergence
+                                                if q.triggered_by_events or q.triggered_by_actions])
+            },
+            'resolution_patterns': {
+                'status': 'complete',
+                'total_patterns': len(synthesis.resolution_patterns),
+                'pattern_types': list(set([p.pattern_type for p in synthesis.resolution_patterns]))
+            },
+            'statistics': {
+                'synthesis_timestamp': synthesis.synthesis_timestamp.isoformat(),
+                'total_entities': synthesis.total_nodes,
+                'total_provisions': len(provisions),
+                'total_questions': len(questions),
+                'total_conclusions': len(conclusions)
+            }
         }
+
+        # Store synthesis for later viewing
+        _store_synthesis_results(case_id, synthesis)
+
+        logger.info(f"Part C complete: Full synthesis performed")
+
+        return synthesis_results
+
+    except Exception as e:
+        logger.error(f"Error in synthesis: {e}")
+        import traceback
+        traceback.print_exc()
+
+        # Return error status
+        return {
+            'entity_graph': {
+                'status': 'error',
+                'message': str(e)
+            },
+            'error': str(e)
+        }
+
+
+def _store_synthesis_results(case_id: int, synthesis) -> None:
+    """
+    Store synthesis results for later viewing
+
+    Creates a special extraction prompt entry with synthesis results.
+    """
+    import json
+    import uuid
+    from datetime import datetime
+
+    session_id = str(uuid.uuid4())
+
+    # Serialize synthesis results
+    synthesis_data = {
+        'entity_graph': {
+            'total_nodes': len(synthesis.entity_graph.nodes),
+            'by_type': {k: len(v) for k, v in synthesis.entity_graph.by_type.items()},
+            'by_section': {k: len(v) for k, v in synthesis.entity_graph.by_section.items()}
+        },
+        'causal_normative_links': [
+            {
+                'action_id': link.action_id,
+                'action_label': link.action_label,
+                'fulfills_obligations': link.fulfills_obligations,
+                'violates_obligations': link.violates_obligations,
+                'guided_by_principles': link.guided_by_principles,
+                'constrained_by': link.constrained_by,
+                'enabled_by_capabilities': link.enabled_by_capabilities,
+                'agent_role': link.agent_role,
+                'agent_state': link.agent_state,
+                'used_resources': link.used_resources,
+                'reasoning': link.reasoning,
+                'confidence': link.confidence
+            }
+            for link in synthesis.causal_normative_links
+        ],
+        'question_emergence': [
+            {
+                'question_id': qe.question_id,
+                'question_text': qe.question_text,
+                'question_number': qe.question_number,
+                'triggered_by_events': qe.triggered_by_events,
+                'triggered_by_actions': qe.triggered_by_actions,
+                'involves_states': qe.involves_states,
+                'involves_roles': qe.involves_roles,
+                'competing_obligations': qe.competing_obligations,
+                'competing_principles': qe.competing_principles,
+                'emergence_narrative': qe.emergence_narrative,
+                'confidence': qe.confidence
+            }
+            for qe in synthesis.question_emergence
+        ],
+        'resolution_patterns': [
+            {
+                'conclusion_id': rp.conclusion_id,
+                'conclusion_text': rp.conclusion_text,
+                'conclusion_number': rp.conclusion_number,
+                'answers_questions': rp.answers_questions,
+                'determinative_principles': rp.determinative_principles,
+                'determinative_facts': rp.determinative_facts,
+                'cited_provisions': rp.cited_provisions,
+                'pattern_type': rp.pattern_type,
+                'resolution_narrative': rp.resolution_narrative,
+                'confidence': rp.confidence
+            }
+            for rp in synthesis.resolution_patterns
+        ]
     }
 
-    logger.info(f"Part C complete: Synthesis statistics generated")
+    # Delete old synthesis results
+    ExtractionPrompt.query.filter_by(
+        case_id=case_id,
+        concept_type='whole_case_synthesis'
+    ).delete(synchronize_session=False)
 
-    return synthesis_results
+    # Store as extraction prompt
+    extraction_prompt = ExtractionPrompt(
+        case_id=case_id,
+        concept_type='whole_case_synthesis',
+        step_number=4,
+        section_type='synthesis',
+        prompt_text='Whole-case synthesis integrating all passes',
+        llm_model='case_synthesis_service',
+        extraction_session_id=session_id,
+        raw_response=json.dumps(synthesis_data, indent=2),
+        results_summary={
+            'total_nodes': synthesis.total_nodes,
+            'total_links': len(synthesis.causal_normative_links),
+            'questions_analyzed': len(synthesis.question_emergence),
+            'patterns_extracted': len(synthesis.resolution_patterns)
+        },
+        is_active=True,
+        times_used=1,
+        created_at=datetime.utcnow(),
+        last_used_at=datetime.utcnow()
+    )
+
+    db.session.add(extraction_prompt)
+    db.session.commit()
+
+    logger.info(f"Stored synthesis results for case {case_id}")

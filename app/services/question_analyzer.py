@@ -201,8 +201,14 @@ Extract each ethical question and analyze:
             if entities:
                 formatted += f"\n**{display_name}:**\n"
                 for entity in entities:
-                    label = getattr(entity, 'entity_label', None) or entity.get('label', 'Unknown')
-                    definition = getattr(entity, 'entity_definition', None) or entity.get('definition', '')
+                    # Handle both dict and model objects
+                    if isinstance(entity, dict):
+                        label = entity.get('label', 'Unknown')
+                        definition = entity.get('definition', '')
+                    else:
+                        # SQLAlchemy model object
+                        label = getattr(entity, 'entity_label', 'Unknown')
+                        definition = getattr(entity, 'entity_definition', '')
 
                     formatted += f"  - {label}"
                     if definition and len(definition) < 100:
