@@ -92,6 +92,9 @@ def step3(case_id):
             facts_section_key = first_key
             facts_section = _format_section_for_llm(first_key, raw_sections[first_key], case_doc=case)
         
+        # Check for saved extraction data
+        saved_prompt = ExtractionPrompt.get_active_prompt(case_id, 'actions_events')
+
         # Template context
         context = {
             'case': case,
@@ -100,9 +103,13 @@ def step3(case_id):
             'current_step': 3,
             'step_title': 'Temporal Dynamics Pass - Facts Section',
             'next_step_url': url_for('step4.step4_synthesis', case_id=case_id),  # Go to Step 4 Whole-Case Synthesis
-            'prev_step_url': url_for('scenario_pipeline.step2b', case_id=case_id)  # Back to Pass 2 Discussion
+            'prev_step_url': url_for('scenario_pipeline.step2b', case_id=case_id),  # Back to Pass 2 Discussion
+            'has_saved_extraction': saved_prompt is not None,
+            'saved_prompt': saved_prompt.prompt_text if saved_prompt else None,
+            'saved_response': saved_prompt.raw_response if saved_prompt else None,
+            'saved_model': saved_prompt.llm_model if saved_prompt else None
         }
-        
+
         return render_template('scenarios/step3_dual_extraction.html', **context)
         
     except Exception as e:

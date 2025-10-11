@@ -382,76 +382,131 @@
     let currentSectionText = '';
     let currentCaseId = {{ case.id }};
 
-    // Initialize section text and load saved raw response
+    // Initialize section text and load saved extraction state
     document.addEventListener('DOMContentLoaded', function () {
         const discussionTextElement = document.querySelector('.discussion-text');
         if (discussionTextElement) {
             currentSectionText = discussionTextElement.textContent.trim();
         }
 
-        // Load saved raw response for actions_events
-        loadSavedRawResponse();
+        // Load saved extraction state (Enhanced Temporal)
+        loadSavedExtractionState();
     });
 
-    function loadSavedRawResponse() {
+    function loadSavedExtractionState() {
         // Fetch saved extraction prompt and raw response
         fetch(`/scenario_pipeline/case/${currentCaseId}/step3/get_saved_prompt?concept_type=actions_events`)
             .then(response => response.json())
             .then(data => {
-                if (data.success && data.raw_response) {
-                    // Display the prompt and raw response
-                    const rawResponseDiv = document.getElementById('actionsEventsRawResponse');
-                    const rawResponseContent = document.getElementById('actionsEventsRawResponseContent');
-
-                    if (rawResponseDiv && rawResponseContent) {
-                        let html = '<div class="mb-4">';
-
-                        // Show prompt if available
-                        if (data.prompt_text) {
-                            html += `
-                                <div class="mb-3">
-                                    <h6><i class="bi bi-file-text"></i> Extraction Prompt</h6>
-                                    <div class="card">
-                                        <div class="card-body">
-                                            <pre class="mb-0" style="max-height: 400px; overflow-y: auto; white-space: pre-wrap; font-size: 0.85rem;">${escapeHtml(data.prompt_text)}</pre>
-                                        </div>
-                                    </div>
-                                </div>
-                            `;
-                        }
-
-                        // Show response
-                        html += `
-                            <div class="mb-3">
-                                <h6><i class="bi bi-code-square"></i> LLM Response</h6>
-                                <div class="card">
-                                    <div class="card-body">
-                                        <pre class="mb-0" style="max-height: 400px; overflow-y: auto; white-space: pre-wrap; font-size: 0.85rem;">${escapeHtml(data.raw_response)}</pre>
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-
-                        // Show metadata
-                        if (data.created_at || data.llm_model) {
-                            html += `
-                                <div class="small text-muted">
-                                    ${data.created_at ? `<div><strong>Extracted:</strong> ${data.created_at}</div>` : ''}
-                                    ${data.llm_model ? `<div><strong>Model:</strong> ${data.llm_model}</div>` : ''}
-                                </div>
-                            `;
-                        }
-
-                        html += '</div>';
-
-                        rawResponseContent.innerHTML = html;
-                        rawResponseDiv.style.display = 'block';
-                    }
+                if (data.success && (data.prompt_text || data.raw_response)) {
+                    console.log('Found saved extraction data');
+                    restoreExtractionUI(data);
+                } else {
+                    console.log('No saved extraction found');
                 }
             })
             .catch(error => {
-                console.log('No saved raw response found or error loading:', error);
+                console.log('No saved extraction found or error loading:', error);
             });
+    }
+
+    function restoreExtractionUI(savedData) {
+        // Show the progress card
+        const progressCard = document.getElementById("enhancedTemporalProgress");
+        const progressBar = document.getElementById("enhanced-progress-bar");
+        const progressIcon = document.getElementById("enhanced-progress-icon");
+        const progressHeader = document.getElementById("enhanced-progress-header");
+        const messagesDiv = document.getElementById("enhanced-messages");
+        const reviewBtn = document.getElementById("enhanced-review-btn");
+        const summaryCard = document.getElementById("enhanced-summary");
+        const stageInfo = document.getElementById("enhanced-stage-info");
+        const accordionContainer = document.getElementById("enhanced-stages-accordion");
+
+        progressCard.style.display = "block";
+        stageInfo.style.display = "none";
+
+        // Set progress to 100% (completed)
+        progressBar.style.width = "100%";
+        progressBar.textContent = "100%";
+        progressBar.classList.remove("progress-bar-animated");
+        progressBar.classList.add("bg-success");
+        progressIcon.className = "bi bi-check-circle text-success";
+        progressHeader.textContent = "Enhanced Extraction Complete (Loaded from Previous Run)";
+
+        // Clear and rebuild messages log
+        messagesDiv.innerHTML = "";
+
+        // Parse the prompt and response to extract stages
+        const combinedPrompt = savedData.prompt_text || "";
+        const combinedResponse = savedData.raw_response || "";
+
+        // Extract stage sections from combined prompt/response
+        const stageMatches = combinedPrompt.match(/=== ([A-Z_]+) ===/g);
+        const stages = stageMatches ? stageMatches.map(m => m.replace(/=== | ===/g, '')) : [];
+
+        // Add summary message
+        addEnhancedMessage("success", `✓ Loaded previous extraction with ${stages.length} stages`);
+        addEnhancedMessage("info", `Extracted: ${savedData.created_at || 'Unknown date'}`);
+        addEnhancedMessage("info", `Model: ${savedData.llm_model || 'Unknown model'}`);
+
+        // Show summary card
+        summaryCard.style.display = "block";
+        document.getElementById("enhanced-summary-content").innerHTML = `
+            <div class="row">
+                <div class="col-md-4">
+                    <strong>Extracted:</strong> ${savedData.created_at || 'Unknown'}
+                </div>
+                <div class="col-md-4">
+                    <strong>Model:</strong> ${savedData.llm_model || 'Unknown'}
+                </div>
+                <div class="col-md-4">
+                    <strong>Stages:</strong> ${stages.length}
+                </div>
+            </div>
+            <div class="mt-3">
+                <strong>Extraction Stages:</strong>
+                <ul class="mb-0">
+                    ${stages.map(s => '<li>' + s + '</li>').join('')}
+                </ul>
+            </div>
+        `;
+
+        // Rebuild accordion with stage data
+        accordionContainer.innerHTML = '';
+
+        // Split prompt and response by stage
+        const promptSections = combinedPrompt.split(/=== ([A-Z_]+) ===/);
+        const responseSections = combinedResponse.split(/=== ([A-Z_]+) RESPONSE ===/);
+
+        for (let i = 1; i < promptSections.length; i += 2) {
+            const stageName = promptSections[i];
+            const stagePrompt = promptSections[i + 1] ? promptSections[i + 1].trim() : '';
+
+            // Find matching response
+            let stageResponse = '';
+            const responseIndex = responseSections.findIndex(section => section === stageName);
+            if (responseIndex !== -1 && responseSections[responseIndex + 1]) {
+                stageResponse = responseSections[responseIndex + 1].trim();
+            }
+
+            // Create trace object for displayStagePromptResponse
+            const trace = {
+                stage: stageName,
+                prompt: stagePrompt,
+                response: stageResponse,
+                model: savedData.llm_model || 'Unknown',
+                timestamp: savedData.created_at || '',
+                tokens: null
+            };
+
+            displayStagePromptResponse(trace);
+        }
+
+        // Show review button
+        reviewBtn.style.display = "block";
+
+        // Scroll to progress card
+        progressCard.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
     function executeFullTemporalPass() {

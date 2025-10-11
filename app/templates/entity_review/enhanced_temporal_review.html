@@ -379,27 +379,68 @@
     <div class="card mb-4">
         <div class="card-header bg-info bg-opacity-10">
             <h5 class="mb-0"><i class="bi bi-arrow-left-right"></i> Allen Temporal Relations ({{ allen_relations|length }})</h5>
-            <small class="text-muted">Interval algebra relationships between temporal entities</small>
+            <small class="text-muted">Interval algebra relationships with OWL-Time standard properties</small>
         </div>
         <div class="card-body">
-            <table class="table table-sm">
-                <thead>
-                    <tr>
-                        <th>From Entity</th>
-                        <th>Relation</th>
-                        <th>To Entity</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for relation in allen_relations %}
-                    <tr>
-                        <td>{{ relation.from_entity }}</td>
-                        <td><span class="badge bg-info">{{ relation.relation_type }}</span></td>
-                        <td>{{ relation.to_entity }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover">
+                    <thead>
+                        <tr>
+                            <th>From Entity</th>
+                            <th>Allen Relation</th>
+                            <th>To Entity</th>
+                            <th>OWL-Time Property</th>
+                            <th>Evidence</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for relation in allen_relations %}
+                        <tr>
+                            <td><strong>{{ relation.from_entity }}</strong></td>
+                            <td>
+                                <span class="badge bg-info">{{ relation.relation_type }}</span>
+                                <br>
+                                <small class="text-muted">{{ relation.description }}</small>
+                            </td>
+                            <td><strong>{{ relation.to_entity }}</strong></td>
+                            <td>
+                                {% if relation.owl_time_property %}
+                                <code class="text-success">{{ relation.owl_time_property }}</code>
+                                <br>
+                                <small class="text-muted" style="font-size: 0.75em;">
+                                    <a href="{{ relation.owl_time_uri }}" target="_blank" class="text-decoration-none">
+                                        {{ relation.owl_time_uri }}
+                                    </a>
+                                </small>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if relation.evidence %}
+                                <small>{{ relation.evidence[:100] }}{% if relation.evidence|length > 100 %}...{% endif %}</small>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mt-3 p-3 bg-light rounded">
+                <h6 class="mb-2"><i class="bi bi-info-circle"></i> About Allen Relations & OWL-Time</h6>
+                <p class="small mb-0">
+                    <strong>Allen's Interval Algebra</strong> provides 13 basic temporal relations between intervals.
+                    These relations are mapped to <strong>OWL-Time</strong> standard properties for interoperability with
+                    Semantic Web temporal reasoning systems and SPARQL queries.
+                </p>
+                <p class="small mb-0 mt-2">
+                    Each relation includes both a <span class="badge bg-info">ProEthica custom property</span> and a
+                    <code class="text-success">time:* OWL-Time property</code> for maximum compatibility.
+                </p>
+            </div>
         </div>
     </div>
     {% endif %}

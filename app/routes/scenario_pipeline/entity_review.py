@@ -1283,14 +1283,18 @@ def review_enhanced_temporal(case_id):
                     'rdf_json': rdf_data
                 }
 
-            elif '→' in entity.entity_label and 'CausalChain' not in entity_type:
-                # Allen relation
-                parts = entity.entity_label.split('→')
+            elif entity.entity_type == 'allen_relations':
+                # Allen relation with OWL-Time mapping
                 allen_relations.append({
                     'id': entity.id,
-                    'from_entity': parts[0].strip() if len(parts) > 0 else '',
-                    'to_entity': parts[1].strip() if len(parts) > 1 else '',
-                    'relation_type': rdf_data.get('proeth:allenRelation', 'precedes'),
+                    'label': entity.entity_label,
+                    'from_entity': rdf_data.get('proeth:fromEntity', ''),
+                    'to_entity': rdf_data.get('proeth:toEntity', ''),
+                    'relation_type': rdf_data.get('proeth:allenRelation', 'unknown'),
+                    'owl_time_property': rdf_data.get('proeth:owlTimeProperty', ''),
+                    'owl_time_uri': rdf_data.get('proeth:owlTimeURI', ''),
+                    'description': rdf_data.get('proeth:description', ''),
+                    'evidence': rdf_data.get('proeth:evidence', ''),
                     'rdf_json': rdf_data
                 })
 

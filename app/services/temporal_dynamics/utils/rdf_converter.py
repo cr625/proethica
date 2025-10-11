@@ -249,6 +249,71 @@ def convert_timeline_to_rdf(timeline_data: Dict, case_id: int) -> Dict:
     return rdf_entity
 
 
+def convert_allen_relation_to_rdf(allen_relation: Dict, case_id: int) -> Dict:
+    """
+    Convert Allen relation dictionary to RDF JSON-LD format with OWL-Time integration.
+
+    Args:
+        allen_relation: Allen relation data from Stage 2
+        case_id: Case ID for URI generation
+
+    Returns:
+        RDF JSON-LD dictionary with both ProEthica custom and OWL-Time properties
+    """
+    from .allen_owl_time_mapper import create_allen_relation_metadata
+
+    entity1 = allen_relation.get('entity1', 'Unknown')
+    entity2 = allen_relation.get('entity2', 'Unknown')
+    relation = allen_relation.get('relation', 'unknown')
+
+    # Get OWL-Time mapping
+    allen_metadata = create_allen_relation_metadata(relation)
+
+    # Create unique URI for this relation instance
+    relation_id = f"{_safe_id(entity1)}_{_safe_id(relation)}_{_safe_id(entity2)}"
+    relation_uri = f"http://proethica.org/cases/{case_id}#AllenRelation_{relation_id}"
+
+    # Entity URIs (assume they're actions or events)
+    entity1_uri = f"http://proethica.org/cases/{case_id}#Action_{_safe_id(entity1)}"
+    entity2_uri = f"http://proethica.org/cases/{case_id}#Action_{_safe_id(entity2)}"
+
+    rdf_entity = {
+        '@context': {
+            'proeth': 'http://proethica.org/ontology/intermediate#',
+            'proeth-case': f'http://proethica.org/cases/{case_id}#',
+            'time': 'http://www.w3.org/2006/time#',
+            'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
+            'rdfs': 'http://www.w3.org/2000/01/rdf-schema#'
+        },
+        '@id': relation_uri,
+        '@type': 'proeth:TemporalRelation',
+        'rdfs:label': f'{entity1} {relation} {entity2}',
+
+        # ProEthica custom properties (preserved for backward compatibility)
+        'proeth:fromEntity': entity1,
+        'proeth:toEntity': entity2,
+        'proeth:allenRelation': relation,
+        'proeth:fromEntityURI': entity1_uri,
+        'proeth:toEntityURI': entity2_uri,
+
+        # OWL-Time standard property
+        'proeth:owlTimeProperty': allen_metadata.get('owl_time_property', ''),
+        'proeth:owlTimeURI': allen_metadata.get('owl_time_uri', ''),
+
+        # Evidence and description
+        'proeth:evidence': allen_relation.get('evidence', ''),
+        'proeth:description': allen_metadata.get('description', '')
+    }
+
+    # Add the actual OWL-Time property assertion (makes this queryable with standard SPARQL)
+    owl_time_prop = allen_metadata.get('owl_time_property')
+    if owl_time_prop:
+        # Add the OWL-Time property directly to the RDF
+        rdf_entity[owl_time_prop] = entity2_uri  # Entity1 [relation] Entity2
+
+    return rdf_entity
+
+
 def _safe_id(label: str) -> str:
     """Convert label to safe URI identifier."""
     # Remove special characters and replace spaces with underscores
