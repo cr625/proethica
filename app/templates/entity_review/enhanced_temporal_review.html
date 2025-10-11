@@ -2,7 +2,7 @@
 
 {% block step_title %}{{ step_title }}{% endblock %}
 {% block step_header %}Enhanced Temporal Dynamics - Extraction Review{% endblock %}
-{% block step_subtitle %}Review extracted temporal entities and complete LLM interaction trace{% endblock %}
+{% block step_subtitle %}Review extracted temporal entities with OWL-Time integration and Allen algebra{% endblock %}
 
 {% block step_navigation %}
 <div class="d-flex justify-content-between mb-3">
@@ -10,7 +10,7 @@
         <i class="bi bi-arrow-left"></i> Back to Step 3
     </a>
     <div>
-        <a href="{{ url_for('scenario_pipeline.step4', case_id=case.id) }}" class="btn btn-success">
+        <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}" class="btn btn-success">
             Continue to Step 4 <i class="bi bi-arrow-right"></i>
         </a>
     </div>
@@ -20,114 +20,408 @@
 {% block step_content %}
 <div class="container-fluid">
     {% if not extraction_complete %}
-    <!-- Placeholder message while extraction system is being built -->
     <div class="alert alert-info">
         <h5><i class="bi bi-info-circle"></i> Enhanced Temporal Extraction Review</h5>
         <p class="mb-0">
-            The enhanced temporal dynamics extraction system is currently capturing full LLM interaction traces.
-            The review page will display:
+            No temporal dynamics extraction found for this case. Please run the extraction from Step 3.
         </p>
-        <ul class="mt-2 mb-0">
-            <li><strong>Extraction Results</strong>: Actions, events, temporal markers, and timeline</li>
-            <li><strong>LLM Trace</strong>: Complete prompts and responses for each stage</li>
-            <li><strong>Token Usage</strong>: Cost tracking for each LLM call</li>
-            <li><strong>Stage Details</strong>: Step-by-step breakdown of the extraction process</li>
-        </ul>
-        <div class="mt-3">
-            <small class="text-muted">
-                <strong>Current Status</strong>: Stages 1-2 implemented with trace capture.
-                Database storage and visualization coming next.
-            </small>
-        </div>
-    </div>
-
-    <!-- Placeholder for what's coming -->
-    <div class="row mt-4">
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header bg-primary bg-opacity-10">
-                    <h5 class="mb-0"><i class="bi bi-clock-history"></i> Extraction Stages</h5>
-                </div>
-                <div class="card-body">
-                    <ul class="list-group">
-                        <li class="list-group-item">
-                            <i class="bi bi-check-circle text-success"></i> Stage 1: Section Analysis
-                            <small class="text-muted d-block">Unified narrative, decision points, competing priorities</small>
-                        </li>
-                        <li class="list-group-item">
-                            <i class="bi bi-check-circle text-success"></i> Stage 2: Temporal Markers
-                            <small class="text-muted d-block">Dates, times, Allen relations, temporal phrases</small>
-                        </li>
-                        <li class="list-group-item text-muted">
-                            <i class="bi bi-circle"></i> Stage 3: Action Extraction
-                            <small class="d-block">Professional decisions with intentions and ethical context</small>
-                        </li>
-                        <li class="list-group-item text-muted">
-                            <i class="bi bi-circle"></i> Stage 4: Event Extraction
-                            <small class="d-block">Occurrences, triggers, emergency classification</small>
-                        </li>
-                        <li class="list-group-item text-muted">
-                            <i class="bi bi-circle"></i> Stage 5: Causal Analysis
-                            <small class="d-block">Causal chains, NESS test, responsibility attribution</small>
-                        </li>
-                        <li class="list-group-item text-muted">
-                            <i class="bi bi-circle"></i> Stage 6: Timeline Construction
-                            <small class="d-block">Temporal sequencing and consistency checking</small>
-                        </li>
-                        <li class="list-group-item text-muted">
-                            <i class="bi bi-circle"></i> Stage 7: RDF Storage
-                            <small class="d-block">OWL-Time integration and entity persistence</small>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header bg-success bg-opacity-10">
-                    <h5 class="mb-0"><i class="bi bi-diagram-3"></i> Traceability Features</h5>
-                </div>
-                <div class="card-body">
-                    <h6>Complete Prompt/Response Capture</h6>
-                    <p>Every LLM interaction is recorded with:</p>
-                    <ul>
-                        <li><strong>Full Prompt</strong>: Exact text sent to Claude</li>
-                        <li><strong>Raw Response</strong>: Complete LLM output</li>
-                        <li><strong>Parsed Output</strong>: Structured JSON extraction</li>
-                        <li><strong>Token Counts</strong>: Input/output/total tokens</li>
-                        <li><strong>Timestamps</strong>: Precise timing for each stage</li>
-                        <li><strong>Model Info</strong>: Which model was used</li>
-                    </ul>
-
-                    <h6 class="mt-4">Why This Matters</h6>
-                    <p class="mb-0">
-                        <small class="text-muted">
-                            Full traceability allows you to understand exactly how the system reasoned
-                            about your case, reproduce results, debug issues, and validate the
-                            extraction process for research or production use.
-                        </small>
-                    </p>
-                </div>
-            </div>
-        </div>
     </div>
     {% else %}
-    <!-- Actual extraction results (will be implemented) -->
+
     <div class="alert alert-success">
         <h5><i class="bi bi-check-circle"></i> Extraction Complete</h5>
-        <p class="mb-0">Enhanced temporal dynamics extraction completed successfully.</p>
+        <p class="mb-2">Enhanced temporal dynamics extraction completed successfully.</p>
+        <div class="row">
+            <div class="col-md-2">
+                <strong>Total Entities:</strong> {{ summary.total_entities }}
+            </div>
+            <div class="col-md-2">
+                <strong>Actions:</strong> {{ summary.actions }}
+            </div>
+            <div class="col-md-2">
+                <strong>Events:</strong> {{ summary.events }}
+            </div>
+            <div class="col-md-2">
+                <strong>Causal Chains:</strong> {{ summary.causal_chains }}
+            </div>
+            <div class="col-md-2">
+                <strong>Allen Relations:</strong> {{ summary.allen_relations }}
+            </div>
+            <div class="col-md-2">
+                <strong>Timeline:</strong> {% if summary.has_timeline %}<i class="bi bi-check-circle text-success"></i>{% else %}<i class="bi bi-x-circle text-muted"></i>{% endif %}
+            </div>
+        </div>
     </div>
 
-    <!-- Results will go here -->
+    <!-- Timeline Visualization -->
+    {% if timeline %}
+    <div class="card mb-4">
+        <div class="card-header bg-primary bg-opacity-10">
+            <h5 class="mb-0"><i class="bi bi-clock-history"></i> Timeline Overview</h5>
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <strong>Total Elements:</strong> {{ timeline.total_elements }}
+                </div>
+                <div class="col-md-4">
+                    <strong>Actions:</strong> {{ timeline.action_count }}
+                </div>
+                <div class="col-md-4">
+                    <strong>Events:</strong> {{ timeline.event_count }}
+                </div>
+            </div>
+
+            <h6 class="mt-3">Temporal Markers</h6>
+            <ul class="list-group">
+                {% for timepoint in timeline.timepoints %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <span><strong>{{ timepoint['proeth:timepoint'] }}</strong></span>
+                    <span class="badge bg-secondary">{{ timepoint['proeth:elementCount'] }} elements</span>
+                </li>
+                {% endfor %}
+            </ul>
+
+            {% if timeline.temporal_consistency %}
+            <div class="mt-3">
+                <h6>Temporal Consistency Check</h6>
+                {% if timeline.temporal_consistency.get('proeth:valid', False) %}
+                <span class="badge bg-success">Valid</span>
+                {% else %}
+                <span class="badge bg-danger">Issues Found</span>
+                {% endif %}
+
+                {% if timeline.temporal_consistency.get('proeth:warnings', []) %}
+                <div class="alert alert-warning mt-2">
+                    <strong>Warnings:</strong>
+                    <ul class="mb-0">
+                        {% for warning in timeline.temporal_consistency['proeth:warnings'] %}
+                        <li>{{ warning }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
+                {% if timeline.temporal_consistency.get('proeth:contradictions', []) %}
+                <div class="alert alert-danger mt-2">
+                    <strong>Contradictions:</strong>
+                    <ul class="mb-0">
+                        {% for contradiction in timeline.temporal_consistency['proeth:contradictions'] %}
+                        <li>{{ contradiction }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Actions -->
+    {% if actions %}
+    <div class="card mb-4">
+        <div class="card-header bg-success bg-opacity-10">
+            <h5 class="mb-0"><i class="bi bi-lightning-charge"></i> Extracted Actions ({{ actions|length }})</h5>
+            <small class="text-muted">Volitional professional decisions with intentions and ethical context</small>
+        </div>
+        <div class="card-body">
+            <div class="accordion" id="actionsAccordion">
+                {% for action in actions %}
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="action-{{ action.id }}">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#action-collapse-{{ action.id }}">
+                            <strong>{{ action.label }}</strong>
+                            {% if action.agent %}
+                            <span class="badge bg-primary ms-2">{{ action.agent }}</span>
+                            {% endif %}
+                        </button>
+                    </h2>
+                    <div id="action-collapse-{{ action.id }}" class="accordion-collapse collapse" data-bs-parent="#actionsAccordion">
+                        <div class="accordion-body">
+                            <p><strong>Description:</strong> {{ action.description }}</p>
+
+                            {% if action.temporal_marker %}
+                            <p><strong>Temporal Marker:</strong> <span class="badge bg-secondary">{{ action.temporal_marker }}</span></p>
+                            {% endif %}
+
+                            {% if action.mental_state %}
+                            <p><strong>Mental State:</strong> {{ action.mental_state }}</p>
+                            {% endif %}
+
+                            {% if action.intended_outcome %}
+                            <p><strong>Intended Outcome:</strong> {{ action.intended_outcome }}</p>
+                            {% endif %}
+
+                            <div class="row mt-3">
+                                <div class="col-md-6">
+                                    {% if action.fulfills_obligation %}
+                                    <h6>Fulfills Obligations:</h6>
+                                    <ul>
+                                        {% for obligation in action.fulfills_obligation %}
+                                        <li>{{ obligation }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6">
+                                    {% if action.guided_by_principle %}
+                                    <h6>Guided By Principles:</h6>
+                                    <ul>
+                                        {% for principle in action.guided_by_principle %}
+                                        <li>{{ principle }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            {% if action.requires_capability %}
+                            <div class="mt-2">
+                                <h6>Required Capabilities:</h6>
+                                <div>
+                                    {% for capability in action.requires_capability %}
+                                    <span class="badge bg-info me-1">{{ capability }}</span>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            <div class="mt-2">
+                                <small class="text-muted">
+                                    <strong>Within Competence:</strong>
+                                    {% if action.within_competence %}
+                                    <span class="text-success">Yes</span>
+                                    {% else %}
+                                    <span class="text-danger">No</span>
+                                    {% endif %}
+                                </small>
+                            </div>
+
+                            <details class="mt-3">
+                                <summary class="text-muted small">RDF JSON-LD</summary>
+                                <pre class="mt-2"><code>{{ action.rdf_json | tojson(indent=2) }}</code></pre>
+                            </details>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Events -->
+    {% if events %}
+    <div class="card mb-4">
+        <div class="card-header bg-warning bg-opacity-10">
+            <h5 class="mb-0"><i class="bi bi-calendar-event"></i> Extracted Events ({{ events|length }})</h5>
+            <small class="text-muted">Occurrences that trigger ethical considerations and state changes</small>
+        </div>
+        <div class="card-body">
+            <div class="accordion" id="eventsAccordion">
+                {% for event in events %}
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="event-{{ event.id }}">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#event-collapse-{{ event.id }}">
+                            <strong>{{ event.label }}</strong>
+                            {% if event.emergency_level %}
+                            <span class="badge bg-danger ms-2">{{ event.emergency_level }}</span>
+                            {% endif %}
+                        </button>
+                    </h2>
+                    <div id="event-collapse-{{ event.id }}" class="accordion-collapse collapse" data-bs-parent="#eventsAccordion">
+                        <div class="accordion-body">
+                            <p><strong>Description:</strong> {{ event.description }}</p>
+
+                            {% if event.affected_entity %}
+                            <p><strong>Affected Entity:</strong> {{ event.affected_entity }}</p>
+                            {% endif %}
+
+                            {% if event.temporal_marker %}
+                            <p><strong>Temporal Marker:</strong> <span class="badge bg-secondary">{{ event.temporal_marker }}</span></p>
+                            {% endif %}
+
+                            <div class="row mt-3">
+                                <div class="col-md-4">
+                                    {% if event.triggers_state %}
+                                    <h6>Triggers States:</h6>
+                                    <ul>
+                                        {% for state in event.triggers_state %}
+                                        <li>{{ state }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-4">
+                                    {% if event.activates_constraint %}
+                                    <h6>Activates Constraints:</h6>
+                                    <ul>
+                                        {% for constraint in event.activates_constraint %}
+                                        <li>{{ constraint }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-4">
+                                    {% if event.transforms_obligation %}
+                                    <h6>Transforms Obligations:</h6>
+                                    <ul>
+                                        {% for obligation in event.transforms_obligation %}
+                                        <li>{{ obligation }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <details class="mt-3">
+                                <summary class="text-muted small">RDF JSON-LD</summary>
+                                <pre class="mt-2"><code>{{ event.rdf_json | tojson(indent=2) }}</code></pre>
+                            </details>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Causal Chains (NESS Test) -->
+    {% if causal_chains %}
+    <div class="card mb-4">
+        <div class="card-header bg-danger bg-opacity-10">
+            <h5 class="mb-0"><i class="bi bi-diagram-3"></i> Causal Chains ({{ causal_chains|length }})</h5>
+            <small class="text-muted">NESS test analysis: Necessary Element of Sufficient Set</small>
+        </div>
+        <div class="card-body">
+            <div class="accordion" id="causalAccordion">
+                {% for chain in causal_chains %}
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="causal-{{ chain.id }}">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#causal-collapse-{{ chain.id }}">
+                            <strong>{{ chain.cause }}</strong> <i class="bi bi-arrow-right mx-2"></i> <strong>{{ chain.effect }}</strong>
+                        </button>
+                    </h2>
+                    <div id="causal-collapse-{{ chain.id }}" class="accordion-collapse collapse" data-bs-parent="#causalAccordion">
+                        <div class="accordion-body">
+                            <p><strong>Causal Language:</strong> {{ chain.causal_language }}</p>
+
+                            <div class="row mt-3">
+                                <div class="col-md-6">
+                                    <h6>Necessary Factors (NESS):</h6>
+                                    <ul>
+                                        {% for factor in chain.necessary_factors %}
+                                        <li>{{ factor }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6>Sufficient Factors:</h6>
+                                    <ul>
+                                        {% for factor in chain.sufficient_factors %}
+                                        <li>{{ factor }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                            </div>
+
+                            {% if chain.counterfactual %}
+                            <div class="alert alert-info mt-3">
+                                <strong>Counterfactual Test:</strong> {{ chain.counterfactual }}
+                            </div>
+                            {% endif %}
+
+                            <div class="mt-3">
+                                <h6>Responsibility Attribution:</h6>
+                                <p>
+                                    <strong>Agent:</strong> {{ chain.responsible_agent }}<br>
+                                    <strong>Type:</strong> <span class="badge bg-secondary">{{ chain.responsibility_type }}</span><br>
+                                    <strong>Within Agent Control:</strong>
+                                    {% if chain.within_agent_control %}
+                                    <span class="text-success">Yes</span>
+                                    {% else %}
+                                    <span class="text-danger">No</span>
+                                    {% endif %}
+                                </p>
+                            </div>
+
+                            {% if chain.causal_sequence %}
+                            <div class="mt-3">
+                                <h6>Causal Sequence:</h6>
+                                <ol>
+                                    {% for step in chain.causal_sequence %}
+                                    <li>
+                                        <strong>{{ step['proeth:element'] }}</strong><br>
+                                        <small class="text-muted">{{ step['proeth:description'] }}</small>
+                                    </li>
+                                    {% endfor %}
+                                </ol>
+                            </div>
+                            {% endif %}
+
+                            <details class="mt-3">
+                                <summary class="text-muted small">RDF JSON-LD</summary>
+                                <pre class="mt-2"><code>{{ chain.rdf_json | tojson(indent=2) }}</code></pre>
+                            </details>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Allen Relations -->
+    {% if allen_relations %}
+    <div class="card mb-4">
+        <div class="card-header bg-info bg-opacity-10">
+            <h5 class="mb-0"><i class="bi bi-arrow-left-right"></i> Allen Temporal Relations ({{ allen_relations|length }})</h5>
+            <small class="text-muted">Interval algebra relationships between temporal entities</small>
+        </div>
+        <div class="card-body">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>From Entity</th>
+                        <th>Relation</th>
+                        <th>To Entity</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for relation in allen_relations %}
+                    <tr>
+                        <td>{{ relation.from_entity }}</td>
+                        <td><span class="badge bg-info">{{ relation.relation_type }}</span></td>
+                        <td>{{ relation.to_entity }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
     {% endif %}
 </div>
 {% endblock %}
 
 {% block step_styles %}
 <style>
-    .list-group-item small {
-        margin-left: 1.5rem;
+    .accordion-button:not(.collapsed) {
+        background-color: rgba(13, 110, 253, 0.1);
+    }
+    details summary {
+        cursor: pointer;
+    }
+    pre code {
+        display: block;
+        background: #f5f5f5;
+        padding: 10px;
+        border-radius: 4px;
+        overflow-x: auto;
     }
 </style>
 {% endblock %}

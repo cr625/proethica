@@ -1197,27 +1197,126 @@ def review_enhanced_temporal(case_id):
     Displays:
     - Extracted actions and events
     - Temporal markers and Allen relations
-    - Complete LLM prompt/response trace for all stages
-    - Timeline visualization
+    - Timeline visualization with OWL-Time integration
+    - Causal chains and NESS test results
     """
     try:
         # Get the case
         case = Document.query.get_or_404(case_id)
 
-        # TODO: Retrieve llm_trace from database once we implement storage
-        # For now, show placeholder message
+        # Get all temporal dynamics entities from database
+        temporal_entities = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            extraction_type='temporal_dynamics_enhanced'
+        ).all()
+
+        # Separate entities by type
+        actions = []
+        events = []
+        allen_relations = []
+        causal_chains = []
+        timeline = None
+
+        for entity in temporal_entities:
+            entity_dict = entity.to_dict()
+            rdf_data = entity.rdf_json_ld or {}
+            entity_type = rdf_data.get('@type', '')
+
+            if 'Action' in entity_type:
+                actions.append({
+                    'id': entity.id,
+                    'label': entity.entity_label,
+                    'uri': entity.entity_uri,
+                    'description': rdf_data.get('proeth:description', ''),
+                    'agent': rdf_data.get('proeth:hasAgent', ''),
+                    'temporal_marker': rdf_data.get('proeth:temporalMarker', ''),
+                    'mental_state': rdf_data.get('proeth:hasMentalState', ''),
+                    'intended_outcome': rdf_data.get('proeth:intendedOutcome', ''),
+                    'fulfills_obligation': rdf_data.get('proeth:fulfillsObligation', []),
+                    'guided_by_principle': rdf_data.get('proeth:guidedByPrinciple', []),
+                    'within_competence': rdf_data.get('proeth:withinCompetence', False),
+                    'requires_capability': rdf_data.get('proeth:requiresCapability', []),
+                    'rdf_json': rdf_data
+                })
+
+            elif 'Event' in entity_type:
+                events.append({
+                    'id': entity.id,
+                    'label': entity.entity_label,
+                    'uri': entity.entity_uri,
+                    'description': rdf_data.get('proeth:description', ''),
+                    'affected_entity': rdf_data.get('proeth:affectsEntity', ''),
+                    'temporal_marker': rdf_data.get('proeth:temporalMarker', ''),
+                    'triggers_state': rdf_data.get('proeth:triggersState', []),
+                    'activates_constraint': rdf_data.get('proeth:activatesConstraint', []),
+                    'transforms_obligation': rdf_data.get('proeth:transformsObligation', []),
+                    'emergency_level': rdf_data.get('proeth:emergencyLevel', ''),
+                    'rdf_json': rdf_data
+                })
+
+            elif 'CausalChain' in entity_type:
+                causal_chains.append({
+                    'id': entity.id,
+                    'cause': rdf_data.get('proeth:cause', ''),
+                    'effect': rdf_data.get('proeth:effect', ''),
+                    'causal_language': rdf_data.get('proeth:causalLanguage', ''),
+                    'necessary_factors': rdf_data.get('proeth:necessaryFactors', []),
+                    'sufficient_factors': rdf_data.get('proeth:sufficientFactors', []),
+                    'counterfactual': rdf_data.get('proeth:counterfactual', ''),
+                    'responsible_agent': rdf_data.get('proeth:responsibleAgent', ''),
+                    'responsibility_type': rdf_data.get('proeth:responsibilityType', ''),
+                    'within_agent_control': rdf_data.get('proeth:withinAgentControl', False),
+                    'causal_sequence': rdf_data.get('proeth:causalSequence', []),
+                    'rdf_json': rdf_data
+                })
+
+            elif 'Timeline' in entity.entity_label:
+                timeline = {
+                    'id': entity.id,
+                    'label': entity.entity_label,
+                    'uri': entity.entity_uri,
+                    'total_elements': rdf_data.get('proeth:totalElements', 0),
+                    'action_count': rdf_data.get('proeth:actionCount', 0),
+                    'event_count': rdf_data.get('proeth:eventCount', 0),
+                    'timepoints': rdf_data.get('proeth:hasTimepoints', []),
+                    'temporal_consistency': rdf_data.get('proeth:temporalConsistency', {}),
+                    'rdf_json': rdf_data
+                }
+
+            elif '→' in entity.entity_label and 'CausalChain' not in entity_type:
+                # Allen relation
+                parts = entity.entity_label.split('→')
+                allen_relations.append({
+                    'id': entity.id,
+                    'from_entity': parts[0].strip() if len(parts) > 0 else '',
+                    'to_entity': parts[1].strip() if len(parts) > 1 else '',
+                    'relation_type': rdf_data.get('proeth:allenRelation', 'precedes'),
+                    'rdf_json': rdf_data
+                })
+
+        extraction_complete = len(temporal_entities) > 0
+
+        # Calculate summary statistics
+        summary = {
+            'total_entities': len(temporal_entities),
+            'actions': len(actions),
+            'events': len(events),
+            'allen_relations': len(allen_relations),
+            'causal_chains': len(causal_chains),
+            'has_timeline': timeline is not None
+        }
 
         context = {
             'case': case,
             'current_step': 3,
             'step_title': 'Enhanced Temporal Dynamics - Review',
-            'extraction_complete': False,  # Will be True once we store results
-            'stages': [],  # Will contain stage results
-            'llm_trace': [],  # Will contain full prompt/response trace
-            'actions': [],
-            'events': [],
-            'temporal_markers': {},
-            'timeline': {}
+            'extraction_complete': extraction_complete,
+            'actions': actions,
+            'events': events,
+            'allen_relations': allen_relations,
+            'causal_chains': causal_chains,
+            'timeline': timeline,
+            'summary': summary
         }
 
         return render_template('entity_review/enhanced_temporal_review.html', **context)
