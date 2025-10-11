@@ -349,10 +349,10 @@ def step3_extract(case_id):
     from .step3 import extract_individual_actions_events as execute_handler
     return execute_handler(case_id)
 
-@interactive_scenario_bp.route('/case/<int:case_id>/step3/extract_enhanced', methods=['POST'])
+@interactive_scenario_bp.route('/case/<int:case_id>/step3/extract_enhanced', methods=['GET'])
 @auth_required_for_llm
 def step3_extract_enhanced(case_id):
-    """API endpoint for enhanced temporal dynamics extraction with LangGraph streaming"""
+    """API endpoint for enhanced temporal dynamics extraction with LangGraph streaming (SSE uses GET)"""
     from .step3_enhanced import extract_enhanced_temporal_dynamics
     return extract_enhanced_temporal_dynamics(case_id)
 

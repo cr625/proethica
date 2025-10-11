@@ -9,6 +9,7 @@ import logging
 
 from .state import TemporalDynamicsState
 from .nodes.stage1_analysis import analyze_sections
+from .nodes.stage2_temporal import extract_temporal_markers
 
 logger = logging.getLogger(__name__)
 
@@ -40,8 +41,10 @@ def build_temporal_dynamics_graph():
     logger.info("Adding Stage 1: Section Analysis")
     builder.add_node("section_analysis", analyze_sections)
 
+    logger.info("Adding Stage 2: Temporal Markers")
+    builder.add_node("temporal_markers", extract_temporal_markers)
+
     # TODO: Add more stages as they're implemented
-    # builder.add_node("temporal_markers", extract_temporal_markers)
     # builder.add_node("action_extraction", extract_actions)
     # builder.add_node("event_extraction", extract_events)
     # builder.add_node("causal_analysis", analyze_causal_chains)
@@ -49,12 +52,11 @@ def build_temporal_dynamics_graph():
     # builder.add_node("rdf_storage", store_rdf_entities)
 
     # === DEFINE EDGES ===
-    # For now, just START -> section_analysis -> END
     builder.add_edge(START, "section_analysis")
-    builder.add_edge("section_analysis", END)
+    builder.add_edge("section_analysis", "temporal_markers")
+    builder.add_edge("temporal_markers", END)
 
-    # TODO: Add full pipeline edges
-    # builder.add_edge("section_analysis", "temporal_markers")
+    # TODO: Add remaining pipeline edges
     # builder.add_edge("temporal_markers", "action_extraction")
     # builder.add_edge("action_extraction", "event_extraction")
     # builder.add_edge("event_extraction", "causal_analysis")
@@ -66,6 +68,6 @@ def build_temporal_dynamics_graph():
     graph = builder.compile()
 
     logger.info("Temporal dynamics LangGraph compiled successfully")
-    logger.info("Current stages: 1 (Section Analysis)")
+    logger.info("Current stages: 2 (Section Analysis, Temporal Markers)")
 
     return graph

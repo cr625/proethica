@@ -60,7 +60,33 @@
                     <div id="enhanced-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated"
                          role="progressbar" style="width: 0%">0%</div>
                 </div>
-                <div id="enhanced-messages" style="max-height: 400px; overflow-y: auto;"></div>
+
+                <!-- Current Stage Info -->
+                <div id="enhanced-stage-info" class="alert alert-info mb-3" style="display: none;">
+                    <strong>Current Stage:</strong> <span id="enhanced-current-stage">Initializing...</span>
+                </div>
+
+                <!-- Extraction Log -->
+                <div class="card mb-3">
+                    <div class="card-header" style="cursor: pointer;" onclick="toggleEnhancedLog()">
+                        <i id="log-toggle-icon" class="bi bi-chevron-down"></i>
+                        <strong>Extraction Log</strong>
+                        <span class="badge bg-secondary ms-2" id="log-count">0 messages</span>
+                    </div>
+                    <div id="enhanced-messages" class="card-body" style="max-height: 400px; overflow-y: auto; display: block;">
+                        <em class="text-muted">Waiting for extraction to start...</em>
+                    </div>
+                </div>
+
+                <!-- Summary Section (shown on completion) -->
+                <div id="enhanced-summary" class="card mb-3" style="display: none;">
+                    <div class="card-header bg-success bg-opacity-10">
+                        <strong><i class="bi bi-check-circle text-success"></i> Extraction Summary</strong>
+                    </div>
+                    <div class="card-body" id="enhanced-summary-content">
+                    </div>
+                </div>
+
                 <button id="enhanced-refresh-btn" class="btn btn-success mt-3" style="display: none;" onclick="location.reload()">
                     <i class="bi bi-arrow-clockwise"></i> Refresh to See Results
                 </button>
@@ -847,100 +873,193 @@
         div.textContent = text;
         return div.innerHTML;
     }
-</script>
-{% endblock %}
 
-<script>
-// ========== ENHANCED TEMPORAL EXTRACTION (LangGraph) ==========
-function executeEnhancedTemporalPass() {
-    const progressCard = document.getElementById("enhancedTemporalProgress");
-    const progressBar = document.getElementById("enhanced-progress-bar");
-    const progressIcon = document.getElementById("enhanced-progress-icon");
-    const progressHeader = document.getElementById("enhanced-progress-header");
-    const messagesDiv = document.getElementById("enhanced-messages");
-    const refreshBtn = document.getElementById("enhanced-refresh-btn");
-    const currentCaseId = {{ case.id }};
+    // ========== ENHANCED TEMPORAL EXTRACTION (LangGraph) ==========
+    let messageCount = 0;
+    let extractionData = {
+        stages: [],
+        totalMessages: 0,
+        startTime: null,
+        endTime: null
+    };
 
-    // Show progress card
-    progressCard.style.display = "block";
-    progressBar.style.width = "0%";
-    progressBar.textContent = "0%";
-    messagesDiv.innerHTML = "";
-    refreshBtn.style.display = "none";
-    progressIcon.className = "bi bi-hourglass-split";
-
-    // Scroll to progress card
-    progressCard.scrollIntoView({ behavior: "smooth", block: "start" });
-
-    // Create EventSource for Server-Sent Events
-    const eventSource = new EventSource(
-        `/scenario_pipeline/case/${currentCaseId}/step3/extract_enhanced`
-    );
-
-    eventSource.onmessage = function(event) {
-        const data = JSON.parse(event.data);
-        console.log("Enhanced extraction event:", data);
-
-        // Check for completion
-        if (data.complete) {
-            eventSource.close();
-            progressBar.style.width = "100%";
-            progressBar.textContent = "100%";
-            progressBar.classList.remove("progress-bar-animated");
-            progressIcon.className = "bi bi-check-circle text-success";
-            progressHeader.textContent = "Enhanced Extraction Complete";
-            refreshBtn.style.display = "block";
-            return;
+    function toggleEnhancedLog() {
+        const messagesDiv = document.getElementById("enhanced-messages");
+        const toggleIcon = document.getElementById("log-toggle-icon");
+        if (messagesDiv.style.display === "none") {
+            messagesDiv.style.display = "block";
+            toggleIcon.className = "bi bi-chevron-down";
+        } else {
+            messagesDiv.style.display = "none";
+            toggleIcon.className = "bi bi-chevron-right";
         }
+    }
 
-        // Check for error
-        if (data.error) {
+    function executeEnhancedTemporalPass() {
+        const progressCard = document.getElementById("enhancedTemporalProgress");
+        const progressBar = document.getElementById("enhanced-progress-bar");
+        const progressIcon = document.getElementById("enhanced-progress-icon");
+        const progressHeader = document.getElementById("enhanced-progress-header");
+        const messagesDiv = document.getElementById("enhanced-messages");
+        const refreshBtn = document.getElementById("enhanced-refresh-btn");
+        const stageInfo = document.getElementById("enhanced-stage-info");
+        const currentStage = document.getElementById("enhanced-current-stage");
+        const summaryCard = document.getElementById("enhanced-summary");
+        const currentCaseId = {{ case.id }};
+
+        // Reset state
+        messageCount = 0;
+        extractionData = {
+            stages: [],
+            totalMessages: 0,
+            startTime: new Date(),
+            endTime: null
+        };
+
+        // Show progress card
+        progressCard.style.display = "block";
+        progressBar.style.width = "0%";
+        progressBar.textContent = "0%";
+        messagesDiv.innerHTML = "";
+        refreshBtn.style.display = "none";
+        summaryCard.style.display = "none";
+        stageInfo.style.display = "block";
+        progressIcon.className = "bi bi-hourglass-split";
+        currentStage.textContent = "Initializing...";
+        document.getElementById("log-count").textContent = "0 messages";
+
+        // Scroll to progress card
+        progressCard.scrollIntoView({ behavior: "smooth", block: "start" });
+
+        // Create EventSource for Server-Sent Events
+        const eventSource = new EventSource(
+            `/scenario_pipeline/case/${currentCaseId}/step3/extract_enhanced`
+        );
+
+        eventSource.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            console.log("Enhanced extraction event:", data);
+
+            // Check for completion
+            if (data.complete) {
+                eventSource.close();
+                extractionData.endTime = new Date();
+                const duration = ((extractionData.endTime - extractionData.startTime) / 1000).toFixed(1);
+
+                progressBar.style.width = "100%";
+                progressBar.textContent = "100%";
+                progressBar.classList.remove("progress-bar-animated");
+                progressBar.classList.add("bg-success");
+                progressIcon.className = "bi bi-check-circle text-success";
+                progressHeader.textContent = "Enhanced Extraction Complete";
+                stageInfo.style.display = "none";
+
+                // Show summary
+                summaryCard.style.display = "block";
+                document.getElementById("enhanced-summary-content").innerHTML = `
+                    <div class="row">
+                        <div class="col-md-4">
+                            <strong>Duration:</strong> ${duration} seconds
+                        </div>
+                        <div class="col-md-4">
+                            <strong>Stages Completed:</strong> ${extractionData.stages.length}
+                        </div>
+                        <div class="col-md-4">
+                            <strong>Total Messages:</strong> ${messageCount}
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <strong>Stages:</strong>
+                        <ul class="mb-0">
+                            ${extractionData.stages.map(s => `<li>${s}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+
+                addEnhancedMessage("success", `✓ Extraction completed in ${duration} seconds`);
+                refreshBtn.style.display = "block";
+                return;
+            }
+
+            // Check for error
+            if (data.error) {
+                eventSource.close();
+                addEnhancedMessage("danger", `Error: ${data.error}`);
+                progressIcon.className = "bi bi-exclamation-triangle text-danger";
+                progressHeader.textContent = "Enhanced Extraction Failed";
+                stageInfo.style.display = "none";
+                return;
+            }
+
+            // Update stage info
+            if (data.stage) {
+                currentStage.textContent = data.stage || data.node || "Processing...";
+                if (data.stage && !extractionData.stages.includes(data.stage)) {
+                    extractionData.stages.push(data.stage);
+                }
+            }
+
+            // Update progress bar
+            if (data.progress) {
+                progressBar.style.width = data.progress + "%";
+                progressBar.textContent = data.progress + "%";
+            }
+
+            // Add messages
+            if (data.messages && data.messages.length > 0) {
+                data.messages.forEach(msg => {
+                    addEnhancedMessage("info", msg);
+                });
+            }
+
+            // Add errors
+            if (data.errors && data.errors.length > 0) {
+                data.errors.forEach(err => {
+                    addEnhancedMessage("warning", err);
+                });
+            }
+        };
+
+        eventSource.onerror = function(error) {
+            console.error("Enhanced extraction SSE error:", error);
             eventSource.close();
-            addEnhancedMessage("danger", `Error: ${data.error}`);
+            addEnhancedMessage("danger", "Connection error during extraction");
             progressIcon.className = "bi bi-exclamation-triangle text-danger";
             progressHeader.textContent = "Enhanced Extraction Failed";
-            return;
+        };
+    }
+
+    function addEnhancedMessage(type, message) {
+        const messagesDiv = document.getElementById("enhanced-messages");
+
+        // Clear "waiting" message on first real message
+        if (messageCount === 0) {
+            messagesDiv.innerHTML = "";
         }
 
-        // Update progress bar
-        if (data.progress) {
-            progressBar.style.width = data.progress + "%";
-            progressBar.textContent = data.progress + "%";
-        }
+        messageCount++;
+        document.getElementById("log-count").textContent = `${messageCount} message${messageCount !== 1 ? 's' : ''}`;
 
-        // Add messages
-        if (data.messages && data.messages.length > 0) {
-            data.messages.forEach(msg => {
-                addEnhancedMessage("info", msg);
-            });
-        }
+        const timestamp = new Date().toLocaleTimeString();
+        const alertDiv = document.createElement("div");
+        alertDiv.className = `alert alert-${type} mb-2 py-2`;
 
-        // Add errors
-        if (data.errors && data.errors.length > 0) {
-            data.errors.forEach(err => {
-                addEnhancedMessage("warning", err);
-            });
-        }
-    };
+        let icon = "bi-arrow-right";
+        if (type === "success") icon = "bi-check-circle";
+        else if (type === "danger") icon = "bi-exclamation-triangle";
+        else if (type === "warning") icon = "bi-exclamation-circle";
+        else if (type === "info") icon = "bi-info-circle";
 
-    eventSource.onerror = function(error) {
-        console.error("Enhanced extraction SSE error:", error);
-        eventSource.close();
-        addEnhancedMessage("danger", "Connection error during extraction");
-        progressIcon.className = "bi bi-exclamation-triangle text-danger";
-        progressHeader.textContent = "Enhanced Extraction Failed";
-    };
-}
+        alertDiv.innerHTML = `
+            <div class="d-flex justify-content-between align-items-start">
+                <div><i class="bi ${icon}"></i> ${message}</div>
+                <small class="text-muted ms-2" style="white-space: nowrap;">${timestamp}</small>
+            </div>
+        `;
+        messagesDiv.appendChild(alertDiv);
 
-function addEnhancedMessage(type, message) {
-    const messagesDiv = document.getElementById("enhanced-messages");
-    const alertDiv = document.createElement("div");
-    alertDiv.className = `alert alert-${type} mb-2 py-2`;
-    alertDiv.innerHTML = `<i class="bi bi-arrow-right"></i> ${message}`;
-    messagesDiv.appendChild(alertDiv);
-
-    // Scroll to bottom
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-}
-
+        // Scroll to bottom
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
 </script>
+{% endblock %}

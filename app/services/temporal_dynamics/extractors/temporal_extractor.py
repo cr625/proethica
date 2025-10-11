@@ -8,8 +8,7 @@ the unified temporal narrative.
 from typing import Dict
 import json
 import logging
-
-from app.utils.llm_utils import get_llm_client
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +31,18 @@ def analyze_combined_sections(facts: str, discussion: str) -> Dict:
     """
     logger.info("[Extractor] Analyzing combined sections")
 
-    llm_client = get_llm_client()
+    # Initialize Anthropic client directly using environment variables
+    # (avoids Flask context issues in LangGraph execution)
+    try:
+        import anthropic
+        api_key = os.getenv('ANTHROPIC_API_KEY')
+        if not api_key:
+            raise RuntimeError("ANTHROPIC_API_KEY not found in environment")
+        llm_client = anthropic.Anthropic(api_key=api_key)
+        logger.info("[Extractor] Initialized Anthropic client")
+    except Exception as e:
+        logger.error(f"[Extractor] Failed to initialize LLM client: {e}")
+        raise RuntimeError(f"No LLM client available: {e}")
 
     prompt = f"""You are analyzing an engineering ethics case to understand its temporal dynamics.
 
@@ -73,8 +83,13 @@ Respond ONLY with the JSON, no other text.
 JSON Response:"""
 
     try:
-        response = llm_client.invoke(prompt)
-        response_text = response.content
+        # Use Anthropic messages API
+        response = llm_client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=4000,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        response_text = response.content[0].text
 
         logger.info(f"[Extractor] LLM response length: {len(response_text)} chars")
 

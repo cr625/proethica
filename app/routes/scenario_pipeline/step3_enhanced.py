@@ -39,10 +39,10 @@ def extract_enhanced_temporal_dynamics(case_id):
         # Get case data
         case = Document.query.get_or_404(case_id)
 
-        # Extract section texts
+        # Extract section texts - sections are stored as plain strings
         sections = case.doc_metadata.get('sections', {})
-        facts_text = sections.get('facts', {}).get('llm_text', '')
-        discussion_text = sections.get('discussion', {}).get('llm_text', '')
+        facts_text = sections.get('facts', '') if isinstance(sections.get('facts'), str) else ''
+        discussion_text = sections.get('discussion', '') if isinstance(sections.get('discussion'), str) else ''
 
         if not facts_text:
             logger.error(f"[Enhanced TD] No facts section found for case {case_id}")
