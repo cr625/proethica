@@ -1188,6 +1188,28 @@ def refresh_committed_from_ontserve(case_id):
         })
 
 
+@bp.route('/case/<int:case_id>/entities/temporal/commit', methods=['POST'])
+def commit_temporal_entities(case_id):
+    """Commit all temporal dynamics entities to OntServe."""
+    try:
+        from app.services.temporal_commit_service import TemporalCommitService
+
+        commit_service = TemporalCommitService()
+        result = commit_service.commit_temporal_entities(case_id)
+
+        if result['success']:
+            return jsonify(result)
+        else:
+            return jsonify(result), 500
+
+    except Exception as e:
+        logger.error(f"Error committing temporal entities: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 @bp.route('/case/<int:case_id>/enhanced_temporal/review')
 @auth_optional
 def review_enhanced_temporal(case_id):

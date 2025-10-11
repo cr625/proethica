@@ -6,15 +6,15 @@
 
 {% block step_navigation %}
 <div class="d-flex justify-content-between mb-3">
-    <a href="{{ url_for('scenario_pipeline.step2', case_id=case.id) }}" class="btn btn-outline-secondary">
-        <i class="bi bi-arrow-left"></i> Back to Step 2
+    <a href="{{ url_for('scenario_pipeline.step2c', case_id=case.id) }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Step 2c
     </a>
     <div>
         <a href="{{ url_for('entity_review.review_case_entities', case_id=case.id) }}" class="btn btn-info me-2">
             <i class="bi bi-list-check"></i> Review All Entities
         </a>
-        <a href="{{ url_for('scenario_pipeline.complete_analysis', case_id=case.id) }}" class="btn btn-success">
-            Complete Analysis <i class="bi bi-cogs"></i>
+        <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}" class="btn btn-success">
+            Continue to Step 4 <i class="bi bi-arrow-right"></i>
         </a>
     </div>
 </div>
@@ -130,10 +130,6 @@
                         </div>
                     </div>
                 </div>
-
-                <a id="enhanced-review-btn" class="btn btn-success mt-3" style="display: none;" href="{{ url_for('entity_review.review_enhanced_temporal', case_id=case.id) }}">
-                    <i class="bi bi-eye"></i> View Extracted Entities & Trace
-                </a>
             </div>
         </div>
 
@@ -417,7 +413,6 @@
         const progressIcon = document.getElementById("enhanced-progress-icon");
         const progressHeader = document.getElementById("enhanced-progress-header");
         const messagesDiv = document.getElementById("enhanced-messages");
-        const reviewBtn = document.getElementById("enhanced-review-btn");
         const summaryCard = document.getElementById("enhanced-summary");
         const stageInfo = document.getElementById("enhanced-stage-info");
         const accordionContainer = document.getElementById("enhanced-stages-accordion");
@@ -501,9 +496,6 @@
 
             displayStagePromptResponse(trace);
         }
-
-        // Show review button
-        reviewBtn.style.display = "block";
 
         // Scroll to progress card
         progressCard.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -990,7 +982,6 @@
         const progressIcon = document.getElementById("enhanced-progress-icon");
         const progressHeader = document.getElementById("enhanced-progress-header");
         const messagesDiv = document.getElementById("enhanced-messages");
-        const reviewBtn = document.getElementById("enhanced-review-btn");
         const stageInfo = document.getElementById("enhanced-stage-info");
         const currentStage = document.getElementById("enhanced-current-stage");
         const summaryCard = document.getElementById("enhanced-summary");
@@ -1010,7 +1001,6 @@
         progressBar.style.width = "0%";
         progressBar.textContent = "0%";
         messagesDiv.innerHTML = "";
-        reviewBtn.style.display = "none";
         summaryCard.style.display = "none";
         stageInfo.style.display = "block";
         progressIcon.className = "bi bi-hourglass-split";
@@ -1066,7 +1056,6 @@
                 `;
 
                 addEnhancedMessage("success", `✓ Extraction completed in ${duration} seconds`);
-                reviewBtn.style.display = "block";
                 return;
             }
 

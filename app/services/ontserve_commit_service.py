@@ -181,25 +181,31 @@ class OntServeCommitService:
                     g.add((class_uri, RDFS.comment, Literal(entity.entity_definition)))
                     g.add((class_uri, SKOS.definition, Literal(entity.entity_definition)))
 
-                # Add subclass relationship based on extraction_type
+                # Add subclass relationship based on extraction_type or entity_type
+                # For temporal dynamics enhanced extraction, use entity_type instead
                 concept_type = (entity.extraction_type or '').lower()
-                if 'role' in concept_type:
+                entity_type_lower = (entity.entity_type or '').lower()
+
+                # Check entity_type first (for temporal dynamics), then fall back to extraction_type
+                type_to_check = entity_type_lower if 'temporal_dynamics' in concept_type else concept_type
+
+                if 'role' in type_to_check:
                     g.add((class_uri, RDFS.subClassOf, PROETHICA_CORE.Role))
-                elif 'state' in concept_type:
+                elif 'state' in type_to_check:
                     g.add((class_uri, RDFS.subClassOf, PROETHICA_CORE.State))
-                elif 'resource' in concept_type:
+                elif 'resource' in type_to_check:
                     g.add((class_uri, RDFS.subClassOf, PROETHICA_CORE.Resource))
-                elif 'principle' in concept_type:
+                elif 'principle' in type_to_check:
                     g.add((class_uri, RDFS.subClassOf, PROETHICA_CORE.Principle))
-                elif 'obligation' in concept_type:
+                elif 'obligation' in type_to_check:
                     g.add((class_uri, RDFS.subClassOf, PROETHICA_CORE.Obligation))
-                elif 'action' in concept_type:
+                elif 'action' in type_to_check:
                     g.add((class_uri, RDFS.subClassOf, PROETHICA_CORE.Action))
-                elif 'event' in concept_type:
+                elif 'event' in type_to_check:
                     g.add((class_uri, RDFS.subClassOf, PROETHICA_CORE.Event))
-                elif 'capability' in concept_type:
+                elif 'capability' in type_to_check:
                     g.add((class_uri, RDFS.subClassOf, PROETHICA_CORE.Capability))
-                elif 'constraint' in concept_type:
+                elif 'constraint' in type_to_check:
                     g.add((class_uri, RDFS.subClassOf, PROETHICA_CORE.Constraint))
 
                 # Add provenance
