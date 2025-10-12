@@ -82,17 +82,18 @@ class EntityTripleService:
         else:
             return PROETHICA_ENTITY[name_part]
     
-    def add_triple(self, subject: str, predicate: str, obj: Any, 
+    def add_triple(self, subject: str, predicate: str, obj: Any,
                    is_literal: bool = True, graph: Optional[str] = None,
-                   entity_type: str = None, entity_id: Optional[int] = None, 
+                   entity_type: str = None, entity_id: Optional[int] = None,
                    scenario_id: Optional[int] = None,
                    character_id: Optional[int] = None,
                    subject_embedding: Optional[List[float]] = None,
                    predicate_embedding: Optional[List[float]] = None,
-                   object_embedding: Optional[List[float]] = None) -> EntityTriple:
+                   object_embedding: Optional[List[float]] = None,
+                   triple_metadata: Optional[Dict] = None) -> EntityTriple:
         """
         Add a new triple to the store.
-        
+
         Args:
             subject: Subject URI string
             predicate: Predicate URI string
@@ -106,7 +107,8 @@ class EntityTripleService:
             subject_embedding: Optional vector embedding for subject
             predicate_embedding: Optional vector embedding for predicate
             object_embedding: Optional vector embedding for object
-            
+            triple_metadata: Optional metadata dictionary (can include provenance data)
+
         Returns:
             The created EntityTriple object
         """
@@ -132,7 +134,7 @@ class EntityTripleService:
             subject_embedding=subject_embedding,
             predicate_embedding=predicate_embedding,
             object_embedding=object_embedding,
-            triple_metadata={}
+            triple_metadata=triple_metadata or {}
         )
         
         db.session.add(triple)

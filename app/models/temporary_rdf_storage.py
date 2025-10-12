@@ -64,6 +64,9 @@ class TemporaryRDFStorage(db.Model):
     cited_by_role = db.Column(db.String(200))  # Which role cited this (for References section)
     available_to_role = db.Column(db.String(200))  # Which role has access (for case context)
 
+    # PROV-O Provenance Metadata (Added 2025-10-12)
+    provenance_metadata = db.Column(db.JSON)  # Provenance tracking (activity_id, section_type, match_reasoning, etc.)
+
     # Relationships
     case = db.relationship('Document', backref='temporary_rdf_entities', lazy=True)
 
@@ -102,7 +105,9 @@ class TemporaryRDFStorage(db.Model):
             'iao_document_label': self.iao_document_label,
             'iao_document_type': self.iao_document_type,
             'cited_by_role': self.cited_by_role,
-            'available_to_role': self.available_to_role
+            'available_to_role': self.available_to_role,
+            # PROV-O provenance metadata
+            'provenance_metadata': self.provenance_metadata
         }
 
     def _ensure_serializable(self, data):
@@ -166,7 +171,8 @@ class TemporaryRDFStorage(db.Model):
     @classmethod
     def store_extraction_results(cls, case_id: int, extraction_session_id: str,
                                 extraction_type: str, rdf_data: dict,
-                                extraction_model: str = None):
+                                extraction_model: str = None,
+                                provenance_data: dict = None):
         """
         Store RDF extraction results from the converter.
 
@@ -176,6 +182,7 @@ class TemporaryRDFStorage(db.Model):
             extraction_type: Type of extraction (roles, states, etc.)
             rdf_data: Dictionary containing classes and individuals from RDF converter
             extraction_model: LLM model used for extraction
+            provenance_data: Optional PROV-O provenance metadata (activity_id, section_type, match_reasoning, etc.)
 
         Returns:
             List of created TemporaryRDFStorage objects
@@ -218,7 +225,8 @@ class TemporaryRDFStorage(db.Model):
                 rdf_json_ld=clean_class_info,
                 extraction_model=extraction_model,
                 triple_count=len(class_info.get('properties', {})) + 4,  # Basic triples
-                property_count=len(class_info.get('properties', {}))
+                property_count=len(class_info.get('properties', {})),
+                provenance_metadata=provenance_data or {}
             )
             db.session.add(entity)
             created_entities.append(entity)
@@ -242,7 +250,8 @@ class TemporaryRDFStorage(db.Model):
                 extraction_model=extraction_model,
                 triple_count=len(indiv_info.get('properties', {})) + len(indiv_info.get('relationships', [])) + 2,
                 property_count=len(indiv_info.get('properties', {})),
-                relationship_count=len(indiv_info.get('relationships', []))
+                relationship_count=len(indiv_info.get('relationships', [])),
+                provenance_metadata=provenance_data or {}
             )
             db.session.add(entity)
             created_entities.append(entity)

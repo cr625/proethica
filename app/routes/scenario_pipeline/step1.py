@@ -2356,13 +2356,23 @@ def extract_individual_concept(case_id):
                     rdf_data = rdf_converter.get_temporary_triples()
                     logger.info(f"DEBUG RDF: Got temporary triples - new_classes: {len(rdf_data.get('new_classes', []))}, new_individuals: {len(rdf_data.get('new_individuals', []))}")
 
-                    # Store in temporary RDF storage
+                    # Prepare provenance metadata for entity storage
+                    provenance_data = {
+                        'section_type': section_type,
+                        'extracted_at': datetime.datetime.utcnow().isoformat(),
+                        'model_used': 'claude-opus-4-1-20250805',
+                        'extraction_pass': 'contextual_framework',
+                        'concept_type': 'roles'
+                    }
+
+                    # Store in temporary RDF storage with provenance
                     stored_entities = TemporaryRDFStorage.store_extraction_results(
                         case_id=case_id,
                         extraction_session_id=session_id,
                         extraction_type='roles',
                         rdf_data=rdf_data,
-                        extraction_model='claude-opus-4-1-20250805'
+                        extraction_model='claude-opus-4-1-20250805',
+                        provenance_data=provenance_data
                     )
 
                     logger.info(f"✅ DEBUG RDF: Stored {len(stored_entities)} RDF entities in temporary storage for case {case_id}")
@@ -2487,13 +2497,23 @@ def extract_individual_concept(case_id):
                     rdf_data = rdf_converter.get_temporary_triples()
                     logger.info(f"DEBUG RDF: Got temporary triples - new_classes: {len(rdf_data.get('new_classes', []))}, new_individuals: {len(rdf_data.get('new_individuals', []))}")
 
+                    # Prepare provenance metadata for entity storage
+                    provenance_data = {
+                        'section_type': section_type,
+                        'extracted_at': datetime.datetime.utcnow().isoformat(),
+                        'model_used': 'claude-opus-4-1-20250805',
+                        'extraction_pass': 'contextual_framework',
+                        'concept_type': 'states'
+                    }
+
                     # Store in temporary RDF storage using the same method as Roles
                     stored_entities = TemporaryRDFStorage.store_extraction_results(
                         case_id=case_id,
                         extraction_session_id=session_id,
                         extraction_type='states',  # Mark as states extraction
                         rdf_data=rdf_data,
-                        extraction_model='claude-opus-4-1-20250805'
+                        extraction_model='claude-opus-4-1-20250805',
+                        provenance_data=provenance_data
                     )
 
                     logger.info(f"✅ DEBUG RDF: Stored {len(stored_entities)} RDF entities in temporary storage for case {case_id}")
@@ -2600,13 +2620,23 @@ def extract_individual_concept(case_id):
                     rdf_data = rdf_converter.get_temporary_triples()
                     logger.info(f"DEBUG RDF: Got temporary triples - new_classes: {len(rdf_data.get('new_classes', []))}, new_individuals: {len(rdf_data.get('new_individuals', []))}")
 
+                    # Prepare provenance metadata for entity storage
+                    provenance_data = {
+                        'section_type': section_type,
+                        'extracted_at': datetime.datetime.utcnow().isoformat(),
+                        'model_used': 'claude-opus-4-1-20250805',
+                        'extraction_pass': 'contextual_framework',
+                        'concept_type': 'resources'
+                    }
+
                     # Store in temporary RDF storage using the same method as Roles and States
                     stored_entities = TemporaryRDFStorage.store_extraction_results(
                         case_id=case_id,
                         extraction_session_id=session_id,
                         extraction_type='resources',  # Mark as resources extraction
                         rdf_data=rdf_data,
-                        extraction_model='claude-opus-4-1-20250805'
+                        extraction_model='claude-opus-4-1-20250805',
+                        provenance_data=provenance_data
                     )
 
                     logger.info(f"DEBUG RDF: Stored {len(stored_entities)} RDF entities for resources in case {case_id}")
