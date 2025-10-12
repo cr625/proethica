@@ -175,6 +175,18 @@ def synthesize_streaming(case_id):
     return synthesize_case_streaming(case_id)
 
 
+@bp.route('/case/<int:case_id>/save_streaming_results', methods=['POST'])
+def save_streaming_results(case_id):
+    """
+    Save Step 4 streaming synthesis results to database.
+
+    Called by frontend after SSE streaming completes to persist
+    LLM prompts and responses for page refresh persistence.
+    """
+    from app.routes.scenario_pipeline.step4_streaming import save_step4_streaming_results
+    return save_step4_streaming_results(case_id)
+
+
 @bp.route('/case/<int:case_id>/synthesize', methods=['POST'])
 def synthesize_case(case_id):
     """

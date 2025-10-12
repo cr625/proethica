@@ -306,13 +306,23 @@ function runSynthesis() {
             `;
 
             addMessage('success', `✓ Synthesis completed in ${duration} seconds`);
+            addMessage('info', 'Saving results to database...');
 
-            // Add refresh button
-            const refreshBtn = document.createElement('button');
-            refreshBtn.className = 'btn btn-success btn-sm mt-3';
-            refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Refresh to See Results';
-            refreshBtn.onclick = () => location.reload();
-            messagesDiv.appendChild(refreshBtn);
+            // Save synthesis results to database
+            saveSynthesisResults(data).then(() => {
+                addMessage('success', '✓ Results saved successfully');
+
+                // Add refresh button
+                const refreshBtn = document.createElement('button');
+                refreshBtn.className = 'btn btn-success btn-sm mt-3';
+                refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Refresh to See Results';
+                refreshBtn.onclick = () => location.reload();
+                messagesDiv.appendChild(refreshBtn);
+            }).catch((error) => {
+                addMessage('warning', `Warning: Failed to save results - ${error.message}`);
+                console.error('Error saving synthesis results:', error);
+            });
+
             return;
         }
 
@@ -487,6 +497,38 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+async function saveSynthesisResults(data) {
+    /**
+     * Save Step 4 streaming synthesis results to database for persistence.
+     *
+     * Sends all LLM traces (prompts + responses) and synthesis results
+     * to the backend for storage in ExtractionPrompt table.
+     */
+    const saveData = {
+        session_id: data.session_id,
+        llm_traces: data.llm_traces || [],
+        synthesis_results: data.synthesis_results || {}
+    };
+
+    const response = await fetch(
+        `/scenario_pipeline/case/${currentCaseId}/save_streaming_results`,
+        {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(saveData)
+        }
+    );
+
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to save synthesis results');
+    }
+
+    return await response.json();
 }
 </script>
 {% endblock %}

@@ -1,0 +1,595 @@
+"""
+Step 4 Streaming Synthesis
+
+Server-Sent Events (SSE) streaming for whole-case synthesis with real-time
+LLM prompt/response display.
+
+Similar to Step 3 Enhanced Temporal Dynamics.
+"""
+
+from flask import Response, jsonify, current_app, copy_current_request_context
+import json
+import logging
+import uuid
+from datetime import datetime
+
+from app import db
+from app.models import Document, TemporaryRDFStorage, ExtractionPrompt
+from app.utils.llm_utils import get_llm_client
+
+# Import synthesis services
+from app.services.nspe_references_parser import NSPEReferencesParser
+from app.services.universal_provision_detector import UniversalProvisionDetector
+from app.services.provision_grouper import ProvisionGrouper
+from app.services.provision_group_validator import ProvisionGroupValidator
+from app.services.code_provision_linker import CodeProvisionLinker
+from app.services.question_analyzer import QuestionAnalyzer
+from app.services.conclusion_analyzer import ConclusionAnalyzer
+from app.services.question_conclusion_linker import QuestionConclusionLinker
+from app.services.case_synthesis_service import CaseSynthesisService
+
+logger = logging.getLogger(__name__)
+
+
+def synthesize_case_streaming(case_id):
+    """
+    Execute Step 4 synthesis with SSE streaming for progress tracking.
+
+    Shows real-time progress through:
+    - Part A: Code Provisions extraction and linking
+    - Part B: Questions & Conclusions extraction
+    - Part C: Cross-section synthesis
+
+    Returns:
+        SSE response stream with LLM traces
+    """
+    try:
+        logger.info(f"[Step 4 Streaming] Starting synthesis for case {case_id}")
+
+        # Get case (in request context)
+        case = Document.query.get_or_404(case_id)
+
+        # Get LLM client
+        llm_client = get_llm_client()
+
+        # Pre-load all entities BEFORE generator starts (needs Flask context)
+        all_entities = _get_all_case_entities(case_id)
+
+        def generate():
+            """Generator for Server-Sent Events"""
+            # Wrap in app context for database access within generator
+            with current_app.app_context():
+                try:
+                    # Track all LLM interactions
+                    llm_traces = []
+                    session_id = str(uuid.uuid4())
+
+                    # ==================================================================
+                    # PART A: CODE PROVISIONS
+                    # ==================================================================
+                    yield sse_message({
+                        'stage': 'PART_A_START',
+                        'progress': 10,
+                        'messages': ['Part A: Extracting code provisions...']
+                    })
+
+                    # Get references section
+                    references_html = None
+                    if case.doc_metadata and 'sections_dual' in case.doc_metadata:
+                        for section_key, section_content in case.doc_metadata['sections_dual'].items():
+                            if 'reference' in section_key.lower():
+                                if isinstance(section_content, dict):
+                                    references_html = section_content.get('html', '')
+                                break
+
+                    if not references_html:
+                        yield sse_message({
+                            'stage': 'PART_A_ERROR',
+                            'messages': ['Warning: No references section found'],
+                            'errors': ['No references section available']
+                        })
+                        provisions = []
+                    else:
+                    # Parse provisions
+                    parser = NSPEReferencesParser()
+                    provisions = parser.parse_references_html(references_html)
+
+                    yield sse_message({
+                        'stage': 'PART_A_PARSED',
+                        'progress': 20,
+                        'messages': [f'Parsed {len(provisions)} NSPE code provisions']
+                    })
+
+                    # Detect mentions
+                    case_sections = {}
+                    if case.doc_metadata and 'sections_dual' in case.doc_metadata:
+                        sections = case.doc_metadata['sections_dual']
+                        for section_key in ['facts', 'discussion', 'question', 'conclusion']:
+                            if section_key in sections:
+                                section_data = sections[section_key]
+                                case_sections[section_key] = section_data.get('text', '') if isinstance(section_data, dict) else str(section_data)
+
+                    detector = UniversalProvisionDetector()
+                    all_mentions = detector.detect_all_provisions(case_sections)
+
+                    yield sse_message({
+                        'stage': 'PART_A_MENTIONS',
+                        'progress': 30,
+                        'messages': [f'Detected {len(all_mentions)} provision mentions in case text']
+                    })
+
+                    # Group and validate with LLM
+                    grouper = ProvisionGrouper()
+                    grouped_mentions = grouper.group_mentions_by_provision(all_mentions, provisions)
+
+                    validator = ProvisionGroupValidator(llm_client)
+
+                    for i, provision in enumerate(provisions):
+                        code = provision['code_provision']
+                        mentions = grouped_mentions.get(code, [])
+
+                        if mentions:
+                            validated = validator.validate_group(
+                                code,
+                                provision['provision_text'],
+                                mentions
+                            )
+
+                            provision['relevant_excerpts'] = [
+                                {
+                                    'section': v.section,
+                                    'text': v.excerpt,
+                                    'matched_citation': v.citation_text,
+                                    'mention_type': v.content_type,
+                                    'confidence': v.confidence,
+                                    'validation_reasoning': v.reasoning
+                                }
+                                for v in validated
+                            ]
+
+                            # Capture LLM trace for validation
+                            if hasattr(validator, 'last_prompt') and hasattr(validator, 'last_response'):
+                                llm_traces.append({
+                                    'stage': f'PROVISION_VALIDATION_{code}',
+                                    'prompt': validator.last_prompt,
+                                    'response': validator.last_response,
+                                    'model': 'claude-opus-4',
+                                    'timestamp': datetime.utcnow().isoformat()
+                                })
+                        else:
+                            provision['relevant_excerpts'] = []
+
+                        # Progress update
+                        progress = 30 + int((i + 1) / len(provisions) * 15)
+                        yield sse_message({
+                            'stage': 'PART_A_VALIDATING',
+                            'progress': progress,
+                            'messages': [f'Validated {i+1}/{len(provisions)} provisions']
+                        })
+
+                # Link provisions to entities
+                    yield sse_message({
+                    'stage': 'PART_A_LINKING',
+                    'progress': 45,
+                    'messages': ['Linking provisions to extracted entities...']
+                })
+
+                # Use pre-loaded entities (loaded before generator started)
+                linker = CodeProvisionLinker(llm_client)
+                linked_provisions = linker.link_provisions_to_entities(
+                    provisions,
+                    roles=_format_entities(all_entities['roles']),
+                    states=_format_entities(all_entities['states']),
+                    resources=_format_entities(all_entities['resources']),
+                    principles=_format_entities(all_entities['principles']),
+                    obligations=_format_entities(all_entities['obligations']),
+                    constraints=_format_entities(all_entities['constraints']),
+                    capabilities=_format_entities(all_entities['capabilities']),
+                    actions=_format_entities(all_entities['actions']),
+                    events=_format_entities(all_entities['events']),
+                    case_text_summary=f"Case {case_id}: {case.title}"
+                )
+
+                # Capture LLM trace for linking
+                    if hasattr(linker, 'last_linking_prompt') and hasattr(linker, 'last_linking_response'):
+                    llm_traces.append({
+                        'stage': 'PROVISION_LINKING',
+                        'prompt': linker.last_linking_prompt,
+                        'response': linker.last_linking_response,
+                        'model': 'claude-opus-4',
+                        'timestamp': datetime.utcnow().isoformat()
+                    })
+
+                # Store provisions (no commit yet)
+                _store_provisions(case_id, session_id, linked_provisions)
+
+                    yield sse_message({
+                    'stage': 'PART_A_COMPLETE',
+                    'progress': 50,
+                    'messages': [f'Part A complete: {len(linked_provisions)} provisions extracted'],
+                    'llm_trace': llm_traces[-2:] if len(llm_traces) >= 2 else llm_traces  # Last 2 traces
+                })
+
+                    # ==================================================================
+                    # PART B: QUESTIONS & CONCLUSIONS
+                    # ==================================================================
+                    yield sse_message({
+                    'stage': 'PART_B_START',
+                    'progress': 55,
+                    'messages': ['Part B: Extracting questions and conclusions...']
+                })
+
+                # Get Q&C section text
+                questions_text = ""
+                conclusions_text = ""
+
+                    if case.doc_metadata and 'sections_dual' in case.doc_metadata:
+                    sections = case.doc_metadata['sections_dual']
+
+                    if 'question' in sections:
+                        q_data = sections['question']
+                        questions_text = q_data.get('text', '') if isinstance(q_data, dict) else str(q_data)
+
+                    if 'conclusion' in sections:
+                        c_data = sections['conclusion']
+                        conclusions_text = c_data.get('text', '') if isinstance(c_data, dict) else str(c_data)
+
+                # Extract questions
+                question_analyzer = QuestionAnalyzer(llm_client)
+                questions = question_analyzer.extract_questions(
+                    questions_text,
+                    all_entities,
+                    provisions
+                )
+
+                # Capture LLM trace
+                    if hasattr(question_analyzer, 'last_prompt') and hasattr(question_analyzer, 'last_response'):
+                    llm_traces.append({
+                        'stage': 'QUESTION_EXTRACTION',
+                        'prompt': question_analyzer.last_prompt,
+                        'response': question_analyzer.last_response,
+                        'model': 'claude-opus-4',
+                        'timestamp': datetime.utcnow().isoformat()
+                    })
+
+                    yield sse_message({
+                    'stage': 'PART_B_QUESTIONS',
+                    'progress': 65,
+                    'messages': [f'Extracted {len(questions)} ethical questions'],
+                    'llm_trace': [llm_traces[-1]] if llm_traces else []
+                })
+
+                # Extract conclusions
+                conclusion_analyzer = ConclusionAnalyzer(llm_client)
+                conclusions = conclusion_analyzer.extract_conclusions(
+                    conclusions_text,
+                    all_entities,
+                    provisions
+                )
+
+                # Capture LLM trace
+                    if hasattr(conclusion_analyzer, 'last_prompt') and hasattr(conclusion_analyzer, 'last_response'):
+                    llm_traces.append({
+                        'stage': 'CONCLUSION_EXTRACTION',
+                        'prompt': conclusion_analyzer.last_prompt,
+                        'response': conclusion_analyzer.last_response,
+                        'model': 'claude-opus-4',
+                        'timestamp': datetime.utcnow().isoformat()
+                    })
+
+                    yield sse_message({
+                    'stage': 'PART_B_CONCLUSIONS',
+                    'progress': 75,
+                    'messages': [f'Extracted {len(conclusions)} board conclusions'],
+                    'llm_trace': [llm_traces[-1]] if llm_traces else []
+                })
+
+                # Link Q→C
+                linker_qc = QuestionConclusionLinker(llm_client)
+                qc_links = linker_qc.link_questions_to_conclusions(questions, conclusions)
+                conclusions = linker_qc.apply_links_to_conclusions(conclusions, qc_links)
+
+                # Capture LLM trace
+                    if hasattr(linker_qc, 'last_prompt') and hasattr(linker_qc, 'last_response'):
+                    llm_traces.append({
+                        'stage': 'QC_LINKING',
+                        'prompt': linker_qc.last_prompt,
+                        'response': linker_qc.last_response,
+                        'model': 'claude-opus-4',
+                        'timestamp': datetime.utcnow().isoformat()
+                    })
+
+                # Store Q&C (no commit yet)
+                _store_questions_conclusions(case_id, session_id, questions, conclusions)
+
+                    yield sse_message({
+                    'stage': 'PART_B_COMPLETE',
+                    'progress': 80,
+                    'messages': [f'Part B complete: {len(questions)} questions, {len(conclusions)} conclusions'],
+                    'llm_trace': [llm_traces[-1]] if llm_traces else []
+                })
+
+                    # ==================================================================
+                    # PART C: CROSS-SECTION SYNTHESIS
+                    # ==================================================================
+                    yield sse_message({
+                    'stage': 'PART_C_START',
+                    'progress': 85,
+                    'messages': ['Part C: Performing whole-case synthesis...']
+                })
+
+                # Initialize synthesis service
+                synthesis_service = CaseSynthesisService(llm_client)
+                synthesis = synthesis_service.synthesize_case(case_id)
+
+                    yield sse_message({
+                    'stage': 'PART_C_SYNTHESIS',
+                    'progress': 95,
+                    'messages': [
+                        f'Built entity graph: {synthesis.total_nodes} nodes',
+                        f'Created {len(synthesis.causal_normative_links)} causal-normative links',
+                        f'Analyzed {len(synthesis.question_emergence)} question emergence patterns',
+                        f'Extracted {len(synthesis.resolution_patterns)} resolution patterns'
+                    ]
+                })
+
+                # Store synthesis results
+                _store_synthesis_results(case_id, synthesis)
+
+                # Commit all changes
+                db.session.commit()
+
+                    yield sse_message({
+                    'stage': 'PART_C_COMPLETE',
+                    'progress': 100,
+                    'messages': ['Part C complete: Synthesis stored in database']
+                })
+
+                    # ==================================================================
+                # COMPLETION
+                    # ==================================================================
+                    yield sse_message({
+                    'complete': True,
+                    'progress': 100,
+                    'messages': ['Whole-case synthesis complete!'],
+                    'summary': {
+                        'provisions_count': len(linked_provisions),
+                        'questions_count': len(questions),
+                        'conclusions_count': len(conclusions),
+                        'total_nodes': synthesis.total_nodes,
+                        'total_links': len(synthesis.causal_normative_links),
+                        'llm_interactions': len(llm_traces)
+                    }
+                })
+
+            except Exception as e:
+                logger.error(f"[Step 4 Streaming] Error: {e}", exc_info=True)
+                yield sse_message({
+                    'error': str(e),
+                    'progress': 0,
+                    'messages': [f'Error: {str(e)}']
+                })
+
+        # Return SSE response
+        return Response(
+            generate(),
+            mimetype='text/event-stream',
+            headers={
+                'Cache-Control': 'no-cache',
+                'X-Accel-Buffering': 'no',
+                'Connection': 'keep-alive'
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"[Step 4 Streaming] Setup error: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+
+def sse_message(data):
+    """Format data as Server-Sent Event"""
+    return f"data: {json.dumps(data)}\n\n"
+
+
+def _get_all_case_entities(case_id):
+    """Query ALL extracted entities from Passes 1-3"""
+    entity_types = [
+        'roles', 'states', 'resources',
+        'principles', 'obligations', 'constraints', 'capabilities',
+        'actions', 'events'
+    ]
+
+    entities = {}
+    for entity_type in entity_types:
+        entities[entity_type] = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            entity_type=entity_type,
+            storage_type='individual'
+        ).all()
+
+    return entities
+
+
+def _format_entities(entity_list):
+    """Format entities for service consumption"""
+    return [
+        {
+            'label': e.entity_label,
+            'definition': e.entity_definition
+        }
+        for e in entity_list
+    ]
+
+
+def _store_provisions(case_id, session_id, provisions):
+    """Store code provisions (without committing)"""
+    # Clear old
+    TemporaryRDFStorage.query.filter_by(
+        case_id=case_id,
+        extraction_type='code_provision_reference'
+    ).delete(synchronize_session=False)
+
+    # Store new
+    for provision in provisions:
+        label = f"NSPE_{provision['code_provision'].replace('.', '_')}"
+
+        rdf_entity = TemporaryRDFStorage(
+            case_id=case_id,
+            extraction_session_id=session_id,
+            extraction_type='code_provision_reference',
+            storage_type='individual',
+            entity_type='resources',
+            entity_label=label,
+            entity_definition=provision['provision_text'],
+            rdf_json_ld={
+                '@type': 'proeth-case:CodeProvisionReference',
+                'label': label,
+                'codeProvision': provision['code_provision'],
+                'provisionText': provision['provision_text'],
+                'relevantExcerpts': provision.get('relevant_excerpts', []),
+                'providedBy': 'NSPE Board of Ethical Review',
+                'authoritative': True
+            },
+            is_selected=True
+        )
+        db.session.add(rdf_entity)
+
+
+def _store_questions_conclusions(case_id, session_id, questions, conclusions):
+    """Store questions and conclusions (without committing)"""
+    # Clear old
+    TemporaryRDFStorage.query.filter_by(
+        case_id=case_id,
+        extraction_type='ethical_question'
+    ).delete(synchronize_session=False)
+
+    TemporaryRDFStorage.query.filter_by(
+        case_id=case_id,
+        extraction_type='ethical_conclusion'
+    ).delete(synchronize_session=False)
+
+    # Store questions
+    for question in questions:
+        rdf_entity = TemporaryRDFStorage(
+            case_id=case_id,
+            extraction_session_id=session_id,
+            extraction_type='ethical_question',
+            storage_type='individual',
+            entity_type='questions',
+            entity_label=f"Question_{question.question_number}",
+            entity_definition=question.question_text,
+            rdf_json_ld={
+                '@type': 'proeth-case:EthicalQuestion',
+                'questionNumber': question.question_number,
+                'questionText': question.question_text,
+                'mentionedEntities': question.mentioned_entities,
+                'relatedProvisions': question.related_provisions,
+                'extractionReasoning': question.extraction_reasoning
+            },
+            is_selected=True
+        )
+        db.session.add(rdf_entity)
+
+    # Store conclusions
+    for conclusion in conclusions:
+        rdf_entity = TemporaryRDFStorage(
+            case_id=case_id,
+            extraction_session_id=session_id,
+            extraction_type='ethical_conclusion',
+            storage_type='individual',
+            entity_type='conclusions',
+            entity_label=f"Conclusion_{conclusion.conclusion_number}",
+            entity_definition=conclusion.conclusion_text,
+            rdf_json_ld={
+                '@type': 'proeth-case:EthicalConclusion',
+                'conclusionNumber': conclusion.conclusion_number,
+                'conclusionText': conclusion.conclusion_text,
+                'mentionedEntities': conclusion.mentioned_entities,
+                'citedProvisions': conclusion.cited_provisions,
+                'conclusionType': conclusion.conclusion_type,
+                'answersQuestions': getattr(conclusion, 'answers_questions', []),
+                'extractionReasoning': conclusion.extraction_reasoning
+            },
+            is_selected=True
+        )
+        db.session.add(rdf_entity)
+
+
+def _store_synthesis_results(case_id, synthesis):
+    """Store synthesis results (without committing)"""
+    synthesis_session_id = str(uuid.uuid4())
+
+    # Serialize synthesis
+    synthesis_data = {
+        'entity_graph': {
+            'total_nodes': len(synthesis.entity_graph.nodes),
+            'by_type': {k: len(v) for k, v in synthesis.entity_graph.by_type.items()},
+            'by_section': {k: len(v) for k, v in synthesis.entity_graph.by_section.items()}
+        },
+        'causal_normative_links': [
+            {
+                'action_id': link.action_id,
+                'action_label': link.action_label,
+                'fulfills_obligations': link.fulfills_obligations,
+                'violates_obligations': link.violates_obligations,
+                'guided_by_principles': link.guided_by_principles,
+                'constrained_by': link.constrained_by,
+                'reasoning': link.reasoning,
+                'confidence': link.confidence
+            }
+            for link in synthesis.causal_normative_links
+        ],
+        'question_emergence': [
+            {
+                'question_id': qe.question_id,
+                'question_text': qe.question_text,
+                'triggered_by_events': qe.triggered_by_events,
+                'triggered_by_actions': qe.triggered_by_actions,
+                'emergence_narrative': qe.emergence_narrative,
+                'confidence': qe.confidence
+            }
+            for qe in synthesis.question_emergence
+        ],
+        'resolution_patterns': [
+            {
+                'conclusion_id': rp.conclusion_id,
+                'conclusion_text': rp.conclusion_text,
+                'determinative_principles': rp.determinative_principles,
+                'cited_provisions': rp.cited_provisions,
+                'pattern_type': rp.pattern_type,
+                'resolution_narrative': rp.resolution_narrative,
+                'confidence': rp.confidence
+            }
+            for rp in synthesis.resolution_patterns
+        ]
+    }
+
+    # Delete old
+    ExtractionPrompt.query.filter_by(
+        case_id=case_id,
+        concept_type='whole_case_synthesis'
+    ).delete(synchronize_session=False)
+
+    # Store new
+    extraction_prompt = ExtractionPrompt(
+        case_id=case_id,
+        concept_type='whole_case_synthesis',
+        step_number=4,
+        section_type='synthesis',
+        prompt_text='Whole-case synthesis integrating all passes',
+        llm_model='case_synthesis_service',
+        extraction_session_id=synthesis_session_id,
+        raw_response=json.dumps(synthesis_data, indent=2),
+        results_summary={
+            'total_nodes': synthesis.total_nodes,
+            'total_links': len(synthesis.causal_normative_links),
+            'questions_analyzed': len(synthesis.question_emergence),
+            'patterns_extracted': len(synthesis.resolution_patterns)
+        },
+        is_active=True,
+        times_used=1,
+        created_at=datetime.utcnow(),
+        last_used_at=datetime.utcnow()
+    )
+
+    db.session.add(extraction_prompt)
