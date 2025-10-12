@@ -1,0 +1,651 @@
+{% extends "base.html" %}
+
+{% block title %}Step 4 Review - Case {{ case.id }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-clipboard-check"></i> Step 4: Synthesis Review</h2>
+            <p class="text-muted mb-0">Case {{ case.id }}: {{ case.title }}</p>
+        </div>
+        <div>
+        <div>
+            {% if has_synthesis_annotations %}
+                <button id="generateAnnotationsBtn" class="btn btn-outline-warning me-2" onclick="generateSynthesisAnnotations()">
+                    <i class="bi bi-arrow-clockwise"></i> Re-Generate Synthesis Annotations
+                </button>
+                <a href="{{ url_for('cases.view_case', id=case.id) }}?highlight=synthesis" class="btn btn-success me-2">
+                    <i class="bi bi-eye"></i> View Case with Annotations ({{ annotation_count }})
+                </a>
+            {% else %}
+                <button id="generateAnnotationsBtn" class="btn btn-warning me-2" onclick="generateSynthesisAnnotations()">
+                    <i class="bi bi-lightbulb"></i> Generate Synthesis Annotations
+                </button>
+            {% endif %}
+            <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Step 4
+            </a>
+        </div>
+        </div>
+    </div>
+
+    <!-- Alert for annotation generation -->
+    <div id="annotationAlert" class="alert alert-dismissible fade" role="alert" style="display: none;">
+        <div id="annotationMessage"></div>
+        <button type="button" class="btn-close" onclick="document.getElementById('annotationAlert').style.display='none'"></button>
+    </div>
+
+    <!-- Show existing annotations info -->
+    {% if has_synthesis_annotations %}
+    <div class="alert alert-info alert-dismissible fade show">
+        <strong><i class="bi bi-info-circle"></i> Synthesis Annotations Available</strong>
+        <p class="mb-2 mt-2">{{ annotation_count }} synthesis annotations have been generated for this case:</p>
+        <ul class="mb-2">
+            {% if annotation_breakdown.get('question') %}<li>{{ annotation_breakdown.get('question') }} questions</li>{% endif %}
+            {% if annotation_breakdown.get('conclusion') %}<li>{{ annotation_breakdown.get('conclusion') }} conclusions</li>{% endif %}
+            {% if annotation_breakdown.get('provision') %}<li>{{ annotation_breakdown.get('provision') }} provision citations</li>{% endif %}
+            {% for key, value in annotation_breakdown.items() %}
+                {% if key.startswith('entity_') %}
+                    <li>{{ value }} {{ key.replace('entity_', '') }} mentions</li>
+                {% endif %}
+            {% endfor %}
+        </ul>
+        <p class="mb-0"><small class="text-muted">Click "View Case with Annotations" above to see them highlighted in the case text.</small></p>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endif %}
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center border-primary">
+                <div class="card-body">
+                    <h3 class="text-primary">{{ entity_count }}</h3>
+                    <p class="mb-0">Total Entities</p>
+                    <small class="text-muted">Passes 1-3</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center border-info">
+                <div class="card-body">
+                    <h3 class="text-info">{{ provision_count }}</h3>
+                    <p class="mb-0">Code Provisions</p>
+                    <small class="text-muted">NSPE References</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center border-warning">
+                <div class="card-body">
+                    <h3 class="text-warning">{{ question_count }}</h3>
+                    <p class="mb-0">Questions</p>
+                    <small class="text-muted">Ethical Dilemmas</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center border-success">
+                <div class="card-body">
+                    <h3 class="text-success">{{ conclusion_count }}</h3>
+                    <p class="mb-0">Conclusions</p>
+                    <small class="text-muted">Board Findings</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <ul class="nav nav-tabs mb-3" id="reviewTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="graph-tab" data-bs-toggle="tab" data-bs-target="#graph" type="button">
+                <i class="bi bi-diagram-3"></i> Entity Graph
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="provisions-tab" data-bs-toggle="tab" data-bs-target="#provisions" type="button">
+                <i class="bi bi-file-text"></i> Code Provisions
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="questions-tab" data-bs-toggle="tab" data-bs-target="#questions" type="button">
+                <i class="bi bi-question-circle"></i> Questions & Conclusions
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="reviewTabContent">
+        <!-- Entity Graph Tab -->
+        <div class="tab-pane fade show active" id="graph" role="tabpanel">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="bi bi-diagram-3"></i> Synthesis Reasoning Flow</h5>
+                    <small class="text-muted">Shows how NSPE provisions inform questions and conclusions - the board's reasoning chain (LangGraph-style)</small>
+                </div>
+                <div class="card-body">
+                    <!-- Graph Controls -->
+                    <div class="mb-3">
+                        <button id="fit-graph" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-arrows-fullscreen"></i> Fit to View
+                        </button>
+                        <button id="reset-graph" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-arrow-clockwise"></i> Reset Layout
+                        </button>
+                        <div class="btn-group ms-2" role="group">
+                            <input type="checkbox" class="btn-check" id="show-labels" checked autocomplete="off">
+                            <label class="btn btn-outline-secondary btn-sm" for="show-labels">Show Labels</label>
+                        </div>
+                    </div>
+
+                    <!-- Cytoscape Container -->
+                    <div id="cy" style="width: 100%; height: 700px; border: 1px solid #ddd; background-color: #fafafa;"></div>
+
+                    <!-- Legend -->
+                    <div class="mt-3">
+                        <h6>Node Types & Relationships</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>Nodes:</strong>
+                                <div class="d-flex flex-wrap gap-3 mt-2">
+                                    <span><span class="badge" style="background-color: #6C757D;">■</span> NSPE Provisions (rectangles)</span>
+                                    <span><span class="badge" style="background-color: #FFC107;">◆</span> Questions (diamonds)</span>
+                                    <span><span class="badge" style="background-color: #28A745;">▬</span> Conclusions (rounded)</span>
+                                    <span><span class="badge" style="background-color: #17A2B8;">●</span> Entities (circles)</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Edge Colors:</strong>
+                                <div class="mt-2">
+                                    <span class="badge" style="background-color: #6C757D;">→</span> Provision informs Question<br>
+                                    <span class="badge" style="background-color: #FFC107;">→</span> Question answered by Conclusion<br>
+                                    <span class="badge" style="background-color: #17A2B8;">→</span> Provision applies to Entity
+                                </div>
+                            </div>
+                        </div>
+                        <p class="text-muted mt-2 mb-0"><small><strong>Note:</strong> For individual entity visualization, see <a href="http://localhost:5003/editor/ontology/proethica-case-{{ case.id }}/visualize" target="_blank">OntServe's full ontology view</a></small></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Code Provisions Tab -->
+        <div class="tab-pane fade" id="provisions" role="tabpanel">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="bi bi-file-text"></i> NSPE Code Provisions Referenced</h5>
+                </div>
+                <div class="card-body">
+                    {% if provisions %}
+                        {% for provision in provisions %}
+                        <div class="card mb-3">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0">
+                                    <strong>{{ provision.entity_label }}</strong>
+                                    {% if provision.rdf_json_ld and provision.rdf_json_ld.codeProvision %}
+                                    <span class="badge bg-secondary ms-2">{{ provision.rdf_json_ld.codeProvision }}</span>
+                                    {% endif %}
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <p class="mb-2"><strong>Full Text:</strong></p>
+                                <p class="text-muted mb-3">{{ provision.entity_definition }}</p>
+
+                                {% if provision.rdf_json_ld and provision.rdf_json_ld.relevantExcerpts %}
+                                <p class="mb-2"><strong>Relevant Case Excerpts:</strong></p>
+                                {% for excerpt in provision.rdf_json_ld.relevantExcerpts %}
+                                <div class="alert alert-info mb-2">
+                                    <small class="text-muted"><strong>From {{ excerpt.section }}:</strong></small><br>
+                                    "{{ excerpt.text }}"
+                                    {% if excerpt.confidence %}
+                                    <br><small class="text-muted">Confidence: {{ "%.1f"|format(excerpt.confidence * 100) }}%</small>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                                {% endif %}
+
+                                {% if provision.rdf_json_ld and provision.rdf_json_ld.appliesTo %}
+                                <p class="mb-2"><strong>Applies To:</strong></p>
+                                <div class="d-flex flex-wrap gap-2">
+                                    {% for entity in provision.rdf_json_ld.appliesTo %}
+                                    <span class="badge bg-secondary">{{ entity }}</span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted">No code provisions extracted yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Questions & Conclusions Tab -->
+        <div class="tab-pane fade" id="questions" role="tabpanel">
+            <div class="row">
+                <!-- Questions Column -->
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header bg-warning text-dark">
+                            <h5><i class="bi bi-question-circle"></i> Ethical Questions</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if questions %}
+                                {% for question in questions %}
+                                <div class="card mb-3" id="question-{{ loop.index }}">
+                                    <div class="card-header bg-warning text-dark">
+                                        <strong>{{ question.entity_label }}</strong>
+                                    </div>
+                                    <div class="card-body">
+                                        <p>{{ question.entity_definition }}</p>
+
+                                        {% if question.rdf_json_ld and question.rdf_json_ld.mentionedEntities %}
+                                        <div class="mb-2">
+                                            <small class="text-muted"><strong>Mentioned Entities:</strong></small><br>
+                                            {% for entity in question.rdf_json_ld.mentionedEntities %}
+                                            <span class="badge bg-info me-1">{{ entity }}</span>
+                                            {% endfor %}
+                                        </div>
+                                        {% endif %}
+
+                                        {% if question.rdf_json_ld and question.rdf_json_ld.relatedProvisions %}
+                                        <div>
+                                            <small class="text-muted"><strong>Related Provisions:</strong></small><br>
+                                            {% for prov in question.rdf_json_ld.relatedProvisions %}
+                                            <span class="badge bg-secondary me-1">{{ prov }}</span>
+                                            {% endfor %}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <p class="text-muted">No questions extracted yet.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Conclusions Column -->
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header bg-success text-white">
+                            <h5><i class="bi bi-check-circle"></i> Board Conclusions</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if conclusions %}
+                                {% for conclusion in conclusions %}
+                                <div class="card mb-3" id="conclusion-{{ loop.index }}">
+                                    <div class="card-header bg-success text-white">
+                                        <strong>{{ conclusion.entity_label }}</strong>
+                                    </div>
+                                    <div class="card-body">
+                                        <p>{{ conclusion.entity_definition }}</p>
+
+                                        {% if conclusion.rdf_json_ld and conclusion.rdf_json_ld.answersQuestions %}
+                                        <div class="mb-2">
+                                            <small class="text-muted"><strong>Answers:</strong></small><br>
+                                            {% for q in conclusion.rdf_json_ld.answersQuestions %}
+                                            <a href="#question-{{ loop.index }}" class="btn btn-sm btn-outline-warning">
+                                                {{ q }}
+                                            </a>
+                                            {% endfor %}
+                                        </div>
+                                        {% endif %}
+
+                                        {% if conclusion.rdf_json_ld and conclusion.rdf_json_ld.citedProvisions %}
+                                        <div class="mb-2">
+                                            <small class="text-muted"><strong>Cited Provisions:</strong></small><br>
+                                            {% for prov in conclusion.rdf_json_ld.citedProvisions %}
+                                            <span class="badge bg-secondary me-1">{{ prov }}</span>
+                                            {% endfor %}
+                                        </div>
+                                        {% endif %}
+
+                                        {% if conclusion.rdf_json_ld and conclusion.rdf_json_ld.conclusionType %}
+                                        <div>
+                                            <small class="text-muted"><strong>Type:</strong></small>
+                                            <span class="badge bg-dark">{{ conclusion.rdf_json_ld.conclusionType }}</span>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <p class="text-muted">No conclusions extracted yet.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Include Cytoscape.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.23.0/cytoscape.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Load synthesis data (provisions, questions, conclusions)
+    const provisions = {{ provisions_json | tojson | safe }};
+    const questions = {{ questions_json | tojson | safe }};
+    const conclusions = {{ conclusions_json | tojson | safe }};
+
+    //BUILD SYNTHESIS REASONING GRAPH (LangGraph-style)
+    // Shows: Provisions → Questions → Conclusions + Entity mentions
+    const elements = [];
+    const nodeIds = new Set();
+
+    // Add Provision nodes
+    provisions.forEach(function(prov) {
+        const nodeId = 'prov_' + prov.id;
+        const provCode = prov.rdf_json_ld?.codeProvision || prov.entity_label;
+
+        nodeIds.add(nodeId);
+        elements.push({
+            group: 'nodes',
+            data: {
+                id: nodeId,
+                label: provCode,
+                type: 'provision',
+                fullText: prov.entity_definition,
+                nodeType: 'NSPE Provision'
+            }
+        });
+
+        // Add edges from provisions to mentioned entities
+        if (prov.rdf_json_ld && prov.rdf_json_ld.appliesTo) {
+            prov.rdf_json_ld.appliesTo.forEach(function(entity) {
+                const entityId = 'entity_' + entity.entity_label.replace(/\s+/g, '_');
+
+                // Add entity node if not exists
+                if (!nodeIds.has(entityId)) {
+                    nodeIds.add(entityId);
+                    elements.push({
+                        group: 'nodes',
+                        data: {
+                            id: entityId,
+                            label: entity.entity_label,
+                            type: entity.entity_type,
+                            reasoning: entity.reasoning,
+                            nodeType: 'Entity'
+                        }
+                    });
+                }
+
+                // Add edge: provision → entity
+                elements.push({
+                    group: 'edges',
+                    data: {
+                        id: nodeId + '_' + entityId,
+                        source: nodeId,
+                        target: entityId,
+                        label: 'applies to',
+                        edgeType: 'provision_to_entity'
+                    }
+                });
+            });
+        }
+    });
+
+    // Add Question nodes
+    questions.forEach(function(q) {
+        const nodeId = 'q_' + q.id;
+        nodeIds.add(nodeId);
+
+        elements.push({
+            group: 'nodes',
+            data: {
+                id: nodeId,
+                label: q.entity_label,
+                type: 'question',
+                fullText: q.entity_definition,
+                nodeType: 'Question'
+            }
+        });
+
+        // Link questions to related provisions
+        if (q.rdf_json_ld && q.rdf_json_ld.relatedProvisions) {
+            q.rdf_json_ld.relatedProvisions.forEach(function(provCode) {
+                // Find provision node
+                const provNode = provisions.find(p =>
+                    p.rdf_json_ld?.codeProvision === provCode ||
+                    p.entity_label.includes(provCode)
+                );
+                if (provNode) {
+                    const provId = 'prov_' + provNode.id;
+                    elements.push({
+                        group: 'edges',
+                        data: {
+                            id: provId + '_' + nodeId,
+                            source: provId,
+                            target: nodeId,
+                            label: 'informs',
+                            edgeType: 'provision_to_question'
+                        }
+                    });
+                }
+            });
+        }
+    });
+
+    // Add Conclusion nodes
+    conclusions.forEach(function(c) {
+        const nodeId = 'c_' + c.id;
+        nodeIds.add(nodeId);
+
+        elements.push({
+            group: 'nodes',
+            data: {
+                id: nodeId,
+                label: c.entity_label,
+                type: 'conclusion',
+                fullText: c.entity_definition,
+                nodeType: 'Conclusion'
+            }
+        });
+
+        // Link conclusions to questions they answer
+        if (c.rdf_json_ld && c.rdf_json_ld.answersQuestions) {
+            c.rdf_json_ld.answersQuestions.forEach(function(qNum) {
+                const qNode = questions.find(q => q.entity_label.includes(qNum) || q.entity_label.includes('Question_' + qNum));
+                if (qNode) {
+                    const qId = 'q_' + qNode.id;
+                    elements.push({
+                        group: 'edges',
+                        data: {
+                            id: qId + '_' + nodeId,
+                            source: qId,
+                            target: nodeId,
+                            label: 'answered by',
+                            edgeType: 'question_to_conclusion'
+                        }
+                    });
+                }
+            });
+        }
+    });
+
+    // Initialize Cytoscape with HIERARCHICAL layout (LangGraph-style)
+    const cy = cytoscape({
+        container: document.getElementById('cy'),
+        elements: elements,
+        style: [
+            {
+                selector: 'node',
+                style: {
+                    'background-color': function(ele) {
+                        const type = ele.data('type');
+                        const colors = {
+                            'provision': '#6C757D',  // Gray - Code provisions
+                            'question': '#FFC107',   // Yellow - Questions
+                            'conclusion': '#28A745', // Green - Conclusions
+                            'action': '#343A40',     // Dark - Actions
+                            'event': '#6C757D'       // Gray - Events
+                        };
+                        return colors[type] || '#17A2B8'; // Cyan for entities
+                    },
+                    'label': 'data(label)',
+                    'color': '#fff',
+                    'text-valign': 'center',
+                    'text-halign': 'center',
+                    'font-size': '11px',
+                    'font-weight': 'bold',
+                    'width': function(ele) {
+                        // Larger nodes for Q/C/Provisions
+                        const type = ele.data('type');
+                        return (type === 'provision' || type === 'question' || type === 'conclusion') ? '60px' : '45px';
+                    },
+                    'height': function(ele) {
+                        const type = ele.data('type');
+                        return (type === 'provision' || type === 'question' || type === 'conclusion') ? '60px' : '45px';
+                    },
+                    'text-wrap': 'wrap',
+                    'text-max-width': '100px',
+                    'shape': function(ele) {
+                        const type = ele.data('type');
+                        if (type === 'provision') return 'rectangle';
+                        if (type === 'question') return 'diamond';
+                        if (type === 'conclusion') return 'round-rectangle';
+                        return 'ellipse';
+                    },
+                    'border-width': 2,
+                    'border-color': '#fff'
+                }
+            },
+            {
+                selector: 'edge',
+                style: {
+                    'width': 3,
+                    'line-color': function(ele) {
+                        const edgeType = ele.data('edgeType');
+                        if (edgeType === 'provision_to_question') return '#6C757D';
+                        if (edgeType === 'question_to_conclusion') return '#FFC107';
+                        if (edgeType === 'provision_to_entity') return '#17A2B8';
+                        return '#ccc';
+                    },
+                    'target-arrow-color': function(ele) {
+                        const edgeType = ele.data('edgeType');
+                        if (edgeType === 'provision_to_question') return '#6C757D';
+                        if (edgeType === 'question_to_conclusion') return '#FFC107';
+                        if (edgeType === 'provision_to_entity') return '#17A2B8';
+                        return '#ccc';
+                    },
+                    'target-arrow-shape': 'triangle',
+                    'curve-style': 'bezier',
+                    'label': 'data(label)',
+                    'font-size': '9px',
+                    'text-rotation': 'autorotate',
+                    'text-background-color': '#fff',
+                    'text-background-opacity': 0.8,
+                    'text-background-padding': '2px'
+                }
+            }
+        ],
+        layout: {
+            name: 'breadthfirst',  // Hierarchical layout for flow
+            directed: true,
+            spacingFactor: 1.5,
+            padding: 50,
+            animate: true,
+            animationDuration: 500
+        }
+    });
+
+    // Graph controls
+    document.getElementById('fit-graph').addEventListener('click', function() {
+        cy.fit();
+    });
+
+    document.getElementById('reset-graph').addEventListener('click', function() {
+        cy.layout({
+            name: 'cose',
+            idealEdgeLength: 100,
+            nodeOverlap: 20,
+            fit: true
+        }).run();
+    });
+
+    document.getElementById('show-labels').addEventListener('change', function(e) {
+        if (e.target.checked) {
+            cy.style().selector('node').style('label', 'data(label)').update();
+        } else {
+            cy.style().selector('node').style('label', '').update();
+        }
+    });
+
+    // Node click handler
+    cy.on('tap', 'node', function(evt) {
+        const node = evt.target;
+        const data = node.data();
+
+        // Show entity details in modal or alert
+        const details = `
+Entity: ${data.label}
+Type: ${data.type}
+Definition: ${data.definition || 'No definition available'}
+URI: ${data.uri}
+        `.trim();
+
+        alert(details);
+    });
+
+
+});
+
+// Synthesis Annotations (outside DOMContentLoaded for onclick access)
+
+// Synthesis Annotations Generation
+const currentCaseId = {{ case.id }};
+
+function generateSynthesisAnnotations() {
+    const btn = document.getElementById('generateAnnotationsBtn');
+    const alertDiv = document.getElementById('annotationAlert');
+    const message = document.getElementById('annotationMessage');
+    
+    // Disable button
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating...';
+    
+    // Show processing message
+    alertDiv.className = 'alert alert-info alert-dismissible fade show';
+    alertDiv.style.display = 'block';
+    message.innerHTML = '<strong>Generating synthesis annotations...</strong> This may take a minute.';
+    
+    // Call API
+    fetch('/scenario_pipeline/case/' + currentCaseId + '/step4/generate_synthesis_annotations', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success message
+            alertDiv.className = 'alert alert-success alert-dismissible fade show';
+            message.innerHTML = '<strong>Success!</strong> Generated ' + data.counts.total + ' synthesis annotations:<ul class="mb-0 mt-2"><li>' + data.counts.questions + ' questions</li><li>' + data.counts.conclusions + ' conclusions</li><li>' + data.counts.provisions + ' provision citations</li><li>' + data.counts.entity_mentions + ' entity mentions</li></ul><a href="/cases/{{ case.id }}?highlight=synthesis" class="btn btn-sm btn-info mt-2"><i class="bi bi-eye"></i> View Case with Annotations</a>';
+        } else {
+            // Show error
+            alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+            message.innerHTML = '<strong>Error:</strong> ' + (data.error || 'Failed to generate annotations');
+        }
+        
+        // Re-enable button
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-lightbulb"></i> Generate Synthesis Annotations';
+    })
+    .catch(error => {
+        alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+        message.innerHTML = '<strong>Error:</strong> ' + error.message;
+        
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-lightbulb"></i> Generate Synthesis Annotations';
+    });
+}
+</script>
+{% endblock %}

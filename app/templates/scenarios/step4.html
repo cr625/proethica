@@ -81,8 +81,12 @@
                 <i class="bi bi-arrow-repeat"></i> Re-run Synthesis
             </button>
 
-            <a href="{{ url_for('step4.view_synthesis_results', case_id=case.id) }}" class="btn btn-success ms-2">
-                <i class="bi bi-diagram-3"></i> View Synthesis Results
+            <a href="{{ url_for('step4.step4_review', case_id=case.id) }}" class="btn btn-success ms-2">
+                <i class="bi bi-clipboard-check"></i> View Step 4 Review
+            </a>
+
+            <a href="{{ url_for('step4.view_synthesis_results', case_id=case.id) }}" class="btn btn-outline-secondary ms-2">
+                <i class="bi bi-diagram-3"></i> Technical Results
             </a>
         {% else %}
             <div class="alert alert-info">
@@ -530,6 +534,104 @@ async function saveSynthesisResults(data) {
 
     return await response.json();
 }
+
+// Load saved synthesis results on page load
+{% if saved_synthesis %}
+document.addEventListener('DOMContentLoaded', function() {
+    // Show progress card with saved results
+    const progressCard = document.getElementById('synthesis-progress');
+    const progressBar = document.getElementById('progress-bar');
+    const progressIcon = document.getElementById('progress-icon');
+    const progressHeader = document.getElementById('progress-header-text');
+    const stageInfo = document.getElementById('stage-info');
+    const messagesDiv = document.getElementById('progress-messages');
+    const summaryCard = document.getElementById('synthesis-summary');
+    const accordionContainer = document.getElementById('synthesis-stages-accordion');
+
+    // Display the saved synthesis
+    progressCard.style.display = 'block';
+    progressBar.style.width = '100%';
+    progressBar.textContent = '100%';
+    progressBar.classList.remove('progress-bar-animated');
+    progressBar.classList.add('bg-success');
+    progressIcon.className = 'bi bi-check-circle text-success';
+    progressHeader.textContent = 'Synthesis Complete (Loaded from Database)';
+    stageInfo.style.display = 'none';
+
+    // Show summary
+    const summary = {{ saved_synthesis.results_summary | tojson | safe }};
+    summaryCard.style.display = 'block';
+    document.getElementById('synthesis-summary-content').innerHTML = `
+        <div class="row">
+            <div class="col-md-3">
+                <strong>Provisions:</strong> ${summary.provisions_count || 0}
+            </div>
+            <div class="col-md-3">
+                <strong>Questions:</strong> ${summary.questions_count || 0}
+            </div>
+            <div class="col-md-3">
+                <strong>Conclusions:</strong> ${summary.conclusions_count || 0}
+            </div>
+            <div class="col-md-3">
+                <strong>Entity Nodes:</strong> ${summary.total_nodes || 0}
+            </div>
+        </div>
+        <div class="row mt-3">
+            <div class="col-md-6">
+                <strong>LLM Interactions:</strong> ${summary.llm_interactions || 0}
+            </div>
+            <div class="col-md-6">
+                <strong>Completed:</strong> {{ saved_synthesis.created_at.strftime('%Y-%m-%d %H:%M') }}
+            </div>
+        </div>
+    `;
+
+    // Parse saved prompts and responses
+    const savedPromptText = {{ saved_synthesis.prompt_text | tojson | safe }};
+    const savedResponseText = {{ saved_synthesis.raw_response | tojson | safe }};
+
+    // Extract stages from the combined prompt/response
+    const stages = (summary.stages || []);
+
+    // Display saved LLM traces
+    if (stages.length > 0) {
+        accordionContainer.innerHTML = ''; // Clear placeholder
+
+        stages.forEach((stageName, index) => {
+            const stageMarker = `=== ${stageName} ===`;
+
+            // Extract prompt for this stage
+            const promptStartIndex = savedPromptText.indexOf(stageMarker);
+            const promptEndIndex = savedPromptText.indexOf('=== ', promptStartIndex + stageMarker.length);
+            const stagePrompt = promptStartIndex >= 0
+                ? savedPromptText.substring(promptStartIndex + stageMarker.length, promptEndIndex >= 0 ? promptEndIndex : undefined).trim()
+                : '';
+
+            // Extract response for this stage
+            const responseStartIndex = savedResponseText.indexOf(stageMarker);
+            const responseEndIndex = savedResponseText.indexOf('=== ', responseStartIndex + stageMarker.length);
+            const stageResponse = responseStartIndex >= 0
+                ? savedResponseText.substring(responseStartIndex + stageMarker.length, responseEndIndex >= 0 ? responseEndIndex : undefined).trim()
+                : '';
+
+            if (stagePrompt || stageResponse) {
+                displayStagePromptResponse({
+                    stage: stageName,
+                    prompt: stagePrompt,
+                    response: stageResponse,
+                    model: '{{ saved_synthesis.llm_model }}',
+                    timestamp: '{{ saved_synthesis.created_at.strftime('%Y-%m-%d %H:%M:%S') }}'
+                });
+            }
+        });
+    }
+
+    // Add status message
+    messagesDiv.innerHTML = '';
+    addMessage('info', 'Loaded saved synthesis results from database');
+    addMessage('success', 'Synthesis completed: {{ saved_synthesis.created_at.strftime('%Y-%m-%d %H:%M') }}');
+});
+{% endif %}
 </script>
 {% endblock %}
 

@@ -14,7 +14,7 @@ import logging
 import uuid
 from datetime import datetime
 from typing import Dict, List, Tuple, Optional
-from flask import Blueprint, render_template, request, jsonify
+from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
 
 from app.models import Document, TemporaryRDFStorage, ExtractionPrompt, db
 from app.utils.llm_utils import get_llm_client
@@ -39,10 +39,12 @@ bp = Blueprint('step4', __name__, url_prefix='/scenario_pipeline')
 
 
 def init_step4_csrf_exemption(app):
-    """Exempt Step 4 synthesis route from CSRF protection"""
+    """Exempt Step 4 synthesis routes from CSRF protection"""
     if hasattr(app, 'csrf') and app.csrf:
-        from app.routes.scenario_pipeline.step4 import synthesize_case
+        from app.routes.scenario_pipeline.step4 import synthesize_case, save_streaming_results, generate_synthesis_annotations
         app.csrf.exempt(synthesize_case)
+        app.csrf.exempt(save_streaming_results)
+        app.csrf.exempt(generate_synthesis_annotations)
 
 
 @bp.route('/case/<int:case_id>/step4')
@@ -51,6 +53,7 @@ def step4_synthesis(case_id):
     Display Step 4 synthesis page.
 
     Shows entity summary from Passes 1-3 and synthesis status.
+    If synthesis has been run, displays saved results.
     """
     try:
         case = Document.query.get_or_404(case_id)
@@ -61,11 +64,18 @@ def step4_synthesis(case_id):
         # Check synthesis status
         synthesis_status = get_synthesis_status(case_id)
 
+        # Load saved synthesis results if available
+        saved_synthesis = ExtractionPrompt.query.filter_by(
+            case_id=case_id,
+            concept_type='whole_case_synthesis'
+        ).order_by(ExtractionPrompt.created_at.desc()).first()
+
         return render_template(
             'scenarios/step4.html',
             case=case,
             entities_summary=entities_summary,
             synthesis_status=synthesis_status,
+            saved_synthesis=saved_synthesis,
             current_step=4,
             prev_step_url=f"/scenario_pipeline/case/{case_id}/step3",
             next_step_url="#"
@@ -185,6 +195,203 @@ def save_streaming_results(case_id):
     """
     from app.routes.scenario_pipeline.step4_streaming import save_step4_streaming_results
     return save_step4_streaming_results(case_id)
+
+
+@bp.route('/case/<int:case_id>/step4/review')
+def step4_review(case_id):
+    """
+    Display comprehensive Step 4 Review page with:
+    - Code Provisions (NSPE references with excerpts)
+    - Questions & Conclusions (with Q→C links)
+    - Entity Graph (Interactive Cytoscape visualization)
+
+    This page shows the synthesis results in a structured, reviewable format.
+    """
+    try:
+        case = Document.query.get_or_404(case_id)
+
+        # Get saved synthesis
+        saved_synthesis = ExtractionPrompt.query.filter_by(
+            case_id=case_id,
+            concept_type='whole_case_synthesis'
+        ).order_by(ExtractionPrompt.created_at.desc()).first()
+
+        if not saved_synthesis:
+            flash('No synthesis results found. Please run Step 4 synthesis first.', 'warning')
+            return redirect(url_for('step4.step4_synthesis', case_id=case_id))
+
+        # Get all entities for graph visualization
+        all_entities_objs = _get_all_entities_for_graph(case_id)
+
+        # Convert entities to JSON-serializable dicts
+        all_entities = []
+        for entity in all_entities_objs:
+            all_entities.append({
+                'id': entity.id,
+                'entity_type': entity.entity_type,
+                'entity_label': entity.entity_label,
+                'entity_definition': entity.entity_definition,
+                'entity_uri': entity.entity_uri,
+                'rdf_json_ld': entity.rdf_json_ld or {}
+            })
+
+        # Get code provisions and convert to dicts
+        provisions_objs = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            extraction_type='code_provision_reference'
+        ).all()
+
+        provisions = []
+        for p in provisions_objs:
+            provisions.append({
+                'id': p.id,
+                'entity_type': p.entity_type,
+                'entity_label': p.entity_label,
+                'entity_definition': p.entity_definition,
+                'entity_uri': p.entity_uri,
+                'rdf_json_ld': p.rdf_json_ld or {}
+            })
+
+        # Get questions and convert to dicts
+        questions_objs = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            extraction_type='ethical_question'
+        ).all()
+
+        questions = []
+        for q in questions_objs:
+            questions.append({
+                'id': q.id,
+                'entity_type': q.entity_type,
+                'entity_label': q.entity_label,
+                'entity_definition': q.entity_definition,
+                'entity_uri': q.entity_uri,
+                'rdf_json_ld': q.rdf_json_ld or {}
+            })
+
+        # Get conclusions and convert to dicts
+        conclusions_objs = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            extraction_type='ethical_conclusion'
+        ).all()
+
+        conclusions = []
+        for c in conclusions_objs:
+            conclusions.append({
+                'id': c.id,
+                'entity_type': c.entity_type,
+                'entity_label': c.entity_label,
+                'entity_definition': c.entity_definition,
+                'entity_uri': c.entity_uri,
+                'rdf_json_ld': c.rdf_json_ld or {}
+            })
+
+        # Check if synthesis annotations already exist
+        from app.models.document_concept_annotation import DocumentConceptAnnotation
+        from sqlalchemy import func
+
+        existing_annotations = DocumentConceptAnnotation.query.filter_by(
+            document_type='case',
+            document_id=case_id,
+            ontology_name='step4_synthesis',
+            is_current=True
+        ).all()
+
+        # Get annotation breakdown by type
+        annotation_counts = {}
+        for ann in existing_annotations:
+            concept_type = ann.concept_type
+            annotation_counts[concept_type] = annotation_counts.get(concept_type, 0) + 1
+
+        context = {
+            'case': case,
+            'saved_synthesis': saved_synthesis,
+            'provisions': provisions_objs,  # Original objects for template iteration
+            'provisions_json': provisions,  # JSON-serializable for graph
+            'questions': questions_objs,
+            'questions_json': questions,
+            'conclusions': conclusions_objs,
+            'conclusions_json': conclusions,
+            'all_entities': all_entities,
+            'entity_count': len(all_entities),
+            'provision_count': len(provisions),
+            'question_count': len(questions),
+            'conclusion_count': len(conclusions),
+            'has_synthesis_annotations': len(existing_annotations) > 0,
+            'annotation_count': len(existing_annotations),
+            'annotation_breakdown': annotation_counts
+        }
+
+        return render_template('scenario_pipeline/step4_review.html', **context)
+
+    except Exception as e:
+        logger.error(f"Error displaying Step 4 review for case {case_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return str(e), 500
+
+
+def _get_all_entities_for_graph(case_id: int) -> List:
+    """
+    Get all extracted entities from Passes 1-3 for graph visualization.
+    Returns list of entity objects for Cytoscape rendering.
+    """
+    entity_types = [
+        'roles', 'states', 'resources',
+        'principles', 'obligations', 'constraints', 'capabilities',
+        'actions', 'events'
+    ]
+
+    all_entities = []
+    for entity_type in entity_types:
+        entities = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            entity_type=entity_type,
+            storage_type='individual'
+        ).all()
+        all_entities.extend(entities)
+
+    return all_entities
+
+
+@bp.route('/case/<int:case_id>/step4/generate_synthesis_annotations', methods=['POST'])
+def generate_synthesis_annotations(case_id):
+    """
+    Generate synthesis annotations for Step 4 artifacts.
+
+    Creates annotations showing:
+    - Where questions appear in Questions section
+    - Where conclusions appear in Conclusions section
+    - Where provisions are cited throughout the case
+    - Where synthesis entities are mentioned in Facts/Discussion
+
+    This makes the synthesis reviewable by highlighting evidence in context.
+    """
+    try:
+        from app.services.synthesis_annotation_service import SynthesisAnnotationService
+
+        logger.info(f"Generating synthesis annotations for case {case_id}")
+
+        service = SynthesisAnnotationService(case_id)
+        counts = service.generate_all_synthesis_annotations()
+
+        flash(f"Generated {counts['total']} synthesis annotations: {counts['questions']} questions, {counts['conclusions']} conclusions, {counts['provisions']} provisions, {counts['entity_mentions']} entity mentions", 'success')
+
+        return jsonify({
+            'success': True,
+            'counts': counts,
+            'message': f"Successfully generated {counts['total']} synthesis annotations"
+        })
+
+    except Exception as e:
+        logger.error(f"Error generating synthesis annotations for case {case_id}: {e}")
+        import traceback
+        traceback.print_exc()
+
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 
 @bp.route('/case/<int:case_id>/synthesize', methods=['POST'])
