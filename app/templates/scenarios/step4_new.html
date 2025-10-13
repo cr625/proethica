@@ -307,12 +307,43 @@ function runSynthesis() {
 
             addMessage('success', `✓ Synthesis completed in ${duration} seconds`);
 
-            // Add refresh button
-            const refreshBtn = document.createElement('button');
-            refreshBtn.className = 'btn btn-success btn-sm mt-3';
-            refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Refresh to See Results';
-            refreshBtn.onclick = () => location.reload();
-            messagesDiv.appendChild(refreshBtn);
+            // Save synthesis results to database
+            addMessage('info', 'Saving synthesis results to database...');
+            fetch(`/scenario_pipeline/case/${currentCaseId}/save_streaming_results`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    session_id: data.session_id,
+                    llm_traces: data.llm_traces || [],
+                    synthesis_results: data.synthesis_results || {}
+                })
+            })
+            .then(response => response.json())
+            .then(result => {
+                console.log('Synthesis saved:', result);
+                addMessage('success', `✓ Saved ${result.questions_saved} questions and ${result.conclusions_saved} conclusions to database`);
+
+                // Add refresh button
+                const refreshBtn = document.createElement('button');
+                refreshBtn.className = 'btn btn-success btn-sm mt-3';
+                refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Refresh to See Results';
+                refreshBtn.onclick = () => location.reload();
+                messagesDiv.appendChild(refreshBtn);
+            })
+            .catch(error => {
+                console.error('Error saving synthesis:', error);
+                addMessage('warning', `⚠ Failed to save synthesis results: ${error.message}`);
+
+                // Still add refresh button
+                const refreshBtn = document.createElement('button');
+                refreshBtn.className = 'btn btn-success btn-sm mt-3';
+                refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Refresh to See Results';
+                refreshBtn.onclick = () => location.reload();
+                messagesDiv.appendChild(refreshBtn);
+            });
+
             return;
         }
 

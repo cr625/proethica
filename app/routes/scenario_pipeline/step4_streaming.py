@@ -396,125 +396,9 @@ def synthesize_case_streaming(case_id):
                 }
                 yield sse_message(completion_data)
 
-                # =============================================================
-                # DATABASE PERSISTENCE - Auto-save results after streaming
-                # =============================================================
-                try:
-                    logger.info(f"[Step 4 Streaming] Auto-saving results to database for case {case_id}")
-
-                    # Store Questions as TemporaryRDFStorage
-                    for q in synthesis_results['questions']:
-                        question_num = getattr(q, 'question_number', 0)
-                        rdf_entity = TemporaryRDFStorage(
-                            case_id=case_id,
-                            extraction_session_id=session_id,
-                            extraction_type='ethical_question',
-                            storage_type='individual',
-                            entity_type='questions',
-                            entity_label=f"Question_{question_num}",
-                            entity_definition=getattr(q, 'question_text', ''),
-                            rdf_json_ld={
-                                '@type': 'proeth-case:EthicalQuestion',
-                                'questionNumber': question_num,
-                                'questionText': getattr(q, 'question_text', ''),
-                                'mentionedEntities': getattr(q, 'mentioned_entities', []),
-                                'relatedProvisions': getattr(q, 'related_provisions', []),
-                                'extractionReasoning': getattr(q, 'extraction_reasoning', '')
-                            },
-                            is_selected=True,
-                            extraction_model='claude-opus-4-20250514',
-                            ontology_target=f'proethica-case-{case_id}'
-                        )
-                        db.session.add(rdf_entity)
-
-                    # Store Conclusions as TemporaryRDFStorage
-                    for c in synthesis_results['conclusions']:
-                        conclusion_num = getattr(c, 'conclusion_number', 0)
-                        rdf_entity = TemporaryRDFStorage(
-                            case_id=case_id,
-                            extraction_session_id=session_id,
-                            extraction_type='ethical_conclusion',
-                            storage_type='individual',
-                            entity_type='conclusions',
-                            entity_label=f"Conclusion_{conclusion_num}",
-                            entity_definition=getattr(c, 'conclusion_text', ''),
-                            rdf_json_ld={
-                                '@type': 'proeth-case:EthicalConclusion',
-                                'conclusionNumber': conclusion_num,
-                                'conclusionText': getattr(c, 'conclusion_text', ''),
-                                'mentionedEntities': getattr(c, 'mentioned_entities', []),
-                                'citedProvisions': getattr(c, 'cited_provisions', []),
-                                'conclusionType': getattr(c, 'conclusion_type', ''),
-                                'answersQuestions': getattr(c, 'answers_questions', []),
-                                'extractionReasoning': getattr(c, 'extraction_reasoning', '')
-                            },
-                            is_selected=True,
-                            extraction_model='claude-opus-4-20250514',
-                            ontology_target=f'proethica-case-{case_id}'
-                        )
-                        db.session.add(rdf_entity)
-
-                    # Store Synthesis Summary as ExtractionPrompt
-                    combined_prompts = []
-                    combined_responses = []
-
-                    for trace in llm_traces:
-                        stage = trace.get('stage', 'unknown')
-                        combined_prompts.append(f"=== {stage} ===\n{trace.get('prompt', '')}\n")
-                        combined_responses.append(f"=== {stage} ===\n{trace.get('response', '')}\n")
-
-                    # Delete old synthesis prompts for this case
-                    ExtractionPrompt.query.filter_by(
-                        case_id=case_id,
-                        concept_type='whole_case_synthesis'
-                    ).delete(synchronize_session=False)
-
-                    extraction_prompt = ExtractionPrompt(
-                        case_id=case_id,
-                        concept_type='whole_case_synthesis',
-                        step_number=4,
-                        section_type='synthesis',
-                        prompt_text="\n".join(combined_prompts),
-                        llm_model='claude-opus-4-20250514',
-                        extraction_session_id=session_id,
-                        raw_response="\n".join(combined_responses),
-                        results_summary={
-                            'provisions_count': len(synthesis_results['provisions']),
-                            'questions_count': len(synthesis_results['questions']),
-                            'conclusions_count': len(synthesis_results['conclusions']),
-                            'total_nodes': synthesis_results['synthesis']['total_nodes'],
-                            'llm_interactions': len(llm_traces)
-                        },
-                        is_active=True,
-                        times_used=1,
-                        created_at=datetime.utcnow(),
-                        last_used_at=datetime.utcnow()
-                    )
-                    db.session.add(extraction_prompt)
-
-                    # Commit all changes
-                    db.session.commit()
-
-                    logger.info(f"[Step 4 Streaming] Successfully auto-saved {len(synthesis_results['questions'])} questions, {len(synthesis_results['conclusions'])} conclusions, and synthesis summary")
-
-                    yield sse_message({
-                        'stage': 'DATABASE_SAVE_COMPLETE',
-                        'progress': 100,
-                        'messages': [
-                            'Results saved to database successfully',
-                            f"Saved {len(synthesis_results['questions'])} questions and {len(synthesis_results['conclusions'])} conclusions"
-                        ]
-                    })
-
-                except Exception as save_error:
-                    logger.error(f"[Step 4 Streaming] Error auto-saving results: {save_error}", exc_info=True)
-                    db.session.rollback()
-                    yield sse_message({
-                        'stage': 'DATABASE_SAVE_ERROR',
-                        'progress': 100,
-                        'messages': [f'Warning: Could not save to database: {str(save_error)}'],
-                        'error': str(save_error)
-                    })
+                # Database saving happens via the /save_streaming_results endpoint
+                # called by the frontend JavaScript after streaming completes.
+                # Cannot save here due to Flask app context issues in generator.
 
             except Exception as e:
                 logger.error(f"[Step 4 Streaming] Error: {e}", exc_info=True)
@@ -611,6 +495,65 @@ def save_step4_streaming_results(case_id):
         combined_prompt_text = "\n".join(combined_prompts)
         combined_response_text = "\n".join(combined_responses)
 
+        # Store Questions to TemporaryRDFStorage
+        questions_list = synthesis_results.get('questions', [])
+        logger.info(f"[Save Endpoint] Saving {len(questions_list)} questions to TemporaryRDFStorage")
+
+        for q in questions_list:
+            question_num = q.get('id', 0)
+            question_text = q.get('text', '')
+
+            rdf_entity = TemporaryRDFStorage(
+                case_id=case_id,
+                extraction_session_id=session_id,
+                extraction_type='ethical_question',
+                storage_type='individual',
+                entity_type='questions',
+                entity_label=f"Question_{question_num}",
+                entity_definition=question_text,
+                rdf_json_ld={
+                    '@type': 'proeth-case:EthicalQuestion',
+                    'questionNumber': question_num,
+                    'questionText': question_text,
+                    'mentionedEntities': q.get('mentioned_entities', []),
+                    'relatedProvisions': q.get('related_provisions', [])
+                },
+                is_selected=True,
+                extraction_model='claude-opus-4-20250514',
+                ontology_target=f'proethica-case-{case_id}'
+            )
+            db.session.add(rdf_entity)
+
+        # Store Conclusions to TemporaryRDFStorage
+        conclusions_list = synthesis_results.get('conclusions', [])
+        logger.info(f"[Save Endpoint] Saving {len(conclusions_list)} conclusions to TemporaryRDFStorage")
+
+        for c in conclusions_list:
+            conclusion_num = c.get('id', 0)
+            conclusion_text = c.get('text', '')
+
+            rdf_entity = TemporaryRDFStorage(
+                case_id=case_id,
+                extraction_session_id=session_id,
+                extraction_type='ethical_conclusion',
+                storage_type='individual',
+                entity_type='conclusions',
+                entity_label=f"Conclusion_{conclusion_num}",
+                entity_definition=conclusion_text,
+                rdf_json_ld={
+                    '@type': 'proeth-case:EthicalConclusion',
+                    'conclusionNumber': conclusion_num,
+                    'conclusionText': conclusion_text,
+                    'mentionedEntities': c.get('mentioned_entities', []),
+                    'citedProvisions': c.get('cited_provisions', []),
+                    'answersQuestions': c.get('answers_questions', [])
+                },
+                is_selected=True,
+                extraction_model='claude-opus-4-20250514',
+                ontology_target=f'proethica-case-{case_id}'
+            )
+            db.session.add(rdf_entity)
+
         # Delete old Step 4 synthesis prompts
         ExtractionPrompt.query.filter_by(
             case_id=case_id,
@@ -644,12 +587,15 @@ def save_step4_streaming_results(case_id):
         db.session.commit()
 
         logger.info(f"Successfully saved Step 4 streaming results for case {case_id}")
+        logger.info(f"[Save Endpoint] Saved {len(questions_list)} questions and {len(conclusions_list)} conclusions")
 
         return jsonify({
             'success': True,
             'message': 'Step 4 synthesis results saved successfully',
             'session_id': session_id,
-            'traces_saved': len(llm_traces)
+            'traces_saved': len(llm_traces),
+            'questions_saved': len(questions_list),
+            'conclusions_saved': len(conclusions_list)
         })
 
     except Exception as e:
