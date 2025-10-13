@@ -475,10 +475,17 @@ def save_step4_streaming_results(case_id):
             return jsonify({'error': 'No JSON data provided'}), 400
 
         logger.info(f"Saving Step 4 streaming results for case {case_id}")
+        logger.info(f"[Save Endpoint Debug] Received data keys: {list(data.keys())}")
+        logger.info(f"[Save Endpoint Debug] synthesis_results keys: {list(data.get('synthesis_results', {}).keys())}")
 
         session_id = data.get('session_id')
         llm_traces = data.get('llm_traces', [])
         synthesis_results = data.get('synthesis_results', {})
+
+        logger.info(f"[Save Endpoint Debug] session_id: {session_id}")
+        logger.info(f"[Save Endpoint Debug] llm_traces length: {len(llm_traces)}")
+        logger.info(f"[Save Endpoint Debug] questions in synthesis_results: {len(synthesis_results.get('questions', []))}")
+        logger.info(f"[Save Endpoint Debug] conclusions in synthesis_results: {len(synthesis_results.get('conclusions', []))}")
 
         if not session_id:
             return jsonify({'error': 'session_id is required'}), 400
@@ -494,6 +501,45 @@ def save_step4_streaming_results(case_id):
 
         combined_prompt_text = "\n".join(combined_prompts)
         combined_response_text = "\n".join(combined_responses)
+
+        # Store Code Provisions to TemporaryRDFStorage
+        provisions_list = synthesis_results.get('provisions', [])
+        logger.info(f"[Save Endpoint] Saving {len(provisions_list)} provisions to TemporaryRDFStorage")
+
+        # Clear old provisions
+        TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            extraction_type='code_provision_reference'
+        ).delete(synchronize_session=False)
+
+        for p in provisions_list:
+            code = p.get('code_provision', '')
+            label = f"NSPE_{code.replace('.', '_')}"
+
+            rdf_entity = TemporaryRDFStorage(
+                case_id=case_id,
+                extraction_session_id=session_id,
+                extraction_type='code_provision_reference',
+                storage_type='individual',
+                entity_type='resources',
+                entity_label=label,
+                entity_definition=p.get('provision_text', ''),
+                rdf_json_ld={
+                    '@type': 'proeth-case:CodeProvisionReference',
+                    'label': label,
+                    'codeProvision': code,
+                    'provisionText': p.get('provision_text', ''),
+                    'subjectReferences': p.get('subject_references', []),
+                    'appliesTo': p.get('applies_to', []),
+                    'relevantExcerpts': p.get('relevant_excerpts', []),
+                    'providedBy': 'NSPE Board of Ethical Review',
+                    'authoritative': True
+                },
+                is_selected=True,
+                extraction_model='claude-opus-4-20250514',
+                ontology_target=f'proethica-case-{case_id}'
+            )
+            db.session.add(rdf_entity)
 
         # Store Questions to TemporaryRDFStorage
         questions_list = synthesis_results.get('questions', [])
@@ -587,13 +633,14 @@ def save_step4_streaming_results(case_id):
         db.session.commit()
 
         logger.info(f"Successfully saved Step 4 streaming results for case {case_id}")
-        logger.info(f"[Save Endpoint] Saved {len(questions_list)} questions and {len(conclusions_list)} conclusions")
+        logger.info(f"[Save Endpoint] Saved {len(provisions_list)} provisions, {len(questions_list)} questions, and {len(conclusions_list)} conclusions")
 
         return jsonify({
             'success': True,
             'message': 'Step 4 synthesis results saved successfully',
             'session_id': session_id,
             'traces_saved': len(llm_traces),
+            'provisions_saved': len(provisions_list),
             'questions_saved': len(questions_list),
             'conclusions_saved': len(conclusions_list)
         })

@@ -501,11 +501,20 @@ async function saveSynthesisResults(data) {
      * Sends all LLM traces (prompts + responses) and synthesis results
      * to the backend for storage in ExtractionPrompt table.
      */
+    console.log('[Save Debug] Received data:', data);
+    console.log('[Save Debug] session_id:', data.session_id);
+    console.log('[Save Debug] llm_traces length:', (data.llm_traces || []).length);
+    console.log('[Save Debug] synthesis_results:', data.synthesis_results);
+
     const saveData = {
         session_id: data.session_id,
         llm_traces: data.llm_traces || [],
         synthesis_results: data.synthesis_results || {}
     };
+
+    console.log('[Save Debug] Sending saveData:', saveData);
+    console.log('[Save Debug] Questions count:', (saveData.synthesis_results.questions || []).length);
+    console.log('[Save Debug] Conclusions count:', (saveData.synthesis_results.conclusions || []).length);
 
     const response = await fetch(
         `/scenario_pipeline/case/${currentCaseId}/save_streaming_results`,
