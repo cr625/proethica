@@ -95,9 +95,16 @@ This agent handles:
    # (On local machine)
    scp backups/proethica_demo_YYYYMMDD_HHMMSS.sql digitalocean:/tmp/
 
-   # (On production server)
+   # (On production server - IMPORTANT: Use sudo for postgres user)
    cd /opt/proethica
-   ./scripts/restore_demo_database.sh /tmp/proethica_demo_YYYYMMDD_HHMMSS.sql
+   sudo -u postgres psql -d ai_ethical_dm < /tmp/proethica_demo_YYYYMMDD_HHMMSS.sql
+
+   # CRITICAL: Grant permissions to proethica_user after restore
+   sudo -u postgres psql -d ai_ethical_dm -c "GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO proethica_user;"
+   sudo -u postgres psql -d ai_ethical_dm -c "GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO proethica_user;"
+
+   # Restart service to pick up changes
+   sudo systemctl restart proethica
    ```
 
 ### Phase 4: Verification
@@ -151,6 +158,9 @@ sudo systemctl restart proethica
 
 ### Production (DigitalOcean)
 - **Database**: ai_ethical_dm (localhost:5432, different server)
+  - **DB User**: proethica_user (for app) / postgres (for admin/restore)
+  - **DB Password**: ProEthicaSecure2025 (proethica_user)
+  - **Connection**: postgresql://proethica_user:ProEthicaSecure2025@localhost:5432/ai_ethical_dm
 - **Port**: 5000 (gunicorn) → nginx proxy → 80/443
 - **Debug**: Disabled
 - **URL**: https://proethica.org
@@ -332,6 +342,23 @@ sudo nginx -t  # Test configuration
 sudo systemctl status nginx
 sudo tail -f /var/log/nginx/error.log
 ```
+
+### Database Permission Errors After Restore
+If you see errors like "permission denied for table" after restoring the database:
+
+```bash
+# Grant permissions to proethica_user
+sudo -u postgres psql -d ai_ethical_dm -c "GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO proethica_user;"
+sudo -u postgres psql -d ai_ethical_dm -c "GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO proethica_user;"
+
+# Restart service
+sudo systemctl restart proethica
+
+# Verify permissions
+sudo -u postgres psql -d ai_ethical_dm -c "\dp" | grep proethica_user
+```
+
+This happens because pg_dump with --no-owner creates tables owned by postgres, but the app runs as proethica_user.
 
 ## Agent Usage
 
