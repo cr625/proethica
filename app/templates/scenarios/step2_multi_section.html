@@ -70,10 +70,17 @@
 
         <!-- Full Normative Requirements Pass Button -->
         <div class="d-grid gap-2 d-md-flex justify-content-md-center mb-4">
+            {% if current_user.is_authenticated %}
             <button id="normativePassBtn" class="btn btn-primary btn-lg" onclick="executeFullNormativePass()">
                 <i class="bi bi-arrow-right-circle"></i> Full Normative Requirements Pass
                 <small class="d-block">Extract All: Principles + Obligations + Constraints + Capabilities</small>
             </button>
+            {% else %}
+            <button class="btn btn-secondary btn-lg" onclick="window.location.href='{{ url_for('auth.login') }}';" title="Login required to run extraction">
+                <i class="bi bi-lock-fill"></i> Full Normative Requirements Pass
+                <small class="d-block">Login Required</small>
+            </button>
+            {% endif %}
         </div>
 
         <!-- Individual Extractor Sections -->
@@ -86,9 +93,11 @@
                         <h5 class="mb-0">
                             <i class="bi bi-stars text-success"></i> Principles Extraction
                         </h5>
+                        {% if current_user.is_authenticated %}
                         <button class="btn btn-success btn-sm" onclick="extractIndividualConcept('principles')">
                             <i class="bi bi-play-fill"></i> Extract Principles
                         </button>
+                        {% endif %}
                     </div>
                 </div>
                 <div class="step-content">
@@ -96,9 +105,11 @@
                     <div class="prompt-preview mb-3" id="principlesPromptSection" style="{% if not saved_prompts.principles %}display: none;{% endif %}">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <h6 class="mb-0"><i class="bi bi-cpu"></i> LLM Prompt</h6>
+                            {% if current_user.is_authenticated %}
                             <button class="btn btn-outline-secondary btn-sm" onclick="regenerateConceptPrompt('principles')">
                                 <i class="bi bi-arrow-clockwise"></i> Regenerate
                             </button>
+                            {% endif %}
                         </div>
                         <div class="prompt-text" id="principlesPromptText">
                             {% if saved_prompts.principles %}
@@ -133,9 +144,11 @@
                         <h5 class="mb-0">
                             <i class="bi bi-shield-check text-warning"></i> Obligations Extraction
                         </h5>
+                        {% if current_user.is_authenticated %}
                         <button class="btn btn-warning btn-sm" onclick="extractIndividualConcept('obligations')">
                             <i class="bi bi-play-fill"></i> Extract Obligations
                         </button>
+                        {% endif %}
                     </div>
                 </div>
                 <div class="step-content">
@@ -143,9 +156,11 @@
                     <div class="prompt-preview mb-3" id="obligationsPromptSection" style="{% if not saved_prompts.obligations %}display: none;{% endif %}">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <h6 class="mb-0"><i class="bi bi-cpu"></i> LLM Prompt</h6>
+                            {% if current_user.is_authenticated %}
                             <button class="btn btn-outline-secondary btn-sm" onclick="regenerateConceptPrompt('obligations')">
                                 <i class="bi bi-arrow-clockwise"></i> Regenerate
                             </button>
+                            {% endif %}
                         </div>
                         <div class="prompt-text" id="obligationsPromptText">
                             {% if saved_prompts.obligations %}
@@ -180,9 +195,11 @@
                         <h5 class="mb-0">
                             <i class="bi bi-exclamation-triangle text-danger"></i> Constraints Extraction
                         </h5>
+                        {% if current_user.is_authenticated %}
                         <button class="btn btn-danger btn-sm" onclick="extractIndividualConcept('constraints')">
                             <i class="bi bi-play-fill"></i> Extract Constraints
                         </button>
+                        {% endif %}
                     </div>
                 </div>
                 <div class="step-content">
@@ -190,9 +207,11 @@
                     <div class="prompt-preview mb-3" id="constraintsPromptSection" style="{% if not saved_prompts.constraints %}display: none;{% endif %}">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <h6 class="mb-0"><i class="bi bi-cpu"></i> LLM Prompt</h6>
+                            {% if current_user.is_authenticated %}
                             <button class="btn btn-outline-secondary btn-sm" onclick="regenerateConceptPrompt('constraints')">
                                 <i class="bi bi-arrow-clockwise"></i> Regenerate
                             </button>
+                            {% endif %}
                         </div>
                         <div class="prompt-text" id="constraintsPromptText">
                             {% if saved_prompts.constraints %}
@@ -227,9 +246,11 @@
                         <h5 class="mb-0">
                             <i class="bi bi-gear text-info"></i> Capabilities Extraction
                         </h5>
+                        {% if current_user.is_authenticated %}
                         <button class="btn btn-info btn-sm" onclick="extractIndividualConcept('capabilities')">
                             <i class="bi bi-play-fill"></i> Extract Capabilities
                         </button>
+                        {% endif %}
                     </div>
                 </div>
                 <div class="step-content">
@@ -237,9 +258,11 @@
                     <div class="prompt-preview mb-3" id="capabilitiesPromptSection" style="{% if not saved_prompts.capabilities %}display: none;{% endif %}">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <h6 class="mb-0"><i class="bi bi-cpu"></i> LLM Prompt</h6>
+                            {% if current_user.is_authenticated %}
                             <button class="btn btn-outline-secondary btn-sm" onclick="regenerateConceptPrompt('capabilities')">
                                 <i class="bi bi-arrow-clockwise"></i> Regenerate
                             </button>
+                            {% endif %}
                         </div>
                         <div class="prompt-text" id="capabilitiesPromptText">
                             {% if saved_prompts.capabilities %}
@@ -341,6 +364,12 @@
 
 {% block step_styles %}
 <style>
+    /* Fade out page smoothly on navigation/redirect */
+    body.navigating {
+        opacity: 0;
+        transition: opacity 0.15s ease-out;
+    }
+
     .prompt-text {
         background-color: #f8f9fa;
         padding: 1rem;
@@ -387,6 +416,27 @@ const currentSectionType = 'references';
 const currentSectionType = 'facts';
 {% endif %}
 
+// Detect navigation/redirect and fade out page smoothly
+let navigationStarted = false;
+const markNavigationStarted = () => {
+    if (!navigationStarted) {
+        navigationStarted = true;
+        document.body.classList.add('navigating');
+    }
+};
+
+// Override window.location.href to detect client-side redirects
+const originalLocationHref = Object.getOwnPropertyDescriptor(window.location, 'href').set;
+Object.defineProperty(window.location, 'href', {
+    set: function(value) {
+        markNavigationStarted();
+        originalLocationHref.call(window.location, value);
+    }
+});
+
+// Also detect normal navigation
+window.addEventListener('beforeunload', markNavigationStarted);
+
 // Load saved prompts on page load
 document.addEventListener('DOMContentLoaded', function() {
     // Load saved prompts for each concept type
@@ -396,7 +446,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function loadSavedPrompt(conceptType) {
-    fetch(`/scenario_pipeline/case/${caseId}/step2/get_saved_prompt?concept_type=${conceptType}&section_type=${currentSectionType}`)
+    appFetch(`/scenario_pipeline/case/${caseId}/step2/get_saved_prompt?concept_type=${conceptType}&section_type=${currentSectionType}`)
         .then(response => response.json())
         .then(data => {
             if (data.success && data.prompt_text) {
@@ -448,12 +498,11 @@ function extractIndividualConcept(conceptType) {
         </div>
     `;
 
-    // Execute extraction
-    fetch(`{{ url_for('scenario_pipeline.step2_extract_individual', case_id=case.id) }}`, {
+    // Execute extraction using appFetch (handles 401 redirect)
+    appFetch(`{{ url_for('scenario_pipeline.step2_extract_individual', case_id=case.id) }}`, {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+            'Content-Type': 'application/json'
         },
         body: JSON.stringify({
             concept_type: conceptType,
@@ -507,12 +556,11 @@ function regenerateConceptPrompt(conceptType) {
         return;
     }
 
-    // Clear saved prompt from database
-    fetch(`{{ url_for('scenario_pipeline.step2_clear_prompt', case_id=case.id) }}`, {
+    // Clear saved prompt from database using appFetch (handles 401 redirect)
+    appFetch(`{{ url_for('scenario_pipeline.step2_clear_prompt', case_id=case.id) }}`, {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+            'Content-Type': 'application/json'
         },
         body: JSON.stringify({
             concept_type: conceptType
@@ -557,11 +605,10 @@ function executeFullNormativePass() {
 
 function extractConcept(conceptType) {
     return new Promise((resolve, reject) => {
-        fetch(`{{ url_for('scenario_pipeline.step2_extract_individual', case_id=case.id) }}`, {
+        appFetch(`{{ url_for('scenario_pipeline.step2_extract_individual', case_id=case.id) }}`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
                 concept_type: conceptType,

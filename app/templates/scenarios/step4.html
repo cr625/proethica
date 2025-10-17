@@ -68,25 +68,33 @@
     </div>
     <div class="card-body">
         {% if synthesis_status.completed %}
+            {% if current_user.is_authenticated %}
             <button type="button" class="btn btn-primary" onclick="runSynthesis()">
                 <i class="bi bi-arrow-repeat"></i> Re-run Synthesis
             </button>
+            {% else %}
+            <button type="button" class="btn btn-secondary" onclick="window.location.href='{{ url_for('auth.login') }}';" title="Login required to run synthesis">
+                <i class="bi bi-lock-fill"></i> Re-run Synthesis (Login Required)
+            </button>
+            {% endif %}
 
             <a href="{{ url_for('step4.step4_review', case_id=case.id) }}" class="btn btn-success ms-2">
                 <i class="bi bi-clipboard-check"></i> View Step 4 Review
-            </a>
-
-            <a href="{{ url_for('step4.view_synthesis_results', case_id=case.id) }}" class="btn btn-outline-secondary ms-2">
-                <i class="bi bi-diagram-3"></i> Technical Results
             </a>
         {% else %}
             <div class="alert alert-info mb-3">
                 <i class="bi bi-info-circle"></i> Synthesis not yet performed. Click below to start.
             </div>
 
+            {% if current_user.is_authenticated %}
             <button type="button" class="btn btn-lg btn-primary" onclick="runSynthesis()">
                 <i class="bi bi-play-circle"></i> Run Whole-Case Synthesis
             </button>
+            {% else %}
+            <button type="button" class="btn btn-lg btn-secondary" onclick="window.location.href='{{ url_for('auth.login') }}';" title="Login required to run synthesis">
+                <i class="bi bi-lock-fill"></i> Run Whole-Case Synthesis (Login Required)
+            </button>
+            {% endif %}
         {% endif %}
     </div>
 </div>

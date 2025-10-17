@@ -87,18 +87,23 @@ def api_get_scenario(id):
 
 # Web routes
 @scenarios_bp.route('/', methods=['GET'])
-@login_required  # Require login until scenarios feature is complete
 def list_scenarios():
-    """Display all scenarios."""
+    """Display all scenarios or coming soon page."""
+    from flask_login import current_user
+
+    # Show coming soon page for non-authenticated users
+    if not current_user.is_authenticated:
+        return render_template('scenarios_coming_soon.html')
+
     # Get world filter from query parameters
     world_id = request.args.get('world_id', type=int)
-    
+
     # Filter scenarios by world if specified
     if world_id:
         scenarios = Scenario.query.filter_by(world_id=world_id).all()
     else:
         scenarios = Scenario.query.all()
-    
+
     worlds = World.query.all()
     return render_template('scenarios.html', scenarios=scenarios, worlds=worlds, selected_world_id=world_id)
 

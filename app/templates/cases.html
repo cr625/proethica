@@ -14,9 +14,9 @@
 
     <div class="row mb-4">
         <div class="col-md-8">
-            <form id="caseFilterForm" class="d-flex" action="/cases/" method="get">
-                <div class="input-group me-2">
-                    <select class="form-select" name="world_id" id="worldFilter" aria-label="Filter by World" onchange="this.form.submit()">
+            <form id="caseFilterForm" class="d-flex align-items-center" action="/cases/" method="get">
+                <div class="input-group me-2" style="max-width: 300px;">
+                    <select class="form-select" name="world_id" id="worldFilter" aria-label="Filter by World">
                         <option value="">All Worlds</option>
                         {% for world in worlds %}
                         <option value="{{ world.id }}" {% if selected_world_id == world.id %}selected{% endif %}>
@@ -24,13 +24,50 @@
                         </option>
                         {% endfor %}
                     </select>
-                    <!-- Search bar hidden until new search is implemented
-                    <input class="form-control" type="search" placeholder="Search cases..." name="query" value="{{ query }}"
-                        aria-label="Search">
-                    <button class="btn btn-outline-primary" type="submit">Search</button>
-                    -->
                 </div>
+                <div class="form-check ms-3">
+                    <input class="form-check-input" type="checkbox" id="analyzedOnlyFilter"
+                           {% if show_analyzed_only %}checked{% endif %}>
+                    <label class="form-check-label" for="analyzedOnlyFilter">
+                        Show analyzed cases only
+                    </label>
+                </div>
+                <!-- Search bar hidden until new search is implemented
+                <input class="form-control" type="search" placeholder="Search cases..." name="query" value="{{ query }}"
+                    aria-label="Search">
+                <button class="btn btn-outline-primary" type="submit">Search</button>
+                -->
             </form>
+
+            <script>
+                // Handle filter changes properly
+                document.getElementById('worldFilter').addEventListener('change', function() {
+                    updateCaseFilters();
+                });
+
+                document.getElementById('analyzedOnlyFilter').addEventListener('change', function() {
+                    updateCaseFilters();
+                });
+
+                function updateCaseFilters() {
+                    const worldId = document.getElementById('worldFilter').value;
+                    const analyzedOnly = document.getElementById('analyzedOnlyFilter').checked;
+
+                    // Build URL parameters
+                    const params = new URLSearchParams();
+
+                    // Only add world_id if it has a value
+                    if (worldId) {
+                        params.append('world_id', worldId);
+                    }
+
+                    // Add analyzed_only parameter (true or false)
+                    params.append('analyzed_only', analyzedOnly ? 'true' : 'false');
+
+                    // Navigate to the filtered URL
+                    window.location.href = '/cases/?' + params.toString();
+                }
+            </script>
         </div>
         <div class="col-md-4 text-end">
             <a href="{{ url_for('cases.case_options') }}" class="btn btn-success">Add New Case</a>
@@ -62,6 +99,15 @@
                             <div>
                                 {% if case.case_number %}
                                 <span class="badge bg-secondary me-2">Case #{{ case.case_number }}</span>
+                                {% endif %}
+                                {% if case.is_analyzed %}
+                                <span class="badge bg-success" title="Step 4 Whole-Case Synthesis completed">
+                                    <i class="bi bi-check-circle"></i> Analyzed
+                                </span>
+                                {% else %}
+                                <span class="badge bg-light text-muted" title="Analysis not yet completed">
+                                    Not Analyzed
+                                </span>
                                 {% endif %}
                             </div>
                         </div>

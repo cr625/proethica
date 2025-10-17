@@ -73,9 +73,16 @@
 
         <!-- Enhanced Temporal Dynamics Pass Button -->
         <div class="d-grid gap-2 d-md-flex justify-content-md-center mb-4">
+            {% if current_user.is_authenticated %}
             <button id="enhancedTemporalBtn" class="btn btn-primary btn-lg" onclick="executeEnhancedTemporalPass()">
                 <i class="bi bi-stars"></i> Extract Temporal Dynamics (Pass 3)
             </button>
+            {% else %}
+            <button class="btn btn-secondary btn-lg" onclick="window.location.href='{{ url_for('auth.login') }}';" title="Login required to run extraction">
+                <i class="bi bi-lock-fill"></i> Extract Temporal Dynamics (Pass 3)
+                <small class="d-block">Login Required</small>
+            </button>
+            {% endif %}
         </div>
 
         <!-- Enhanced Temporal Progress Container -->
@@ -147,6 +154,12 @@
 
 {% block step_styles %}
 <style>
+    /* Fade out page smoothly on navigation/redirect */
+    body.navigating {
+        opacity: 0;
+        transition: opacity 0.15s ease-out;
+    }
+
     .discussion-text {
         font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
         font-size: 0.9rem;
@@ -390,8 +403,8 @@
     });
 
     function loadSavedExtractionState() {
-        // Fetch saved extraction prompt and raw response
-        fetch(`/scenario_pipeline/case/${currentCaseId}/step3/get_saved_prompt?concept_type=actions_events`)
+        // Fetch saved extraction prompt and raw response using appFetch (handles 401 redirect)
+        appFetch(`/scenario_pipeline/case/${currentCaseId}/step3/get_saved_prompt?concept_type=actions_events`)
             .then(response => response.json())
             .then(data => {
                 if (data.success && (data.prompt_text || data.raw_response)) {
@@ -516,12 +529,11 @@
             resultsArea.style.display = 'block';
         }
 
-        // Call the existing endpoint with required concept_type parameter
-        fetch(`/scenario_pipeline/case/${currentCaseId}/step3/extract`, {
+        // Call the existing endpoint using appFetch (handles 401 redirect)
+        appFetch(`/scenario_pipeline/case/${currentCaseId}/step3/extract`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCsrfToken()
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
                 concept_type: 'actions_events'
@@ -742,11 +754,10 @@
         metadataDiv.style.display = 'none';
 
         try {
-            const response = await fetch(`/scenario_pipeline/case/${currentCaseId}/step3/extract_individual`, {
+            const response = await appFetch(`/scenario_pipeline/case/${currentCaseId}/step3/extract_individual`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCsrfToken()
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
                     concept_type: 'actions_events'

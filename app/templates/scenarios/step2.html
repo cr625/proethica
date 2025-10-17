@@ -32,13 +32,21 @@ endblock %}
 
         <!-- Normative Requirements Pass Button -->
         <div class="d-grid gap-2 d-md-flex justify-content-md-center mb-3">
+            {% if current_user.is_authenticated %}
             <button id="normativePassBtn" class="btn btn-primary btn-lg" onclick="showPrompt()">
                 <i class="bi bi-arrow-right-circle"></i> Normative Requirements Pass
                 <small class="d-block">Extract Principles + Obligations + Constraints + Capabilities</small>
             </button>
+            {% else %}
+            <button class="btn btn-secondary btn-lg" onclick="window.location.href='{{ url_for('auth.login') }}';" title="Login required to run extraction">
+                <i class="bi bi-lock-fill"></i> Normative Requirements Pass
+                <small class="d-block">Login Required</small>
+            </button>
+            {% endif %}
         </div>
 
         <!-- Individual Extraction Buttons for Debugging -->
+        {% if current_user.is_authenticated %}
         <div class="alert alert-info mb-3">
             <h6 class="mb-2"><i class="bi bi-bug"></i> Debug Individual Extractors:</h6>
             <div class="btn-group d-flex flex-wrap" role="group">
@@ -56,6 +64,7 @@ endblock %}
                 </button>
             </div>
         </div>
+        {% endif %}
 
         {% else %}
         <div class="alert alert-warning">
@@ -176,6 +185,12 @@ endblock %}
 
 {% block step_styles %}
 <style>
+    /* Fade out page smoothly on navigation/redirect */
+    body.navigating {
+        opacity: 0;
+        transition: opacity 0.15s ease-out;
+    }
+
     .discussion-text {
         font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
         font-size: 0.9rem;
@@ -330,6 +345,27 @@ endblock %}
 <script>
     let currentSectionText = '';
 
+    // Detect navigation/redirect and fade out page smoothly
+    let navigationStarted = false;
+    const markNavigationStarted = () => {
+        if (!navigationStarted) {
+            navigationStarted = true;
+            document.body.classList.add('navigating');
+        }
+    };
+
+    // Override window.location.href to detect client-side redirects
+    const originalLocationHref = Object.getOwnPropertyDescriptor(window.location, 'href').set;
+    Object.defineProperty(window.location, 'href', {
+        set: function(value) {
+            markNavigationStarted();
+            originalLocationHref.call(window.location, value);
+        }
+    });
+
+    // Also detect normal navigation
+    window.addEventListener('beforeunload', markNavigationStarted);
+
     // Initialize section text
     document.addEventListener('DOMContentLoaded', function () {
         const discussionTextElement = document.querySelector('.discussion-text');
@@ -350,11 +386,11 @@ endblock %}
         promptCard.style.display = 'block';
         promptCard.scrollIntoView({ behavior: 'smooth' });
 
-        // Fetch the prompt from the server
-        fetch(`{{ url_for('scenario_pipeline.normative_pass_prompt', case_id=case.id) }}`, {
+        // Fetch the prompt from the server using appFetch (handles 401 redirect)
+        appFetch(`{{ url_for('scenario_pipeline.normative_pass_prompt', case_id=case.id) }}`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
                 section_text: currentSectionText
@@ -438,15 +474,11 @@ endblock %}
         individualResults.scrollIntoView({ behavior: 'smooth' });
 
         try {
-            // Get CSRF token
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-
-            // Call the individual extraction endpoint
-            const response = await fetch(`/scenario_pipeline/case/{{ case.id }}/step2/extract_individual`, {
+            // Call the individual extraction endpoint using appFetch (handles 401 redirect)
+            const response = await appFetch(`/scenario_pipeline/case/{{ case.id }}/step2/extract_individual`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
                     concept_type: conceptType
@@ -573,15 +605,11 @@ endblock %}
         responseCard.scrollIntoView({ behavior: 'smooth' });
 
         try {
-            // Get CSRF token
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-
-            // Call the extraction endpoint
-            const response = await fetch(`/scenario_pipeline/case/{{ case.id }}/step2/extract`, {
+            // Call the extraction endpoint using appFetch (handles 401 redirect)
+            const response = await appFetch(`/scenario_pipeline/case/{{ case.id }}/step2/extract`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken
+                    'Content-Type': 'application/json'
                 }
             });
 
