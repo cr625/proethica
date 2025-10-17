@@ -86,11 +86,17 @@
                         {% endif %}
                     </div>
 
-                    <!-- Roles Results -->
-                    <div class="results-preview" id="rolesResults" style="display: none;">
-                        <h6><i class="bi bi-check-circle text-success"></i> Extraction Results</h6>
+                    <!-- Roles LLM Response -->
+                    <div class="results-preview mb-3" id="rolesResults" style="{% if not saved_prompts.roles or not saved_prompts.roles.raw_response %}display: none;{% endif %}">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0"><i class="bi bi-chat-left-text text-success"></i> LLM Response</h6>
+                        </div>
                         <div id="rolesResultsContent">
-                            <!-- Results will be displayed here -->
+                            {% if saved_prompts.roles and saved_prompts.roles.raw_response %}
+                            <pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; max-height: 500px; overflow-y: auto;">{{ saved_prompts.roles.raw_response }}</pre>
+                            {% else %}
+                            <!-- LLM response will be displayed here -->
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -137,11 +143,17 @@
                         {% endif %}
                     </div>
 
-                    <!-- States Results -->
-                    <div class="results-preview" id="statesResults" style="display: none;">
-                        <h6><i class="bi bi-check-circle text-success"></i> Extraction Results</h6>
+                    <!-- States LLM Response -->
+                    <div class="results-preview mb-3" id="statesResults" style="{% if not saved_prompts.states or not saved_prompts.states.raw_response %}display: none;{% endif %}">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0"><i class="bi bi-chat-left-text text-success"></i> LLM Response</h6>
+                        </div>
                         <div id="statesResultsContent">
-                            <!-- Results will be displayed here -->
+                            {% if saved_prompts.states and saved_prompts.states.raw_response %}
+                            <pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; max-height: 500px; overflow-y: auto;">{{ saved_prompts.states.raw_response }}</pre>
+                            {% else %}
+                            <!-- LLM response will be displayed here -->
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -188,11 +200,17 @@
                         {% endif %}
                     </div>
 
-                    <!-- Resources Results -->
-                    <div class="results-preview" id="resourcesResults" style="display: none;">
-                        <h6><i class="bi bi-check-circle text-success"></i> Extraction Results</h6>
+                    <!-- Resources LLM Response -->
+                    <div class="results-preview mb-3" id="resourcesResults" style="{% if not saved_prompts.resources or not saved_prompts.resources.raw_response %}display: none;{% endif %}">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0"><i class="bi bi-chat-left-text text-success"></i> LLM Response</h6>
+                        </div>
                         <div id="resourcesResultsContent">
-                            <!-- Results will be displayed here -->
+                            {% if saved_prompts.resources and saved_prompts.resources.raw_response %}
+                            <pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; max-height: 500px; overflow-y: auto;">{{ saved_prompts.resources.raw_response }}</pre>
+                            {% else %}
+                            <!-- LLM response will be displayed here -->
+                            {% endif %}
                         </div>
                     </div>
                 </div>
