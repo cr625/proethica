@@ -8,6 +8,7 @@ from sqlalchemy import and_
 from ..services.document_annotation_service import DocumentAnnotationService
 from ..services.simplified_llm_annotation_service import SimplifiedLLMAnnotationService
 from ..models.document_concept_annotation import DocumentConceptAnnotation
+from ..utils.environment_auth import auth_required_for_llm, auth_required_for_write
 from .. import db
 
 logger = logging.getLogger(__name__)
@@ -23,6 +24,7 @@ def init_csrf_exemption(app):
 
 
 @bp.route('/<document_type>/<int:document_id>/annotate', methods=['POST'])
+@auth_required_for_llm
 def generate_annotations(document_type, document_id):
     """Generate annotations for a document using the simplified LLM method"""
     try:
@@ -259,6 +261,7 @@ def reject_annotation(document_type, document_id, annotation_id):
 
 
 @bp.route('/<document_type>/<int:document_id>/annotations/batch/approve', methods=['POST'])
+@auth_required_for_write
 def batch_approve_annotations(document_type, document_id):
     """Batch approve pending annotations for a document"""
     try:

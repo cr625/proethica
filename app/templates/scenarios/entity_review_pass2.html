@@ -170,11 +170,14 @@
                                 <i class="bi bi-arrow-left"></i> Back to Step 2 (Facts)
                             </a>
                         {% endif %}
+                        {% if current_user.is_authenticated %}
                         <button id="refreshFromOntServeBtn" class="btn btn-sm btn-info">
                             <i class="bi bi-arrow-repeat"></i> Refresh from OntServe
                         </button>
+                        {% endif %}
                     </div>
                     <div>
+                        {% if current_user.is_authenticated %}
                         <button id="clearAllEntitiesBtn" class="btn btn-sm btn-warning">
                             <i class="bi bi-trash"></i> Clear Pass 2 Uncommitted
                         </button>
@@ -184,6 +187,7 @@
                         <button id="commitSelectedBtn" class="btn btn-sm btn-success">
                             <i class="bi bi-check-circle"></i> Commit Selected to OntServe
                         </button>
+                        {% endif %}
                     </div>
                 </div>
             </div>

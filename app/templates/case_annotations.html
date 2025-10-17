@@ -55,25 +55,6 @@
         </div>
     </div>
 
-    <!-- Case Content Preview -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <h5 class="mb-0">
-                <i class="fas fa-gavel"></i> Case: {{ case.title }}
-            </h5>
-        </div>
-        <div class="card-body">
-            <div class="case-content-preview"
-                style="max-height: 200px; overflow-y: auto; background-color: #f8f9fa; padding: 15px; border-radius: 5px; font-size: 0.9em; line-height: 1.5;">
-                {% if case.content %}
-                {{ case.content[:1000] }}{% if case.content|length > 1000 %}...{% endif %}
-                {% else %}
-                <em>No content available</em>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-
     <!-- Annotations by Ontology -->
     {% if annotations_by_ontology %}
     {% for ontology_name, ontology_annotations in annotations_by_ontology.items() %}
@@ -236,11 +217,18 @@
         <div class="card-body text-center">
             <h6>Batch Actions</h6>
             <div class="btn-group" role="group">
+                {% if current_user.is_authenticated %}
                 <button type="button" class="btn btn-outline-primary" onclick="batchLLMApproval()">
-                    <i class="fas fa-robot"></i> LLM Approve All Pending
+                    <i class="fas fa-robot"></i> Approve all pending
                 </button>
-                <button type="button" class="btn btn-success" onclick="saveAnnotationsAsVersion()">
+                {% else %}
+                <button type="button" class="btn btn-secondary" disabled title="Login required to approve annotations">
+                    <i class="bi bi-lock-fill"></i> Approve all pending
+                </button>
+                {% endif %}
+                <button type="button" class="btn btn-success" disabled title="Saving approved versions disabled in production">
                     <i class="fas fa-save"></i> Save Approved as Version
+                    <i class="bi bi-lock ms-1"></i>
                 </button>
                 {% if total_annotations == 0 %}
                 <button type="button" class="btn btn-info" onclick="generateAnnotations()">

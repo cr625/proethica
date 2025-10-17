@@ -166,11 +166,14 @@
                             <i class="bi bi-arrow-left"></i> Back to Facts
                         </a>
                         {% endif %}
+                        {% if current_user.is_authenticated %}
                         <button id="refreshFromOntServeBtn" class="btn btn-sm btn-info">
                             <i class="bi bi-arrow-repeat"></i> Refresh from OntServe
                         </button>
+                        {% endif %}
                     </div>
                     <div>
+                        {% if current_user.is_authenticated %}
                         <button id="clearAllEntitiesBtn" class="btn btn-sm btn-warning">
                             <i class="bi bi-trash"></i> Clear Pass 1 Uncommitted{% if section_label %} ({{ section_label }}){% endif %}
                         </button>
@@ -180,6 +183,11 @@
                         <button id="commitSelectedBtn" class="btn btn-sm btn-success">
                             <i class="bi bi-check-circle"></i> Commit Selected to OntServe
                         </button>
+                        {% else %}
+                        <button id="commitSelectedBtnLocked" class="btn btn-sm btn-secondary" onclick="window.location.href='{{ url_for('auth.login') }}';" title="Login required to commit entities to OntServe">
+                            <i class="bi bi-lock-fill"></i> Commit to OntServe (Login Required)
+                        </button>
+                        {% endif %}
                     </div>
                 </div>
             </div>

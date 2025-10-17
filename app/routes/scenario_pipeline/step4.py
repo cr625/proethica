@@ -18,6 +18,7 @@ from flask import Blueprint, render_template, request, jsonify, redirect, url_fo
 
 from app.models import Document, TemporaryRDFStorage, ExtractionPrompt, db
 from app.utils.llm_utils import get_llm_client
+from app.utils.environment_auth import auth_required_for_llm, auth_optional
 
 # Import synthesis services
 from app.services.nspe_references_parser import NSPEReferencesParser
@@ -186,6 +187,7 @@ def synthesize_streaming(case_id):
 
 
 @bp.route('/case/<int:case_id>/save_streaming_results', methods=['POST'])
+@auth_required_for_llm
 def save_streaming_results(case_id):
     """
     Save Step 4 streaming synthesis results to database.
@@ -355,6 +357,7 @@ def _get_all_entities_for_graph(case_id: int) -> List:
 
 
 @bp.route('/case/<int:case_id>/step4/generate_synthesis_annotations', methods=['POST'])
+@auth_required_for_llm
 def generate_synthesis_annotations(case_id):
     """
     Generate synthesis annotations for Step 4 artifacts.
@@ -395,6 +398,7 @@ def generate_synthesis_annotations(case_id):
 
 
 @bp.route('/case/<int:case_id>/synthesize', methods=['POST'])
+@auth_required_for_llm
 def synthesize_case(case_id):
     """
     Execute whole-case synthesis (legacy endpoint).

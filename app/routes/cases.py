@@ -52,9 +52,12 @@ def list_cases():
     """Display all cases."""
     # Get world filter from query parameters
     world_id = request.args.get('world_id', type=int)
-    
+
     # Get search query from request parameters
     query = request.args.get('query', '')
+
+    # Get analysis filter from query parameters (default: True - show analyzed only)
+    show_analyzed_only = request.args.get('analyzed_only', 'true').lower() == 'true'
     
     # Initialize variables
     cases = []
@@ -102,14 +105,30 @@ def list_cases():
             with db.engine.connect() as conn:
                 result = conn.execute(
                     text("""
-                        SELECT DISTINCT document_id 
-                        FROM section_term_links 
+                        SELECT DISTINCT document_id
+                        FROM section_term_links
                         WHERE document_id = ANY(:document_ids)
                     """),
                     {"document_ids": case_ids}
                 )
                 for row in result:
                     term_links_status[row[0]] = True
+
+        # Bulk check for Step 4 synthesis completion (analyzed cases)
+        synthesis_status = {}
+        if case_ids:
+            with db.engine.connect() as conn:
+                result = conn.execute(
+                    text("""
+                        SELECT DISTINCT case_id
+                        FROM extraction_prompts
+                        WHERE case_id = ANY(:case_ids)
+                        AND concept_type = 'whole_case_synthesis'
+                    """),
+                    {"case_ids": case_ids}
+                )
+                for row in result:
+                    synthesis_status[row[0]] = True
         
         # Convert documents to case format
         for doc in document_cases:
@@ -165,14 +184,19 @@ def list_cases():
                 'full_date': metadata.get('full_date', ''),
                 'has_enhanced_associations': enhanced_associations_status.get(doc.id, False),
                 'has_term_links': term_links_status.get(doc.id, False),
+                'is_analyzed': synthesis_status.get(doc.id, False),
                 'doc_metadata': metadata  # Include full metadata for subject tags
             }
             
             cases.append(case)
-    
+
     except Exception as e:
         error = str(e)
-    
+
+    # Apply analysis filter if enabled
+    if show_analyzed_only:
+        cases = [case for case in cases if case.get('is_analyzed', False)]
+
     # Group cases by year
     from collections import defaultdict
     cases_by_year = defaultdict(list)
@@ -194,7 +218,7 @@ def list_cases():
     
     # Get all worlds for the filter dropdown
     worlds = World.query.all()
-    
+
     return render_template(
         'cases.html',
         cases=cases,
@@ -202,6 +226,7 @@ def list_cases():
         worlds=worlds,
         selected_world_id=world_id,
         query=query,
+        show_analyzed_only=show_analyzed_only,
         error=error
     )
 

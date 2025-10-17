@@ -31,10 +31,17 @@
 
         <!-- Full Contextual Framework Pass Button -->
         <div class="d-grid gap-2 d-md-flex justify-content-md-center mb-4">
+            {% if current_user.is_authenticated %}
             <button id="contextualPassBtn" class="btn btn-primary btn-lg" onclick="executeFullContextualPass()">
                 <i class="bi bi-arrow-right-circle"></i> Full Contextual Framework Pass
                 <small class="d-block">Extract All: Roles + States + Resources</small>
             </button>
+            {% else %}
+            <button class="btn btn-secondary btn-lg" onclick="window.location.href='{{ url_for('auth.login') }}';" title="Login required to run extraction">
+                <i class="bi bi-lock-fill"></i> Full Contextual Framework Pass
+                <small class="d-block">Login Required</small>
+            </button>
+            {% endif %}
         </div>
 
         <!-- Individual Extractor Sections -->
@@ -47,9 +54,11 @@
                         <h5 class="mb-0">
                             <i class="bi bi-person-badge text-info"></i> Roles Extraction
                         </h5>
+                        {% if current_user.is_authenticated %}
                         <button class="btn btn-info btn-sm" onclick="extractIndividualConcept('roles')">
                             <i class="bi bi-play-fill"></i> Extract Roles
                         </button>
+                        {% endif %}
                     </div>
                 </div>
                 <div class="step-content">
@@ -57,9 +66,11 @@
                     <div class="prompt-preview mb-3" id="rolesPromptSection" style="{% if not saved_prompts.roles %}display: none;{% endif %}">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <h6 class="mb-0"><i class="bi bi-cpu"></i> LLM Prompt</h6>
+                            {% if current_user.is_authenticated %}
                             <button class="btn btn-outline-secondary btn-sm" onclick="regenerateConceptPrompt('roles')">
                                 <i class="bi bi-arrow-clockwise"></i> Regenerate
                             </button>
+                            {% endif %}
                         </div>
                         <div class="prompt-text" id="rolesPromptText">
                             {% if saved_prompts.roles %}
@@ -94,9 +105,11 @@
                         <h5 class="mb-0">
                             <i class="bi bi-diagram-3 text-warning"></i> States Extraction
                         </h5>
+                        {% if current_user.is_authenticated %}
                         <button class="btn btn-warning btn-sm" onclick="extractIndividualConcept('states')">
                             <i class="bi bi-play-fill"></i> Extract States
                         </button>
+                        {% endif %}
                     </div>
                 </div>
                 <div class="step-content">
@@ -104,9 +117,11 @@
                     <div class="prompt-preview mb-3" id="statesPromptSection" style="{% if not saved_prompts.states %}display: none;{% endif %}">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <h6 class="mb-0"><i class="bi bi-cpu"></i> LLM Prompt</h6>
+                            {% if current_user.is_authenticated %}
                             <button class="btn btn-outline-secondary btn-sm" onclick="regenerateConceptPrompt('states')">
                                 <i class="bi bi-arrow-clockwise"></i> Regenerate
                             </button>
+                            {% endif %}
                         </div>
                         <div class="prompt-text" id="statesPromptText">
                             {% if saved_prompts.states %}
@@ -141,9 +156,11 @@
                         <h5 class="mb-0">
                             <i class="bi bi-box-seam text-success"></i> Resources Extraction
                         </h5>
+                        {% if current_user.is_authenticated %}
                         <button class="btn btn-success btn-sm" onclick="extractIndividualConcept('resources')">
                             <i class="bi bi-play-fill"></i> Extract Resources
                         </button>
+                        {% endif %}
                     </div>
                 </div>
                 <div class="step-content">
@@ -151,9 +168,11 @@
                     <div class="prompt-preview mb-3" id="resourcesPromptSection" style="{% if not saved_prompts.resources %}display: none;{% endif %}">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <h6 class="mb-0"><i class="bi bi-cpu"></i> LLM Prompt</h6>
+                            {% if current_user.is_authenticated %}
                             <button class="btn btn-outline-secondary btn-sm" onclick="regenerateConceptPrompt('resources')">
                                 <i class="bi bi-arrow-clockwise"></i> Regenerate
                             </button>
+                            {% endif %}
                         </div>
                         <div class="prompt-text" id="resourcesPromptText">
                             {% if saved_prompts.resources %}
@@ -207,6 +226,12 @@
 
 {% block step_styles %}
 <style>
+    /* Fade out page smoothly on navigation/redirect */
+    body.navigating {
+        opacity: 0;
+        transition: opacity 0.15s ease-out;
+    }
+
     .facts-text {
         font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
         font-size: 0.9rem;
@@ -300,6 +325,28 @@
 const caseId = {{ case.id }};
 const currentSectionText = `{{ facts_section.llm_text if facts_section else '' }}`;
 
+// Detect navigation/redirect and fade out page smoothly
+// This prevents flash of loading UI when redirecting to login
+let navigationStarted = false;
+const markNavigationStarted = () => {
+    if (!navigationStarted) {
+        navigationStarted = true;
+        document.body.classList.add('navigating');
+    }
+};
+
+// Override window.location.href to detect client-side redirects
+const originalLocationHref = Object.getOwnPropertyDescriptor(window.location, 'href').set;
+Object.defineProperty(window.location, 'href', {
+    set: function(value) {
+        markNavigationStarted();
+        originalLocationHref.call(window.location, value);
+    }
+});
+
+// Also detect normal navigation
+window.addEventListener('beforeunload', markNavigationStarted);
+
 // Load saved prompts on page load - using vanilla JS instead of jQuery
 document.addEventListener('DOMContentLoaded', function() {
     // Load saved prompts for all three concept types
@@ -309,7 +356,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function loadSavedPrompt(conceptType) {
-    fetch(`/scenario_pipeline/case/${caseId}/step1/get_saved_prompt?concept_type=${conceptType}`)
+    appFetch(`/scenario_pipeline/case/${caseId}/step1/get_saved_prompt?concept_type=${conceptType}`)
         .then(response => response.json())
         .then(data => {
             if (data.success && data.prompt_text) {
@@ -365,12 +412,12 @@ function extractIndividualConcept(conceptType) {
         </div>
     `;
 
-    // Execute extraction
-    fetch(`{{ url_for('scenario_pipeline.step1_extract_individual', case_id=case.id) }}`, {
+    // Execute extraction using global appFetch (handles 401 auth redirect automatically)
+    appFetch(`{{ url_for('scenario_pipeline.step1_extract_individual', case_id=case.id) }}`, {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+            'Content-Type': 'application/json'
+            // CSRF token is added automatically by appFetch
         },
         body: JSON.stringify({
             concept_type: conceptType,
