@@ -126,10 +126,16 @@
                     </div>
 
                     <!-- Principles Results -->
-                    <div class="results-preview" id="principlesResults" style="display: none;">
-                        <h6><i class="bi bi-check-circle text-success"></i> Extraction Results</h6>
+                    <div class="results-preview mb-3" id="principlesResults" style="{% if not saved_prompts.principles or not saved_prompts.principles.raw_response %}display: none;{% endif %}">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0"><i class="bi bi-chat-left-text text-success"></i> LLM Response</h6>
+                        </div>
                         <div id="principlesResultsContent">
-                            <!-- Results will be displayed here -->
+                            {% if saved_prompts.principles and saved_prompts.principles.raw_response %}
+                            <pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; max-height: 500px; overflow-y: auto;">{{ saved_prompts.principles.raw_response }}</pre>
+                            {% else %}
+                            <!-- LLM response will be displayed here -->
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -176,11 +182,17 @@
                         {% endif %}
                     </div>
 
-                    <!-- Obligations Results -->
-                    <div class="results-preview" id="obligationsResults" style="display: none;">
-                        <h6><i class="bi bi-check-circle text-success"></i> Extraction Results</h6>
+                    <!-- Obligations LLM Response -->
+                    <div class="results-preview mb-3" id="obligationsResults" style="{% if not saved_prompts.obligations or not saved_prompts.obligations.raw_response %}display: none;{% endif %}">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0"><i class="bi bi-chat-left-text text-success"></i> LLM Response</h6>
+                        </div>
                         <div id="obligationsResultsContent">
-                            <!-- Results will be displayed here -->
+                            {% if saved_prompts.obligations and saved_prompts.obligations.raw_response %}
+                            <pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; max-height: 500px; overflow-y: auto;">{{ saved_prompts.obligations.raw_response }}</pre>
+                            {% else %}
+                            <!-- LLM response will be displayed here -->
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -227,11 +239,17 @@
                         {% endif %}
                     </div>
 
-                    <!-- Constraints Results -->
-                    <div class="results-preview" id="constraintsResults" style="display: none;">
-                        <h6><i class="bi bi-check-circle text-success"></i> Extraction Results</h6>
+                    <!-- Constraints LLM Response -->
+                    <div class="results-preview mb-3" id="constraintsResults" style="{% if not saved_prompts.constraints or not saved_prompts.constraints.raw_response %}display: none;{% endif %}">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0"><i class="bi bi-chat-left-text text-success"></i> LLM Response</h6>
+                        </div>
                         <div id="constraintsResultsContent">
-                            <!-- Results will be displayed here -->
+                            {% if saved_prompts.constraints and saved_prompts.constraints.raw_response %}
+                            <pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; max-height: 500px; overflow-y: auto;">{{ saved_prompts.constraints.raw_response }}</pre>
+                            {% else %}
+                            <!-- LLM response will be displayed here -->
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -278,11 +296,17 @@
                         {% endif %}
                     </div>
 
-                    <!-- Capabilities Results -->
-                    <div class="results-preview" id="capabilitiesResults" style="display: none;">
-                        <h6><i class="bi bi-check-circle text-success"></i> Extraction Results</h6>
+                    <!-- Capabilities LLM Response -->
+                    <div class="results-preview mb-3" id="capabilitiesResults" style="{% if not saved_prompts.capabilities or not saved_prompts.capabilities.raw_response %}display: none;{% endif %}">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0"><i class="bi bi-chat-left-text text-success"></i> LLM Response</h6>
+                        </div>
                         <div id="capabilitiesResultsContent">
-                            <!-- Results will be displayed here -->
+                            {% if saved_prompts.capabilities and saved_prompts.capabilities.raw_response %}
+                            <pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; max-height: 500px; overflow-y: auto;">{{ saved_prompts.capabilities.raw_response }}</pre>
+                            {% else %}
+                            <!-- LLM response will be displayed here -->
+                            {% endif %}
                         </div>
                     </div>
                 </div>
