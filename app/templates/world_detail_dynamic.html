@@ -155,7 +155,7 @@
                                 <a href="{{ url_for('cases.list_cases', world_id=world.id) }}" class="btn btn-outline-primary btn-sm mb-2">
                                     <i class="bi bi-briefcase"></i> Cases ({{ case_studies|length }})
                                 </a>
-                                <a href="/worlds/{{ world.id }}/scenarios" class="btn btn-outline-primary btn-sm mb-2">
+                                <a href="{{ url_for('scenarios.list_scenarios') }}" class="btn btn-outline-primary btn-sm mb-2">
                                     <i class="bi bi-diagram-3"></i> Scenarios
                                 </a>
                             </div>
@@ -164,9 +164,7 @@
                                 <a href="/worlds/{{ world.id }}/edit" class="btn btn-outline-secondary btn-sm mb-2">
                                     <i class="bi bi-pencil"></i> Edit Domain
                                 </a>
-                                <button class="btn btn-outline-info btn-sm mb-2" data-bs-toggle="collapse" data-bs-target="#ontologyInfo">
-                                    <i class="bi bi-info-circle"></i> Ontology Info
-                                </button>
+                                <!-- Ontology Info button hidden for UI cleanup -->
                             </div>
                         </div>
                         
@@ -188,7 +186,8 @@
             </div>
         </div>
 
-        <!-- Ontology Entities Section with Dynamic Tabs -->
+        <!-- Ontology Entities Section with Dynamic Tabs - Hidden for UI cleanup -->
+        {% if false %}
         <div class="row">
             <div class="col-md-12">
                 <div class="card">
@@ -281,6 +280,8 @@
                 </div>
             </div>
         </div>
+        {% endif %}
+        <!-- End of Ontology Entities card (hidden) -->
 
         <div class="footer">
             <p>ProEthica - AI Ethical Decision-Making Simulator | Licensed under <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank">GPL v3</a></p>

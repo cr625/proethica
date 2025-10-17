@@ -165,6 +165,8 @@
                 {% endif %}
               </td>
               <td>
+                <!-- Action buttons hidden until modal functionality is implemented -->
+                {% if false %}
                 <div class="btn-group" role="group" aria-label="Annotation actions">
                   {% if annotation.approval_stage == 'pending' %}
                   <button type="button" class="btn btn-sm btn-outline-primary"
@@ -200,6 +202,7 @@
                   </button>
                   {% endif %}
                 </div>
+                {% endif %}
               </td>
             </tr>
             {% endfor %}
@@ -226,12 +229,21 @@
     <div class="card-body text-center">
       <h6>Batch Actions</h6>
       <div class="btn-group" role="group">
+        {% if current_user.is_authenticated %}
         <button type="button" class="btn btn-outline-primary" onclick="batchLLMApproval()">
           <i class="fas fa-robot"></i> LLM Approve All Pending
         </button>
         <button type="button" class="btn btn-success" onclick="saveAnnotationsAsVersion()">
           <i class="fas fa-save"></i> Save Approved as Version
         </button>
+        {% else %}
+        <button type="button" class="btn btn-secondary" disabled title="Login required to approve annotations">
+          <i class="bi bi-lock-fill"></i> LLM Approve All Pending
+        </button>
+        <button type="button" class="btn btn-secondary" disabled title="Login required to save versions">
+          <i class="bi bi-lock-fill"></i> Save Approved as Version
+        </button>
+        {% endif %}
       </div>
       <div class="mt-2">
         <small class="text-muted">
