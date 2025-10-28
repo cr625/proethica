@@ -34,6 +34,9 @@ from app.services.case_synthesis_service import CaseSynthesisService
 # Import streaming synthesis
 from app.routes.scenario_pipeline.step4_streaming import synthesize_case_streaming
 
+# Import scenario generation
+from app.routes.scenario_pipeline.generate_scenario import generate_scenario_from_case
+
 logger = logging.getLogger(__name__)
 
 bp = Blueprint('step4', __name__, url_prefix='/scenario_pipeline')
@@ -43,9 +46,11 @@ def init_step4_csrf_exemption(app):
     """Exempt Step 4 synthesis routes from CSRF protection"""
     if hasattr(app, 'csrf') and app.csrf:
         from app.routes.scenario_pipeline.step4 import synthesize_case, save_streaming_results, generate_synthesis_annotations
+        from app.routes.scenario_pipeline.generate_scenario import generate_scenario_from_case
         app.csrf.exempt(synthesize_case)
         app.csrf.exempt(save_streaming_results)
         app.csrf.exempt(generate_synthesis_annotations)
+        app.csrf.exempt(generate_scenario_from_case)
 
 
 @bp.route('/case/<int:case_id>/step4')
@@ -79,7 +84,7 @@ def step4_synthesis(case_id):
             saved_synthesis=saved_synthesis,
             current_step=4,
             prev_step_url=f"/scenario_pipeline/case/{case_id}/step3",
-            next_step_url="#"
+            next_step_url=f"/scenario_pipeline/case/{case_id}/step5"
         )
 
     except Exception as e:
@@ -1138,3 +1143,15 @@ def _store_synthesis_results(case_id: int, synthesis) -> None:
     db.session.commit()
 
     logger.info(f"Stored synthesis results for case {case_id}")
+
+
+# Scenario Generation Route
+@bp.route("/case/<int:case_id>/generate_scenario")
+def generate_scenario_route(case_id):
+    """
+    SSE endpoint for scenario generation.
+    
+    Streams progress through all 9 stages of scenario generation.
+    """
+    return generate_scenario_from_case(case_id)
+

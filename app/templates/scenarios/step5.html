@@ -1,0 +1,336 @@
+{% extends "scenarios/base_step.html" %}
+
+{% block step_title %}Step 5: Interactive Scenario Generation{% endblock %}
+{% block step_header %}Step 5: Interactive Scenario Generation{% endblock %}
+{% block step_subtitle %}Transform this fully-analyzed case into an interactive teaching scenario{% endblock %}
+
+{% block step_content %}
+
+<!-- Eligibility Status Card -->
+<div class="card mb-4 {% if eligibility.eligible %}border-success{% else %}border-warning{% endif %}">
+    <div class="card-header {% if eligibility.eligible %}bg-success bg-opacity-10{% else %}bg-warning bg-opacity-10{% endif %}">
+        <h5 class="mb-0">
+            <i class="bi bi-{% if eligibility.eligible %}check-circle{% else %}exclamation-triangle{% endif %}"></i>
+            Eligibility Status
+        </h5>
+    </div>
+    <div class="card-body">
+        {% if eligibility.eligible %}
+            <div class="alert alert-success">
+                <h6><i class="bi bi-check-circle"></i> This case is eligible for scenario generation!</h6>
+                <p class="mb-0">{{ eligibility.summary }}</p>
+            </div>
+
+            <h6 class="mt-3">Completion Status:</h6>
+            <ul>
+                {% for pass_name, status in eligibility.pass_completion.items() %}
+                <li>
+                    <strong>{{ pass_name|upper }}:</strong>
+                    {% if status.complete %}
+                        <span class="badge bg-success">Complete</span>
+                        ({{ status.entity_count }} entities in {{ status.sections_complete|join(', ') }})
+                    {% else %}
+                        <span class="badge bg-warning">Incomplete</span>
+                    {% endif %}
+                </li>
+                {% endfor %}
+                <li>
+                    <strong>STEP 4:</strong>
+                    {% if eligibility.step4_complete %}
+                        <span class="badge bg-success">Complete</span>
+                        ({{ eligibility.step4_summary.questions }} questions, {{ eligibility.step4_summary.conclusions }} conclusions)
+                    {% else %}
+                        <span class="badge bg-warning">Incomplete</span>
+                    {% endif %}
+                </li>
+            </ul>
+
+            <h6 class="mt-3">Temporal Dynamics:</h6>
+            <ul>
+                <li><strong>Actions:</strong> {{ eligibility.temporal_summary.actions }}</li>
+                <li><strong>Events:</strong> {{ eligibility.temporal_summary.events }}</li>
+            </ul>
+
+        {% else %}
+            <div class="alert alert-warning">
+                <h6><i class="bi bi-exclamation-triangle"></i> Case not yet ready for scenario generation</h6>
+                <p>{{ eligibility.summary }}</p>
+            </div>
+
+            <h6>Requirements:</h6>
+            <ul>
+                {% for pass_name, status in eligibility.pass_completion.items() %}
+                <li>
+                    <strong>{{ pass_name|upper }}:</strong>
+                    {% if status.complete %}
+                        <span class="badge bg-success">Complete</span>
+                    {% else %}
+                        <span class="badge bg-danger">Incomplete</span>
+                    {% endif %}
+                </li>
+                {% endfor %}
+                <li>
+                    <strong>STEP 4:</strong>
+                    {% if eligibility.step4_complete %}
+                        <span class="badge bg-success">Complete</span>
+                    {% else %}
+                        <span class="badge bg-danger">Incomplete</span>
+                    {% endif %}
+                </li>
+            </ul>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Scenario Generation Control Card -->
+<div class="card mb-4 border-success">
+    <div class="card-header bg-success bg-opacity-10">
+        <h5 class="mb-0">
+            <i class="bi bi-play-circle"></i> Generate Interactive Scenario
+        </h5>
+    </div>
+    <div class="card-body">
+        <p class="mb-3">
+            Transform this case into an interactive teaching scenario with:
+        </p>
+        <ul>
+            <li><strong>Timeline:</strong> Chronological sequence of events and decisions</li>
+            <li><strong>Participants:</strong> Character profiles from extracted roles</li>
+            <li><strong>Decision Points:</strong> Critical ethical choices with options</li>
+            <li><strong>Causal Chains:</strong> Linked consequences and responsibility</li>
+            <li><strong>Normative Framework:</strong> Integrated code provisions and principles</li>
+            <li><strong>Learning Objectives:</strong> Pedagogically sound educational goals</li>
+        </ul>
+
+        {% if eligibility.eligible %}
+            {% if current_user.is_authenticated %}
+            <button type="button" class="btn btn-lg btn-success" onclick="generateScenario()">
+                <i class="bi bi-play-circle"></i> Generate Interactive Scenario
+            </button>
+            <p class="mt-3 text-muted">
+                <small>
+                    <i class="bi bi-info-circle"></i>
+                    Generation will stream real-time progress through all 9 stages (Stage 1 fully implemented, Stages 2-9 placeholders).
+                </small>
+            </p>
+            {% else %}
+            <button type="button" class="btn btn-lg btn-secondary" onclick="window.location.href='{{ url_for('auth.login') }}';" title="Login required to generate scenarios">
+                <i class="bi bi-lock-fill"></i> Generate Interactive Scenario (Login Required)
+            </button>
+            {% endif %}
+        {% else %}
+            <button type="button" class="btn btn-lg btn-secondary" disabled title="Complete all requirements first">
+                <i class="bi bi-play-circle"></i> Generate Interactive Scenario
+            </button>
+            <p class="mt-3 text-muted">
+                <small><i class="bi bi-exclamation-triangle"></i> Complete Passes 1-3 and Step 4 first.</small>
+            </p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Scenario Generation Progress Card (Hidden until generation starts) -->
+<div id="scenario-progress" class="card mb-4 border-success" style="display: none;">
+    <div class="card-header bg-success bg-opacity-10">
+        <h5 class="mb-0">
+            <i id="scenario-progress-icon" class="bi bi-hourglass-split"></i>
+            <span id="scenario-progress-header-text">Scenario Generation Progress</span>
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="progress mb-3" style="height: 25px;">
+            <div id="scenario-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated bg-success"
+                 role="progressbar" style="width: 0%">0%</div>
+        </div>
+
+        <!-- Current Stage Info -->
+        <div id="scenario-stage-info" class="alert alert-info mb-3" style="display: none;">
+            <strong>Stage <span id="scenario-stage-number">0</span>/9:</strong> <span id="scenario-current-stage">Initializing...</span>
+        </div>
+
+        <!-- Stage Details -->
+        <div id="scenario-stage-details" class="mb-3" style="max-height: 400px; overflow-y: auto;">
+            <em class="text-muted">Waiting for generation to start...</em>
+        </div>
+
+        <!-- Completion Message -->
+        <div id="scenario-complete" class="alert alert-success" style="display: none;">
+            <h5><i class="bi bi-check-circle"></i> Scenario Generated Successfully!</h5>
+            <p id="scenario-complete-message"></p>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block step_scripts %}
+<script>
+// ==================== SCENARIO GENERATION ====================
+
+function generateScenario() {
+    const caseId = {{ case.id }};
+    const progressCard = document.getElementById('scenario-progress');
+    const progressBar = document.getElementById('scenario-progress-bar');
+    const stageInfo = document.getElementById('scenario-stage-info');
+    const stageNumber = document.getElementById('scenario-stage-number');
+    const currentStage = document.getElementById('scenario-current-stage');
+    const stageDetails = document.getElementById('scenario-stage-details');
+    const completeDiv = document.getElementById('scenario-complete');
+    const completeMessage = document.getElementById('scenario-complete-message');
+
+    // Show progress card
+    progressCard.style.display = 'block';
+    stageInfo.style.display = 'block';
+    completeDiv.style.display = 'none';
+    stageDetails.innerHTML = '<em class="text-muted">Initializing...</em>';
+
+    // Scroll to progress card
+    progressCard.scrollIntoView({ behavior: 'smooth' });
+
+    // Create EventSource for SSE
+    const url = `/scenario_pipeline/case/${caseId}/generate_scenario`;
+    console.log('[Scenario Gen] Connecting to:', url);
+    const eventSource = new EventSource(url);
+
+    eventSource.onmessage = function(event) {
+        try {
+            const data = JSON.parse(event.data);
+            console.log('[Scenario Gen] Event:', data);
+
+            // Update progress bar
+            progressBar.style.width = `${data.progress}%`;
+            progressBar.textContent = `${data.progress}%`;
+
+            // Update stage info
+            if (data.stage_number !== undefined) {
+                stageNumber.textContent = data.stage_number;
+            }
+            currentStage.textContent = data.message || data.stage;
+
+            // Add stage details
+            if (data.stage !== 'init' && data.stage !== 'complete') {
+                const stageDiv = document.createElement('div');
+                stageDiv.className = 'mb-2 p-2 border-start border-success border-3 ps-3';
+                stageDiv.innerHTML = `
+                    <strong>Stage ${data.stage_number}: ${formatStageName(data.stage)}</strong><br>
+                    <span class="text-muted">${data.message}</span>
+                `;
+
+                // Add data summary if available
+                if (data.data) {
+                    const dataPre = document.createElement('pre');
+                    dataPre.className = 'mt-2 mb-0 p-2 bg-light rounded';
+                    dataPre.style.fontSize = '0.85rem';
+                    dataPre.textContent = JSON.stringify(data.data, null, 2);
+                    stageDiv.appendChild(dataPre);
+                }
+
+                if (stageDetails.querySelector('em')) {
+                    stageDetails.innerHTML = '';
+                }
+                stageDetails.appendChild(stageDiv);
+            }
+
+            // Handle completion
+            if (data.stage === 'complete') {
+                eventSource.close();
+                console.log('[Scenario Gen] Generation complete');
+
+                // Update UI
+                progressBar.classList.remove('progress-bar-animated');
+                progressBar.classList.add('bg-success');
+                stageInfo.style.display = 'none';
+
+                // Show completion message
+                completeDiv.style.display = 'block';
+                completeMessage.innerHTML = `
+                    <strong>Entity Count:</strong> ${data.result.entity_count}<br>
+                    <strong>Stages Completed:</strong> ${data.result.stages_completed}/9<br>
+                    <strong>Status:</strong> ${data.result.message}<br>
+                    <br>
+                    <em class="text-muted">${data.result.note}</em>
+                `;
+
+                // Change header
+                document.getElementById('scenario-progress-header-text').innerHTML =
+                    '<i class="bi bi-check-circle"></i> Generation Complete!';
+            }
+
+            // Handle errors
+            if (data.stage === 'error') {
+                eventSource.close();
+                console.error('[Scenario Gen] Error:', data.error);
+
+                progressBar.classList.remove('progress-bar-animated');
+                progressBar.classList.add('bg-danger');
+                stageInfo.style.display = 'none';
+
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'alert alert-danger';
+                errorDiv.innerHTML = `
+                    <h5><i class="bi bi-exclamation-triangle"></i> Generation Failed</h5>
+                    <p>${data.message || data.error}</p>
+                `;
+                stageDetails.appendChild(errorDiv);
+            }
+
+        } catch (e) {
+            console.error('[Scenario Gen] Error parsing event:', e);
+        }
+    };
+
+    eventSource.onerror = function(error) {
+        console.error('[Scenario Gen] SSE Error:', error);
+        eventSource.close();
+
+        progressBar.classList.remove('progress-bar-animated');
+        progressBar.classList.add('bg-danger');
+
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'alert alert-danger';
+        errorDiv.innerHTML = `
+            <h5><i class="bi bi-exclamation-triangle"></i> Connection Error</h5>
+            <p>Lost connection to server. Please refresh and try again.</p>
+        `;
+        stageDetails.appendChild(errorDiv);
+    };
+}
+
+function formatStageName(stage) {
+    const names = {
+        'data_collection': 'Data Collection',
+        'timeline_construction': 'Timeline Construction',
+        'participant_mapping': 'Participant Mapping',
+        'decision_identification': 'Decision Identification',
+        'causal_integration': 'Causal Chain Integration',
+        'normative_integration': 'Normative Framework Integration',
+        'scenario_assembly': 'Scenario Assembly',
+        'model_generation': 'Interactive Model Generation',
+        'validation': 'Validation & QA'
+    };
+    return names[stage] || stage;
+}
+
+</script>
+{% endblock %}
+
+{% block step_styles %}
+<style>
+    .card {
+        box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
+    }
+
+    .card-header h5 {
+        margin-bottom: 0;
+    }
+
+    .list-unstyled li {
+        padding: 0.25rem 0;
+    }
+
+    pre {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+</style>
+{% endblock %}

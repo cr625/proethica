@@ -141,9 +141,10 @@
                     class="pipeline-step {% if request.endpoint == 'step4.step4_synthesis' %}active{% endif %}">
                     <i class="bi bi-4-circle"></i> Step 4: Whole-Case Synthesis
                 </a>
-                <div class="pipeline-step disabled" style="opacity: 0.5; cursor: not-allowed;">
-                    <i class="bi bi-magic"></i> Generate Scenario (Coming Soon)
-                </div>
+                <a href="{{ url_for('step5.step5_scenario_generation', case_id=case.id) }}"
+                    class="pipeline-step {% if request.endpoint == 'step5.step5_scenario_generation' %}active{% endif %}">
+                    <i class="bi bi-5-circle"></i> Step 5: Scenario Generation
+                </a>
 
                 <hr class="my-3">
 
@@ -153,11 +154,11 @@
                         <i class="bi bi-arrow-left"></i> Previous
                     </a>
                     {% endif %}
-                    {% if current_step < 3 and next_step_url and next_step_url !='#' %}
+                    {% if current_step < 5 and next_step_url and next_step_url !='#' %}
                     <a href="{{ next_step_url }}" class="btn btn-primary">
                         Next <i class="bi bi-arrow-right"></i>
                     </a>
-                    {% else %}
+                    {% elif current_step < 5 %}
                     <button class="btn btn-outline-secondary" disabled>
                         Next <i class="bi bi-arrow-right"></i> (Coming Soon)
                     </button>
@@ -171,7 +172,7 @@
             <div class="mb-4">
                 <div class="case-title">{{ case.title }}</div>
                 <div class="step-info">
-                    {% block step_info %}Step {{ current_step }} of 3{% endblock %}
+                    {% block step_info %}Step {{ current_step }} of 5{% endblock %}
                 </div>
             </div>
 

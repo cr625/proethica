@@ -154,42 +154,45 @@
     </div>
 </div>
 
-<!-- About Step 4 -->
+<!-- About Step 4 (Collapsible) -->
 <div class="card">
-    <div class="card-header">
+    <div class="card-header" style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#aboutStep4" aria-expanded="false">
         <h5 class="mb-0">
+            <i class="bi bi-chevron-right" id="aboutStep4Icon"></i>
             <i class="bi bi-info-circle"></i> About Step 4 Synthesis
         </h5>
     </div>
-    <div class="card-body">
-        <p>Step 4 performs whole-case synthesis with complete entity context from all three passes:</p>
+    <div id="aboutStep4" class="collapse">
+        <div class="card-body">
+            <p>Step 4 performs whole-case synthesis with complete entity context from all three passes:</p>
 
-        <h6>Part A: Code Provisions</h6>
-        <ul>
-            <li>Extracts NSPE Code provisions mentioned in References section</li>
-            <li>Links provisions to ALL 9 entity types (Roles, Principles, Actions, etc.)</li>
-            <li>Validates content relevance using LLM</li>
-        </ul>
+            <h6>Part A: Code Provisions</h6>
+            <ul>
+                <li>Extracts NSPE Code provisions mentioned in References section</li>
+                <li>Links provisions to ALL 9 entity types (Roles, Principles, Actions, etc.)</li>
+                <li>Validates content relevance using LLM</li>
+            </ul>
 
-        <h6>Part B: Questions & Conclusions</h6>
-        <ul>
-            <li>Extracts ethical questions from Questions section</li>
-            <li>Extracts conclusions from Conclusions section</li>
-            <li>Tags entities across all 9 types</li>
-            <li>Creates answersQuestion relationships between Q&C</li>
-        </ul>
+            <h6>Part B: Questions & Conclusions</h6>
+            <ul>
+                <li>Extracts ethical questions from Questions section</li>
+                <li>Extracts conclusions from Conclusions section</li>
+                <li>Tags entities across all 9 types</li>
+                <li>Creates answersQuestion relationships between Q&C</li>
+            </ul>
 
-        <h6>Part C: Cross-Section Synthesis</h6>
-        <ul>
-            <li>Builds entity knowledge graph (205+ nodes)</li>
-            <li>Creates causal-normative links (Actions/Events → Obligations/Principles)</li>
-            <li>Analyzes question emergence (WHY questions arose)</li>
-            <li>Extracts resolution patterns (HOW board decided)</li>
-        </ul>
+            <h6>Part C: Cross-Section Synthesis</h6>
+            <ul>
+                <li>Builds entity knowledge graph (205+ nodes)</li>
+                <li>Creates causal-normative links (Actions/Events → Obligations/Principles)</li>
+                <li>Analyzes question emergence (WHY questions arose)</li>
+                <li>Extracts resolution patterns (HOW board decided)</li>
+            </ul>
 
-        <div class="alert alert-warning mt-3">
-            <i class="bi bi-exclamation-triangle"></i>
-            <strong>Note:</strong> Synthesis requires all 3 passes to be completed first.
+            <div class="alert alert-warning mt-3">
+                <i class="bi bi-exclamation-triangle"></i>
+                <strong>Note:</strong> Synthesis requires all 3 passes to be completed first.
+            </div>
         </div>
     </div>
 </div>
@@ -640,6 +643,7 @@ document.addEventListener('DOMContentLoaded', function() {
     addMessage('success', 'Synthesis completed: {{ saved_synthesis.created_at.strftime('%Y-%m-%d %H:%M') }}');
 });
 {% endif %}
+
 </script>
 {% endblock %}
 
