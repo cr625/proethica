@@ -36,10 +36,10 @@
                 <strong>Total Entities:</strong> {{ summary.total_entities }}
             </div>
             <div class="col-md-2">
-                <strong>Actions:</strong> {{ summary.actions }}
+                <strong>Actions Extracted:</strong> {{ summary.actions }}
             </div>
             <div class="col-md-2">
-                <strong>Events:</strong> {{ summary.events }}
+                <strong>Events Extracted:</strong> {{ summary.events }}
             </div>
             <div class="col-md-2">
                 <strong>Causal Chains:</strong> {{ summary.causal_chains }}
@@ -60,15 +60,22 @@
             <h5 class="mb-0"><i class="bi bi-clock-history"></i> Timeline Overview</h5>
         </div>
         <div class="card-body">
+            <div class="alert alert-info mb-3">
+                <i class="bi bi-info-circle"></i>
+                <strong>Note:</strong> The timeline includes only actions and events with clear temporal markers that could be sequenced chronologically.
+                {% if summary.actions > timeline.action_count or summary.events > timeline.event_count %}
+                Some extracted entities ({{ summary.actions - timeline.action_count }} actions, {{ summary.events - timeline.event_count }} events) did not have sufficient temporal information for timeline placement but are shown below in the full lists.
+                {% endif %}
+            </div>
             <div class="row mb-3">
                 <div class="col-md-4">
-                    <strong>Total Elements:</strong> {{ timeline.total_elements }}
+                    <strong>Timeline Elements:</strong> {{ timeline.total_elements }}
                 </div>
                 <div class="col-md-4">
-                    <strong>Actions:</strong> {{ timeline.action_count }}
+                    <strong>Actions on Timeline:</strong> {{ timeline.action_count }} <small class="text-muted">(of {{ summary.actions }} extracted)</small>
                 </div>
                 <div class="col-md-4">
-                    <strong>Events:</strong> {{ timeline.event_count }}
+                    <strong>Events on Timeline:</strong> {{ timeline.event_count }} <small class="text-muted">(of {{ summary.events }} extracted)</small>
                 </div>
             </div>
 
@@ -198,6 +205,54 @@
                                 </small>
                             </div>
 
+                            <!-- Scenario Metadata (NEW) -->
+                            {% if action.rdf_json.get('proeth-scenario:characterMotivation') or action.rdf_json.get('proeth-scenario:ethicalTension') %}
+                            <div class="mt-4 border-top pt-3">
+                                <h6 class="text-primary"><i class="bi bi-book"></i> Scenario Metadata</h6>
+                                <small class="text-muted d-block mb-2">Pedagogical context for interactive teaching scenarios</small>
+
+                                {% if action.rdf_json.get('proeth-scenario:characterMotivation') %}
+                                <p class="mb-2"><strong>Character Motivation:</strong> {{ action.rdf_json['proeth-scenario:characterMotivation'] }}</p>
+                                {% endif %}
+
+                                {% if action.rdf_json.get('proeth-scenario:ethicalTension') %}
+                                <p class="mb-2"><strong>Ethical Tension:</strong> {{ action.rdf_json['proeth-scenario:ethicalTension'] }}</p>
+                                {% endif %}
+
+                                {% if action.rdf_json.get('proeth-scenario:decisionSignificance') %}
+                                <p class="mb-2"><strong>Learning Significance:</strong> {{ action.rdf_json['proeth-scenario:decisionSignificance'] }}</p>
+                                {% endif %}
+
+                                {% if action.rdf_json.get('proeth-scenario:stakes') %}
+                                <p class="mb-2"><strong>Stakes:</strong> {{ action.rdf_json['proeth-scenario:stakes'] }}</p>
+                                {% endif %}
+
+                                {% if action.rdf_json.get('proeth-scenario:isDecisionPoint') %}
+                                <p class="mb-2">
+                                    <strong>Decision Point:</strong>
+                                    <span class="badge bg-success">Yes - Story can branch here</span>
+                                </p>
+                                {% if action.rdf_json.get('proeth-scenario:alternativeActions') %}
+                                <div class="ms-3">
+                                    <strong>Alternative Actions:</strong>
+                                    <ul class="mb-1">
+                                        {% for alt in action.rdf_json['proeth-scenario:alternativeActions'] %}
+                                        <li>{{ alt }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                                {% endif %}
+                                {% endif %}
+
+                                {% if action.rdf_json.get('proeth-scenario:narrativeRole') %}
+                                <p class="mb-0">
+                                    <strong>Narrative Role:</strong>
+                                    <span class="badge bg-info">{{ action.rdf_json['proeth-scenario:narrativeRole'] }}</span>
+                                </p>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+
                             <details class="mt-3">
                                 <summary class="text-muted small">RDF JSON-LD</summary>
                                 <pre class="mt-2"><code>{{ action.rdf_json | tojson(indent=2) }}</code></pre>
@@ -274,6 +329,60 @@
                                     {% endif %}
                                 </div>
                             </div>
+
+                            <!-- Scenario Metadata (NEW) -->
+                            {% if event.rdf_json.get('proeth-scenario:emotionalImpact') or event.rdf_json.get('proeth-scenario:learningMoment') %}
+                            <div class="mt-4 border-top pt-3">
+                                <h6 class="text-primary"><i class="bi bi-book"></i> Scenario Metadata</h6>
+                                <small class="text-muted d-block mb-2">Pedagogical context for interactive teaching scenarios</small>
+
+                                {% if event.rdf_json.get('proeth-scenario:emotionalImpact') %}
+                                <p class="mb-2"><strong>Emotional Impact:</strong> {{ event.rdf_json['proeth-scenario:emotionalImpact'] }}</p>
+                                {% endif %}
+
+                                {% if event.rdf_json.get('proeth-scenario:stakeholderConsequences') %}
+                                <div class="mb-2">
+                                    <strong>Stakeholder Consequences:</strong>
+                                    <ul class="mb-1 mt-1">
+                                        {% for stakeholder, consequence in event.rdf_json['proeth-scenario:stakeholderConsequences'].items() %}
+                                        <li><strong>{{ stakeholder }}:</strong> {{ consequence }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                                {% endif %}
+
+                                {% if event.rdf_json.get('proeth-scenario:learningMoment') %}
+                                <p class="mb-2"><strong>Learning Moment:</strong> {{ event.rdf_json['proeth-scenario:learningMoment'] }}</p>
+                                {% endif %}
+
+                                {% if event.rdf_json.get('proeth-scenario:ethicalImplications') %}
+                                <p class="mb-2"><strong>Ethical Implications:</strong> {{ event.rdf_json['proeth-scenario:ethicalImplications'] }}</p>
+                                {% endif %}
+
+                                {% if event.rdf_json.get('proeth-scenario:discussionPrompts') %}
+                                <div class="mb-2">
+                                    <strong>Discussion Prompts:</strong>
+                                    <ul class="mb-1 mt-1">
+                                        {% for prompt in event.rdf_json['proeth-scenario:discussionPrompts'] %}
+                                        <li>{{ prompt }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                                {% endif %}
+
+                                <div class="mt-2">
+                                    {% if event.rdf_json.get('proeth-scenario:crisisIdentification') %}
+                                    <span class="badge bg-danger me-2">Crisis / Turning Point</span>
+                                    {% endif %}
+                                    {% if event.rdf_json.get('proeth-scenario:dramaticTension') %}
+                                    <span class="badge bg-warning me-2">Tension: {{ event.rdf_json['proeth-scenario:dramaticTension'] }}</span>
+                                    {% endif %}
+                                    {% if event.rdf_json.get('proeth-scenario:narrativePacing') %}
+                                    <span class="badge bg-info">Pacing: {{ event.rdf_json['proeth-scenario:narrativePacing'] }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endif %}
 
                             <details class="mt-3">
                                 <summary class="text-muted small">RDF JSON-LD</summary>

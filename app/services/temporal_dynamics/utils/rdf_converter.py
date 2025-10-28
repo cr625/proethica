@@ -29,6 +29,7 @@ def convert_action_to_rdf(action: Dict, case_id: int) -> Dict:
         '@context': {
             'proeth': 'http://proethica.org/ontology/intermediate#',
             'proeth-case': f'http://proethica.org/cases/{case_id}#',
+            'proeth-scenario': 'http://proethica.org/ontology/scenario#',
             'time': 'http://www.w3.org/2006/time#',
             'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
             'rdfs': 'http://www.w3.org/2000/01/rdf-schema#'
@@ -75,6 +76,20 @@ def convert_action_to_rdf(action: Dict, case_id: int) -> Dict:
         if prof_context.get('required_capabilities'):
             rdf_entity['proeth:requiresCapability'] = prof_context['required_capabilities']
 
+    # Add scenario metadata (for interactive teaching scenarios)
+    scenario_meta = action.get('scenario_metadata', {})
+    if scenario_meta:
+        rdf_entity['proeth-scenario:characterMotivation'] = scenario_meta.get('character_motivation', '')
+        rdf_entity['proeth-scenario:ethicalTension'] = scenario_meta.get('ethical_tension', '')
+        rdf_entity['proeth-scenario:decisionSignificance'] = scenario_meta.get('decision_significance', '')
+        rdf_entity['proeth-scenario:narrativeRole'] = scenario_meta.get('narrative_role', '')
+        rdf_entity['proeth-scenario:stakes'] = scenario_meta.get('stakes', '')
+        rdf_entity['proeth-scenario:isDecisionPoint'] = scenario_meta.get('is_decision_point', False)
+        if scenario_meta.get('alternative_actions'):
+            rdf_entity['proeth-scenario:alternativeActions'] = scenario_meta['alternative_actions']
+        if scenario_meta.get('consequences_if_alternative'):
+            rdf_entity['proeth-scenario:consequencesIfAlternative'] = scenario_meta['consequences_if_alternative']
+
     return rdf_entity
 
 
@@ -95,6 +110,7 @@ def convert_event_to_rdf(event: Dict, case_id: int) -> Dict:
         '@context': {
             'proeth': 'http://proethica.org/ontology/intermediate#',
             'proeth-case': f'http://proethica.org/cases/{case_id}#',
+            'proeth-scenario': 'http://proethica.org/ontology/scenario#',
             'time': 'http://www.w3.org/2006/time#',
             'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
             'rdfs': 'http://www.w3.org/2000/01/rdf-schema#'
@@ -132,6 +148,19 @@ def convert_event_to_rdf(event: Dict, case_id: int) -> Dict:
     if causal and causal.get('caused_by_action'):
         action_ref = f"http://proethica.org/cases/{case_id}#Action_{_safe_id(causal['caused_by_action'])}"
         rdf_entity['proeth:causedByAction'] = action_ref
+
+    # Add scenario metadata (for interactive teaching scenarios)
+    scenario_meta = event.get('scenario_metadata', {})
+    if scenario_meta:
+        rdf_entity['proeth-scenario:emotionalImpact'] = scenario_meta.get('emotional_impact', '')
+        rdf_entity['proeth-scenario:stakeholderConsequences'] = scenario_meta.get('stakeholder_consequences', {})
+        rdf_entity['proeth-scenario:dramaticTension'] = scenario_meta.get('dramatic_tension', 'low')
+        rdf_entity['proeth-scenario:narrativePacing'] = scenario_meta.get('narrative_pacing', '')
+        rdf_entity['proeth-scenario:crisisIdentification'] = scenario_meta.get('crisis_identification', False)
+        rdf_entity['proeth-scenario:learningMoment'] = scenario_meta.get('learning_moment', '')
+        if scenario_meta.get('discussion_prompts'):
+            rdf_entity['proeth-scenario:discussionPrompts'] = scenario_meta['discussion_prompts']
+        rdf_entity['proeth-scenario:ethicalImplications'] = scenario_meta.get('ethical_implications', '')
 
     return rdf_entity
 

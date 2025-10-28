@@ -159,6 +159,16 @@ Extract all ACTIONS (volitional decisions by professionals). For each action, id
    - Required capabilities (e.g., engineering judgment, technical analysis)
    - Required resources (e.g., design specifications, test equipment)
 
+6. SCENARIO METADATA (for interactive teaching scenarios):
+   - Character motivation: Why did the agent take this action? What drove them?
+   - Ethical tension: What competing values or duties created tension?
+   - Decision significance: Why does this matter for ethics education? What's the key learning point?
+   - Narrative role: Story position - "inciting_incident", "rising_action", "climax", "falling_action", "resolution"
+   - Stakes: What's at risk? What could go wrong?
+   - Is decision point: true/false - Could the story branch here? Is this a critical choice moment?
+   - Alternative actions: List 2-3 other choices the agent could have made
+   - Consequences if alternative: For each alternative, what would have happened?
+
 Return your analysis as a JSON array:
 
 ```json
@@ -205,6 +215,25 @@ Return your analysis as a JSON array:
         "within_competence": true,
         "required_capabilities": ["Engineering_Judgment", "Task_Delegation", "Supervision"],
         "required_resources": ["Design_Specifications", "Project_Timeline", "Supervision_Time"]
+      }},
+
+      "scenario_metadata": {{
+        "character_motivation": "Felt pressure to meet deadline; believed intern could handle it with later review",
+        "ethical_tension": "Professional duty to ensure competence vs. organizational pressure to deliver on time",
+        "decision_significance": "Critical teaching moment about delegation limits and professional responsibility",
+        "narrative_role": "inciting_incident",
+        "stakes": "Design quality, public safety if structural calculations are incorrect, intern's professional development",
+        "is_decision_point": true,
+        "alternative_actions": [
+          "Decline the assignment and explain competence concerns to management",
+          "Accept with explicit supervision plan including daily check-ins",
+          "Request deadline extension to properly supervise or do work himself"
+        ],
+        "consequences_if_alternative": [
+          "Might face management pushback but maintains professional standards",
+          "Deadline might slip slightly but work quality assured",
+          "Project timeline affected but risk eliminated"
+        ]
       }}
     }}
   ]
@@ -217,6 +246,15 @@ IMPORTANT:
 - Identify competing priorities explicitly
 - Use temporal markers from the identified context
 - If an action affects multiple timepoints, note the primary one
+- For scenario metadata: Think like a teacher creating an interactive case study
+  - Character motivations should be psychologically realistic
+  - Ethical tensions should be genuine dilemmas, not easy choices
+  - Decision significance should explain what students will learn
+  - Narrative roles follow story arc structure
+  - Stakes should be concrete and serious
+  - Decision points are where learners could make different choices
+  - Alternatives should be realistic options the agent actually had
+  - Consequences should show what would have happened differently
 
 JSON Response:"""
 

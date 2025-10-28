@@ -175,6 +175,16 @@ For each event, identify:
      * Necessary factors (what was required for this to occur)
      * Sufficient factors (what combination was enough)
 
+6. SCENARIO METADATA (for interactive teaching scenarios):
+   - Emotional impact: How does this event affect characters emotionally?
+   - Stakeholder consequences: Who is affected and how?
+   - Dramatic tension: Does this event increase tension/stakes? (low/medium/high)
+   - Narrative pacing: Does this accelerate or slow the story? ("slow_burn", "escalation", "crisis", "aftermath")
+   - Crisis identification: Is this a turning point in the story? (true/false)
+   - Learning moment: What should students learn from this event?
+   - Discussion prompts: List 2-3 questions for classroom discussion
+   - Ethical implications: What ethical issues does this event reveal?
+
 Return your analysis as a JSON array:
 
 ```json
@@ -224,6 +234,26 @@ Return your analysis as a JSON array:
             "Combination of inexperience, complexity, and inadequate supervision"
           ]
         }}
+      }},
+
+      "scenario_metadata": {{
+        "emotional_impact": "Shock and alarm for senior engineer; anxiety for intern; concern for public; fear among project stakeholders",
+        "stakeholder_consequences": {{
+          "senior_engineer": "Professional reputation at risk, potential disciplinary action",
+          "intern": "Loss of confidence, potential end to engineering career before it starts",
+          "public": "Safety compromised, trust in engineering profession damaged",
+          "company": "Project delays, financial losses, legal liability"
+        }},
+        "dramatic_tension": "high",
+        "narrative_pacing": "crisis",
+        "crisis_identification": true,
+        "learning_moment": "Demonstrates concrete consequences of inadequate supervision and competence violations; shows how professional shortcuts create cascading risks",
+        "discussion_prompts": [
+          "At what point could this outcome have been prevented?",
+          "What systemic changes would prevent similar failures?",
+          "How should professional responsibility be distributed in complex projects?"
+        ],
+        "ethical_implications": "Reveals tension between efficiency pressures and safety obligations; demonstrates duty to ensure competent practice; shows impact of professional negligence on vulnerable populations"
       }}
     }}
   ]
@@ -236,6 +266,15 @@ IMPORTANT:
 - Be specific with emergency classification
 - Identify which constraints and obligations are triggered
 - Use EMERGENCY_KEYWORDS: safety, urgent, critical, hazard, danger, risk, failure, accident
+- For scenario metadata: Think about how this event impacts the story and learning
+  - Emotional impact should capture multiple perspectives (agent, affected parties, observers)
+  - Stakeholder consequences should be specific and concrete
+  - Dramatic tension indicates how suspenseful/uncertain the situation becomes
+  - Narrative pacing shows whether story accelerates (crisis/escalation) or slows (aftermath/slow_burn)
+  - Crisis identification marks turning points where situation fundamentally changes
+  - Learning moments should be clear educational takeaways
+  - Discussion prompts should probe ethical reasoning, not just facts
+  - Ethical implications should reveal deeper tensions and values conflicts
 
 JSON Response:"""
 
