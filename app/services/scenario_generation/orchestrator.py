@@ -13,6 +13,7 @@ from datetime import datetime
 
 from .data_collection import ScenarioDataCollector
 from .timeline_constructor import TimelineConstructor
+from .participant_mapper import ParticipantMapper
 from .models import (
     ScenarioSourceData,
     EligibilityReport,
@@ -46,9 +47,10 @@ class ScenarioGenerationOrchestrator:
         # Initialize stage services
         self.collector = ScenarioDataCollector()
         self.timeline_constructor = TimelineConstructor()
+        self.participant_mapper = ParticipantMapper()
 
         # Future stage services
-        # self.participant_mapper = ParticipantMapper()
+        # self.decision_identifier = DecisionIdentifier()
         # ... etc
 
         logger.info("[Scenario Gen] Orchestrator initialized")
@@ -169,26 +171,30 @@ class ScenarioGenerationOrchestrator:
                 timeline_summary
             )
 
-            # Stage 3: Participant Mapping (Placeholder)
-            self._report_progress('participant_mapping', 45, 'Creating character profiles...')
-            logger.info("[Scenario Gen] Stage 3: Participant Mapping (TODO)")
+            # Stage 3: Participant Mapping
+            self._report_progress('participant_mapping', 40, 'Mapping roles to scenario participants...')
+            logger.info("[Scenario Gen] Stage 3: Participant Mapping")
 
-            # TODO: Implement participant mapping
-            # participants = self.participant_mapper.create_participants(data.merged_entities, timeline)
-
-            # For now, count roles
             roles = data.get_entities_by_type('Role')
-            participant_summary = {
-                'status': 'placeholder',
-                'message': 'Participant mapping not yet implemented',
-                'roles_identified': len(roles),
-                'role_names': [role.label for role in roles[:5]]  # First 5
-            }
+            if not roles:
+                # Also try 'Roles' (plural)
+                roles = data.get_entities_by_type('Roles')
+
+            participant_result = self.participant_mapper.map_participants(
+                roles,
+                timeline_data=timeline.to_dict() if timeline else None
+            )
+
+            participant_summary = participant_result.to_dict()
+            logger.info(
+                f"[Scenario Gen] Mapped {len(participant_result.participants)} participants, "
+                f"protagonist: {participant_result.protagonist_id}"
+            )
 
             self._report_progress(
                 'participant_mapping',
                 50,
-                f'Identified {len(roles)} roles',
+                f'Created {len(participant_result.participants)} character profiles',
                 participant_summary
             )
 

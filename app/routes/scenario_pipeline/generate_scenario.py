@@ -125,25 +125,31 @@ def generate_scenario_from_case(case_id):
                     'timestamp': datetime.utcnow().isoformat()
                 })}\n\n"
 
-                # Stage 3: Participant Mapping (Placeholder)
+                # Stage 3: Participant Mapping
                 yield f"data: {json.dumps({
                     'stage': 'participant_mapping',
                     'stage_number': 3,
-                    'progress': 45,
-                    'message': 'Creating character profiles from role entities...',
+                    'progress': 40,
+                    'message': 'Mapping roles to scenario participants...',
                     'timestamp': datetime.utcnow().isoformat()
                 })}\n\n"
 
                 roles = data.get_entities_by_type('Role')
+                if not roles:
+                    roles = data.get_entities_by_type('Roles')
+
+                participant_result = orchestrator.participant_mapper.map_participants(
+                    roles,
+                    timeline_data=timeline.to_dict() if timeline else None
+                )
+
+                participant_summary = participant_result.to_dict()
                 yield f"data: {json.dumps({
                     'stage': 'participant_mapping',
                     'stage_number': 3,
                     'progress': 50,
-                    'message': f'Identified {len(roles)} roles (Stage 3 placeholder)',
-                    'data': {
-                        'roles_identified': len(roles),
-                        'role_names': [role.label for role in roles[:5]]
-                    },
+                    'message': f'Created {len(participant_result.participants)} character profiles',
+                    'data': participant_summary,
                     'timestamp': datetime.utcnow().isoformat()
                 })}\n\n"
 
