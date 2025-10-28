@@ -71,6 +71,20 @@ def generate_scenario_route(case_id):
     return generate_scenario_from_case(case_id)
 
 
+# Timeline Viewer Route
+@bp.route('/case/<int:case_id>/timeline')
+@auth_optional
+def view_timeline_route(case_id):
+    """
+    View the generated timeline with LLM-enhanced descriptions.
+
+    Shows chronological timeline with phases, narrative descriptions,
+    and expandable details for each action/event.
+    """
+    from .view_timeline import view_timeline
+    return view_timeline(case_id)
+
+
 def get_entities_summary(case_id):
     """
     Get entity counts summary for all passes.

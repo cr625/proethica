@@ -644,6 +644,14 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 {% endif %}
 
+// Toggle chevron icon for About Step 4 collapsible
+document.getElementById('aboutStep4').addEventListener('show.bs.collapse', function () {
+    document.getElementById('aboutStep4Icon').className = 'bi bi-chevron-down';
+});
+document.getElementById('aboutStep4').addEventListener('hide.bs.collapse', function () {
+    document.getElementById('aboutStep4Icon').className = 'bi bi-chevron-right';
+});
+
 </script>
 {% endblock %}
 

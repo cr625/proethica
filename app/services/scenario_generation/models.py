@@ -88,17 +88,54 @@ class AllenRelation:
 @dataclass
 class TimelineEntry:
     """Single entry in timeline from Step 3 Stage 6."""
-    id: str
     sequence_number: int
-    entry_type: str  # 'action' or 'event'
-    title: str
-    description: str
-    participants: List[str]  # Role URIs
-    temporal_marker: Optional[TemporalMarker] = None
-    timestamp: Optional[datetime] = None
-    interval_relations: List[AllenRelation] = field(default_factory=list)
-    source_entity_uri: str = ""
+    timepoint: str  # Human-readable timepoint (e.g., "During preliminary design phase")
+    iso_duration: str = ""  # ISO 8601 duration if available
+    is_interval: bool = False  # Whether this is a time interval vs instant
+    elements: List[Dict] = field(default_factory=list)  # Actions/events at this timepoint
+    element_count: int = 0
     phase: Optional[str] = None  # 'introduction', 'development', 'resolution'
+
+
+@dataclass
+class ScenarioTimeline:
+    """Complete scenario timeline with phases."""
+    entries: List[TimelineEntry] = field(default_factory=list)
+    phases: Dict[str, any] = field(default_factory=dict)  # TimelinePhase objects
+    total_actions: int = 0
+    total_events: int = 0
+    duration_description: str = ""
+    temporal_consistency: Dict = field(default_factory=dict)
+
+    def to_dict(self) -> Dict:
+        """Convert to JSON-serializable dictionary."""
+        return {
+            'total_entries': len(self.entries),
+            'total_actions': self.total_actions,
+            'total_events': self.total_events,
+            'duration': self.duration_description,
+            'phases': {
+                name: {
+                    'name': phase.name,
+                    'description': phase.description,
+                    'entry_count': len(phase.timepoints),
+                    'start_index': phase.start_index,
+                    'end_index': phase.end_index
+                }
+                for name, phase in self.phases.items()
+            },
+            'entries': [
+                {
+                    'sequence': entry.sequence_number,
+                    'timepoint': entry.timepoint,
+                    'phase': entry.phase,
+                    'element_count': entry.element_count,
+                    'elements': entry.elements
+                }
+                for entry in self.entries
+            ],
+            'temporal_consistency': self.temporal_consistency
+        }
 
 
 @dataclass

@@ -67,6 +67,11 @@ def generate_scenario_from_case(case_id):
 
         logger.info(f"[Scenario Gen] Data collection complete: {entity_count} entities")
 
+        # Build timeline BEFORE generator (database operations)
+        logger.info(f"[Scenario Gen] Building timeline for case {case_id}")
+        timeline = orchestrator.timeline_constructor.build_timeline(case_id)
+        logger.info(f"[Scenario Gen] Timeline built: {len(timeline.entries)} entries")
+
         def generate():
             """Generator for Server-Sent Events"""
             try:
@@ -99,7 +104,7 @@ def generate_scenario_from_case(case_id):
                     'timestamp': datetime.utcnow().isoformat()
                 })}\n\n"
 
-                # Stage 2: Timeline Construction (Placeholder)
+                # Stage 2: Timeline Construction (already complete)
                 yield f"data: {json.dumps({
                     'stage': 'timeline_construction',
                     'stage_number': 2,
@@ -108,17 +113,15 @@ def generate_scenario_from_case(case_id):
                     'timestamp': datetime.utcnow().isoformat()
                 })}\n\n"
 
-                # Placeholder timeline info
+                # Timeline already built before generator
+                timeline_dict = timeline.to_dict()
+
                 yield f"data: {json.dumps({
                     'stage': 'timeline_construction',
                     'stage_number': 2,
                     'progress': 35,
-                    'message': 'Timeline construction (Stage 2 placeholder)',
-                    'data': {
-                        'status': 'placeholder',
-                        'actions': len(data.temporal_dynamics.actions),
-                        'events': len(data.temporal_dynamics.events)
-                    },
+                    'message': f'Timeline built with {len(timeline.entries)} timepoints across {len(timeline.phases)} phases',
+                    'data': timeline_dict,
                     'timestamp': datetime.utcnow().isoformat()
                 })}\n\n"
 

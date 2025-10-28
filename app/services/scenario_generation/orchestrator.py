@@ -12,11 +12,12 @@ from typing import Optional, Callable, Dict, Any
 from datetime import datetime
 
 from .data_collection import ScenarioDataCollector
+from .timeline_constructor import TimelineConstructor
 from .models import (
     ScenarioSourceData,
-    EligibilityReport
+    EligibilityReport,
+    ScenarioTimeline
 )
-# ScenarioTimeline, ScenarioParticipant will be added in Stages 2-3
 
 logger = logging.getLogger(__name__)
 
@@ -44,9 +45,9 @@ class ScenarioGenerationOrchestrator:
 
         # Initialize stage services
         self.collector = ScenarioDataCollector()
+        self.timeline_constructor = TimelineConstructor()
 
-        # Stage services will be initialized as needed
-        # self.timeline_constructor = TimelineConstructor()
+        # Future stage services
         # self.participant_mapper = ParticipantMapper()
         # ... etc
 
@@ -149,25 +150,22 @@ class ScenarioGenerationOrchestrator:
                 }
             )
 
-            # Stage 2: Timeline Construction (Placeholder)
+            # Stage 2: Timeline Construction
             self._report_progress('timeline_construction', 30, 'Building chronological timeline...')
-            logger.info("[Scenario Gen] Stage 2: Timeline Construction (TODO)")
+            logger.info("[Scenario Gen] Stage 2: Timeline Construction")
 
-            # TODO: Implement timeline construction
-            # timeline = self.timeline_constructor.build_timeline(data.temporal_dynamics)
+            timeline = self.timeline_constructor.build_timeline(case_id)
 
-            # For now, create placeholder timeline
-            timeline_summary = {
-                'status': 'placeholder',
-                'message': 'Timeline construction not yet implemented',
-                'total_actions': len(data.temporal_dynamics.actions),
-                'total_events': len(data.temporal_dynamics.events)
-            }
+            timeline_summary = timeline.to_dict()
+            logger.info(
+                f"[Scenario Gen] Timeline built with {len(timeline.entries)} entries, "
+                f"{timeline.total_actions} actions, {timeline.total_events} events"
+            )
 
             self._report_progress(
                 'timeline_construction',
                 35,
-                'Timeline placeholder created',
+                f'Timeline built with {len(timeline.entries)} timepoints across {len(timeline.phases)} phases',
                 timeline_summary
             )
 

@@ -103,23 +103,30 @@
         </ul>
 
         {% if eligibility.eligible %}
+            <!-- Quick Preview: View Timeline Button -->
+            <div class="mb-3">
+                <a href="/scenario_pipeline/case/{{ case.id }}/timeline" class="btn btn-outline-primary w-100" target="_blank">
+                    <i class="bi bi-clock-history"></i> Preview Timeline (7 timepoints with LLM descriptions)
+                </a>
+            </div>
+
             {% if current_user.is_authenticated %}
-            <button type="button" class="btn btn-lg btn-success" onclick="generateScenario()">
-                <i class="bi bi-play-circle"></i> Generate Interactive Scenario
+            <button type="button" class="btn btn-lg btn-success w-100" onclick="generateScenario()">
+                <i class="bi bi-play-circle"></i> Generate Full Interactive Scenario
             </button>
             <p class="mt-3 text-muted">
                 <small>
                     <i class="bi bi-info-circle"></i>
-                    Generation will stream real-time progress through all 9 stages (Stage 1 fully implemented, Stages 2-9 placeholders).
+                    Generation will stream real-time progress through all 9 stages (Stages 1-2 fully implemented).
                 </small>
             </p>
             {% else %}
-            <button type="button" class="btn btn-lg btn-secondary" onclick="window.location.href='{{ url_for('auth.login') }}';" title="Login required to generate scenarios">
+            <button type="button" class="btn btn-lg btn-secondary w-100" onclick="window.location.href='{{ url_for('auth.login') }}';" title="Login required to generate scenarios">
                 <i class="bi bi-lock-fill"></i> Generate Interactive Scenario (Login Required)
             </button>
             {% endif %}
         {% else %}
-            <button type="button" class="btn btn-lg btn-secondary" disabled title="Complete all requirements first">
+            <button type="button" class="btn btn-lg btn-secondary w-100" disabled title="Complete all requirements first">
                 <i class="bi bi-play-circle"></i> Generate Interactive Scenario
             </button>
             <p class="mt-3 text-muted">

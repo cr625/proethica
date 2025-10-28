@@ -1,0 +1,320 @@
+{% extends "base.html" %}
+
+{% block title %}Timeline - {{ case.title }}{% endblock %}
+
+{% block content %}
+<style>
+    .timeline {
+        position: relative;
+        padding-left: 40px;
+        margin-top: 30px;
+    }
+
+    .timeline-item {
+        position: relative;
+        margin-bottom: 40px;
+        padding-bottom: 20px;
+    }
+
+    .timeline-marker {
+        position: absolute;
+        left: -40px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background-color: #007bff;
+        border: 4px solid #fff;
+        box-shadow: 0 0 0 3px #007bff;
+        z-index: 1;
+    }
+
+    .timeline-marker.phase-introduction {
+        background-color: #28a745;
+        box-shadow: 0 0 0 3px #28a745;
+    }
+
+    .timeline-marker.phase-development {
+        background-color: #007bff;
+        box-shadow: 0 0 0 3px #007bff;
+    }
+
+    .timeline-marker.phase-resolution {
+        background-color: #dc3545;
+        box-shadow: 0 0 0 3px #dc3545;
+    }
+
+    .timeline-item:not(:last-child):before {
+        content: '';
+        position: absolute;
+        left: -31px;
+        top: 20px;
+        height: calc(100% + 20px);
+        width: 3px;
+        background-color: #dee2e6;
+        z-index: 0;
+    }
+
+    .timeline-content {
+        padding: 20px;
+        border-radius: 8px;
+        background-color: #f8f9fa;
+        border-left: 4px solid #007bff;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .timeline-content.phase-introduction {
+        border-left-color: #28a745;
+    }
+
+    .timeline-content.phase-development {
+        border-left-color: #007bff;
+    }
+
+    .timeline-content.phase-resolution {
+        border-left-color: #dc3545;
+    }
+
+    .element-badge {
+        display: inline-block;
+        margin-right: 8px;
+        margin-bottom: 8px;
+    }
+
+    .element-details {
+        background-color: #fff;
+        border-radius: 6px;
+        padding: 15px;
+        margin-top: 10px;
+        display: none;
+    }
+
+    .element-details.show {
+        display: block;
+    }
+
+    .phase-header {
+        font-size: 1.3rem;
+        font-weight: bold;
+        margin-top: 30px;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #dee2e6;
+    }
+
+    .phase-header.phase-introduction {
+        color: #28a745;
+        border-bottom-color: #28a745;
+    }
+
+    .phase-header.phase-development {
+        color: #007bff;
+        border-bottom-color: #007bff;
+    }
+
+    .phase-header.phase-resolution {
+        color: #dc3545;
+        border-bottom-color: #dc3545;
+    }
+
+    .narrative-text {
+        font-size: 1.05rem;
+        line-height: 1.6;
+        color: #495057;
+        margin-bottom: 15px;
+    }
+</style>
+
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1>Case Timeline</h1>
+            <p class="text-muted mb-0">{{ case.title }}</p>
+        </div>
+        <a href="/scenario_pipeline/case/{{ case.id }}/step5" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Scenario Generation
+        </a>
+    </div>
+
+    <!-- Timeline Summary Card -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row text-center">
+                <div class="col-md-3">
+                    <h3 class="text-primary">{{ timeline.total_entries }}</h3>
+                    <p class="text-muted mb-0">Timeline Entries</p>
+                </div>
+                <div class="col-md-3">
+                    <h3 class="text-success">{{ timeline.total_actions }}</h3>
+                    <p class="text-muted mb-0">Actions</p>
+                </div>
+                <div class="col-md-3">
+                    <h3 class="text-info">{{ timeline.total_events }}</h3>
+                    <p class="text-muted mb-0">Events</p>
+                </div>
+                <div class="col-md-3">
+                    <h3 class="text-secondary">{{ timeline.duration }}</h3>
+                    <p class="text-muted mb-0">Duration</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Phase Legend -->
+    <div class="alert alert-light d-flex align-items-center gap-3 mb-4">
+        <span class="fw-bold">Phases:</span>
+        <span class="badge bg-success">Introduction</span>
+        <span class="badge bg-primary">Development</span>
+        <span class="badge bg-danger">Resolution</span>
+    </div>
+
+    <!-- Timeline -->
+    <div class="timeline">
+        {% set current_phase = '' %}
+        {% for entry in timeline.entries %}
+            {% if entry.phase != current_phase %}
+                {% set current_phase = entry.phase %}
+                <div class="phase-header phase-{{ entry.phase }}">
+                    <i class="bi bi-{% if entry.phase == 'introduction' %}flag{% elif entry.phase == 'development' %}gear{% else %}check-circle{% endif %}"></i>
+                    {{ entry.phase|capitalize }} Phase
+                </div>
+            {% endif %}
+
+            <div class="timeline-item" data-sequence="{{ entry.sequence }}">
+                <div class="timeline-marker phase-{{ entry.phase }}"></div>
+                <div class="timeline-content phase-{{ entry.phase }}">
+                    <!-- Timepoint Header -->
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <h5 class="mb-1">
+                                <span class="badge bg-secondary me-2">#{{ entry.sequence }}</span>
+                                {{ entry.timepoint }}
+                            </h5>
+                            {% if entry.iso_duration %}
+                            <small class="text-muted">
+                                <i class="bi bi-clock"></i> {{ entry.iso_duration }}
+                            </small>
+                            {% endif %}
+                        </div>
+                        <span class="badge bg-light text-dark">
+                            {{ entry.element_count }} element{{ 's' if entry.element_count != 1 else '' }}
+                        </span>
+                    </div>
+
+                    <!-- LLM-Generated Narrative -->
+                    <div class="narrative-text">
+                        {{ entry.narrative }}
+                    </div>
+
+                    <!-- Element Badges -->
+                    <div class="mb-3">
+                        {% for element in entry.elements %}
+                            <span class="element-badge badge {% if element.type == 'action' %}bg-primary{% else %}bg-info{% endif %}">
+                                {{ element.type|capitalize }}: {{ element.label }}
+                            </span>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Show/Hide Details Button -->
+                    <button class="btn btn-sm btn-outline-secondary"
+                            onclick="toggleDetails({{ entry.sequence }})">
+                        <i class="bi bi-chevron-down"></i>
+                        <span id="toggle-text-{{ entry.sequence }}">Show Details</span>
+                    </button>
+
+                    <!-- Expandable Details Section -->
+                    <div id="details-{{ entry.sequence }}" class="element-details">
+                        {% for element in entry.elements %}
+                        <div class="mb-3 pb-3 {% if not loop.last %}border-bottom{% endif %}">
+                            <h6 class="fw-bold">
+                                <span class="badge {% if element.type == 'action' %}bg-primary{% else %}bg-info{% endif %} me-2">
+                                    {{ element.type|capitalize }}
+                                </span>
+                                {{ element.label }}
+                            </h6>
+                            {% if element.description %}
+                            <p class="mb-2 small">{{ element.description }}</p>
+                            {% endif %}
+                            {% if element.agent %}
+                            <div class="small">
+                                <strong>Agent:</strong> {{ element.agent }}
+                            </div>
+                            {% endif %}
+                            {% if element.volitional is defined %}
+                            <div class="small">
+                                <strong>Volitional:</strong>
+                                {% if element.volitional %}
+                                    <span class="badge bg-success">Yes</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">No</span>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                            {% if element.urgency %}
+                            <div class="small">
+                                <strong>Urgency:</strong>
+                                <span class="badge bg-warning">{{ element.urgency }}</span>
+                            </div>
+                            {% endif %}
+                            {% if element.emergency %}
+                            <div class="small">
+                                <strong>Emergency:</strong>
+                                <span class="badge bg-danger">Yes</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+    <!-- Temporal Consistency Information -->
+    {% if timeline.temporal_consistency %}
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="bi bi-check-circle-fill text-success"></i>
+                Temporal Consistency Analysis
+            </h5>
+        </div>
+        <div class="card-body">
+            {% if timeline.temporal_consistency.get('proeth:valid') %}
+                <p class="text-success mb-0">
+                    <i class="bi bi-check-circle"></i> Timeline is temporally consistent
+                </p>
+            {% endif %}
+            {% if timeline.temporal_consistency.get('proeth:warnings') %}
+                <div class="alert alert-warning mt-2">
+                    <strong>Warnings:</strong>
+                    <ul class="mb-0">
+                        {% for warning in timeline.temporal_consistency['proeth:warnings'] %}
+                        <li>{{ warning }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function toggleDetails(sequence) {
+    const details = document.getElementById(`details-${sequence}`);
+    const toggleText = document.getElementById(`toggle-text-${sequence}`);
+    const button = event.target.closest('button');
+    const icon = button.querySelector('i');
+
+    if (details.classList.contains('show')) {
+        details.classList.remove('show');
+        toggleText.textContent = 'Show Details';
+        icon.className = 'bi bi-chevron-down';
+    } else {
+        details.classList.add('show');
+        toggleText.textContent = 'Hide Details';
+        icon.className = 'bi bi-chevron-up';
+    }
+}
+</script>
+{% endblock %}
