@@ -173,7 +173,7 @@ def generate_scenario_from_case(case_id):
                 saved_count = orchestrator.participant_mapper.save_to_database(
                     case_id=case_id,
                     result=participant_result,
-                    llm_model='claude-3.5-sonnet'
+                    llm_model='claude-sonnet-4-5-20250929'
                 )
 
                 participant_summary = participant_result.to_dict()

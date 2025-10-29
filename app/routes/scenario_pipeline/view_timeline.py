@@ -96,7 +96,7 @@ Generate a narrative description:"""
             narrative_response = llm_service.generate_completion(
                 prompt=narrative_prompt,
                 provider='claude',
-                model='claude-3-5-sonnet-20241022',
+                model='claude-sonnet-4-5-20250929',
                 max_tokens=150,
                 temperature=0.7
             )
