@@ -130,7 +130,7 @@ def generate_scenario_from_case(case_id):
                     'stage': 'participant_mapping',
                     'stage_number': 3,
                     'progress': 40,
-                    'message': 'Mapping roles to scenario participants...',
+                    'message': 'Extracting character profiles from roles...',
                     'timestamp': datetime.utcnow().isoformat()
                 })}\n\n"
 
@@ -138,9 +138,42 @@ def generate_scenario_from_case(case_id):
                 if not roles:
                     roles = data.get_entities_by_type('Roles')
 
+                # Map participants (includes LLM enhancement)
+                yield f"data: {json.dumps({
+                    'stage': 'participant_mapping',
+                    'stage_number': 3,
+                    'progress': 42,
+                    'message': f'Building profiles for {len(roles)} participants...',
+                    'timestamp': datetime.utcnow().isoformat()
+                })}\n\n"
+
                 participant_result = orchestrator.participant_mapper.map_participants(
                     roles,
                     timeline_data=timeline.to_dict() if timeline else None
+                )
+
+                # LLM enhancement progress
+                yield f"data: {json.dumps({
+                    'stage': 'participant_mapping',
+                    'stage_number': 3,
+                    'progress': 45,
+                    'message': 'Enhancing character arcs with LLM...',
+                    'timestamp': datetime.utcnow().isoformat()
+                })}\n\n"
+
+                # Save to database
+                yield f"data: {json.dumps({
+                    'stage': 'participant_mapping',
+                    'stage_number': 3,
+                    'progress': 48,
+                    'message': 'Saving character profiles to database...',
+                    'timestamp': datetime.utcnow().isoformat()
+                })}\n\n"
+
+                saved_count = orchestrator.participant_mapper.save_to_database(
+                    case_id=case_id,
+                    result=participant_result,
+                    llm_model='claude-3.5-sonnet'
                 )
 
                 participant_summary = participant_result.to_dict()
@@ -148,12 +181,18 @@ def generate_scenario_from_case(case_id):
                     'stage': 'participant_mapping',
                     'stage_number': 3,
                     'progress': 50,
-                    'message': f'Created {len(participant_result.participants)} character profiles',
+                    'message': f'Created {len(participant_result.participants)} character profiles with enhanced arcs',
                     'data': participant_summary,
+                    'details': {
+                        'saved_to_database': saved_count,
+                        'protagonist': participant_result.protagonist_id,
+                        'llm_enhanced': participant_result.llm_enrichment is not None,
+                        'has_teaching_notes': participant_result.teaching_notes is not None
+                    },
                     'timestamp': datetime.utcnow().isoformat()
                 })}\n\n"
 
-                # Stage 4: Decision Point Identification (Placeholder)
+                # Stage 4: Decision Point Identification
                 yield f"data: {json.dumps({
                     'stage': 'decision_identification',
                     'stage_number': 4,
@@ -162,11 +201,31 @@ def generate_scenario_from_case(case_id):
                     'timestamp': datetime.utcnow().isoformat()
                 })}\n\n"
 
+                # Get actions and questions
+                actions_entities = data.get_entities_by_type('actions')
+                if not actions_entities:
+                    actions_entities = data.get_entities_by_type('Action')
+
+                questions_entities = data.get_entities_by_type('questions')
+                if not questions_entities:
+                    questions_entities = data.get_entities_by_type('Question')
+
+                # Identify decision points
+                decision_result = orchestrator.decision_identifier.identify_decisions(
+                    actions=actions_entities,
+                    questions=questions_entities,
+                    timeline_data=timeline.to_dict() if timeline else None,
+                    participants=participant_result.participants if participant_result else None,
+                    synthesis_data=data.synthesis_data
+                )
+
+                decision_summary = decision_result.to_dict()
                 yield f"data: {json.dumps({
                     'stage': 'decision_identification',
                     'stage_number': 4,
                     'progress': 60,
-                    'message': f'Found {len(data.temporal_dynamics.actions)} actions (Stage 4 placeholder)',
+                    'message': f'Identified {decision_result.total_decisions} decision points',
+                    'data': decision_summary,
                     'timestamp': datetime.utcnow().isoformat()
                 })}\n\n"
 

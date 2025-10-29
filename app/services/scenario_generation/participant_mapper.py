@@ -17,9 +17,11 @@ Documentation: docs/SCENARIO_SYNTHESIS_ARCHITECTURE_REVISED.md (Stage 3)
 """
 
 import logging
+import json
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
 from app.utils.llm_utils import get_llm_client
+from app.models import db
 
 logger = logging.getLogger(__name__)
 
@@ -88,16 +90,24 @@ class ParticipantMappingResult:
     supporting_cast: List[str]  # Supporting character IDs
     llm_prompt: Optional[str] = None
     llm_response: Optional[str] = None
+    teaching_notes: Optional[Dict] = None  # Pedagogical guidance for instructors
+    llm_enrichment: Optional[Dict] = None  # Full LLM enhancement data
 
     def to_dict(self) -> Dict:
         """Convert to JSON-serializable dictionary."""
-        return {
+        result = {
             'participant_count': len(self.participants),
             'participants': [p.to_dict() for p in self.participants],
             'relationship_map': self.relationship_map,
             'protagonist_id': self.protagonist_id,
             'supporting_cast': self.supporting_cast
         }
+
+        # Include teaching notes if available
+        if self.teaching_notes:
+            result['teaching_notes'] = self.teaching_notes
+
+        return result
 
 
 class ParticipantMapper:
@@ -160,11 +170,15 @@ class ParticipantMapper:
         supporting_cast = [p.id for p in participants if p.id != protagonist_id]
 
         # Enhance with LLM if needed (optional enrichment)
+        teaching_notes = None
+        llm_enrichment = None
         if self.llm_client and len(participants) > 0:
             try:
                 enhanced = self._enhance_with_llm(participants, relationship_map)
                 if enhanced:
                     participants = enhanced.get('participants', participants)
+                    teaching_notes = enhanced.get('teaching_notes')
+                    llm_enrichment = enhanced.get('llm_response')
             except Exception as e:
                 logger.warning(f"[Participant Mapper] LLM enhancement failed: {e}")
 
@@ -174,6 +188,12 @@ class ParticipantMapper:
             protagonist_id=protagonist_id,
             supporting_cast=supporting_cast
         )
+
+        # Store teaching notes if available
+        if teaching_notes:
+            result.teaching_notes = teaching_notes
+        if llm_enrichment:
+            result.llm_enrichment = llm_enrichment
 
         logger.info(
             f"[Participant Mapper] Mapped {len(participants)} participants, "
@@ -475,12 +495,13 @@ class ParticipantMapper:
         relationship_map: Dict[str, List[str]]
     ) -> Optional[Dict]:
         """
-        Optional LLM enhancement of participant profiles.
+        LLM enhancement of participant profiles.
 
         Uses Claude to:
-        - Enrich character backgrounds
-        - Suggest additional motivations
-        - Enhance character arc narratives
+        - Enrich character backgrounds with teaching-relevant details
+        - Enhance character arc narratives with pedagogical framing
+        - Suggest additional motivations that illuminate ethical tensions
+        - Provide teaching notes for instructors
 
         Args:
             participants: List of participant profiles
@@ -494,14 +515,53 @@ class ParticipantMapper:
             prompt = self._create_enhancement_prompt(participants, relationship_map)
 
             # Call LLM
-            response = self.llm_client.generate(prompt, max_tokens=2000)
+            logger.info("[Participant Mapper] Calling LLM for character enhancement...")
+            response = self.llm_client.messages.create(
+                model="claude-3-5-sonnet-20241022",
+                max_tokens=3000,
+                messages=[
+                    {"role": "user", "content": prompt}
+                ]
+            )
 
-            # For now, just log the response
-            # TODO: Parse and apply enhancements
-            logger.debug(f"[Participant Mapper] LLM enhancement response: {response[:200]}...")
+            # Extract text from response
+            response_text = response.content[0].text
 
-            return None  # No enhancements applied yet
+            # Parse JSON response
+            enhanced_data = json.loads(response_text)
 
+            # Apply enhancements to participants
+            for participant in participants:
+                participant_enhancements = enhanced_data.get('participants', {}).get(participant.id, {})
+
+                if participant_enhancements:
+                    # Enhance character arc with fuller narrative
+                    if 'enhanced_arc' in participant_enhancements:
+                        participant.character_arc = participant_enhancements['enhanced_arc']
+
+                    # Add teaching-relevant background details
+                    if 'enhanced_background' in participant_enhancements:
+                        participant.background = participant_enhancements['enhanced_background']
+
+                    # Merge suggested motivations
+                    if 'suggested_motivations' in participant_enhancements:
+                        new_motivations = participant_enhancements['suggested_motivations']
+                        participant.motivations.extend([m for m in new_motivations if m not in participant.motivations])
+
+                    logger.debug(f"[Participant Mapper] Enhanced {participant.name}")
+
+            logger.info(f"[Participant Mapper] LLM enhancement complete for {len(participants)} participants")
+
+            return {
+                'participants': participants,
+                'llm_response': enhanced_data,
+                'teaching_notes': enhanced_data.get('teaching_notes', {})
+            }
+
+        except json.JSONDecodeError as e:
+            logger.error(f"[Participant Mapper] Failed to parse LLM JSON response: {e}")
+            logger.debug(f"[Participant Mapper] Raw response: {response_text[:500]}...")
+            return None
         except Exception as e:
             logger.error(f"[Participant Mapper] LLM enhancement error: {e}")
             return None
@@ -511,22 +571,181 @@ class ParticipantMapper:
         participants: List[ParticipantProfile],
         relationship_map: Dict[str, List[str]]
     ) -> str:
-        """Create prompt for LLM enhancement."""
-        prompt_parts = [
-            "You are analyzing participants in an engineering ethics case for educational purposes.",
-            "Review these character profiles and suggest narrative enhancements:",
-            ""
-        ]
+        """Create prompt for LLM enhancement with JSON output."""
+        import json
 
+        # Build participant summaries
+        participant_summaries = []
         for p in participants:
-            prompt_parts.append(f"## {p.name} ({p.role_type})")
-            prompt_parts.append(f"Background: {p.background}")
-            prompt_parts.append(f"Motivations: {', '.join(p.motivations)}")
-            prompt_parts.append(f"Obligations: {', '.join(p.obligations[:3])}")
-            prompt_parts.append(f"Tensions: {', '.join(p.ethical_tensions)}")
-            prompt_parts.append(f"Arc: {p.character_arc}")
-            prompt_parts.append("")
+            participant_summaries.append({
+                'id': p.id,
+                'name': p.name,
+                'role_type': p.role_type,
+                'background': p.background,
+                'motivations': p.motivations,
+                'goals': p.goals[:3] if len(p.goals) > 3 else p.goals,
+                'obligations': p.obligations[:3] if len(p.obligations) > 3 else p.obligations,
+                'ethical_tensions': p.ethical_tensions,
+                'character_arc': p.character_arc,
+                'narrative_role': p.narrative_role
+            })
 
-        prompt_parts.append("Provide brief character arc enhancements (2-3 sentences each):")
+        prompt = f"""You are enhancing character profiles for an interactive engineering ethics teaching scenario.
 
-        return "\n".join(prompt_parts)
+**Input Data**:
+{json.dumps(participant_summaries, indent=2)}
+
+**Task**: For each participant, enhance their profile with teaching-relevant details:
+1. **Enhanced Arc**: Rewrite character_arc as a compelling 2-3 sentence narrative that:
+   - Shows how the character's professional obligations create tension
+   - Highlights the ethical dilemma they face
+   - Makes the character relatable to students learning professional ethics
+
+2. **Enhanced Background**: Expand background (if minimal) with realistic professional details that:
+   - Establish credibility and expertise
+   - Connect to the ethical tensions they'll face
+   - Stay grounded in the extracted data (don't invent contradictory facts)
+
+3. **Suggested Motivations**: Identify 1-2 additional motivations that:
+   - Illuminate why this character's choices matter ethically
+   - Make ethical tensions more vivid for teaching
+   - Connect to NSPE Code principles
+
+4. **Teaching Notes**: For the protagonist only, provide instructor guidance:
+   - What ethical principle is most challenged for this character?
+   - What makes this character's dilemma pedagogically valuable?
+   - What discussion questions emerge from their arc?
+
+**Output Format** (JSON only, no markdown):
+{{
+  "participants": {{
+    "participant_id": {{
+      "enhanced_arc": "2-3 sentence narrative...",
+      "enhanced_background": "Expanded background if needed, or null",
+      "suggested_motivations": ["motivation 1", "motivation 2"]
+    }}
+  }},
+  "teaching_notes": {{
+    "protagonist_id": {{
+      "key_principle": "Principle name",
+      "pedagogical_value": "Why this character's journey teaches ethics",
+      "discussion_questions": ["Q1", "Q2", "Q3"]
+    }}
+  }}
+}}
+
+Respond with valid JSON only."""
+
+        return prompt
+
+    def save_to_database(
+        self,
+        case_id: int,
+        result: ParticipantMappingResult,
+        llm_model: Optional[str] = None
+    ) -> int:
+        """
+        Save participant mapping results to database.
+
+        Args:
+            case_id: Case ID
+            result: ParticipantMappingResult with participants and relationships
+            llm_model: LLM model used for enhancement
+
+        Returns:
+            Number of participants saved
+        """
+        from sqlalchemy import text
+
+        try:
+            # Clear existing participants for this case
+            delete_query = text("""
+                DELETE FROM scenario_participants WHERE case_id = :case_id
+            """)
+            db.session.execute(delete_query, {'case_id': case_id})
+
+            # Clear existing relationships
+            delete_rel_query = text("""
+                DELETE FROM scenario_relationship_map WHERE case_id = :case_id
+            """)
+            db.session.execute(delete_rel_query, {'case_id': case_id})
+
+            # Insert participants
+            insert_query = text("""
+                INSERT INTO scenario_participants (
+                    case_id, participant_id, source_role_uri, name, role_type,
+                    background, expertise, qualifications,
+                    motivations, goals, obligations, constraints,
+                    ethical_tensions, character_arc, narrative_role,
+                    relationships, llm_enhanced, llm_enrichment, llm_model
+                ) VALUES (
+                    :case_id, :participant_id, :source_role_uri, :name, :role_type,
+                    :background, :expertise, :qualifications,
+                    :motivations, :goals, :obligations, :constraints,
+                    :ethical_tensions, :character_arc, :narrative_role,
+                    :relationships, :llm_enhanced, :llm_enrichment, :llm_model
+                )
+            """)
+
+            saved_count = 0
+            for participant in result.participants:
+                # Prepare JSONB fields
+                params = {
+                    'case_id': case_id,
+                    'participant_id': participant.id,
+                    'source_role_uri': participant.source_uri,
+                    'name': participant.name,
+                    'role_type': participant.role_type,
+                    'background': participant.background,
+                    'expertise': json.dumps(participant.expertise),
+                    'qualifications': json.dumps(participant.qualifications),
+                    'motivations': json.dumps(participant.motivations),
+                    'goals': json.dumps(participant.goals),
+                    'obligations': json.dumps(participant.obligations),
+                    'constraints': json.dumps(participant.constraints),
+                    'ethical_tensions': json.dumps(participant.ethical_tensions),
+                    'character_arc': participant.character_arc,
+                    'narrative_role': participant.narrative_role,
+                    'relationships': json.dumps(participant.relationships),
+                    'llm_enhanced': result.llm_enrichment is not None,
+                    'llm_enrichment': json.dumps(result.llm_enrichment) if result.llm_enrichment else None,
+                    'llm_model': llm_model
+                }
+
+                db.session.execute(insert_query, params)
+                saved_count += 1
+
+            # Insert relationships
+            insert_rel_query = text("""
+                INSERT INTO scenario_relationship_map (
+                    case_id, source_participant_id, target_participant_id,
+                    relationship_type, is_bidirectional
+                ) VALUES (
+                    :case_id, :source_participant_id, :target_participant_id,
+                    :relationship_type, :is_bidirectional
+                )
+            """)
+
+            for source_id, target_ids in result.relationship_map.items():
+                for target_id in target_ids:
+                    # Avoid duplicate bidirectional relationships
+                    # Only insert if source < target (alphabetically) to prevent duplicates
+                    if source_id < target_id:
+                        rel_params = {
+                            'case_id': case_id,
+                            'source_participant_id': source_id,
+                            'target_participant_id': target_id,
+                            'relationship_type': 'connected',  # Generic type
+                            'is_bidirectional': True
+                        }
+                        db.session.execute(insert_rel_query, rel_params)
+
+            db.session.commit()
+
+            logger.info(f"[Participant Mapper] Saved {saved_count} participants to database for case {case_id}")
+            return saved_count
+
+        except Exception as e:
+            logger.error(f"[Participant Mapper] Error saving to database: {e}")
+            db.session.rollback()
+            raise

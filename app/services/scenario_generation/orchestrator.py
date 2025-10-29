@@ -14,6 +14,7 @@ from datetime import datetime
 from .data_collection import ScenarioDataCollector
 from .timeline_constructor import TimelineConstructor
 from .participant_mapper import ParticipantMapper
+from .decision_identifier import DecisionIdentifier
 from .models import (
     ScenarioSourceData,
     EligibilityReport,
@@ -48,9 +49,10 @@ class ScenarioGenerationOrchestrator:
         self.collector = ScenarioDataCollector()
         self.timeline_constructor = TimelineConstructor()
         self.participant_mapper = ParticipantMapper()
+        self.decision_identifier = DecisionIdentifier()
 
         # Future stage services
-        # self.decision_identifier = DecisionIdentifier()
+        # self.causal_integrator = CausalIntegrator()
         # ... etc
 
         logger.info("[Scenario Gen] Orchestrator initialized")
@@ -198,24 +200,39 @@ class ScenarioGenerationOrchestrator:
                 participant_summary
             )
 
-            # Stage 4: Decision Point Identification (Placeholder)
-            self._report_progress('decision_identification', 55, 'Identifying decision points...')
-            logger.info("[Scenario Gen] Stage 4: Decision Identification (TODO)")
+            # Stage 4: Decision Point Identification
+            self._report_progress('decision_identification', 55, 'Identifying decision points from actions and questions...')
+            logger.info("[Scenario Gen] Stage 4: Decision Identification")
 
-            # Count volitional actions and questions
-            actions = data.temporal_dynamics.actions
-            questions = data.synthesis_data.questions
-            decision_summary = {
-                'status': 'placeholder',
-                'message': 'Decision identification not yet implemented',
-                'actions': len(actions),
-                'questions': len(questions)
-            }
+            # Get actions and questions
+            actions_entities = data.get_entities_by_type('actions')
+            if not actions_entities:
+                actions_entities = data.get_entities_by_type('Action')
+
+            questions_entities = data.get_entities_by_type('questions')
+            if not questions_entities:
+                questions_entities = data.get_entities_by_type('Question')
+
+            # Identify decision points
+            decision_result = self.decision_identifier.identify_decisions(
+                actions=actions_entities,
+                questions=questions_entities,
+                timeline_data=timeline.to_dict() if timeline else None,
+                participants=participant_result.participants if participant_result else None,
+                synthesis_data=data.synthesis_data
+            )
+
+            decision_summary = decision_result.to_dict()
+            logger.info(
+                f"[Scenario Gen] Identified {decision_result.total_decisions} decision points "
+                f"({decision_result.decisions_from_actions} from actions, "
+                f"{decision_result.decisions_from_questions} from questions)"
+            )
 
             self._report_progress(
                 'decision_identification',
                 60,
-                f'Found {len(actions)} actions and {len(questions)} questions',
+                f'Identified {decision_result.total_decisions} decision points',
                 decision_summary
             )
 
