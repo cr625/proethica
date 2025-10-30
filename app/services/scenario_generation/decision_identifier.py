@@ -63,11 +63,80 @@ class DecisionOption:
 
 
 @dataclass
+class InstitutionalRuleAnalysis:
+    """
+    Institutional Rule Analysis: What triggers/opposes the action?
+
+    Maps decisions to ProEthica's normative concepts (P, O, Cs) to understand
+    why this decision matters ethically.
+    """
+    # Principle conflicts (P1 vs P2)
+    principles_in_tension: List[Dict[str, str]]  # [{'principle': label, 'uri': uri, 'supports': option_id}]
+    principle_conflict_description: str  # LLM-generated description of tension
+
+    # Obligation tensions (O1 vs O3)
+    obligations_in_tension: List[Dict[str, str]]  # [{'obligation': label, 'uri': uri, 'supports': option_id}]
+    obligation_conflict_description: str  # LLM-generated description of tension
+
+    # Constraint influences (Cs)
+    constraining_factors: List[Dict[str, str]]  # [{'constraint': label, 'uri': uri, 'impact': description}]
+    constraint_influence_description: str  # How constraints shaped options
+
+    # Symbolic significance
+    why_this_matters: str  # What strategic ethical issue does this represent?
+
+    def to_dict(self) -> Dict:
+        """Convert to JSON-serializable dictionary."""
+        return {
+            'principles_in_tension': self.principles_in_tension,
+            'principle_conflict_description': self.principle_conflict_description,
+            'obligations_in_tension': self.obligations_in_tension,
+            'obligation_conflict_description': self.obligation_conflict_description,
+            'constraining_factors': self.constraining_factors,
+            'constraint_influence_description': self.constraint_influence_description,
+            'why_this_matters': self.why_this_matters
+        }
+
+
+@dataclass
+class TransformationAnalysis:
+    """
+    Transformation Detection: What type of ethical challenge is this?
+
+    Classifies the decision according to action-based scenario framework
+    (Marchais-Roubelat & Roubelat, 2015) mapped to ProEthica formalism.
+    """
+    # Transformation type
+    transformation_type: str  # 'transfer', 'stalemate', 'oscillation', 'phase_lag'
+    confidence: float  # 0.0-1.0
+
+    # Rationale
+    type_rationale: str  # Why this classification?
+
+    # Indicators
+    indicators: List[str]  # Evidence for this classification
+
+    # Comparison to other cases
+    similar_transformation_cases: List[str]  # Case IDs with same pattern
+
+    def to_dict(self) -> Dict:
+        """Convert to JSON-serializable dictionary."""
+        return {
+            'transformation_type': self.transformation_type,
+            'confidence': self.confidence,
+            'type_rationale': self.type_rationale,
+            'indicators': self.indicators,
+            'similar_transformation_cases': self.similar_transformation_cases
+        }
+
+
+@dataclass
 class DecisionPoint:
     """
     A critical decision moment in the scenario.
 
     Built from actions with isDecisionPoint=true and ethical questions.
+    Enhanced with institutional rule analysis and transformation detection.
     """
     # Identity
     id: str  # Unique identifier
@@ -96,12 +165,18 @@ class DecisionPoint:
     source_type: str  # 'action' or 'question'
     narrative_significance: str  # Why this matters for learning
 
+    # NEW - Institutional Rule Analysis (Stage 4 enhancement)
+    institutional_rule_analysis: Optional[InstitutionalRuleAnalysis] = None
+
+    # NEW - Transformation Analysis (Stage 4 enhancement)
+    transformation_analysis: Optional[TransformationAnalysis] = None
+
     # Source data
-    extracted_data: Dict[str, Any]  # Original RDF data
+    extracted_data: Dict[str, Any] = field(default_factory=dict)  # Original RDF data
 
     def to_dict(self) -> Dict:
         """Convert to JSON-serializable dictionary."""
-        return {
+        result = {
             'id': self.id,
             'decision_question': self.decision_question,
             'timepoint': self.timepoint,
@@ -118,6 +193,16 @@ class DecisionPoint:
             'source_type': self.source_type,
             'narrative_significance': self.narrative_significance
         }
+
+        # Add institutional rule analysis if available
+        if self.institutional_rule_analysis:
+            result['institutional_rule_analysis'] = self.institutional_rule_analysis.to_dict()
+
+        # Add transformation analysis if available
+        if self.transformation_analysis:
+            result['transformation_analysis'] = self.transformation_analysis.to_dict()
+
+        return result
 
 
 @dataclass
@@ -457,3 +542,373 @@ class DecisionIdentifier:
         # TODO: Link to code provisions from Step 4 synthesis
         # For now, return empty list
         return []
+
+    def analyze_institutional_rules(
+        self,
+        decision: DecisionPoint,
+        principles: List[Any],
+        obligations: List[Any],
+        constraints: List[Any]
+    ) -> InstitutionalRuleAnalysis:
+        """
+        Analyze institutional rules for a decision point.
+        
+        Maps the decision to Principles (P), Obligations (O), and Constraints (Cs)
+        to understand what triggers/opposes the action.
+        
+        Args:
+            decision: DecisionPoint to analyze
+            principles: List of Principle entities from Pass 2
+            obligations: List of Obligation entities from Pass 2
+            constraints: List of Constraint entities from Pass 2
+            
+        Returns:
+            InstitutionalRuleAnalysis with principle conflicts, obligation tensions, constraints
+        """
+        logger.info(f"[Decision Identifier] Analyzing institutional rules for decision: {decision.id}")
+        
+        # Build context for LLM
+        context = self._build_institutional_context(decision, principles, obligations, constraints)
+        
+        # Create LLM prompt
+        prompt = f"""Analyze this ethical decision through the lens of institutional rules (principles, obligations, constraints).
+
+**Decision**: {decision.decision_question}
+**Context**: {decision.situation_context}
+**Ethical Tension**: {decision.ethical_tension}
+**Stakes**: {decision.stakes}
+
+**Available Principles**:
+{self._format_principles(principles)}
+
+**Available Obligations**:
+{self._format_obligations(obligations)}
+
+**Available Constraints**:
+{self._format_constraints(constraints)}
+
+**Decision Options**:
+{self._format_options(decision.options)}
+
+**Task**: Identify which principles, obligations, and constraints are in tension for this decision.
+
+**Output Format** (JSON only):
+{{
+  "principles_in_tension": [
+    {{"principle": "Principle Name", "uri": "http://...", "supports": "option_1", "rationale": "why"}},
+    {{"principle": "Principle Name 2", "uri": "http://...", "supports": "option_2", "rationale": "why"}}
+  ],
+  "principle_conflict_description": "Clear description of how these principles create ethical tension",
+  "obligations_in_tension": [
+    {{"obligation": "Obligation Name", "uri": "http://...", "supports": "option_1", "rationale": "why"}},
+    {{"obligation": "Obligation Name 2", "uri": "http://...", "supports": "option_2", "rationale": "why"}}
+  ],
+  "obligation_conflict_description": "Clear description of how these obligations conflict",
+  "constraining_factors": [
+    {{"constraint": "Constraint Name", "uri": "http://...", "impact": "how this limits options"}}
+  ],
+  "constraint_influence_description": "How constraints shaped the decision space",
+  "why_this_matters": "What strategic ethical issue does this decision represent? Why would NSPE publish this case?"
+}}
+
+Respond with valid JSON only."""
+
+        try:
+            # Call LLM
+            response = self.llm_client.messages.create(
+                model="claude-sonnet-4-5-20250929",
+                max_tokens=2000,
+                messages=[
+                    {"role": "user", "content": prompt}
+                ]
+            )
+            
+            response_text = response.content[0].text
+            
+            # Parse JSON
+            import json
+            analysis_data = json.loads(response_text)
+            
+            # Create InstitutionalRuleAnalysis
+            analysis = InstitutionalRuleAnalysis(
+                principles_in_tension=analysis_data.get('principles_in_tension', []),
+                principle_conflict_description=analysis_data.get('principle_conflict_description', ''),
+                obligations_in_tension=analysis_data.get('obligations_in_tension', []),
+                obligation_conflict_description=analysis_data.get('obligation_conflict_description', ''),
+                constraining_factors=analysis_data.get('constraining_factors', []),
+                constraint_influence_description=analysis_data.get('constraint_influence_description', ''),
+                why_this_matters=analysis_data.get('why_this_matters', '')
+            )
+            
+            logger.info(f"[Decision Identifier] Institutional rule analysis complete")
+            return analysis
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"[Decision Identifier] Failed to parse LLM JSON: {e}")
+            logger.debug(f"Raw response: {response_text[:500]}")
+            # Return empty analysis
+            return InstitutionalRuleAnalysis(
+                principles_in_tension=[],
+                principle_conflict_description="Analysis failed",
+                obligations_in_tension=[],
+                obligation_conflict_description="Analysis failed",
+                constraining_factors=[],
+                constraint_influence_description="Analysis failed",
+                why_this_matters="Analysis failed"
+            )
+        except Exception as e:
+            logger.error(f"[Decision Identifier] Institutional rule analysis error: {e}")
+            return InstitutionalRuleAnalysis(
+                principles_in_tension=[],
+                principle_conflict_description="Analysis failed",
+                obligations_in_tension=[],
+                obligation_conflict_description="Analysis failed",
+                constraining_factors=[],
+                constraint_influence_description="Analysis failed",
+                why_this_matters="Analysis failed"
+            )
+    
+    def _build_institutional_context(self, decision, principles, obligations, constraints):
+        """Build context dict for institutional analysis."""
+        return {
+            'decision': decision.to_dict(),
+            'principles': [self._entity_to_dict(p) for p in principles[:20]],
+            'obligations': [self._entity_to_dict(o) for o in obligations[:20]],
+            'constraints': [self._entity_to_dict(c) for c in constraints[:20]]
+        }
+    
+    def _entity_to_dict(self, entity):
+        """Convert RDFEntity to dict."""
+        return {
+            'uri': entity.uri if hasattr(entity, 'uri') else '',
+            'label': entity.label if hasattr(entity, 'label') else '',
+            'definition': entity.definition if hasattr(entity, 'definition') else ''
+        }
+    
+    def _format_principles(self, principles):
+        """Format principles for LLM."""
+        if not principles:
+            return "None available"
+        lines = []
+        for i, p in enumerate(principles[:15], 1):
+            label = p.label if hasattr(p, 'label') else 'Unknown'
+            definition = p.definition if hasattr(p, 'definition') else ''
+            uri = p.uri if hasattr(p, 'uri') else ''
+            lines.append(f"{i}. **{label}**: {definition} [URI: {uri}]")
+        return "\n".join(lines)
+    
+    def _format_obligations(self, obligations):
+        """Format obligations for LLM."""
+        if not obligations:
+            return "None available"
+        lines = []
+        for i, o in enumerate(obligations[:15], 1):
+            label = o.label if hasattr(o, 'label') else 'Unknown'
+            # Get obligation statement from RDF
+            rdf_data = o.rdf_json_ld if hasattr(o, 'rdf_json_ld') else {}
+            props = rdf_data.get('properties', {})
+            statement = props.get('obligationStatement', [''])[0] if 'obligationStatement' in props else ''
+            uri = o.uri if hasattr(o, 'uri') else ''
+            lines.append(f"{i}. **{label}**: {statement} [URI: {uri}]")
+        return "\n".join(lines)
+    
+    def _format_constraints(self, constraints):
+        """Format constraints for LLM."""
+        if not constraints:
+            return "None available"
+        lines = []
+        for i, c in enumerate(constraints[:15], 1):
+            label = c.label if hasattr(c, 'label') else 'Unknown'
+            definition = c.definition if hasattr(c, 'definition') else ''
+            uri = c.uri if hasattr(c, 'uri') else ''
+            lines.append(f"{i}. **{label}**: {definition} [URI: {uri}]")
+        return "\n".join(lines)
+    
+    def _format_options(self, options):
+        """Format decision options for LLM."""
+        lines = []
+        for opt in options:
+            lines.append(f"**{opt.id}**: {opt.label} - {opt.description}")
+        return "\n".join(lines)
+
+
+    def detect_transformation_type(
+        self,
+        decision: DecisionPoint,
+        institutional_analysis: InstitutionalRuleAnalysis,
+        all_decisions: List[DecisionPoint]
+    ) -> TransformationAnalysis:
+        """
+        Detect transformation type for this decision.
+        
+        Classifies according to action-based scenario framework:
+        - Transfer: Clear shift from one rule set to another
+        - Stalemate: Trapped, no clear ethical path
+        - Oscillation: Cycling between competing obligations
+        - Phase Lag: Different stakeholders operating under different frames
+        
+        Args:
+            decision: DecisionPoint to classify
+            institutional_analysis: Institutional rule analysis for context
+            all_decisions: All decisions in case (for oscillation detection)
+            
+        Returns:
+            TransformationAnalysis with classification and rationale
+        """
+        logger.info(f"[Decision Identifier] Detecting transformation type for decision: {decision.id}")
+        
+        # Create LLM prompt
+        prompt = f"""Classify this ethical decision according to transformation type.
+
+**Decision**: {decision.decision_question}
+**Context**: {decision.situation_context}
+**Institutional Analysis**: {institutional_analysis.why_this_matters}
+
+**Principle Conflicts**: {institutional_analysis.principle_conflict_description}
+**Obligation Conflicts**: {institutional_analysis.obligation_conflict_description}
+**Constraints**: {institutional_analysis.constraint_influence_description}
+
+**Transformation Types**:
+
+1. **Transfer**: Case escalates from routine to board review, new rules apply
+   - Indicators: External event triggers rule change, new authorities involved, scope expands
+   
+2. **Stalemate**: Engineer trapped with no clear ethical path forward
+   - Indicators: All options violate something, competing obligations unresolvable, paralysis
+   
+3. **Oscillation**: Cycling between competing obligations repeatedly
+   - Indicators: Multiple decisions with same tension, back-and-forth pattern, no resolution
+   
+4. **Phase Lag**: Different stakeholders operating under different ethical frames
+   - Indicators: Client values efficiency, engineer values competence; misaligned priorities
+
+**Task**: Classify this decision's transformation type.
+
+**Output Format** (JSON only):
+{{
+  "transformation_type": "transfer|stalemate|oscillation|phase_lag",
+  "confidence": 0.85,
+  "type_rationale": "Clear explanation of why this classification fits",
+  "indicators": [
+    "Specific evidence from the decision",
+    "Another indicator",
+    "Another indicator"
+  ],
+  "similar_transformation_cases": []
+}}
+
+Respond with valid JSON only."""
+
+        try:
+            # Call LLM
+            response = self.llm_client.messages.create(
+                model="claude-sonnet-4-5-20250929",
+                max_tokens=1500,
+                messages=[
+                    {"role": "user", "content": prompt}
+                ]
+            )
+            
+            response_text = response.content[0].text
+            
+            # Parse JSON
+            import json
+            analysis_data = json.loads(response_text)
+            
+            # Create TransformationAnalysis
+            analysis = TransformationAnalysis(
+                transformation_type=analysis_data.get('transformation_type', 'unknown'),
+                confidence=float(analysis_data.get('confidence', 0.0)),
+                type_rationale=analysis_data.get('type_rationale', ''),
+                indicators=analysis_data.get('indicators', []),
+                similar_transformation_cases=analysis_data.get('similar_transformation_cases', [])
+            )
+            
+            logger.info(f"[Decision Identifier] Transformation type: {analysis.transformation_type} (confidence: {analysis.confidence})")
+            return analysis
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"[Decision Identifier] Failed to parse transformation JSON: {e}")
+            logger.debug(f"Raw response: {response_text[:500]}")
+            return TransformationAnalysis(
+                transformation_type="unknown",
+                confidence=0.0,
+                type_rationale="Analysis failed",
+                indicators=[],
+                similar_transformation_cases=[]
+            )
+        except Exception as e:
+            logger.error(f"[Decision Identifier] Transformation detection error: {e}")
+            return TransformationAnalysis(
+                transformation_type="unknown",
+                confidence=0.0,
+                type_rationale="Analysis failed",
+                indicators=[],
+                similar_transformation_cases=[]
+            )
+
+    def identify_decisions_with_institutional_analysis(
+        self,
+        actions: List[Any],
+        questions: List[Any],
+        principles: List[Any],
+        obligations: List[Any],
+        constraints: List[Any],
+        timeline_data: Optional[Dict] = None,
+        participants: Optional[List] = None,
+        synthesis_data: Optional[Any] = None
+    ) -> DecisionIdentificationResult:
+        """
+        Identify decision points AND perform institutional rule + transformation analysis.
+        
+        This is the enhanced Stage 4 method that adds analytical capabilities.
+        
+        Args:
+            actions: List of action entities
+            questions: List of ethical question entities
+            principles: List of Principle entities (Pass 2)
+            obligations: List of Obligation entities (Pass 2)
+            constraints: List of Constraint entities (Pass 2)
+            timeline_data: Optional timeline context
+            participants: Optional participant profiles
+            synthesis_data: Optional synthesis data
+            
+        Returns:
+            DecisionIdentificationResult with institutional + transformation analysis
+        """
+        logger.info("[Decision Identifier] Enhanced Stage 4: Identifying decisions with institutional analysis")
+        
+        # Step 1: Identify base decisions (existing logic)
+        result = self.identify_decisions(
+            actions=actions,
+            questions=questions,
+            timeline_data=timeline_data,
+            participants=participants,
+            synthesis_data=synthesis_data
+        )
+        
+        # Step 2: Enhance each decision with institutional rule analysis
+        for decision in result.decision_points:
+            logger.info(f"[Decision Identifier] Analyzing decision: {decision.id}")
+            
+            # Institutional rule analysis
+            institutional_analysis = self.analyze_institutional_rules(
+                decision=decision,
+                principles=principles,
+                obligations=obligations,
+                constraints=constraints
+            )
+            decision.institutional_rule_analysis = institutional_analysis
+            
+            # Transformation detection
+            transformation_analysis = self.detect_transformation_type(
+                decision=decision,
+                institutional_analysis=institutional_analysis,
+                all_decisions=result.decision_points
+            )
+            decision.transformation_analysis = transformation_analysis
+            
+            logger.info(f"[Decision Identifier] Decision {decision.id} analysis complete: {transformation_analysis.transformation_type}")
+        
+        logger.info(f"[Decision Identifier] Enhanced Stage 4 complete: {result.total_decisions} decisions analyzed")
+        return result

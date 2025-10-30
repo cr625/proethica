@@ -28,6 +28,9 @@ from app.services.conclusion_analyzer import ConclusionAnalyzer
 from app.services.question_conclusion_linker import QuestionConclusionLinker
 from app.services.case_synthesis_service import CaseSynthesisService
 
+# Import Part D: Institutional Rule Analysis
+from app.services.case_analysis.institutional_rule_analyzer import InstitutionalRuleAnalyzer
+
 logger = logging.getLogger(__name__)
 
 
@@ -346,10 +349,75 @@ def synthesize_case_streaming(case_id):
                 
                 yield sse_message({
                     'stage': 'PART_C_COMPLETE',
-                    'progress': 95,
-                    'messages': ['Part C complete: Synthesis ready for storage']
+                    'progress': 88,
+                    'messages': ['Part C complete: Entity graph built']
                 })
-                
+
+                # =============================================================
+                # PART D: INSTITUTIONAL RULE ANALYSIS
+                # =============================================================
+                yield sse_message({
+                    'stage': 'PART_D_START',
+                    'progress': 90,
+                    'messages': ['Part D: Analyzing institutional rules and normative tensions...']
+                })
+
+                # Get P, O, Cs entities for institutional analysis
+                principles_entities = all_entities.get('principles', [])
+                obligations_entities = all_entities.get('obligations', [])
+                constraints_entities = all_entities.get('constraints', [])
+
+                institutional_analysis = None
+                if principles_entities or obligations_entities or constraints_entities:
+                    # Initialize analyzer with pre-loaded LLM client (from closure, has Flask context)
+                    institutional_analyzer = InstitutionalRuleAnalyzer(llm_client)
+
+                    # Build case context from questions and conclusions
+                    case_context = {
+                        'questions': [getattr(q, 'question_text', '') for q in synthesis_results['questions']],
+                        'conclusions': [getattr(c, 'conclusion_text', '') for c in synthesis_results['conclusions']],
+                        'provisions': [f"{p.get('code_provision', '')}: {p.get('provision_text', '')}" for p in synthesis_results['provisions']]
+                    }
+
+                    # Run institutional analysis
+                    institutional_analysis = institutional_analyzer.analyze_case(
+                        case_id=case_id,
+                        principles=principles_entities,
+                        obligations=obligations_entities,
+                        constraints=constraints_entities,
+                        case_context=case_context
+                    )
+
+                    # Capture LLM trace
+                    if hasattr(institutional_analyzer, 'last_prompt') and hasattr(institutional_analyzer, 'last_response'):
+                        llm_traces.append({
+                            'stage': 'INSTITUTIONAL_ANALYSIS',
+                            'prompt': institutional_analyzer.last_prompt,
+                            'response': institutional_analyzer.last_response,
+                            'model': 'claude-sonnet-4-5-20250929',
+                            'timestamp': datetime.utcnow().isoformat()
+                        })
+
+                    # Convert to dict for JSON serialization
+                    synthesis_results['institutional_analysis'] = institutional_analysis.to_dict()
+
+                    yield sse_message({
+                        'stage': 'PART_D_COMPLETE',
+                        'progress': 95,
+                        'messages': [
+                            f'Part D complete: Analyzed {len(institutional_analysis.principle_tensions)} principle tensions',
+                            f'{len(institutional_analysis.obligation_conflicts)} obligation conflicts identified',
+                            f'{len(institutional_analysis.constraining_factors)} constraining factors mapped'
+                        ],
+                        'llm_trace': [llm_traces[-1]] if llm_traces else []
+                    })
+                else:
+                    yield sse_message({
+                        'stage': 'PART_D_SKIPPED',
+                        'progress': 95,
+                        'messages': ['Part D skipped: No P/O/Cs entities available for analysis']
+                    })
+
                 # =============================================================
                 # COMPLETION - Return data for frontend to save
                 # =============================================================
@@ -391,7 +459,8 @@ def synthesize_case_streaming(case_id):
                         'entity_graph': {
                             'total_nodes': synthesis_results['synthesis']['total_nodes'],
                             'node_types': synthesis_results['synthesis']['node_types']
-                        }
+                        },
+                        'institutional_analysis': synthesis_results.get('institutional_analysis')  # Part D results (dict)
                     }
                 }
                 yield sse_message(completion_data)
@@ -431,20 +500,23 @@ def sse_message(data):
 
 def _get_all_case_entities(case_id):
     """Query ALL extracted entities from Passes 1-3"""
+    from sqlalchemy import func
+
     entity_types = [
         'roles', 'states', 'resources',
         'principles', 'obligations', 'constraints', 'capabilities',
         'actions', 'events'
     ]
-    
+
     entities = {}
     for entity_type in entity_types:
-        entities[entity_type] = TemporaryRDFStorage.query.filter_by(
-            case_id=case_id,
-            entity_type=entity_type,
-            storage_type='individual'
+        # Case-insensitive query using func.lower()
+        entities[entity_type] = TemporaryRDFStorage.query.filter(
+            TemporaryRDFStorage.case_id == case_id,
+            func.lower(TemporaryRDFStorage.entity_type) == entity_type.lower(),
+            TemporaryRDFStorage.storage_type == 'individual'
         ).all()
-    
+
     return entities
 
 
@@ -599,6 +671,33 @@ def save_step4_streaming_results(case_id):
                 ontology_target=f'proethica-case-{case_id}'
             )
             db.session.add(rdf_entity)
+
+        # Store Institutional Analysis (Part D) to database
+        institutional_analysis_dict = synthesis_results.get('institutional_analysis')
+        if institutional_analysis_dict:
+            logger.info(f"[Save Endpoint] Saving institutional analysis for case {case_id}")
+
+            # Import the analyzer and dataclass
+            from app.services.case_analysis.institutional_rule_analyzer import (
+                InstitutionalRuleAnalyzer,
+                InstitutionalAnalysis
+            )
+
+            # Reconstruct InstitutionalAnalysis dataclass from dict
+            institutional_analysis = InstitutionalAnalysis.from_dict(institutional_analysis_dict)
+
+            # Save to database
+            analyzer = InstitutionalRuleAnalyzer()  # Gets its own LLM client (though not needed for saving)
+            saved = analyzer.save_to_database(
+                case_id=case_id,
+                analysis=institutional_analysis,
+                llm_model='claude-sonnet-4-5-20250929'
+            )
+
+            if saved:
+                logger.info(f"[Save Endpoint] Successfully saved institutional analysis")
+            else:
+                logger.warning(f"[Save Endpoint] Failed to save institutional analysis")
 
         # Delete old Step 4 synthesis prompts
         ExtractionPrompt.query.filter_by(

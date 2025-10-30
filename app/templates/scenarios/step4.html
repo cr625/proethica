@@ -6,6 +6,57 @@
 
 {% block step_content %}
 
+<!-- About Step 4 (at top) -->
+<div class="card mb-4">
+    <div class="card-header" style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#aboutStep4" aria-expanded="false">
+        <h5 class="mb-0">
+            <i class="bi bi-chevron-right" id="aboutStep4Icon"></i>
+            <i class="bi bi-info-circle"></i> About Step 4 Synthesis
+        </h5>
+    </div>
+    <div id="aboutStep4" class="collapse">
+        <div class="card-body">
+            <p>Step 4 performs whole-case synthesis with complete entity context from all three passes:</p>
+
+            <h6>Part A: Code Provisions</h6>
+            <ul>
+                <li>Extracts NSPE Code provisions mentioned in References section</li>
+                <li>Links provisions to ALL 9 entity types (Roles, Principles, Actions, etc.)</li>
+                <li>Validates content relevance using LLM</li>
+            </ul>
+
+            <h6>Part B: Questions & Conclusions</h6>
+            <ul>
+                <li>Extracts ethical questions from Questions section</li>
+                <li>Extracts conclusions from Conclusions section</li>
+                <li>Tags entities across all 9 types</li>
+                <li>Creates answersQuestion relationships between Q&C</li>
+            </ul>
+
+            <h6>Part C: Cross-Section Synthesis</h6>
+            <ul>
+                <li>Builds entity knowledge graph (200+ nodes)</li>
+                <li>Creates causal-normative links (Actions/Events → Obligations/Principles)</li>
+                <li>Analyzes question emergence (WHY questions arose)</li>
+                <li>Extracts resolution patterns (HOW board decided)</li>
+            </ul>
+
+            <h6>Part D: Institutional Rule Analysis (NEW)</h6>
+            <ul>
+                <li>Identifies principle tensions (conflicting ethical commitments)</li>
+                <li>Maps obligation conflicts (competing professional duties)</li>
+                <li>Analyzes constraining factors (legal, professional, organizational limits)</li>
+                <li>Determines case significance (what strategic issue this represents)</li>
+            </ul>
+
+            <div class="alert alert-warning mt-3">
+                <i class="bi bi-exclamation-triangle"></i>
+                <strong>Note:</strong> Synthesis requires all 3 passes to be completed first.
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Entity Summary Card -->
 <div class="card mb-4">
     <div class="card-header bg-primary text-white">
@@ -77,10 +128,6 @@
                 <i class="bi bi-lock-fill"></i> Re-run Synthesis (Login Required)
             </button>
             {% endif %}
-
-            <a href="{{ url_for('step4.step4_review', case_id=case.id) }}" class="btn btn-success ms-2">
-                <i class="bi bi-clipboard-check"></i> View Step 4 Review
-            </a>
         {% else %}
             <div class="alert alert-info mb-3">
                 <i class="bi bi-info-circle"></i> Synthesis not yet performed. Click below to start.
@@ -154,48 +201,18 @@
     </div>
 </div>
 
-<!-- About Step 4 (Collapsible) -->
-<div class="card">
-    <div class="card-header" style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#aboutStep4" aria-expanded="false">
-        <h5 class="mb-0">
-            <i class="bi bi-chevron-right" id="aboutStep4Icon"></i>
-            <i class="bi bi-info-circle"></i> About Step 4 Synthesis
-        </h5>
-    </div>
-    <div id="aboutStep4" class="collapse">
-        <div class="card-body">
-            <p>Step 4 performs whole-case synthesis with complete entity context from all three passes:</p>
-
-            <h6>Part A: Code Provisions</h6>
-            <ul>
-                <li>Extracts NSPE Code provisions mentioned in References section</li>
-                <li>Links provisions to ALL 9 entity types (Roles, Principles, Actions, etc.)</li>
-                <li>Validates content relevance using LLM</li>
-            </ul>
-
-            <h6>Part B: Questions & Conclusions</h6>
-            <ul>
-                <li>Extracts ethical questions from Questions section</li>
-                <li>Extracts conclusions from Conclusions section</li>
-                <li>Tags entities across all 9 types</li>
-                <li>Creates answersQuestion relationships between Q&C</li>
-            </ul>
-
-            <h6>Part C: Cross-Section Synthesis</h6>
-            <ul>
-                <li>Builds entity knowledge graph (205+ nodes)</li>
-                <li>Creates causal-normative links (Actions/Events → Obligations/Principles)</li>
-                <li>Analyzes question emergence (WHY questions arose)</li>
-                <li>Extracts resolution patterns (HOW board decided)</li>
-            </ul>
-
-            <div class="alert alert-warning mt-3">
-                <i class="bi bi-exclamation-triangle"></i>
-                <strong>Note:</strong> Synthesis requires all 3 passes to be completed first.
-            </div>
-        </div>
+<!-- View Step 4 Review Button (at bottom) -->
+{% if synthesis_status.completed %}
+<div class="card mb-4">
+    <div class="card-body text-center">
+        <h5><i class="bi bi-clipboard-check"></i> View Synthesis Results</h5>
+        <p class="text-muted">Review code provisions, questions & conclusions, entity graph, and institutional analysis</p>
+        <a href="{{ url_for('step4.step4_review', case_id=case.id) }}" class="btn btn-success btn-lg">
+            <i class="bi bi-eye"></i> View Step 4 Review
+        </a>
     </div>
 </div>
+{% endif %}
 
 {% endblock %}
 

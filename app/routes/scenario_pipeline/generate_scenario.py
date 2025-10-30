@@ -72,6 +72,25 @@ def generate_scenario_from_case(case_id):
         timeline = orchestrator.timeline_constructor.build_timeline(case_id)
         logger.info(f"[Scenario Gen] Timeline built: {len(timeline.entries)} entries")
 
+        # Map participants BEFORE generator (database operations)
+        logger.info(f"[Scenario Gen] Mapping participants for case {case_id}")
+        roles = data.get_entities_by_type('Role')
+        if not roles:
+            roles = data.get_entities_by_type('Roles')
+
+        participant_result = orchestrator.participant_mapper.map_participants(
+            roles,
+            timeline_data=timeline.to_dict() if timeline else None
+        )
+
+        # Save participants to database
+        saved_count = orchestrator.participant_mapper.save_to_database(
+            case_id=case_id,
+            result=participant_result,
+            llm_model='claude-sonnet-4-5-20250929'
+        )
+        logger.info(f"[Scenario Gen] Saved {saved_count} participants to database")
+
         def generate():
             """Generator for Server-Sent Events"""
             try:
@@ -125,7 +144,7 @@ def generate_scenario_from_case(case_id):
                     'timestamp': datetime.utcnow().isoformat()
                 })}\n\n"
 
-                # Stage 3: Participant Mapping
+                # Stage 3: Participant Mapping (already complete before generator)
                 yield f"data: {json.dumps({
                     'stage': 'participant_mapping',
                     'stage_number': 3,
@@ -134,11 +153,6 @@ def generate_scenario_from_case(case_id):
                     'timestamp': datetime.utcnow().isoformat()
                 })}\n\n"
 
-                roles = data.get_entities_by_type('Role')
-                if not roles:
-                    roles = data.get_entities_by_type('Roles')
-
-                # Map participants (includes LLM enhancement)
                 yield f"data: {json.dumps({
                     'stage': 'participant_mapping',
                     'stage_number': 3,
@@ -147,12 +161,6 @@ def generate_scenario_from_case(case_id):
                     'timestamp': datetime.utcnow().isoformat()
                 })}\n\n"
 
-                participant_result = orchestrator.participant_mapper.map_participants(
-                    roles,
-                    timeline_data=timeline.to_dict() if timeline else None
-                )
-
-                # LLM enhancement progress
                 yield f"data: {json.dumps({
                     'stage': 'participant_mapping',
                     'stage_number': 3,
@@ -161,7 +169,6 @@ def generate_scenario_from_case(case_id):
                     'timestamp': datetime.utcnow().isoformat()
                 })}\n\n"
 
-                # Save to database
                 yield f"data: {json.dumps({
                     'stage': 'participant_mapping',
                     'stage_number': 3,
@@ -169,12 +176,6 @@ def generate_scenario_from_case(case_id):
                     'message': 'Saving character profiles to database...',
                     'timestamp': datetime.utcnow().isoformat()
                 })}\n\n"
-
-                saved_count = orchestrator.participant_mapper.save_to_database(
-                    case_id=case_id,
-                    result=participant_result,
-                    llm_model='claude-sonnet-4-5-20250929'
-                )
 
                 participant_summary = participant_result.to_dict()
                 yield f"data: {json.dumps({
@@ -192,11 +193,11 @@ def generate_scenario_from_case(case_id):
                     'timestamp': datetime.utcnow().isoformat()
                 })}\n\n"
 
-                # Stage 4: Decision Point Identification
+                # Stage 4: Decision Point Identification + Institutional Rule Analysis
                 yield f"data: {json.dumps({
                     'stage': 'decision_identification',
                     'stage_number': 4,
-                    'progress': 55,
+                    'progress': 52,
                     'message': 'Identifying decision points from actions and questions...',
                     'timestamp': datetime.utcnow().isoformat()
                 })}\n\n"
@@ -210,22 +211,59 @@ def generate_scenario_from_case(case_id):
                 if not questions_entities:
                     questions_entities = data.get_entities_by_type('Question')
 
-                # Identify decision points
-                decision_result = orchestrator.decision_identifier.identify_decisions(
+                # Get normative concepts for institutional rule analysis
+                principles_entities = data.get_entities_by_type('Principles')
+                obligations_entities = data.get_entities_by_type('Obligations')
+                constraints_entities = data.get_entities_by_type('Constraints')
+
+                yield f"data: {json.dumps({
+                    'stage': 'decision_identification',
+                    'stage_number': 4,
+                    'progress': 54,
+                    'message': f'Analyzing {len(principles_entities)} principles, {len(obligations_entities)} obligations, {len(constraints_entities)} constraints...',
+                    'timestamp': datetime.utcnow().isoformat()
+                })}\n\n"
+
+                # Enhanced decision identification with institutional analysis
+                decision_result = orchestrator.decision_identifier.identify_decisions_with_institutional_analysis(
                     actions=actions_entities,
                     questions=questions_entities,
+                    principles=principles_entities,
+                    obligations=obligations_entities,
+                    constraints=constraints_entities,
                     timeline_data=timeline.to_dict() if timeline else None,
                     participants=participant_result.participants if participant_result else None,
                     synthesis_data=data.synthesis_data
                 )
+
+                yield f"data: {json.dumps({
+                    'stage': 'decision_identification',
+                    'stage_number': 4,
+                    'progress': 57,
+                    'message': 'Analyzing institutional rules (principles, obligations, constraints)...',
+                    'timestamp': datetime.utcnow().isoformat()
+                })}\n\n"
+
+                yield f"data: {json.dumps({
+                    'stage': 'decision_identification',
+                    'stage_number': 4,
+                    'progress': 59,
+                    'message': 'Detecting transformation types (transfer, stalemate, oscillation, phase lag)...',
+                    'timestamp': datetime.utcnow().isoformat()
+                })}\n\n"
 
                 decision_summary = decision_result.to_dict()
                 yield f"data: {json.dumps({
                     'stage': 'decision_identification',
                     'stage_number': 4,
                     'progress': 60,
-                    'message': f'Identified {decision_result.total_decisions} decision points',
+                    'message': f'Identified {decision_result.total_decisions} decision points with institutional analysis',
                     'data': decision_summary,
+                    'details': {
+                        'decisions_analyzed': decision_result.total_decisions,
+                        'has_institutional_analysis': any(d.institutional_rule_analysis for d in decision_result.decision_points),
+                        'has_transformation_analysis': any(d.transformation_analysis for d in decision_result.decision_points)
+                    },
                     'timestamp': datetime.utcnow().isoformat()
                 })}\n\n"
 
