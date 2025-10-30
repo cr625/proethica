@@ -248,6 +248,7 @@ function runSynthesis() {
     const stageInfo = document.getElementById('stage-info');
     const currentStageSpan = document.getElementById('current-stage');
     const summaryCard = document.getElementById('synthesis-summary');
+    const accordionContainer = document.getElementById('synthesis-stages-accordion');
 
     // Reset state
     messageCount = 0;
@@ -270,6 +271,9 @@ function runSynthesis() {
     progressIcon.className = 'bi bi-hourglass-split';
     currentStageSpan.textContent = 'Initializing...';
     document.getElementById('log-count').textContent = '0 messages';
+
+    // Clear LLM Prompts & Responses accordion
+    accordionContainer.innerHTML = '<em class="text-muted">Stages will appear here as synthesis progresses...</em>';
 
     // Scroll to progress card
     progressCard.scrollIntoView({ behavior: 'smooth', block: 'start' });

@@ -162,10 +162,10 @@ def synthesize_case_streaming(case_id):
                             # Capture LLM trace
                             if hasattr(validator, 'last_prompt') and hasattr(validator, 'last_response'):
                                 llm_traces.append({
-                                    'stage': f'PROVISION_VALIDATION_{code}',
+                                    'stage': f'Code Provision {code} Validation',
                                     'prompt': validator.last_prompt,
                                     'response': validator.last_response,
-                                    'model': 'claude-opus-4',
+                                    'model': 'claude-sonnet-4-5-20250929',
                                     'timestamp': datetime.utcnow().isoformat()
                                 })
                         else:
@@ -203,10 +203,10 @@ def synthesize_case_streaming(case_id):
                     # Capture LLM trace
                     if hasattr(linker, 'last_linking_prompt') and hasattr(linker, 'last_linking_response'):
                         llm_traces.append({
-                            'stage': 'PROVISION_LINKING',
+                            'stage': 'Code Provision Linking',
                             'prompt': linker.last_linking_prompt,
                             'response': linker.last_linking_response,
-                            'model': 'claude-opus-4',
+                            'model': 'claude-sonnet-4-5-20250929',
                             'timestamp': datetime.utcnow().isoformat()
                         })
                 
@@ -238,10 +238,10 @@ def synthesize_case_streaming(case_id):
                 
                 if hasattr(question_analyzer, 'last_prompt') and hasattr(question_analyzer, 'last_response'):
                     llm_traces.append({
-                        'stage': 'QUESTION_EXTRACTION',
+                        'stage': 'Question Extraction',
                         'prompt': question_analyzer.last_prompt,
                         'response': question_analyzer.last_response,
-                        'model': 'claude-opus-4',
+                        'model': 'claude-sonnet-4-5-20250929',
                         'timestamp': datetime.utcnow().isoformat()
                     })
                 
@@ -262,10 +262,10 @@ def synthesize_case_streaming(case_id):
                 
                 if hasattr(conclusion_analyzer, 'last_prompt') and hasattr(conclusion_analyzer, 'last_response'):
                     llm_traces.append({
-                        'stage': 'CONCLUSION_EXTRACTION',
+                        'stage': 'Conclusion Extraction',
                         'prompt': conclusion_analyzer.last_prompt,
                         'response': conclusion_analyzer.last_response,
-                        'model': 'claude-opus-4',
+                        'model': 'claude-sonnet-4-5-20250929',
                         'timestamp': datetime.utcnow().isoformat()
                     })
                 
@@ -283,10 +283,10 @@ def synthesize_case_streaming(case_id):
                 
                 if hasattr(linker_qc, 'last_prompt') and hasattr(linker_qc, 'last_response'):
                     llm_traces.append({
-                        'stage': 'QC_LINKING',
+                        'stage': 'Question-Conclusion Linking',
                         'prompt': linker_qc.last_prompt,
                         'response': linker_qc.last_response,
-                        'model': 'claude-opus-4',
+                        'model': 'claude-sonnet-4-5-20250929',
                         'timestamp': datetime.utcnow().isoformat()
                     })
                 
@@ -391,7 +391,7 @@ def synthesize_case_streaming(case_id):
                     # Capture LLM trace
                     if hasattr(institutional_analyzer, 'last_prompt') and hasattr(institutional_analyzer, 'last_response'):
                         llm_traces.append({
-                            'stage': 'INSTITUTIONAL_ANALYSIS',
+                            'stage': 'Institutional Rule Analysis',
                             'prompt': institutional_analyzer.last_prompt,
                             'response': institutional_analyzer.last_response,
                             'model': 'claude-sonnet-4-5-20250929',
