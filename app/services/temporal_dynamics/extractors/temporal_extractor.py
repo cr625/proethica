@@ -49,7 +49,11 @@ def analyze_combined_sections(facts: str, discussion: str) -> Tuple[Dict, Dict]:
         api_key = os.getenv('ANTHROPIC_API_KEY')
         if not api_key:
             raise RuntimeError("ANTHROPIC_API_KEY not found in environment")
-        llm_client = anthropic.Anthropic(api_key=api_key)
+        import httpx
+        llm_client = anthropic.Anthropic(
+            api_key=api_key,
+            timeout=httpx.Timeout(connect=10.0, read=300.0, write=10.0, pool=10.0)
+        )
         logger.info("[Extractor] Initialized Anthropic client")
     except Exception as e:
         logger.error(f"[Extractor] Failed to initialize LLM client: {e}")
@@ -96,13 +100,14 @@ JSON Response:"""
     try:
         # Capture timestamp before LLM call
         call_timestamp = datetime.utcnow().isoformat()
-        model_name = "claude-sonnet-4-20250514"
+        model_name = "claude-sonnet-4-5-20250929"
 
         # Use Anthropic messages API
         response = llm_client.messages.create(
             model=model_name,
             max_tokens=4000,
-            messages=[{"role": "user", "content": prompt}]
+            messages=[{"role": "user", "content": prompt}],
+            timeout=300.0
         )
         response_text = response.content[0].text
 
@@ -164,7 +169,7 @@ JSON Response:"""
             'timestamp': datetime.utcnow().isoformat(),
             'prompt': prompt if 'prompt' in locals() else '',
             'response': f'ERROR: {str(e)}',
-            'model': 'claude-sonnet-4-20250514',
+            'model': 'claude-sonnet-4-5-20250929',
             'parsed_output': error_analysis,
             'tokens': {}
         }

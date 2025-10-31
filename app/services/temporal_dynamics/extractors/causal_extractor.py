@@ -48,8 +48,12 @@ def analyze_causal_chains(
         api_key = os.getenv('ANTHROPIC_API_KEY')
         if not api_key:
             raise RuntimeError("ANTHROPIC_API_KEY not found in environment")
-        llm_client = anthropic.Anthropic(api_key=api_key)
-        model_name = "claude-sonnet-4-20250514"
+        import httpx
+        llm_client = anthropic.Anthropic(
+            api_key=api_key,
+            timeout=httpx.Timeout(connect=10.0, read=300.0, write=10.0, pool=10.0)
+        )
+        model_name = "claude-sonnet-4-5-20250929"
         logger.info("[Stage 5] Initialized Anthropic client")
     except Exception as e:
         logger.error(f"[Stage 5] Failed to initialize LLM client: {e}")
@@ -72,7 +76,8 @@ def analyze_causal_chains(
         response = llm_client.messages.create(
             model=model_name,
             max_tokens=8000,
-            messages=[{"role": "user", "content": prompt}]
+            messages=[{"role": "user", "content": prompt}],
+            timeout=300.0
         )
 
         # Extract response content

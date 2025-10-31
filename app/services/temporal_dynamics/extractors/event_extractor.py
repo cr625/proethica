@@ -53,8 +53,12 @@ def extract_events_with_classification(
         api_key = os.getenv('ANTHROPIC_API_KEY')
         if not api_key:
             raise RuntimeError("ANTHROPIC_API_KEY not found in environment")
-        llm_client = anthropic.Anthropic(api_key=api_key)
-        model_name = "claude-sonnet-4-20250514"
+        import httpx
+        llm_client = anthropic.Anthropic(
+            api_key=api_key,
+            timeout=httpx.Timeout(connect=10.0, read=300.0, write=10.0, pool=10.0)
+        )
+        model_name = "claude-sonnet-4-5-20250929"
         logger.info("[Stage 4] Initialized Anthropic client")
     except Exception as e:
         logger.error(f"[Stage 4] Failed to initialize LLM client: {e}")
@@ -77,7 +81,8 @@ def extract_events_with_classification(
         response = llm_client.messages.create(
             model=model_name,
             max_tokens=8000,
-            messages=[{"role": "user", "content": prompt}]
+            messages=[{"role": "user", "content": prompt}],
+            timeout=300.0
         )
 
         # Extract response content
@@ -131,7 +136,7 @@ def _build_event_extraction_prompt(
     for action in actions[:10]:  # Limit to first 10 actions to avoid token overflow
         action_summary.append(f"- {action.get('label', 'Unknown')} (by {action.get('agent', 'Unknown')})")
 
-    prompt = f"""You are analyzing an engineering ethics case to extract EVENTS (occurrences, not volitional decisions).
+    prompt = f"""Extract EVENTS (occurrences, NOT volitional decisions) from this engineering ethics case.
 
 CASE NARRATIVE:
 {narrative.get('unified_timeline_summary', '')}
@@ -139,144 +144,60 @@ CASE NARRATIVE:
 ACTIONS ALREADY IDENTIFIED:
 {chr(10).join(action_summary)}
 
----
-
 Extract all EVENTS (occurrences, outcomes, automatic triggers - NOT volitional decisions).
 
-For each event, identify:
+EMERGENCY_KEYWORDS: safety, urgent, critical, hazard, danger, risk, failure, accident
 
-1. BASIC INFO:
-   - Event label (concise name, 3-5 words)
-   - Event description (1-2 sentences)
-   - Temporal marker (when it occurred)
+Return JSON with ALL these fields:
 
-2. EVENT CLASSIFICATION:
-   - Event type: "outcome" (result of action) | "exogenous" (external) | "automatic_trigger" (preconditions met)
-   - Emergency status: "critical" | "high" | "medium" | "low" | "routine"
-   - Automatic trigger: true/false
-   - Preconditions met (if automatic trigger)
-
-3. URGENCY & PRIORITY:
-   - Urgency level: "critical" | "high" | "medium" | "low"
-   - Overrides obligations: true/false
-   - Activates constraints (which ones?)
-   - Emergency procedures required: true/false
-
-4. TRIGGERS & EFFECTS:
-   - Activates constraints (list constraint names)
-   - Creates obligations (list new obligations)
-   - Deactivates constraints (list if any)
-   - State change description
-
-5. CAUSAL CONTEXT:
-   - Caused by action (reference action label if applicable)
-   - Causal chain summary (brief sequence leading to this event)
-   - NESS test factors:
-     * Necessary factors (what was required for this to occur)
-     * Sufficient factors (what combination was enough)
-
-6. SCENARIO METADATA (for interactive teaching scenarios):
-   - Emotional impact: How does this event affect characters emotionally?
-   - Stakeholder consequences: Who is affected and how?
-   - Dramatic tension: Does this event increase tension/stakes? (low/medium/high)
-   - Narrative pacing: Does this accelerate or slow the story? ("slow_burn", "escalation", "crisis", "aftermath")
-   - Crisis identification: Is this a turning point in the story? (true/false)
-   - Learning moment: What should students learn from this event?
-   - Discussion prompts: List 2-3 questions for classroom discussion
-   - Ethical implications: What ethical issues does this event reveal?
-
-Return your analysis as a JSON array:
-
-```json
 {{
   "events": [
     {{
-      "label": "Design Structural Failure",
-      "description": "Critical structural flaw discovered during independent review of intern's design work",
-      "temporal_marker": "Month 5",
+      "label": "Brief event name",
+      "description": "What occurred",
+      "temporal_marker": "When",
       "source_section": "facts",
-
       "classification": {{
-        "event_type": "outcome",
-        "emergency_status": "critical",
-        "automatic_trigger": false,
-        "preconditions_met": ["Inadequate supervision", "Insufficient review", "Complex task assigned"]
+        "event_type": "outcome/exogenous/automatic_trigger",
+        "emergency_status": "critical/high/medium/low/routine",
+        "automatic_trigger": true/false,
+        "preconditions_met": ["List if applicable"]
       }},
-
       "urgency": {{
-        "urgency_level": "critical",
-        "overrides_obligations": true,
-        "activates_constraints": ["PublicSafety_Paramount_Constraint"],
-        "emergency_procedures_required": true
+        "urgency_level": "critical/high/medium/low",
+        "overrides_obligations": true/false,
+        "activates_constraints": ["List"],
+        "emergency_procedures_required": true/false
       }},
-
       "triggers": {{
-        "activates_constraints": ["PublicSafety_Paramount", "Immediate_Review_Required"],
-        "creates_obligations": ["Immediate_Correction", "Report_To_Authority", "Halt_Construction"],
+        "activates_constraints": ["List"],
+        "creates_obligations": ["List"],
         "deactivates_constraints": [],
-        "state_change": "Project halted; safety review initiated; stakeholders notified"
+        "state_change": "What changed"
       }},
-
       "causal_context": {{
-        "caused_by_action": "Task Assignment Decision",
-        "causal_chain": [
-          "Senior engineer assigned complex task to unqualified intern",
-          "Inadequate supervision provided during design phase",
-          "Initial review insufficient to catch complexity issues",
-          "Critical structural flaw discovered in detailed review"
-        ],
+        "caused_by_action": "Action label if applicable",
+        "causal_chain": ["Brief sequence"],
         "ness_test_factors": {{
-          "necessary_factors": [
-            "Assignment to person lacking expertise",
-            "Complex technical requirements beyond skill level"
-          ],
-          "sufficient_factors": [
-            "Combination of inexperience, complexity, and inadequate supervision"
-          ]
+          "necessary_factors": ["What was required"],
+          "sufficient_factors": ["What combination was enough"]
         }}
       }},
-
       "scenario_metadata": {{
-        "emotional_impact": "Shock and alarm for senior engineer; anxiety for intern; concern for public; fear among project stakeholders",
-        "stakeholder_consequences": {{
-          "senior_engineer": "Professional reputation at risk, potential disciplinary action",
-          "intern": "Loss of confidence, potential end to engineering career before it starts",
-          "public": "Safety compromised, trust in engineering profession damaged",
-          "company": "Project delays, financial losses, legal liability"
-        }},
-        "dramatic_tension": "high",
-        "narrative_pacing": "crisis",
-        "crisis_identification": true,
-        "learning_moment": "Demonstrates concrete consequences of inadequate supervision and competence violations; shows how professional shortcuts create cascading risks",
-        "discussion_prompts": [
-          "At what point could this outcome have been prevented?",
-          "What systemic changes would prevent similar failures?",
-          "How should professional responsibility be distributed in complex projects?"
-        ],
-        "ethical_implications": "Reveals tension between efficiency pressures and safety obligations; demonstrates duty to ensure competent practice; shows impact of professional negligence on vulnerable populations"
+        "emotional_impact": "How affects characters",
+        "stakeholder_consequences": {{"role": "impact"}},
+        "dramatic_tension": "low/medium/high",
+        "narrative_pacing": "slow_burn/escalation/crisis/aftermath",
+        "crisis_identification": true/false,
+        "learning_moment": "Educational takeaway",
+        "discussion_prompts": ["Questions for classroom"],
+        "ethical_implications": "Deeper tensions revealed"
       }}
     }}
   ]
 }}
-```
 
-IMPORTANT:
-- Only extract occurrences (events), not volitional decisions (those are actions)
-- Use the identified actions to infer causal relationships
-- Be specific with emergency classification
-- Identify which constraints and obligations are triggered
-- Use EMERGENCY_KEYWORDS: safety, urgent, critical, hazard, danger, risk, failure, accident
-- For scenario metadata: Think about how this event impacts the story and learning
-  - Emotional impact should capture multiple perspectives (agent, affected parties, observers)
-  - Stakeholder consequences should be specific and concrete
-  - Dramatic tension indicates how suspenseful/uncertain the situation becomes
-  - Narrative pacing shows whether story accelerates (crisis/escalation) or slows (aftermath/slow_burn)
-  - Crisis identification marks turning points where situation fundamentally changes
-  - Learning moments should be clear educational takeaways
-  - Discussion prompts should probe ethical reasoning, not just facts
-  - Ethical implications should reveal deeper tensions and values conflicts
-
-JSON Response:"""
+Only extract occurrences (events), not decisions (actions). Be specific with emergency classification. Return only JSON."""
 
     return prompt
 

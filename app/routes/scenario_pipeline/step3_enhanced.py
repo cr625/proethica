@@ -39,6 +39,38 @@ def extract_enhanced_temporal_dynamics(case_id):
         # Get case data
         case = Document.query.get_or_404(case_id)
 
+        # Clear any existing temporal dynamics data for this case
+        from app.models import TemporaryRDFStorage, ExtractionPrompt, db
+        from app.models.provenance import ProvenanceActivity
+
+        try:
+            # Delete old temporal dynamics entities
+            old_entities = TemporaryRDFStorage.query.filter_by(
+                case_id=case_id,
+                extraction_type='temporal_dynamics_enhanced'
+            ).delete()
+
+            # Delete old extraction prompts for step 3
+            old_prompts = ExtractionPrompt.query.filter_by(
+                case_id=case_id,
+                step_number=3
+            ).delete()
+
+            # Delete old provenance records for temporal dynamics
+            # (cascade will handle related entities, derivations, etc.)
+            old_prov = ProvenanceActivity.query.filter(
+                ProvenanceActivity.case_id == case_id,
+                ProvenanceActivity.activity_name.like('temporal_%')
+            ).delete(synchronize_session=False)
+
+            db.session.commit()
+
+            if old_entities > 0 or old_prompts > 0 or old_prov > 0:
+                logger.info(f"[Enhanced TD] Cleared {old_entities} entities, {old_prompts} prompts, {old_prov} provenance records")
+        except Exception as e:
+            logger.warning(f"[Enhanced TD] Error clearing old data (continuing anyway): {e}")
+            db.session.rollback()
+
         # Extract section texts - sections are stored as plain strings
         sections = case.doc_metadata.get('sections', {})
         facts_text = sections.get('facts', '') if isinstance(sections.get('facts'), str) else ''

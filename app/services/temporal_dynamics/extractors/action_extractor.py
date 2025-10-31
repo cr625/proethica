@@ -44,8 +44,12 @@ def extract_actions_with_metadata(
         api_key = os.getenv('ANTHROPIC_API_KEY')
         if not api_key:
             raise RuntimeError("ANTHROPIC_API_KEY not found in environment")
-        llm_client = anthropic.Anthropic(api_key=api_key)
-        model_name = "claude-sonnet-4-20250514"
+        import httpx
+        llm_client = anthropic.Anthropic(
+            api_key=api_key,
+            timeout=httpx.Timeout(connect=10.0, read=300.0, write=10.0, pool=10.0)
+        )
+        model_name = "claude-sonnet-4-5-20250929"
         logger.info("[Stage 3] Initialized Anthropic client")
     except Exception as e:
         logger.error(f"[Stage 3] Failed to initialize LLM client: {e}")
@@ -63,12 +67,13 @@ def extract_actions_with_metadata(
     }
 
     try:
-        # Call LLM
+        # Call LLM with extended timeout for complex prompts
         logger.info("[Stage 3] Calling LLM for action extraction")
         response = llm_client.messages.create(
             model=model_name,
             max_tokens=8000,
-            messages=[{"role": "user", "content": prompt}]
+            messages=[{"role": "user", "content": prompt}],
+            timeout=300.0
         )
         response_text = response.content[0].text
 
@@ -111,152 +116,53 @@ def _build_action_extraction_prompt(narrative: Dict, temporal_markers: Dict) -> 
     if temporal_markers.get('relative'):
         temporal_context += f"\nRelative markers: {len(temporal_markers['relative'])} identified"
 
-    prompt = f"""You are analyzing an engineering ethics case to extract ACTIONS (volitional professional decisions).
+    prompt = f"""Extract ACTIONS (volitional professional decisions) from this engineering ethics case.
 
 CASE NARRATIVE:
 {narrative.get('unified_timeline_summary', '')}
 
-DECISION POINTS IDENTIFIED:
+DECISION POINTS:
 {chr(10).join(f"- {dp}" for dp in narrative.get('decision_points', []))}
 
-COMPETING PRIORITIES MENTIONED:
-{chr(10).join(f"- {cp}" for cp in narrative.get('competing_priorities_mentioned', []))}
-
-TEMPORAL CONTEXT:
-{temporal_context}
-
----
-
-Extract all ACTIONS (volitional decisions by professionals). For each action, identify:
-
-1. BASIC INFO:
-   - Action label (concise name, 3-5 words)
-   - Action description (1-2 sentences)
-   - Agent performing action (person name and role if available)
-   - Temporal marker (when it occurred - use markers from temporal context)
-
-2. INTENTION & MENTAL STATE:
-   - Mental state: "deliberate", "negligent", or "accidental"
-   - Intended outcome (what agent aimed to achieve)
-   - Foreseen unintended effects (if any - Doctrine of Double Effect)
-   - Agent's knowledge state at time of action
-
-3. ETHICAL CONTEXT:
-   - Obligations fulfilled (list specific obligations)
-   - Obligations violated (list specific violations)
-   - Guiding principles (e.g., public safety, efficiency, thoroughness)
-   - Active constraints (e.g., registration requirements, time limits)
-   - Competing obligations (if multiple obligations conflict)
-
-4. COMPETING PRIORITIES:
-   - Has tradeoffs: true/false
-   - Priority conflict description (if applicable)
-   - Conflicting factors (list factors that competed)
-   - Resolution reasoning (how agent resolved the conflict)
-
-5. PROFESSIONAL CONTEXT:
-   - Within competence: true/false
-   - Required capabilities (e.g., engineering judgment, technical analysis)
-   - Required resources (e.g., design specifications, test equipment)
-
-6. SCENARIO METADATA (for interactive teaching scenarios):
-   - Character motivation: Why did the agent take this action? What drove them?
-   - Ethical tension: What competing values or duties created tension?
-   - Decision significance: Why does this matter for ethics education? What's the key learning point?
-   - Narrative role: Story position - "inciting_incident", "rising_action", "climax", "falling_action", "resolution"
-   - Stakes: What's at risk? What could go wrong?
-   - Is decision point: true/false - Could the story branch here? Is this a critical choice moment?
-   - Alternative actions: List 2-3 other choices the agent could have made
-   - Consequences if alternative: For each alternative, what would have happened?
-
-Return your analysis as a JSON array:
-
-```json
+Return JSON with this structure:
 {{
   "actions": [
     {{
-      "label": "Task Assignment Decision",
-      "description": "Senior engineer assigned complex design task to junior intern without adequate supervision plan",
-      "agent": "John Smith (Senior Engineer)",
-      "temporal_marker": "Month 3",
+      "label": "Brief action name",
+      "description": "What happened",
+      "agent": "Who did it",
+      "temporal_marker": "When",
       "source_section": "facts",
-
       "intention": {{
-        "mental_state": "deliberate",
-        "intended_outcome": "Complete design quickly to meet deadline",
-        "foreseen_unintended_effects": [
-          "Intern may lack experience for task complexity"
-        ],
-        "agent_knowledge": "Knew intern had limited experience but felt deadline pressure"
+        "mental_state": "deliberate/negligent/accidental",
+        "intended_outcome": "Goal",
+        "agent_knowledge": "What they knew"
       }},
-
       "ethical_context": {{
-        "obligations_fulfilled": [],
-        "obligations_violated": ["Competence_Obligation", "Adequate_Supervision"],
-        "guiding_principles": ["Efficiency", "Meeting_Deadlines"],
-        "active_constraints": ["Registration_Requirements", "Professional_Standards"],
-        "competing_obligations": [
-          {{
-            "obligation_1": "Meet project deadline",
-            "obligation_2": "Ensure work quality and competence",
-            "resolution": "Prioritized deadline over competence verification"
-          }}
-        ]
+        "obligations_violated": ["List any"],
+        "guiding_principles": ["List relevant"],
+        "competing_obligations": [{{"obligation_1": "X", "obligation_2": "Y", "resolution": "How resolved"}}]
       }},
-
       "competing_priorities": {{
         "has_tradeoffs": true,
-        "priority_conflict": "Urgency vs. Professional Competence",
-        "conflicting_factors": ["Time pressure", "Quality assurance", "Supervision burden"],
-        "resolution_reasoning": "Deadline took precedence; planned to review intern's work later"
+        "conflicting_factors": ["List factors"]
       }},
-
       "professional_context": {{
         "within_competence": true,
-        "required_capabilities": ["Engineering_Judgment", "Task_Delegation", "Supervision"],
-        "required_resources": ["Design_Specifications", "Project_Timeline", "Supervision_Time"]
+        "required_capabilities": ["List"]
       }},
-
       "scenario_metadata": {{
-        "character_motivation": "Felt pressure to meet deadline; believed intern could handle it with later review",
-        "ethical_tension": "Professional duty to ensure competence vs. organizational pressure to deliver on time",
-        "decision_significance": "Critical teaching moment about delegation limits and professional responsibility",
-        "narrative_role": "inciting_incident",
-        "stakes": "Design quality, public safety if structural calculations are incorrect, intern's professional development",
-        "is_decision_point": true,
-        "alternative_actions": [
-          "Decline the assignment and explain competence concerns to management",
-          "Accept with explicit supervision plan including daily check-ins",
-          "Request deadline extension to properly supervise or do work himself"
-        ],
-        "consequences_if_alternative": [
-          "Might face management pushback but maintains professional standards",
-          "Deadline might slip slightly but work quality assured",
-          "Project timeline affected but risk eliminated"
-        ]
+        "character_motivation": "Why",
+        "ethical_tension": "Dilemma",
+        "narrative_role": "inciting_incident/rising_action/climax",
+        "stakes": "What's at risk",
+        "is_decision_point": true
       }}
     }}
   ]
 }}
-```
 
-IMPORTANT:
-- Only extract volitional decisions (actions), not occurrences (events)
-- Be specific with obligation names and principles
-- Identify competing priorities explicitly
-- Use temporal markers from the identified context
-- If an action affects multiple timepoints, note the primary one
-- For scenario metadata: Think like a teacher creating an interactive case study
-  - Character motivations should be psychologically realistic
-  - Ethical tensions should be genuine dilemmas, not easy choices
-  - Decision significance should explain what students will learn
-  - Narrative roles follow story arc structure
-  - Stakes should be concrete and serious
-  - Decision points are where learners could make different choices
-  - Alternatives should be realistic options the agent actually had
-  - Consequences should show what would have happened differently
-
-JSON Response:"""
+Return only JSON, no explanations."""
 
     return prompt
 
