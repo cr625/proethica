@@ -1221,14 +1221,6 @@
                 '</small></div>';
         }
 
-        let parsedSection = '';
-        if (trace.parsed_output) {
-            parsedSection = '<div class="mt-2"><small class="text-muted">' +
-                '<strong>Extracted:</strong> ' +
-                JSON.stringify(trace.parsed_output) +
-                '</small></div>';
-        }
-
         content.innerHTML =
             '<div class="accordion-body">' +
             '<div class="mb-4">' +
@@ -1245,7 +1237,6 @@
             '<pre class="response-display">' + escapeHtml(trace.response || 'No response available') + '</pre>' +
             '</div>' +
             tokenSection +
-            parsedSection +
             '</div>';
 
         accordionItem.appendChild(header);
