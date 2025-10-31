@@ -31,6 +31,9 @@ from app.services.case_synthesis_service import CaseSynthesisService
 # Import Part D: Institutional Rule Analysis
 from app.services.case_analysis.institutional_rule_analyzer import InstitutionalRuleAnalyzer
 
+# Import Precedent Citation Extraction (Part A-bis)
+from app.services.precedent_citation_extractor import PrecedentCitationExtractor
+
 logger = logging.getLogger(__name__)
 
 
@@ -55,21 +58,29 @@ def synthesize_case_streaming(case_id):
         
         # Extract section texts
         references_html = None
+        references_text = ""
         for section_key, section_content in sections_dual.items():
             if 'reference' in section_key.lower():
                 references_html = section_content.get('html', '') if isinstance(section_content, dict) else ''
+                references_text = section_content.get('text', '') if isinstance(section_content, dict) else str(section_content)
                 break
-        
+
         questions_text = ""
         if 'question' in sections_dual:
             q_data = sections_dual['question']
             questions_text = q_data.get('text', '') if isinstance(q_data, dict) else str(q_data)
-        
+
         conclusions_text = ""
         if 'conclusion' in sections_dual:
             c_data = sections_dual['conclusion']
             conclusions_text = c_data.get('text', '') if isinstance(c_data, dict) else str(c_data)
-        
+
+        # Extract discussion section for precedent extraction
+        discussion_text = ""
+        if 'discussion' in sections_dual:
+            d_data = sections_dual['discussion']
+            discussion_text = d_data.get('text', '') if isinstance(d_data, dict) else str(d_data)
+
         # Extract case sections for provision detection
         case_sections = {}
         for section_key in ['facts', 'discussion', 'question', 'conclusion']:
@@ -211,14 +222,63 @@ def synthesize_case_streaming(case_id):
                         })
                 
                 synthesis_results['provisions'] = provisions
-                
+
+                yield sse_message({
+                    'stage': 'PART_A_PROVISIONS_COMPLETE',
+                    'progress': 45,
+                    'messages': [f'Part A: Code provisions extracted ({len(provisions)} provisions)'],
+                    'llm_trace': llm_traces[-2:] if len(llm_traces) >= 2 else llm_traces
+                })
+
+                # =============================================================
+                # PART A-bis: PRECEDENT CASE CITATIONS
+                # =============================================================
+                yield sse_message({
+                    'stage': 'PART_A_PRECEDENTS_START',
+                    'progress': 47,
+                    'messages': ['Part A: Extracting precedent case citations from Discussion and Conclusions...']
+                })
+
+                # Extract precedent citations from Discussion and Conclusions sections
+                # (precedents are cited throughout the analysis, not just in References)
+                precedent_extractor = PrecedentCitationExtractor(llm_client)
+
+                # Combine Discussion and Conclusions sections for precedent search
+                precedent_search_text = f"{discussion_text}\n\n{conclusions_text}"
+
+                # Build case context for relevance analysis
+                precedent_context = {
+                    'provisions': [f"{p.get('code_provision', '')}: {p.get('provision_text', '')[:100]}..." for p in provisions[:5]],
+                    'questions': [],  # Will extract questions in Part B
+                    'conclusions': []
+                }
+
+                precedent_citations = precedent_extractor.extract_precedent_citations(
+                    precedent_search_text,
+                    precedent_context
+                )
+
+                # Capture LLM trace
+                if hasattr(precedent_extractor, 'last_prompt') and hasattr(precedent_extractor, 'last_response'):
+                    llm_traces.append({
+                        'stage': 'Precedent Citation Extraction',
+                        'prompt': precedent_extractor.last_prompt,
+                        'response': precedent_extractor.last_response,
+                        'model': 'claude-sonnet-4-5-20250929',
+                        'timestamp': datetime.utcnow().isoformat()
+                    })
+
+                synthesis_results['precedent_citations'] = [pc.to_dict() for pc in precedent_citations]
+
                 yield sse_message({
                     'stage': 'PART_A_COMPLETE',
                     'progress': 50,
-                    'messages': [f'Part A complete: {len(provisions)} provisions'],
-                    'llm_trace': llm_traces[-2:] if len(llm_traces) >= 2 else llm_traces
+                    'messages': [
+                        f'Part A complete: {len(provisions)} code provisions, {len(precedent_citations)} precedent cases'
+                    ],
+                    'llm_trace': [llm_traces[-1]] if llm_traces else []
                 })
-                
+
                 # =============================================================
                 # PART B: QUESTIONS & CONCLUSIONS
                 # =============================================================
@@ -427,6 +487,7 @@ def synthesize_case_streaming(case_id):
                     'messages': ['Synthesis complete! Saving to database...'],
                     'summary': {
                         'provisions_count': len(synthesis_results['provisions']),
+                        'precedent_count': len(synthesis_results.get('precedent_citations', [])),
                         'questions_count': len(synthesis_results['questions']),
                         'conclusions_count': len(synthesis_results['conclusions']),
                         'total_nodes': synthesis_results['synthesis']['total_nodes'],
@@ -437,6 +498,7 @@ def synthesize_case_streaming(case_id):
                     'llm_traces': llm_traces,
                     'synthesis_results': {
                         'provisions': synthesis_results['provisions'],
+                        'precedent_citations': synthesis_results.get('precedent_citations', []),  # Part A-bis
                         'questions': [
                             {
                                 'id': getattr(q, 'question_number', ''),
@@ -558,6 +620,7 @@ def save_step4_streaming_results(case_id):
         logger.info(f"[Save Endpoint Debug] llm_traces length: {len(llm_traces)}")
         logger.info(f"[Save Endpoint Debug] questions in synthesis_results: {len(synthesis_results.get('questions', []))}")
         logger.info(f"[Save Endpoint Debug] conclusions in synthesis_results: {len(synthesis_results.get('conclusions', []))}")
+        logger.info(f"[Save Endpoint Debug] precedent_citations in synthesis_results: {len(synthesis_results.get('precedent_citations', []))}")
 
         if not session_id:
             return jsonify({'error': 'session_id is required'}), 400
@@ -613,9 +676,58 @@ def save_step4_streaming_results(case_id):
             )
             db.session.add(rdf_entity)
 
+        # Store Precedent Citations to TemporaryRDFStorage
+        precedent_citations_list = synthesis_results.get('precedent_citations', [])
+        logger.info(f"[Save Endpoint] Saving {len(precedent_citations_list)} precedent citations to TemporaryRDFStorage")
+
+        # Clear old precedent citations
+        TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            extraction_type='precedent_case_reference'
+        ).delete(synchronize_session=False)
+
+        for pc in precedent_citations_list:
+            case_number = pc.get('caseNumber', '')
+            label = f"BOR_Case_{case_number.replace('-', '_').replace('.', '_')}"
+
+            rdf_entity = TemporaryRDFStorage(
+                case_id=case_id,
+                extraction_session_id=session_id,
+                extraction_type='precedent_case_reference',
+                storage_type='individual',
+                entity_type='resources',  # Precedents are authoritative resources
+                entity_label=label,
+                entity_definition=pc.get('caseTitle', ''),
+                rdf_json_ld={
+                    '@type': 'proeth-case:PrecedentCaseReference',
+                    'label': label,
+                    'caseNumber': case_number,
+                    'caseTitle': pc.get('caseTitle', ''),
+                    'fullCitation': pc.get('fullCitation', ''),
+                    'yearDecided': pc.get('yearDecided'),
+                    'citationContext': pc.get('citationContext', ''),
+                    'relevanceReasoning': pc.get('relevanceReasoning', ''),
+                    'relatedProvisions': pc.get('relatedProvisions', []),
+                    'mentionedInSection': pc.get('mentionedInSection', 'references'),
+                    'confidence': pc.get('confidence', 0.9),
+                    'providedBy': 'NSPE Board of Ethical Review',
+                    'authoritative': True
+                },
+                is_selected=True,
+                extraction_model='claude-sonnet-4-5-20250929',
+                ontology_target=f'proethica-case-{case_id}'
+            )
+            db.session.add(rdf_entity)
+
         # Store Questions to TemporaryRDFStorage
         questions_list = synthesis_results.get('questions', [])
         logger.info(f"[Save Endpoint] Saving {len(questions_list)} questions to TemporaryRDFStorage")
+
+        # Clear old questions
+        TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            extraction_type='ethical_question'
+        ).delete(synchronize_session=False)
 
         for q in questions_list:
             question_num = q.get('id', 0)
@@ -645,6 +757,12 @@ def save_step4_streaming_results(case_id):
         # Store Conclusions to TemporaryRDFStorage
         conclusions_list = synthesis_results.get('conclusions', [])
         logger.info(f"[Save Endpoint] Saving {len(conclusions_list)} conclusions to TemporaryRDFStorage")
+
+        # Clear old conclusions
+        TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            extraction_type='ethical_conclusion'
+        ).delete(synchronize_session=False)
 
         for c in conclusions_list:
             conclusion_num = c.get('id', 0)
@@ -732,7 +850,7 @@ def save_step4_streaming_results(case_id):
         db.session.commit()
 
         logger.info(f"Successfully saved Step 4 streaming results for case {case_id}")
-        logger.info(f"[Save Endpoint] Saved {len(provisions_list)} provisions, {len(questions_list)} questions, and {len(conclusions_list)} conclusions")
+        logger.info(f"[Save Endpoint] Saved {len(provisions_list)} provisions, {len(precedent_citations_list)} precedent citations, {len(questions_list)} questions, and {len(conclusions_list)} conclusions")
 
         return jsonify({
             'success': True,

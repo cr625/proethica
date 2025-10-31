@@ -293,6 +293,41 @@ def step4_review(case_id):
                 'rdf_json_ld': c.rdf_json_ld or {}
             })
 
+        # Get precedent citations and convert to dicts
+        precedent_objs = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            extraction_type='precedent_case_reference'
+        ).all()
+
+        precedents = []
+        for p in precedent_objs:
+            precedents.append({
+                'id': p.id,
+                'entity_type': p.entity_type,
+                'entity_label': p.entity_label,
+                'entity_definition': p.entity_definition,
+                'entity_uri': p.entity_uri,
+                'rdf_json_ld': p.rdf_json_ld or {}
+            })
+
+        # Get institutional analysis (Part D)
+        from sqlalchemy import text
+        institutional_analysis = None
+        institutional_query = text("""
+            SELECT * FROM case_institutional_analysis WHERE case_id = :case_id
+        """)
+        result = db.session.execute(institutional_query, {'case_id': case_id}).fetchone()
+        if result:
+            institutional_analysis = {
+                'principle_tensions': result.principle_tensions if hasattr(result, 'principle_tensions') else None,
+                'principle_conflict_description': result.principle_conflict_description if hasattr(result, 'principle_conflict_description') else None,
+                'obligation_conflicts': result.obligation_conflicts if hasattr(result, 'obligation_conflicts') else None,
+                'obligation_conflict_description': result.obligation_conflict_description if hasattr(result, 'obligation_conflict_description') else None,
+                'constraining_factors': result.constraining_factors if hasattr(result, 'constraining_factors') else None,
+                'constraint_influence_description': result.constraint_influence_description if hasattr(result, 'constraint_influence_description') else None,
+                'case_significance': result.case_significance if hasattr(result, 'case_significance') else None
+            }
+
         # Check if synthesis annotations already exist
         from app.models.document_concept_annotation import DocumentConceptAnnotation
         from sqlalchemy import func
@@ -315,6 +350,8 @@ def step4_review(case_id):
             'saved_synthesis': saved_synthesis,
             'provisions': provisions_objs,  # Original objects for template iteration
             'provisions_json': provisions,  # JSON-serializable for graph
+            'precedents': precedent_objs,  # Precedent citations
+            'precedents_json': precedents,  # JSON-serializable
             'questions': questions_objs,
             'questions_json': questions,
             'conclusions': conclusions_objs,
@@ -322,8 +359,10 @@ def step4_review(case_id):
             'all_entities': all_entities,
             'entity_count': len(all_entities),
             'provision_count': len(provisions),
+            'precedent_count': len(precedents),
             'question_count': len(questions),
             'conclusion_count': len(conclusions),
+            'institutional_analysis': institutional_analysis,  # Part D data
             'has_synthesis_annotations': len(existing_annotations) > 0,
             'annotation_count': len(existing_annotations),
             'annotation_breakdown': annotation_counts

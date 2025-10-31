@@ -183,6 +183,19 @@
     rdfs:label "Resource"@en ;
     rdfs:comment "A physical or informational entity used in ethical scenarios. Examples include Technical Specifications, Safety Equipment, Project Budget, Design Documents."@en .
 
+# Case-Specific Resource Subtypes (used in Step 4 analysis)
+:PrecedentCaseReference rdf:type owl:Class ;
+    rdfs:subClassOf :Resource ;
+    rdfs:label "Precedent Case Reference"@en ;
+    rdfs:comment "A reference to a prior NSPE Board of Ethical Review case cited as precedent or authority in the current case's analysis. Precedent cases establish patterns, support reasoning, or provide distinguishing context for ethical decisions."@en ;
+    dc:description "Extracted from the References section during Step 4 synthesis. Precedents are authoritative resources that the board invokes to justify or contextualize their reasoning." .
+
+:CodeProvisionReference rdf:type owl:Class ;
+    rdfs:subClassOf :Resource ;
+    rdfs:label "Code Provision Reference"@en ;
+    rdfs:comment "A reference to a specific provision of the NSPE Code of Ethics cited in case analysis. Code provisions are normative resources that establish professional obligations."@en ;
+    dc:description "Extracted from the References section during Step 4 synthesis." .
+
 :Action rdf:type owl:Class ;
     rdf:type :EntityType ;
     rdf:type :GuidelineConceptType ;
@@ -471,8 +484,44 @@
     rdfs:label "governed by code"@en ;
     rdfs:comment "Relates a professional role to an ethical code that formalizes its obligations and norms."@en .
 
+# Properties for precedent case citations (Step 4 analysis)
+:caseNumber rdf:type owl:DatatypeProperty ;
+    rdfs:domain :PrecedentCaseReference ;
+    rdfs:range xsd:string ;
+    rdfs:label "case number"@en ;
+    rdfs:comment "The identifier of a precedent case (e.g., '79-5', '92-7', '2005-10')"@en .
+
+:caseTitle rdf:type owl:DatatypeProperty ;
+    rdfs:domain :PrecedentCaseReference ;
+    rdfs:range xsd:string ;
+    rdfs:label "case title"@en ;
+    rdfs:comment "Brief description or subject matter of the precedent case"@en .
+
+:citationContext rdf:type owl:DatatypeProperty ;
+    rdfs:domain :PrecedentCaseReference ;
+    rdfs:range xsd:string ;
+    rdfs:label "citation context"@en ;
+    rdfs:comment "Where and how the precedent case is cited in the current case analysis"@en .
+
+:relevanceReasoning rdf:type owl:DatatypeProperty ;
+    rdfs:domain :PrecedentCaseReference ;
+    rdfs:range xsd:string ;
+    rdfs:label "relevance reasoning"@en ;
+    rdfs:comment "Explanation of why the board cited this precedent case - what pattern, principle, or distinction it establishes"@en .
+
+:yearDecided rdf:type owl:DatatypeProperty ;
+    rdfs:domain :PrecedentCaseReference ;
+    rdfs:range xsd:integer ;
+    rdfs:label "year decided"@en ;
+    rdfs:comment "The year the precedent case was decided"@en .
+
+:citesPrecedent rdf:type owl:ObjectProperty ;
+    rdfs:domain :PrecedentCaseReference ;
+    rdfs:label "cites precedent"@en ;
+    rdfs:comment "Links a precedent citation to the actual case if it exists in the database (for future precedent network analysis)"@en .
+
 #################################################################
-#    SPARQL Query Support                                        
+#    SPARQL Query Support
 #################################################################
 
 # This comment documents the SPARQL query to retrieve all GuidelineConceptTypes:

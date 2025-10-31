@@ -117,15 +117,15 @@
             <i class="bi bi-gear"></i> Whole-Case Synthesis
         </h5>
     </div>
-    <div class="card-body">
+    <div class="card-body text-center">
         {% if synthesis_status.completed %}
             {% if current_user.is_authenticated %}
-            <button type="button" class="btn btn-primary" onclick="runSynthesis()">
-                <i class="bi bi-arrow-repeat"></i> Re-run Synthesis
+            <button type="button" class="btn btn-warning btn-lg" onclick="runSynthesis()">
+                <i class="bi bi-arrow-repeat"></i> Re-run Whole-Case Synthesis
             </button>
             {% else %}
-            <button type="button" class="btn btn-secondary" onclick="window.location.href='{{ url_for('auth.login') }}';" title="Login required to run synthesis">
-                <i class="bi bi-lock-fill"></i> Re-run Synthesis (Login Required)
+            <button type="button" class="btn btn-secondary btn-lg" onclick="window.location.href='{{ url_for('auth.login') }}';" title="Login required to run synthesis">
+                <i class="bi bi-lock-fill"></i> Re-run Whole-Case Synthesis (Login Required)
             </button>
             {% endif %}
         {% else %}
@@ -134,11 +134,11 @@
             </div>
 
             {% if current_user.is_authenticated %}
-            <button type="button" class="btn btn-lg btn-primary" onclick="runSynthesis()">
+            <button type="button" class="btn btn-warning btn-lg" onclick="runSynthesis()">
                 <i class="bi bi-play-circle"></i> Run Whole-Case Synthesis
             </button>
             {% else %}
-            <button type="button" class="btn btn-lg btn-secondary" onclick="window.location.href='{{ url_for('auth.login') }}';" title="Login required to run synthesis">
+            <button type="button" class="btn btn-secondary btn-lg" onclick="window.location.href='{{ url_for('auth.login') }}';" title="Login required to run synthesis">
                 <i class="bi bi-lock-fill"></i> Run Whole-Case Synthesis (Login Required)
             </button>
             {% endif %}
@@ -203,14 +203,10 @@
 
 <!-- View Step 4 Review Button (at bottom) -->
 {% if synthesis_status.completed %}
-<div class="card mb-4">
-    <div class="card-body text-center">
-        <h5><i class="bi bi-clipboard-check"></i> View Synthesis Results</h5>
-        <p class="text-muted">Review code provisions, questions & conclusions, entity graph, and institutional analysis</p>
-        <a href="{{ url_for('step4.step4_review', case_id=case.id) }}" class="btn btn-success btn-lg">
-            <i class="bi bi-eye"></i> View Step 4 Review
-        </a>
-    </div>
+<div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4">
+    <a href="{{ url_for('step4.step4_review', case_id=case.id) }}" class="btn btn-outline-primary">
+        <i class="bi bi-eye"></i> View Step 4 Review
+    </a>
 </div>
 {% endif %}
 
@@ -693,6 +689,26 @@ document.getElementById('aboutStep4').addEventListener('hide.bs.collapse', funct
     #progress-messages {
         max-height: 400px;
         overflow-y: auto;
+    }
+
+    /* Synthesis Button Styling (matching Step 3) */
+    .btn-warning.btn-lg {
+        padding: 1rem 2rem;
+        font-size: 1.1rem;
+        border-radius: 50px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+    }
+
+    .btn-warning.btn-lg:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .btn-secondary.btn-lg {
+        padding: 1rem 2rem;
+        font-size: 1.1rem;
+        border-radius: 50px;
     }
 
     /* Prompt and Response Display Styles */
