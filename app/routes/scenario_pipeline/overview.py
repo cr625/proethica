@@ -367,15 +367,23 @@ def step1(case_id):
             except Exception as e:
                 logger.warning(f"Segmentation processing failed: {e}")
         
+        # Get progress context for navigation
+        from app.services.case_pipeline_progress import CasePipelineProgress
+        progress = CasePipelineProgress.get_case_progress(case_id)
+        progress_summary = CasePipelineProgress.get_progress_summary(case_id)
+
         # Template context
         context = {
             'case': case,
             'sections': sections,
-            'current_step': 1,
+            'current_step': 'overview',  # Special value for overview page
             'next_step_url': url_for('scenario_pipeline.step1', case_id=case_id),  # Go to Step 1
-            'prev_step_url': None  # No previous step
+            'prev_step_url': None,  # No previous step
+            'progress': progress,
+            'progress_summary': progress_summary,
+            'can_proceed': True  # Overview can always proceed to Step 1
         }
-        
+
         return render_template('scenarios/overview.html', **context)
         
     except Exception as e:

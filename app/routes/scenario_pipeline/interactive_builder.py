@@ -119,14 +119,29 @@ def step1_streaming(case_id):
     """Route handler for Step 1: Enhanced version with streaming updates"""
     from .step1 import step1_data
     from flask import render_template
+    from app.services.case_pipeline_progress import CasePipelineProgress
+
     # Get the same data as regular step1
     case_doc, facts_section, discussion_section, saved_prompts = step1_data(case_id)
+
+    # Get progress context
+    progress = CasePipelineProgress.get_case_progress(case_id)
+    progress_summary = CasePipelineProgress.get_progress_summary(case_id)
+    step1_data_dict = progress.get(1, {})
+
     # Render the streaming template
     return render_template('scenarios/step1_streaming.html',
                          case=case_doc,
                          facts_section=facts_section,
                          discussion_section=discussion_section,
-                         saved_prompts=saved_prompts)
+                         saved_prompts=saved_prompts,
+                         current_step=1,
+                         next_step_url=url_for('scenario_pipeline.step2', case_id=case_id),
+                         prev_step_url=url_for('scenario_pipeline.overview', case_id=case_id),
+                         progress=progress,
+                         progress_summary=progress_summary,
+                         step_complete=step1_data_dict.get('complete', False),
+                         can_proceed=step1_data_dict.get('can_proceed', False))
 
 @interactive_scenario_bp.route('/case/<int:case_id>/debug')
 def debug_overview_route(case_id):
@@ -307,13 +322,28 @@ def step2_streaming(case_id):
     """Route handler for Step 2: Enhanced version with streaming updates"""
     from .step2 import step2_data
     from flask import render_template
+    from app.services.case_pipeline_progress import CasePipelineProgress
+
     # Get the same data as regular step2
     case_doc, facts_section, saved_prompts = step2_data(case_id)
+
+    # Get progress context
+    progress = CasePipelineProgress.get_case_progress(case_id)
+    progress_summary = CasePipelineProgress.get_progress_summary(case_id)
+    step2_data_dict = progress.get(2, {})
+
     # Render the streaming template
     return render_template('scenarios/step2_streaming.html',
                          case=case_doc,
                          discussion_section=facts_section,  # Keep name for template compatibility
-                         saved_prompts=saved_prompts)
+                         saved_prompts=saved_prompts,
+                         current_step=2,
+                         next_step_url=url_for('scenario_pipeline.step3', case_id=case_id),
+                         prev_step_url=url_for('scenario_pipeline.step1', case_id=case_id),
+                         progress=progress,
+                         progress_summary=progress_summary,
+                         step_complete=step2_data_dict.get('complete', False),
+                         can_proceed=step2_data_dict.get('can_proceed', False))
 
 @interactive_scenario_bp.route('/case/<int:case_id>/normative_pass_execute_streaming', methods=['POST'])
 @auth_required_for_llm

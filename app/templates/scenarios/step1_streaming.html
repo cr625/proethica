@@ -380,6 +380,11 @@ function handleStreamData(data) {
         contextualBtn.disabled = false;
         contextualBtn.innerHTML = '<i class="bi bi-check-circle"></i> Extraction Complete - Run Again';
 
+        // Enable next step button via ProgressTracker
+        if (typeof ProgressTracker !== 'undefined') {
+            ProgressTracker.onExtractionComplete();
+        }
+
     } else if (data.status === 'error') {
         // Handle error
         progressBar.classList.add('bg-danger');

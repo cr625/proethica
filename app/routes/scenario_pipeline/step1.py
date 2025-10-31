@@ -141,6 +141,12 @@ def step1(case_id):
     """
     case, facts_section, discussion_section, saved_prompts = step1_data(case_id)
 
+    # Get progress context
+    from app.services.case_pipeline_progress import CasePipelineProgress
+    progress = CasePipelineProgress.get_case_progress(case_id)
+    progress_summary = CasePipelineProgress.get_progress_summary(case_id)
+    step1_data_dict = progress.get(1, {})
+
     # Template context
     context = {
         'case': case,
@@ -150,7 +156,11 @@ def step1(case_id):
         'step_title': 'Contextual Framework Pass - Facts & Discussion',
         'next_step_url': url_for('scenario_pipeline.step2', case_id=case_id),
         'prev_step_url': url_for('scenario_pipeline.overview', case_id=case_id),
-        'saved_prompts': saved_prompts
+        'saved_prompts': saved_prompts,
+        'progress': progress,
+        'progress_summary': progress_summary,
+        'step_complete': step1_data_dict.get('complete', False),
+        'can_proceed': step1_data_dict.get('can_proceed', False)
     }
 
     # Use multi-section template with separate extractors

@@ -173,6 +173,8 @@ def create_app(config_name=None):
     from app.routes.reasoning import reasoning_bp
     # PROV-O provenance viewer routes
     from app.routes.provenance import provenance_bp
+    # Case pipeline progress tracking API
+    from app.routes.api.case_progress import case_progress_bp
     # STUB: Ontology editor moved to OntServe - this redirects to OntServe
     from ontology_editor import create_ontology_editor_blueprint
     
@@ -219,7 +221,8 @@ def create_app(config_name=None):
     app.register_blueprint(api_document_annotations_bp)  # Register unified document annotation API
     app.register_blueprint(reasoning_bp)  # Register reasoning inspector routes
     app.register_blueprint(provenance_bp)  # Register PROV-O provenance viewer routes
-    
+    app.register_blueprint(case_progress_bp)  # Register case pipeline progress API
+
     # Exempt API routes from CSRF protection
     from app.routes.api_document_annotations import init_csrf_exemption
     init_csrf_exemption(app)

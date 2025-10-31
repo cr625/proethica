@@ -868,6 +868,12 @@ def step2(case_id):
             if saved_prompt:
                 saved_prompts[concept_type] = saved_prompt
 
+        # Get progress context
+        from app.services.case_pipeline_progress import CasePipelineProgress
+        progress = CasePipelineProgress.get_case_progress(case_id)
+        progress_summary = CasePipelineProgress.get_progress_summary(case_id)
+        step2_data_dict = progress.get(2, {})
+
         context = {
             'case': case,
             'discussion_section': facts_section,  # Keep variable name for template compatibility
@@ -875,9 +881,13 @@ def step2(case_id):
             'section_display_name': 'Facts Section',
             'current_step': 2,
             'step_title': 'Normative Pass - Facts Section',
-            'next_step_url': url_for('scenario_pipeline.step2b', case_id=case_id),
-            'prev_step_url': url_for('scenario_pipeline.step1b', case_id=case_id),  # Back to Pass 1 Discussion (step1e deprecated)
-            'saved_prompts': saved_prompts
+            'next_step_url': url_for('scenario_pipeline.step3', case_id=case_id),
+            'prev_step_url': url_for('scenario_pipeline.step1', case_id=case_id),
+            'saved_prompts': saved_prompts,
+            'progress': progress,
+            'progress_summary': progress_summary,
+            'step_complete': step2_data_dict.get('complete', False),
+            'can_proceed': step2_data_dict.get('can_proceed', False)
         }
 
         return render_template('scenarios/step2_multi_section.html', **context)

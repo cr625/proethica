@@ -89,6 +89,53 @@
         padding-top: 1rem;
         border-top: 1px solid #e3e6f0;
     }
+
+    .pipeline-step.complete {
+        background-color: #d4edda;
+        border-left: 4px solid #28a745;
+        cursor: pointer;
+        pointer-events: auto;
+    }
+
+    .pipeline-step.complete:hover {
+        background-color: #c3e6cb;
+    }
+
+    .pipeline-step.complete .bi-check-circle-fill {
+        color: #28a745;
+    }
+
+    .pipeline-step.locked {
+        opacity: 0.5;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+
+    .pipeline-step.active {
+        background-color: #4e73df;
+        color: white;
+        font-weight: 600;
+        border-left: 4px solid #2e59d9;
+    }
+
+    .pipeline-step.active .bi-check-circle-fill {
+        color: white;
+    }
+
+    .progress-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+
+    .overview-link {
+        border-left: 4px solid transparent;
+    }
+
+    .overview-link.active {
+        background-color: #858796;
+        color: white;
+        border-left: 4px solid #5a5c69;
+    }
 </style>
 {% block step_styles %}{% endblock %}
 {% endblock %}
@@ -122,48 +169,93 @@
                 </h5>
 
                 <a href="{{ url_for('scenario_pipeline.overview', case_id=case.id) }}"
-                    class="pipeline-step {% if request.endpoint == 'scenario_pipeline.overview' %}active{% endif %}">
+                    class="pipeline-step overview-link {% if request.endpoint == 'scenario_pipeline.overview' %}active{% endif %}">
                     <i class="bi bi-file-text"></i> Overview
                 </a>
+
+                <!-- Step 1: Always accessible -->
                 <a href="{{ url_for('scenario_pipeline.step1', case_id=case.id) }}"
-                    class="pipeline-step {% if request.endpoint == 'scenario_pipeline.step1' %}active{% endif %}">
+                   class="pipeline-step {% if current_step == 1 %}active{% elif progress and progress.get(1, {}).get('complete') %}complete{% endif %}">
                     <i class="bi bi-1-circle"></i> Step 1: Contextual Framework
+                    {% if progress and progress.get(1, {}).get('complete') %}<i class="bi bi-check-circle-fill float-end"></i>{% endif %}
                 </a>
+
+                <!-- Step 2: Accessible if Step 1 complete -->
+                {% if progress and progress.get(1, {}).get('complete') %}
                 <a href="{{ url_for('scenario_pipeline.step2', case_id=case.id) }}"
-                    class="pipeline-step {% if request.endpoint == 'scenario_pipeline.step2' %}active{% endif %}">
+                   class="pipeline-step {% if current_step == 2 %}active{% elif progress.get(2, {}).get('complete') %}complete{% endif %}">
                     <i class="bi bi-2-circle"></i> Step 2: Normative Requirements
+                    {% if progress.get(2, {}).get('complete') %}<i class="bi bi-check-circle-fill float-end"></i>{% endif %}
                 </a>
+                {% else %}
+                <div class="pipeline-step locked">
+                    <i class="bi bi-2-circle"></i> Step 2: Normative Requirements
+                    <i class="bi bi-lock-fill float-end"></i>
+                </div>
+                {% endif %}
+
+                <!-- Step 3: Accessible if Step 2 complete -->
+                {% if progress and progress.get(2, {}).get('complete') %}
                 <a href="{{ url_for('scenario_pipeline.step3', case_id=case.id) }}"
-                    class="pipeline-step {% if request.endpoint == 'scenario_pipeline.step3' %}active{% endif %}">
+                   class="pipeline-step {% if current_step == 3 %}active{% elif progress.get(3, {}).get('complete') %}complete{% endif %}">
                     <i class="bi bi-3-circle"></i> Step 3: Temporal Dynamics
+                    {% if progress.get(3, {}).get('complete') %}<i class="bi bi-check-circle-fill float-end"></i>{% endif %}
                 </a>
+                {% else %}
+                <div class="pipeline-step locked">
+                    <i class="bi bi-3-circle"></i> Step 3: Temporal Dynamics
+                    <i class="bi bi-lock-fill float-end"></i>
+                </div>
+                {% endif %}
+
+                <!-- Step 4: Accessible if Step 3 complete -->
+                {% if progress and progress.get(3, {}).get('complete') %}
                 <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}"
-                    class="pipeline-step {% if request.endpoint == 'step4.step4_synthesis' %}active{% endif %}">
+                   class="pipeline-step {% if current_step == 4 %}active{% elif progress.get(4, {}).get('complete') %}complete{% endif %}">
                     <i class="bi bi-4-circle"></i> Step 4: Whole-Case Synthesis
+                    {% if progress.get(4, {}).get('complete') %}<i class="bi bi-check-circle-fill float-end"></i>{% endif %}
                 </a>
+                {% else %}
+                <div class="pipeline-step locked">
+                    <i class="bi bi-4-circle"></i> Step 4: Whole-Case Synthesis
+                    <i class="bi bi-lock-fill float-end"></i>
+                </div>
+                {% endif %}
+
+                <!-- Step 5: Accessible if Step 4 complete -->
+                {% if progress and progress.get(4, {}).get('complete') %}
                 <a href="{{ url_for('step5.step5_scenario_generation', case_id=case.id) }}"
-                    class="pipeline-step {% if request.endpoint == 'step5.step5_scenario_generation' %}active{% endif %}">
+                   class="pipeline-step {% if current_step == 5 %}active{% elif progress.get(5, {}).get('complete') %}complete{% endif %}">
                     <i class="bi bi-5-circle"></i> Step 5: Scenario Generation
+                    {% if progress.get(5, {}).get('complete') %}<i class="bi bi-check-circle-fill float-end"></i>{% endif %}
                 </a>
+                {% else %}
+                <div class="pipeline-step locked">
+                    <i class="bi bi-5-circle"></i> Step 5: Scenario Generation
+                    <i class="bi bi-lock-fill float-end"></i>
+                </div>
+                {% endif %}
 
                 <hr class="my-3">
 
-                <div class="d-grid gap-2">
-                    {% if current_step > 1 and prev_step_url and prev_step_url != '#' %}
-                    <a href="{{ prev_step_url }}" class="btn btn-outline-secondary">
-                        <i class="bi bi-arrow-left"></i> Previous
-                    </a>
-                    {% endif %}
-                    {% if current_step < 5 and next_step_url and next_step_url !='#' %}
-                    <a href="{{ next_step_url }}" class="btn btn-primary">
-                        Next <i class="bi bi-arrow-right"></i>
-                    </a>
-                    {% elif current_step < 5 %}
-                    <button class="btn btn-outline-secondary" disabled>
-                        Next <i class="bi bi-arrow-right"></i> (Coming Soon)
-                    </button>
-                    {% endif %}
+                {% if progress_summary %}
+                <div class="text-muted small mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>Progress:</span>
+                        <span class="badge progress-badge bg-{% if progress_summary.is_complete %}success{% elif progress_summary.progress_percentage >= 60 %}primary{% else %}warning{% endif %}">
+                            {{ progress_summary.completed_steps }}/{{ progress_summary.total_steps }} steps
+                        </span>
+                    </div>
+                    <div class="progress mt-2" style="height: 8px;">
+                        <div class="progress-bar bg-{% if progress_summary.is_complete %}success{% else %}primary{% endif %}"
+                             role="progressbar"
+                             style="width: {{ progress_summary.progress_percentage }}%"
+                             aria-valuenow="{{ progress_summary.progress_percentage }}"
+                             aria-valuemin="0"
+                             aria-valuemax="100"></div>
+                    </div>
                 </div>
+                {% endif %}
             </div>
         </div>
 
@@ -192,22 +284,25 @@
             <div class="navigation-buttons">
                 <div class="d-flex justify-content-between">
                     <div>
-                        {% if current_step > 1 and prev_step_url and prev_step_url != '#' %}
+                        {% if current_step != 'overview' and current_step > 1 and prev_step_url and prev_step_url != '#' %}
                         <a href="{{ prev_step_url }}" class="btn btn-outline-secondary">
                             <i class="bi bi-arrow-left"></i> Previous Step
                         </a>
                         {% endif %}
                     </div>
                     <div>
-                        {% if current_step < 5 and next_step_url and next_step_url !='#' %}
-                        <a href="{{ next_step_url }}" class="btn btn-primary">
-                            Next Step <i class="bi bi-arrow-right"></i>
-                        </a>
-                        {% elif current_step < 5 %}
-                        <button class="btn btn-outline-secondary" disabled>
-                            Next Step <i class="bi bi-arrow-right"></i> (Coming Soon)
+                        {% if current_step == 'overview' or (current_step < 5 and next_step_url and next_step_url !='#') %}
+                        <button id="nextStepBtn"
+                                class="btn {% if can_proceed %}btn-primary{% else %}btn-outline-secondary{% endif %}"
+                                {% if not can_proceed %}disabled{% endif %}
+                                onclick="window.location.href='{{ next_step_url }}'">
+                            {% if current_step == 'overview' %}Begin Step 1{% else %}Next Step{% endif %} <i class="bi bi-arrow-right"></i>
                         </button>
-                        {% else %}
+                        {% elif current_step != 'overview' and current_step < 5 %}
+                        <button id="nextStepBtn" class="btn btn-outline-secondary" disabled>
+                            Next Step <i class="bi bi-arrow-right"></i>
+                        </button>
+                        {% elif current_step == 5 %}
                         <a href="{{ url_for('cases.view_case', id=case.id) }}" class="btn btn-success">
                             <i class="bi bi-check-circle"></i> Complete
                         </a>
@@ -222,5 +317,80 @@
 
 {% block scripts %}
 {{ super() }}
+<script>
+// Progress tracking utilities
+const ProgressTracker = {
+    caseId: {{ case.id }},
+    currentStep: {% if current_step == 'overview' %}0{% else %}{{ current_step }}{% endif %},
+
+    async checkProgress() {
+        try {
+            const response = await fetch(`/api/case/${this.caseId}/progress`);
+            const data = await response.json();
+
+            if (data.success) {
+                this.updateUI(data);
+                return data;
+            }
+        } catch (error) {
+            console.error('Error checking progress:', error);
+        }
+        return null;
+    },
+
+    async checkStepCompletion(stepNumber) {
+        try {
+            const response = await fetch(`/api/case/${this.caseId}/progress/${stepNumber}`);
+            const data = await response.json();
+
+            if (data.success) {
+                return data.can_proceed;
+            }
+        } catch (error) {
+            console.error('Error checking step completion:', error);
+        }
+        return false;
+    },
+
+    updateUI(progressData) {
+        // Update current step's next button (if not on overview)
+        if (this.currentStep > 0) {
+            const currentStepData = progressData.steps[this.currentStep];
+            if (currentStepData) {
+                this.updateNextButton(currentStepData.can_proceed);
+            }
+        }
+    },
+
+    updateNextButton(canProceed) {
+        const nextBtn = document.getElementById('nextStepBtn');
+        if (nextBtn) {
+            nextBtn.disabled = !canProceed;
+            if (canProceed) {
+                nextBtn.classList.remove('btn-outline-secondary');
+                nextBtn.classList.add('btn-primary');
+            } else {
+                nextBtn.classList.remove('btn-primary');
+                nextBtn.classList.add('btn-outline-secondary');
+            }
+        }
+    },
+
+    enableNextButton() {
+        this.updateNextButton(true);
+    },
+
+    // Call this when an extraction completes successfully
+    onExtractionComplete() {
+        this.enableNextButton();
+        this.checkProgress(); // Refresh overall progress
+    }
+};
+
+// Check progress on page load
+document.addEventListener('DOMContentLoaded', function() {
+    ProgressTracker.checkProgress();
+});
+</script>
 {% block step_scripts %}{% endblock %}
 {% endblock %}
