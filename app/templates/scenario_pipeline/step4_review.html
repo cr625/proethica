@@ -115,46 +115,120 @@
                     <h5>Synthesis Reasoning Flow</h5>
                     <small class="text-muted">Shows how NSPE provisions inform questions and conclusions - the board's reasoning chain (LangGraph-style)</small>
 
+                    <!-- View Toggle -->
+                    <div class="mb-3">
+                        <div class="btn-group" role="group">
+                            <input type="radio" class="btn-check" name="graph-view" id="simple-view" checked autocomplete="off">
+                            <label class="btn btn-outline-primary" for="simple-view">
+                                <i class="bi bi-diagram-2"></i> Simple View
+                            </label>
+
+                            <input type="radio" class="btn-check" name="graph-view" id="enhanced-view" autocomplete="off">
+                            <label class="btn btn-outline-primary" for="enhanced-view">
+                                <i class="bi bi-diagram-3"></i> Enhanced View
+                            </label>
+                        </div>
+                        <small class="text-muted ms-2">
+                            Simple: Provisions → Questions → Conclusions | Enhanced: + Precedents, Principles, Conflicts
+                        </small>
+                    </div>
+
                     <!-- Graph Controls -->
-                    <div class="my-3">
+                    <div class="my-3 d-flex flex-wrap gap-2 align-items-center">
+                        <!-- Basic Controls -->
                         <button id="fit-graph" class="btn btn-sm btn-outline-primary">
                             <i class="bi bi-arrows-fullscreen"></i> Fit to View
                         </button>
                         <button id="reset-graph" class="btn btn-sm btn-outline-secondary">
                             <i class="bi bi-arrow-clockwise"></i> Reset Layout
                         </button>
-                        <div class="btn-group ms-2" role="group">
-                            <input type="checkbox" class="btn-check" id="show-labels" checked autocomplete="off">
-                            <label class="btn btn-outline-secondary btn-sm" for="show-labels">Show Labels</label>
+
+                        <!-- Zoom Controls -->
+                        <div class="btn-group">
+                            <button id="zoom-in" class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-zoom-in"></i>
+                            </button>
+                            <button id="zoom-out" class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-zoom-out"></i>
+                            </button>
+                        </div>
+
+                        <!-- Layout Selector -->
+                        <select id="layout-selector" class="form-select form-select-sm" style="width: auto;">
+                            <option value="breadthfirst">Hierarchical</option>
+                            <option value="cose">Force-Directed</option>
+                            <option value="circle">Circle</option>
+                            <option value="grid">Grid</option>
+                        </select>
+
+                        <!-- Labels Toggle -->
+                        <div class="form-check form-switch ms-2">
+                            <input class="form-check-input" type="checkbox" id="show-labels" checked>
+                            <label class="form-check-label" for="show-labels">Labels</label>
+                        </div>
+
+                        <!-- Node Filters (Enhanced View Only) -->
+                        <div id="node-filters" class="ms-3" style="display: none;">
+                            <strong class="me-2">Show:</strong>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input node-filter" type="checkbox" id="filter-precedents" value="precedent" checked>
+                                <label class="form-check-label" for="filter-precedents">Precedents</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input node-filter" type="checkbox" id="filter-principles" value="principle" checked>
+                                <label class="form-check-label" for="filter-principles">Principles</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input node-filter" type="checkbox" id="filter-obligations" value="obligation" checked>
+                                <label class="form-check-label" for="filter-obligations">Obligations</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input node-filter" type="checkbox" id="filter-conflicts" value="conflict" checked>
+                                <label class="form-check-label" for="filter-conflicts">Conflicts</label>
+                            </div>
                         </div>
                     </div>
 
                     <!-- Cytoscape Container -->
-                    <div id="cy" style="width: 100%; height: 700px; border: 1px solid #ddd; background-color: #fafafa;"></div>
+                    <div id="cy" style="width: 100%; height: 900px; border: 1px solid #ddd; background-color: #fafafa; position: relative;">
+                        <div id="graph-loading" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: none;">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading graph...</span>
+                            </div>
+                            <div class="mt-2">Building graph...</div>
+                        </div>
+                    </div>
 
                     <!-- Legend -->
                     <div class="mt-3">
                         <h6>Node Types & Relationships</h6>
                         <div class="row">
-                            <div class="col-md-6">
+                            <div class="col-md-7">
                                 <strong>Nodes:</strong>
-                                <div class="d-flex flex-wrap gap-3 mt-2">
-                                    <span><span class="badge" style="background-color: #6C757D;">■</span> NSPE Provisions (rectangles)</span>
-                                    <span><span class="badge" style="background-color: #FFC107;">◆</span> Questions (diamonds)</span>
-                                    <span><span class="badge" style="background-color: #28A745;">▬</span> Conclusions (rounded)</span>
-                                    <span><span class="badge" style="background-color: #17A2B8;">●</span> Entities (circles)</span>
+                                <div class="d-flex flex-wrap gap-2 mt-2">
+                                    <span><span class="badge" style="background-color: #6C757D;">■</span> Provisions</span>
+                                    <span><span class="badge" style="background-color: #FFC107;">◆</span> Questions</span>
+                                    <span><span class="badge" style="background-color: #28A745;">▬</span> Conclusions</span>
+                                    <span id="legend-precedents" style="display: none;"><span class="badge" style="background-color: #FD7E14;">⬡</span> Precedents</span>
+                                    <span id="legend-principles" style="display: none;"><span class="badge" style="background-color: #0D6EFD;">●</span> Principles</span>
+                                    <span id="legend-obligations" style="display: none;"><span class="badge" style="background-color: #6F42C1;">●</span> Obligations</span>
+                                    <span id="legend-constraints" style="display: none;"><span class="badge" style="background-color: #9B59B6;">■</span> Constraints</span>
                                 </div>
                             </div>
-                            <div class="col-md-6">
-                                <strong>Edge Colors:</strong>
+                            <div class="col-md-5">
+                                <strong>Relationships:</strong>
                                 <div class="mt-2">
-                                    <span class="badge" style="background-color: #6C757D;">→</span> Provision informs Question<br>
-                                    <span class="badge" style="background-color: #FFC107;">→</span> Question answered by Conclusion<br>
-                                    <span class="badge" style="background-color: #17A2B8;">→</span> Provision applies to Entity
+                                    <span class="badge" style="background-color: #6C757D;">─→</span> Informs<br>
+                                    <span class="badge" style="background-color: #FFC107;">─→</span> Answers<br>
+                                    <span class="badge" style="background-color: #17A2B8;">─→</span> Applies to<br>
+                                    <span id="legend-conflicts" style="display: none;" class="badge" style="background-color: #DC3545;">⟷</span> Conflicts (dashed)</span>
                                 </div>
                             </div>
                         </div>
-                        <p class="text-muted mt-2 mb-0"><small><strong>Note:</strong> For individual entity visualization, see <a href="http://localhost:5003/editor/ontology/proethica-case-{{ case.id }}/visualize" target="_blank">OntServe's full ontology view</a></small></p>
+                        <p class="text-muted mt-2 mb-0">
+                            <small><strong>Tip:</strong> Hover over nodes for full text. Click nodes to highlight connections.</small><br>
+                            <small>For complete ontology: <a href="http://localhost:5003/editor/ontology/proethica-case-{{ case.id }}/visualize" target="_blank">OntServe Visualization</a></small>
+                        </p>
                     </div>
                 </div>
             </div>

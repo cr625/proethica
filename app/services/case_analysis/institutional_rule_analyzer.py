@@ -406,61 +406,72 @@ Respond with valid JSON only. Focus on ACTUAL tensions and conflicts, not just l
 
         return prompt
     
+    def _get_entity_attr(self, entity: Any, attr_name: str, default: Any = None) -> Any:
+        """Get entity attribute, checking both TemporaryRDFStorage and OntServe naming."""
+        temp_name = f'entity_{attr_name}'
+        temp_val = getattr(entity, temp_name, None)
+        if temp_val is not None:
+            return temp_val
+        std_val = getattr(entity, attr_name, None)
+        if std_val is not None:
+            return std_val
+        return default
+
     def _format_principles(self, principles: List[Any]) -> str:
-        """Format principles for LLM."""
+        """Format principles for LLM (without URIs to reduce prompt size)."""
         if not principles:
             return "None available"
-        
+
         lines = []
         for i, p in enumerate(principles[:20], 1):
-            label = p.label if hasattr(p, 'label') else 'Unknown'
-            definition = p.definition if hasattr(p, 'definition') else ''
-            uri = p.uri if hasattr(p, 'uri') else ''
-            lines.append(f"{i}. **{label}**: {definition}\n   URI: {uri}")
-        
+            label = self._get_entity_attr(p, 'label', 'Unknown')
+            definition = self._get_entity_attr(p, 'definition', '')
+            # Omit URI to reduce prompt size
+            lines.append(f"{i}. **{label}**: {definition}")
+
         if len(principles) > 20:
             lines.append(f"... and {len(principles) - 20} more")
-        
+
         return "\n".join(lines)
     
     def _format_obligations(self, obligations: List[Any]) -> str:
-        """Format obligations for LLM."""
+        """Format obligations for LLM (without URIs to reduce prompt size)."""
         if not obligations:
             return "None available"
-        
+
         lines = []
         for i, o in enumerate(obligations[:20], 1):
-            label = o.label if hasattr(o, 'label') else 'Unknown'
-            
+            label = self._get_entity_attr(o, 'label', 'Unknown')
+
             # Get obligation statement from RDF
-            rdf_data = o.rdf_json_ld if hasattr(o, 'rdf_json_ld') else {}
+            rdf_data = getattr(o, 'rdf_json_ld', {}) or {}
             props = rdf_data.get('properties', {})
             statement = props.get('obligationStatement', [''])[0] if 'obligationStatement' in props else ''
             code_section = props.get('derivedFrom', [''])[0] if 'derivedFrom' in props else ''
-            
-            uri = o.uri if hasattr(o, 'uri') else ''
-            lines.append(f"{i}. **{label}**: {statement}\n   Code: {code_section}, URI: {uri}")
-        
+
+            # Omit URI to reduce prompt size
+            lines.append(f"{i}. **{label}**: {statement}\n   Code: {code_section}")
+
         if len(obligations) > 20:
             lines.append(f"... and {len(obligations) - 20} more")
-        
+
         return "\n".join(lines)
     
     def _format_constraints(self, constraints: List[Any]) -> str:
-        """Format constraints for LLM."""
+        """Format constraints for LLM (without URIs to reduce prompt size)."""
         if not constraints:
             return "None available"
-        
+
         lines = []
         for i, c in enumerate(constraints[:20], 1):
-            label = c.label if hasattr(c, 'label') else 'Unknown'
-            definition = c.definition if hasattr(c, 'definition') else ''
-            uri = c.uri if hasattr(c, 'uri') else ''
-            lines.append(f"{i}. **{label}**: {definition}\n   URI: {uri}")
-        
+            label = self._get_entity_attr(c, 'label', 'Unknown')
+            definition = self._get_entity_attr(c, 'definition', '')
+            # Omit URI to reduce prompt size
+            lines.append(f"{i}. **{label}**: {definition}")
+
         if len(constraints) > 20:
             lines.append(f"... and {len(constraints) - 20} more")
-        
+
         return "\n".join(lines)
     
     def _parse_analysis_response(self, data: Dict) -> InstitutionalAnalysis:

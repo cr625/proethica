@@ -31,6 +31,9 @@ from app.services.case_synthesis_service import CaseSynthesisService
 # Import Part D: Institutional Rule Analysis
 from app.services.case_analysis.institutional_rule_analyzer import InstitutionalRuleAnalyzer
 
+# Import Part E: Action-Rule Mapping
+from app.services.case_analysis.action_rule_mapper import ActionRuleMapper
+
 # Import Precedent Citation Extraction (Part A-bis)
 from app.services.precedent_citation_extractor import PrecedentCitationExtractor
 
@@ -367,54 +370,13 @@ def synthesize_case_streaming(case_id):
                 # =============================================================
                 # PART C: CROSS-SECTION SYNTHESIS
                 # =============================================================
-                yield sse_message({
-                    'stage': 'PART_C_START',
-                    'progress': 85,
-                    'messages': ['Part C: Performing whole-case synthesis...']
-                })
-                
-                # NOTE: CaseSynthesisService uses pre-loaded entities from closure
-                # It doesn't make new database queries
-                synthesis_service = CaseSynthesisService(llm_client)
-                
-                # Build entity graph (uses pre-loaded all_entities)
-                from app.services.case_synthesis_service import EntityGraph, EntityNode
-                entity_graph = EntityGraph(nodes={})
-                
-                # Pre-loaded entities are already in memory, just structure them
-                for entity_type, entity_list in all_entities.items():
-                    for entity in entity_list:
-                        entity_id = f"{entity_type}_{entity.id}"
-                        node = EntityNode(
-                            entity_id=entity_id,
-                            entity_type=entity_type.lower(),
-                            label=entity.entity_label,
-                            definition=entity.entity_definition or "",
-                            section_type='unknown',  # Would need extraction_session lookup
-                            extraction_session_id=entity.extraction_session_id,
-                            rdf_json_ld=entity.rdf_json_ld or {}
-                        )
-                        entity_graph.add_node(node)
-                
-                synthesis_results['synthesis'] = {
-                    'entity_graph': entity_graph,
-                    'total_nodes': len(entity_graph.nodes),
-                    'node_types': len(entity_graph.by_type)
-                }
-                
-                yield sse_message({
-                    'stage': 'PART_C_GRAPH',
-                    'progress': 90,
-                    'messages': [
-                        f'Built entity graph: {len(entity_graph.nodes)} nodes',
-                        f'Entity types: {len(entity_graph.by_type)}'
-                    ]
-                })
-                
+                # NOTE: Entity graph building moved to after Part D
+                # to include all synthesis results (provisions, precedents, institutional analysis)
+
                 yield sse_message({
                     'stage': 'PART_C_COMPLETE',
                     'progress': 88,
-                    'messages': ['Part C complete: Entity graph built']
+                    'messages': ['Part C: Reserved for future cross-section analysis']
                 })
 
                 # =============================================================
@@ -483,6 +445,134 @@ def synthesize_case_streaming(case_id):
                     })
 
                 # =============================================================
+                # PART E: ACTION-RULE MAPPING
+                # =============================================================
+                yield sse_message({
+                    'stage': 'PART_E_START',
+                    'progress': 96,
+                    'messages': ['Part E: Mapping three-rule framework (What/Why/How)...']
+                })
+
+                # Get all 9 concept entities for action-rule mapping
+                actions_entities = all_entities.get('actions', [])
+                events_entities = all_entities.get('events', [])
+                states_entities = all_entities.get('states', [])
+                roles_entities = all_entities.get('roles', [])
+                resources_entities = all_entities.get('resources', [])
+                capabilities_entities = all_entities.get('capabilities', [])
+
+                action_mapping = None
+                if (actions_entities or events_entities or states_entities or
+                    roles_entities or resources_entities or capabilities_entities or
+                    principles_entities or obligations_entities or constraints_entities):
+
+                    # Initialize mapper with pre-loaded LLM client
+                    action_mapper = ActionRuleMapper(llm_client)
+
+                    # Build case context from previous analyses
+                    case_context = {
+                        'questions': [getattr(q, 'question_text', '') for q in synthesis_results['questions']],
+                        'conclusions': [getattr(c, 'conclusion_text', '') for c in synthesis_results['conclusions']],
+                        'provisions': [f"{p.get('code_provision', '')}: {p.get('provision_text', '')}" for p in synthesis_results['provisions']]
+                    }
+
+                    # Run action-rule mapping
+                    action_mapping = action_mapper.analyze_case(
+                        case_id=case_id,
+                        actions=actions_entities,
+                        events=events_entities,
+                        states=states_entities,
+                        roles=roles_entities,
+                        resources=resources_entities,
+                        capabilities=capabilities_entities,
+                        principles=principles_entities,
+                        obligations=obligations_entities,
+                        constraints=constraints_entities,
+                        case_context=case_context
+                    )
+
+                    # Capture LLM trace
+                    if hasattr(action_mapper, 'last_prompt') and hasattr(action_mapper, 'last_response'):
+                        llm_traces.append({
+                            'stage': 'Action-Rule Mapping',
+                            'prompt': action_mapper.last_prompt,
+                            'response': action_mapper.last_response,
+                            'model': 'claude-sonnet-4-5-20250929',
+                            'timestamp': datetime.utcnow().isoformat()
+                        })
+
+                    # Convert to dict for JSON serialization
+                    synthesis_results['action_mapping'] = action_mapping.to_dict()
+
+                    yield sse_message({
+                        'stage': 'PART_E_COMPLETE',
+                        'progress': 97,
+                        'messages': [
+                            f'Part E complete: Mapped three-rule framework',
+                            f'Action Rule: {len(action_mapping.action_rule.actions_taken)} actions taken, {len(action_mapping.action_rule.actions_not_taken)} not taken',
+                            f'Institutional Rule: {len(action_mapping.institutional_rule.relevant_obligations)} obligations invoked',
+                            f'Steering Rule: {len(action_mapping.steering_rule.transformation_points)} transformation points identified'
+                        ],
+                        'llm_trace': [llm_traces[-1]] if llm_traces else []
+                    })
+                else:
+                    yield sse_message({
+                        'stage': 'PART_E_SKIPPED',
+                        'progress': 97,
+                        'messages': ['Part E skipped: No entities available for action-rule mapping']
+                    })
+
+                # =============================================================
+                # BUILD ENHANCED ENTITY GRAPH (After all parts complete)
+                # =============================================================
+                yield sse_message({
+                    'stage': 'BUILDING_GRAPH',
+                    'progress': 98,
+                    'messages': ['Building comprehensive entity graph...']
+                })
+
+                from app.services.enhanced_entity_graph_builder import EnhancedEntityGraphBuilder
+
+                graph_builder = EnhancedEntityGraphBuilder()
+
+                # Convert provisions dicts to objects-like structures for graph building
+                # The graph builder expects objects with .id and .rdf_json_ld attributes
+                provisions_for_graph = []
+                for p_dict in synthesis_results['provisions']:
+                    # Create a simple object-like namespace
+                    class ProvisionObj:
+                        def __init__(self, data):
+                            self.id = data.get('id', '')
+                            self.entity_label = data.get('code_provision', '')
+                            self.entity_definition = data.get('provision_text', '')
+                            self.rdf_json_ld = data
+                    provisions_for_graph.append(ProvisionObj(p_dict))
+
+                enhanced_graph = graph_builder.build_graph(
+                    provisions=provisions_for_graph,
+                    precedent_citations=synthesis_results.get('precedent_citations', []),
+                    questions=synthesis_results['questions'],
+                    conclusions=synthesis_results['conclusions'],
+                    all_entities=all_entities,
+                    institutional_analysis=synthesis_results.get('institutional_analysis')
+                )
+
+                synthesis_results['synthesis'] = {
+                    'entity_graph': enhanced_graph,
+                    'total_nodes': enhanced_graph['stats']['total_nodes'],
+                    'node_types': enhanced_graph['stats']['node_types']
+                }
+
+                yield sse_message({
+                    'stage': 'GRAPH_COMPLETE',
+                    'progress': 99,
+                    'messages': [
+                        f'Entity graph complete: {enhanced_graph["stats"]["total_nodes"]} nodes',
+                        f'{enhanced_graph["stats"]["total_edges"]} relationships mapped'
+                    ]
+                })
+
+                # =============================================================
                 # COMPLETION - Return data for frontend to save
                 # =============================================================
                 completion_data = {
@@ -526,7 +616,8 @@ def synthesize_case_streaming(case_id):
                             'total_nodes': synthesis_results['synthesis']['total_nodes'],
                             'node_types': synthesis_results['synthesis']['node_types']
                         },
-                        'institutional_analysis': synthesis_results.get('institutional_analysis')  # Part D results (dict)
+                        'institutional_analysis': synthesis_results.get('institutional_analysis'),  # Part D results (dict)
+                        'action_mapping': synthesis_results.get('action_mapping')  # Part E results (dict)
                     }
                 }
                 yield sse_message(completion_data)
@@ -822,6 +913,33 @@ def save_step4_streaming_results(case_id):
                 logger.info(f"[Save Endpoint] Successfully saved institutional analysis")
             else:
                 logger.warning(f"[Save Endpoint] Failed to save institutional analysis")
+
+        # Store Action-Rule Mapping (Part E) to database
+        action_mapping_dict = synthesis_results.get('action_mapping')
+        if action_mapping_dict:
+            logger.info(f"[Save Endpoint] Saving action-rule mapping for case {case_id}")
+
+            # Import the mapper and dataclass
+            from app.services.case_analysis.action_rule_mapper import (
+                ActionRuleMapper,
+                ActionRuleMapping
+            )
+
+            # Reconstruct ActionRuleMapping dataclass from dict
+            action_mapping = ActionRuleMapping.from_dict(action_mapping_dict)
+
+            # Save to database
+            mapper = ActionRuleMapper()  # Gets its own LLM client (though not needed for saving)
+            saved = mapper.save_to_database(
+                case_id=case_id,
+                mapping=action_mapping,
+                llm_model='claude-sonnet-4-5-20250929'
+            )
+
+            if saved:
+                logger.info(f"[Save Endpoint] Successfully saved action-rule mapping")
+            else:
+                logger.warning(f"[Save Endpoint] Failed to save action-rule mapping")
 
         # Delete old Step 4 synthesis prompts
         ExtractionPrompt.query.filter_by(

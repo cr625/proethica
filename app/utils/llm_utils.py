@@ -40,7 +40,13 @@ def get_llm_client():
                     except Exception:
                         anthropic_version = "unknown"
                         
-                client = anthropic.Anthropic(api_key=api_key)
+                # Create client with explicit timeout configuration
+                # Read timeout of 180 seconds should be sufficient for large prompts
+                from httpx import Timeout
+                client = anthropic.Anthropic(
+                    api_key=api_key,
+                    timeout=Timeout(connect=10.0, read=180.0, write=180.0, pool=180.0)
+                )
                 
                 # Add version info to client for easier compatibility checks
                 # Current version structure:
