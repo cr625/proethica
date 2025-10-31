@@ -229,9 +229,16 @@
 
                         {% for precedent in precedents %}
                         <div class="card mb-3 border-info">
-                            <div class="card-header bg-light">
+                            <div class="card-header bg-light d-flex justify-content-between align-items-center">
                                 <h6 class="mb-0">
+                                    {% if precedent.rdf_json_ld.sourceUrl %}
+                                    <a href="{{ precedent.rdf_json_ld.sourceUrl }}" target="_blank" class="text-decoration-none">
+                                        <strong>{{ precedent.rdf_json_ld.fullCitation or precedent.entity_label }}</strong>
+                                        <i class="bi bi-box-arrow-up-right ms-1" style="font-size: 0.8em;"></i>
+                                    </a>
+                                    {% else %}
                                     <strong>{{ precedent.rdf_json_ld.fullCitation or precedent.entity_label }}</strong>
+                                    {% endif %}
                                     {% if precedent.rdf_json_ld.yearDecided %}
                                     <span class="badge bg-info ms-2">{{ precedent.rdf_json_ld.yearDecided }}</span>
                                     {% endif %}
@@ -239,6 +246,14 @@
                                     <span class="badge bg-secondary ms-1">{{ "%.0f"|format(precedent.rdf_json_ld.confidence * 100) }}% confident</span>
                                     {% endif %}
                                 </h6>
+                                {% if precedent.rdf_json_ld.sourceUrl %}
+                                <a href="{{ precedent.rdf_json_ld.sourceUrl }}"
+                                   class="btn btn-sm btn-info"
+                                   target="_blank"
+                                   title="View original case on NSPE website">
+                                    <i class="bi bi-box-arrow-up-right"></i> View on NSPE
+                                </a>
+                                {% endif %}
                             </div>
                             <div class="card-body">
                                 <h6 class="text-primary">{{ precedent.rdf_json_ld.caseTitle or precedent.entity_definition }}</h6>
@@ -246,7 +261,9 @@
                                 {% if precedent.rdf_json_ld.citationContext %}
                                 <div class="mb-3">
                                     <strong>Citation Context:</strong>
-                                    <p class="text-muted mb-0">"{{ precedent.rdf_json_ld.citationContext }}"</p>
+                                    <p class="text-muted mb-0 citation-context" data-citation="{{ precedent.rdf_json_ld.fullCitation or precedent.entity_label }}">
+                                        "{{ precedent.rdf_json_ld.citationContext }}"
+                                    </p>
                                 </div>
                                 {% endif %}
 
@@ -838,5 +855,18 @@ function generateSynthesisAnnotations() {
         btn.innerHTML = '<i class="bi bi-lightbulb"></i> Generate Synthesis Annotations';
     });
 }
+
+// Highlight case citations in citation context
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.citation-context').forEach(function(element) {
+        const citation = element.getAttribute('data-citation');
+        if (citation) {
+            const text = element.innerHTML;
+            // Use regex to replace all occurrences of the citation
+            const regex = new RegExp(citation.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+            element.innerHTML = text.replace(regex, '<mark class="bg-warning">' + citation + '</mark>');
+        }
+    });
+});
 </script>
 {% endblock %}

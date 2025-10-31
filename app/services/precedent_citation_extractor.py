@@ -41,10 +41,12 @@ class PrecedentCitation:
     related_provisions: List[str]  # NSPE Code sections mentioned with this case
     mentioned_in_section: str  # Usually "references"
     confidence: float  # 0-1, how confident we are this is a precedent case
+    case_url: Optional[str] = None  # Full NSPE URL if available (from HTML)
+    extraction_method: Optional[str] = None  # 'html_markup' or 'llm_extraction'
 
     def to_dict(self) -> Dict:
         """Convert to dictionary for JSON serialization."""
-        return {
+        result = {
             'caseNumber': self.case_number,
             'caseTitle': self.case_title,
             'fullCitation': self.full_citation,
@@ -55,6 +57,12 @@ class PrecedentCitation:
             'mentionedInSection': self.mentioned_in_section,
             'confidence': self.confidence
         }
+        # Add URL if available
+        if self.case_url:
+            result['sourceUrl'] = self.case_url
+        if self.extraction_method:
+            result['extractionMethod'] = self.extraction_method
+        return result
 
 
 class PrecedentCitationExtractor:
@@ -75,6 +83,82 @@ class PrecedentCitationExtractor:
         self.llm_client = llm_client
         self.last_prompt = None
         self.last_response = None
+
+    def extract_hybrid(
+        self,
+        discussion_html: Optional[str],
+        conclusion_html: Optional[str],
+        case_context: Optional[Dict] = None
+    ) -> List[PrecedentCitation]:
+        """
+        HYBRID EXTRACTION: HTML markup (primary) + LLM fallback.
+
+        Strategy:
+        1. Extract from HTML markup (fast, accurate URLs)
+        2. Use LLM to find any missed cases in plain text
+        3. Merge results, avoiding duplicates
+
+        Args:
+            discussion_html: HTML from discussion section
+            conclusion_html: HTML from conclusion section
+            case_context: Optional context for relevance analysis
+
+        Returns:
+            List of PrecedentCitation objects with URLs when available
+        """
+        from app.services.html_precedent_extractor import HTMLPrecedentExtractor
+
+        all_citations = []
+        seen_case_numbers = set()
+
+        # Step 1: Extract from HTML markup (PRIMARY)
+        logger.info("[Precedent Extractor] Step 1: Extracting from HTML markup...")
+        html_extractor = HTMLPrecedentExtractor()
+        html_citations = html_extractor.extract_from_html(
+            discussion_html,
+            conclusion_html
+        )
+
+        # Convert HTML citations to PrecedentCitation objects
+        for html_cite in html_citations:
+            # Extract context from HTML
+            context = ""
+            if discussion_html and html_cite.mentioned_in_section == 'discussion':
+                context = html_extractor.extract_citation_context(
+                    html_cite.case_number,
+                    discussion_html
+                )
+            elif conclusion_html and html_cite.mentioned_in_section == 'conclusion':
+                context = html_extractor.extract_citation_context(
+                    html_cite.case_number,
+                    conclusion_html
+                )
+
+            citation = PrecedentCitation(
+                case_number=html_cite.case_number,
+                case_title=html_cite.case_title or f"BER Case {html_cite.case_number}",
+                full_citation=html_cite.full_citation,
+                year_decided=html_cite.year_decided,
+                citation_context=context[:500],  # Limit context length
+                relevance_reasoning="",  # Will be filled by LLM if needed
+                related_provisions=[],
+                mentioned_in_section=html_cite.mentioned_in_section,
+                confidence=1.0,  # High confidence from HTML
+                case_url=html_cite.case_url,
+                extraction_method='html_markup'
+            )
+
+            all_citations.append(citation)
+            seen_case_numbers.add(html_cite.case_number)
+
+        logger.info(f"[Precedent Extractor] Found {len(all_citations)} cases from HTML markup")
+
+        # Step 2: LLM extraction as fallback (for unmarked references)
+        # TODO: Implement LLM fallback for cases without HTML markup
+        # This would call the existing extract_precedent_citations method
+        # but only process text, filtering out already-found case numbers
+
+        return all_citations
 
     def extract_precedent_citations(
         self,

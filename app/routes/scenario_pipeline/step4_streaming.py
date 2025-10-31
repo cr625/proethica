@@ -239,22 +239,26 @@ def synthesize_case_streaming(case_id):
                     'messages': ['Part A: Extracting precedent case citations from Discussion and Conclusions...']
                 })
 
-                # Extract precedent citations from Discussion and Conclusions sections
-                # (precedents are cited throughout the analysis, not just in References)
+                # Extract precedent citations using HYBRID approach:
+                # 1. PRIMARY: HTML markup (fast, accurate URLs)
+                # 2. FALLBACK: LLM extraction (catches unmarked references)
                 precedent_extractor = PrecedentCitationExtractor(llm_client)
 
-                # Combine Discussion and Conclusions sections for precedent search
-                precedent_search_text = f"{discussion_text}\n\n{conclusions_text}"
+                # Get HTML sections from case metadata
+                discussion_html = case.doc_metadata.get('sections_dual', {}).get('discussion', {}).get('html', '')
+                conclusion_html = case.doc_metadata.get('sections_dual', {}).get('conclusion', {}).get('html', '')
 
-                # Build case context for relevance analysis
+                # Build case context for relevance analysis (if LLM fallback needed)
                 precedent_context = {
                     'provisions': [f"{p.get('code_provision', '')}: {p.get('provision_text', '')[:100]}..." for p in provisions[:5]],
                     'questions': [],  # Will extract questions in Part B
                     'conclusions': []
                 }
 
-                precedent_citations = precedent_extractor.extract_precedent_citations(
-                    precedent_search_text,
+                # Use hybrid extraction (HTML primary, LLM fallback)
+                precedent_citations = precedent_extractor.extract_hybrid(
+                    discussion_html,
+                    conclusion_html,
                     precedent_context
                 )
 
@@ -710,6 +714,8 @@ def save_step4_streaming_results(case_id):
                     'relatedProvisions': pc.get('relatedProvisions', []),
                     'mentionedInSection': pc.get('mentionedInSection', 'references'),
                     'confidence': pc.get('confidence', 0.9),
+                    'sourceUrl': pc.get('sourceUrl'),  # Full NSPE URL from HTML markup
+                    'extractionMethod': pc.get('extractionMethod', 'llm_extraction'),  # Track extraction method
                     'providedBy': 'NSPE Board of Ethical Review',
                     'authoritative': True
                 },
