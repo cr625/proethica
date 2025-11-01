@@ -336,6 +336,50 @@ def step4_review(case_id):
                 'case_significance': result.case_significance if hasattr(result, 'case_significance') else None
             }
 
+        # Get action-rule mapping (Part E)
+        action_mapping = None
+        action_query = text("""
+            SELECT * FROM case_action_mapping WHERE case_id = :case_id
+        """)
+        result_e = db.session.execute(action_query, {'case_id': case_id}).fetchone()
+        if result_e:
+            action_mapping = {
+                'actions_taken': result_e.actions_taken if hasattr(result_e, 'actions_taken') else None,
+                'actions_not_taken': result_e.actions_not_taken if hasattr(result_e, 'actions_not_taken') else None,
+                'alternatives_available': result_e.alternatives_available if hasattr(result_e, 'alternatives_available') else None,
+                'capability_constraints': result_e.capability_constraints if hasattr(result_e, 'capability_constraints') else None,
+                'resource_constraints': result_e.resource_constraints if hasattr(result_e, 'resource_constraints') else None,
+                'justifications': result_e.justifications if hasattr(result_e, 'justifications') else None,
+                'oppositions': result_e.oppositions if hasattr(result_e, 'oppositions') else None,
+                'relevant_obligations': result_e.relevant_obligations if hasattr(result_e, 'relevant_obligations') else None,
+                'situational_context': result_e.situational_context if hasattr(result_e, 'situational_context') else None,
+                'organizational_constraints': result_e.organizational_constraints if hasattr(result_e, 'organizational_constraints') else None,
+                'resource_availability': result_e.resource_availability if hasattr(result_e, 'resource_availability') else None,
+                'key_events': result_e.key_events if hasattr(result_e, 'key_events') else None,
+                'transformation_points': result_e.transformation_points if hasattr(result_e, 'transformation_points') else None,
+                'rule_shifts': result_e.rule_shifts if hasattr(result_e, 'rule_shifts') else None
+            }
+
+        # Get transformation classification (Part F)
+        transformation_classification = None
+        transformation_query = text("""
+            SELECT * FROM case_transformation WHERE case_id = :case_id
+        """)
+        result_f = db.session.execute(transformation_query, {'case_id': case_id}).fetchone()
+        if result_f:
+            transformation_classification = {
+                'transformation_type': result_f.transformation_type if hasattr(result_f, 'transformation_type') else None,
+                'confidence': result_f.confidence if hasattr(result_f, 'confidence') else None,
+                'type_rationale': result_f.type_rationale if hasattr(result_f, 'type_rationale') else None,
+                'indicators': result_f.indicators if hasattr(result_f, 'indicators') else None,
+                'symbolic_significance': result_f.symbolic_significance if hasattr(result_f, 'symbolic_significance') else None,
+                'pattern_id': result_f.pattern_id if hasattr(result_f, 'pattern_id') else None,
+                'pattern_name': result_f.pattern_name if hasattr(result_f, 'pattern_name') else None,
+                'institutional_tension': result_f.institutional_tension if hasattr(result_f, 'institutional_tension') else None,
+                'typical_transformation': result_f.typical_transformation if hasattr(result_f, 'typical_transformation') else None,
+                'resolution_approaches': result_f.resolution_approaches if hasattr(result_f, 'resolution_approaches') else None
+            }
+
         # Check if synthesis annotations already exist
         from app.models.document_concept_annotation import DocumentConceptAnnotation
         from sqlalchemy import func
@@ -371,6 +415,8 @@ def step4_review(case_id):
             'question_count': len(questions),
             'conclusion_count': len(conclusions),
             'institutional_analysis': institutional_analysis,  # Part D data
+            'action_mapping': action_mapping,  # Part E data
+            'transformation_classification': transformation_classification,  # Part F data
             'has_synthesis_annotations': len(existing_annotations) > 0,
             'annotation_count': len(existing_annotations),
             'annotation_breakdown': annotation_counts

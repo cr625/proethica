@@ -34,6 +34,9 @@ from app.services.case_analysis.institutional_rule_analyzer import Institutional
 # Import Part E: Action-Rule Mapping
 from app.services.case_analysis.action_rule_mapper import ActionRuleMapper
 
+# Import Part F: Transformation Classification
+from app.services.case_analysis.transformation_classifier import TransformationClassifier
+
 # Import Precedent Citation Extraction (Part A-bis)
 from app.services.precedent_citation_extractor import PrecedentCitationExtractor
 
@@ -523,6 +526,65 @@ def synthesize_case_streaming(case_id):
                     })
 
                 # =============================================================
+                # PART F: TRANSFORMATION CLASSIFICATION
+                # =============================================================
+                yield sse_message({
+                    'stage': 'PART_F_START',
+                    'progress': 97,
+                    'messages': ['Part F: Classifying case transformation type and symbolic significance...']
+                })
+
+                transformation_classification = None
+                if institutional_analysis and action_mapping:
+                    # Initialize classifier with pre-loaded LLM client
+                    transformation_classifier = TransformationClassifier(llm_client)
+
+                    # Build case context from previous analyses
+                    case_context = {
+                        'questions': [getattr(q, 'question_text', '') for q in synthesis_results['questions']],
+                        'conclusions': [getattr(c, 'conclusion_text', '') for c in synthesis_results['conclusions']],
+                        'board_decision': synthesis_results.get('conclusions', [])
+                    }
+
+                    # Run transformation classification
+                    transformation_classification = transformation_classifier.classify_case(
+                        case_id=case_id,
+                        institutional_analysis=synthesis_results['institutional_analysis'],
+                        action_mapping=synthesis_results['action_mapping'],
+                        case_context=case_context
+                    )
+
+                    # Capture LLM trace
+                    if hasattr(transformation_classifier, 'last_prompt') and hasattr(transformation_classifier, 'last_response'):
+                        llm_traces.append({
+                            'stage': 'Transformation Classification',
+                            'prompt': transformation_classifier.last_prompt,
+                            'response': transformation_classifier.last_response,
+                            'model': 'claude-sonnet-4-5-20250929',
+                            'timestamp': datetime.utcnow().isoformat()
+                        })
+
+                    # Convert to dict for JSON serialization
+                    synthesis_results['transformation_classification'] = transformation_classification.to_dict()
+
+                    yield sse_message({
+                        'stage': 'PART_F_COMPLETE',
+                        'progress': 98,
+                        'messages': [
+                            f'Part F complete: Case transformation classified',
+                            f'Type: {transformation_classification.transformation_type} (confidence: {transformation_classification.confidence:.2f})',
+                            f'Symbolic significance: {transformation_classification.symbolic_significance[:100]}...' if len(transformation_classification.symbolic_significance) > 100 else f'Symbolic significance identified'
+                        ],
+                        'llm_trace': [llm_traces[-1]] if llm_traces else []
+                    })
+                else:
+                    yield sse_message({
+                        'stage': 'PART_F_SKIPPED',
+                        'progress': 98,
+                        'messages': ['Part F skipped: Requires both Part D and Part E to be complete']
+                    })
+
+                # =============================================================
                 # BUILD ENHANCED ENTITY GRAPH (After all parts complete)
                 # =============================================================
                 yield sse_message({
@@ -617,7 +679,8 @@ def synthesize_case_streaming(case_id):
                             'node_types': synthesis_results['synthesis']['node_types']
                         },
                         'institutional_analysis': synthesis_results.get('institutional_analysis'),  # Part D results (dict)
-                        'action_mapping': synthesis_results.get('action_mapping')  # Part E results (dict)
+                        'action_mapping': synthesis_results.get('action_mapping'),  # Part E results (dict)
+                        'transformation_classification': synthesis_results.get('transformation_classification')  # Part F results (dict)
                     }
                 }
                 yield sse_message(completion_data)
@@ -940,6 +1003,33 @@ def save_step4_streaming_results(case_id):
                 logger.info(f"[Save Endpoint] Successfully saved action-rule mapping")
             else:
                 logger.warning(f"[Save Endpoint] Failed to save action-rule mapping")
+
+        # Store Transformation Classification (Part F) to database
+        transformation_classification_dict = synthesis_results.get('transformation_classification')
+        if transformation_classification_dict:
+            logger.info(f"[Save Endpoint] Saving transformation classification for case {case_id}")
+
+            # Import the classifier and dataclass
+            from app.services.case_analysis.transformation_classifier import (
+                TransformationClassifier,
+                TransformationClassification
+            )
+
+            # Reconstruct TransformationClassification dataclass from dict
+            transformation_classification = TransformationClassification.from_dict(transformation_classification_dict)
+
+            # Save to database
+            classifier = TransformationClassifier()  # Gets its own LLM client (though not needed for saving)
+            saved = classifier.save_to_database(
+                case_id=case_id,
+                classification=transformation_classification,
+                llm_model='claude-sonnet-4-5-20250929'
+            )
+
+            if saved:
+                logger.info(f"[Save Endpoint] Successfully saved transformation classification")
+            else:
+                logger.warning(f"[Save Endpoint] Failed to save transformation classification")
 
         # Delete old Step 4 synthesis prompts
         ExtractionPrompt.query.filter_by(

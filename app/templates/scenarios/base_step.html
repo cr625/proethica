@@ -101,10 +101,6 @@
         background-color: #c3e6cb;
     }
 
-    .pipeline-step.complete .bi-check-circle-fill {
-        color: #28a745;
-    }
-
     .pipeline-step.locked {
         opacity: 0.5;
         cursor: not-allowed;
@@ -116,10 +112,6 @@
         color: white;
         font-weight: 600;
         border-left: 4px solid #2e59d9;
-    }
-
-    .pipeline-step.active .bi-check-circle-fill {
-        color: white;
     }
 
     .progress-badge {
@@ -177,7 +169,6 @@
                 <a href="{{ url_for('scenario_pipeline.step1', case_id=case.id) }}"
                    class="pipeline-step {% if current_step == 1 %}active{% elif progress and progress.get(1, {}).get('complete') %}complete{% endif %}">
                     <i class="bi bi-1-circle"></i> Step 1: Contextual Framework
-                    {% if progress and progress.get(1, {}).get('complete') %}<i class="bi bi-check-circle-fill float-end"></i>{% endif %}
                 </a>
 
                 <!-- Step 2: Accessible if Step 1 complete -->
@@ -185,7 +176,6 @@
                 <a href="{{ url_for('scenario_pipeline.step2', case_id=case.id) }}"
                    class="pipeline-step {% if current_step == 2 %}active{% elif progress.get(2, {}).get('complete') %}complete{% endif %}">
                     <i class="bi bi-2-circle"></i> Step 2: Normative Requirements
-                    {% if progress.get(2, {}).get('complete') %}<i class="bi bi-check-circle-fill float-end"></i>{% endif %}
                 </a>
                 {% else %}
                 <div class="pipeline-step locked">
@@ -199,7 +189,6 @@
                 <a href="{{ url_for('scenario_pipeline.step3', case_id=case.id) }}"
                    class="pipeline-step {% if current_step == 3 %}active{% elif progress.get(3, {}).get('complete') %}complete{% endif %}">
                     <i class="bi bi-3-circle"></i> Step 3: Temporal Dynamics
-                    {% if progress.get(3, {}).get('complete') %}<i class="bi bi-check-circle-fill float-end"></i>{% endif %}
                 </a>
                 {% else %}
                 <div class="pipeline-step locked">
@@ -213,7 +202,6 @@
                 <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}"
                    class="pipeline-step {% if current_step == 4 %}active{% elif progress.get(4, {}).get('complete') %}complete{% endif %}">
                     <i class="bi bi-4-circle"></i> Step 4: Whole-Case Synthesis
-                    {% if progress.get(4, {}).get('complete') %}<i class="bi bi-check-circle-fill float-end"></i>{% endif %}
                 </a>
                 {% else %}
                 <div class="pipeline-step locked">
@@ -227,7 +215,6 @@
                 <a href="{{ url_for('step5.step5_scenario_generation', case_id=case.id) }}"
                    class="pipeline-step {% if current_step == 5 %}active{% elif progress.get(5, {}).get('complete') %}complete{% endif %}">
                     <i class="bi bi-5-circle"></i> Step 5: Scenario Generation
-                    {% if progress.get(5, {}).get('complete') %}<i class="bi bi-check-circle-fill float-end"></i>{% endif %}
                 </a>
                 {% else %}
                 <div class="pipeline-step locked">

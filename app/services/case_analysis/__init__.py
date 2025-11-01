@@ -15,5 +15,7 @@ Components:
 """
 
 from .institutional_rule_analyzer import InstitutionalRuleAnalyzer
+from .action_rule_mapper import ActionRuleMapper
+from .transformation_classifier import TransformationClassifier
 
-__all__ = ['InstitutionalRuleAnalyzer']
+__all__ = ['InstitutionalRuleAnalyzer', 'ActionRuleMapper', 'TransformationClassifier']
