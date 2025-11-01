@@ -95,6 +95,11 @@ def step3(case_id):
         # Check for saved extraction data
         saved_prompt = ExtractionPrompt.get_active_prompt(case_id, 'actions_events')
 
+        # Get progress context
+        from app.services.case_pipeline_progress import CasePipelineProgress
+        progress = CasePipelineProgress.get_case_progress(case_id)
+        progress_summary = CasePipelineProgress.get_progress_summary(case_id)
+
         # Template context
         context = {
             'case': case,
@@ -107,7 +112,9 @@ def step3(case_id):
             'has_saved_extraction': saved_prompt is not None,
             'saved_prompt': saved_prompt.prompt_text if saved_prompt else None,
             'saved_response': saved_prompt.raw_response if saved_prompt else None,
-            'saved_model': saved_prompt.llm_model if saved_prompt else None
+            'saved_model': saved_prompt.llm_model if saved_prompt else None,
+            'progress': progress,
+            'progress_summary': progress_summary
         }
 
         return render_template('scenarios/step3_dual_extraction.html', **context)

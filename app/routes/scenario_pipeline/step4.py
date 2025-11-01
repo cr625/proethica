@@ -62,6 +62,8 @@ def step4_synthesis(case_id):
     If synthesis has been run, displays saved results.
     """
     try:
+        from app.services.case_pipeline_progress import CasePipelineProgress
+
         case = Document.query.get_or_404(case_id)
 
         # Get entity counts from all passes
@@ -76,6 +78,10 @@ def step4_synthesis(case_id):
             concept_type='whole_case_synthesis'
         ).order_by(ExtractionPrompt.created_at.desc()).first()
 
+        # Get progress context
+        progress = CasePipelineProgress.get_case_progress(case_id)
+        progress_summary = CasePipelineProgress.get_progress_summary(case_id)
+
         return render_template(
             'scenarios/step4.html',
             case=case,
@@ -84,7 +90,9 @@ def step4_synthesis(case_id):
             saved_synthesis=saved_synthesis,
             current_step=4,
             prev_step_url=f"/scenario_pipeline/case/{case_id}/step3",
-            next_step_url=f"/scenario_pipeline/case/{case_id}/step5"
+            next_step_url=f"/scenario_pipeline/case/{case_id}/step5",
+            progress=progress,
+            progress_summary=progress_summary
         )
 
     except Exception as e:

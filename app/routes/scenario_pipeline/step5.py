@@ -36,6 +36,8 @@ def step5_scenario_generation(case_id):
     Shows eligibility status and scenario generation controls.
     """
     try:
+        from app.services.case_pipeline_progress import CasePipelineProgress
+
         case = Document.query.get_or_404(case_id)
 
         # Check eligibility for scenario generation
@@ -45,6 +47,10 @@ def step5_scenario_generation(case_id):
         # Get entity counts for display
         entity_counts = eligibility.entity_counts
 
+        # Get progress context
+        progress = CasePipelineProgress.get_case_progress(case_id)
+        progress_summary = CasePipelineProgress.get_progress_summary(case_id)
+
         return render_template(
             'scenarios/step5.html',
             case=case,
@@ -52,7 +58,9 @@ def step5_scenario_generation(case_id):
             entity_counts=entity_counts,
             current_step=5,
             prev_step_url=f"/scenario_pipeline/case/{case_id}/step4",
-            next_step_url="#"  # No step 6 yet
+            next_step_url="#",  # No step 6 yet
+            progress=progress,
+            progress_summary=progress_summary
         )
 
     except Exception as e:
