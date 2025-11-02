@@ -18,12 +18,19 @@ Documentation: docs/SCENARIO_SYNTHESIS_ARCHITECTURE_REVISED.md (Stage 3)
 
 import logging
 import json
+import string
+import re
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
 from app.utils.llm_utils import get_llm_client
 from app.models import db
 
 logger = logging.getLogger(__name__)
+
+# Enable httpx debug logging for request inspection
+import httpx
+httpx_logger = logging.getLogger("httpx")
+httpx_logger.setLevel(logging.DEBUG)
 
 
 @dataclass
@@ -545,13 +552,73 @@ class ParticipantMapper:
                 logger.error(f"[Participant Mapper] Aborting LLM call due to invalid JSON in prompt")
                 return None
 
+            # === PHASE 1 DEBUGGING: Deep Request Analysis ===
+            logger.info("[DEBUG] ===== DEEP REQUEST ANALYSIS =====")
+
+            # 1. Binary encoding analysis
+            logger.info(f"[DEBUG] Prompt encoding analysis:")
+            logger.info(f"  - UTF-8 bytes (first 100): {prompt.encode('utf-8')[:100]}")
+
+            # Check for zero-width characters
+            zero_width_chars = [c for c in prompt if c in '\u200b\u200c\u200d\ufeff']
+            if zero_width_chars:
+                logger.error(f"  - FOUND {len(zero_width_chars)} zero-width characters!")
+                logger.error(f"  - Codes: {[hex(ord(c)) for c in zero_width_chars[:10]]}")
+            else:
+                logger.info(f"  - Zero-width characters: NONE")
+
+            # Check for non-printable
+            non_printable = [c for c in prompt if not c.isprintable() and c not in '\n\t\r']
+            if non_printable:
+                logger.error(f"  - FOUND {len(non_printable)} non-printable characters!")
+                logger.error(f"  - Codes: {[hex(ord(c)) for c in non_printable[:10]]}")
+            else:
+                logger.info(f"  - Non-printable characters: NONE")
+
+            # Check for non-ASCII
+            non_ascii = [c for c in prompt if ord(c) > 127]
+            if non_ascii:
+                logger.warning(f"  - Found {len(non_ascii)} non-ASCII chars (may be OK)")
+                logger.warning(f"  - Sample: {non_ascii[:10]}")
+
+            # 2. Save binary prompt for hexdump analysis
+            binary_file = os.path.join(debug_dir, 'proethica_prompt.bin')
+            with open(binary_file, 'wb') as f:
+                f.write(prompt.encode('utf-8'))
+            logger.info(f"[DEBUG] Binary prompt saved to: {binary_file}")
+            logger.info(f"[DEBUG] To inspect: hexdump -C {binary_file} | head -50")
+
+            # 3. Create and save raw request payload
+            request_payload = {
+                "model": "claude-sonnet-4-5-20250929",
+                "max_tokens": 3000,
+                "messages": [{"role": "user", "content": prompt}]
+            }
+
+            payload_file = os.path.join(debug_dir, 'proethica_request_payload.json')
+            with open(payload_file, 'w', encoding='utf-8') as f:
+                json.dump(request_payload, f, indent=2, ensure_ascii=False)
+
+            payload_json = json.dumps(request_payload, ensure_ascii=False)
+            logger.info(f"[DEBUG] Request payload size: {len(payload_json)} chars ({len(payload_json.encode('utf-8'))} bytes)")
+            logger.info(f"[DEBUG] Request payload saved to: {payload_file}")
+
+            # Check for problematic characters in payload JSON
+            non_ascii_payload = [c for c in payload_json if ord(c) > 127]
+            if non_ascii_payload:
+                logger.warning(f"[DEBUG] Non-ASCII in payload: {len(non_ascii_payload)} chars")
+
+            logger.info("[DEBUG] ===== END DEEP ANALYSIS =====")
+
             # Call LLM
             logger.info("[Participant Mapper] Calling LLM for character enhancement...")
-            logger.info(f"[Participant Mapper] Model: claude-sonnet-4-5-20250929, max_tokens: 3000")
+            # Using same model as Step 4 for consistency
+            model_to_use = "claude-sonnet-4-5-20250929"  # Sonnet 4.5 (same as Step 4 Parts D-F)
+            logger.info(f"[Participant Mapper] Model: {model_to_use}, max_tokens: 3000")
 
             try:
                 response = self.llm_client.messages.create(
-                    model="claude-sonnet-4-5-20250929",
+                    model=model_to_use,
                     max_tokens=3000,
                     messages=[
                         {"role": "user", "content": prompt}
@@ -573,9 +640,18 @@ class ParticipantMapper:
             logger.info(f"[Participant Mapper] Response saved to: {response_file}")
             logger.info(f"[Participant Mapper] Response length: {len(response_text)} characters")
 
-            # Parse JSON response
+            # Parse JSON response (handle markdown code fences if present)
             try:
-                enhanced_data = json.loads(response_text)
+                # Strip markdown code fences if present (```json ... ```)
+                import re
+                json_match = re.search(r'```json\s*(\{.*?\})\s*```', response_text, re.DOTALL)
+                if json_match:
+                    logger.info("[Participant Mapper] Detected markdown-wrapped JSON, extracting...")
+                    json_text = json_match.group(1)
+                else:
+                    json_text = response_text.strip()
+
+                enhanced_data = json.loads(json_text)
                 logger.info("[Participant Mapper] Response JSON parsing: PASSED")
             except json.JSONDecodeError as e:
                 logger.error(f"[Participant Mapper] Response JSON parsing FAILED: {e}")

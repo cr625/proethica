@@ -313,8 +313,9 @@ class ScenarioDataCollector:
         Returns:
             Tuple of (available, summary_dict)
         """
-        action_count = self._count_entities_by_type(case_id).get('Action', 0)
-        event_count = self._count_entities_by_type(case_id).get('Event', 0)
+        # Note: Entity types in DB are lowercase 'actions' and 'events'
+        action_count = self._count_entities_by_type(case_id).get('actions', 0)
+        event_count = self._count_entities_by_type(case_id).get('events', 0)
 
         available = action_count > 0 or event_count > 0
 
