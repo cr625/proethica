@@ -912,3 +912,120 @@ Respond with valid JSON only."""
         
         logger.info(f"[Decision Identifier] Enhanced Stage 4 complete: {result.total_decisions} decisions analyzed")
         return result
+
+    def identify_decisions_from_step4_analysis(
+        self,
+        case_id: int,
+        actions: List[Any],
+        questions: List[Any],
+        timeline_data: Optional[Dict] = None,
+        participants: Optional[List] = None,
+        synthesis_data: Optional[Any] = None
+    ) -> DecisionIdentificationResult:
+        """
+        Identify decision points and enrich with Step 4 analysis FROM DATABASE.
+        
+        This is the refactored Stage 4 method that REFERENCES pre-computed analysis
+        from Step 4 Parts D, E, F instead of re-analyzing.
+        
+        Architectural principle: Step 4 = Analysis Engine, Step 5 = Presentation Layer
+        
+        Args:
+            case_id: Case ID to load analysis for
+            actions: List of action entities
+            questions: List of ethical question entities
+            timeline_data: Optional timeline context
+            participants: Optional participant profiles
+            synthesis_data: Optional synthesis data
+            
+        Returns:
+            DecisionIdentificationResult with referenced Step 4 analysis
+        """
+        from app.models import db
+        from sqlalchemy import text
+        import json
+        
+        logger.info(f"[Decision Identifier] Stage 4 Refactored: Referencing Step 4 analysis from database for case {case_id}")
+        
+        # Step 1: Identify base decision points (no analysis yet)
+        base_result = self.identify_decisions(
+            actions=actions,
+            questions=questions,
+            timeline_data=timeline_data,
+            participants=participants,
+            synthesis_data=synthesis_data
+        )
+        
+        logger.info(f"[Decision Identifier] Identified {base_result.total_decisions} decision points")
+        
+        # Step 2: Load Part D (Institutional Analysis) from database
+        institutional_query = text("""
+            SELECT 
+                principle_tensions,
+                principle_conflict_description,
+                obligation_conflicts,
+                obligation_conflict_description,
+                constraining_factors,
+                constraint_influence_description,
+                case_significance
+            FROM case_institutional_analysis 
+            WHERE case_id = :case_id
+        """)
+        
+        inst_result = db.session.execute(institutional_query, {'case_id': case_id}).fetchone()
+        
+        if inst_result:
+            logger.info(f"[Decision Identifier] Loaded Part D analysis from database")
+            
+            # Enrich each decision point with institutional analysis
+            for decision in base_result.decision_points:
+                # Create InstitutionalRuleAnalysis from Part D data
+                institutional_analysis = InstitutionalRuleAnalysis(
+                    principles_in_tension=inst_result.principle_tensions or [],
+                    principle_conflict_description=inst_result.principle_conflict_description or '',
+                    obligations_in_tension=inst_result.obligation_conflicts or [],
+                    obligation_conflict_description=inst_result.obligation_conflict_description or '',
+                    constraining_factors=inst_result.constraining_factors or [],
+                    constraint_influence_description=inst_result.constraint_influence_description or '',
+                    why_this_matters=inst_result.case_significance or ''
+                )
+                decision.institutional_rule_analysis = institutional_analysis
+                
+            logger.info(f"[Decision Identifier] Enriched {base_result.total_decisions} decisions with Part D analysis")
+        else:
+            logger.warning(f"[Decision Identifier] No Part D analysis found for case {case_id}")
+        
+        # Step 3: Load Part F (Transformation Classification) from database
+        transformation_query = text("""
+            SELECT 
+                transformation_type,
+                confidence,
+                type_rationale,
+                indicators
+            FROM case_transformation 
+            WHERE case_id = :case_id
+        """)
+        
+        trans_result = db.session.execute(transformation_query, {'case_id': case_id}).fetchone()
+        
+        if trans_result:
+            logger.info(f"[Decision Identifier] Loaded Part F analysis from database")
+            
+            # Enrich each decision point with transformation analysis
+            for decision in base_result.decision_points:
+                # Create TransformationAnalysis from Part F data
+                transformation_analysis = TransformationAnalysis(
+                    transformation_type=trans_result.transformation_type or 'transfer',
+                    confidence=trans_result.confidence or 0.0,
+                    type_rationale=trans_result.type_rationale or '',
+                    indicators=trans_result.indicators or [],
+                    similar_transformation_cases=[]  # TODO: Could query database for similar patterns
+                )
+                decision.transformation_analysis = transformation_analysis
+                
+            logger.info(f"[Decision Identifier] Enriched {base_result.total_decisions} decisions with Part F analysis")
+        else:
+            logger.warning(f"[Decision Identifier] No Part F analysis found for case {case_id}")
+        
+        logger.info(f"[Decision Identifier] Stage 4 Refactored complete: {base_result.total_decisions} decisions with referenced analysis")
+        return base_result

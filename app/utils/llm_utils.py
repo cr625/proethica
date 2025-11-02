@@ -41,11 +41,11 @@ def get_llm_client():
                         anthropic_version = "unknown"
                         
                 # Create client with explicit timeout configuration
-                # Read timeout of 180 seconds should be sufficient for large prompts
+                # Read timeout of 300 seconds for intensive character enhancement (12 participants)
                 from httpx import Timeout
                 client = anthropic.Anthropic(
                     api_key=api_key,
-                    timeout=Timeout(connect=10.0, read=180.0, write=180.0, pool=180.0)
+                    timeout=Timeout(connect=10.0, read=300.0, write=300.0, pool=300.0)
                 )
                 
                 # Add version info to client for easier compatibility checks

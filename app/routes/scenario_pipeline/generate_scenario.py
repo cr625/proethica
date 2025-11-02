@@ -7,7 +7,7 @@ Server-Sent Events (SSE) for real-time progress streaming.
 Follows the proven pattern from step3_enhanced.py (temporal dynamics extraction).
 """
 
-from flask import Response, jsonify
+from flask import Response, jsonify, current_app
 import json
 import logging
 from datetime import datetime
@@ -83,6 +83,9 @@ def generate_scenario_from_case(case_id):
             timeline_data=timeline.to_dict() if timeline else None
         )
 
+        # Capture case title BEFORE save_to_database (which commits and detaches the case object)
+        case_title = case.title
+
         # Save participants to database
         saved_count = orchestrator.participant_mapper.save_to_database(
             case_id=case_id,
@@ -91,240 +94,329 @@ def generate_scenario_from_case(case_id):
         )
         logger.info(f"[Scenario Gen] Saved {saved_count} participants to database")
 
+        # Capture the Flask app instance while still in request context
+        # (current_app is a proxy that requires context, so get the actual app object)
+        app = current_app._get_current_object()
+
         def generate():
             """Generator for Server-Sent Events"""
-            try:
-                logger.info(f"[Scenario Gen] Starting SSE stream for case {case_id}")
+            # Maintain Flask application context for database operations in generator
+            with app.app_context():
+                try:
+                    logger.info(f"[Scenario Gen] Starting SSE stream for case {case_id}")
 
-                # Send initial event
-                yield f"data: {json.dumps({
-                    'stage': 'init',
-                    'stage_number': 0,
-                    'progress': 0,
-                    'message': 'Initializing scenario generation...',
-                    'case_id': case_id,
-                    'case_title': case.title,
-                    'eligibility': eligibility.to_dict(),
-                    'timestamp': datetime.utcnow().isoformat()
-                })}\n\n"
-
-                # Stage 1: Data Collection (already complete)
-                yield f"data: {json.dumps({
-                    'stage': 'data_collection',
-                    'stage_number': 1,
-                    'progress': 10,
-                    'message': f'Data collection complete: {entity_count} entities',
-                    'data': {
-                        'temporary_entities': sum(len(e) for e in data.temporary_entities.values()),
-                        'committed_entities': sum(len(e) for e in data.committed_entities.values()),
-                        'merged_entities': entity_count,
-                        'entity_types': list(data.merged_entities.keys())
-                    },
-                    'timestamp': datetime.utcnow().isoformat()
-                })}\n\n"
-
-                # Stage 2: Timeline Construction (already complete)
-                yield f"data: {json.dumps({
-                    'stage': 'timeline_construction',
-                    'stage_number': 2,
-                    'progress': 30,
-                    'message': 'Building chronological timeline from temporal dynamics...',
-                    'timestamp': datetime.utcnow().isoformat()
-                })}\n\n"
-
-                # Timeline already built before generator
-                timeline_dict = timeline.to_dict()
-
-                yield f"data: {json.dumps({
-                    'stage': 'timeline_construction',
-                    'stage_number': 2,
-                    'progress': 35,
-                    'message': f'Timeline built with {len(timeline.entries)} timepoints across {len(timeline.phases)} phases',
-                    'data': timeline_dict,
-                    'timestamp': datetime.utcnow().isoformat()
-                })}\n\n"
-
-                # Stage 3: Participant Mapping (already complete before generator)
-                yield f"data: {json.dumps({
-                    'stage': 'participant_mapping',
-                    'stage_number': 3,
-                    'progress': 40,
-                    'message': 'Extracting character profiles from roles...',
-                    'timestamp': datetime.utcnow().isoformat()
-                })}\n\n"
-
-                yield f"data: {json.dumps({
-                    'stage': 'participant_mapping',
-                    'stage_number': 3,
-                    'progress': 42,
-                    'message': f'Building profiles for {len(roles)} participants...',
-                    'timestamp': datetime.utcnow().isoformat()
-                })}\n\n"
-
-                yield f"data: {json.dumps({
-                    'stage': 'participant_mapping',
-                    'stage_number': 3,
-                    'progress': 45,
-                    'message': 'Enhancing character arcs with LLM...',
-                    'timestamp': datetime.utcnow().isoformat()
-                })}\n\n"
-
-                yield f"data: {json.dumps({
-                    'stage': 'participant_mapping',
-                    'stage_number': 3,
-                    'progress': 48,
-                    'message': 'Saving character profiles to database...',
-                    'timestamp': datetime.utcnow().isoformat()
-                })}\n\n"
-
-                participant_summary = participant_result.to_dict()
-                yield f"data: {json.dumps({
-                    'stage': 'participant_mapping',
-                    'stage_number': 3,
-                    'progress': 50,
-                    'message': f'Created {len(participant_result.participants)} character profiles with enhanced arcs',
-                    'data': participant_summary,
-                    'details': {
-                        'saved_to_database': saved_count,
-                        'protagonist': participant_result.protagonist_id,
-                        'llm_enhanced': participant_result.llm_enrichment is not None,
-                        'has_teaching_notes': participant_result.teaching_notes is not None
-                    },
-                    'timestamp': datetime.utcnow().isoformat()
-                })}\n\n"
-
-                # Stage 4: Decision Point Identification + Institutional Rule Analysis
-                yield f"data: {json.dumps({
-                    'stage': 'decision_identification',
-                    'stage_number': 4,
-                    'progress': 52,
-                    'message': 'Identifying decision points from actions and questions...',
-                    'timestamp': datetime.utcnow().isoformat()
-                })}\n\n"
-
-                # Get actions and questions
-                actions_entities = data.get_entities_by_type('actions')
-                if not actions_entities:
-                    actions_entities = data.get_entities_by_type('Action')
-
-                questions_entities = data.get_entities_by_type('questions')
-                if not questions_entities:
-                    questions_entities = data.get_entities_by_type('Question')
-
-                # Get normative concepts for institutional rule analysis
-                principles_entities = data.get_entities_by_type('Principles')
-                obligations_entities = data.get_entities_by_type('Obligations')
-                constraints_entities = data.get_entities_by_type('Constraints')
-
-                yield f"data: {json.dumps({
-                    'stage': 'decision_identification',
-                    'stage_number': 4,
-                    'progress': 54,
-                    'message': f'Analyzing {len(principles_entities)} principles, {len(obligations_entities)} obligations, {len(constraints_entities)} constraints...',
-                    'timestamp': datetime.utcnow().isoformat()
-                })}\n\n"
-
-                # Enhanced decision identification with institutional analysis
-                decision_result = orchestrator.decision_identifier.identify_decisions_with_institutional_analysis(
-                    actions=actions_entities,
-                    questions=questions_entities,
-                    principles=principles_entities,
-                    obligations=obligations_entities,
-                    constraints=constraints_entities,
-                    timeline_data=timeline.to_dict() if timeline else None,
-                    participants=participant_result.participants if participant_result else None,
-                    synthesis_data=data.synthesis_data
-                )
-
-                yield f"data: {json.dumps({
-                    'stage': 'decision_identification',
-                    'stage_number': 4,
-                    'progress': 57,
-                    'message': 'Analyzing institutional rules (principles, obligations, constraints)...',
-                    'timestamp': datetime.utcnow().isoformat()
-                })}\n\n"
-
-                yield f"data: {json.dumps({
-                    'stage': 'decision_identification',
-                    'stage_number': 4,
-                    'progress': 59,
-                    'message': 'Detecting transformation types (transfer, stalemate, oscillation, phase lag)...',
-                    'timestamp': datetime.utcnow().isoformat()
-                })}\n\n"
-
-                decision_summary = decision_result.to_dict()
-                yield f"data: {json.dumps({
-                    'stage': 'decision_identification',
-                    'stage_number': 4,
-                    'progress': 60,
-                    'message': f'Identified {decision_result.total_decisions} decision points with institutional analysis',
-                    'data': decision_summary,
-                    'details': {
-                        'decisions_analyzed': decision_result.total_decisions,
-                        'has_institutional_analysis': any(d.institutional_rule_analysis for d in decision_result.decision_points),
-                        'has_transformation_analysis': any(d.transformation_analysis for d in decision_result.decision_points)
-                    },
-                    'timestamp': datetime.utcnow().isoformat()
-                })}\n\n"
-
-                # Stage 5-9: Quick placeholders
-                stages = [
-                    ('causal_integration', 5, 65, 70, 'Linking decision consequences...'),
-                    ('normative_integration', 6, 75, 80, 'Integrating ethical framework...'),
-                    ('scenario_assembly', 7, 85, 90, 'Assembling complete scenario...'),
-                    ('model_generation', 8, 93, 95, 'Creating interactive models...'),
-                    ('validation', 9, 97, 99, 'Validating scenario quality...')
-                ]
-
-                for stage_name, stage_num, progress_start, progress_end, message in stages:
+                    # Send initial event
                     yield f"data: {json.dumps({
-                        'stage': stage_name,
-                        'stage_number': stage_num,
-                        'progress': progress_start,
-                        'message': message,
+                        'stage': 'init',
+                        'stage_number': 0,
+                        'progress': 0,
+                        'message': 'Initializing scenario generation...',
+                        'case_id': case_id,
+                        'case_title': case_title,
+                        'eligibility': eligibility.to_dict(),
                         'timestamp': datetime.utcnow().isoformat()
                     })}\n\n"
 
+                    # Stage 1: Data Collection (already complete)
                     yield f"data: {json.dumps({
-                        'stage': stage_name,
-                        'stage_number': stage_num,
-                        'progress': progress_end,
-                        'message': f'{message} (Stage {stage_num} placeholder)',
+                        'stage': 'data_collection',
+                        'stage_number': 1,
+                        'progress': 10,
+                        'message': f'Data collection complete: {entity_count} entities',
+                        'data': {
+                            'temporary_entities': sum(len(e) for e in data.temporary_entities.values()),
+                            'committed_entities': sum(len(e) for e in data.committed_entities.values()),
+                            'merged_entities': entity_count,
+                            'entity_types': list(data.merged_entities.keys())
+                        },
                         'timestamp': datetime.utcnow().isoformat()
                     })}\n\n"
+    
+                    # Stage 2: Timeline Construction (already complete)
+                    yield f"data: {json.dumps({
+                        'stage': 'timeline_construction',
+                        'stage_number': 2,
+                        'progress': 30,
+                        'message': 'Building chronological timeline from temporal dynamics...',
+                        'timestamp': datetime.utcnow().isoformat()
+                    })}\n\n"
+    
+                    # Timeline already built before generator
+                    timeline_dict = timeline.to_dict()
+    
+                    yield f"data: {json.dumps({
+                        'stage': 'timeline_construction',
+                        'stage_number': 2,
+                        'progress': 35,
+                        'message': f'Timeline built with {len(timeline.entries)} timepoints across {len(timeline.phases)} phases',
+                        'data': timeline_dict,
+                        'timestamp': datetime.utcnow().isoformat()
+                    })}\n\n"
+    
+                    # Stage 3: Participant Mapping (already complete before generator)
+                    yield f"data: {json.dumps({
+                        'stage': 'participant_mapping',
+                        'stage_number': 3,
+                        'progress': 40,
+                        'message': 'Extracting character profiles from roles...',
+                        'timestamp': datetime.utcnow().isoformat()
+                    })}\n\n"
+    
+                    yield f"data: {json.dumps({
+                        'stage': 'participant_mapping',
+                        'stage_number': 3,
+                        'progress': 42,
+                        'message': f'Building profiles for {len(roles)} participants...',
+                        'timestamp': datetime.utcnow().isoformat()
+                    })}\n\n"
+    
+                    yield f"data: {json.dumps({
+                        'stage': 'participant_mapping',
+                        'stage_number': 3,
+                        'progress': 45,
+                        'message': 'Enhancing character arcs with LLM...',
+                        'timestamp': datetime.utcnow().isoformat()
+                    })}\n\n"
+    
+                    yield f"data: {json.dumps({
+                        'stage': 'participant_mapping',
+                        'stage_number': 3,
+                        'progress': 48,
+                        'message': 'Saving character profiles to database...',
+                        'timestamp': datetime.utcnow().isoformat()
+                    })}\n\n"
+    
+                    participant_summary = participant_result.to_dict()
+                    yield f"data: {json.dumps({
+                        'stage': 'participant_mapping',
+                        'stage_number': 3,
+                        'progress': 50,
+                        'message': f'Created {len(participant_result.participants)} character profiles with enhanced arcs',
+                        'data': participant_summary,
+                        'details': {
+                            'saved_to_database': saved_count,
+                            'protagonist': participant_result.protagonist_id,
+                            'llm_enhanced': participant_result.llm_enrichment is not None,
+                            'has_analysis_notes': participant_result.analysis_notes is not None
+                        },
+                        'timestamp': datetime.utcnow().isoformat()
+                    })}\n\n"
+    
+                    # Stage 4: Decision Point Identification + Institutional Rule Analysis
+                    yield f"data: {json.dumps({
+                        'stage': 'decision_identification',
+                        'stage_number': 4,
+                        'progress': 52,
+                        'message': 'Identifying decision points from actions and questions...',
+                        'timestamp': datetime.utcnow().isoformat()
+                    })}\n\n"
+    
+                    # Get actions and questions
+                    actions_entities = data.get_entities_by_type('actions')
+                    if not actions_entities:
+                        actions_entities = data.get_entities_by_type('Action')
+    
+                    questions_entities = data.get_entities_by_type('questions')
+                    if not questions_entities:
+                        questions_entities = data.get_entities_by_type('Question')
+    
+                    yield f"data: {json.dumps({
+                        'stage': 'decision_identification',
+                        'stage_number': 4,
+                        'progress': 54,
+                        'message': 'Loading institutional analysis from Step 4 (Part D)...',
+                        'timestamp': datetime.utcnow().isoformat()
+                    })}\n\n"
+    
+                    # REFACTORED: Reference Step 4 analysis from database (no re-analysis)
+                    decision_result = orchestrator.decision_identifier.identify_decisions_from_step4_analysis(
+                        case_id=case_id,
+                        actions=actions_entities,
+                        questions=questions_entities,
+                        timeline_data=timeline.to_dict() if timeline else None,
+                        participants=participant_result.participants if participant_result else None,
+                        synthesis_data=data.synthesis_data
+                    )
+    
+                    yield f"data: {json.dumps({
+                        'stage': 'decision_identification',
+                        'stage_number': 4,
+                        'progress': 57,
+                        'message': 'Enriching decisions with institutional analysis (Part D)...',
+                        'timestamp': datetime.utcnow().isoformat()
+                    })}\n\n"
+    
+                    yield f"data: {json.dumps({
+                        'stage': 'decision_identification',
+                        'stage_number': 4,
+                        'progress': 59,
+                        'message': 'Enriching decisions with transformation classification (Part F)...',
+                        'timestamp': datetime.utcnow().isoformat()
+                    })}\n\n"
+    
+                    decision_summary = decision_result.to_dict()
+                    yield f"data: {json.dumps({
+                        'stage': 'decision_identification',
+                        'stage_number': 4,
+                        'progress': 60,
+                        'message': f'Identified {decision_result.total_decisions} decision points with institutional analysis',
+                        'data': decision_summary,
+                        'details': {
+                            'decisions_analyzed': decision_result.total_decisions,
+                            'has_institutional_analysis': any(d.institutional_rule_analysis for d in decision_result.decision_points),
+                            'has_transformation_analysis': any(d.transformation_analysis for d in decision_result.decision_points)
+                        },
+                        'timestamp': datetime.utcnow().isoformat()
+                    })}\n\n"
+    
+                    # Stage 5: Causal Chain Integration - Reference Part E (Action-Rule Mapping)
+                    yield f"data: {json.dumps({
+                        'stage': 'causal_integration',
+                        'stage_number': 5,
+                        'progress': 65,
+                        'message': 'Loading action-rule mapping from Step 4 (Part E)...',
+                        'timestamp': datetime.utcnow().isoformat()
+                    })}\n\n"
+    
+                    # Load Part E from database
+                    from app.models import db
+                    from sqlalchemy import text as sql_text
+    
+                    action_mapping_query = sql_text("""
+                        SELECT
+                            actions_taken,
+                            actions_not_taken,
+                            transformation_points,
+                            rule_shifts
+                        FROM case_action_mapping
+                        WHERE case_id = :case_id
+                    """)
+    
+                    action_mapping_result = db.session.execute(action_mapping_query, {'case_id': case_id}).fetchone()
+    
+                    if action_mapping_result:
+                        yield f"data: {json.dumps({
+                            'stage': 'causal_integration',
+                            'stage_number': 5,
+                            'progress': 70,
+                            'message': f'Causal chains loaded: {len(action_mapping_result.actions_taken or [])} actions taken, {len(action_mapping_result.transformation_points or [])} transformation points',
+                            'data': {
+                                'actions_taken': len(action_mapping_result.actions_taken or []),
+                                'actions_not_taken': len(action_mapping_result.actions_not_taken or []),
+                                'transformation_points': len(action_mapping_result.transformation_points or []),
+                                'rule_shifts': len(action_mapping_result.rule_shifts or [])
+                            },
+                            'timestamp': datetime.utcnow().isoformat()
+                        })}\n\n"
+                    else:
+                        yield f"data: {json.dumps({
+                            'stage': 'causal_integration',
+                            'stage_number': 5,
+                            'progress': 70,
+                            'message': 'No Part E analysis found (run Step 4 first)',
+                            'timestamp': datetime.utcnow().isoformat()
+                        })}\n\n"
+    
+                    # Stage 6: Normative Framework - Reference Part F (Transformation Classification)
+                    yield f"data: {json.dumps({
+                        'stage': 'normative_integration',
+                        'stage_number': 6,
+                        'progress': 75,
+                        'message': 'Loading transformation classification from Step 4 (Part F)...',
+                        'timestamp': datetime.utcnow().isoformat()
+                    })}\n\n"
+    
+                    transformation_query = sql_text("""
+                        SELECT
+                            transformation_type,
+                            confidence,
+                            symbolic_significance,
+                            pattern_name
+                        FROM case_transformation
+                        WHERE case_id = :case_id
+                    """)
+    
+                    transformation_result = db.session.execute(transformation_query, {'case_id': case_id}).fetchone()
+    
+                    if transformation_result:
+                        yield f"data: {json.dumps({
+                            'stage': 'normative_integration',
+                            'stage_number': 6,
+                            'progress': 80,
+                            'message': f'Normative framework integrated: {transformation_result.transformation_type} transformation (confidence: {transformation_result.confidence:.2f})',
+                            'data': {
+                                'transformation_type': transformation_result.transformation_type,
+                                'confidence': transformation_result.confidence,
+                                'pattern_name': transformation_result.pattern_name,
+                                'symbolic_significance': transformation_result.symbolic_significance[:100] + '...' if len(transformation_result.symbolic_significance or '') > 100 else transformation_result.symbolic_significance
+                            },
+                            'timestamp': datetime.utcnow().isoformat()
+                        })}\n\n"
+                    else:
+                        yield f"data: {json.dumps({
+                            'stage': 'normative_integration',
+                            'stage_number': 6,
+                            'progress': 80,
+                            'message': 'No Part F analysis found (run Step 4 first)',
+                            'timestamp': datetime.utcnow().isoformat()
+                        })}\n\n"
+    
+                    # Stages 7-9: Quick placeholders (to be implemented later)
+                    stages = [
+                        ('scenario_assembly', 7, 85, 90, 'Assembling complete scenario...'),
+                        ('model_generation', 8, 93, 95, 'Creating interactive models...'),
+                        ('validation', 9, 97, 99, 'Validating scenario quality...')
+                    ]
+    
+                    for stage_name, stage_num, progress_start, progress_end, message in stages:
+                        yield f"data: {json.dumps({
+                            'stage': stage_name,
+                            'stage_number': stage_num,
+                            'progress': progress_start,
+                            'message': message,
+                            'timestamp': datetime.utcnow().isoformat()
+                        })}\n\n"
+    
+                        yield f"data: {json.dumps({
+                            'stage': stage_name,
+                            'stage_number': stage_num,
+                            'progress': progress_end,
+                            'message': f'{message} (Stage {stage_num} placeholder)',
+                            'timestamp': datetime.utcnow().isoformat()
+                        })}\n\n"
+    
+                    # Completion
+                    result = {
+                        'success': True,
+                        'case_id': case_id,
+                        'entity_count': entity_count,
+                        'stages_completed': 9,
+                        'status': 'complete_placeholder',
+                        'message': 'Pipeline executed successfully (Stages 2-9 are placeholders)',
+                        'note': 'This is a proof-of-concept. Full implementation coming in Weeks 2-6.'
+                    }
+    
+                    yield f"data: {json.dumps({
+                        'stage': 'complete',
+                        'stage_number': 10,
+                        'progress': 100,
+                        'message': 'Scenario generation pipeline complete!',
+                        'result': result,
+                        'timestamp': datetime.utcnow().isoformat()
+                    })}\n\n"
+    
+                    logger.info(f"[Scenario Gen] Successfully completed generation for case {case_id}")
 
-                # Completion
-                result = {
-                    'success': True,
-                    'case_id': case_id,
-                    'entity_count': entity_count,
-                    'stages_completed': 9,
-                    'status': 'complete_placeholder',
-                    'message': 'Pipeline executed successfully (Stages 2-9 are placeholders)',
-                    'note': 'This is a proof-of-concept. Full implementation coming in Weeks 2-6.'
-                }
-
-                yield f"data: {json.dumps({
-                    'stage': 'complete',
-                    'stage_number': 10,
-                    'progress': 100,
-                    'message': 'Scenario generation pipeline complete!',
-                    'result': result,
-                    'timestamp': datetime.utcnow().isoformat()
-                })}\n\n"
-
-                logger.info(f"[Scenario Gen] Successfully completed generation for case {case_id}")
-
-            except Exception as e:
-                logger.error(f"[Scenario Gen] Error during generation: {str(e)}", exc_info=True)
-                yield f"data: {json.dumps({
-                    'stage': 'error',
-                    'stage_number': -1,
-                    'progress': 0,
-                    'message': f'Error: {str(e)}',
-                    'error': str(e),
-                    'timestamp': datetime.utcnow().isoformat()
-                })}\n\n"
+                except Exception as e:
+                    logger.error(f"[Scenario Gen] Error during generation: {str(e)}", exc_info=True)
+                    yield f"data: {json.dumps({
+                        'stage': 'error',
+                        'stage_number': -1,
+                        'progress': 0,
+                        'message': f'Error: {str(e)}',
+                        'error': str(e),
+                        'timestamp': datetime.utcnow().isoformat()
+                    })}\n\n"
 
         return Response(generate(), mimetype='text/event-stream')
 
