@@ -167,6 +167,15 @@ class ParticipantMapper:
                 logger.error(f"[Participant Mapper] Error creating participant from role {role.label}: {e}")
                 continue
 
+        # Deduplicate participants while preserving provenance
+        original_count = len(participants)
+        participants = self._deduplicate_participants(participants)
+        if len(participants) < original_count:
+            logger.info(
+                f"[Participant Mapper] Deduplicated {original_count} → {len(participants)} participants "
+                f"({original_count - len(participants)} duplicates merged)"
+            )
+
         # Build relationship map
         relationship_map = self._build_relationship_map(participants)
 
@@ -440,6 +449,141 @@ class ParticipantMapper:
             return "supporting"
 
         return "supporting"
+
+    def _deduplicate_participants(
+        self,
+        participants: List[ParticipantProfile]
+    ) -> List[ParticipantProfile]:
+        """
+        Deduplicate participants while preserving all extracted information.
+
+        Strategy:
+        1. Group by normalized name (case-insensitive, strip whitespace)
+        2. Merge expertise, motivations, tensions from all instances
+        3. Store provenance showing which extraction paths found each entity
+        4. Combine backgrounds with most complete description
+
+        Args:
+            participants: List of participant profiles (may contain duplicates)
+
+        Returns:
+            Deduplicated list with merged information and provenance metadata
+        """
+        from collections import defaultdict
+
+        if len(participants) <= 1:
+            return participants
+
+        # Group by normalized name
+        groups = defaultdict(list)
+        for p in participants:
+            # Normalize: lowercase, strip whitespace, remove punctuation
+            normalized_name = p.name.lower().strip().replace('.', '')
+            groups[normalized_name].append(p)
+
+        merged = []
+        for norm_name, instances in groups.items():
+            if len(instances) == 1:
+                # No duplicates, keep as-is
+                merged.append(instances[0])
+            else:
+                # Merge multiple instances
+                logger.info(f"[Dedup] Merging {len(instances)} instances of '{instances[0].name}'")
+
+                primary = instances[0]  # Use first as base
+
+                # Combine expertise (deduplicate)
+                all_expertise = set()
+                for inst in instances:
+                    if inst.expertise:
+                        all_expertise.update(inst.expertise)
+                primary.expertise = list(all_expertise) if all_expertise else primary.expertise
+
+                # Combine qualifications (deduplicate)
+                all_qualifications = set()
+                for inst in instances:
+                    if inst.qualifications:
+                        all_qualifications.update(inst.qualifications)
+                primary.qualifications = list(all_qualifications) if all_qualifications else primary.qualifications
+
+                # Merge motivations (list of strings)
+                all_motivations = set()
+                for inst in instances:
+                    if inst.motivations:
+                        all_motivations.update(inst.motivations)
+                primary.motivations = list(all_motivations) if all_motivations else primary.motivations
+
+                # Merge goals (list of strings)
+                all_goals = set()
+                for inst in instances:
+                    if inst.goals:
+                        all_goals.update(inst.goals)
+                primary.goals = list(all_goals) if all_goals else primary.goals
+
+                # Merge obligations (list of strings)
+                all_obligations = set()
+                for inst in instances:
+                    if inst.obligations:
+                        all_obligations.update(inst.obligations)
+                primary.obligations = list(all_obligations) if all_obligations else primary.obligations
+
+                # Merge constraints (list of strings)
+                all_constraints = set()
+                for inst in instances:
+                    if inst.constraints:
+                        all_constraints.update(inst.constraints)
+                primary.constraints = list(all_constraints) if all_constraints else primary.constraints
+
+                # Merge ethical tensions (list of strings)
+                all_tensions = set()
+                for inst in instances:
+                    if inst.ethical_tensions:
+                        all_tensions.update(inst.ethical_tensions)
+                primary.ethical_tensions = list(all_tensions) if all_tensions else primary.ethical_tensions
+
+                # Use longest background (most complete)
+                backgrounds = [inst.background for inst in instances if inst.background]
+                if backgrounds:
+                    primary.background = max(backgrounds, key=len)
+
+                # Merge role_type (take first non-empty)
+                if not primary.role_type:
+                    for inst in instances[1:]:
+                        if inst.role_type:
+                            primary.role_type = inst.role_type
+                            break
+
+                # Store provenance metadata in character_arc
+                source_ids = [inst.id for inst in instances]
+                provenance_note = f"[Provenance: Merged from {len(instances)} extraction instances: {', '.join(source_ids[:3])}{'...' if len(source_ids) > 3 else ''}]"
+
+                if primary.character_arc:
+                    primary.character_arc += f"\n\n{provenance_note}"
+                else:
+                    primary.character_arc = f"Character profile merged from multiple extraction paths. {provenance_note}"
+
+                # Merge relationships (combine all unique relationships)
+                all_relationships = []
+                seen_rels = set()
+                for inst in instances:
+                    if inst.relationships:
+                        for rel in inst.relationships:
+                            # Create unique key from relationship dict
+                            rel_key = f"{rel.get('type', '')}:{rel.get('target', '')}"
+                            if rel_key not in seen_rels:
+                                seen_rels.add(rel_key)
+                                all_relationships.append(rel)
+                primary.relationships = all_relationships if all_relationships else primary.relationships
+
+                merged.append(primary)
+                logger.debug(
+                    f"[Dedup] Merged '{primary.name}': "
+                    f"{len(all_expertise)} expertise areas, "
+                    f"{len(all_motivations)} motivations, "
+                    f"{len(all_tensions)} ethical tensions"
+                )
+
+        return merged
 
     def _build_relationship_map(
         self,

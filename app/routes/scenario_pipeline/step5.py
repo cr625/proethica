@@ -79,6 +79,37 @@ def generate_scenario_route(case_id):
     return generate_scenario_from_case(case_id)
 
 
+# Scenario Data Endpoint (for provenance display)
+@bp.route('/case/<int:case_id>/scenario_data')
+@auth_optional
+def get_scenario_data(case_id):
+    """
+    Get assembled scenario data with LLM provenance.
+
+    Returns the scenario_data JSONB from scenario_assemblies table.
+    """
+    try:
+        from sqlalchemy import text
+
+        query = text("""
+            SELECT scenario_data
+            FROM scenario_assemblies
+            WHERE case_id = :case_id
+            LIMIT 1
+        """)
+
+        result = db.session.execute(query, {"case_id": case_id}).fetchone()
+
+        if not result:
+            return jsonify({'error': 'No scenario found for this case'}), 404
+
+        return jsonify(result[0])
+
+    except Exception as e:
+        logger.error(f"Error fetching scenario data for case {case_id}: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 # Timeline Viewer Route
 @bp.route('/case/<int:case_id>/timeline')
 @auth_optional

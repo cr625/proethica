@@ -134,6 +134,41 @@ class ScenarioAssembler:
                 'completeness_score': self._calculate_completeness(
                     timeline, participants, decisions, action_mapping, transformation
                 )
+            },
+
+            # LLM Provenance Tracking
+            'llm_provenance': {
+                'stage_2b_timeline_enrichment': {
+                    'used': hasattr(timeline_result, 'llm_enhanced') and timeline_result.llm_enhanced,
+                    'prompt': timeline_result.llm_prompt if hasattr(timeline_result, 'llm_prompt') else None,
+                    'response': timeline_result.llm_response if hasattr(timeline_result, 'llm_response') else None,
+                    'model': 'claude-sonnet-4-20250514',
+                    'source_data': 'Step 3 (Temporal Dynamics)',
+                    'source_url': f'/scenario_pipeline/case/{case_id}/step3'
+                },
+                'stage_3_participant_enhancement': {
+                    'used': participant_result.llm_enrichment is not None,
+                    'prompt': participant_result.llm_prompt,
+                    'response': participant_result.llm_response,
+                    'model': 'claude-sonnet-4-20250514',
+                    'source_data': 'Pass 1 (Role Extraction)',
+                    'source_url': f'/scenario_pipeline/case/{case_id}/step1'
+                },
+                'stage_4_decision_identification': {
+                    'used': False,  # Currently references Step 4 Part D (no new LLM calls)
+                    'source_data': 'Step 4 Part D (Institutional Rule Analysis)',
+                    'source_url': f'/scenario_pipeline/case/{case_id}/step4#part-d'
+                },
+                'stage_5_causal_chains': {
+                    'used': False,  # References Step 4 Part E
+                    'source_data': 'Step 4 Part E (Action-Rule Mapping)',
+                    'source_url': f'/scenario_pipeline/case/{case_id}/step4#part-e'
+                },
+                'stage_6_normative_framework': {
+                    'used': False,  # References Step 4 Part F
+                    'source_data': 'Step 4 Part F (Transformation Classification)',
+                    'source_url': f'/scenario_pipeline/case/{case_id}/step4#part-f'
+                }
             }
         }
 

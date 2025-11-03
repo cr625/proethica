@@ -55,16 +55,17 @@
         </div>
         <div class="card-body">
             <ul class="list-unstyled mb-0">
-                {% for rel in scenario.participants.relationship_map %}
-                <li class="mb-2">
-                    <strong>{{ rel.from_participant }}</strong>
-                    <i class="bi bi-arrow-right text-muted"></i>
-                    <strong>{{ rel.to_participant }}</strong>
-                    <span class="badge bg-secondary">{{ rel.relationship_type }}</span>
-                    {% if rel.context %}
-                    <span class="text-muted small">({{ rel.context }})</span>
-                    {% endif %}
-                </li>
+                {# relationship_map is a dict of URIs to lists of URIs #}
+                {# Convert URIs to names by extracting the fragment after # #}
+                {% for from_uri, to_uris in scenario.participants.relationship_map.items() %}
+                    {% for to_uri in to_uris %}
+                    <li class="mb-2">
+                        <strong>{{ from_uri.split('#')[-1].replace('_', ' ') }}</strong>
+                        <i class="bi bi-arrow-right text-muted mx-2"></i>
+                        <strong>{{ to_uri.split('#')[-1].replace('_', ' ') }}</strong>
+                        <span class="badge bg-secondary ms-2">relationship</span>
+                    </li>
+                    {% endfor %}
                 {% endfor %}
             </ul>
         </div>

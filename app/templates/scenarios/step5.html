@@ -199,6 +199,28 @@
             </div>
         </div>
 
+        <!-- LLM Provenance Card (Shown after generation) -->
+        <div id="llm-provenance-card" class="card mb-3" style="display: none;">
+            <div class="card-header" style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#llmProvenanceCollapse" aria-expanded="false">
+                <h6 class="mb-0">
+                    <i class="bi bi-chevron-right" id="llmProvenanceIcon"></i>
+                    <i class="bi bi-robot"></i> LLM Prompts & Responses by Stage
+                    <span class="badge bg-info ms-2" id="llm-stages-count">0 LLM stages</span>
+                </h6>
+            </div>
+            <div id="llmProvenanceCollapse" class="collapse">
+                <div class="card-body">
+                    <div class="alert alert-info mb-3">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>Provenance Tracking:</strong> Shows which stages used LLM enhancement and links to source data.
+                    </div>
+                    <div id="llm-provenance-content">
+                        <!-- Will be populated after generation -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- LLM Prompts & Responses by Stage -->
         <div class="card mb-3">
             <div class="card-header bg-primary bg-opacity-10">
@@ -369,6 +391,9 @@
                     // Change header
                     document.getElementById('scenario-progress-icon').className = 'bi bi-check-circle text-success';
                     document.getElementById('scenario-progress-header-text').textContent = 'Generation Complete!';
+
+                    // Load and display LLM provenance
+                    loadLLMProvenance();
                 }
 
                 // Handle errors
@@ -474,6 +499,87 @@
         return div.innerHTML;
     }
 
+    async function loadLLMProvenance() {
+        console.log('[LLM Provenance] Loading provenance data');
+        try {
+            const response = await fetch('/scenario_pipeline/case/{{ case.id }}/scenario_data');
+            const scenarioData = await response.json();
+
+            if (scenarioData.llm_provenance) {
+                displayLLMProvenance(scenarioData.llm_provenance);
+            }
+        } catch (error) {
+            console.error('[LLM Provenance] Error loading:', error);
+        }
+    }
+
+    function displayLLMProvenance(provenance) {
+        const provenanceCard = document.getElementById('llm-provenance-card');
+        const provenanceContent = document.getElementById('llm-provenance-content');
+        const stagesCount = document.getElementById('llm-stages-count');
+
+        const stages = [
+            {key: 'stage_2b_timeline_enrichment', title: 'Stage 2b: Timeline Enrichment', color: 'primary'},
+            {key: 'stage_3_participant_enhancement', title: 'Stage 3: Participant Enhancement', color: 'success'},
+            {key: 'stage_4_decision_identification', title: 'Stage 4: Decision Identification', color: 'info'},
+            {key: 'stage_5_causal_chains', title: 'Stage 5: Causal Chains', color: 'warning'},
+            {key: 'stage_6_normative_framework', title: 'Stage 6: Normative Framework', color: 'secondary'}
+        ];
+
+        let llmStagesUsed = 0;
+        let html = '';
+
+        stages.forEach((stage, index) => {
+            const data = provenance[stage.key];
+            if (!data) return;
+
+            if (data.used) llmStagesUsed++;
+
+            html += `
+                <div class="card mb-2">
+                    <div class="card-header bg-${stage.color} bg-opacity-10">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>${stage.title}</strong>
+                                ${data.used ? '<span class="badge bg-success ms-2">LLM Enhanced</span>' : '<span class="badge bg-secondary ms-2">References Only</span>'}
+                            </div>
+                            ${data.used ? `<button class="btn btn-sm btn-outline-${stage.color}" type="button" data-bs-toggle="collapse" data-bs-target="#provenance-${index}">View Details</button>` : ''}
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-1"><strong>Source Data:</strong> ${data.source_data}</p>
+                        <p class="mb-0">
+                            <a href="${data.source_url}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-box-arrow-up-right"></i> View Source
+                            </a>
+                        </p>
+
+                        ${data.used && data.prompt ? `
+                        <div class="collapse mt-3" id="provenance-${index}">
+                            <div class="alert alert-light">
+                                <h6>Model:</h6>
+                                <p><code>${data.model || 'claude-sonnet-4-20250514'}</code></p>
+
+                                <h6 class="mt-3">Prompt:</h6>
+                                <pre class="p-2 bg-light rounded" style="font-size: 0.85rem; max-height: 300px; overflow-y: auto;">${escapeHtml(data.prompt.substring(0, 2000))}${data.prompt.length > 2000 ? '\n\n... (truncated)' : ''}</pre>
+
+                                ${data.response ? `
+                                <h6 class="mt-3">Response:</h6>
+                                <pre class="p-2 bg-light rounded" style="font-size: 0.85rem; max-height: 300px; overflow-y: auto;">${escapeHtml(data.response.substring(0, 2000))}${data.response.length > 2000 ? '\n\n... (truncated)' : ''}</pre>
+                                ` : ''}
+                            </div>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        });
+
+        provenanceContent.innerHTML = html;
+        stagesCount.textContent = `${llmStagesUsed} LLM-enhanced stages`;
+        provenanceCard.style.display = 'block';
+    }
+
     // Toggle icons for collapsible sections
     document.getElementById('eligibilityStatus')?.addEventListener('show.bs.collapse', function () {
         document.getElementById('eligibilityIcon').className = 'bi bi-chevron-down';
@@ -486,6 +592,12 @@
     });
     document.getElementById('aboutStep5')?.addEventListener('hide.bs.collapse', function () {
         document.getElementById('aboutStep5Icon').className = 'bi bi-chevron-right';
+    });
+    document.getElementById('llmProvenanceCollapse')?.addEventListener('show.bs.collapse', function () {
+        document.getElementById('llmProvenanceIcon').className = 'bi bi-chevron-down';
+    });
+    document.getElementById('llmProvenanceCollapse')?.addEventListener('hide.bs.collapse', function () {
+        document.getElementById('llmProvenanceIcon').className = 'bi bi-chevron-right';
     });
 
 </script>
