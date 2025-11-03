@@ -1,0 +1,84 @@
+{% if scenario.participants.profiles %}
+    {% if scenario.participants.protagonist %}
+    <div class="alert alert-info mb-3">
+        <strong><i class="bi bi-star"></i> Protagonist:</strong> {{ scenario.participants.protagonist }}
+    </div>
+    {% endif %}
+
+    {% for participant in scenario.participants.profiles %}
+    <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <div>
+                <strong>{{ participant.name }}</strong>
+                {% if participant.role %}
+                <span class="badge bg-primary ms-2">{{ participant.role }}</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    {% if participant.professional_background %}
+                    <p class="mb-2"><strong>Background:</strong> {{ participant.professional_background }}</p>
+                    {% endif %}
+                    {% if participant.capabilities %}
+                    <p class="mb-2"><strong>Capabilities:</strong></p>
+                    <ul class="small">
+                        {% for cap in participant.capabilities %}
+                        <li>{{ cap }}</li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                </div>
+                <div class="col-md-6">
+                    {% if participant.motivations %}
+                    <p class="mb-2"><strong>Motivations:</strong> {{ participant.motivations }}</p>
+                    {% endif %}
+                    {% if participant.ethical_tensions %}
+                    <p class="mb-2"><strong>Ethical Tensions:</strong> {{ participant.ethical_tensions }}</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% if participant.analysis_notes %}
+            <div class="alert alert-light mt-2 mb-0">
+                <small><strong><i class="bi bi-lightbulb"></i> Analysis:</strong> {{ participant.analysis_notes }}</small>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+
+    {% if scenario.participants.relationship_map %}
+    <div class="card mt-3">
+        <div class="card-header">
+            <strong><i class="bi bi-diagram-2"></i> Relationship Map</strong>
+        </div>
+        <div class="card-body">
+            <ul class="list-unstyled mb-0">
+                {% for rel in scenario.participants.relationship_map %}
+                <li class="mb-2">
+                    <strong>{{ rel.from_participant }}</strong>
+                    <i class="bi bi-arrow-right text-muted"></i>
+                    <strong>{{ rel.to_participant }}</strong>
+                    <span class="badge bg-secondary">{{ rel.relationship_type }}</span>
+                    {% if rel.context %}
+                    <span class="text-muted small">({{ rel.context }})</span>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if scenario.participants.llm_enhanced %}
+    <div class="alert alert-success mt-3 mb-0">
+        <i class="bi bi-robot"></i> Participant profiles enhanced with LLM analysis (Claude Sonnet 4)
+    </div>
+    {% endif %}
+
+{% else %}
+<div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle"></i> No participant profiles available. Run Step 5 scenario generation.
+</div>
+{% endif %}

@@ -1,0 +1,74 @@
+{% if scenario.decisions.decision_points %}
+    {% for decision in scenario.decisions.decision_points %}
+    <div class="card mb-3">
+        <div class="card-header bg-light">
+            <strong>Decision {{ loop.index }}:</strong> {{ decision.decision_question }}
+        </div>
+        <div class="card-body">
+            {% if decision.context %}
+            <p class="mb-2"><strong>Context:</strong> {{ decision.context }}</p>
+            {% endif %}
+
+            {% if decision.deliberating_actor %}
+            <p class="mb-2"><strong>Deliberating Actor:</strong> {{ decision.deliberating_actor }}</p>
+            {% endif %}
+
+            {% if decision.timeline_position %}
+            <p class="mb-3"><strong>Timeline Position:</strong> Event {{ decision.timeline_position }}</p>
+            {% endif %}
+
+            {% if decision.institutional_rule_analysis %}
+            <div class="mt-3">
+                <h6 class="text-primary"><i class="bi bi-building"></i> Institutional Analysis (Step 4 Part D):</h6>
+                <ul class="small">
+                    {% if decision.institutional_rule_analysis.principle_tensions %}
+                    <li><strong>Principle Tensions:</strong> {{ decision.institutional_rule_analysis.principle_tensions }}</li>
+                    {% endif %}
+                    {% if decision.institutional_rule_analysis.obligation_conflicts %}
+                    <li><strong>Obligation Conflicts:</strong> {{ decision.institutional_rule_analysis.obligation_conflicts }}</li>
+                    {% endif %}
+                    {% if decision.institutional_rule_analysis.constraints %}
+                    <li><strong>Constraints:</strong> {{ decision.institutional_rule_analysis.constraints }}</li>
+                    {% endif %}
+                </ul>
+            </div>
+            {% endif %}
+
+            {% if decision.action_mapping %}
+            <div class="mt-3">
+                <h6 class="text-success"><i class="bi bi-diagram-3"></i> Action Mapping (Step 4 Part E):</h6>
+                <ul class="small">
+                    {% if decision.action_mapping.regulative %}
+                    <li><strong>Regulative Rule:</strong> {{ decision.action_mapping.regulative }}</li>
+                    {% endif %}
+                    {% if decision.action_mapping.constitutive %}
+                    <li><strong>Constitutive Rule:</strong> {{ decision.action_mapping.constitutive }}</li>
+                    {% endif %}
+                    {% if decision.action_mapping.normative %}
+                    <li><strong>Normative Rule:</strong> {{ decision.action_mapping.normative }}</li>
+                    {% endif %}
+                </ul>
+            </div>
+            {% endif %}
+
+            {% if decision.transformation_analysis %}
+            <div class="mt-3">
+                <h6 class="text-warning"><i class="bi bi-shuffle"></i> Transformation Analysis (Step 4 Part F):</h6>
+                <p class="small mb-0">{{ decision.transformation_analysis }}</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+
+    {% if not scenario.decisions.has_institutional_analysis %}
+    <div class="alert alert-warning">
+        <i class="bi bi-info-circle"></i> Decision points lack institutional analysis. Run Step 4 Part D for deeper analysis.
+    </div>
+    {% endif %}
+
+{% else %}
+<div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle"></i> No decision points identified. Run Step 5 scenario generation.
+</div>
+{% endif %}

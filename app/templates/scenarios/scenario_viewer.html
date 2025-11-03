@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+
+{% block title %}Scenario: {{ scenario.title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+
+    <!-- Header with Metadata -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h2 class="mb-2">{{ scenario.title }}</h2>
+                    <div>
+                        <span class="badge bg-success">Completeness: {{ (metadata.completeness_score * 100)|int }}%</span>
+                        <span class="badge bg-info">{{ metadata.stages_included }}/5 Stages</span>
+                        <span class="badge bg-secondary">{{ metadata.total_components }} Components</span>
+                    </div>
+                </div>
+                <div class="text-end">
+                    <small class="text-muted d-block">Last Updated: {{ metadata.updated_at.strftime('%b %d, %Y %I:%M %p') }}</small>
+                    <a href="{{ url_for('step5.step5_scenario_generation', case_id=case_id) }}" class="btn btn-sm btn-outline-secondary mt-2">
+                        <i class="bi bi-arrow-left"></i> Back to Step 5
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5>{{ scenario.timeline.total_timepoints }}</h5>
+                    <p class="mb-0">Timeline Events</p>
+                    <small class="text-muted">{{ scenario.timeline.phases|length }} Phases</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5>{{ scenario.participants.total_count }}</h5>
+                    <p class="mb-0">Participants</p>
+                    <small class="text-muted">
+                        {% if scenario.participants.llm_enhanced %}LLM Enhanced{% else %}Basic{% endif %}
+                    </small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5>{{ scenario.decisions.total_count }}</h5>
+                    <p class="mb-0">Decision Points</p>
+                    <small class="text-muted">
+                        {% if scenario.decisions.has_institutional_analysis %}Analyzed{% else %}Basic{% endif %}
+                    </small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5>
+                        {% if scenario.normative_framework %}
+                            {{ scenario.normative_framework.transformation_type|capitalize }}
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </h5>
+                    <p class="mb-0">Transformation</p>
+                    <small class="text-muted">
+                        {% if scenario.normative_framework %}
+                            {{ (scenario.normative_framework.confidence * 100)|int }}% confidence
+                        {% else %}
+                            Not analyzed
+                        {% endif %}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Timeline Section (Collapsible) -->
+    <div class="card mb-3">
+        <div class="card-header">
+            <a class="text-decoration-none" data-bs-toggle="collapse" href="#timeline-section">
+                <i class="bi bi-clock-history"></i> Timeline ({{ scenario.timeline.total_timepoints }} events)
+            </a>
+        </div>
+        <div id="timeline-section" class="collapse show">
+            <div class="card-body">
+                {% include 'scenarios/components/timeline.html' %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Participants Section -->
+    <div class="card mb-3">
+        <div class="card-header">
+            <a class="text-decoration-none" data-bs-toggle="collapse" href="#participants-section">
+                <i class="bi bi-people"></i> Participants ({{ scenario.participants.total_count }} profiles)
+            </a>
+        </div>
+        <div id="participants-section" class="collapse show">
+            <div class="card-body">
+                {% include 'scenarios/components/participants.html' %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Decisions Section -->
+    <div class="card mb-3">
+        <div class="card-header">
+            <a class="text-decoration-none" data-bs-toggle="collapse" href="#decisions-section">
+                <i class="bi bi-diagram-3"></i> Decision Points ({{ scenario.decisions.total_count }} points)
+            </a>
+        </div>
+        <div id="decisions-section" class="collapse show">
+            <div class="card-body">
+                {% include 'scenarios/components/decisions.html' %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Causal Chains Section -->
+    {% if scenario.causal_chains %}
+    <div class="card mb-3">
+        <div class="card-header">
+            <a class="text-decoration-none" data-bs-toggle="collapse" href="#causal-section">
+                <i class="bi bi-arrow-left-right"></i> Causal Chains
+            </a>
+        </div>
+        <div id="causal-section" class="collapse">
+            <div class="card-body">
+                {% include 'scenarios/components/causal_chains.html' %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Normative Framework Section -->
+    {% if scenario.normative_framework %}
+    <div class="card mb-3">
+        <div class="card-header">
+            <a class="text-decoration-none" data-bs-toggle="collapse" href="#normative-section">
+                <i class="bi bi-shield-check"></i> Normative Framework
+            </a>
+        </div>
+        <div id="normative-section" class="collapse">
+            <div class="card-body">
+                {% include 'scenarios/components/normative_framework.html' %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Completeness Indicators -->
+    {% if missing %}
+    <div class="card mb-3 border-warning">
+        <div class="card-header bg-warning text-dark">
+            <i class="bi bi-exclamation-triangle"></i> Missing or Incomplete Elements
+        </div>
+        <div class="card-body">
+            <ul class="list-group mb-3">
+                {% for item in missing %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>{{ item.section|replace('_', ' ')|title }}</strong>: {{ item.element }}
+                    </div>
+                    <span class="badge bg-{{ 'danger' if item.severity == 'high' else 'warning' if item.severity == 'medium' else 'secondary' }}">
+                        {{ item.severity }}
+                    </span>
+                </li>
+                {% endfor %}
+            </ul>
+
+            <!-- Future Expansion: Add buttons (disabled placeholders) -->
+            <div>
+                <p class="text-muted mb-2 small">Future enhancements (not yet implemented):</p>
+                <button class="btn btn-sm btn-outline-secondary" disabled>
+                    <i class="bi bi-plus"></i> Add counterfactual scenario
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" disabled>
+                    <i class="bi bi-link"></i> Link precedent cases
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" disabled>
+                    <i class="bi bi-diagram-2"></i> Generate visualization
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+<style>
+    .card-header a {
+        color: inherit;
+        display: block;
+    }
+    .card-header a:hover {
+        color: #0d6efd;
+    }
+</style>
+{% endblock %}

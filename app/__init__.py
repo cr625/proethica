@@ -135,6 +135,7 @@ def create_app(config_name=None):
     from app.routes.scenario_pipeline.entity_review import bp as entity_review_bp
     from app.routes.scenario_pipeline.step4 import bp as step4_bp
     from app.routes.scenario_pipeline.step5 import bp as step5_bp
+    from app.routes.scenario_pipeline.view_scenario import scenario_viewer_bp
     from app.routes.characters import characters_bp
     from app.routes.events import events_bp
     from app.routes.simulation import simulation_bp
@@ -191,6 +192,7 @@ def create_app(config_name=None):
     app.register_blueprint(entity_review_bp, url_prefix='/scenario_pipeline')
     app.register_blueprint(step4_bp)  # Uses /scenario_pipeline prefix from blueprint
     app.register_blueprint(step5_bp)  # Step 5: Scenario Generation
+    app.register_blueprint(scenario_viewer_bp)  # Step 5: Scenario Viewer (Stage 8)
     app.register_blueprint(characters_bp, url_prefix='/characters')
     app.register_blueprint(events_bp, url_prefix='/events')
     app.register_blueprint(simulation_bp, url_prefix='/simulation')

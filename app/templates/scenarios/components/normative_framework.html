@@ -1,0 +1,42 @@
+{% if scenario.normative_framework %}
+<div class="row">
+    <div class="col-md-6">
+        <p class="mb-2">
+            <strong>Transformation Type:</strong>
+            <span class="badge bg-primary">{{ scenario.normative_framework.transformation_type|capitalize }}</span>
+        </p>
+        <p class="mb-2">
+            <strong>Confidence:</strong>
+            <span class="badge bg-success">{{ (scenario.normative_framework.confidence * 100)|int }}%</span>
+        </p>
+        {% if scenario.normative_framework.pattern_name %}
+        <p class="mb-2">
+            <strong>Pattern:</strong> {{ scenario.normative_framework.pattern_name }}
+        </p>
+        {% endif %}
+    </div>
+
+    <div class="col-md-6">
+        {% if scenario.normative_framework.symbolic_significance %}
+        <p class="mb-2"><strong>Symbolic Significance:</strong></p>
+        <p class="small text-muted">{{ scenario.normative_framework.symbolic_significance }}</p>
+        {% endif %}
+    </div>
+</div>
+
+{% if scenario.normative_framework.key_principles %}
+<div class="mt-3">
+    <h6><i class="bi bi-shield-check"></i> Key Principles:</h6>
+    <ul class="small">
+        {% for principle in scenario.normative_framework.key_principles %}
+        <li>{{ principle }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+{% else %}
+<div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle"></i> No normative framework available. Run Step 4 Part F to generate transformation classification.
+</div>
+{% endif %}

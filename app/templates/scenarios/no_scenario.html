@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}No Scenario Available{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="alert alert-warning">
+        <h4><i class="bi bi-exclamation-triangle"></i> No Scenario Available</h4>
+        <p>No assembled scenario found for Case {{ case_id }}.</p>
+        <p>Please generate a scenario first by visiting the <a href="{{ url_for('step5.step5_scenario_generation', case_id=case_id) }}">Step 5 page</a> and clicking "Generate Analytical Scenario".</p>
+    </div>
+
+    <a href="{{ url_for('step5.step5_scenario_generation', case_id=case_id) }}" class="btn btn-primary">
+        <i class="bi bi-arrow-left"></i> Go to Step 5
+    </a>
+</div>
+{% endblock %}

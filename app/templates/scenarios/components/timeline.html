@@ -1,0 +1,37 @@
+{% if scenario.timeline.entries %}
+    {% set phases_dict = scenario.timeline.phases %}
+
+    {% for phase_name, phase_data in phases_dict.items() %}
+    <div class="mb-4">
+        <h5 class="text-primary">{{ phase_name }}</h5>
+        <small class="text-muted">{{ phase_data.entry_count }} event{{ 's' if phase_data.entry_count != 1 else '' }}</small>
+
+        <div class="list-group mt-2">
+            {% for entry in scenario.timeline.entries %}
+                {% if entry.phase == phase_name %}
+                <div class="list-group-item">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <strong>{{ entry.sequence_number }}.</strong> {{ entry.title }}
+                            {% if entry.temporal_marker %}
+                            <span class="badge bg-secondary ms-2">{{ entry.temporal_marker }}</span>
+                            {% endif %}
+                        </div>
+                        {% if entry.date %}
+                        <span class="text-muted ms-2">{{ entry.date }}</span>
+                        {% endif %}
+                    </div>
+                    {% if entry.description %}
+                    <p class="mb-0 mt-2 text-muted small">{{ entry.description }}</p>
+                    {% endif %}
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+<div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle"></i> No timeline events available. Run Step 5 scenario generation.
+</div>
+{% endif %}

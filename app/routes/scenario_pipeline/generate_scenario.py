@@ -454,45 +454,28 @@ def generate_scenario_from_case(case_id):
                         'timestamp': datetime.utcnow().isoformat()
                     })}\n\n"
 
-                    # Stages 8-9: Placeholders (to be implemented)
-                    stages = [
-                        ('model_generation', 8, 93, 95, 'Creating interactive models...'),
-                        ('validation', 9, 97, 99, 'Validating scenario quality...')
-                    ]
-
-                    for stage_name, stage_num, progress_start, progress_end, message in stages:
-                        yield f"data: {json.dumps({
-                            'stage': stage_name,
-                            'stage_number': stage_num,
-                            'progress': progress_start,
-                            'message': message,
-                            'timestamp': datetime.utcnow().isoformat()
-                        })}\n\n"
-
-                        yield f"data: {json.dumps({
-                            'stage': stage_name,
-                            'stage_number': stage_num,
-                            'progress': progress_end,
-                            'message': f'{message} (Stage {stage_num} placeholder)',
-                            'timestamp': datetime.utcnow().isoformat()
-                        })}\n\n"
-    
-                    # Completion
+                    # Completion - Stages 8-9 implemented separately
+                    # Stage 8: Dynamic viewer (separate route)
+                    # Stage 9: Validation (integrated into viewer)
                     result = {
                         'success': True,
                         'case_id': case_id,
                         'entity_count': entity_count,
-                        'stages_completed': 9,
-                        'status': 'complete_placeholder',
-                        'message': 'Pipeline executed successfully (Stages 2-9 are placeholders)',
-                        'note': 'This is a proof-of-concept. Full implementation coming in Weeks 2-6.'
+                        'total_timepoints': assembled_scenario.metadata.total_timepoints,
+                        'total_participants': assembled_scenario.metadata.total_participants,
+                        'total_decisions': assembled_scenario.metadata.total_decisions,
+                        'completeness_score': assembled_scenario.scenario_data['assembly_info']['completeness_score'],
+                        'stages_included': assembled_scenario.scenario_data['assembly_info']['stages_included'],
+                        'stages_completed': 7,
+                        'status': 'complete',
+                        'message': 'Scenario assembly complete. Click "View Assembled Scenario" to see the interactive viewer.',
+                        'viewer_url': f'/scenario_pipeline/case/{case_id}/scenario'
                     }
-    
+
                     yield f"data: {json.dumps({
                         'stage': 'complete',
-                        'stage_number': 10,
                         'progress': 100,
-                        'message': 'Scenario generation pipeline complete!',
+                        'message': 'Scenario generation complete! Click "View Assembled Scenario" below.',
                         'result': result,
                         'timestamp': datetime.utcnow().isoformat()
                     })}\n\n"

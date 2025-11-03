@@ -1,0 +1,56 @@
+{% if scenario.causal_chains %}
+<div class="row">
+    <div class="col-md-6">
+        <h6 class="text-success"><i class="bi bi-check-circle"></i> Actions Taken:</h6>
+        {% if scenario.causal_chains.actions_taken %}
+        <ul class="small">
+            {% for action in scenario.causal_chains.actions_taken %}
+            <li>{{ action }}</li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-muted small">No actions taken recorded.</p>
+        {% endif %}
+    </div>
+
+    <div class="col-md-6">
+        <h6 class="text-danger"><i class="bi bi-x-circle"></i> Actions NOT Taken:</h6>
+        {% if scenario.causal_chains.actions_not_taken %}
+        <ul class="small">
+            {% for action in scenario.causal_chains.actions_not_taken %}
+            <li>{{ action }}</li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-muted small">No counterfactual actions recorded.</p>
+        {% endif %}
+    </div>
+</div>
+
+{% if scenario.causal_chains.transformation_points %}
+<div class="mt-3">
+    <h6 class="text-warning"><i class="bi bi-shuffle"></i> Transformation Points:</h6>
+    <ul class="small">
+        {% for point in scenario.causal_chains.transformation_points %}
+        <li>{{ point }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+{% if scenario.causal_chains.rule_shifts %}
+<div class="mt-3">
+    <h6 class="text-info"><i class="bi bi-arrow-left-right"></i> Rule Shifts:</h6>
+    <ul class="small">
+        {% for shift in scenario.causal_chains.rule_shifts %}
+        <li>{{ shift }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+{% else %}
+<div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle"></i> No causal chain analysis available. Run Step 4 Part E to generate action mapping.
+</div>
+{% endif %}

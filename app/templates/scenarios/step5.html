@@ -170,7 +170,7 @@
 
         <!-- Current Stage Info -->
         <div id="scenario-stage-info" class="alert alert-primary mb-3" style="display: none;">
-            <strong>Stage <span id="scenario-stage-number">0</span>/9:</strong> <span id="scenario-current-stage">Initializing...</span>
+            <strong>Stage <span id="scenario-stage-number">0</span>/7:</strong> <span id="scenario-current-stage">Initializing...</span>
         </div>
 
         <!-- Generation Log -->
@@ -191,6 +191,11 @@
                 <strong><i class="bi bi-check-circle text-success"></i> Generation Summary</strong>
             </div>
             <div class="card-body" id="scenario-complete-message">
+            </div>
+            <div class="card-footer text-center">
+                <a href="{{ url_for('scenario_viewer.view_scenario', case_id=case.id) }}" class="btn btn-primary">
+                    <i class="bi bi-eye"></i> View Assembled Scenario
+                </a>
             </div>
         </div>
 
@@ -343,10 +348,22 @@
 
                     // Show completion message
                     completeDiv.style.display = 'block';
+                    const completenessPercent = Math.round((data.result.completeness_score || 0) * 100);
                     completeMessage.innerHTML = `
-                        <p><strong>Stages Completed:</strong> ${data.result.stages_completed}/9</p>
-                        <p><strong>Status:</strong> ${data.result.message}</p>
-                        <p class="text-muted mb-0"><em>${data.result.note || 'Stages 7-9 (Assembly, Interactive Model, Validation) planned for future implementation.'}</em></p>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>Stages Completed:</strong> ${data.result.stages_completed}/7</p>
+                                <p><strong>Completeness Score:</strong> <span class="badge bg-success">${completenessPercent}%</span></p>
+                                <p><strong>Stages Included:</strong> ${data.result.stages_included}/5 (timeline, participants, decisions, causal, normative)</p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Timeline Events:</strong> ${data.result.total_timepoints}</p>
+                                <p><strong>Participants:</strong> ${data.result.total_participants}</p>
+                                <p><strong>Decision Points:</strong> ${data.result.total_decisions}</p>
+                            </div>
+                        </div>
+                        <hr>
+                        <p class="text-success mb-0"><i class="bi bi-check-circle"></i> ${data.result.message}</p>
                     `;
 
                     // Change header
