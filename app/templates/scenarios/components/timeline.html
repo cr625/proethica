@@ -1,37 +1,224 @@
 {% if scenario.timeline.entries %}
-    {% set phases_dict = scenario.timeline.phases %}
 
-    {% for phase_name, phase_data in phases_dict.items() %}
-    <div class="mb-4">
-        <h5 class="text-primary">{{ phase_name }}</h5>
-        <small class="text-muted">{{ phase_data.entry_count }} event{{ 's' if phase_data.entry_count != 1 else '' }}</small>
+{# Build chronological list by flattening all timeline elements #}
+{% set chronological_items = [] %}
 
-        <div class="list-group mt-2">
-            {% for entry in scenario.timeline.entries %}
-                {% if entry.phase == phase_name %}
-                <div class="list-group-item">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div class="flex-grow-1">
-                            <strong>{{ entry.sequence_number }}.</strong> {{ entry.title }}
-                            {% if entry.temporal_marker %}
-                            <span class="badge bg-secondary ms-2">{{ entry.temporal_marker }}</span>
-                            {% endif %}
-                        </div>
-                        {% if entry.date %}
-                        <span class="text-muted ms-2">{{ entry.date }}</span>
-                        {% endif %}
-                    </div>
-                    {% if entry.description %}
-                    <p class="mb-0 mt-2 text-muted small">{{ entry.description }}</p>
-                    {% endif %}
-                </div>
-                {% endif %}
-            {% endfor %}
-        </div>
-    </div>
+{# Add timeline elements (events/actions) #}
+{% for entry in scenario.timeline.entries %}
+    {% for element in entry.elements %}
+        {% set item = {
+            'type': 'element',
+            'element_type': element.type,
+            'sequence': entry.sequence,
+            'timepoint': entry.timepoint,
+            'phase': entry.phase,
+            'label': element.label,
+            'agent': element.agent,
+            'description': element.description,
+            'temporal_marker': element.temporal_marker,
+            'volitional': element.volitional
+        } %}
+        {% set _ = chronological_items.append(item) %}
     {% endfor %}
+{% endfor %}
+
+{# Add decision points with their options #}
+{% if scenario.decisions and scenario.decisions.decision_points %}
+    {% for decision in scenario.decisions.decision_points %}
+        {% set item = {
+            'type': 'decision',
+            'sequence': 999,
+            'timepoint': decision.timepoint,
+            'question': decision.decision_question,
+            'decision_maker': decision.decision_maker,
+            'stakes': decision.stakes,
+            'ethical_tension': decision.ethical_tension,
+            'options': decision.options,
+            'actual_choice_id': decision.actual_choice_id
+        } %}
+        {% set _ = chronological_items.append(item) %}
+    {% endfor %}
+{% endif %}
+
+{# Sort chronologically by sequence, with decisions (type=decision) before actions #}
+{% set sorted_items = chronological_items|sort(attribute='sequence') %}
+
+<!-- Timeline Legend -->
+<div class="d-flex align-items-center gap-2 mb-3 small text-muted">
+    <span class="me-1">Legend:</span>
+    <span class="badge bg-secondary">Event</span>
+    <span class="badge bg-warning">Decision</span>
+    <span class="badge bg-primary">Action</span>
+</div>
+
+<!-- Chronological Timeline -->
+<div class="timeline">
+    {% for item in sorted_items %}
+        <div class="timeline-item">
+            <div class="timeline-marker bg-{{ 'warning' if item.type == 'decision' else 'primary' if item.element_type == 'action' else 'secondary' }}"></div>
+            <div class="timeline-content timeline-content-{{ 'decision' if item.type == 'decision' else 'event' if item.element_type == 'event' else 'action' }}">
+
+                {% if item.type == 'decision' %}
+                    {# DECISION POINT #}
+                    <h4 class="timeline-title">
+                        <span class="badge bg-warning">Decision</span>
+                        {{ item.timepoint }}
+                    </h4>
+                    <h5 class="mt-2">{{ item.question }}</h5>
+                    <div class="text-muted small mb-2">
+                        <strong>Decision Maker:</strong> {{ item.decision_maker }}<br>
+                        <strong>Stakes:</strong> {{ item.stakes }}
+                    </div>
+                    {% if item.ethical_tension %}
+                    <div class="alert alert-info small mb-2">
+                        <strong>Ethical Tension:</strong> {{ item.ethical_tension }}
+                    </div>
+                    {% endif %}
+
+                    <h6 class="mt-3">Options:</h6>
+                    <ul class="list-group">
+                        {% for option in item.options %}
+                        <li class="list-group-item {% if option.is_actual_choice %}list-group-item-success border-success{% endif %}">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <strong>{{ option.label }}</strong>
+                                    {% if option.is_actual_choice %}
+                                    <span class="badge bg-success ms-2">Actual Choice</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% if option.description %}
+                            <p class="mb-1 mt-1">{{ option.description }}</p>
+                            {% endif %}
+
+                            {% if option.likely_consequences %}
+                            <div class="mt-2 small">
+                                <strong>Likely Consequences:</strong>
+                                <ul class="mb-0">
+                                    {% for consequence in option.likely_consequences %}
+                                    <li>{{ consequence }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            {% endif %}
+
+                            {% if option.arguments_for %}
+                            <div class="mt-1 small text-muted">
+                                <strong>Arguments For:</strong> {{ option.arguments_for|join('; ') }}
+                            </div>
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+
+                {% else %}
+                    {# TIMELINE ELEMENT (Event or Action) #}
+                    <h4 class="timeline-title">
+                        <span class="badge bg-{{ 'primary' if item.element_type == 'action' else 'secondary' }}">
+                            {{ item.element_type|capitalize }}
+                        </span>
+                        {{ item.timepoint }}
+                    </h4>
+                    <h5 class="mt-2">
+                        {{ item.label }}
+                        {% if item.agent and item.agent != 'Unknown' %}
+                        <span class="text-muted ms-2">by {{ item.agent }}</span>
+                        {% endif %}
+                    </h5>
+                    {% if item.description %}
+                    <p class="text-muted">{{ item.description }}</p>
+                    {% endif %}
+                    {% if item.temporal_marker %}
+                    <small class="text-muted"><em>{{ item.temporal_marker }}</em></small>
+                    {% endif %}
+                    {% if item.phase %}
+                    <span class="badge bg-light text-dark ms-2">{{ item.phase|capitalize }} Phase</span>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    {% endfor %}
+</div>
+
+<!-- Bottom Legend -->
+<div class="mt-4 small text-muted border-top pt-2">
+    <span class="badge bg-secondary me-1">Event</span> Something that happened
+    <span class="badge bg-warning me-1 ms-2">Decision</span> Choice point with options
+    <span class="badge bg-primary me-1 ms-2">Action</span> Action taken by an agent
+</div>
+
 {% else %}
 <div class="alert alert-warning">
     <i class="bi bi-exclamation-triangle"></i> No timeline events available. Run Step 5 scenario generation.
 </div>
 {% endif %}
+
+<style>
+.timeline {
+    position: relative;
+    padding-left: 30px;
+}
+
+.timeline-item {
+    position: relative;
+    margin-bottom: 30px;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: -30px;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    border: 3px solid #fff;
+    box-shadow: 0 0 0 3px currentColor;
+}
+
+.timeline-item:not(:last-child):before {
+    content: '';
+    position: absolute;
+    left: -23px;
+    top: 15px;
+    height: calc(100% + 15px);
+    width: 2px;
+    background-color: #007bff;
+}
+
+/* Different line colors for different item types */
+.timeline-item:has(.bg-secondary):not(:last-child):before {
+    background-color: #6c757d;  /* Event */
+}
+
+.timeline-item:has(.bg-warning):not(:last-child):before {
+    background-color: #ffc107;  /* Decision */
+}
+
+.timeline-content {
+    padding: 15px;
+    border-radius: 5px;
+    background-color: #f8f9fa;
+    border-left: 3px solid #007bff;
+}
+
+.timeline-content-event {
+    border-left: 3px solid #6c757d;
+}
+
+.timeline-content-decision {
+    border-left: 3px solid #ffc107;
+    background-color: #fff9e6;
+}
+
+.timeline-content-action {
+    border-left: 3px solid #007bff;
+}
+
+.timeline-title {
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.list-group-item-success {
+    font-weight: 500;
+}
+</style>

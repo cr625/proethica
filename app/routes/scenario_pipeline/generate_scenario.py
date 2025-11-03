@@ -14,6 +14,7 @@ from datetime import datetime
 
 from app.models import Document
 from app.services.scenario_generation.orchestrator import ScenarioGenerationOrchestrator
+from app.services.scenario_generation.scenario_enrichment_agent import ScenarioEnrichmentAgent
 from app.utils.environment_auth import auth_required_for_llm
 
 logger = logging.getLogger(__name__)
@@ -83,8 +84,9 @@ def generate_scenario_from_case(case_id):
             timeline_data=timeline.to_dict() if timeline else None
         )
 
-        # Capture case title BEFORE save_to_database (which commits and detaches the case object)
+        # Capture case title and content BEFORE save_to_database (which commits and detaches the case object)
         case_title = case.title
+        case_content = case.content
 
         # Save participants to database
         saved_count = orchestrator.participant_mapper.save_to_database(
@@ -152,7 +154,48 @@ def generate_scenario_from_case(case_id):
                         'data': timeline_dict,
                         'timestamp': datetime.utcnow().isoformat()
                     })}\n\n"
-    
+
+                    # Stage 2b: Timeline Enrichment (NEW - LLM validation)
+                    yield f"data: {json.dumps({
+                        'stage': 'timeline_enrichment',
+                        'stage_number': '2b',
+                        'progress': 36,
+                        'message': 'Enriching timeline with case-specific context...',
+                        'timestamp': datetime.utcnow().isoformat()
+                    })}\n\n"
+
+                    # Initialize enrichment agent
+                    from app.utils.llm_utils import get_llm_client
+                    from app.services.scenario_generation.models import TimelineEntry
+                    llm_client = get_llm_client()
+                    enrichment_agent = ScenarioEnrichmentAgent(llm_client)
+
+                    # Enrich timeline entries
+                    enrichment_result = enrichment_agent.enrich_timeline(
+                        case_id=case_id,
+                        case_text=case_content,
+                        timeline_entries=timeline.entries,
+                        participants=participant_result.participants
+                    )
+
+                    # Convert enriched dictionaries back to TimelineEntry objects
+                    timeline.entries = [
+                        TimelineEntry(**entry_dict)
+                        for entry_dict in enrichment_result['enriched_timeline']
+                    ]
+
+                    yield f"data: {json.dumps({
+                        'stage': 'timeline_enrichment',
+                        'stage_number': '2b',
+                        'progress': 39,
+                        'message': f'Timeline enriched: {len(enrichment_result["enriched_timeline"])} events with context',
+                        'data': {
+                            'validation_notes': enrichment_result.get('validation_notes', []),
+                            'missing_events': len(enrichment_result.get('missing_events', []))
+                        },
+                        'timestamp': datetime.utcnow().isoformat()
+                    })}\n\n"
+
                     # Stage 3: Participant Mapping (already complete before generator)
                     yield f"data: {json.dumps({
                         'stage': 'participant_mapping',
