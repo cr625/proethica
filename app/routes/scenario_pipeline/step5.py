@@ -110,6 +110,37 @@ def get_scenario_data(case_id):
         return jsonify({'error': str(e)}), 500
 
 
+# Generation Log Endpoint (for persisted analysis steps)
+@bp.route('/case/<int:case_id>/generation_log')
+@auth_optional
+def get_generation_log(case_id):
+    """
+    Get generation log with all analysis steps.
+
+    Returns the generation_log JSONB array from scenario_assemblies table.
+    """
+    try:
+        from sqlalchemy import text
+
+        query = text("""
+            SELECT generation_log
+            FROM scenario_assemblies
+            WHERE case_id = :case_id
+            LIMIT 1
+        """)
+
+        result = db.session.execute(query, {"case_id": case_id}).fetchone()
+
+        if not result or not result[0]:
+            return jsonify({'error': 'No generation log found for this case'}), 404
+
+        return jsonify(result[0])
+
+    except Exception as e:
+        logger.error(f"Error fetching generation log for case {case_id}: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 # Timeline Viewer Route
 @bp.route('/case/<int:case_id>/timeline')
 @auth_optional

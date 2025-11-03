@@ -104,11 +104,19 @@ def generate_scenario_from_case(case_id):
             """Generator for Server-Sent Events"""
             # Maintain Flask application context for database operations in generator
             with app.app_context():
+                # Collect all events for database persistence
+                event_log = []
+
+                def log_and_yield(event_data):
+                    """Helper to log event and yield SSE"""
+                    event_log.append(event_data)
+                    return f"data: {json.dumps(event_data)}\n\n"
+
                 try:
                     logger.info(f"[Scenario Gen] Starting SSE stream for case {case_id}")
 
                     # Send initial event
-                    yield f"data: {json.dumps({
+                    init_event = {
                         'stage': 'init',
                         'stage_number': 0,
                         'progress': 0,
@@ -117,10 +125,11 @@ def generate_scenario_from_case(case_id):
                         'case_title': case_title,
                         'eligibility': eligibility.to_dict(),
                         'timestamp': datetime.utcnow().isoformat()
-                    })}\n\n"
+                    }
+                    yield log_and_yield(init_event)
 
                     # Stage 1: Data Collection (already complete)
-                    yield f"data: {json.dumps({
+                    event = {
                         'stage': 'data_collection',
                         'stage_number': 1,
                         'progress': 10,
@@ -132,37 +141,41 @@ def generate_scenario_from_case(case_id):
                             'entity_types': list(data.merged_entities.keys())
                         },
                         'timestamp': datetime.utcnow().isoformat()
-                    })}\n\n"
+                    }
+                    yield log_and_yield(event)
     
                     # Stage 2: Timeline Construction (already complete)
-                    yield f"data: {json.dumps({
+                    event = {
                         'stage': 'timeline_construction',
                         'stage_number': 2,
                         'progress': 30,
                         'message': 'Building chronological timeline from temporal dynamics...',
                         'timestamp': datetime.utcnow().isoformat()
-                    })}\n\n"
+                    }
+                    yield log_and_yield(event)
     
                     # Timeline already built before generator
                     timeline_dict = timeline.to_dict()
     
-                    yield f"data: {json.dumps({
+                    event = {
                         'stage': 'timeline_construction',
                         'stage_number': 2,
                         'progress': 35,
                         'message': f'Timeline built with {len(timeline.entries)} timepoints across {len(timeline.phases)} phases',
                         'data': timeline_dict,
                         'timestamp': datetime.utcnow().isoformat()
-                    })}\n\n"
+                    }
+                    yield log_and_yield(event)
 
                     # Stage 2b: Timeline Enrichment (NEW - LLM validation)
-                    yield f"data: {json.dumps({
+                    event = {
                         'stage': 'timeline_enrichment',
                         'stage_number': '2b',
                         'progress': 36,
                         'message': 'Enriching timeline with case-specific context...',
                         'timestamp': datetime.utcnow().isoformat()
-                    })}\n\n"
+                    }
+                    yield log_and_yield(event)
 
                     # Initialize enrichment agent
                     from app.utils.llm_utils import get_llm_client
@@ -190,7 +203,7 @@ def generate_scenario_from_case(case_id):
                     timeline.llm_response = enrichment_result.get('llm_response')
                     timeline.llm_model = enrichment_result.get('llm_model')
 
-                    yield f"data: {json.dumps({
+                    event = {
                         'stage': 'timeline_enrichment',
                         'stage_number': '2b',
                         'progress': 39,
@@ -200,43 +213,48 @@ def generate_scenario_from_case(case_id):
                             'missing_events': len(enrichment_result.get('missing_events', []))
                         },
                         'timestamp': datetime.utcnow().isoformat()
-                    })}\n\n"
+                    }
+                    yield log_and_yield(event)
 
                     # Stage 3: Participant Mapping (already complete before generator)
-                    yield f"data: {json.dumps({
+                    event = {
                         'stage': 'participant_mapping',
                         'stage_number': 3,
                         'progress': 40,
                         'message': 'Extracting character profiles from roles...',
                         'timestamp': datetime.utcnow().isoformat()
-                    })}\n\n"
+                    }
+                    yield log_and_yield(event)
     
-                    yield f"data: {json.dumps({
+                    event = {
                         'stage': 'participant_mapping',
                         'stage_number': 3,
                         'progress': 42,
                         'message': f'Building profiles for {len(roles)} participants...',
                         'timestamp': datetime.utcnow().isoformat()
-                    })}\n\n"
+                    }
+                    yield log_and_yield(event)
     
-                    yield f"data: {json.dumps({
+                    event = {
                         'stage': 'participant_mapping',
                         'stage_number': 3,
                         'progress': 45,
                         'message': 'Enhancing character arcs with LLM...',
                         'timestamp': datetime.utcnow().isoformat()
-                    })}\n\n"
+                    }
+                    yield log_and_yield(event)
     
-                    yield f"data: {json.dumps({
+                    event = {
                         'stage': 'participant_mapping',
                         'stage_number': 3,
                         'progress': 48,
                         'message': 'Saving character profiles to database...',
                         'timestamp': datetime.utcnow().isoformat()
-                    })}\n\n"
+                    }
+                    yield log_and_yield(event)
     
                     participant_summary = participant_result.to_dict()
-                    yield f"data: {json.dumps({
+                    event = {
                         'stage': 'participant_mapping',
                         'stage_number': 3,
                         'progress': 50,
@@ -249,16 +267,18 @@ def generate_scenario_from_case(case_id):
                             'has_analysis_notes': participant_result.analysis_notes is not None
                         },
                         'timestamp': datetime.utcnow().isoformat()
-                    })}\n\n"
+                    }
+                    yield log_and_yield(event)
     
                     # Stage 4: Decision Point Identification + Institutional Rule Analysis
-                    yield f"data: {json.dumps({
+                    event = {
                         'stage': 'decision_identification',
                         'stage_number': 4,
                         'progress': 52,
                         'message': 'Identifying decision points from actions and questions...',
                         'timestamp': datetime.utcnow().isoformat()
-                    })}\n\n"
+                    }
+                    yield log_and_yield(event)
     
                     # Get actions and questions
                     actions_entities = data.get_entities_by_type('actions')
@@ -269,13 +289,14 @@ def generate_scenario_from_case(case_id):
                     if not questions_entities:
                         questions_entities = data.get_entities_by_type('Question')
     
-                    yield f"data: {json.dumps({
+                    event = {
                         'stage': 'decision_identification',
                         'stage_number': 4,
                         'progress': 54,
                         'message': 'Loading institutional analysis from Step 4 (Part D)...',
                         'timestamp': datetime.utcnow().isoformat()
-                    })}\n\n"
+                    }
+                    yield log_and_yield(event)
     
                     # REFACTORED: Reference Step 4 analysis from database (no re-analysis)
                     decision_result = orchestrator.decision_identifier.identify_decisions_from_step4_analysis(
@@ -287,24 +308,26 @@ def generate_scenario_from_case(case_id):
                         synthesis_data=data.synthesis_data
                     )
     
-                    yield f"data: {json.dumps({
+                    event = {
                         'stage': 'decision_identification',
                         'stage_number': 4,
                         'progress': 57,
                         'message': 'Enriching decisions with institutional analysis (Part D)...',
                         'timestamp': datetime.utcnow().isoformat()
-                    })}\n\n"
+                    }
+                    yield log_and_yield(event)
     
-                    yield f"data: {json.dumps({
+                    event = {
                         'stage': 'decision_identification',
                         'stage_number': 4,
                         'progress': 59,
                         'message': 'Enriching decisions with transformation classification (Part F)...',
                         'timestamp': datetime.utcnow().isoformat()
-                    })}\n\n"
+                    }
+                    yield log_and_yield(event)
     
                     decision_summary = decision_result.to_dict()
-                    yield f"data: {json.dumps({
+                    event = {
                         'stage': 'decision_identification',
                         'stage_number': 4,
                         'progress': 60,
@@ -316,16 +339,18 @@ def generate_scenario_from_case(case_id):
                             'has_transformation_analysis': any(d.transformation_analysis for d in decision_result.decision_points)
                         },
                         'timestamp': datetime.utcnow().isoformat()
-                    })}\n\n"
+                    }
+                    yield log_and_yield(event)
     
                     # Stage 5: Causal Chain Integration - Reference Part E (Action-Rule Mapping)
-                    yield f"data: {json.dumps({
+                    event = {
                         'stage': 'causal_integration',
                         'stage_number': 5,
                         'progress': 65,
                         'message': 'Loading action-rule mapping from Step 4 (Part E)...',
                         'timestamp': datetime.utcnow().isoformat()
-                    })}\n\n"
+                    }
+                    yield log_and_yield(event)
     
                     # Load Part E from database
                     from app.models import db
@@ -344,7 +369,7 @@ def generate_scenario_from_case(case_id):
                     action_mapping_result = db.session.execute(action_mapping_query, {'case_id': case_id}).fetchone()
     
                     if action_mapping_result:
-                        yield f"data: {json.dumps({
+                        event = {
                             'stage': 'causal_integration',
                             'stage_number': 5,
                             'progress': 70,
@@ -356,24 +381,27 @@ def generate_scenario_from_case(case_id):
                                 'rule_shifts': len(action_mapping_result.rule_shifts or [])
                             },
                             'timestamp': datetime.utcnow().isoformat()
-                        })}\n\n"
+                        }
+                        yield log_and_yield(event)
                     else:
-                        yield f"data: {json.dumps({
+                        event = {
                             'stage': 'causal_integration',
                             'stage_number': 5,
                             'progress': 70,
                             'message': 'No Part E analysis found (run Step 4 first)',
                             'timestamp': datetime.utcnow().isoformat()
-                        })}\n\n"
+                        }
+                        yield log_and_yield(event)
     
                     # Stage 6: Normative Framework - Reference Part F (Transformation Classification)
-                    yield f"data: {json.dumps({
+                    event = {
                         'stage': 'normative_integration',
                         'stage_number': 6,
                         'progress': 75,
                         'message': 'Loading transformation classification from Step 4 (Part F)...',
                         'timestamp': datetime.utcnow().isoformat()
-                    })}\n\n"
+                    }
+                    yield log_and_yield(event)
     
                     transformation_query = sql_text("""
                         SELECT
@@ -388,7 +416,7 @@ def generate_scenario_from_case(case_id):
                     transformation_result = db.session.execute(transformation_query, {'case_id': case_id}).fetchone()
     
                     if transformation_result:
-                        yield f"data: {json.dumps({
+                        event = {
                             'stage': 'normative_integration',
                             'stage_number': 6,
                             'progress': 80,
@@ -400,36 +428,40 @@ def generate_scenario_from_case(case_id):
                                 'symbolic_significance': transformation_result.symbolic_significance[:100] + '...' if len(transformation_result.symbolic_significance or '') > 100 else transformation_result.symbolic_significance
                             },
                             'timestamp': datetime.utcnow().isoformat()
-                        })}\n\n"
+                        }
+                        yield log_and_yield(event)
                     else:
-                        yield f"data: {json.dumps({
+                        event = {
                             'stage': 'normative_integration',
                             'stage_number': 6,
                             'progress': 80,
                             'message': 'No Part F analysis found (run Step 4 first)',
                             'timestamp': datetime.utcnow().isoformat()
-                        })}\n\n"
+                        }
+                        yield log_and_yield(event)
     
                     # Stage 7: Scenario Assembly - IMPLEMENTED
-                    yield f"data: {json.dumps({
+                    event = {
                         'stage': 'scenario_assembly',
                         'stage_number': 7,
                         'progress': 82,
                         'message': 'Assembling complete scenario from all components...',
                         'timestamp': datetime.utcnow().isoformat()
-                    })}\n\n"
+                    }
+                    yield log_and_yield(event)
 
                     from app.services.scenario_generation.scenario_assembler import ScenarioAssembler
                     assembler = ScenarioAssembler()
 
                     # Collect components for assembly
-                    yield f"data: {json.dumps({
+                    event = {
                         'stage': 'scenario_assembly',
                         'stage_number': 7,
                         'progress': 84,
                         'message': 'Combining timeline, participants, decisions, and analytical frameworks...',
                         'timestamp': datetime.utcnow().isoformat()
-                    })}\n\n"
+                    }
+                    yield log_and_yield(event)
 
                     # Convert database results to dicts
                     action_mapping_dict = None
@@ -461,7 +493,7 @@ def generate_scenario_from_case(case_id):
                         entity_summary={'total': entity_count}
                     )
 
-                    yield f"data: {json.dumps({
+                    event = {
                         'stage': 'scenario_assembly',
                         'stage_number': 7,
                         'progress': 87,
@@ -474,34 +506,56 @@ def generate_scenario_from_case(case_id):
                             'stages_included': assembled_scenario.scenario_data["assembly_info"]["stages_included"]
                         },
                         'timestamp': datetime.utcnow().isoformat()
-                    })}\n\n"
+                    }
+                    yield log_and_yield(event)
 
                     # Save to database (primary storage)
-                    yield f"data: {json.dumps({
+                    event = {
                         'stage': 'scenario_assembly',
                         'stage_number': 7,
                         'progress': 88,
                         'message': 'Saving scenario to database...',
                         'timestamp': datetime.utcnow().isoformat()
-                    })}\n\n"
+                    }
+                    yield log_and_yield(event)
 
                     db_saved = assembler.save_to_database(assembled_scenario)
 
                     if not db_saved:
-                        yield f"data: {json.dumps({
+                        event = {
                             'stage': 'error',
                             'message': 'Failed to save scenario to database',
                             'timestamp': datetime.utcnow().isoformat()
-                        })}\n\n"
+                        }
+                        yield log_and_yield(event)
                         return
 
-                    yield f"data: {json.dumps({
+                    event = {
                         'stage': 'scenario_assembly',
                         'stage_number': 7,
                         'progress': 90,
                         'message': 'Scenario saved to database',
                         'timestamp': datetime.utcnow().isoformat()
-                    })}\n\n"
+                    }
+                    yield log_and_yield(event)
+
+                    # Save generation log to database for persistence
+                    from sqlalchemy import text
+                    from app.models import db
+
+                    log_update_query = text("""
+                        UPDATE scenario_assemblies
+                        SET generation_log = :log_data
+                        WHERE case_id = :case_id
+                    """)
+
+                    db.session.execute(log_update_query, {
+                        'case_id': case_id,
+                        'log_data': json.dumps(event_log, default=str)
+                    })
+                    db.session.commit()
+
+                    logger.info(f"[Scenario Gen] Saved generation log ({len(event_log)} events) to database")
 
                     # Completion - Stages 8-9 implemented separately
                     # Stage 8: Dynamic viewer (separate route)
@@ -521,28 +575,37 @@ def generate_scenario_from_case(case_id):
                         'viewer_url': f'/scenario_pipeline/case/{case_id}/scenario'
                     }
 
-                    yield f"data: {json.dumps({
+                    event = {
                         'stage': 'complete',
                         'progress': 100,
                         'message': 'Scenario generation complete! Click "View Assembled Scenario" below.',
                         'result': result,
                         'timestamp': datetime.utcnow().isoformat()
-                    })}\n\n"
+                    }
+                    yield log_and_yield(event)
     
                     logger.info(f"[Scenario Gen] Successfully completed generation for case {case_id}")
 
                 except Exception as e:
                     logger.error(f"[Scenario Gen] Error during generation: {str(e)}", exc_info=True)
-                    yield f"data: {json.dumps({
+                    event = {
                         'stage': 'error',
                         'stage_number': -1,
                         'progress': 0,
                         'message': f'Error: {str(e)}',
                         'error': str(e),
                         'timestamp': datetime.utcnow().isoformat()
-                    })}\n\n"
+                    }
+                    yield log_and_yield(event)
 
-        return Response(generate(), mimetype='text/event-stream')
+        return Response(
+            generate(),
+            mimetype='text/event-stream',
+            headers={
+                'Cache-Control': 'no-cache',
+                'X-Accel-Buffering': 'no',  # Disable nginx buffering for real-time streaming
+            }
+        )
 
     except Exception as e:
         logger.error(f"[Scenario Gen] Failed to initialize: {str(e)}", exc_info=True)

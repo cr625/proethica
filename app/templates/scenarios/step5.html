@@ -518,6 +518,121 @@
         provenanceCard.style.display = 'block';
     }
 
+    // Load persisted generation log on page load
+    async function loadPersistedGenerationLog() {
+        try {
+            const response = await fetch('/scenario_pipeline/case/{{ case.id }}/generation_log');
+            if (response.ok) {
+                const log = await response.json();
+                if (log && Array.isArray(log) && log.length > 0) {
+                    displayPersistedLog(log);
+                }
+            }
+        } catch (error) {
+            console.log('[Step 5] No persisted generation log found (this is normal for new cases)');
+        }
+    }
+
+    function displayPersistedLog(log) {
+        console.log('[Step 5] Loading persisted generation log:', log.length, 'events');
+
+        const progressCard = document.getElementById('scenario-progress');
+        const progressBar = document.getElementById('scenario-progress-bar');
+        const stageInfo = document.getElementById('scenario-stage-info');
+        const generationLog = document.getElementById('generation-log');
+        const logCount = document.getElementById('log-count');
+
+        // Show progress card
+        progressCard.style.display = 'block';
+
+        // Find last event with progress
+        const lastEvent = log[log.length - 1];
+        const lastProgress = lastEvent.progress || 0;
+
+        // Update progress bar
+        progressBar.style.width = `${lastProgress}%`;
+        progressBar.innerHTML = `${lastProgress}%`;
+        progressBar.className = 'progress-bar bg-success';  // No animation for persisted log
+
+        // Hide stage info if complete
+        if (lastEvent.stage === 'complete') {
+            stageInfo.style.display = 'none';
+            document.getElementById('scenario-progress-icon').className = 'bi bi-check-circle text-success';
+            document.getElementById('scenario-progress-header-text').textContent = 'Generation Complete (from previous run)';
+        }
+
+        // Display all log messages
+        generationLog.innerHTML = '';
+        log.forEach(event => {
+            if (event.message) {
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'alert alert-info mb-2 py-2';
+
+                const timestamp = event.timestamp ? new Date(event.timestamp).toLocaleTimeString() : '';
+                alertDiv.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div><i class="bi bi-info-circle"></i> ${event.message}</div>
+                        <small class="text-muted ms-2" style="white-space: nowrap;">${timestamp}</small>
+                    </div>
+                `;
+                generationLog.appendChild(alertDiv);
+            }
+        });
+
+        logCount.textContent = `${log.length} message${log.length !== 1 ? 's' : ''}`;
+
+        // If complete, show completion summary and LLM provenance
+        if (lastEvent.stage === 'complete' && lastEvent.result) {
+            const completeDiv = document.getElementById('scenario-complete');
+            const completeMessage = document.getElementById('scenario-complete-message');
+
+            const result = lastEvent.result;
+            const completenessPercent = Math.round((result.completeness_score || 0) * 100);
+
+            completeMessage.innerHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Stages Completed:</strong> ${result.stages_completed}/7</p>
+                        <p><strong>Completeness Score:</strong> <span class="badge bg-success">${completenessPercent}%</span></p>
+                        <p><strong>Stages Included:</strong> ${result.stages_included}/5</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Timeline Events:</strong> ${result.total_timepoints}</p>
+                        <p><strong>Participants:</strong> ${result.total_participants}</p>
+                        <p><strong>Decision Points:</strong> ${result.total_decisions}</p>
+                    </div>
+                </div>
+                <hr>
+                <p class="text-success mb-0"><i class="bi bi-check-circle"></i> ${result.message}</p>
+            `;
+
+            completeDiv.style.display = 'block';
+
+            // Load LLM provenance and show the card
+            console.log('[Step 5] Loading LLM provenance from persisted data...');
+            loadLLMProvenance().then(() => {
+                // Ensure the card is visible and expanded
+                const provenanceCard = document.getElementById('llm-provenance-card');
+                const provenanceCollapse = document.getElementById('llmProvenanceCollapse');
+                if (provenanceCard) {
+                    provenanceCard.style.display = 'block';
+                    console.log('[Step 5] LLM Provenance card shown');
+                }
+                // Auto-expand the first time (show the prompts/responses)
+                if (provenanceCollapse && !provenanceCollapse.classList.contains('show')) {
+                    const bsCollapse = new bootstrap.Collapse(provenanceCollapse, { show: true });
+                }
+            }).catch(err => {
+                console.error('[Step 5] Error loading LLM provenance:', err);
+            });
+        }
+    }
+
+    // Load on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        loadPersistedGenerationLog();
+    });
+
     // Toggle icons for collapsible sections
     document.getElementById('eligibilityStatus')?.addEventListener('show.bs.collapse', function () {
         document.getElementById('eligibilityIcon').className = 'bi bi-chevron-down';
