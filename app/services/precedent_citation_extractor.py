@@ -154,10 +154,46 @@ class PrecedentCitationExtractor:
         logger.info(f"[Precedent Extractor] Found {len(all_citations)} cases from HTML markup")
 
         # Step 2: LLM extraction as fallback (for unmarked references)
-        # TODO: Implement LLM fallback for cases without HTML markup
-        # This would call the existing extract_precedent_citations method
-        # but only process text, filtering out already-found case numbers
+        logger.info("[Precedent Extractor] Step 2: LLM fallback for unmarked references...")
 
+        # Convert HTML to plain text for LLM analysis
+        from bs4 import BeautifulSoup
+
+        discussion_text = ""
+        conclusion_text = ""
+
+        if discussion_html:
+            soup = BeautifulSoup(discussion_html, 'html.parser')
+            discussion_text = soup.get_text(separator=' ', strip=True)
+
+        if conclusion_html:
+            soup = BeautifulSoup(conclusion_html, 'html.parser')
+            conclusion_text = soup.get_text(separator=' ', strip=True)
+
+        combined_text = f"{discussion_text}\n\n{conclusion_text}"
+
+        # Only call LLM if we have text to analyze
+        if combined_text.strip() and len(combined_text.strip()) > 50:
+            llm_citations = self.extract_precedent_citations(combined_text, case_context)
+
+            # Filter out duplicates (cases already found via HTML)
+            new_citations = []
+            for llm_cite in llm_citations:
+                if llm_cite.case_number not in seen_case_numbers:
+                    # Mark as LLM-extracted
+                    llm_cite.extraction_method = 'llm_extraction'
+                    new_citations.append(llm_cite)
+                    seen_case_numbers.add(llm_cite.case_number)
+
+            if new_citations:
+                logger.info(f"[Precedent Extractor] LLM found {len(new_citations)} additional cases")
+                all_citations.extend(new_citations)
+            else:
+                logger.info("[Precedent Extractor] LLM found no additional cases (HTML extraction was complete)")
+        else:
+            logger.info("[Precedent Extractor] Skipping LLM extraction (insufficient text)")
+
+        logger.info(f"[Precedent Extractor] Total: {len(all_citations)} precedent cases extracted")
         return all_citations
 
     def extract_precedent_citations(
@@ -203,9 +239,11 @@ class PrecedentCitationExtractor:
 
         try:
             # Call Claude for extraction
+            # Using Sonnet 4 - Sonnet 4.5 has consistent timeout issues with complex reasoning tasks
+            # See: chapter3_notes.md for detailed analysis of this model selection
             logger.info("[Precedent Extractor] Calling LLM for precedent citation extraction...")
             response = self.llm_client.messages.create(
-                model="claude-sonnet-4-5-20250929",
+                model="claude-sonnet-4-20250514",
                 max_tokens=4000,
                 messages=[
                     {"role": "user", "content": prompt}

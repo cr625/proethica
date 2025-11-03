@@ -184,10 +184,12 @@ class TransformationClassifier:
         )
 
         try:
-            # Call LLM with Claude Sonnet 4.5
+            # Call LLM with Claude Sonnet 4
+            # Using Sonnet 4 - Sonnet 4.5 has consistent timeout issues with complex reasoning tasks
+            # See: chapter3_notes.md for detailed analysis of this model selection
             logger.info("[Transformation Classifier] Calling LLM for transformation classification...")
             response = self.llm_client.messages.create(
-                model="claude-sonnet-4-5-20250929",
+                model="claude-sonnet-4-20250514",
                 max_tokens=3000,
                 messages=[
                     {"role": "user", "content": prompt}
@@ -229,7 +231,7 @@ class TransformationClassifier:
         self,
         case_id: int,
         classification: TransformationClassification,
-        llm_model: str = "claude-sonnet-4-5-20250929"
+        llm_model: str = "claude-sonnet-4-20250514"
     ) -> bool:
         """
         Save transformation classification to database.

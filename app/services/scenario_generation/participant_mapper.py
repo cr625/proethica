@@ -590,7 +590,7 @@ class ParticipantMapper:
 
             # 3. Create and save raw request payload
             request_payload = {
-                "model": "claude-sonnet-4-5-20250929",
+                "model": model_to_use,  # Use the actual model being called
                 "max_tokens": 3000,
                 "messages": [{"role": "user", "content": prompt}]
             }
@@ -612,8 +612,9 @@ class ParticipantMapper:
 
             # Call LLM
             logger.info("[Participant Mapper] Calling LLM for character enhancement...")
-            # Using same model as Step 4 for consistency
-            model_to_use = "claude-sonnet-4-5-20250929"  # Sonnet 4.5 (same as Step 4 Parts D-F)
+            # Using Sonnet 4 - Sonnet 4.5 has consistent timeout issues with this specific prompt
+            # Note: Step 4 uses Sonnet 4.5 successfully with different prompt types (shorter, more structured)
+            model_to_use = "claude-sonnet-4-20250514"  # Sonnet 4 (reliable for long enhancement tasks)
             logger.info(f"[Participant Mapper] Model: {model_to_use}, max_tokens: 3000")
 
             try:

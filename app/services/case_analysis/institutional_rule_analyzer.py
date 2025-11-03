@@ -231,10 +231,12 @@ class InstitutionalRuleAnalyzer:
         prompt = self._build_analysis_prompt(principles, obligations, constraints, case_context)
 
         try:
-            # Call LLM with Claude Sonnet 4.5
+            # Call LLM with Claude Sonnet 4
+            # Using Sonnet 4 - Sonnet 4.5 has consistent timeout issues with complex reasoning tasks
+            # See: chapter3_notes.md for detailed analysis of this model selection
             logger.info("[Institutional Analyzer] Calling LLM for institutional rule analysis...")
             response = self.llm_client.messages.create(
-                model="claude-sonnet-4-5-20250929",
+                model="claude-sonnet-4-20250514",
                 max_tokens=4000,
                 messages=[
                     {"role": "user", "content": prompt}
@@ -276,7 +278,7 @@ class InstitutionalRuleAnalyzer:
         self,
         case_id: int,
         analysis: InstitutionalAnalysis,
-        llm_model: str = "claude-sonnet-4-5-20250929"
+        llm_model: str = "claude-sonnet-4-20250514"
     ) -> bool:
         """
         Save institutional analysis to database.

@@ -253,10 +253,12 @@ class ActionRuleMapper:
         )
 
         try:
-            # Call LLM with Claude Sonnet 4.5
+            # Call LLM with Claude Sonnet 4
+            # Using Sonnet 4 - Sonnet 4.5 has consistent timeout issues with complex reasoning tasks
+            # See: chapter3_notes.md for detailed analysis of this model selection
             logger.info("[Action Rule Mapper] Calling LLM for three-rule framework mapping...")
             response = self.llm_client.messages.create(
-                model="claude-sonnet-4-5-20250929",
+                model="claude-sonnet-4-20250514",
                 max_tokens=4000,
                 messages=[
                     {"role": "user", "content": prompt}
@@ -299,7 +301,7 @@ class ActionRuleMapper:
         self,
         case_id: int,
         mapping: ActionRuleMapping,
-        llm_model: str = "claude-sonnet-4-5-20250929"
+        llm_model: str = "claude-sonnet-4-20250514"
     ) -> bool:
         """
         Save action-rule mapping to database.
