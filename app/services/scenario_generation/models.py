@@ -385,3 +385,71 @@ class EligibilityReport:
             'step4_summary': self.step4_summary,
             'summary': self.summary
         }
+
+
+# ====================
+# Stage 7-9 Models
+# ====================
+
+@dataclass
+class ScenarioMetadata:
+    """
+    Metadata for assembled scenario (Stage 7).
+    Quick reference info about the scenario.
+    """
+    case_id: int
+    title: str
+    created_at: datetime
+    total_timepoints: int
+    total_participants: int
+    total_decisions: int
+    total_entities: int
+    total_components: int
+    phases: Dict[str, Any]
+    has_llm_enhancement: bool
+
+    def to_dict(self) -> Dict:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            'case_id': self.case_id,
+            'title': self.title,
+            'created_at': self.created_at.isoformat(),
+            'total_timepoints': self.total_timepoints,
+            'total_participants': self.total_participants,
+            'total_decisions': self.total_decisions,
+            'total_entities': self.total_entities,
+            'total_components': self.total_components,
+            'phases': self.phases,
+            'has_llm_enhancement': self.has_llm_enhancement
+        }
+
+
+@dataclass
+class AssembledScenario:
+    """
+    Complete assembled scenario (Stage 7 output).
+
+    Combines all Stages 1-6 outputs into unified structure:
+    - Timeline (Stage 2)
+    - Participants (Stage 3)
+    - Decisions (Stage 4)
+    - Causal chains (Stage 5)
+    - Normative framework (Stage 6)
+    """
+    case_id: int
+    title: str
+    scenario_data: Dict[str, Any]
+    metadata: ScenarioMetadata
+
+    def to_dict(self) -> Dict:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            'case_id': self.case_id,
+            'title': self.title,
+            'metadata': self.metadata.to_dict(),
+            'scenario_data': self.scenario_data
+        }
+
+    def to_json(self, indent: int = 2) -> str:
+        """Export as JSON string."""
+        return json.dumps(self.to_dict(), indent=indent, default=str)

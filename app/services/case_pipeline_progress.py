@@ -11,7 +11,7 @@ it as a reliable source for tracking what steps have been completed.
 
 import logging
 from typing import Dict, List, Optional, Set
-from sqlalchemy import func, and_
+from sqlalchemy import func, and_, text
 from app.models.temporary_rdf_storage import TemporaryRDFStorage
 from app.models import db
 
@@ -52,6 +52,56 @@ class CasePipelineProgress:
             'requires_all': False  # At least one scenario component
         }
     }
+
+    @staticmethod
+    def _is_step4_complete(case_id: int) -> bool:
+        """
+        Check if Step 4 (Whole-Case Synthesis) is complete.
+
+        Step 4 is complete if at least one of the following exists:
+        1. Legacy extractions (provision, question, conclusion, precedent)
+        2. New Parts D-F (institutional analysis, action mapping, transformation)
+
+        Args:
+            case_id: The case document ID
+
+        Returns:
+            True if Step 4 is complete
+        """
+        try:
+            # Check legacy extractions first (from temporary_rdf_storage)
+            legacy_types = {'provision', 'question', 'conclusion', 'precedent_case_reference'}
+            completed_types = CasePipelineProgress.get_completed_extraction_types(case_id)
+
+            if any(ext_type in completed_types for ext_type in legacy_types):
+                return True
+
+            # Check new Step 4 Parts D-F tables
+            # Part D: Institutional Rule Analysis
+            has_part_d = db.session.execute(
+                text("SELECT 1 FROM case_institutional_analysis WHERE case_id = :case_id LIMIT 1"),
+                {'case_id': case_id}
+            ).fetchone() is not None
+
+            # Part E: Action Rule Mapping
+            has_part_e = db.session.execute(
+                text("SELECT 1 FROM case_action_mapping WHERE case_id = :case_id LIMIT 1"),
+                {'case_id': case_id}
+            ).fetchone() is not None
+
+            # Part F: Transformation Classification
+            has_part_f = db.session.execute(
+                text("SELECT 1 FROM case_transformation WHERE case_id = :case_id LIMIT 1"),
+                {'case_id': case_id}
+            ).fetchone() is not None
+
+            # Step 4 complete if ALL three parts are done
+            # (Updated to require all parts for completeness)
+            return has_part_d and has_part_e and has_part_f
+
+        except Exception as e:
+            logger.error(f"Error checking Step 4 completion for case {case_id}: {e}")
+            return False
 
     @staticmethod
     def get_completed_extraction_types(case_id: int) -> Set[str]:
@@ -113,6 +163,9 @@ class CasePipelineProgress:
         A step is considered complete if at least one of its required
         extraction types has records in temporary_rdf_storage.
 
+        Special case for Step 4: Also checks dedicated tables for Parts D-F
+        (case_institutional_analysis, case_action_mapping, case_transformation).
+
         Args:
             case_id: The case document ID
             step_number: The step number (1-5)
@@ -123,6 +176,10 @@ class CasePipelineProgress:
         if step_number not in CasePipelineProgress.STEP_REQUIREMENTS:
             logger.warning(f"Unknown step number: {step_number}")
             return False
+
+        # Special handling for Step 4 - check dedicated tables
+        if step_number == 4:
+            return CasePipelineProgress._is_step4_complete(case_id)
 
         step_config = CasePipelineProgress.STEP_REQUIREMENTS[step_number]
         required_extractions = step_config['extractions']

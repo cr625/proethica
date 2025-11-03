@@ -361,13 +361,105 @@ def generate_scenario_from_case(case_id):
                             'timestamp': datetime.utcnow().isoformat()
                         })}\n\n"
     
-                    # Stages 7-9: Quick placeholders (to be implemented later)
+                    # Stage 7: Scenario Assembly - IMPLEMENTED
+                    yield f"data: {json.dumps({
+                        'stage': 'scenario_assembly',
+                        'stage_number': 7,
+                        'progress': 82,
+                        'message': 'Assembling complete scenario from all components...',
+                        'timestamp': datetime.utcnow().isoformat()
+                    })}\n\n"
+
+                    from app.services.scenario_generation.scenario_assembler import ScenarioAssembler
+                    assembler = ScenarioAssembler()
+
+                    # Collect components for assembly
+                    yield f"data: {json.dumps({
+                        'stage': 'scenario_assembly',
+                        'stage_number': 7,
+                        'progress': 84,
+                        'message': 'Combining timeline, participants, decisions, and analytical frameworks...',
+                        'timestamp': datetime.utcnow().isoformat()
+                    })}\n\n"
+
+                    # Convert database results to dicts
+                    action_mapping_dict = None
+                    if action_mapping_result:
+                        action_mapping_dict = {
+                            'actions_taken': action_mapping_result.actions_taken,
+                            'actions_not_taken': action_mapping_result.actions_not_taken,
+                            'transformation_points': action_mapping_result.transformation_points,
+                            'rule_shifts': action_mapping_result.rule_shifts
+                        }
+
+                    transformation_dict = None
+                    if transformation_result:
+                        transformation_dict = {
+                            'transformation_type': transformation_result.transformation_type,
+                            'confidence': transformation_result.confidence,
+                            'symbolic_significance': transformation_result.symbolic_significance,
+                            'pattern_name': transformation_result.pattern_name
+                        }
+
+                    assembled_scenario = assembler.assemble_scenario(
+                        case_id=case_id,
+                        case_title=case_title,
+                        timeline_result=timeline,
+                        participant_result=participant_result,
+                        decision_result=decision_result,
+                        action_mapping=action_mapping_dict,
+                        transformation=transformation_dict,
+                        entity_summary={'total': entity_count}
+                    )
+
+                    yield f"data: {json.dumps({
+                        'stage': 'scenario_assembly',
+                        'stage_number': 7,
+                        'progress': 87,
+                        'message': f'Scenario assembled: {assembled_scenario.metadata.total_components} total components',
+                        'data': {
+                            'total_timepoints': assembled_scenario.metadata.total_timepoints,
+                            'total_participants': assembled_scenario.metadata.total_participants,
+                            'total_decisions': assembled_scenario.metadata.total_decisions,
+                            'completeness_score': assembled_scenario.scenario_data["assembly_info"]["completeness_score"],
+                            'stages_included': assembled_scenario.scenario_data["assembly_info"]["stages_included"]
+                        },
+                        'timestamp': datetime.utcnow().isoformat()
+                    })}\n\n"
+
+                    # Save to database (primary storage)
+                    yield f"data: {json.dumps({
+                        'stage': 'scenario_assembly',
+                        'stage_number': 7,
+                        'progress': 88,
+                        'message': 'Saving scenario to database...',
+                        'timestamp': datetime.utcnow().isoformat()
+                    })}\n\n"
+
+                    db_saved = assembler.save_to_database(assembled_scenario)
+
+                    if not db_saved:
+                        yield f"data: {json.dumps({
+                            'stage': 'error',
+                            'message': 'Failed to save scenario to database',
+                            'timestamp': datetime.utcnow().isoformat()
+                        })}\n\n"
+                        return
+
+                    yield f"data: {json.dumps({
+                        'stage': 'scenario_assembly',
+                        'stage_number': 7,
+                        'progress': 90,
+                        'message': 'Scenario saved to database',
+                        'timestamp': datetime.utcnow().isoformat()
+                    })}\n\n"
+
+                    # Stages 8-9: Placeholders (to be implemented)
                     stages = [
-                        ('scenario_assembly', 7, 85, 90, 'Assembling complete scenario...'),
                         ('model_generation', 8, 93, 95, 'Creating interactive models...'),
                         ('validation', 9, 97, 99, 'Validating scenario quality...')
                     ]
-    
+
                     for stage_name, stage_num, progress_start, progress_end, message in stages:
                         yield f"data: {json.dumps({
                             'stage': stage_name,
@@ -376,7 +468,7 @@ def generate_scenario_from_case(case_id):
                             'message': message,
                             'timestamp': datetime.utcnow().isoformat()
                         })}\n\n"
-    
+
                         yield f"data: {json.dumps({
                             'stage': stage_name,
                             'stage_number': stage_num,
