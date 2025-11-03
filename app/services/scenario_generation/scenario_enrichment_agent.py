@@ -101,12 +101,20 @@ class ScenarioEnrichmentAgent:
             response_text = response.content[0].text
             logger.debug(f"[ScenarioEnrichmentAgent] Response length: {len(response_text)} chars")
 
+            # Strip markdown code fences if present
+            cleaned_response = self._strip_code_fence(response_text)
+
             # Parse JSON response
-            result = json.loads(response_text)
+            result = json.loads(cleaned_response)
 
             logger.info(f"[ScenarioEnrichmentAgent] Enrichment complete: {len(result.get('enriched_timeline', []))} entries enriched")
             logger.info(f"[ScenarioEnrichmentAgent] Validation notes: {len(result.get('validation_notes', []))}")
             logger.info(f"[ScenarioEnrichmentAgent] Missing events suggested: {len(result.get('missing_events', []))}")
+
+            # Add prompt and response for provenance tracking
+            result['llm_prompt'] = prompt
+            result['llm_response'] = response_text
+            result['llm_model'] = self.model
 
             return result
 
@@ -202,6 +210,33 @@ IMPORTANT:
 - Return valid JSON only"""
 
         return prompt
+
+    def _strip_code_fence(self, text: str) -> str:
+        """
+        Strip markdown code fences from LLM response.
+
+        Claude sometimes wraps JSON in ```json ... ``` which needs to be removed.
+
+        Args:
+            text: Raw response text
+
+        Returns:
+            Cleaned text without code fences
+        """
+        text = text.strip()
+
+        # Check for markdown code fence
+        if text.startswith('```'):
+            # Find the first newline (end of opening fence)
+            first_newline = text.find('\n')
+            if first_newline != -1:
+                # Find the closing fence
+                closing_fence = text.rfind('```')
+                if closing_fence != -1 and closing_fence > first_newline:
+                    # Extract content between fences
+                    return text[first_newline + 1:closing_fence].strip()
+
+        return text
 
     def validate_decisions(
         self,

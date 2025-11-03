@@ -220,19 +220,6 @@
                 </div>
             </div>
         </div>
-
-        <!-- LLM Prompts & Responses by Stage -->
-        <div class="card mb-3">
-            <div class="card-header bg-primary bg-opacity-10">
-                <strong><i class="bi bi-file-text"></i> LLM Prompts & Responses by Stage</strong>
-                <small class="text-muted ms-2">Expand each stage to see Claude interactions</small>
-            </div>
-            <div class="card-body">
-                <div id="scenario-stage-details" class="accordion">
-                    <em class="text-muted">Stages will appear here as generation progresses...</em>
-                </div>
-            </div>
-        </div>
     </div>
 </div>
 
@@ -264,7 +251,6 @@
         const stageNumber = document.getElementById('scenario-stage-number');
         const currentStage = document.getElementById('scenario-current-stage');
         const generationLog = document.getElementById('generation-log');
-        const stageDetails = document.getElementById('scenario-stage-details');
         const completeDiv = document.getElementById('scenario-complete');
         const completeMessage = document.getElementById('scenario-complete-message');
         const logCount = document.getElementById('log-count');
@@ -275,7 +261,6 @@
         stageInfo.style.display = 'block';
         completeDiv.style.display = 'none';
         generationLog.innerHTML = '<em class="text-muted">Initializing...</em>';
-        stageDetails.innerHTML = '<em class="text-muted">Stages will appear here...</em>';
         progressBar.style.width = '0%';
         progressBar.innerHTML = '0%';
         progressBar.className = 'progress-bar progress-bar-striped progress-bar-animated bg-primary';
@@ -288,8 +273,6 @@
         const url = `/scenario_pipeline/case/${caseId}/generate_scenario`;
         console.log('[Scenario Gen] Connecting to:', url);
         const eventSource = new EventSource(url);
-
-        let stageCount = 0;
 
         eventSource.onmessage = function (event) {
             try {
@@ -311,52 +294,7 @@
                 }
                 currentStage.textContent = data.message || data.stage;
 
-                // Add stage details to accordion (for LLM interactions)
-                if (data.stage !== 'init' && data.stage !== 'complete' && (data.prompt || data.response)) {
-                    const accordionId = `stage-${stageCount}`;
-                    const stageItem = document.createElement('div');
-                    stageItem.className = 'accordion-item';
-
-                    const stageHeader = document.createElement('h2');
-                    stageHeader.className = 'accordion-header';
-                    stageHeader.innerHTML = `
-                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                                data-bs-target="#${accordionId}" aria-expanded="false">
-                            <i class="bi bi-check-circle text-success me-2"></i>
-                            <strong>Stage ${data.stage_number}: ${formatStageName(data.stage)}</strong>
-                            ${data.model ? `<span class="ms-2 badge bg-secondary">${data.model}</span>` : ''}
-                        </button>
-                    `;
-
-                    const stageCollapse = document.createElement('div');
-                    stageCollapse.id = accordionId;
-                    stageCollapse.className = 'accordion-collapse collapse';
-                    stageCollapse.innerHTML = `
-                        <div class="accordion-body">
-                            ${data.prompt ? `
-                                <h6>LLM Prompt:</h6>
-                                <pre class="p-2 bg-light rounded" style="font-size: 0.85rem; max-height: 300px; overflow-y: auto;">${escapeHtml(data.prompt)}</pre>
-                            ` : ''}
-                            ${data.response ? `
-                                <h6 class="mt-3">LLM Response:</h6>
-                                <pre class="p-2 bg-light rounded" style="font-size: 0.85rem; max-height: 300px; overflow-y: auto;">${escapeHtml(data.response)}</pre>
-                            ` : ''}
-                            ${data.details ? `
-                                <h6 class="mt-3">Details:</h6>
-                                <pre class="p-2 bg-light rounded" style="font-size: 0.85rem;">${JSON.stringify(data.details, null, 2)}</pre>
-                            ` : ''}
-                        </div>
-                    `;
-
-                    stageItem.appendChild(stageHeader);
-                    stageItem.appendChild(stageCollapse);
-
-                    if (stageDetails.querySelector('em')) {
-                        stageDetails.innerHTML = '';
-                    }
-                    stageDetails.appendChild(stageItem);
-                    stageCount++;
-                }
+                // Stage details are now tracked in LLM Provenance card (loaded after completion)
 
                 // Handle completion
                 if (data.stage === 'complete') {

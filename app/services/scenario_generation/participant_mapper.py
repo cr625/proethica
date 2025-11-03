@@ -188,13 +188,17 @@ class ParticipantMapper:
         # Enhance with LLM if needed (optional enrichment)
         analysis_notes = None
         llm_enrichment = None
+        llm_prompt = None
+        llm_response = None
         if self.llm_client and len(participants) > 0:
             try:
                 enhanced = self._enhance_with_llm(participants, relationship_map)
                 if enhanced:
                     participants = enhanced.get('participants', participants)
                     analysis_notes = enhanced.get('analysis_notes')
-                    llm_enrichment = enhanced.get('llm_response')
+                    llm_enrichment = enhanced.get('llm_data')
+                    llm_prompt = enhanced.get('llm_prompt')
+                    llm_response = enhanced.get('llm_response')
             except Exception as e:
                 logger.warning(f"[Participant Mapper] LLM enhancement failed: {e}")
 
@@ -205,11 +209,15 @@ class ParticipantMapper:
             supporting_cast=supporting_cast
         )
 
-        # Store analysis notes if available
+        # Store analysis notes and LLM provenance if available
         if analysis_notes:
             result.analysis_notes = analysis_notes
         if llm_enrichment:
             result.llm_enrichment = llm_enrichment
+        if llm_prompt:
+            result.llm_prompt = llm_prompt
+        if llm_response:
+            result.llm_response = llm_response
 
         logger.info(
             f"[Participant Mapper] Mapped {len(participants)} participants, "
@@ -732,6 +740,10 @@ class ParticipantMapper:
             logger.info(f"[DEBUG] Binary prompt saved to: {binary_file}")
             logger.info(f"[DEBUG] To inspect: hexdump -C {binary_file} | head -50")
 
+            # Define model before creating request payload
+            # Using Sonnet 4 - Sonnet 4.5 has consistent timeout issues with this specific prompt
+            model_to_use = "claude-sonnet-4-20250514"  # Sonnet 4 (reliable for long enhancement tasks)
+
             # 3. Create and save raw request payload
             request_payload = {
                 "model": model_to_use,  # Use the actual model being called
@@ -756,9 +768,6 @@ class ParticipantMapper:
 
             # Call LLM
             logger.info("[Participant Mapper] Calling LLM for character enhancement...")
-            # Using Sonnet 4 - Sonnet 4.5 has consistent timeout issues with this specific prompt
-            # Note: Step 4 uses Sonnet 4.5 successfully with different prompt types (shorter, more structured)
-            model_to_use = "claude-sonnet-4-20250514"  # Sonnet 4 (reliable for long enhancement tasks)
             logger.info(f"[Participant Mapper] Model: {model_to_use}, max_tokens: 3000")
 
             try:
@@ -829,7 +838,9 @@ class ParticipantMapper:
 
             return {
                 'participants': participants,
-                'llm_response': enhanced_data,
+                'llm_prompt': prompt,
+                'llm_response': response_text,
+                'llm_data': enhanced_data,
                 'analysis_notes': enhanced_data.get('analysis_notes', {})
             }
 

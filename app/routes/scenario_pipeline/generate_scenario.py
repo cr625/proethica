@@ -184,6 +184,12 @@ def generate_scenario_from_case(case_id):
                         for entry_dict in enrichment_result['enriched_timeline']
                     ]
 
+                    # Store LLM provenance for timeline enrichment
+                    timeline.llm_enhanced = True
+                    timeline.llm_prompt = enrichment_result.get('llm_prompt')
+                    timeline.llm_response = enrichment_result.get('llm_response')
+                    timeline.llm_model = enrichment_result.get('llm_model')
+
                     yield f"data: {json.dumps({
                         'stage': 'timeline_enrichment',
                         'stage_number': '2b',
