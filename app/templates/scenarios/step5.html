@@ -438,13 +438,31 @@
     }
 
     async function loadLLMProvenance() {
-        console.log('[LLM Provenance] Loading provenance data');
+        console.log('[LLM Provenance] Loading provenance data from API...');
         try {
             const response = await fetch('/scenario_pipeline/case/{{ case.id }}/scenario_data');
+            if (!response.ok) {
+                console.error('[LLM Provenance] API returned error:', response.status);
+                return;
+            }
+
             const scenarioData = await response.json();
+            console.log('[LLM Provenance] API response received, has llm_provenance:', !!scenarioData.llm_provenance);
 
             if (scenarioData.llm_provenance) {
+                // Check if timeline enrichment has prompt
+                const timeline = scenarioData.llm_provenance.stage_2b_timeline_enrichment;
+                if (timeline) {
+                    console.log('[LLM Provenance] Timeline enrichment data:', {
+                        used: timeline.used,
+                        hasPrompt: !!timeline.prompt,
+                        promptLength: timeline.prompt ? timeline.prompt.length : 0
+                    });
+                }
+
                 displayLLMProvenance(scenarioData.llm_provenance);
+            } else {
+                console.warn('[LLM Provenance] No llm_provenance in scenario data');
             }
         } catch (error) {
             console.error('[LLM Provenance] Error loading:', error);
@@ -455,6 +473,8 @@
         const provenanceCard = document.getElementById('llm-provenance-card');
         const provenanceContent = document.getElementById('llm-provenance-content');
         const stagesCount = document.getElementById('llm-stages-count');
+
+        console.log('[LLM Provenance] Full provenance data:', provenance);
 
         const stages = [
             {key: 'stage_2b_timeline_enrichment', title: 'Stage 2b: Timeline Enrichment', color: 'primary'},
@@ -470,6 +490,13 @@
         stages.forEach((stage, index) => {
             const data = provenance[stage.key];
             if (!data) return;
+
+            console.log(`[LLM Provenance] ${stage.key}:`, {
+                used: data.used,
+                hasPrompt: !!data.prompt,
+                promptLength: data.prompt ? data.prompt.length : 0,
+                hasResponse: !!data.response
+            });
 
             if (data.used) llmStagesUsed++;
 
@@ -530,6 +557,49 @@
             }
         } catch (error) {
             console.log('[Step 5] No persisted generation log found (this is normal for new cases)');
+        }
+
+        // FALLBACK: Always try to load LLM provenance if scenario data exists
+        // (handles cases where log is incomplete or missing completion event)
+        try {
+            const scenarioCheck = await fetch('/scenario_pipeline/case/{{ case.id }}/scenario_data');
+            if (scenarioCheck.ok) {
+                const scenarioData = await scenarioCheck.json();
+                if (scenarioData && scenarioData.llm_provenance) {
+                    console.log('[Step 5] Loading completion summary and LLM provenance as fallback (log may be incomplete)');
+
+                    // Show completion summary card
+                    const completeDiv = document.getElementById('scenario-complete');
+                    const completeMessage = document.getElementById('scenario-complete-message');
+
+                    const assemblyInfo = scenarioData.assembly_info || {};
+                    const completenessPercent = Math.round((assemblyInfo.completeness_score || 0) * 100);
+
+                    completeMessage.innerHTML = `
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>Stages Completed:</strong> 7/7</p>
+                                <p><strong>Completeness Score:</strong> <span class="badge bg-success">${completenessPercent}%</span></p>
+                                <p><strong>Stages Included:</strong> ${assemblyInfo.stages_included || 5}/5</p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Timeline Events:</strong> ${scenarioData.timeline?.entries?.length || 0}</p>
+                                <p><strong>Participants:</strong> ${scenarioData.participants?.total_count || 0}</p>
+                                <p><strong>Decision Points:</strong> ${scenarioData.decisions?.decision_points?.length || 0}</p>
+                            </div>
+                        </div>
+                        <hr>
+                        <p class="text-success mb-0"><i class="bi bi-check-circle"></i> Scenario assembly complete. Click "View Assembled Scenario" to see the interactive viewer.</p>
+                    `;
+
+                    completeDiv.style.display = 'block';
+
+                    // Load LLM provenance
+                    loadLLMProvenance();
+                }
+            }
+        } catch (error) {
+            console.log('[Step 5] No scenario data found yet');
         }
     }
 

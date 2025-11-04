@@ -539,24 +539,6 @@ def generate_scenario_from_case(case_id):
                     }
                     yield log_and_yield(event)
 
-                    # Save generation log to database for persistence
-                    from sqlalchemy import text
-                    from app.models import db
-
-                    log_update_query = text("""
-                        UPDATE scenario_assemblies
-                        SET generation_log = :log_data
-                        WHERE case_id = :case_id
-                    """)
-
-                    db.session.execute(log_update_query, {
-                        'case_id': case_id,
-                        'log_data': json.dumps(event_log, default=str)
-                    })
-                    db.session.commit()
-
-                    logger.info(f"[Scenario Gen] Saved generation log ({len(event_log)} events) to database")
-
                     # Completion - Stages 8-9 implemented separately
                     # Stage 8: Dynamic viewer (separate route)
                     # Stage 9: Validation (integrated into viewer)
@@ -583,8 +565,26 @@ def generate_scenario_from_case(case_id):
                         'timestamp': datetime.utcnow().isoformat()
                     }
                     yield log_and_yield(event)
-    
+
                     logger.info(f"[Scenario Gen] Successfully completed generation for case {case_id}")
+
+                    # Save generation log to database for persistence (AFTER completion event)
+                    from sqlalchemy import text
+                    from app.models import db
+
+                    log_update_query = text("""
+                        UPDATE scenario_assemblies
+                        SET generation_log = :log_data
+                        WHERE case_id = :case_id
+                    """)
+
+                    db.session.execute(log_update_query, {
+                        'case_id': case_id,
+                        'log_data': json.dumps(event_log, default=str)
+                    })
+                    db.session.commit()
+
+                    logger.info(f"[Scenario Gen] Saved generation log ({len(event_log)} events) to database")
 
                 except Exception as e:
                     logger.error(f"[Scenario Gen] Error during generation: {str(e)}", exc_info=True)
