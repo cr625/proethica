@@ -1,9 +1,38 @@
 # ProEthica Multi-Section Extraction System
 
-**Last Updated**: November 2, 2025
+**Last Updated**: November 16, 2025
+**Current Phase**: Repository Cleanup & LLM Centralization Refactoring 🔧
+**Active Branch**: `claude/continue-work-01ABZAYgwMqQW9dPfdkrrAPo`
+**Test Cases**: Case 8 (All systems functional, dependency management complete)
+
+---
+
+## 🚨 ACTIVE REFACTORING SESSION (November 16, 2025)
+
+**Current Work:** Repository cleanup and LLM centralization for multi-domain expansion
+
+**⚠️ CRITICAL - Use Correct Branch:**
+```bash
+git checkout claude/continue-work-01ABZAYgwMqQW9dPfdkrrAPo
+```
+
+**Session Progress:** See **[PROGRESS.md](PROGRESS.md)** for detailed session status
+
+**Completed This Session:**
+- ✅ Dependency management (requirements.txt, pyproject.toml)
+- ✅ LangChain 1.0 migration (langchain-classic installed, all imports updated)
+- ✅ Empty section handling fix in scenario pipeline
+- ⏳ **NEXT:** Repository cleanup (remove ~39 MB of archives/backups)
+
+**Goal:** Prepare codebase for easier multi-domain support (engineering → law, medical, etc.)
+
+---
+
+## System Status (Core Features)
+
 **Current Phase**: Step 4 Parts D-F Complete ✅, Step 5 Stages 1-6 Complete ✅
-**Active Development**: Step 5 LLM Enhancement Debugging 🔧
-**Test Cases**: Case 8 (Parts D-E-F verified, Step 5 Stages 1-6 functional, participant enhancement debugging in progress)
+**Active Development**: Refactoring for multi-domain expansion
+**Test Cases**: Case 8 (Parts D-E-F verified, Step 5 Stages 1-6 functional)
 
 ---
 
