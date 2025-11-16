@@ -1,0 +1,20 @@
+# ProEthica Development Requirements
+# Generated from pyproject.toml - November 16, 2025
+# Install with: pip install -r requirements.txt -r requirements-dev.txt
+
+# Include production requirements
+-r requirements.txt
+
+# Testing
+pytest>=8.3.0
+pytest-cov>=6.0.0
+pytest-asyncio>=0.24.0
+pytest-mock>=3.14.0
+
+# Code Quality
+ruff>=0.8.0
+mypy>=1.13.0
+
+# Development Tools
+ipython>=8.29.0
+ipdb>=0.13.0
