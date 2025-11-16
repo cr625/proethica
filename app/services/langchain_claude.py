@@ -10,8 +10,8 @@ from typing import Dict, List, Any, Optional
 import logging
 import anthropic
 from langchain_anthropic import ChatAnthropic
-from langchain.chains import LLMChain
-from langchain.prompts import PromptTemplate
+from langchain_classic.chains import LLMChain
+from langchain_classic.prompts import PromptTemplate
 from flask import current_app
 from app.config import Config
 

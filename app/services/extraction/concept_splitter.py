@@ -14,10 +14,10 @@ from dataclasses import dataclass
 
 # LangChain imports
 try:
-    from langchain.chains import LLMChain
-    from langchain.prompts import PromptTemplate
-    from langchain.schema import BaseMessage, HumanMessage, SystemMessage
-    from langchain.callbacks import get_openai_callback
+    from langchain_classic.chains import LLMChain
+    from langchain_classic.prompts import PromptTemplate
+    from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
+    from langchain_classic.callbacks import get_openai_callback
 except ImportError:
     # Fallback for environments without LangChain
     LLMChain = None

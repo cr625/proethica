@@ -1,7 +1,7 @@
 from typing import Dict, List, Any, Optional
-from langchain.chains import LLMChain
-from langchain.prompts import PromptTemplate
-from langchain.llms.base import BaseLLM
+from langchain_classic.chains import LLMChain
+from langchain_classic.prompts import PromptTemplate
+from langchain_classic.llms.base import BaseLLM
 from langchain_community.llms.fake import FakeListLLM
 import os
 from app.services.mcp_client import MCPClient

@@ -35,6 +35,7 @@ dependencies = [
     "openai>=1.0.0",  # OpenAI API (if used)
     "langchain>=1.0.0",
     "langchain-core>=1.0.0",  # Core LangChain components
+    "langchain-classic>=1.0.0",  # Legacy chains/retrievers (moved in v1.0)
     "langchain-anthropic>=1.0.0",
     "langchain-community>=0.4.0",  # No 1.0 yet, latest is 0.4.1
     "langgraph>=0.2.0",

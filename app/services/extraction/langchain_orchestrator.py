@@ -15,11 +15,12 @@ from enum import Enum
 
 # LangChain imports
 try:
-    from langchain.chains import LLMChain, SequentialChain
-    from langchain.prompts import PromptTemplate, ChatPromptTemplate
-    from langchain.schema import BaseOutputParser, OutputParserException
-    from langchain.callbacks import get_openai_callback
-    from langchain.memory import ConversationBufferWindowMemory
+    from langchain_classic.chains import LLMChain, SequentialChain
+    from langchain_classic.prompts import PromptTemplate, ChatPromptTemplate
+    from langchain_core.output_parsers import BaseOutputParser
+    from langchain_core.exceptions import OutputParserException
+    from langchain_classic.callbacks import get_openai_callback
+    from langchain_classic.memory import ConversationBufferWindowMemory
 except ImportError:
     # Graceful fallback
     LLMChain = SequentialChain = PromptTemplate = None
