@@ -1,0 +1,205 @@
+[project]
+name = "proethica"
+version = "0.1.0"
+description = "ProEthica - AI-powered ethical reasoning platform for engineering ethics"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [
+    { name = "ProEthica Team" }
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    # Core Web Framework (Flask 3.x)
+    "flask>=3.0.0,<4.0.0",
+    "flask-login>=0.6.3",
+    "flask-wtf>=1.2.1",
+    "flask-sqlalchemy>=3.1.0",
+    "wtforms>=3.1.0",
+    "werkzeug>=3.0.0",
+
+    # Database (SQLAlchemy 2.0)
+    "sqlalchemy>=2.0.44,<3.0.0",
+    "psycopg2-binary>=2.9.9",
+    "alembic>=1.13.0",  # Database migrations
+
+    # LLM & AI Providers
+    "anthropic>=0.45.0",  # Claude API
+    "openai>=1.0.0",  # OpenAI API (if used)
+    "langchain>=0.3.0",
+    "langchain-anthropic>=0.3.0",
+    "langchain-community>=0.3.0",
+    "langgraph>=0.2.0",
+
+    # Data Processing & NLP
+    "nltk>=3.9.0",
+    "numpy>=1.26.0,<2.0.0",
+    "scikit-learn>=1.5.0",
+
+    # RDF & Semantic Web
+    "rdflib>=7.0.0",
+
+    # HTTP & Web Scraping
+    "requests>=2.32.0",
+    "aiohttp>=3.10.0",
+    "beautifulsoup4>=4.12.0",
+    "lxml>=5.0.0",  # Better HTML/XML parsing
+
+    # Utilities
+    "python-dotenv>=1.0.0",
+    "python-slugify>=8.0.0",
+    "tenacity>=9.0.0",  # Retry logic
+    "pyyaml>=6.0.0",
+    "markdown>=3.7.0",
+    "markupsafe>=3.0.0",
+    "psutil>=6.0.0",
+    "pyzotero>=1.5.0",
+
+    # Production Server
+    "gunicorn>=23.0.0",  # WSGI server for production
+]
+
+[project.optional-dependencies]
+dev = [
+    # Testing
+    "pytest>=8.3.0",
+    "pytest-cov>=6.0.0",  # Code coverage
+    "pytest-asyncio>=0.24.0",  # Async test support
+    "pytest-mock>=3.14.0",  # Mocking utilities
+
+    # Code Quality
+    "ruff>=0.8.0",  # Fast linter & formatter
+    "mypy>=1.13.0",  # Type checking
+
+    # Development Tools
+    "ipython>=8.29.0",  # Better REPL
+    "ipdb>=0.13.0",  # Debugger
+]
+
+[project.urls]
+Homepage = "https://proethica.org"
+Repository = "https://github.com/cr625/proethica"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# ===== Tool Configurations =====
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = [
+    ".git",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "build",
+    "dist",
+    "*.egg-info",
+    "archive",
+    "backups",
+    "realm",  # Marked for removal
+    "mclaren",  # Marked for removal
+]
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "N",  # pep8-naming
+    "B",  # flake8-bugbear
+    "C90",  # mccabe complexity
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E501",  # Line too long (handled by formatter)
+    "B008",  # Do not perform function calls in argument defaults (common in Flask)
+    "N802",  # Function name should be lowercase (allow Flask route names)
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false  # Start permissive, gradually enable
+check_untyped_defs = true
+exclude = [
+    "archive/",
+    "backups/",
+    "realm/",
+    "mclaren/",
+]
+
+[[tool.mypy.overrides]]
+module = [
+    "anthropic.*",
+    "langchain.*",
+    "langchain_anthropic.*",
+    "langchain_community.*",
+    "langgraph.*",
+    "rdflib.*",
+    "pyzotero.*",
+    "bs4.*",
+    "slugify.*",
+    "nltk.*",
+    "sklearn.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--cov=app",
+    "--cov-report=html",
+    "--cov-report=term-missing",
+    "-v",
+]
+markers = [
+    "unit: Fast, hermetic unit tests",
+    "integration: Database or service-dependent tests",
+    "db: Requires PostgreSQL database",
+    "slow: Tests that take more than 1 second",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["app"]
+omit = [
+    "*/tests/*",
+    "*/migrations/*",
+    "archive/*",
+    "backups/*",
+    "realm/*",
+    "mclaren/*",
+]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+fail_under = 0  # Start at 0%, gradually increase to 70%
+
+[tool.coverage.html]
+directory = "htmlcov"
