@@ -24,11 +24,8 @@ cd /home/user/proethica
 python3 -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# Install production dependencies
+# Install all dependencies (production + development)
 pip install -r requirements.txt
-
-# For development (includes testing tools)
-pip install -r requirements-dev.txt
 ```
 
 ### Option 2: Using uv (Recommended - 10-100x faster)
