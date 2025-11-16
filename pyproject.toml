@@ -34,6 +34,7 @@ dependencies = [
     "anthropic>=0.45.0",  # Claude API
     "openai>=1.0.0",  # OpenAI API (if used)
     "langchain>=0.3.0",
+    "langchain-core>=0.3.0",  # Core LangChain components
     "langchain-anthropic>=0.3.0",
     "langchain-community>=0.3.0",
     "langgraph>=0.2.0",
