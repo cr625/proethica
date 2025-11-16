@@ -91,17 +91,20 @@ _src/
 *.bak*
 
 # Claude AI related files
-.claude/
-CLAUDE.md
-**/CLAUDE.md
+# TEMPORARILY EXPOSED FOR CLEANUP WORK (2025-11-16)
+# .claude/          # Agent definitions - needed for deployment automation
+# CLAUDE.md         # Project instructions - needed for context
+# **/CLAUDE.md      # Subproject instructions - needed for context
 
 # Documentation directories (development/internal only)
-docs/
-*/docs/
+# TEMPORARILY EXPOSED FOR CLEANUP WORK (2025-11-16)
+# docs/             # Planning and architecture docs - needed for refactoring
+# */docs/           # Subproject docs
 
 # Scripts and development artifacts
-scripts/
-*/scripts/
+# TEMPORARILY EXPOSED FOR CLEANUP WORK (2025-11-16)
+# scripts/          # Deployment and utility scripts - needed for automation
+# */scripts/        # Subproject scripts
 scratch/
 */scratch/
 pending_delete/
@@ -151,4 +154,4 @@ ttl_triple_association/
 demo/
 database_backups/
 backups/
-docs/
+# docs/  # COMMENTED OUT 2025-11-16 - docs now exposed for cleanup work
