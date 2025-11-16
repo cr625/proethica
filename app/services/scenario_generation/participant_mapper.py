@@ -314,7 +314,7 @@ IMPORTANT: Return ONLY the JSON array, no other text. Include 5-12 participants 
         db_session: Session
     ) -> List[Any]:
         """
-        Save participants to database.
+        Save participants to database using actual schema (22 columns).
 
         Args:
             participants: List of participant dictionaries
@@ -329,21 +329,40 @@ IMPORTANT: Return ONLY the JSON array, no other text. Include 5-12 participants 
 
         try:
             for participant_data in participants:
-                # Create model instance
+                # Extract LLM-generated content for llm_enrichment JSONB
+                llm_enrichment = {
+                    "motivations": participant_data.get("motivations", []),
+                    "ethical_tensions": participant_data.get("ethical_tensions", []),
+                    "character_arc": participant_data.get("character_arc"),
+                    "role_id": participant_data.get("role_id"),
+                    "role_entity_label": participant_data.get("role_entity_label")
+                }
+
+                # Create model instance matching actual database schema
                 participant = ScenarioParticipant(
                     case_id=participant_data["case_id"],
-                    role_entity_uri=participant_data.get("role_entity_uri"),
+                    participant_id=participant_data.get("role_id"),  # Short ID like "r0"
+                    source_role_uri=participant_data.get("role_entity_uri"),  # Correct column name
                     name=participant_data["name"],
                     title=participant_data.get("title"),
+                    role_type=None,  # Could infer from role classification
                     background=participant_data.get("background"),
-                    motivations=participant_data.get("motivations", []),
-                    ethical_tensions=participant_data.get("ethical_tensions", []),
-                    character_arc=participant_data.get("character_arc"),
-                    key_relationships=participant_data.get("key_relationships", []),
-                    metadata={
-                        "role_id": participant_data.get("role_id"),
-                        "role_entity_label": participant_data.get("role_entity_label")
-                    }
+
+                    # Structured JSONB fields
+                    expertise=None,  # Future: extract from background
+                    qualifications=None,  # Future: extract from background
+                    goals=participant_data.get("motivations", []),  # Map motivations → goals
+                    obligations=participant_data.get("ethical_tensions", []),  # Map tensions → obligations
+                    constraints=None,  # Future: extract constraints
+
+                    # Narrative
+                    narrative_role=None,  # Future: determine from role/actions
+                    relationships=participant_data.get("key_relationships", []),  # Correct column name
+
+                    # LLM tracking
+                    llm_enhanced=True,  # This was LLM-generated
+                    llm_enrichment=llm_enrichment,  # Correct column name (not metadata)
+                    llm_model=self.llm.model  # Track which model was used
                 )
 
                 db_session.add(participant)

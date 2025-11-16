@@ -8,38 +8,28 @@
 
 ## Quick Start
 
-### 1. Apply Database Migration
+### 1. Check Database Schema (NO MIGRATION NEEDED!)
+
+**⚠️ IMPORTANT:** Migration 013 is OBSOLETE - the database already has a better schema!
 
 ```bash
 # From proethica directory
 cd /home/user/proethica
 
-# Apply migration
+# Check if table exists (it should!)
 export PGPASSWORD=PASS
-psql -h localhost -U postgres -d ai_ethical_dm -f db_migration/013_create_scenario_participants.sql
-
-# Verify table created
 psql -h localhost -U postgres -d ai_ethical_dm -c "\d scenario_participants"
 ```
 
-Expected output:
-```
-Table "public.scenario_participants"
-Column            | Type        | Modifiers
-------------------+-------------+-----------
-id                | integer     | not null default nextval(...)
-case_id           | integer     | not null
-role_entity_uri   | text        |
-name              | varchar(200)| not null
-title             | varchar(300)|
-background        | text        |
-motivations       | text[]      |
-ethical_tensions  | text[]      |
-character_arc     | text        |
-key_relationships | jsonb       |
-metadata          | jsonb       |
-created_at        | timestamp   | default CURRENT_TIMESTAMP
-```
+The table already exists with **22 columns** (not the 12 in migration 013):
+- `source_role_uri` (not `role_entity_uri`)
+- `relationships` (not `key_relationships`)
+- `llm_enrichment` (not `metadata`)
+- Plus: `participant_id`, `llm_enhanced`, `llm_model`, `updated_at`, etc.
+
+**The model and service have been updated to match this existing schema.**
+
+See `db_migration/013_OBSOLETE_README.md` for full details.
 
 ### 2. Start the Application
 
