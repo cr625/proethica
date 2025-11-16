@@ -77,3 +77,6 @@ from app.models.temporary_rdf_storage import TemporaryRDFStorage
 
 # Extraction prompt storage (added 2025-09-24)
 from app.models.extraction_prompt import ExtractionPrompt
+
+# Scenario generation models (added 2025-11-16)
+from app.models.scenario_participant import ScenarioParticipant

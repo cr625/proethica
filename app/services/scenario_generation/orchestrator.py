@@ -13,6 +13,7 @@ from datetime import datetime
 
 from .data_collection import ScenarioDataCollector
 from .timeline_constructor import TimelineConstructor
+from .participant_mapper import ParticipantMapper
 from .models import (
     ScenarioSourceData,
     EligibilityReport,
@@ -46,9 +47,10 @@ class ScenarioGenerationOrchestrator:
         # Initialize stage services
         self.collector = ScenarioDataCollector()
         self.timeline_constructor = TimelineConstructor()
+        self.participant_mapper = ParticipantMapper()
 
-        # Future stage services
-        # self.participant_mapper = ParticipantMapper()
+        # Future stage services (Stages 4-9)
+        # self.decision_identifier = DecisionIdentifier()
         # ... etc
 
         logger.info("[Scenario Gen] Orchestrator initialized")
@@ -169,26 +171,47 @@ class ScenarioGenerationOrchestrator:
                 timeline_summary
             )
 
-            # Stage 3: Participant Mapping (Placeholder)
-            self._report_progress('participant_mapping', 45, 'Creating character profiles...')
-            logger.info("[Scenario Gen] Stage 3: Participant Mapping (TODO)")
+            # Stage 3: Participant Mapping (IMPLEMENTED)
+            self._report_progress('participant_mapping', 40, 'Creating character profiles...')
+            logger.info("[Scenario Gen] Stage 3: Participant Mapping")
 
-            # TODO: Implement participant mapping
-            # participants = self.participant_mapper.create_participants(data.merged_entities, timeline)
-
-            # For now, count roles
+            # Get roles for mapping
             roles = data.get_entities_by_type('Role')
+            logger.info(f"[Scenario Gen] Found {len(roles)} role entities")
+
+            # Create participants using LLM enhancement
+            participants = []
+            if roles:
+                self._report_progress('participant_mapping', 42, f'Analyzing {len(roles)} roles with LLM...')
+
+                participants = self.participant_mapper.create_participants(
+                    case_id=case_id,
+                    roles=roles,
+                    timeline=timeline
+                )
+
+                logger.info(f"[Scenario Gen] Created {len(participants)} participant profiles")
+
+            # Build participant summary
             participant_summary = {
-                'status': 'placeholder',
-                'message': 'Participant mapping not yet implemented',
-                'roles_identified': len(roles),
-                'role_names': [role.label for role in roles[:5]]  # First 5
+                'status': 'complete',
+                'participants_created': len(participants),
+                'roles_analyzed': len(roles),
+                'participants': [
+                    {
+                        'name': p['name'],
+                        'title': p.get('title'),
+                        'motivation_count': len(p.get('motivations', [])),
+                        'tension_count': len(p.get('ethical_tensions', []))
+                    }
+                    for p in participants[:5]  # First 5 for progress
+                ]
             }
 
             self._report_progress(
                 'participant_mapping',
                 50,
-                f'Identified {len(roles)} roles',
+                f'Created {len(participants)} participant profiles',
                 participant_summary
             )
 
