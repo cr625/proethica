@@ -19,10 +19,10 @@ warnings.warn(
 )
 
 from typing import Dict, List, Any, Optional, Union
-from langchain.prompts import PromptTemplate
-from langchain.llms.base import BaseLLM
+from langchain_classic.prompts import PromptTemplate
+from langchain_classic.llms.base import BaseLLM
 from langchain_community.llms.fake import FakeListLLM
-from langchain.schema.runnable import RunnableSequence
+from langchain_core.runnables import RunnableSequence
 import os
 import json
 import time

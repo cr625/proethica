@@ -9,7 +9,7 @@ This file contains a modified version of the LLM initialization to:
 import logging
 import os
 from typing import Dict, List, Any, Optional
-from langchain.llms.base import BaseLLM
+from langchain_classic.llms.base import BaseLLM
 from langchain_community.llms.fake import FakeListLLM
 from app.services.llm_service import LLMService
 
@@ -179,7 +179,7 @@ def fixed_init(self, model_name: str = None, llm: Optional[BaseLLM] = None):
         logger.info(f"MCP client initialized with server URL: {self.mcp_client.mcp_server_url}")
     
     # Setup prompt templates - keeps the original templates from LLMService.__init__
-    from langchain.prompts import PromptTemplate
+    from langchain_classic.prompts import PromptTemplate
     
     self.chat_prompt = PromptTemplate(
         input_variables=["context", "message", "guidelines"],
