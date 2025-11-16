@@ -9,7 +9,7 @@ from datetime import datetime
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean, VARCHAR
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
-from app import db
+from app.models import db
 
 
 class ScenarioParticipant(db.Model):
