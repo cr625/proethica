@@ -118,10 +118,14 @@ cache/
 */*_cache/
 
 # Test directories and files
-tests/
+# Note: We allow /tests/ at root (standard Python project structure)
+# but ignore tests/ in subdirectories
+!tests/  # Exception: Allow root-level tests directory
 */tests/
-test_*.py
-*_test.py
+# Ignore test files outside of /tests/ directory
+# test_*.py and *_test.py in /tests/ are allowed
+# **/test_*.py  # Commented: we want tests in /tests/
+# **/*_test.py  # Commented: we want tests in /tests/
 
 # Temporary files
 *.temp

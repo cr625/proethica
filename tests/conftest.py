@@ -19,8 +19,9 @@ from app.models.user import User
 @pytest.fixture(scope="session")
 def setup_test_database():
     """Set up the test database for all tests."""
-    # Get the path to the manage_test_db.py script
-    script_path = os.path.join(os.path.dirname(__file__), '..', 'scripts', 'manage_test_db.py')
+    # Note: Path updated for new test directory structure
+    # scripts/ is in .gitignore, script may not exist in all environments
+    script_path = os.path.join(os.path.dirname(__file__), '..', 'utils', 'scripts', 'manage_test_db.py')
     
     # Run the script to reset the test database
     print("Setting up test database...")
