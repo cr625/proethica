@@ -1185,35 +1185,45 @@ def mock_ontserve(monkeypatch):
 
 ---
 
-## OPEN QUESTIONS
+## DECISIONS MADE
 
-Before proceeding with implementation, clarification needed on:
+All planning questions have been answered:
 
 ### 1. REALM and McLaren modules:
-- ❓ Are these still actively used/developed?
-- ❓ Should they be integrated, archived, or separated?
+- ✅ **Decision:** Remove both directories - no longer needed
+- `/realm/` - Materials Science Ontology (107 KB) - can be removed
+- `/mclaren/` - Bruce McLaren's framework (838 KB) - can be removed
 
 ### 2. NSPE Pipeline:
-- ❓ How often is this run?
-- ❓ Should it be part of main app or separate tool?
+- ✅ **Decision:** Keep as separate utility for modularity
+- Used for ingesting NSPE cases (currently a few, eventually ~600 cases)
+- Keep separate to support future case pipelines from different sources
+- Move to `/app/data_pipelines/nspe/` for better organization
 
 ### 3. OntServe Refactoring:
-- ❓ Do you have access to OntServe refactoring docs?
-- ❓ Can we coordinate API compatibility?
-- ❓ What's the timeline for OntServe changes?
+- ✅ **Status:** **NO BREAKING CHANGES** - OntServe modernization maintains backward compatibility
+- All MCP tools remain stable: `get_entities_by_category`, `submit_candidate_concept`, `sparql_query`, etc.
+- ProEthica compatibility explicitly tested in OntServe test suites
+- Only internal SQLAlchemy query patterns changing (109 patterns) - same migration we're doing
+- Timeline: OntServe refactoring complete in 1-2 days
+- Documentation: https://github.com/MatLab-Research/OntServe/blob/claude/ontserver-improvement-plan-01EkpcFui2BhTJMB8ZHz1qcb/MODERNIZATION_PROGRESS.md
 
 ### 4. Python Version:
-- ❓ What Python version is currently deployed?
-- ❓ Can we upgrade to 3.11 or 3.12?
+- ✅ **Decision:** Use Python 3.12 (Ubuntu 24.04 LTS default)
+- Ubuntu 24.04 LTS ships with Python 3.12.3 by default
+- Modern, well-supported, perfect for our modernization
+- Set `.python-version` to `3.12`
 
 ### 5. Deployment:
-- ❓ Is this currently deployed to proethica.org?
-- ❓ What's the deployment process?
-- ❓ Can we test in staging environment?
+- ✅ **Current:** Deployed to proethica.org (earlier version)
+- **Process:** Pull main branch on Digital Ocean droplet, restart nginx + gunicorn
+- **Testing:** Testing environment available
+- **Approach:** Test in staging before production deployment
 
 ### 6. Priority:
-- ❓ Which phase should we tackle first?
-- ❓ Are there specific pain points to address immediately?
+- ✅ **Decision:** Start with Phase 1 (Cleanup & Dependency Management)
+- Begin immediately while coordinating with OntServe team
+- No immediate blockers or critical pain points
 
 ---
 
@@ -1239,9 +1249,19 @@ This multi-phase plan provides a comprehensive roadmap for cleaning up and moder
 
 ## CHANGE LOG
 
+### 2025-11-16 - Planning Decisions Finalized
+- All open questions answered and documented
+- **REALM and McLaren**: Confirmed for removal (not needed)
+- **NSPE Pipeline**: Keep as separate utility, move to `/app/data_pipelines/nspe/`
+- **OntServe**: NO BREAKING CHANGES - backward compatibility maintained
+- **Python Version**: Target Python 3.12 (Ubuntu 24.04 LTS default)
+- **Deployment**: proethica.org with testing environment available
+- **Priority**: Phase 1 approved to begin
+
 ### 2025-11-16 - Initial Plan Created
-- Comprehensive codebase analysis completed
+- Comprehensive codebase analysis completed (493 Python files, 73K+ lines)
 - Multi-phase cleanup and refactoring plan created
 - Research into 2025 Python best practices (uv, ruff, SQLAlchemy 2.0)
-- OntServe integration points documented
+- OntServe integration points documented and verified
 - Success metrics and risk mitigation strategies defined
+- 4 phases planned: Cleanup, Modernization, OntServe Stability, Implementation
