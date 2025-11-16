@@ -149,18 +149,31 @@ def _format_section_for_llm(section_key, section_data, case_doc=None):
     """
     if not section_data:
         return None
-    
+
     # Handle both dict and string section data
     original_section_data = section_data  # Preserve original for later access
     if isinstance(section_data, dict):
         title = section_data.get('title', section_key.replace('_', ' ').title())
         html_content = section_data.get('html', section_data.get('content', ''))
+        text_content = section_data.get('text', '')
+
+        # Skip sections where both html and text are empty
+        if not html_content and not text_content:
+            logger.debug(f"Skipping empty section: {section_key}")
+            return None
+
         # Check if there are already extracted questions/conclusions from NSPE processing
         existing_questions = section_data.get('questions', [])
         existing_conclusions = section_data.get('conclusions', [])
     else:
         title = section_key.replace('_', ' ').title()
         html_content = str(section_data) if section_data else ''
+
+        # Skip empty string sections
+        if not html_content:
+            logger.debug(f"Skipping empty section: {section_key}")
+            return None
+
         existing_questions = []
         existing_conclusions = []
     
@@ -349,8 +362,15 @@ def step1(case_id):
             logger.info(f"Case 8 sections_dual structure:")
             for key, section in raw_sections.items():
                 logger.info(f"  {key}: {type(section)} - {list(section.keys()) if isinstance(section, dict) else 'not dict'}")
-                if isinstance(section, dict) and 'html' in section:
-                    logger.info(f"    html preview: {section['html'][:100]}...")
+                if isinstance(section, dict):
+                    html_content = section.get('html', '')
+                    text_content = section.get('text', '')
+                    if html_content:
+                        logger.info(f"    html preview ({len(html_content)} chars): {html_content[:100]}...")
+                    elif text_content:
+                        logger.info(f"    text preview ({len(text_content)} chars): {text_content[:100]}...")
+                    else:
+                        logger.info(f"    EMPTY SECTION (no html or text content)")
         
         for section_key, section_content in raw_sections.items():
             # Format each section for LLM consumption, passing the case document for metadata access
