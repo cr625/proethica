@@ -1,8 +1,8 @@
 # ProEthica Refactoring Progress
 
-**Last Updated:** November 16, 2025
+**Last Updated:** November 17, 2025
 **Active Branch:** `claude/continue-work-01ABZAYgwMqQW9dPfdkrrAPo`
-**Session Goal:** Prepare codebase for multi-domain expansion and easier feature additions
+**Session Goal:** Repository cleanup + LLM centralization for multi-domain expansion
 
 ---
 
@@ -70,6 +70,22 @@ git checkout claude/continue-work-01ABZAYgwMqQW9dPfdkrrAPo
   - All 24 dependent files continue to work with zero breaking changes
   - Foundation established for incremental Phase 2 migration
 
+#### 5. OntServe Integration Documentation (November 17, 2025)
+- ✅ **Comprehensive integration guide created** (docs/PROETHICA_ONTSERVE_INTEGRATION.md)
+  - Documented 3 integration mechanisms: REST API (5003), MCP (8082), Internal MCP (5002)
+  - Mapped all ProEthica → OntServe interaction points
+  - Critical API dependencies listed for refactoring compatibility
+  - Data flow patterns documented (annotation, extraction, guidelines)
+  - Testing procedures and code contact points
+  - Recommendations for OntServe refactoring (unified MCP vs dual interface)
+
+#### 6. Import Error Fixes (November 17, 2025)
+- ✅ **Fixed ontology_editor import error**
+  - Created EntityService stub (app/services/entity_service.py)
+  - Redirects entity creation to OntServe web interface
+  - Updated guideline_concept_integration_service.py import
+  - Application now starts without errors
+
 ### 🔄 In Progress
 
 **Current Task:** LLM Service Migration - Phase 2 (4/24 files migrated)
@@ -121,6 +137,9 @@ git checkout claude/continue-work-01ABZAYgwMqQW9dPfdkrrAPo
 20. `308b9c0` - Phase 2 Migration (2/24): Migrate role_description_service.py
 21. `adc209c` - Phase 2 Migration (3/24): Migrate conversation_to_case_service.py
 22. `f36665a` - Phase 2 Migration (4/24): Migrate ethics_committee_agent.py
+23. `06523f6` - Update PROGRESS.md: Phase 2 migration progress (4/24 complete)
+24. `54f5399` - Add comprehensive ProEthica-OntServe integration documentation
+25. `c086f7c` - Fix ontology_editor import error by creating EntityService stub
 
 **All commits pushed to:** `origin/claude/continue-work-01ABZAYgwMqQW9dPfdkrrAPo`
 
@@ -156,28 +175,103 @@ anthropic>=0.45.0
 
 ---
 
-## Next Steps (Priority Order)
+## What's Next? (Priority Order)
 
-### 1. Repository Cleanup (Next Task)
-```bash
-# Remove archive directory
-rm -rf /home/user/proethica/archive
+### Option A: Continue Phase 2 LLM Migration (20/24 files remaining)
+**Effort:** Medium | **Impact:** High | **Risk:** Low
 
-# Move backups to .gitignore (add to .gitignore first)
-echo "/backups/" >> .gitignore
+Continue migrating services to LLMManager with established pattern:
+1. Simple services (5-10 more files) - ~1-2 hours
+2. Complex services (firac_analysis, document_annotation) - requires planning
+3. Services using `send_message()` - different pattern needed
 
-# Remove backup files
-rm /home/user/proethica/.claude/settings.local.json.backup
+**Benefits:**
+- Centralized LLM management (easier domain switching)
+- Consistent timeout/retry handling
+- Better token tracking
+- Removes dependency on compatibility layers
 
-# Evaluate legacy modules (careful review needed):
-# - ttl_triple_association/
-# - realm/
-# - mclaren/
-# - ontology_editor/
-```
+**Next files to migrate:**
+- `enhanced_guideline_association_service.py` (uses send_message)
+- `firac_analysis_service.py` (multiple generate_response calls)
+- `document_annotation_pipeline.py` (annotation orchestration)
+- `simulation_controller.py` (uses send_message)
 
-### 2. LLM Centralization (After Cleanup)
-Continue refactoring to use centralized LLM manager for:
+---
+
+### Option B: Test Core Functionality After Refactoring
+**Effort:** Low | **Impact:** High | **Risk:** None
+
+Verify that refactored code still works:
+1. Test case extraction (9-concept system)
+2. Test role matching with migrated services
+3. Test scenario generation
+4. Check for any runtime errors
+
+**Why now:**
+- 4 services migrated (case_role_matching, role_description, conversation_to_case, ethics_committee)
+- Good checkpoint before continuing
+- Catch issues early
+
+---
+
+### Option C: Repository Cleanup - Round 2
+**Effort:** Low | **Impact:** Medium | **Risk:** Low
+
+Continue cleaning up legacy code:
+1. **Evaluate ttl_triple_association** (107K) - Still needed?
+2. **Clean up experimental files:**
+   - 5 prediction service variants
+   - llm_service_fix.py (experiment)
+3. **Review annotation services** - Multiple implementations?
+
+**Benefits:**
+- Smaller codebase
+- Easier navigation
+- Less maintenance burden
+
+---
+
+### Option D: Improve OntServe Integration
+**Effort:** Medium | **Impact:** Medium | **Risk:** Low
+
+Based on integration documentation:
+1. Migrate OntServeAnnotationService to use MCP (unified interface)
+2. Create OntServe write API wrapper (replace EntityService stub)
+3. Test all ProEthica → OntServe integration points
+4. Add integration tests
+
+**Why:**
+- Documentation already written (PROETHICA_ONTSERVE_INTEGRATION.md)
+- Prepares for OntServe refactoring
+- Single integration point (MCP only)
+
+---
+
+## Recommendation
+
+**Best Next Step: Option B (Test Core Functionality)**
+- Quick validation checkpoint (~30 min)
+- Catch any issues from Phase 1-2 migrations
+- Then continue with Option A (Phase 2 migration)
+
+**After Testing:**
+- Continue Option A until all 24 files migrated
+- Then Option C (cleanup experimental files)
+- Then Option D (OntServe improvements)
+
+---
+
+## Legacy Next Steps (Completed)
+
+### ~~1. Repository Cleanup~~ ✅ COMPLETE
+- ✅ Removed backups (26 MB)
+- ✅ Removed ontology_editor
+- ✅ Removed cases_structure_update.py
+- ⏳ ttl_triple_association evaluation pending
+
+### ~~2. LLM Centralization~~ ⏳ IN PROGRESS (Phase 2: 4/24)
+Phase 1 complete, Phase 2 ongoing:
 - Easier model switching (Sonnet 4 ↔ Sonnet 4.5 ↔ other models)
 - Multi-domain support preparation
 - Standardized timeout handling
