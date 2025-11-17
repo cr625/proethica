@@ -46,24 +46,28 @@ git checkout claude/continue-work-01ABZAYgwMqQW9dPfdkrrAPo
 - ✅ Created INSTALL.md with both pip and uv installation methods
 - ✅ Updated all dependency files to match actual requirements
 
-#### 4. Repository Cleanup (Phase 1.2 - PARTIAL COMPLETE)
+#### 4. Repository Cleanup (Phase 1.2-1.3 - COMPLETE)
 - ✅ Removed `/backups/` directory (26 MB of SQL dumps)
 - ✅ Removed `.claude/settings.local.json.backup`
 - ✅ Added backups to `.gitignore` (prevents re-adding)
-- ✅ Repository size reduced by ~26 MB
-- ⚠️ **Legacy modules evaluation pending:**
-  - `/ttl_triple_association/` (107K) - Still in use by document_structure.py
-  - `/ontology_editor/` (12K) - Still in use by app/__init__.py
-  - Need to evaluate if these can be safely removed or need migration
+- ✅ **Removed `/ontology_editor/` module (12K)**
+  - Removed stub blueprint and redirect code
+  - Updated 5 templates to point directly to OntServe (port 5003)
+  - Removed imports from app/__init__.py
+  - Simplified architecture - no redirect layer needed
+- ✅ **Repository size reduced by ~26 MB total**
+- ⚠️ **Legacy module remaining:**
+  - `/ttl_triple_association/` (107K) - Still in use by document_structure.py + 3 experiment files
+  - Needs evaluation: functionality may have moved to OntServe
 
 ### 🔄 In Progress
 
-**Next Task:** Phase 1.3 - Legacy Module Evaluation
+**Next Task:** Evaluate `/ttl_triple_association/` module
 
-Evaluate if these modules can be removed:
-- `/ttl_triple_association/` - Used by 4 files (document_structure.py + 3 experiment files)
-- `/ontology_editor/` - Used by app/__init__.py as registered blueprint
-- Options: 1) Remove if functionality moved to OntServe, 2) Create replacement stubs, 3) Keep if still needed
+Options:
+1. Remove if functionality moved to OntServe
+2. Keep if still actively used
+3. Create migration path if needed
 
 **Not Found (already cleaned):**
 - `/archive/` directory
@@ -83,6 +87,8 @@ Evaluate if these modules can be removed:
 7. `69a5dde` - Fix empty section handling in scenario pipeline overview
 8. `371762c` - Add session progress tracking and update CLAUDE.md
 9. `e8176d4` - Remove database backups from version control (26 MB saved)
+10. `42f2ce0` - Update PROGRESS.md with repository cleanup status
+11. `e12a5db` - Remove ontology_editor module - functionality moved to OntServe
 
 **All commits pushed to:** `origin/claude/continue-work-01ABZAYgwMqQW9dPfdkrrAPo`
 
