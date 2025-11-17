@@ -156,3 +156,8 @@ demo/
 database_backups/
 backups/
 # docs/  # COMMENTED OUT 2025-11-16 - docs now exposed for cleanup work
+
+# Database backups (should not be in version control)
+/backups/
+*.sql.gz
+*.sql.bak
