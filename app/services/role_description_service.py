@@ -11,7 +11,7 @@ import logging
 from typing import Dict, Optional
 
 from app.models.world import World
-from app.services.llm_service import LLMService
+from app.services.llm.manager import LLMManager
 from app.services.ontology_entity_service import OntologyEntityService
 
 logger = logging.getLogger(__name__)
@@ -21,7 +21,7 @@ class RoleDescriptionService:
     """Generate standardized descriptions for roles, with obligations hints."""
 
     def __init__(self):
-        self.llm = LLMService()
+        self.llm = LLMManager()
         self.ontology_service = OntologyEntityService.get_instance()
 
     def generate(self, role_label: str, world: Optional[World] = None) -> Dict:
@@ -77,8 +77,11 @@ OUTPUT JSON ONLY:
         description = ""
         obligations = []
         try:
-            raw = self.llm.generate_response(prompt)
-            text = raw.get('analysis', raw.get('response', '')) if isinstance(raw, dict) else str(raw)
+            llm_response = self.llm.complete(
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=1000
+            )
+            text = llm_response.text
             cleaned = text.strip()
             if cleaned.startswith('```json'):
                 cleaned = cleaned[7:]
