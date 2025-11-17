@@ -143,7 +143,6 @@ def create_app(config_name=None):
     from app.routes.debug import debug_bp
     from app.routes.documents import documents_bp
     from app.routes.cases import cases_bp
-    # from app.routes.cases_structure_update import cases_structure_bp  # Functionality consolidated into main cases_bp
     from app.routes.document_structure import doc_structure_bp
     from app.routes.test_routes import test_bp
     from app.routes.experiment import experiment_bp
@@ -195,7 +194,6 @@ def create_app(config_name=None):
     app.register_blueprint(debug_bp, url_prefix='/debug')
     app.register_blueprint(documents_bp, url_prefix='/documents')
     app.register_blueprint(cases_bp, url_prefix='/cases')
-    # app.register_blueprint(cases_structure_bp, url_prefix='/cases_enhanced')  # Functionality consolidated into main cases_bp
     app.register_blueprint(doc_structure_bp)
     app.register_blueprint(experiment_bp, url_prefix='/experiment')
     app.register_blueprint(type_management_bp)
