@@ -86,6 +86,17 @@ git checkout claude/continue-work-01ABZAYgwMqQW9dPfdkrrAPo
   - Updated guideline_concept_integration_service.py import
   - Application now starts without errors
 
+#### 7. Clear & Re-run Feature (November 17, 2025)
+- ✅ **Implemented duplicate prevention for extraction re-runs**
+  - Added `clear_extraction_pass()` method to CaseEntityStorageService
+  - Added `has_extraction_been_run()` status check
+  - New route endpoints: clear_and_rerun, check_extraction_status
+  - UI: "Clear & Re-run Pass 1" button (one-click workflow)
+  - UI: Warning banner when extraction has been run before
+  - Section-specific: clears only Facts OR Discussion
+  - Preserves committed entities in OntServe
+  - Prevents duplicate "Engineer", "Client" etc. on re-runs
+
 ### 🔄 In Progress
 
 **Current Task:** LLM Service Migration - Phase 2 (4/24 files migrated)
@@ -140,6 +151,8 @@ git checkout claude/continue-work-01ABZAYgwMqQW9dPfdkrrAPo
 23. `06523f6` - Update PROGRESS.md: Phase 2 migration progress (4/24 complete)
 24. `54f5399` - Add comprehensive ProEthica-OntServe integration documentation
 25. `c086f7c` - Fix ontology_editor import error by creating EntityService stub
+26. `0bf6852` - Update PROGRESS.md with session status and next steps
+27. `a89091b` - Add "Clear & Re-run" functionality to prevent duplicate extractions
 
 **All commits pushed to:** `origin/claude/continue-work-01ABZAYgwMqQW9dPfdkrrAPo`
 
