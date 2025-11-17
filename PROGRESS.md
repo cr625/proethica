@@ -1,21 +1,22 @@
 # ProEthica Refactoring Progress
 
 **Last Updated:** November 17, 2025
-**Active Branch:** `claude/continue-refactoring-01Uxdw4hm76Yd5ipHuR6BQAn`
-**Session Goal:** Repository cleanup + LLM centralization for multi-domain expansion
+**Active Branch:** `development`
+**Session Goal:** Repository cleanup + LLM centralization + Source text provenance tracking
 
 ---
 
 ## CRITICAL: Branch Information
 
-**⚠️ ALWAYS USE THIS BRANCH:**
+**⚠️ ACTIVE BRANCH:**
 ```bash
-git checkout claude/continue-refactoring-01Uxdw4hm76Yd5ipHuR6BQAn
+git checkout development
 ```
 
-**Branch Session ID:** `01Uxdw4hm76Yd5ipHuR6BQAn`
-
-**DO NOT create new branches.** Always continue on the existing branch above.
+**Branch Status:**
+- Feature branch `claude/continue-refactoring-01Uxdw4hm76Yd5ipHuR6BQAn` merged into `development`
+- Backup available at `development-backup-before-merge`
+- All work now consolidated in `development` branch
 
 ---
 
@@ -111,27 +112,70 @@ git checkout claude/continue-refactoring-01Uxdw4hm76Yd5ipHuR6BQAn
   - Clearer project structure
   - Easier navigation
 
-#### 9. Entity Extraction Source Text Context - Phase 1 (November 17, 2025)
-- ✅ **Added source text provenance to Pass 1 extraction (Roles only)**
-  - Modified `RoleIndividual` dataclass: added `source_text` and `source_context` fields
-  - Modified `CandidateRoleClass` dataclass: added `source_text` field
-  - Updated extraction prompt: LLM now returns exact text snippets (max 200 chars)
-  - Enhanced parsing: captures source_text from LLM JSON response
-  - JSON response includes source_text for frontend/UI display
-- 🔄 **Next: Frontend storage** (save to TemporaryRDFStorage.provenance_metadata)
-- 🔄 **Next: UI display** (show source text on entity review page)
-- 📋 **Future: Extend to States & Resources extractors**
-- 📋 **Future: Manual annotation trigger after Step 4**
+#### 9. Entity Extraction Source Text Context - COMPLETE (November 17, 2025)
+- ✅ **Added source text provenance to ALL 9 concept types across Pass 1-3**
 
-**Goal:** Merge entity extraction with document annotation - preserve where each entity was mentioned in case text for better verification and integrated annotation workflow.
+**Pass 1: Contextual Framework (Facts & Discussion sections)**
+- ✅ Roles: Classes and individuals with source_text
+- ✅ States: Classes and individuals with source_text
+- ✅ Resources: Classes and individuals with source_text
 
-**Test Result:** ✅ LLM successfully returns source text:
-- "Engineer L, a licensed professional engineer, has many years of experience in stormwater control design."
-- "Engineer L is contracted by Client X, a private development entity, to design a stormwater management system"
+**Pass 2: Normative Requirements (Facts & Discussion sections)**
+- ✅ Principles: Classes and individuals with source_text
+- ✅ Obligations: Classes and individuals with source_text
+- ✅ Constraints: Classes and individuals with source_text
+- ✅ Capabilities: Classes and individuals with source_text
+
+**Pass 3: Temporal Dynamics**
+- ✅ Actions: Classes and individuals with source_text
+- ✅ Events: Classes and individuals with source_text
+
+**Implementation Details:**
+- Modified all extractor dataclasses to include `source_text: Optional[str]` field
+- Updated LLM prompts to request "EXACT text snippet from case (max 200 chars)"
+- Enhanced parsing functions to extract source_text with fallback to examples
+- RDF converter stores source_text using `PROETHICA_PROV.sourceText` property
+- UI displays source_text in entity review pages with blue italic text and quote icon
+
+**Template Updates:**
+- ✅ entity_review.html (Pass 1): Displays source_text for classes and individuals
+- ✅ entity_review_pass2.html (Pass 2): Displays source_text for classes and individuals
+- ✅ entity_review_pass3.html (Pass 3): Archived - replaced by enhanced_temporal_review.html
+
+**Goal Achieved:** Entity extraction now captures provenance - exact text snippets where each entity was identified in the case, enabling better verification and integrated annotation workflow.
+
+#### 10. Deprecated Template Cleanup (November 17, 2025)
+- ✅ **Archived deprecated Pass 3 templates and routes**
+  - Moved `entity_review_pass3.html` to `app/templates/scenarios/archived/`
+  - Moved `step3.html` to `app/templates/scenarios/archived/`
+  - Removed `review_case_entities_pass3()` route function from entity_review.py
+  - Updated `entity_review_all.html` to use `review_enhanced_temporal` route
+  - Archived `scripts/check_pass3.py` test script
+
+**Rationale:**
+- Active template is `step3_dual_extraction.html` (uses enhanced_temporal_review)
+- Enhanced temporal review provides richer UI with timeline, causal chains, Allen relations
+- Old Pass 3 template never used in production
+- Cleaner route structure with single temporal review endpoint
+
+#### 11. Branch Consolidation (November 17, 2025)
+- ✅ **Merged feature branch into development**
+  - Created backup: `development-backup-before-merge` at commit `02f8f04`
+  - Renamed `claude/continue-refactoring-01Uxdw4hm76Yd5ipHuR6BQAn` → `development`
+  - Force pushed to `origin/development`
+  - All work now consolidated in single `development` branch
+  - Updated `.gitignore` to exclude `venv-*/` directories
 
 ### 🔄 In Progress
 
-**Current Task:** LLM Service Migration - Phase 2 (4/24 files migrated)
+**Current Task:** Ready for next phase - see "What's Next?" section below
+
+**Recently Completed:**
+- ✅ Source text extraction for all 9 concept types (Pass 1-3)
+- ✅ Deprecated template cleanup
+- ✅ Branch consolidation
+
+**Previous Work:** LLM Service Migration - Phase 2 (4/24 files migrated)
 
 **Completed Migrations:**
 - ✅ case_role_matching_service.py - Semantic role matching with LLM validation
@@ -185,8 +229,17 @@ git checkout claude/continue-refactoring-01Uxdw4hm76Yd5ipHuR6BQAn
 25. `c086f7c` - Fix ontology_editor import error by creating EntityService stub
 26. `0bf6852` - Update PROGRESS.md with session status and next steps
 27. `a89091b` - Add "Clear & Re-run" functionality to prevent duplicate extractions
+28. `4c38dc0` - Update PROGRESS.md: Clear & Re-run feature complete
+29. `c2e897b` - Clean up root directory: remove outdated docs and organize test files
+30. `2d0b531` - Update PROGRESS.md: change active branch to current session
+31. `7d4e832` - Add source text context to Pass 1 entity extraction (Roles only)
+32. `161eada` - Add UI display for source text context in entity review page
+33. `dd48436` - Commit text snippets (Pass 1 complete: Roles, States, Resources)
+34. `de415ae` - Commit source text for additional entities (Pass 2: Principles, Obligations, Constraints, Capabilities)
+35. `5272b6c` - Update source text extraction for events and actions (Pass 3 complete)
+36. `0d2cfdf` - Remove old templates (archive deprecated Pass 3 templates and routes)
 
-**All commits pushed to:** `origin/claude/continue-work-01ABZAYgwMqQW9dPfdkrrAPo`
+**All commits pushed to:** `origin/development`
 
 ---
 
@@ -358,16 +411,16 @@ pytest tests/
 
 ```bash
 # 1. Ensure you're on the correct branch
-git checkout claude/continue-work-01ABZAYgwMqQW9dPfdkrrAPo
+git checkout development
 
 # 2. Pull latest changes
-git pull origin claude/continue-work-01ABZAYgwMqQW9dPfdkrrAPo
+git pull origin development
 
 # 3. Check what's been done
 git log --oneline -10
 
-# 4. Continue with next task (repository cleanup)
-# See "Next Steps" section above
+# 4. Continue with next task
+# See "What's Next?" section above
 ```
 
 ---
