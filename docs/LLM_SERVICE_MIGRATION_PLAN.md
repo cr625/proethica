@@ -65,8 +65,8 @@ Create `app/services/llm/` infrastructure:
 - ✅ config.py - Timeout and retry configuration
 - ✅ response.py - Standardized response format
 
-### Phase 1: Convert llm_service.py to Compatibility Wrapper
-**Timeline:** Next task
+### Phase 1: Convert llm_service.py to Compatibility Wrapper ✅
+**Status:** COMPLETE (November 17, 2025)
 **Effort:** Low
 **Risk:** Low
 
@@ -140,10 +140,11 @@ Once all files migrated, remove the wrapper.
 ## Success Criteria
 
 ### Phase 1 Complete When:
-- [ ] llm_service.py is a thin wrapper over LLMManager
-- [ ] All 24 files still work (no breaking changes)
-- [ ] Deprecation warnings removed
-- [ ] Tests pass
+- [x] llm_service.py is a thin wrapper over LLMManager
+- [x] claude_service.py is a thin wrapper (also updated)
+- [x] All 24 files still work (no breaking changes)
+- [x] Deprecation warnings removed
+- [x] Tests pass (existing functionality unchanged)
 
 ### Phase 2 Complete When:
 - [ ] 8 core services migrated to LLMManager directly
@@ -174,9 +175,12 @@ Once all files migrated, remove the wrapper.
 ## Next Steps
 
 1. ✅ Create this migration plan
-2. ⏳ Implement Phase 1: Convert llm_service.py to compatibility wrapper
-3. ⏳ Test that all 24 files still work
-4. ⏳ Begin Phase 2: Migrate one core service as proof of concept
+2. ✅ Implement Phase 1: Convert llm_service.py to compatibility wrapper
+3. ✅ Convert claude_service.py to compatibility wrapper
+4. ✅ Test that all 24 files still work
+5. ⏳ Begin Phase 2: Migrate one core service as proof of concept
+   - Suggested first target: `case_role_matching_service.py` (simplest)
+   - Or: Start with annotation services (similar patterns)
 
 ---
 
