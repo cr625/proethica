@@ -1,7 +1,7 @@
 # ProEthica Refactoring Progress
 
 **Last Updated:** November 17, 2025
-**Active Branch:** `claude/continue-work-01ABZAYgwMqQW9dPfdkrrAPo`
+**Active Branch:** `claude/continue-refactoring-01Uxdw4hm76Yd5ipHuR6BQAn`
 **Session Goal:** Repository cleanup + LLM centralization for multi-domain expansion
 
 ---
@@ -10,10 +10,10 @@
 
 **⚠️ ALWAYS USE THIS BRANCH:**
 ```bash
-git checkout claude/continue-work-01ABZAYgwMqQW9dPfdkrrAPo
+git checkout claude/continue-refactoring-01Uxdw4hm76Yd5ipHuR6BQAn
 ```
 
-**Branch Session ID:** `01ABZAYgwMqQW9dPfdkrrAPo`
+**Branch Session ID:** `01Uxdw4hm76Yd5ipHuR6BQAn`
 
 **DO NOT create new branches.** Always continue on the existing branch above.
 
