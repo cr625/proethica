@@ -8,7 +8,7 @@ engineering ethics case following the NSPE Board of Ethical Review format.
 import logging
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime
-from app.services.llm_service import LLMService
+from app.services.llm.manager import LLMManager
 from app.models import Document
 from app.models.world import World
 from app.models.agent_conversation import AgentConversation
@@ -22,7 +22,7 @@ class ConversationToCaseService:
     
     def __init__(self):
         """Initialize the service."""
-        self.llm_service = LLMService()
+        self.llm_manager = LLMManager()
     
     def generate_case_from_conversation(self, conversation: AgentConversation, 
                                      user_title: Optional[str] = None) -> Optional[Document]:
@@ -115,14 +115,14 @@ class ConversationToCaseService:
         prompt = self._create_case_generation_prompt(context)
         
         try:
-            # Generate case content
-            response = self.llm_service.generate_response(
-                prompt=prompt,
+            # Generate case content using LLMManager
+            llm_response = self.llm_manager.complete(
+                messages=[{"role": "user", "content": prompt}],
                 temperature=0.7,
                 max_tokens=2000
             )
-            
-            case_text = response.get('response', '')
+
+            case_text = llm_response.text
             
             if not case_text:
                 logger.error("LLM returned empty case content")
