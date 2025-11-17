@@ -21,7 +21,7 @@ from app.models.ontology import Ontology
 from app.models.ontology_import import OntologyImport
 from app.models.entity_triple import EntityTriple
 from app.models.guideline import Guideline
-from ontology_editor.services.entity_service import EntityService
+from app.services.entity_service import EntityService
 from datetime import datetime
 from app.utils.label_normalization import ensure_role_suffix, normalize_role_label, make_role_uri_fragment
 
