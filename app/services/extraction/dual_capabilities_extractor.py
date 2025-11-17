@@ -30,6 +30,7 @@ class CandidateCapabilityClass:
     reasoning: str = ""
     is_existing_class: bool = False
     existing_class_uri: Optional[str] = None
+    source_text: Optional[str] = None  # Text snippet where this capability is identified
 
 
 @dataclass
@@ -46,6 +47,7 @@ class CapabilityIndividual:
     temporal_aspect: Optional[str] = None  # When this capability is relevant
     is_existing_class: bool = False
     confidence: float = 0.0
+    source_text: Optional[str] = None  # Text snippet where this capability is mentioned
 
 
 class DualCapabilitiesExtractor:
@@ -166,6 +168,7 @@ Extract capabilities following this JSON structure:
       "skill_level": "basic|intermediate|advanced|expert",
       "acquisition_method": "How this capability is typically acquired (education, training, experience)",
       "examples_from_case": ["Example 1 from the case", "Example 2"],
+      "source_text": "EXACT text snippet from case where this capability is identified (max 200 characters)",
       "confidence": 0.0-1.0,
       "reasoning": "Why this is a new class not in existing ontology"
     }}
@@ -181,6 +184,7 @@ Extract capabilities following this JSON structure:
       "enables_obligations": "Which obligations this capability enables",
       "temporal_aspect": "When this capability is relevant",
       "case_context": "How this capability manifests in the specific case",
+      "source_text": "EXACT text snippet from case where this capability is mentioned (max 200 characters)",
       "is_existing_class": true/false,
       "confidence": 0.0-1.0
     }}
@@ -251,6 +255,11 @@ Return ONLY the JSON structure, no additional text."""
 
         for cap_class in capability_classes:
             try:
+                # Get source_text from LLM response, or fall back to first example
+                source_text = cap_class.get('source_text')
+                if not source_text and cap_class.get('examples_from_case'):
+                    source_text = cap_class.get('examples_from_case', [''])[0]
+
                 candidate = CandidateCapabilityClass(
                     label=cap_class.get('label', 'Unknown Capability'),
                     definition=cap_class.get('definition', ''),
@@ -261,7 +270,8 @@ Return ONLY the JSON structure, no additional text."""
                     examples_from_case=cap_class.get('examples_from_case', []),
                     confidence=float(cap_class.get('confidence', 0.8)),
                     reasoning=cap_class.get('reasoning', ''),
-                    is_existing_class=False
+                    is_existing_class=False,
+                    source_text=source_text
                 )
 
                 # Check if this matches an existing class
@@ -296,7 +306,8 @@ Return ONLY the JSON structure, no additional text."""
                     enables_obligations=indiv.get('enables_obligations'),
                     temporal_aspect=indiv.get('temporal_aspect'),
                     is_existing_class=indiv.get('is_existing_class', False),
-                    confidence=float(indiv.get('confidence', 0.85))
+                    confidence=float(indiv.get('confidence', 0.85)),
+                    source_text=indiv.get('source_text')
                 )
 
                 parsed_individuals.append(individual)

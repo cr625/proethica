@@ -927,13 +927,12 @@ def clear_saved_prompt(case_id):
         return jsonify({'error': 'concept_type is required'}), 400
 
     try:
-        # Deactivate existing prompts for this case/concept/step
+        # Delete existing prompts for this case/concept/step
         ExtractionPrompt.query.filter_by(
             case_id=case_id,
             concept_type=concept_type,
-            step_number=2,
-            is_active=True
-        ).update({'is_active': False})
+            step_number=2
+        ).delete()
 
         db.session.commit()
         return jsonify({'success': True, 'message': f'Cleared prompt for {concept_type}'})

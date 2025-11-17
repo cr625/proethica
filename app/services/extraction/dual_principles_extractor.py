@@ -36,6 +36,7 @@ class CandidatePrincipleClass:
     examples_from_case: List[str]
     similarity_to_existing: float = 0.0
     existing_similar_classes: List[str] = None
+    source_text: Optional[str] = None  # Text snippet where this principle is identified
 
 @dataclass
 class PrincipleIndividual:
@@ -50,6 +51,7 @@ class PrincipleIndividual:
     case_section: str
     confidence: float
     is_new_principle_class: bool = False
+    source_text: Optional[str] = None  # Text snippet where this principle is mentioned
 
 class DualPrinciplesExtractor:
     """Extract both new principle classes and individual principle instances"""
@@ -174,7 +176,8 @@ Respond with valid JSON in this format:
             "application_context": ["Infrastructure projects", "Environmental engineering", "Urban planning"],
             "operationalization": "Through environmental impact assessments, lifecycle analysis, sustainable design criteria",
             "balancing_requirements": ["Economic feasibility", "Immediate safety needs", "Client requirements"],
-            "examples_from_case": ["Engineer considered long-term environmental impacts", "balanced immediate needs with sustainability"]
+            "examples_from_case": ["Engineer considered long-term environmental impacts", "balanced immediate needs with sustainability"],
+            "source_text": "Engineer considered long-term environmental impacts and balanced immediate needs with sustainability"
         }}
     ],
     "principle_individuals": [
@@ -185,6 +188,7 @@ Respond with valid JSON in this format:
             "invoked_by": ["Engineer L"],
             "applied_to": ["stormwater management system design"],
             "interpretation": "Safety considerations override cost savings in drainage design",
+            "source_text": "the safety of the public must be held paramount",
             "balancing_with": ["Cost Efficiency", "Client Interests"],
             "tension_resolution": "Safety takes precedence even if it increases project costs",
             "case_relevance": "Critical for evaluating adequacy of proposed drainage solution"
@@ -262,6 +266,11 @@ Respond with valid JSON in this format:
 
         for raw_class in raw_classes:
             try:
+                # Get source_text from LLM response, or fall back to first example
+                source_text = raw_class.get('source_text')
+                if not source_text and raw_class.get('examples_from_case'):
+                    source_text = raw_class.get('examples_from_case', [''])[0]
+
                 candidate = CandidatePrincipleClass(
                     label=raw_class.get('label', 'Unknown Principle'),
                     definition=raw_class.get('definition', ''),
@@ -274,7 +283,8 @@ Respond with valid JSON in this format:
                     confidence=raw_class.get('confidence', 0.85),
                     examples_from_case=raw_class.get('examples_from_case', []),
                     similarity_to_existing=0.0,
-                    existing_similar_classes=[]
+                    existing_similar_classes=[],
+                    source_text=source_text
                 )
 
                 # Calculate similarity to existing principles
@@ -304,7 +314,8 @@ Respond with valid JSON in this format:
                     balancing_with=raw_ind.get('balancing_with', []),
                     case_section=section_type,
                     confidence=raw_ind.get('confidence', 0.85),
-                    is_new_principle_class=False
+                    is_new_principle_class=False,
+                    source_text=raw_ind.get('source_text')
                 )
                 individuals.append(individual)
 

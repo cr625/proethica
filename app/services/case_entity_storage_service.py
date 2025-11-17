@@ -546,20 +546,19 @@ class CaseEntityStorageService:
                 cleared_stats['rdf_triples'] += type_count
                 rdf_query.delete(synchronize_session='fetch')
 
-            # 3. Clear extraction prompts
+            # 3. Delete extraction prompts
+            # NOTE: We delete prompts for ALL sections for this pass,
+            # because when clearing a pass we want to clear all prompts for that pass
             for extraction_type in extraction_types:
                 prompt_query = db.session.query(ExtractionPrompt).filter_by(
                     case_id=case_id,
-                    concept_type=extraction_type,
-                    is_active=True
+                    concept_type=extraction_type
                 )
 
-                if section_type:
-                    prompt_query = prompt_query.filter_by(section_type=section_type)
-
+                # Count and delete (no section filter - clear all prompts for this extraction type)
                 prompt_count = prompt_query.count()
                 cleared_stats['extraction_prompts'] += prompt_count
-                prompt_query.update({'is_active': False}, synchronize_session='fetch')
+                prompt_query.delete(synchronize_session='fetch')
 
             db.session.commit()
 

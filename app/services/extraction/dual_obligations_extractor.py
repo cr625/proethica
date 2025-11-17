@@ -30,6 +30,7 @@ class CandidateObligationClass:
     reasoning: str = ""
     is_existing_class: bool = False
     existing_class_uri: Optional[str] = None
+    source_text: Optional[str] = None  # Text snippet where this obligation is identified
 
 
 @dataclass
@@ -46,6 +47,7 @@ class ObligationIndividual:
     compliance_status: Optional[str] = None  # Met, unmet, unclear
     is_existing_class: bool = False
     confidence: float = 0.0
+    source_text: Optional[str] = None  # Text snippet where this obligation is mentioned
 
 
 class DualObligationsExtractor:
@@ -166,6 +168,7 @@ Extract obligations following this JSON structure:
       "enforcement_mechanism": "How this obligation is typically enforced",
       "violation_consequences": "What happens when this obligation is violated",
       "examples_from_case": ["Example 1 from the case", "Example 2"],
+      "source_text": "EXACT text snippet from case where this obligation is identified (max 200 characters)",
       "confidence": 0.0-1.0,
       "reasoning": "Why this is a new class not in existing ontology"
     }}
@@ -181,6 +184,7 @@ Extract obligations following this JSON structure:
       "temporal_scope": "When this obligation applies",
       "compliance_status": "met|unmet|unclear|pending",
       "case_context": "How this obligation manifests in the specific case",
+      "source_text": "EXACT text snippet from case where this obligation is mentioned (max 200 characters)",
       "is_existing_class": true/false,
       "confidence": 0.0-1.0
     }}
@@ -251,6 +255,11 @@ Return ONLY the JSON structure, no additional text."""
 
         for obl_class in obligation_classes:
             try:
+                # Get source_text from LLM response, or fall back to first example
+                source_text = obl_class.get('source_text')
+                if not source_text and obl_class.get('examples_from_case'):
+                    source_text = obl_class.get('examples_from_case', [''])[0]
+
                 candidate = CandidateObligationClass(
                     label=obl_class.get('label', 'Unknown Obligation'),
                     definition=obl_class.get('definition', ''),
@@ -261,7 +270,8 @@ Return ONLY the JSON structure, no additional text."""
                     examples_from_case=obl_class.get('examples_from_case', []),
                     confidence=float(obl_class.get('confidence', 0.8)),
                     reasoning=obl_class.get('reasoning', ''),
-                    is_existing_class=False
+                    is_existing_class=False,
+                    source_text=source_text
                 )
 
                 # Check if this matches an existing class
@@ -296,7 +306,8 @@ Return ONLY the JSON structure, no additional text."""
                     compliance_status=indiv.get('compliance_status', 'unclear'),
                     case_context=indiv.get('case_context', f"From {section_type} section"),
                     is_existing_class=indiv.get('is_existing_class', False),
-                    confidence=float(indiv.get('confidence', 0.85))
+                    confidence=float(indiv.get('confidence', 0.85)),
+                    source_text=indiv.get('source_text')
                 )
 
                 parsed_individuals.append(individual)

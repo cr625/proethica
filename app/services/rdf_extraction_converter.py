@@ -929,6 +929,10 @@ class RDFExtractionConverter:
                 Literal(principle_class['confidence'], datatype=XSD.float)
             ))
 
+        # Add source text (provenance)
+        if principle_class.get('source_text') and principle_class['source_text']:
+            self.class_graph.add((class_uri, self.PROETHICA_PROV.sourceText, Literal(principle_class['source_text'])))
+
         # Add provenance
         self.class_graph.add((class_uri, PROV.wasGeneratedBy, Literal("ProEthica Dual Principles Extraction")))
         self.class_graph.add((class_uri, PROV.generatedAtTime, Literal(timestamp, datatype=XSD.dateTime)))
@@ -1023,6 +1027,10 @@ class RDFExtractionConverter:
                 URIRef(f"{self.PROETHICA_PROV}confidenceScore"),
                 Literal(individual['confidence'], datatype=XSD.float)
             ))
+
+        # Add source text (provenance)
+        if individual.get('source_text') and individual['source_text']:
+            self.individual_graph.add((individual_uri, self.PROETHICA_PROV.sourceText, Literal(individual['source_text'])))
 
         # Add provenance
         self.individual_graph.add((individual_uri, PROV.wasGeneratedBy, Literal("ProEthica Dual Principles Extraction")))
@@ -1139,6 +1147,10 @@ class RDFExtractionConverter:
                 Literal(obligation_class['reasoning'])
             ))
 
+        # Add source text (provenance)
+        if obligation_class.get('source_text') and obligation_class['source_text']:
+            self.class_graph.add((class_uri, self.PROETHICA_PROV.sourceText, Literal(obligation_class['source_text'])))
+
         # Add provenance
         self.class_graph.add((class_uri, PROV.wasGeneratedBy, Literal("ProEthica Dual Obligations Extraction")))
         self.class_graph.add((class_uri, PROV.generatedAtTime, Literal(timestamp, datatype=XSD.dateTime)))
@@ -1240,6 +1252,10 @@ class RDFExtractionConverter:
                 URIRef(f"{self.PROETHICA_PROV}confidenceScore"),
                 Literal(individual['confidence'], datatype=XSD.float)
             ))
+
+        # Add source text (provenance)
+        if individual.get('source_text') and individual['source_text']:
+            self.individual_graph.add((individual_uri, self.PROETHICA_PROV.sourceText, Literal(individual['source_text'])))
 
         # Add provenance
         self.individual_graph.add((individual_uri, PROV.wasGeneratedBy, Literal("ProEthica Dual Obligations Extraction")))
@@ -1373,6 +1389,10 @@ class RDFExtractionConverter:
                 Literal(constraint_class['reasoning'])
             ))
 
+        # Add source text (provenance)
+        if constraint_class.get('source_text') and constraint_class['source_text']:
+            self.class_graph.add((class_uri, self.PROETHICA_PROV.sourceText, Literal(constraint_class['source_text'])))
+
         # Add provenance
         self.class_graph.add((class_uri, PROV.wasGeneratedBy, Literal("ProEthica Dual Constraints Extraction")))
         self.class_graph.add((class_uri, PROV.generatedAtTime, Literal(timestamp, datatype=XSD.dateTime)))
@@ -1474,6 +1494,10 @@ class RDFExtractionConverter:
                 URIRef(f"{self.PROETHICA_PROV}confidenceScore"),
                 Literal(individual['confidence'], datatype=XSD.float)
             ))
+
+        # Add source text (provenance)
+        if individual.get('source_text') and individual['source_text']:
+            self.individual_graph.add((individual_uri, self.PROETHICA_PROV.sourceText, Literal(individual['source_text'])))
 
         # Add provenance
         self.individual_graph.add((individual_uri, PROV.wasGeneratedBy, Literal("ProEthica Dual Constraints Extraction")))
@@ -1604,6 +1628,10 @@ class RDFExtractionConverter:
         for example in capability_class.get('examples_from_case', []):
             self.class_graph.add((class_uri, URIRef(f"{self.PROETHICA}exampleFromCase"), Literal(example)))
 
+        # Add source text (provenance)
+        if capability_class.get('source_text') and capability_class['source_text']:
+            self.class_graph.add((class_uri, self.PROETHICA_PROV.sourceText, Literal(capability_class['source_text'])))
+
         # Add extraction metadata
         self.class_graph.add((class_uri, URIRef(f"{self.PROETHICA}confidence"), Literal(capability_class.get('confidence', 0.8))))
         self.class_graph.add((class_uri, PROV.generatedAtTime, Literal(timestamp, datatype=XSD.dateTime)))
@@ -1650,6 +1678,10 @@ class RDFExtractionConverter:
 
         if individual.get('case_context'):
             self.individual_graph.add((individual_uri, URIRef(f"{self.PROETHICA}caseContext"), Literal(individual['case_context'])))
+
+        # Add source text (provenance)
+        if individual.get('source_text') and individual['source_text']:
+            self.individual_graph.add((individual_uri, self.PROETHICA_PROV.sourceText, Literal(individual['source_text'])))
 
         # Add extraction metadata
         self.individual_graph.add((individual_uri, URIRef(f"{self.PROETHICA}confidence"), Literal(individual.get('confidence', 0.85))))
