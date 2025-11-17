@@ -461,3 +461,188 @@ class CaseEntityStorageService:
                 'selected': sum(1 for e in entities if e.concept_data.get('selected', False))
             }
         }
+
+    @staticmethod
+    def clear_extraction_pass(
+        case_id: int,
+        extraction_pass: str,
+        section_type: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Clear all uncommitted entities for a specific extraction pass and optional section.
+
+        Used when re-running extraction to avoid duplicates.
+
+        Args:
+            case_id: Case ID
+            extraction_pass: 'pass1', 'pass2', or 'pass3'
+            section_type: Optional section filter ('facts', 'discussion', etc.)
+
+        Returns:
+            Dict with success status and cleared counts
+        """
+        try:
+            from app.models import TemporaryRDFStorage, ExtractionPrompt
+
+            # Map pass to entity types
+            pass_entity_types = {
+                'pass1': ['roles', 'states', 'resources'],
+                'pass2': ['principles', 'obligations', 'constraints', 'capabilities'],
+                'pass3': ['actions', 'events']
+            }
+
+            extraction_types = pass_entity_types.get(extraction_pass, [])
+            if not extraction_types:
+                return {
+                    'success': False,
+                    'error': f'Unknown extraction pass: {extraction_pass}'
+                }
+
+            cleared_stats = {
+                'temporary_concepts': 0,
+                'rdf_triples': 0,
+                'extraction_prompts': 0,
+                'types_cleared': extraction_types,
+                'section_type': section_type
+            }
+
+            # Get session IDs for section if specified
+            section_session_ids = None
+            if section_type:
+                section_prompts = ExtractionPrompt.query.filter_by(
+                    case_id=case_id,
+                    section_type=section_type
+                ).all()
+                section_session_ids = {p.extraction_session_id for p in section_prompts if p.extraction_session_id}
+                logger.info(f"Clearing {extraction_pass} from {section_type} section (sessions: {section_session_ids})")
+
+            # 1. Clear temporary concepts
+            concept_query = TemporaryConcept.query.filter_by(document_id=case_id)
+            if section_type:
+                # Filter by section in concept_data JSON
+                concept_query = concept_query.filter(
+                    TemporaryConcept.concept_data['section_type'].astext == section_type
+                )
+
+            # Count and delete
+            cleared_stats['temporary_concepts'] = concept_query.count()
+            concept_query.delete(synchronize_session='fetch')
+
+            # 2. Clear RDF storage for specified entity types
+            for extraction_type in extraction_types:
+                rdf_query = db.session.query(TemporaryRDFStorage).filter_by(
+                    case_id=case_id,
+                    extraction_type=extraction_type,
+                    is_committed=False  # Only uncommitted
+                )
+
+                # Add section filter if specified
+                if section_session_ids is not None:
+                    rdf_query = rdf_query.filter(
+                        TemporaryRDFStorage.extraction_session_id.in_(section_session_ids)
+                    )
+
+                type_count = rdf_query.count()
+                cleared_stats['rdf_triples'] += type_count
+                rdf_query.delete(synchronize_session='fetch')
+
+            # 3. Clear extraction prompts
+            for extraction_type in extraction_types:
+                prompt_query = db.session.query(ExtractionPrompt).filter_by(
+                    case_id=case_id,
+                    concept_type=extraction_type,
+                    is_active=True
+                )
+
+                if section_type:
+                    prompt_query = prompt_query.filter_by(section_type=section_type)
+
+                prompt_count = prompt_query.count()
+                cleared_stats['extraction_prompts'] += prompt_count
+                prompt_query.update({'is_active': False}, synchronize_session='fetch')
+
+            db.session.commit()
+
+            total_cleared = (cleared_stats['temporary_concepts'] +
+                           cleared_stats['rdf_triples'] +
+                           cleared_stats['extraction_prompts'])
+
+            section_label = section_type.replace('_', ' ').title() if section_type else 'all sections'
+            message = f"Cleared {total_cleared} items from {extraction_pass.upper()} ({section_label})"
+
+            logger.info(f"Cleared {extraction_pass} for case {case_id}: {cleared_stats}")
+
+            return {
+                'success': True,
+                'message': message,
+                'cleared_stats': cleared_stats,
+                'total_cleared': total_cleared
+            }
+
+        except Exception as e:
+            logger.error(f"Error clearing {extraction_pass} for case {case_id}: {e}")
+            db.session.rollback()
+            return {
+                'success': False,
+                'error': str(e),
+                'total_cleared': 0
+            }
+
+    @staticmethod
+    def has_extraction_been_run(
+        case_id: int,
+        extraction_pass: str,
+        section_type: Optional[str] = None
+    ) -> bool:
+        """
+        Check if an extraction pass has been run before for this case/section.
+
+        Used to show warning about re-running causing duplicates.
+
+        Args:
+            case_id: Case ID
+            extraction_pass: 'pass1', 'pass2', or 'pass3'
+            section_type: Optional section filter
+
+        Returns:
+            True if extraction has been run before
+        """
+        try:
+            from app.models import TemporaryRDFStorage
+
+            # Map pass to entity types
+            pass_entity_types = {
+                'pass1': ['roles', 'states', 'resources'],
+                'pass2': ['principles', 'obligations', 'constraints', 'capabilities'],
+                'pass3': ['actions', 'events']
+            }
+
+            extraction_types = pass_entity_types.get(extraction_pass, [])
+            if not extraction_types:
+                return False
+
+            # Check if any entities exist for this pass
+            query = db.session.query(TemporaryRDFStorage).filter(
+                TemporaryRDFStorage.case_id == case_id,
+                TemporaryRDFStorage.extraction_type.in_(extraction_types)
+            )
+
+            # Add section filter if specified
+            if section_type:
+                from app.models import ExtractionPrompt
+                section_prompts = ExtractionPrompt.query.filter_by(
+                    case_id=case_id,
+                    section_type=section_type
+                ).all()
+                section_session_ids = {p.extraction_session_id for p in section_prompts if p.extraction_session_id}
+
+                if section_session_ids:
+                    query = query.filter(
+                        TemporaryRDFStorage.extraction_session_id.in_(section_session_ids)
+                    )
+
+            return query.first() is not None
+
+        except Exception as e:
+            logger.error(f"Error checking extraction status: {e}")
+            return False

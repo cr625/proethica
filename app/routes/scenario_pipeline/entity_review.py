@@ -1351,3 +1351,69 @@ def review_enhanced_temporal(case_id):
         logger.error(f"Error loading enhanced temporal review for case {case_id}: {e}")
         flash(f"Error loading review page: {str(e)}", 'danger')
         return redirect(url_for('scenario_pipeline.step3', case_id=case_id))
+
+
+@bp.route('/case/<int:case_id>/entities/clear_and_rerun/<extraction_pass>', methods=['POST'])
+@auth_required_for_write
+def clear_and_rerun_pass(case_id, extraction_pass):
+    """Clear entities for a pass and redirect to extraction."""
+    try:
+        data = request.get_json() or {}
+        section_type = data.get('section_type')
+
+        # Clear the extraction pass
+        result = CaseEntityStorageService.clear_extraction_pass(
+            case_id=case_id,
+            extraction_pass=extraction_pass,
+            section_type=section_type
+        )
+
+        if not result['success']:
+            return jsonify(result), 400
+
+        # Determine redirect URL based on pass
+        if extraction_pass == 'pass1':
+            redirect_url = url_for('scenario_pipeline.step1', case_id=case_id)
+        elif extraction_pass == 'pass2':
+            redirect_url = url_for('scenario_pipeline.step2', case_id=case_id)
+        elif extraction_pass == 'pass3':
+            redirect_url = url_for('scenario_pipeline.step3', case_id=case_id)
+        else:
+            redirect_url = url_for('scenario_pipeline.overview', case_id=case_id)
+
+        return jsonify({
+            'success': True,
+            'message': result['message'],
+            'redirect_url': redirect_url,
+            'cleared_stats': result['cleared_stats']
+        })
+
+    except Exception as e:
+        logger.error(f"Error in clear_and_rerun for case {case_id}: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/case/<int:case_id>/entities/check_extraction/<extraction_pass>')
+@auth_optional
+def check_extraction_status(case_id, extraction_pass):
+    """Check if an extraction pass has been run before."""
+    try:
+        section_type = request.args.get('section_type')
+
+        has_been_run = CaseEntityStorageService.has_extraction_been_run(
+            case_id=case_id,
+            extraction_pass=extraction_pass,
+            section_type=section_type
+        )
+
+        return jsonify({
+            'success': True,
+            'has_been_run': has_been_run,
+            'case_id': case_id,
+            'extraction_pass': extraction_pass,
+            'section_type': section_type
+        })
+
+    except Exception as e:
+        logger.error(f"Error checking extraction status: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500

@@ -174,6 +174,9 @@
                     </div>
                     <div>
                         {% if current_user.is_authenticated %}
+                        <button id="clearAndRerunBtn" class="btn btn-sm btn-primary">
+                            <i class="bi bi-arrow-clockwise"></i> Clear & Re-run Pass 1
+                        </button>
                         <button id="clearAllEntitiesBtn" class="btn btn-sm btn-warning">
                             <i class="bi bi-trash"></i> Clear Pass 1 Uncommitted{% if section_label %} ({{ section_label }}){% endif %}
                         </button>
@@ -205,6 +208,17 @@
                         <p class="mb-0">Case {{ case.id }}: {{ case.title }}</p>
                     </div>
                 </div>
+            </div>
+
+            <!-- Re-run Warning Banner (shown by JavaScript if extraction exists) -->
+            <div id="rerunWarningBanner" class="alert alert-warning alert-dismissible fade show" role="alert" style="display: none;">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+                <strong>Re-run Warning:</strong> This section was already extracted.
+                Re-running without clearing will create <strong>duplicate</strong> entities.
+                <br><small class="text-muted">
+                    Click <strong>"Clear Pass 1 Uncommitted"</strong> first, or use <strong>"Clear & Re-run Pass 1"</strong> below for one-click workflow.
+                </small>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
 
             <!-- Entity Type Counts -->
@@ -1380,6 +1394,71 @@ document.addEventListener('DOMContentLoaded', function() {
         if (selectedCountElement) {
             selectedCountElement.textContent = totalSelected;
         }
+    }
+
+    // Check if extraction has been run and show warning banner
+    function checkExtractionStatus() {
+        const sectionType = '{{ section_type }}' || 'facts';
+
+        appFetch(`/scenario_pipeline/case/${caseId}/entities/check_extraction/pass1?section_type=${sectionType}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.has_been_run) {
+                    // Show warning banner
+                    const warningBanner = document.getElementById('rerunWarningBanner');
+                    if (warningBanner) {
+                        warningBanner.style.display = 'block';
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error checking extraction status:', error);
+            });
+    }
+
+    // Call on page load
+    checkExtractionStatus();
+
+    // Clear & Re-run button handler
+    const clearAndRerunBtn = document.getElementById('clearAndRerunBtn');
+    if (clearAndRerunBtn) {
+        clearAndRerunBtn.addEventListener('click', function() {
+            const sectionType = '{{ section_type }}' || 'facts';
+            const sectionLabel = '{{ section_label }}' || 'Facts';
+
+            if (confirm(`This will:\n1. Clear all uncommitted Pass 1 entities from ${sectionLabel}\n2. Redirect to extraction page\n\nContinue?`)) {
+                this.disabled = true;
+                this.innerHTML = '<i class="bi bi-hourglass-split"></i> Clearing...';
+
+                appFetch(`/scenario_pipeline/case/${caseId}/entities/clear_and_rerun/pass1`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        section_type: sectionType
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Show success message and redirect
+                        alert(data.message + '\n\nRedirecting to extraction page...');
+                        window.location.href = data.redirect_url;
+                    } else {
+                        alert(`Error: ${data.error || 'Unknown error'}`);
+                        this.disabled = false;
+                        this.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Clear & Re-run Pass 1';
+                    }
+                })
+                .catch(error => {
+                    console.error('Clear and rerun error:', error);
+                    alert(`Error: ${error}`);
+                    this.disabled = false;
+                    this.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Clear & Re-run Pass 1';
+                });
+            }
+        });
     }
 });
 </script>
