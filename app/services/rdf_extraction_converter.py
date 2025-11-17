@@ -1764,6 +1764,10 @@ class RDFExtractionConverter:
         for example in action_class.get('examples_from_case', []):
             self.class_graph.add((class_uri, URIRef(f"{self.PROETHICA}exampleFromCase"), Literal(example)))
 
+        # Add source text (provenance)
+        if action_class.get('source_text') and action_class['source_text']:
+            self.class_graph.add((class_uri, self.PROETHICA_PROV.sourceText, Literal(action_class['source_text'])))
+
         # Metadata
         self.class_graph.add((class_uri, URIRef(f"{self.PROETHICA}discoveredInCase"), Literal(case_id)))
         self.class_graph.add((class_uri, URIRef(f"{self.PROETHICA}confidence"), Literal(action_class.get('confidence', 0.85))))
@@ -1830,6 +1834,10 @@ class RDFExtractionConverter:
 
         if individual.get('case_context'):
             self.individual_graph.add((individual_uri, URIRef(f"{self.PROETHICA}caseContext"), Literal(individual['case_context'])))
+
+        # Add source text (provenance)
+        if individual.get('source_text') and individual['source_text']:
+            self.individual_graph.add((individual_uri, self.PROETHICA_PROV.sourceText, Literal(individual['source_text'])))
 
         # Metadata
         self.individual_graph.add((individual_uri, URIRef(f"{self.PROETHICA}confidence"), Literal(individual.get('confidence', 0.85))))
@@ -1915,6 +1923,10 @@ class RDFExtractionConverter:
         for example in event_class.get('examples_from_case', []):
             self.class_graph.add((class_uri, URIRef(f"{self.PROETHICA}exampleFromCase"), Literal(example)))
 
+        # Add source text (provenance)
+        if event_class.get('source_text') and event_class['source_text']:
+            self.class_graph.add((class_uri, self.PROETHICA_PROV.sourceText, Literal(event_class['source_text'])))
+
         # Metadata
         self.class_graph.add((class_uri, URIRef(f"{self.PROETHICA}discoveredInCase"), Literal(case_id)))
         self.class_graph.add((class_uri, URIRef(f"{self.PROETHICA}confidence"), Literal(event_class.get('confidence', 0.85))))
@@ -1981,6 +1993,10 @@ class RDFExtractionConverter:
 
         if individual.get('case_context'):
             self.individual_graph.add((individual_uri, URIRef(f"{self.PROETHICA}caseContext"), Literal(individual['case_context'])))
+
+        # Add source text (provenance)
+        if individual.get('source_text') and individual['source_text']:
+            self.individual_graph.add((individual_uri, self.PROETHICA_PROV.sourceText, Literal(individual['source_text'])))
 
         # Metadata
         self.individual_graph.add((individual_uri, URIRef(f"{self.PROETHICA}confidence"), Literal(individual.get('confidence', 0.85))))

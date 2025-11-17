@@ -40,6 +40,7 @@ class CandidateActionClass:
     confidence: float
     similarity_to_existing: float = 0.0
     existing_similar_classes: List[str] = None
+    source_text: Optional[str] = None  # Text snippet where this action is identified
 
 @dataclass
 class ActionIndividual:
@@ -60,6 +61,7 @@ class ActionIndividual:
     case_context: str  # Context within the case
     confidence: float
     is_new_action_class: bool = False
+    source_text: Optional[str] = None  # Text snippet where this action is mentioned
 
 @dataclass
 class CandidateEventClass:
@@ -79,6 +81,7 @@ class CandidateEventClass:
     confidence: float
     similarity_to_existing: float = 0.0
     existing_similar_classes: List[str] = None
+    source_text: Optional[str] = None  # Text snippet where this event is identified
 
 @dataclass
 class EventIndividual:
@@ -99,6 +102,7 @@ class EventIndividual:
     case_context: str  # Context within the case
     confidence: float
     is_new_event_class: bool = False
+    source_text: Optional[str] = None  # Text snippet where this event is mentioned
 
 class DualActionsEventsExtractor:
     """Extract both new temporal classes and individual temporal instances"""
@@ -306,7 +310,8 @@ Respond with valid JSON in this format:
             "temporal_constraints": ["Must occur immediately upon risk identification", "Cannot be delayed"],
             "causal_implications": ["Project delays", "Additional safety measures required"],
             "intention_requirement": "Intent to protect public safety and professional integrity",
-            "examples_from_case": ["Engineer suspended work when foundation issues discovered"]
+            "examples_from_case": ["Engineer suspended work when foundation issues discovered"],
+            "source_text": "EXACT text snippet from case where this action is identified (max 200 characters)"
         }}
     ],
     "action_individuals": [
@@ -326,7 +331,8 @@ Respond with valid JSON in this format:
             ],
             "obligations_fulfilled": ["Public Safety Obligation"],
             "constraints_respected": ["Safety Constraint", "Professional Authority Constraint"],
-            "capabilities_required": ["Safety Assessment", "Professional Judgment"]
+            "capabilities_required": ["Safety Assessment", "Professional Judgment"],
+            "source_text": "EXACT text snippet from case where this action is mentioned (max 200 characters)"
         }}
     ],
     "new_event_classes": [
@@ -341,7 +347,8 @@ Respond with valid JSON in this format:
             "causal_position": "trigger",
             "ethical_salience": "Creates pressure to compromise professional standards",
             "state_transitions": ["Normal Operations → Crisis Management"],
-            "examples_from_case": ["Client X faced funding shortfall affecting project scope"]
+            "examples_from_case": ["Client X faced funding shortfall affecting project scope"],
+            "source_text": "EXACT text snippet from case where this event is identified (max 200 characters)"
         }}
     ],
     "event_individuals": [
@@ -361,7 +368,8 @@ Respond with valid JSON in this format:
             ],
             "constraints_activated": ["Budget Constraint", "Timeline Constraint"],
             "obligations_triggered": ["Renegotiation Obligation", "Transparency Obligation"],
-            "states_changed": ["Client Relationship State", "Project Financial State"]
+            "states_changed": ["Client Relationship State", "Project Financial State"],
+            "source_text": "EXACT text snippet from case where this event is mentioned (max 200 characters)"
         }}
     ]
 }}
@@ -449,6 +457,11 @@ Respond with valid JSON in this format:
 
         for raw_class in raw_classes:
             try:
+                # Get source_text from LLM response, or fall back to first example
+                source_text = raw_class.get('source_text')
+                if not source_text and raw_class.get('examples_from_case'):
+                    source_text = raw_class.get('examples_from_case', [''])[0]
+
                 candidate = CandidateActionClass(
                     label=raw_class.get('label', 'Unknown Action'),
                     definition=raw_class.get('definition', ''),
@@ -463,7 +476,8 @@ Respond with valid JSON in this format:
                     discovered_in_case=case_id,
                     confidence=raw_class.get('confidence', 0.85),
                     similarity_to_existing=0.0,
-                    existing_similar_classes=[]
+                    existing_similar_classes=[],
+                    source_text=source_text
                 )
 
                 # Calculate similarity to existing actions
@@ -499,7 +513,8 @@ Respond with valid JSON in this format:
                     capabilities_required=raw_ind.get('capabilities_required', []),
                     case_context=section_type,
                     confidence=raw_ind.get('confidence', 0.85),
-                    is_new_action_class=False
+                    is_new_action_class=False,
+                    source_text=raw_ind.get('source_text')
                 )
                 individuals.append(individual)
 
@@ -515,6 +530,11 @@ Respond with valid JSON in this format:
 
         for raw_class in raw_classes:
             try:
+                # Get source_text from LLM response, or fall back to first example
+                source_text = raw_class.get('source_text')
+                if not source_text and raw_class.get('examples_from_case'):
+                    source_text = raw_class.get('examples_from_case', [''])[0]
+
                 candidate = CandidateEventClass(
                     label=raw_class.get('label', 'Unknown Event'),
                     definition=raw_class.get('definition', ''),
@@ -530,7 +550,8 @@ Respond with valid JSON in this format:
                     discovered_in_case=case_id,
                     confidence=raw_class.get('confidence', 0.85),
                     similarity_to_existing=0.0,
-                    existing_similar_classes=[]
+                    existing_similar_classes=[],
+                    source_text=source_text
                 )
 
                 # Calculate similarity to existing events
@@ -566,7 +587,8 @@ Respond with valid JSON in this format:
                     states_changed=raw_ind.get('states_changed', []),
                     case_context=section_type,
                     confidence=raw_ind.get('confidence', 0.85),
-                    is_new_event_class=False
+                    is_new_event_class=False,
+                    source_text=raw_ind.get('source_text')
                 )
                 individuals.append(individual)
 
