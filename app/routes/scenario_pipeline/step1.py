@@ -612,7 +612,8 @@ def entities_pass_execute(case_id):
                 'candidate_id': candidate.id,
                 # Legacy compatibility
                 'description': candidate.definition,
-                'primary_type': 'Role'
+                'primary_type': 'Role',
+                'source_text': candidate.source_text  # Add source text for context display
             }
             roles_data.append(role_entry)
 
@@ -627,7 +628,9 @@ def entities_pass_execute(case_id):
                 'attributes': individual.attributes,
                 'relationships': individual.relationships,
                 'case_section': individual.case_section,
-                'type': 'role_individual'
+                'type': 'role_individual',
+                'source_text': individual.source_text,  # Add source text for context display
+                'source_context': individual.source_context  # Add surrounding context
             }
             individuals_data.append(individual_entry)
         

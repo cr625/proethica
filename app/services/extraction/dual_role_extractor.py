@@ -30,6 +30,7 @@ class CandidateRoleClass:
     examples_from_case: List[str]
     similarity_to_existing: float = 0.0
     existing_similar_classes: List[str] = None
+    source_text: Optional[str] = None  # Text snippet where this role class is identified
 
 @dataclass
 class RoleIndividual:
@@ -41,6 +42,8 @@ class RoleIndividual:
     case_section: str
     confidence: float
     is_new_role_class: bool = False  # True if they fulfill a newly discovered role class
+    source_text: Optional[str] = None  # Text snippet where this individual is mentioned
+    source_context: Optional[str] = None  # Additional surrounding context
 
 class DualRoleExtractor:
     """Extract both new role classes and individual role instances"""
@@ -135,6 +138,7 @@ LEVEL 2 - ROLE INDIVIDUALS: Identify specific people mentioned who fulfill profe
 - active_obligations: What specific duties is this person fulfilling in the case?
 - ethical_tensions: Any conflicts between role obligations and personal/other obligations?
 - case_involvement: How they participate in this case
+- source_text: EXACT text snippet from the case where this individual is first mentioned or described (max 200 characters)
 
 IMPORTANT: Use ONLY the actual names/identifiers found in the case text. DO NOT create realistic names or make up details not explicitly stated.
 
@@ -170,7 +174,8 @@ Respond with valid JSON in this format:
             "relationships": [
                 {{"type": "retained_by", "target": "Client W"}}
             ],
-            "case_involvement": "Retained to prepare comprehensive report addressing organic compound characteristics"
+            "case_involvement": "Retained to prepare comprehensive report addressing organic compound characteristics",
+            "source_text": "Engineer A, a professional engineer with several years of experience, was retained by Client W"
         }}
     ]
 }}
@@ -267,7 +272,8 @@ Respond with valid JSON in this format:
                     confidence=0.8,  # Initial confidence, can be refined
                     examples_from_case=raw_class.get('examples_from_case', []),
                     similarity_to_existing=similarity,
-                    existing_similar_classes=similar_classes
+                    existing_similar_classes=similar_classes,
+                    source_text=raw_class.get('examples_from_case', [''])[0] if raw_class.get('examples_from_case') else None  # Use first example as source text
                 )
                 candidates.append(candidate)
 
@@ -290,7 +296,9 @@ Respond with valid JSON in this format:
                     relationships=raw_individual.get('relationships', []),
                     case_section=section_type,
                     confidence=0.9,  # High confidence for named individuals
-                    is_new_role_class=False  # Will be updated in linking step
+                    is_new_role_class=False,  # Will be updated in linking step
+                    source_text=raw_individual.get('source_text'),  # Capture source text snippet
+                    source_context=raw_individual.get('case_involvement')  # Use case_involvement as context
                 )
                 individuals.append(individual)
 
