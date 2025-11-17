@@ -1,18 +1,12 @@
 """
-DEPRECATED: This service is being replaced by the unified LLM orchestration system.
+Claude Service - Compatibility Layer
 
-Please use the unified system located at /shared/llm_orchestration/ for new development.
-The unified system provides better Claude integration with multi-provider fallback.
+This service provides backward compatibility for existing ProEthica code.
+New code should use app/services/llm/manager.py (LLMManager) instead.
 
-This legacy service is maintained for backward compatibility only.
+Maintained for compatibility with existing service files.
+See docs/LLM_SERVICE_MIGRATION_PLAN.md for migration strategy.
 """
-
-import warnings
-warnings.warn(
-    "claude_service.py is deprecated. Use shared/llm_orchestration/ instead.",
-    DeprecationWarning,
-    stacklevel=2
-)
 
 from typing import Dict, List, Any, Optional, Union
 from anthropic import Anthropic
