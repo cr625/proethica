@@ -46,19 +46,29 @@ git checkout claude/continue-work-01ABZAYgwMqQW9dPfdkrrAPo
 - ✅ Created INSTALL.md with both pip and uv installation methods
 - ✅ Updated all dependency files to match actual requirements
 
+#### 4. Repository Cleanup (Phase 1.2 - PARTIAL COMPLETE)
+- ✅ Removed `/backups/` directory (26 MB of SQL dumps)
+- ✅ Removed `.claude/settings.local.json.backup`
+- ✅ Added backups to `.gitignore` (prevents re-adding)
+- ✅ Repository size reduced by ~26 MB
+- ⚠️ **Legacy modules evaluation pending:**
+  - `/ttl_triple_association/` (107K) - Still in use by document_structure.py
+  - `/ontology_editor/` (12K) - Still in use by app/__init__.py
+  - Need to evaluate if these can be safely removed or need migration
+
 ### 🔄 In Progress
 
-**Next Task:** Phase 1.2 & 1.3 - Repository Cleanup
+**Next Task:** Phase 1.3 - Legacy Module Evaluation
 
-Remove stray files and legacy modules (~39 MB reduction):
-- Archive directory: ~13 MB (old JAR files, documented removals)
-- Backups directory: ~26 MB (database backups - move to .gitignore)
-- Backup files: 1 file (.claude/settings.local.json.backup)
-- Legacy modules to evaluate:
-  - `/ttl_triple_association/` - Moved to OntServe
-  - `/realm/` - Materials Science Ontology (not needed)
-  - `/mclaren/` - Bruce McLaren's framework (not needed)
-  - `/ontology_editor/` - Stub redirecting to OntServe
+Evaluate if these modules can be removed:
+- `/ttl_triple_association/` - Used by 4 files (document_structure.py + 3 experiment files)
+- `/ontology_editor/` - Used by app/__init__.py as registered blueprint
+- Options: 1) Remove if functionality moved to OntServe, 2) Create replacement stubs, 3) Keep if still needed
+
+**Not Found (already cleaned):**
+- `/archive/` directory
+- `/realm/` directory
+- `/mclaren/` directory
 
 ---
 
@@ -71,6 +81,8 @@ Remove stray files and legacy modules (~39 MB reduction):
 5. `ea50df0` - Add langchain-classic and update imports for LangChain 1.0
 6. `c48f29e` - Fix remaining langchain imports in deprecated services
 7. `69a5dde` - Fix empty section handling in scenario pipeline overview
+8. `371762c` - Add session progress tracking and update CLAUDE.md
+9. `e8176d4` - Remove database backups from version control (26 MB saved)
 
 **All commits pushed to:** `origin/claude/continue-work-01ABZAYgwMqQW9dPfdkrrAPo`
 
