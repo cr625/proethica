@@ -97,6 +97,20 @@ git checkout claude/continue-work-01ABZAYgwMqQW9dPfdkrrAPo
   - Preserves committed entities in OntServe
   - Prevents duplicate "Engineer", "Client" etc. on re-runs
 
+#### 8. Root Directory Cleanup (November 17, 2025)
+- ✅ **Cleaned up root directory documentation**
+  - Removed 3 outdated markdown files (CLAUDE.md, CLAUDE_WEB_CONTEXT.md, CLEANUP_REFACTORING.md)
+  - All referenced old branch `claude/review-proethica-dev-016ws2xyr26eTNk55FPSGLBh`
+  - Content superseded by PROGRESS.md
+- ✅ **Moved experimental test files**
+  - Created `/experiments/` directory
+  - Moved 15 root-level test_*.py files to experiments/
+  - Files: test_code_provision_matching.py, test_institutional_analyzer.py, etc.
+- ✅ **Root directory now clean**
+  - Only PROGRESS.md and INSTALL.md remain in root
+  - Clearer project structure
+  - Easier navigation
+
 ### 🔄 In Progress
 
 **Current Task:** LLM Service Migration - Phase 2 (4/24 files migrated)
