@@ -1,22 +1,12 @@
 """
-DEPRECATED: This service is being replaced by the unified LLM orchestration system.
+LLM Service - Compatibility Layer
 
-Please use the unified system located at /shared/llm_orchestration/ for new development.
-The unified system provides:
-- Multi-provider support with intelligent fallback
-- Better performance and reliability
-- MCP integration for rich ontological context
-- Consistent behavior across all applications
+This service provides backward compatibility for existing ProEthica code.
+New code should use app/services/llm/manager.py (LLMManager) instead.
 
-This legacy service is maintained for backward compatibility only.
+Maintained for compatibility with 24 existing service files.
+See docs/LLM_SERVICE_MIGRATION_PLAN.md for migration strategy.
 """
-
-import warnings
-warnings.warn(
-    "llm_service.py is deprecated. Use shared/llm_orchestration/ instead.",
-    DeprecationWarning,
-    stacklevel=2
-)
 
 from typing import Dict, List, Any, Optional, Union
 from langchain_classic.prompts import PromptTemplate
