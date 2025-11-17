@@ -10,7 +10,7 @@ from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 from datetime import datetime
 
-from app.services.llm_service import LLMService
+from app.services.llm.manager import LLMManager
 from app.services.firac_analysis_service import FIRACCaseAnalysis
 
 
@@ -63,7 +63,7 @@ class EthicsCommitteeAgent:
     
     def __init__(self):
         """Initialize the ethics committee agent."""
-        self.llm_service = LLMService()
+        self.llm_manager = LLMManager()
         self.logger = logging.getLogger(f"{__name__}.EthicsCommitteeAgent")
         
         # Define committee composition
@@ -220,10 +220,13 @@ class EthicsCommitteeAgent:
         """
         
         try:
-            response = self.llm_service.generate_response(position_prompt)
-            if response and 'analysis' in response:
+            llm_response = self.llm_manager.complete(
+                messages=[{"role": "user", "content": position_prompt}],
+                max_tokens=1500
+            )
+            if llm_response and llm_response.text:
                 # Parse the response (simplified)
-                analysis_text = response['analysis']
+                analysis_text = llm_response.text
                 
                 # Determine position based on member role
                 if member.role == "Ethics Professor":
