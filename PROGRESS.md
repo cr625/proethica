@@ -72,12 +72,20 @@ git checkout claude/continue-work-01ABZAYgwMqQW9dPfdkrrAPo
 
 ### 🔄 In Progress
 
-**Next Task:** LLM Service Migration - Phase 2
+**Current Task:** LLM Service Migration - Phase 2 (4/24 files migrated)
 
-Begin incremental migration of services to LLMManager:
-- 24 files currently using compatibility layer
-- Plan: Migrate one file at a time, starting with simplest (case_role_matching_service.py)
-- Test each migration before moving to next file
+**Completed Migrations:**
+- ✅ case_role_matching_service.py - Semantic role matching with LLM validation
+- ✅ role_description_service.py - Standardized role descriptions
+- ✅ conversation_to_case_service.py - Converts agent conversations to NSPE cases
+- ✅ ethics_committee_agent.py - Simulates ethics committee discussions
+
+**Remaining (20 files):**
+- firac_analysis_service.py - Multiple LLM calls (complex)
+- document_annotation_pipeline.py - Annotation orchestration
+- enhanced_guideline_association_service.py - Uses send_message() method
+- simulation_controller.py - Uses send_message() method
+- 16 other services (see migration plan)
 
 **Low Priority:**
 - `/ttl_triple_association/` (107K) - Evaluate if still needed
@@ -108,6 +116,11 @@ Begin incremental migration of services to LLMManager:
 15. `f6c65a5` - Add LLM service migration plan
 16. `7346251` - Remove deprecation warnings from LLM services (Phase 1 start)
 17. `a11f09c` - Complete Phase 1: Remove deprecation warnings from claude_service.py
+18. `042a195` - Update documentation: Phase 1 LLM migration complete
+19. `3db4fd2` - Phase 2 Migration (1/24): Migrate case_role_matching_service.py
+20. `308b9c0` - Phase 2 Migration (2/24): Migrate role_description_service.py
+21. `adc209c` - Phase 2 Migration (3/24): Migrate conversation_to_case_service.py
+22. `f36665a` - Phase 2 Migration (4/24): Migrate ethics_committee_agent.py
 
 **All commits pushed to:** `origin/claude/continue-work-01ABZAYgwMqQW9dPfdkrrAPo`
 
