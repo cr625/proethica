@@ -17,7 +17,7 @@ import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 import json
 
-from app.services.llm_service import LLMService
+from app.services.llm.manager import LLMManager
 from app.services.embedding_service import EmbeddingService
 from app.models.world import World
 from app.services.role_description_service import RoleDescriptionService
@@ -30,7 +30,7 @@ class CaseRoleMatchingService:
     """Service for matching case-extracted roles to ontology roles with LLM validation."""
     
     def __init__(self):
-        self.llm_service = LLMService()
+        self.llm_manager = LLMManager()
         self.embedding = EmbeddingService.get_instance()
         self.role_desc = RoleDescriptionService()
         self.ontology_service = OntologyEntityService.get_instance()
@@ -242,9 +242,12 @@ FORMAT: Return JSON only:
 
 Return only valid JSON, no explanations."""
 
-            # Get LLM response
-            response_data = self.llm_service.generate_response(validation_prompt)
-            response = response_data.get('analysis', response_data.get('response', '')) if isinstance(response_data, dict) else str(response_data)
+            # Get LLM response using LLMManager
+            llm_response = self.llm_manager.complete(
+                messages=[{"role": "user", "content": validation_prompt}],
+                max_tokens=1000
+            )
+            response = llm_response.text
             
             # Parse response
             response_clean = self._clean_json_response(response)
