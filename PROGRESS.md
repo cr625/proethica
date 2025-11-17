@@ -111,6 +111,24 @@ git checkout claude/continue-refactoring-01Uxdw4hm76Yd5ipHuR6BQAn
   - Clearer project structure
   - Easier navigation
 
+#### 9. Entity Extraction Source Text Context - Phase 1 (November 17, 2025)
+- ✅ **Added source text provenance to Pass 1 extraction (Roles only)**
+  - Modified `RoleIndividual` dataclass: added `source_text` and `source_context` fields
+  - Modified `CandidateRoleClass` dataclass: added `source_text` field
+  - Updated extraction prompt: LLM now returns exact text snippets (max 200 chars)
+  - Enhanced parsing: captures source_text from LLM JSON response
+  - JSON response includes source_text for frontend/UI display
+- 🔄 **Next: Frontend storage** (save to TemporaryRDFStorage.provenance_metadata)
+- 🔄 **Next: UI display** (show source text on entity review page)
+- 📋 **Future: Extend to States & Resources extractors**
+- 📋 **Future: Manual annotation trigger after Step 4**
+
+**Goal:** Merge entity extraction with document annotation - preserve where each entity was mentioned in case text for better verification and integrated annotation workflow.
+
+**Test Result:** ✅ LLM successfully returns source text:
+- "Engineer L, a licensed professional engineer, has many years of experience in stormwater control design."
+- "Engineer L is contracted by Client X, a private development entity, to design a stormwater management system"
+
 ### 🔄 In Progress
 
 **Current Task:** LLM Service Migration - Phase 2 (4/24 files migrated)

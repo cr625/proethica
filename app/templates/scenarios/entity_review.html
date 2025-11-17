@@ -426,6 +426,10 @@
                                                 {% endif %}
                                                 <br/>
                                                 <small class="text-muted">rdfs:subClassOf {{ concept_type|title }}</small>
+                                                {% if cls.rdf_json_ld and cls.rdf_json_ld.get('source_text') %}
+                                                <br/>
+                                                <small class="text-info"><i class="fas fa-quote-left"></i> "{{ cls.rdf_json_ld.get('source_text')[:150] }}{% if cls.rdf_json_ld.get('source_text')|length > 150 %}...{% endif %}"</small>
+                                                {% endif %}
                                             </td>
                                             <td><small>{{ cls.entity_definition or '-' }}</small></td>
                                             <td>
@@ -545,6 +549,10 @@
                                                 {% endif %}
                                                 <br/>
                                                 <small class="text-muted">Individual Instance</small>
+                                                {% if indiv.rdf_json_ld and indiv.rdf_json_ld.get('source_text') %}
+                                                <br/>
+                                                <small class="text-info"><i class="fas fa-quote-left"></i> "{{ indiv.rdf_json_ld.get('source_text')[:150] }}{% if indiv.rdf_json_ld.get('source_text')|length > 150 %}...{% endif %}"</small>
+                                                {% endif %}
                                             </td>
                                             <td>
                                                 {% if indiv.rdf_json_ld and indiv.rdf_json_ld.types %}
