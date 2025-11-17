@@ -159,6 +159,10 @@ class RDFExtractionConverter:
             self.class_graph.add((class_uri, PROV.wasAttributedTo, Literal(f"Case {case_id} Extraction")))
             self.class_graph.add((class_uri, self.PROETHICA_PROV.discoveredInCase, Literal(case_id, datatype=XSD.integer)))
 
+            # Add source text (provenance)
+            if "source_text" in role_class and role_class["source_text"]:
+                self.class_graph.add((class_uri, self.PROETHICA_PROV.sourceText, Literal(role_class["source_text"])))
+
             # Add case examples
             if "examples_from_case" in role_class:
                 for example in role_class["examples_from_case"]:
@@ -225,6 +229,11 @@ class RDFExtractionConverter:
             if "case_involvement" in individual:
                 self.individual_graph.add((individual_uri, self.PROETHICA_INT.caseInvolvement,
                                          Literal(individual["case_involvement"])))
+
+            # Add source text (provenance)
+            if "source_text" in individual and individual["source_text"]:
+                self.individual_graph.add((individual_uri, self.PROETHICA_PROV.sourceText,
+                                         Literal(individual["source_text"])))
 
             # Add active obligations (NEW)
             if "active_obligations" in individual:
@@ -374,6 +383,10 @@ class RDFExtractionConverter:
         self.class_graph.add((class_uri, PROV.generatedAtTime, Literal(timestamp, datatype=XSD.dateTime)))
         self.class_graph.add((class_uri, self.PROETHICA_PROV.discoveredInCase, Literal(case_id, datatype=XSD.integer)))
 
+        # Add source text (provenance)
+        if state_class.get('source_text') and state_class['source_text']:
+            self.class_graph.add((class_uri, self.PROETHICA_PROV.sourceText, Literal(state_class['source_text'])))
+
         # Add confidence score
         if state_class.get('confidence'):
             self.class_graph.add((
@@ -504,6 +517,10 @@ class RDFExtractionConverter:
                 Literal(individual['confidence'], datatype=XSD.float)
             ))
 
+        # Add source text (provenance)
+        if individual.get('source_text') and individual['source_text']:
+            self.individual_graph.add((individual_uri, self.PROETHICA_PROV.sourceText, Literal(individual['source_text'])))
+
         # Add provenance
         self.individual_graph.add((individual_uri, PROV.generatedAtTime, Literal(timestamp, datatype=XSD.dateTime)))
 
@@ -608,6 +625,10 @@ class RDFExtractionConverter:
                 Literal(resource_class['confidence'], datatype=XSD.float)
             ))
 
+        # Add source text (provenance)
+        if resource_class.get('source_text') and resource_class['source_text']:
+            self.class_graph.add((class_uri, self.PROETHICA_PROV.sourceText, Literal(resource_class['source_text'])))
+
         # Add provenance
         self.class_graph.add((class_uri, PROV.generatedAtTime, Literal(timestamp, datatype=XSD.dateTime)))
 
@@ -701,6 +722,10 @@ class RDFExtractionConverter:
                 Literal(individual['confidence'], datatype=XSD.float)
             ))
 
+        # Add source text (provenance)
+        if individual.get('source_text') and individual['source_text']:
+            self.individual_graph.add((individual_uri, self.PROETHICA_PROV.sourceText, Literal(individual['source_text'])))
+
         # Add provenance
         self.individual_graph.add((individual_uri, PROV.generatedAtTime, Literal(timestamp, datatype=XSD.dateTime)))
 
@@ -730,6 +755,11 @@ class RDFExtractionConverter:
                 "properties": {}
             }
 
+            # Extract source text for top-level access (provenance)
+            source_text_value = self.class_graph.value(subj, self.PROETHICA_PROV.sourceText)
+            if source_text_value:
+                class_info["source_text"] = str(source_text_value)
+
             # Collect all properties for this class
             for pred, obj in self.class_graph.predicate_objects(subj):
                 if pred not in [RDF.type, RDFS.label, RDFS.comment, RDFS.subClassOf]:
@@ -749,6 +779,11 @@ class RDFExtractionConverter:
                 "properties": {},
                 "relationships": []
             }
+
+            # Extract source text for top-level access (provenance)
+            source_text_value = self.individual_graph.value(subj, self.PROETHICA_PROV.sourceText)
+            if source_text_value:
+                indiv_info["source_text"] = str(source_text_value)
 
             # Get all types (excluding NamedIndividual)
             for type_uri in self.individual_graph.objects(subj, RDF.type):

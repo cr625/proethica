@@ -170,6 +170,7 @@ EXAMPLE (if the case mentions "Engineer A consulted the NSPE Code of Ethics and 
       "typical_usage": "Legal compliance and professional practice guidance",
       "domain_context": "Engineering",
       "examples_from_case": ["State engineering regulations consulted by Engineer A"],
+      "source_text": "Engineer A consulted the state's engineering regulations",
       "confidence": 0.85,
       "rationale": "Specific type of regulatory resource not in existing ontology"
     }}
@@ -185,6 +186,7 @@ EXAMPLE (if the case mentions "Engineer A consulted the NSPE Code of Ethics and 
       "used_by": "Engineer A",
       "used_in_context": "Consulted for ethical guidance on conflict of interest",
       "case_involvement": "Provided framework for ethical decision-making",
+      "source_text": "Engineer A consulted the NSPE Code of Ethics",
       "is_existing_class": true,
       "confidence": 0.95
     }},
@@ -196,6 +198,7 @@ EXAMPLE (if the case mentions "Engineer A consulted the NSPE Code of Ethics and 
       "used_by": "Engineer A",
       "used_in_context": "Referenced for legal requirements",
       "case_involvement": "Defined legal obligations for professional practice",
+      "source_text": "Engineer A referenced the State Engineering Practice Act and Regulations",
       "is_existing_class": false,
       "confidence": 0.9
     }}

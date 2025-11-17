@@ -183,6 +183,7 @@ EXAMPLE (if the case mentions "Engineer A faced a conflict when discovering his 
       "temporal_properties": "Persists until formally addressed through recusal or disclosure",
       "domain_context": "Engineering",
       "examples_from_case": ["Engineer A discovered brother worked for ABC Contractors"],
+      "source_text": "Engineer A faced a conflict when discovering his brother worked for the contractor",
       "confidence": 0.85,
       "rationale": "Specific type of conflict not covered by general COI in existing ontology"
     }}
@@ -200,6 +201,7 @@ EXAMPLE (if the case mentions "Engineer A faced a conflict when discovering his 
       "urgency_level": "high",
       "related_parties": ["Client B", "ABC Contractors", "Engineer A's brother"],
       "case_involvement": "Led to Engineer A's recusal from contractor selection process",
+      "source_text": "Engineer A discovered his brother is senior manager at ABC Contractors during the bidding process",
       "is_existing_class": false,
       "confidence": 0.9
     }}

@@ -128,6 +128,7 @@ For each NEW role class, provide:
 - relationship_type: Provider-Client, Professional Peer, Employer, Public Responsibility
 - domain_context: Engineering/Medical/Legal/etc.
 - examples_from_case: How this role appears in the case text
+- source_text: EXACT text snippet from the case where this role class is first identified or described (max 200 characters)
 
 LEVEL 2 - ROLE INDIVIDUALS: Identify specific people mentioned who fulfill professional roles. For each person:
 - name: EXACT name or identifier as it appears in the text (e.g., "Engineer A", "Client B", "Dr. Smith")
@@ -158,7 +159,8 @@ Respond with valid JSON in this format:
             "associated_virtues": ["Environmental stewardship", "Regulatory integrity", "Technical competence"],
             "relationship_type": "Provider-Client",
             "domain_context": "Engineering",
-            "examples_from_case": ["Engineer A was retained to prepare environmental assessment", "specialist reviewed compliance requirements"]
+            "examples_from_case": ["Engineer A was retained to prepare environmental assessment", "specialist reviewed compliance requirements"],
+            "source_text": "Engineer A was retained to prepare environmental assessment"
         }}
     ],
     "role_individuals": [
@@ -262,6 +264,11 @@ Respond with valid JSON in this format:
                 # Calculate similarity to existing classes
                 similarity, similar_classes = self._calculate_class_similarity(raw_class['label'])
 
+                # Get source_text from LLM response, or fall back to first example
+                source_text = raw_class.get('source_text')
+                if not source_text and raw_class.get('examples_from_case'):
+                    source_text = raw_class.get('examples_from_case', [''])[0]
+
                 candidate = CandidateRoleClass(
                     label=raw_class.get('label', ''),
                     definition=raw_class.get('definition', ''),
@@ -273,7 +280,7 @@ Respond with valid JSON in this format:
                     examples_from_case=raw_class.get('examples_from_case', []),
                     similarity_to_existing=similarity,
                     existing_similar_classes=similar_classes,
-                    source_text=raw_class.get('examples_from_case', [''])[0] if raw_class.get('examples_from_case') else None  # Use first example as source text
+                    source_text=source_text
                 )
                 candidates.append(candidate)
 
