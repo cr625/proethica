@@ -169,7 +169,7 @@
                         </p>
                         <p>
                             <strong>Ontology:</strong> {{ ontology.name if ontology else world.ontology_source }}
-                            <a href="/ontology-editor?ontology_id={{ world.ontology_id }}&view=full" class="btn btn-sm btn-primary ms-2">Edit Ontology</a>
+                            <a href="http://localhost:5003/editor?ontology_id={{ world.ontology_id }}&view=full" class="btn btn-sm btn-primary ms-2">Edit Ontology</a>
                             <button type="button" class="btn btn-sm btn-outline-warning ms-2" data-bs-toggle="modal" data-bs-target="#changeOntologyModal">
                                 Change Ontology
                             </button>
@@ -181,7 +181,7 @@
                 <div class="card mb-4">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h3>World Entities</h3>
-                        <a href="/ontology-editor?ontology_id={{ world.ontology_id }}&view=entities" class="btn btn-primary">Edit Entities</a>
+                        <a href="http://localhost:5003/editor?ontology_id={{ world.ontology_id }}&view=entities" class="btn btn-primary">Edit Entities</a>
                     </div>
                     <div class="card-body">
                         <!-- Nav tabs -->

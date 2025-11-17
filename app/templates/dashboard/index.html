@@ -147,7 +147,7 @@
                                     </td>
                                     <td>
                                         {% if ont.ontology_id %}
-                                        <a href="/ontology-editor/?ontology={{ ont.ontology_id }}&ontology_id={{ ont.ontology_id }}&view=full"
+                                        <a href="http://localhost:5003/editor/?ontology={{ ont.ontology_id }}&ontology_id={{ ont.ontology_id }}&view=full"
                                             class="btn btn-sm btn-outline-primary"
                                             title="Edit {{ ont.domain }} ontology">
                                             <i class="fas fa-edit"></i> Edit
@@ -190,7 +190,7 @@
                                         <small class="text-muted">{{ ont.domain_id }}</small>
                                     </td>
                                     <td>
-                                        <a href="/ontology-editor/?ontology_id={{ ont.id }}&view=full"
+                                        <a href="http://localhost:5003/editor/?ontology_id={{ ont.id }}&view=full"
                                             class="btn btn-sm btn-outline-primary" title="Edit {{ ont.name }}">
                                             <i class="fas fa-edit"></i> Edit
                                         </a>
@@ -268,7 +268,7 @@
                                     <td>{{ ont.related_world_name or ('World ' ~ ont.related_world_id) }}</td>
                                     <td><small class="text-muted">{{ ont.domain_id }}</small></td>
                                     <td>
-                                        <a href="/ontology-editor/?ontology_id={{ ont.id }}&view=full"
+                                        <a href="http://localhost:5003/editor/?ontology_id={{ ont.id }}&view=full"
                                             class="btn btn-sm btn-outline-primary" title="Edit {{ ont.name }}">
                                             <i class="fas fa-edit"></i> Edit
                                         </a>
@@ -449,7 +449,7 @@
                 </div>
                 {% else %}
                 <div class="col-6 mb-2">
-                    <a href="/ontology-editor" class="btn btn-block btn-sm btn-outline-secondary">
+                    <a href="http://localhost:5003/editor" class="btn btn-block btn-sm btn-outline-secondary">
                         <i class="fas fa-sitemap"></i> Edit Ontologies
                     </a>
                     <small class="text-muted">All ontologies synced</small>

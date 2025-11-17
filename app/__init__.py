@@ -173,8 +173,6 @@ def create_app(config_name=None):
     from app.routes.reasoning import reasoning_bp
     # PROV-O provenance viewer routes
     from app.routes.provenance import provenance_bp
-    # STUB: Ontology editor moved to OntServe - this redirects to OntServe
-    from ontology_editor import create_ontology_editor_blueprint
     
     app.register_blueprint(index_bp)
     app.register_blueprint(auth_bp)
@@ -242,15 +240,6 @@ def create_app(config_name=None):
     init_step4_csrf_exemption(app)
     init_step5_csrf_exemption(app)
     
-    # STUB: Ontology editor redirects to OntServe
-    # Create and register the ontology editor blueprint
-    ontology_editor_bp = create_ontology_editor_blueprint(
-        config={
-            'require_auth': True,   # Enable authentication  
-            'admin_only': False     # Allow all authenticated users to access
-        }
-    )
-    app.register_blueprint(ontology_editor_bp)
     
     # Make db accessible at app level for imports in other modules
     app.db = db
