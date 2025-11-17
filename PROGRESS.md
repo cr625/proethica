@@ -55,19 +55,27 @@ git checkout claude/continue-work-01ABZAYgwMqQW9dPfdkrrAPo
   - Updated 5 templates to point directly to OntServe (port 5003)
   - Removed imports from app/__init__.py
   - Simplified architecture - no redirect layer needed
+- ✅ **Removed `app/routes/cases_structure_update.py` (309 lines)**
+  - Deprecated since Sept 2, 2025
+  - Functionality consolidated into cases.py
+  - Blueprint was never registered (commented out)
+  - Cleaned up commented-out imports from app/__init__.py
 - ✅ **Repository size reduced by ~26 MB total**
-- ⚠️ **Legacy module remaining:**
+- ⚠️ **Legacy modules remaining:**
   - `/ttl_triple_association/` (107K) - Still in use by document_structure.py + 3 experiment files
-  - Needs evaluation: functionality may have moved to OntServe
+  - `app/services/llm_service.py` - Marked DEPRECATED but **24 files still import it** (migration needed)
 
 ### 🔄 In Progress
 
-**Next Task:** Evaluate `/ttl_triple_association/` module
+**Next Task:** LLM Service Migration
 
-Options:
-1. Remove if functionality moved to OntServe
-2. Keep if still actively used
-3. Create migration path if needed
+Address deprecated `llm_service.py`:
+- Currently imported by 24 files
+- Migration path: Use centralized LLM manager instead
+- Or: Keep as compatibility layer if too many dependencies
+
+**Low Priority:**
+- `/ttl_triple_association/` (107K) - Evaluate if still needed
 
 **Not Found (already cleaned):**
 - `/archive/` directory
@@ -89,6 +97,8 @@ Options:
 9. `e8176d4` - Remove database backups from version control (26 MB saved)
 10. `42f2ce0` - Update PROGRESS.md with repository cleanup status
 11. `e12a5db` - Remove ontology_editor module - functionality moved to OntServe
+12. `d591335` - Update PROGRESS.md - ontology_editor removal complete
+13. `e623754` - Remove deprecated cases_structure_update.py route (309 lines)
 
 **All commits pushed to:** `origin/claude/continue-work-01ABZAYgwMqQW9dPfdkrrAPo`
 
