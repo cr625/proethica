@@ -22,7 +22,7 @@ import subprocess
 from pathlib import Path
 import requests
 
-from rdflib import Graph, Namespace, URIRef, Literal, RDF, RDFS, OWL
+from rdflib import Graph, Namespace, URIRef, Literal, RDF, RDFS, OWL, XSD
 from rdflib.namespace import SKOS, DCTERMS
 
 from app.models.temporary_rdf_storage import TemporaryRDFStorage
@@ -108,9 +108,10 @@ class OntServeCommitService:
                 results['individuals_committed'] = individual_result['count']
                 if individual_result.get('error'):
                     results['errors'].append(individual_result['error'])
-                else:
-                    # Also refresh the case ontology to extract individuals
-                    self._refresh_case_ontology(case_id)
+                # Temporarily disabled - OntServe refresh has import issues but is not critical
+                # else:
+                #     # Also refresh the case ontology to extract individuals
+                #     self._refresh_case_ontology(case_id)
 
             # Mark entities as committed
             for entity in entities:
@@ -120,12 +121,12 @@ class OntServeCommitService:
             from app import db
             db.session.commit()
 
-            # Synchronize with OntServe database
-            sync_result = self._synchronize_with_ontserve()
-            if not sync_result['success']:
-                results['errors'].append(f"Sync warning: {sync_result.get('error', 'Unknown error')}")
-
-            results['sync_status'] = sync_result
+            # Temporarily disabled - OntServe refresh has import issues but is not critical
+            # TTL files are correctly written, database sync can be done manually
+            # sync_result = self._synchronize_with_ontserve()
+            # if not sync_result['success']:
+            #     results['errors'].append(f"Sync warning: {sync_result.get('error', 'Unknown error')}")
+            # results['sync_status'] = sync_result
 
             return results
 
@@ -159,6 +160,10 @@ class OntServeCommitService:
             g.bind("prov", PROV)
             g.bind("skos", SKOS)
             g.bind("dcterms", DCTERMS)
+
+            # Define provenance namespace
+            PROETHICA_PROV = Namespace("http://proethica.org/provenance#")
+            g.bind("proeth-prov", PROETHICA_PROV)
 
             count = 0
             for entity, rdf_data in classes:
@@ -208,9 +213,60 @@ class OntServeCommitService:
                 elif 'constraint' in type_to_check:
                     g.add((class_uri, RDFS.subClassOf, PROETHICA_CORE.Constraint))
 
-                # Add provenance
-                g.add((class_uri, PROV.generatedAtTime, Literal(datetime.utcnow())))
-                g.add((class_uri, PROV.wasGeneratedBy, Literal("ProEthica Extraction")))
+                # Add provenance from rdf_json_ld if available
+                if rdf_data and 'properties' in rdf_data:
+                    props = rdf_data['properties']
+
+                    # Standard W3C PROV-O
+                    if 'generatedAtTime' in props and props['generatedAtTime']:
+                        for timestamp_str in props['generatedAtTime']:
+                            try:
+                                # Parse ISO format timestamp (datetime.fromisoformat works in Python 3.7+)
+                                timestamp_str_clean = timestamp_str.replace('Z', '+00:00') if timestamp_str.endswith('Z') else timestamp_str
+                                timestamp = datetime.fromisoformat(timestamp_str_clean)
+                                g.add((class_uri, PROV.generatedAtTime, Literal(timestamp, datatype=XSD.dateTime)))
+                            except Exception as e:
+                                logger.warning(f"Could not parse timestamp {timestamp_str}: {e}")
+
+                    if 'wasAttributedTo' in props and props['wasAttributedTo']:
+                        for attribution in props['wasAttributedTo']:
+                            g.add((class_uri, PROV.wasAttributedTo, Literal(attribution)))
+
+                    # ProEthica-specific provenance (Phase 1 Architecture)
+                    if 'firstDiscoveredInCase' in props and props['firstDiscoveredInCase']:
+                        case_id_val = props['firstDiscoveredInCase'][0]
+                        g.add((class_uri, PROETHICA_PROV.firstDiscoveredInCase, Literal(int(case_id_val), datatype=XSD.integer)))
+
+                    if 'firstDiscoveredAt' in props and props['firstDiscoveredAt']:
+                        timestamp_str = props['firstDiscoveredAt'][0]
+                        try:
+                            # Parse ISO format timestamp
+                            timestamp_str_clean = timestamp_str.replace('Z', '+00:00') if timestamp_str.endswith('Z') else timestamp_str
+                            timestamp = datetime.fromisoformat(timestamp_str_clean)
+                            g.add((class_uri, PROETHICA_PROV.firstDiscoveredAt, Literal(timestamp, datatype=XSD.dateTime)))
+                        except Exception as e:
+                            logger.warning(f"Could not parse timestamp {timestamp_str}: {e}")
+
+                    if 'discoveredInCase' in props and props['discoveredInCase']:
+                        for case_id_val in props['discoveredInCase']:
+                            g.add((class_uri, PROETHICA_PROV.discoveredInCase, Literal(int(case_id_val), datatype=XSD.integer)))
+
+                    if 'discoveredInSection' in props and props['discoveredInSection']:
+                        section = props['discoveredInSection'][0]
+                        g.add((class_uri, PROETHICA_PROV.discoveredInSection, Literal(section)))
+
+                    if 'discoveredInPass' in props and props['discoveredInPass']:
+                        pass_num = props['discoveredInPass'][0]
+                        g.add((class_uri, PROETHICA_PROV.discoveredInPass, Literal(int(pass_num), datatype=XSD.integer)))
+
+                    if 'sourceText' in props and props['sourceText']:
+                        source_text = props['sourceText'][0]
+                        if source_text:
+                            g.add((class_uri, PROETHICA_PROV.sourceText, Literal(source_text)))
+                else:
+                    # Fallback to basic provenance if rdf_data not available
+                    g.add((class_uri, PROV.generatedAtTime, Literal(datetime.utcnow())))
+                    g.add((class_uri, PROV.wasGeneratedBy, Literal("ProEthica Extraction")))
 
                 count += 1
 
