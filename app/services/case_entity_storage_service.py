@@ -484,19 +484,36 @@ class CaseEntityStorageService:
         try:
             from app.models import TemporaryRDFStorage, ExtractionPrompt
 
-            # Map pass to entity types
-            pass_entity_types = {
+            # Map pass to extraction_type for RDF storage
+            # Note: Pass 3 uses 'temporal_dynamics_enhanced' as extraction_type for all entities
+            # Note: Pass 4 stores synthesis results (code provisions, questions, conclusions)
+            pass_extraction_types = {
                 'pass1': ['roles', 'states', 'resources'],
                 'pass2': ['principles', 'obligations', 'constraints', 'capabilities'],
-                'pass3': ['actions', 'events']
+                'pass3': ['temporal_dynamics_enhanced'],  # Single extraction type for all temporal entities
+                'pass4': ['code_provision_reference', 'ethical_question', 'ethical_conclusion']  # Synthesis results
             }
 
-            extraction_types = pass_entity_types.get(extraction_pass, [])
-            if not extraction_types:
+            # Map pass to concept_type for ExtractionPrompt
+            pass_prompt_types = {
+                'pass1': ['roles', 'states', 'resources'],
+                'pass2': ['principles', 'obligations', 'constraints', 'capabilities'],
+                'pass3': ['actions', 'events', 'actions_events'],  # Prompt types used in Step 3
+                'pass4': ['whole_case_synthesis']  # Whole case synthesis prompt
+            }
+
+            extraction_types = pass_extraction_types.get(extraction_pass)
+            prompt_types = pass_prompt_types.get(extraction_pass)
+
+            # Check if pass is unknown (None means not in dictionary)
+            if extraction_types is None or prompt_types is None:
                 return {
                     'success': False,
                     'error': f'Unknown extraction pass: {extraction_pass}'
                 }
+
+            # Pass 4 has no RDF entities (empty list is valid)
+            # Continue with clearing prompts only
 
             cleared_stats = {
                 'temporary_concepts': 0,
@@ -528,7 +545,7 @@ class CaseEntityStorageService:
             cleared_stats['temporary_concepts'] = concept_query.count()
             concept_query.delete(synchronize_session='fetch')
 
-            # 2. Clear RDF storage for specified entity types
+            # 2. Clear RDF storage for specified extraction types
             for extraction_type in extraction_types:
                 rdf_query = db.session.query(TemporaryRDFStorage).filter_by(
                     case_id=case_id,
@@ -549,10 +566,10 @@ class CaseEntityStorageService:
             # 3. Delete extraction prompts
             # NOTE: We delete prompts for ALL sections for this pass,
             # because when clearing a pass we want to clear all prompts for that pass
-            for extraction_type in extraction_types:
+            for prompt_type in prompt_types:
                 prompt_query = db.session.query(ExtractionPrompt).filter_by(
                     case_id=case_id,
-                    concept_type=extraction_type
+                    concept_type=prompt_type
                 )
 
                 # Count and delete (no section filter - clear all prompts for this extraction type)
@@ -609,18 +626,21 @@ class CaseEntityStorageService:
         try:
             from app.models import TemporaryRDFStorage
 
-            # Map pass to entity types
-            pass_entity_types = {
+            # Map pass to extraction_type for RDF storage
+            # Note: Pass 3 uses 'temporal_dynamics_enhanced' as extraction_type for all entities
+            # Note: Pass 4 stores synthesis results (code provisions, questions, conclusions)
+            pass_extraction_types = {
                 'pass1': ['roles', 'states', 'resources'],
                 'pass2': ['principles', 'obligations', 'constraints', 'capabilities'],
-                'pass3': ['actions', 'events']
+                'pass3': ['temporal_dynamics_enhanced'],  # Single extraction type for all temporal entities
+                'pass4': ['code_provision_reference', 'ethical_question', 'ethical_conclusion']  # Synthesis results
             }
 
-            extraction_types = pass_entity_types.get(extraction_pass, [])
-            if not extraction_types:
+            extraction_types = pass_extraction_types.get(extraction_pass)
+            if extraction_types is None:  # Unknown pass
                 return False
 
-            # Check if any entities exist for this pass
+            # Check if any RDF entities exist for this pass
             query = db.session.query(TemporaryRDFStorage).filter(
                 TemporaryRDFStorage.case_id == case_id,
                 TemporaryRDFStorage.extraction_type.in_(extraction_types)

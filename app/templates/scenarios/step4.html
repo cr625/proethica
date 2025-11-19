@@ -10,8 +10,9 @@
 <div class="card mb-4">
     <div class="card-header bg-primary text-white">
         <h5 class="mb-0">
-            <i class="bi bi-diagram-3"></i> Entity Summary (Passes 1-3)
+            <i class="bi bi-diagram-3"></i> Available Entities (Input from Passes 1-3)
         </h5>
+        <small class="text-white-50">These entities are available for synthesis analysis</small>
     </div>
     <div class="card-body">
         <div class="row">
@@ -59,6 +60,46 @@
     </div>
 </div>
 
+<!-- Synthesis Results Summary (shown when synthesis is complete) -->
+{% if synthesis_status.completed %}
+<div class="card mb-4">
+    <div class="card-header bg-success text-white">
+        <h5 class="mb-0">
+            <i class="bi bi-check-circle"></i> Synthesis Results (Output from Step 4)
+        </h5>
+        <small class="text-white-50">Analysis completed on code provisions, questions, and conclusions</small>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4">
+                <h6 class="text-muted">Part A: Code Provisions</h6>
+                <ul class="list-unstyled">
+                    <li><strong>NSPE Code References:</strong> {{ synthesis_status.provisions_count }}</li>
+                </ul>
+            </div>
+            <div class="col-md-4">
+                <h6 class="text-muted">Part B: Questions</h6>
+                <ul class="list-unstyled">
+                    <li><strong>Ethical Questions:</strong> {{ synthesis_status.questions_count }}</li>
+                </ul>
+            </div>
+            <div class="col-md-4">
+                <h6 class="text-muted">Part B: Conclusions</h6>
+                <ul class="list-unstyled">
+                    <li><strong>Conclusions Analyzed:</strong> {{ synthesis_status.conclusions_count }}</li>
+                </ul>
+            </div>
+        </div>
+        <hr>
+        <div class="row">
+            <div class="col-md-12 text-center">
+                <h6><strong>Total Synthesis Entities:</strong> {{ synthesis_status.provisions_count + synthesis_status.questions_count + synthesis_status.conclusions_count }}</h6>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <!-- Synthesis Control Card -->
 <div class="card mb-4">
     <div class="card-header">
@@ -67,10 +108,29 @@
         </h5>
     </div>
     <div class="card-body">
+        <!-- Warning banner if synthesis has been run before -->
+        <div id="synthesis-warning-banner" class="alert alert-warning" style="display: none;">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="mb-1"><i class="bi bi-exclamation-triangle"></i> Previous Synthesis Detected</h6>
+                    <p class="mb-0 small">
+                        Whole-case synthesis has already been run for this case.
+                        Running synthesis again without clearing will overwrite previous results.
+                    </p>
+                </div>
+                <button id="clear-pass4-btn" class="btn btn-warning btn-sm">
+                    <i class="bi bi-trash"></i> Clear Synthesis Data
+                </button>
+            </div>
+        </div>
+
         {% if synthesis_status.completed %}
             {% if current_user.is_authenticated %}
             <button type="button" class="btn btn-primary" onclick="runSynthesis()">
                 <i class="bi bi-arrow-repeat"></i> Re-run Synthesis
+            </button>
+            <button id="refreshFromOntServeBtn" class="btn btn-info ms-2">
+                <i class="bi bi-arrow-repeat"></i> Refresh from OntServe
             </button>
             {% else %}
             <button type="button" class="btn btn-secondary" onclick="window.location.href='{{ url_for('auth.login') }}';" title="Login required to run synthesis">
@@ -97,6 +157,13 @@
             {% endif %}
         {% endif %}
     </div>
+</div>
+
+<!-- Review Button (Always Visible) -->
+<div class="d-grid gap-2 d-md-flex justify-content-md-center mb-4">
+    <a href="{{ url_for('step4.step4_review', case_id=case.id) }}" class="btn btn-outline-primary">
+        <i class="bi bi-eye"></i> Review Step 4 Synthesis Results
+    </a>
 </div>
 
 <!-- Synthesis Progress Card (Hidden until synthesis starts) -->
@@ -154,49 +221,6 @@
     </div>
 </div>
 
-<!-- About Step 4 (Collapsible) -->
-<div class="card">
-    <div class="card-header" style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#aboutStep4" aria-expanded="false">
-        <h5 class="mb-0">
-            <i class="bi bi-chevron-right" id="aboutStep4Icon"></i>
-            <i class="bi bi-info-circle"></i> About Step 4 Synthesis
-        </h5>
-    </div>
-    <div id="aboutStep4" class="collapse">
-        <div class="card-body">
-            <p>Step 4 performs whole-case synthesis with complete entity context from all three passes:</p>
-
-            <h6>Part A: Code Provisions</h6>
-            <ul>
-                <li>Extracts NSPE Code provisions mentioned in References section</li>
-                <li>Links provisions to ALL 9 entity types (Roles, Principles, Actions, etc.)</li>
-                <li>Validates content relevance using LLM</li>
-            </ul>
-
-            <h6>Part B: Questions & Conclusions</h6>
-            <ul>
-                <li>Extracts ethical questions from Questions section</li>
-                <li>Extracts conclusions from Conclusions section</li>
-                <li>Tags entities across all 9 types</li>
-                <li>Creates answersQuestion relationships between Q&C</li>
-            </ul>
-
-            <h6>Part C: Cross-Section Synthesis</h6>
-            <ul>
-                <li>Builds entity knowledge graph (205+ nodes)</li>
-                <li>Creates causal-normative links (Actions/Events → Obligations/Principles)</li>
-                <li>Analyzes question emergence (WHY questions arose)</li>
-                <li>Extracts resolution patterns (HOW board decided)</li>
-            </ul>
-
-            <div class="alert alert-warning mt-3">
-                <i class="bi bi-exclamation-triangle"></i>
-                <strong>Note:</strong> Synthesis requires all 3 passes to be completed first.
-            </div>
-        </div>
-    </div>
-</div>
-
 {% endblock %}
 
 {% block step_scripts %}
@@ -209,6 +233,76 @@ let synthesisData = {
     startTime: null,
     endTime: null
 };
+
+// Check if synthesis has been run before on page load
+document.addEventListener('DOMContentLoaded', function() {
+    checkSynthesisStatus();
+
+    // Attach clear button handler
+    const clearBtn = document.getElementById('clear-pass4-btn');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', clearPass4Data);
+    }
+});
+
+function getCsrfToken() {
+    return document.querySelector('meta[name="csrf-token"]')?.content || '';
+}
+
+function checkSynthesisStatus() {
+    fetch(`/scenario_pipeline/case/${currentCaseId}/entities/check_extraction/pass4`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.has_been_run) {
+            // Show warning banner
+            document.getElementById('synthesis-warning-banner').style.display = 'block';
+        }
+    })
+    .catch(error => {
+        console.error('Error checking synthesis status:', error);
+    });
+}
+
+function clearPass4Data() {
+    if (!confirm('This will clear all whole-case synthesis data (code provisions, questions, conclusions analysis) for this case.\n\nYou can re-run synthesis afterward if needed. Continue?')) {
+        return;
+    }
+
+    const button = document.getElementById('clear-pass4-btn');
+    button.disabled = true;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Clearing...';
+
+    fetch(`/scenario_pipeline/case/${currentCaseId}/entities/clear_and_rerun/pass4`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify({})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Hide warning banner and reload page
+            alert('Step 4 synthesis data cleared successfully.\n\nYou can now run synthesis again.');
+            window.location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Failed to clear synthesis'));
+            button.disabled = false;
+            button.innerHTML = '<i class="bi bi-trash"></i> Clear Synthesis Data';
+        }
+    })
+    .catch(error => {
+        alert('Error clearing synthesis: ' + error.message);
+        button.disabled = false;
+        button.innerHTML = '<i class="bi bi-trash"></i> Clear Synthesis Data';
+    });
+}
 
 function toggleLog() {
     const messagesDiv = document.getElementById("progress-messages");
@@ -644,13 +738,69 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 {% endif %}
 
-// Toggle chevron icon for About Step 4 collapsible
-document.getElementById('aboutStep4').addEventListener('show.bs.collapse', function () {
-    document.getElementById('aboutStep4Icon').className = 'bi bi-chevron-down';
-});
-document.getElementById('aboutStep4').addEventListener('hide.bs.collapse', function () {
-    document.getElementById('aboutStep4Icon').className = 'bi bi-chevron-right';
-});
+// Refresh from OntServe button handler
+const refreshBtn = document.getElementById('refreshFromOntServeBtn');
+if (refreshBtn) {
+    refreshBtn.addEventListener('click', function() {
+        this.disabled = true;
+        const originalText = this.innerHTML;
+        this.innerHTML = '<i class="bi bi-arrow-repeat"></i> Refreshing...';
+
+        fetch(`/scenario_pipeline/case/${currentCaseId}/entities/refresh_committed`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show detailed refresh results
+                let message = data.message || 'Refresh completed';
+
+                if (data.result && data.result.details) {
+                    const modified = data.result.details.filter(d => d.status === 'modified').length;
+                    const unchanged = data.result.details.filter(d => d.status === 'unchanged').length;
+                    const notFound = data.result.details.filter(d => d.status === 'not_found').length;
+                    const deleted = data.deleted_count || 0;
+
+                    if (modified > 0) {
+                        message += `\n\nChanges detected:\n`;
+                        data.result.details.filter(d => d.status === 'modified').forEach(entity => {
+                            message += `- ${entity.entity_label}: ${entity.changes ? entity.changes.length : 0} field(s) updated\n`;
+                        });
+                    }
+
+                    if (deleted > 0) {
+                        message += `\n${deleted} entities deleted (not found in OntServe)`;
+                    }
+
+                    if (notFound > 0 && deleted === 0) {
+                        message += `\n⚠ ${notFound} entities not found in OntServe (may have been deleted)`;
+                    }
+                }
+
+                alert(message);
+
+                // Reload the page to show updated data
+                if ((data.result && data.result.modified > 0) || data.deleted_count > 0) {
+                    location.reload();
+                }
+            } else {
+                alert('Error refreshing entities: ' + (data.error || 'Unknown error'));
+            }
+
+            this.disabled = false;
+            this.innerHTML = originalText;
+        })
+        .catch(error => {
+            alert('Error refreshing entities: ' + error.message);
+            this.disabled = false;
+            this.innerHTML = originalText;
+        });
+    });
+}
 
 </script>
 {% endblock %}

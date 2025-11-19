@@ -217,15 +217,11 @@ def step4_review(case_id):
     try:
         case = Document.query.get_or_404(case_id)
 
-        # Get saved synthesis
+        # Get saved synthesis (optional - page can display with or without)
         saved_synthesis = ExtractionPrompt.query.filter_by(
             case_id=case_id,
             concept_type='whole_case_synthesis'
         ).order_by(ExtractionPrompt.created_at.desc()).first()
-
-        if not saved_synthesis:
-            flash('No synthesis results found. Please run Step 4 synthesis first.', 'warning')
-            return redirect(url_for('step4.step4_synthesis', case_id=case_id))
 
         # Get all entities for graph visualization
         all_entities_objs = _get_all_entities_for_graph(case_id)
@@ -475,67 +471,77 @@ def get_entities_summary(case_id: int) -> Dict:
     # Use case-insensitive queries with func.lower()
     summary = {}
 
-    # Pass 1
+    # Pass 1 - Only count uncommitted entities
     summary['roles'] = TemporaryRDFStorage.query.filter(
         TemporaryRDFStorage.case_id == case_id,
         func.lower(TemporaryRDFStorage.entity_type) == 'roles',
-        TemporaryRDFStorage.storage_type == 'individual'
+        TemporaryRDFStorage.storage_type == 'individual',
+        TemporaryRDFStorage.is_committed == False
     ).count()
 
     summary['states'] = TemporaryRDFStorage.query.filter(
         TemporaryRDFStorage.case_id == case_id,
         func.lower(TemporaryRDFStorage.entity_type) == 'states',
-        TemporaryRDFStorage.storage_type == 'individual'
+        TemporaryRDFStorage.storage_type == 'individual',
+        TemporaryRDFStorage.is_committed == False
     ).count()
 
     summary['resources'] = TemporaryRDFStorage.query.filter(
         TemporaryRDFStorage.case_id == case_id,
         func.lower(TemporaryRDFStorage.entity_type) == 'resources',
-        TemporaryRDFStorage.storage_type == 'individual'
+        TemporaryRDFStorage.storage_type == 'individual',
+        TemporaryRDFStorage.is_committed == False
     ).count()
 
-    # Pass 2
+    # Pass 2 - Only count uncommitted entities
     summary['principles'] = TemporaryRDFStorage.query.filter(
         TemporaryRDFStorage.case_id == case_id,
         func.lower(TemporaryRDFStorage.entity_type) == 'principles',
-        TemporaryRDFStorage.storage_type == 'individual'
+        TemporaryRDFStorage.storage_type == 'individual',
+        TemporaryRDFStorage.is_committed == False
     ).count()
 
     summary['obligations'] = TemporaryRDFStorage.query.filter(
         TemporaryRDFStorage.case_id == case_id,
         func.lower(TemporaryRDFStorage.entity_type) == 'obligations',
-        TemporaryRDFStorage.storage_type == 'individual'
+        TemporaryRDFStorage.storage_type == 'individual',
+        TemporaryRDFStorage.is_committed == False
     ).count()
 
     summary['constraints'] = TemporaryRDFStorage.query.filter(
         TemporaryRDFStorage.case_id == case_id,
         func.lower(TemporaryRDFStorage.entity_type) == 'constraints',
-        TemporaryRDFStorage.storage_type == 'individual'
+        TemporaryRDFStorage.storage_type == 'individual',
+        TemporaryRDFStorage.is_committed == False
     ).count()
 
     summary['capabilities'] = TemporaryRDFStorage.query.filter(
         TemporaryRDFStorage.case_id == case_id,
         func.lower(TemporaryRDFStorage.entity_type) == 'capabilities',
-        TemporaryRDFStorage.storage_type == 'individual'
+        TemporaryRDFStorage.storage_type == 'individual',
+        TemporaryRDFStorage.is_committed == False
     ).count()
 
-    # Pass 3 - Handle combined Actions_events or separate actions/events
+    # Pass 3 - Handle combined Actions_events or separate actions/events (only uncommitted)
     actions_events_count = TemporaryRDFStorage.query.filter(
         TemporaryRDFStorage.case_id == case_id,
         func.lower(TemporaryRDFStorage.entity_type) == 'actions_events',
-        TemporaryRDFStorage.storage_type == 'individual'
+        TemporaryRDFStorage.storage_type == 'individual',
+        TemporaryRDFStorage.is_committed == False
     ).count()
 
     actions_only = TemporaryRDFStorage.query.filter(
         TemporaryRDFStorage.case_id == case_id,
         func.lower(TemporaryRDFStorage.entity_type) == 'actions',
-        TemporaryRDFStorage.storage_type == 'individual'
+        TemporaryRDFStorage.storage_type == 'individual',
+        TemporaryRDFStorage.is_committed == False
     ).count()
 
     events_only = TemporaryRDFStorage.query.filter(
         TemporaryRDFStorage.case_id == case_id,
         func.lower(TemporaryRDFStorage.entity_type) == 'events',
-        TemporaryRDFStorage.storage_type == 'individual'
+        TemporaryRDFStorage.storage_type == 'individual',
+        TemporaryRDFStorage.is_committed == False
     ).count()
 
     # If combined, split evenly for display (or query individually)
@@ -574,22 +580,25 @@ def get_synthesis_status(case_id: int) -> Dict:
     Returns:
         Dict with synthesis status and results
     """
-    # Check for code provisions
+    # Check for code provisions (only uncommitted)
     provisions = TemporaryRDFStorage.query.filter_by(
         case_id=case_id,
-        extraction_type='code_provision_reference'
+        extraction_type='code_provision_reference',
+        is_committed=False
     ).count()
 
-    # Check for questions
+    # Check for questions (only uncommitted)
     questions = TemporaryRDFStorage.query.filter_by(
         case_id=case_id,
-        extraction_type='ethical_question'
+        extraction_type='ethical_question',
+        is_committed=False
     ).count()
 
-    # Check for conclusions
+    # Check for conclusions (only uncommitted)
     conclusions = TemporaryRDFStorage.query.filter_by(
         case_id=case_id,
-        extraction_type='ethical_conclusion'
+        extraction_type='ethical_conclusion',
+        is_committed=False
     ).count()
 
     completed = provisions > 0 or questions > 0 or conclusions > 0

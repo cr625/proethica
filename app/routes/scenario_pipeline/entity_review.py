@@ -1282,6 +1282,8 @@ def clear_and_rerun_pass(case_id, extraction_pass):
             redirect_url = url_for('scenario_pipeline.step2', case_id=case_id)
         elif extraction_pass == 'pass3':
             redirect_url = url_for('scenario_pipeline.step3', case_id=case_id)
+        elif extraction_pass == 'pass4':
+            redirect_url = url_for('step4.step4_synthesis', case_id=case_id)
         else:
             redirect_url = url_for('scenario_pipeline.overview', case_id=case_id)
 
