@@ -2348,10 +2348,12 @@ def extract_individual_concept(case_id):
                     logger.info(f"DEBUG RDF: new_role_classes count: {len(raw_data.get('new_role_classes', []))}")
                     logger.info(f"DEBUG RDF: role_individuals count: {len(raw_data.get('role_individuals', []))}")
 
-                    # Convert to RDF
+                    # Convert to RDF with provenance (Phase 1 Architecture)
                     rdf_converter = RDFExtractionConverter()
                     class_graph, individual_graph = rdf_converter.convert_extraction_to_rdf(
-                        raw_data, case_id
+                        raw_data, case_id,
+                        section_type=section_type,
+                        pass_number=1  # Pass 1: Contextual Framework
                     )
                     logger.info(f"DEBUG RDF: Converted to RDF graphs - classes: {len(class_graph)}, individuals: {len(individual_graph)}")
 
@@ -2489,10 +2491,12 @@ def extract_individual_concept(case_id):
                     logger.info(f"DEBUG RDF: new_state_classes count: {len(raw_data.get('new_state_classes', []))}")
                     logger.info(f"DEBUG RDF: state_individuals count: {len(raw_data.get('state_individuals', []))}")
 
-                    # Convert to RDF using states-specific conversion
+                    # Convert to RDF using states-specific conversion with provenance (Phase 1 Architecture)
                     rdf_converter = RDFExtractionConverter()
                     class_graph, individual_graph = rdf_converter.convert_states_extraction_to_rdf(
-                        raw_data, case_id
+                        raw_data, case_id,
+                        section_type=section_type,
+                        pass_number=1  # Pass 1: Contextual Framework
                     )
                     logger.info(f"DEBUG RDF: Converted to RDF graphs - classes: {len(class_graph)}, individuals: {len(individual_graph)}")
 
@@ -2612,10 +2616,12 @@ def extract_individual_concept(case_id):
                     logger.info(f"DEBUG RDF: new_resource_classes count: {len(raw_data.get('new_resource_classes', []))}")
                     logger.info(f"DEBUG RDF: resource_individuals count: {len(raw_data.get('resource_individuals', []))}")
 
-                    # Convert to RDF using resources-specific conversion
+                    # Convert to RDF using resources-specific conversion with provenance (Phase 1 Architecture)
                     rdf_converter = RDFExtractionConverter()
                     class_graph, individual_graph = rdf_converter.convert_resources_extraction_to_rdf(
-                        raw_data, case_id
+                        raw_data, case_id,
+                        section_type=section_type,
+                        pass_number=1  # Pass 1: Contextual Framework
                     )
                     logger.info(f"DEBUG RDF: Converted to RDF graphs - classes: {len(class_graph)}, individuals: {len(individual_graph)}")
 

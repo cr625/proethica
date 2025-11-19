@@ -62,7 +62,9 @@ class RDFExtractionConverter:
     def convert_extraction_to_rdf(self,
                                  extraction_result: Dict[str, Any],
                                  case_id: int,
-                                 extraction_timestamp: Optional[datetime] = None) -> Tuple[Graph, Graph]:
+                                 extraction_timestamp: Optional[datetime] = None,
+                                 section_type: str = None,
+                                 pass_number: int = None) -> Tuple[Graph, Graph]:
         """
         Convert complete LLM extraction result to RDF triples.
 
@@ -70,6 +72,8 @@ class RDFExtractionConverter:
             extraction_result: Raw LLM extraction result containing new_role_classes and role_individuals
             case_id: ID of the case this extraction is from
             extraction_timestamp: When the extraction occurred
+            section_type: Section where entities were discovered (facts, discussion, questions, conclusions)
+            pass_number: Extraction pass number (1, 2, or 3)
 
         Returns:
             Tuple of (class_graph, individual_graph) containing RDF triples
@@ -88,7 +92,8 @@ class RDFExtractionConverter:
 
         # Process new role classes
         if "new_role_classes" in extraction_result:
-            self._convert_role_classes(extraction_result["new_role_classes"], case_id, extraction_timestamp)
+            self._convert_role_classes(extraction_result["new_role_classes"], case_id, extraction_timestamp,
+                                     section_type, pass_number)
 
         # Process role individuals
         if "role_individuals" in extraction_result:
@@ -96,8 +101,9 @@ class RDFExtractionConverter:
 
         return self.class_graph, self.individual_graph
 
-    def _convert_role_classes(self, role_classes: List[Dict], case_id: int, timestamp: datetime):
-        """Convert new role classes to RDF triples for proethica-intermediate"""
+    def _convert_role_classes(self, role_classes: List[Dict], case_id: int, timestamp: datetime,
+                             section_type: str = None, pass_number: int = None):
+        """Convert new role classes to RDF triples for proethica-intermediate with full provenance"""
 
         for role_class in role_classes:
             # Create URI for the new class
@@ -154,12 +160,23 @@ class RDFExtractionConverter:
                 self.class_graph.add((class_uri, self.PROETHICA.hasDomainContext,
                                     Literal(role_class["domain_context"])))
 
-            # Add provenance
+            # Add comprehensive provenance (Phase 1 Architecture)
+            # Standard W3C PROV-O properties
             self.class_graph.add((class_uri, PROV.generatedAtTime, Literal(timestamp, datatype=XSD.dateTime)))
             self.class_graph.add((class_uri, PROV.wasAttributedTo, Literal(f"Case {case_id} Extraction")))
+
+            # ProEthica-specific provenance
+            self.class_graph.add((class_uri, self.PROETHICA_PROV.firstDiscoveredInCase, Literal(case_id, datatype=XSD.integer)))
+            self.class_graph.add((class_uri, self.PROETHICA_PROV.firstDiscoveredAt, Literal(timestamp, datatype=XSD.dateTime)))
             self.class_graph.add((class_uri, self.PROETHICA_PROV.discoveredInCase, Literal(case_id, datatype=XSD.integer)))
 
-            # Add source text (provenance)
+            if section_type:
+                self.class_graph.add((class_uri, self.PROETHICA_PROV.discoveredInSection, Literal(section_type)))
+
+            if pass_number:
+                self.class_graph.add((class_uri, self.PROETHICA_PROV.discoveredInPass, Literal(pass_number, datatype=XSD.integer)))
+
+            # Add source text (exact quote from case)
             if "source_text" in role_class and role_class["source_text"]:
                 self.class_graph.add((class_uri, self.PROETHICA_PROV.sourceText, Literal(role_class["source_text"])))
 
@@ -278,9 +295,11 @@ class RDFExtractionConverter:
     def convert_states_extraction_to_rdf(self,
                                         extraction_result: Dict[str, Any],
                                         case_id: int,
-                                        extraction_timestamp: Optional[datetime] = None) -> Tuple[Graph, Graph]:
+                                        extraction_timestamp: Optional[datetime] = None,
+                                        section_type: str = None,
+                                        pass_number: int = None) -> Tuple[Graph, Graph]:
         """
-        Convert states extraction result to RDF triples.
+        Convert states extraction result to RDF triples with provenance.
 
         Args:
             extraction_result: Raw LLM extraction result containing new_state_classes and state_individuals
@@ -299,7 +318,7 @@ class RDFExtractionConverter:
 
         # Process new state classes
         for state_class in extraction_result.get('new_state_classes', []):
-            self._add_state_class_to_graph(state_class, case_id, timestamp)
+            self._add_state_class_to_graph(state_class, case_id, timestamp, section_type, pass_number)
 
         # Process state individuals
         for individual in extraction_result.get('state_individuals', []):
@@ -307,7 +326,8 @@ class RDFExtractionConverter:
 
         return self.class_graph, self.individual_graph
 
-    def _add_state_class_to_graph(self, state_class: Dict[str, Any], case_id: int, timestamp: datetime):
+    def _add_state_class_to_graph(self, state_class: Dict[str, Any], case_id: int, timestamp: datetime,
+                                  section_type: str = None, pass_number: int = None):
         """Add a new state class to the RDF graph with enhanced temporal properties"""
         # Create URI for the state class
         class_label = state_class.get('label', 'UnknownState')
@@ -379,11 +399,23 @@ class RDFExtractionConverter:
                 Literal(example)
             ))
 
-        # Add provenance
+        # Add comprehensive provenance (Phase 1 Architecture)
+        # Standard W3C PROV-O properties
         self.class_graph.add((class_uri, PROV.generatedAtTime, Literal(timestamp, datatype=XSD.dateTime)))
+        self.class_graph.add((class_uri, PROV.wasAttributedTo, Literal(f"Case {case_id} Extraction")))
+
+        # ProEthica-specific provenance
+        self.class_graph.add((class_uri, self.PROETHICA_PROV.firstDiscoveredInCase, Literal(case_id, datatype=XSD.integer)))
+        self.class_graph.add((class_uri, self.PROETHICA_PROV.firstDiscoveredAt, Literal(timestamp, datatype=XSD.dateTime)))
         self.class_graph.add((class_uri, self.PROETHICA_PROV.discoveredInCase, Literal(case_id, datatype=XSD.integer)))
 
-        # Add source text (provenance)
+        if section_type:
+            self.class_graph.add((class_uri, self.PROETHICA_PROV.discoveredInSection, Literal(section_type)))
+
+        if pass_number:
+            self.class_graph.add((class_uri, self.PROETHICA_PROV.discoveredInPass, Literal(pass_number, datatype=XSD.integer)))
+
+        # Add source text (exact quote from case)
         if state_class.get('source_text') and state_class['source_text']:
             self.class_graph.add((class_uri, self.PROETHICA_PROV.sourceText, Literal(state_class['source_text'])))
 
@@ -527,9 +559,11 @@ class RDFExtractionConverter:
     def convert_resources_extraction_to_rdf(self,
                                            extraction_result: Dict[str, Any],
                                            case_id: int,
-                                           extraction_timestamp: Optional[datetime] = None) -> Tuple[Graph, Graph]:
+                                           extraction_timestamp: Optional[datetime] = None,
+                                           section_type: str = None,
+                                           pass_number: int = None) -> Tuple[Graph, Graph]:
         """
-        Convert resources extraction result to RDF triples.
+        Convert resources extraction result to RDF triples with provenance.
 
         Args:
             extraction_result: Raw LLM extraction result containing new_resource_classes and resource_individuals
@@ -548,7 +582,7 @@ class RDFExtractionConverter:
 
         # Process new resource classes
         for resource_class in extraction_result.get('new_resource_classes', []):
-            self._add_resource_class_to_graph(resource_class, case_id, timestamp)
+            self._add_resource_class_to_graph(resource_class, case_id, timestamp, section_type, pass_number)
 
         # Process resource individuals
         for individual in extraction_result.get('resource_individuals', []):
@@ -556,8 +590,9 @@ class RDFExtractionConverter:
 
         return self.class_graph, self.individual_graph
 
-    def _add_resource_class_to_graph(self, resource_class: Dict[str, Any], case_id: int, timestamp: datetime):
-        """Add a new resource class to the RDF graph"""
+    def _add_resource_class_to_graph(self, resource_class: Dict[str, Any], case_id: int, timestamp: datetime,
+                                     section_type: str = None, pass_number: int = None):
+        """Add a new resource class to the RDF graph with full provenance"""
         # Create URI for the resource class
         class_label = resource_class.get('label', 'UnknownResource')
         safe_label = class_label.replace(" ", "")
@@ -611,26 +646,33 @@ class RDFExtractionConverter:
                 Literal(resource_class['domain_context'])
             ))
 
-        # Add extraction metadata
-        self.class_graph.add((
-            class_uri,
-            URIRef(f"{self.PROETHICA_PROV}discoveredInCase"),
-            Literal(case_id, datatype=XSD.integer)
-        ))
+        # Add comprehensive provenance (Phase 1 Architecture)
+        # Standard W3C PROV-O properties
+        self.class_graph.add((class_uri, PROV.generatedAtTime, Literal(timestamp, datatype=XSD.dateTime)))
+        self.class_graph.add((class_uri, PROV.wasAttributedTo, Literal(f"Case {case_id} Extraction")))
 
+        # ProEthica-specific provenance
+        self.class_graph.add((class_uri, self.PROETHICA_PROV.firstDiscoveredInCase, Literal(case_id, datatype=XSD.integer)))
+        self.class_graph.add((class_uri, self.PROETHICA_PROV.firstDiscoveredAt, Literal(timestamp, datatype=XSD.dateTime)))
+        self.class_graph.add((class_uri, self.PROETHICA_PROV.discoveredInCase, Literal(case_id, datatype=XSD.integer)))
+
+        if section_type:
+            self.class_graph.add((class_uri, self.PROETHICA_PROV.discoveredInSection, Literal(section_type)))
+
+        if pass_number:
+            self.class_graph.add((class_uri, self.PROETHICA_PROV.discoveredInPass, Literal(pass_number, datatype=XSD.integer)))
+
+        # Add source text (exact quote from case)
+        if resource_class.get('source_text') and resource_class['source_text']:
+            self.class_graph.add((class_uri, self.PROETHICA_PROV.sourceText, Literal(resource_class['source_text'])))
+
+        # Add confidence score if available
         if resource_class.get('confidence'):
             self.class_graph.add((
                 class_uri,
                 URIRef(f"{self.PROETHICA_PROV}confidenceScore"),
                 Literal(resource_class['confidence'], datatype=XSD.float)
             ))
-
-        # Add source text (provenance)
-        if resource_class.get('source_text') and resource_class['source_text']:
-            self.class_graph.add((class_uri, self.PROETHICA_PROV.sourceText, Literal(resource_class['source_text'])))
-
-        # Add provenance
-        self.class_graph.add((class_uri, PROV.generatedAtTime, Literal(timestamp, datatype=XSD.dateTime)))
 
     def _add_resource_individual_to_graph(self, individual: Dict[str, Any], case_id: int, timestamp: datetime):
         """Add a resource individual to the RDF graph"""
