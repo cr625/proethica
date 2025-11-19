@@ -796,13 +796,22 @@
                         <div class="card-body">
                             <div class="alert alert-info">
                                 <i class="bi bi-info-circle"></i>
-                                <strong>No new {{ concept_type }} extracted for this section.</strong>
+                                {% if section_type == 'facts' %}
+                                <strong>No new {{ concept_type }} classes were found in the facts section.</strong>
                                 <p class="mb-0 mt-2">This could mean:</p>
                                 <ul class="mb-0">
-                                    <li>All {{ concept_type }} were already captured in the Facts section</li>
-                                    <li>The LLM determined no new {{ concept_type }} types or individuals appear in this section</li>
+                                    <li>All {{ concept_type }} classes in the facts section were already present in the ontology</li>
+                                    <li>Individuals corresponding to those {{ concept_type }} classes should be displayed above</li>
+                                </ul>
+                                {% else %}
+                                <strong>No new {{ concept_type }} classes were found in this section.</strong>
+                                <p class="mb-0 mt-2">This could mean:</p>
+                                <ul class="mb-0">
+                                    <li>All {{ concept_type }} classes were already captured in the Facts section</li>
+                                    <li>The LLM determined no new {{ concept_type }} types appear in this section</li>
                                     <li>Check the Facts section entities if you expected to see {{ concept_type }} here</li>
                                 </ul>
+                                {% endif %}
                             </div>
                         </div>
                     </div>

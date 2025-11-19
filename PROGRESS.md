@@ -1,8 +1,8 @@
 # ProEthica Refactoring Progress
 
-**Last Updated:** November 17, 2025
+**Last Updated:** November 19, 2025
 **Active Branch:** `development`
-**Session Goal:** Repository cleanup + LLM centralization + Source text provenance tracking
+**Current Focus:** Demo preparation + Clear/Re-run functionality
 
 ---
 
@@ -14,435 +14,200 @@ git checkout development
 ```
 
 **Branch Status:**
-- Feature branch `claude/continue-refactoring-01Uxdw4hm76Yd5ipHuR6BQAn` merged into `development`
+- All work consolidated in `development` branch
+- Feature branches merged
 - Backup available at `development-backup-before-merge`
-- All work now consolidated in `development` branch
 
 ---
 
-## Session Progress Summary
+## Recent Completed Tasks
 
-### ✅ Completed Tasks (November 16, 2025)
+### November 19, 2025 - Step 3/4 Clear & Re-run Functionality
 
-#### 1. Dependency Management (Phase 1.1 - COMPLETE)
-- ✅ Created `requirements.txt` with 64 production + development dependencies
-- ✅ Created `pyproject.toml` for modern Python packaging
-- ✅ Removed `requirements-dev.txt` (consolidated into single file)
-- ✅ Updated `INSTALL.md` with simplified installation instructions
-- ✅ Fixed LangChain 1.0 compatibility issues:
-  - Added `langchain-classic>=1.0.0` for legacy chains/prompts
-  - Updated all imports: `langchain.chains` → `langchain_classic.chains`
-  - Updated 6 files: decision_engine.py, concept_splitter.py, langchain_orchestrator.py, langchain_claude.py, llm_service.py, llm_service_fix.py
-  - Fixed schema imports to use `langchain_core`
-- ✅ All dependencies installable: `pip install -r requirements.txt`
+**Problem:** Users could run extraction multiple times creating duplicate entities. Step 4 review page showed committed entities even after clearing.
+
+**Solution Implemented:**
+
+#### Step 3 (Temporal Dynamics) - COMPLETE
+- ✅ Warning banner when extraction has been run before
+- ✅ "Clear Pass 3 Data" button on review page
+- ✅ Clears all temporal entities: actions, events, causal chains, timeline, Allen relations
+- ✅ Clears extraction prompts and artifacts
+- ✅ Page reloads to show clean state
+
+#### Step 4 (Whole Case Synthesis) - COMPLETE
+- ✅ Warning banner when synthesis has been run
+- ✅ "Clear Synthesis Data" button on main page
+- ✅ Clears synthesis results: code provisions, questions, conclusions
+- ✅ Clears synthesis annotations (138 text span mappings)
+- ✅ Clears precedent case references (11 entities)
+- ✅ "Refresh from OntServe" button (detects deleted entities)
+- ✅ Always-visible review button (like other steps)
+- ✅ Removed "About Step 4" collapsible card
+
+#### Critical Bug Fixes
+- ✅ **Entity count filtering**: Review pages now only show uncommitted entities
+- ✅ **Committed/uncommitted clearing**: Clear buttons now delete BOTH committed and uncommitted entities
+- ✅ **CSRF token fix**: Added CSRF tokens to all AJAX POST requests
+- ✅ **Orphaned entity cleanup**: Manually removed 34 orphaned entities from legacy data
+- ✅ **Precedent entity handling**: Added to Pass 4 clearing list, shows in graph
+
+**Files Modified:**
+- `app/services/case_entity_storage_service.py` - Clearing service with Pass 3/4 support
+- `app/routes/scenario_pipeline/entity_review.py` - Added Pass 4 redirect
+- `app/routes/scenario_pipeline/step4.py` - Fixed entity count queries, updated graph query
+- `app/templates/entity_review/enhanced_temporal_review.html` - Warning banner + clear button
+- `app/templates/scenarios/step3_dual_extraction.html` - Warning banner + clear button
+- `app/templates/scenarios/step4.html` - Clear button, refresh button, always-visible review
+- `app/templates/scenario_pipeline/step4_review.html` - Refresh button with CSRF token
+
+**Database Changes:**
+- Pass 3 clearing: `extraction_type='temporal_dynamics_enhanced'`
+- Pass 4 clearing: `extraction_type IN ['code_provision_reference', 'ethical_question', 'ethical_conclusion', 'precedent_case_reference']`
+- Synthesis annotations: `ontology_name='step4_synthesis'`
+
+**Key Insight:** Orphaned entities occurred when prompts were deleted but entities remained committed. New logic clears both committed and uncommitted to prevent this.
+
+---
+
+### November 17, 2025 - Source Text Provenance
+
+- ✅ **Added source text context to ALL 9 concept types** (Pass 1-3)
+- ✅ All extractors now include `source_text: Optional[str]` field
+- ✅ LLM prompts request "EXACT text snippet from case (max 200 chars)"
+- ✅ RDF converter stores using `PROETHICA_PROV.sourceText` property
+- ✅ UI displays source text with blue italic text and quote icon
+- ✅ Archived deprecated Pass 3 templates and routes
+
+**Templates Updated:**
+- entity_review.html (Pass 1)
+- entity_review_pass2.html (Pass 2)
+- enhanced_temporal_review.html (Pass 3 - active)
+
+---
+
+### November 16-17, 2025 - Foundation Work
+
+#### Repository Cleanup
+- ✅ Removed `/backups/` directory (26 MB)
+- ✅ Removed `/ontology_editor/` module (redirect to OntServe)
+- ✅ Removed `cases_structure_update.py` (309 lines, deprecated)
+- ✅ Cleaned up root directory (moved 15 test files to `/experiments/`)
+- ✅ Repository size reduced by ~26 MB
+
+#### LangChain Migration
+- ✅ Updated to LangChain 1.0
+- ✅ Added `langchain-classic>=1.0.0` for legacy chains
+- ✅ Updated imports: `langchain.chains` → `langchain_classic.chains`
+- ✅ Phase 1 complete: Removed deprecation warnings
+- ⏳ Phase 2 in progress: 4/24 files migrated to LLMManager
+
+#### Bug Fixes
+- ✅ Fixed empty section handling (dissenting_opinion)
+- ✅ Fixed ontology_editor import error (EntityService stub)
+
+#### Documentation
+- ✅ Created comprehensive OntServe integration guide
+- ✅ Created LLM service migration plan
+- ✅ Updated INSTALL.md with simplified instructions
+
+---
+
+## Application Status
+
+**Current State:**
 - ✅ Application starts successfully
-
-#### 2. Bug Fixes
-- ✅ Fixed empty section handling in scenario pipeline overview
-  - Added validation to skip sections with no html AND no text content
-  - Improved logging to show character counts and identify empty sections
-  - Prevents downstream issues with empty sections (e.g., dissenting_opinion in Case 8)
-
-#### 3. Documentation
-- ✅ Created INSTALL.md with both pip and uv installation methods
-- ✅ Updated all dependency files to match actual requirements
-
-#### 4. Repository Cleanup (Phase 1.2-1.3 - COMPLETE)
-- ✅ Removed `/backups/` directory (26 MB of SQL dumps)
-- ✅ Removed `.claude/settings.local.json.backup`
-- ✅ Added backups to `.gitignore` (prevents re-adding)
-- ✅ **Removed `/ontology_editor/` module (12K)**
-  - Removed stub blueprint and redirect code
-  - Updated 5 templates to point directly to OntServe (port 5003)
-  - Removed imports from app/__init__.py
-  - Simplified architecture - no redirect layer needed
-- ✅ **Removed `app/routes/cases_structure_update.py` (309 lines)**
-  - Deprecated since Sept 2, 2025
-  - Functionality consolidated into cases.py
-  - Blueprint was never registered (commented out)
-  - Cleaned up commented-out imports from app/__init__.py
-- ✅ **Repository size reduced by ~26 MB total**
-- ⚠️ **Legacy modules remaining:**
-  - `/ttl_triple_association/` (107K) - Still in use by document_structure.py + 3 experiment files
-- ✅ **LLM Service Migration - Phase 1 COMPLETE**
-  - Created comprehensive migration plan (docs/LLM_SERVICE_MIGRATION_PLAN.md)
-  - Converted llm_service.py to compatibility layer (no deprecation warnings)
-  - Converted claude_service.py to compatibility layer (no deprecation warnings)
-  - All 24 dependent files continue to work with zero breaking changes
-  - Foundation established for incremental Phase 2 migration
-
-#### 5. OntServe Integration Documentation (November 17, 2025)
-- ✅ **Comprehensive integration guide created** (docs/PROETHICA_ONTSERVE_INTEGRATION.md)
-  - Documented 3 integration mechanisms: REST API (5003), MCP (8082), Internal MCP (5002)
-  - Mapped all ProEthica → OntServe interaction points
-  - Critical API dependencies listed for refactoring compatibility
-  - Data flow patterns documented (annotation, extraction, guidelines)
-  - Testing procedures and code contact points
-  - Recommendations for OntServe refactoring (unified MCP vs dual interface)
-
-#### 6. Import Error Fixes (November 17, 2025)
-- ✅ **Fixed ontology_editor import error**
-  - Created EntityService stub (app/services/entity_service.py)
-  - Redirects entity creation to OntServe web interface
-  - Updated guideline_concept_integration_service.py import
-  - Application now starts without errors
-
-#### 7. Clear & Re-run Feature (November 17, 2025)
-- ✅ **Implemented duplicate prevention for extraction re-runs**
-  - Added `clear_extraction_pass()` method to CaseEntityStorageService
-  - Added `has_extraction_been_run()` status check
-  - New route endpoints: clear_and_rerun, check_extraction_status
-  - UI: "Clear & Re-run Pass 1" button (one-click workflow)
-  - UI: Warning banner when extraction has been run before
-  - Section-specific: clears only Facts OR Discussion
-  - Preserves committed entities in OntServe
-  - Prevents duplicate "Engineer", "Client" etc. on re-runs
-
-#### 8. Root Directory Cleanup (November 17, 2025)
-- ✅ **Cleaned up root directory documentation**
-  - Removed 3 outdated markdown files (CLAUDE.md, CLAUDE_WEB_CONTEXT.md, CLEANUP_REFACTORING.md)
-  - All referenced old branch `claude/review-proethica-dev-016ws2xyr26eTNk55FPSGLBh`
-  - Content superseded by PROGRESS.md
-- ✅ **Moved experimental test files**
-  - Created `/experiments/` directory
-  - Moved 15 root-level test_*.py files to experiments/
-  - Files: test_code_provision_matching.py, test_institutional_analyzer.py, etc.
-- ✅ **Root directory now clean**
-  - Only PROGRESS.md and INSTALL.md remain in root
-  - Clearer project structure
-  - Easier navigation
-
-#### 9. Entity Extraction Source Text Context - COMPLETE (November 17, 2025)
-- ✅ **Added source text provenance to ALL 9 concept types across Pass 1-3**
-
-**Pass 1: Contextual Framework (Facts & Discussion sections)**
-- ✅ Roles: Classes and individuals with source_text
-- ✅ States: Classes and individuals with source_text
-- ✅ Resources: Classes and individuals with source_text
-
-**Pass 2: Normative Requirements (Facts & Discussion sections)**
-- ✅ Principles: Classes and individuals with source_text
-- ✅ Obligations: Classes and individuals with source_text
-- ✅ Constraints: Classes and individuals with source_text
-- ✅ Capabilities: Classes and individuals with source_text
-
-**Pass 3: Temporal Dynamics**
-- ✅ Actions: Classes and individuals with source_text
-- ✅ Events: Classes and individuals with source_text
-
-**Implementation Details:**
-- Modified all extractor dataclasses to include `source_text: Optional[str]` field
-- Updated LLM prompts to request "EXACT text snippet from case (max 200 chars)"
-- Enhanced parsing functions to extract source_text with fallback to examples
-- RDF converter stores source_text using `PROETHICA_PROV.sourceText` property
-- UI displays source_text in entity review pages with blue italic text and quote icon
-
-**Template Updates:**
-- ✅ entity_review.html (Pass 1): Displays source_text for classes and individuals
-- ✅ entity_review_pass2.html (Pass 2): Displays source_text for classes and individuals
-- ✅ entity_review_pass3.html (Pass 3): Archived - replaced by enhanced_temporal_review.html
-
-**Goal Achieved:** Entity extraction now captures provenance - exact text snippets where each entity was identified in the case, enabling better verification and integrated annotation workflow.
-
-#### 10. Deprecated Template Cleanup (November 17, 2025)
-- ✅ **Archived deprecated Pass 3 templates and routes**
-  - Moved `entity_review_pass3.html` to `app/templates/scenarios/archived/`
-  - Moved `step3.html` to `app/templates/scenarios/archived/`
-  - Removed `review_case_entities_pass3()` route function from entity_review.py
-  - Updated `entity_review_all.html` to use `review_enhanced_temporal` route
-  - Archived `scripts/check_pass3.py` test script
-
-**Rationale:**
-- Active template is `step3_dual_extraction.html` (uses enhanced_temporal_review)
-- Enhanced temporal review provides richer UI with timeline, causal chains, Allen relations
-- Old Pass 3 template never used in production
-- Cleaner route structure with single temporal review endpoint
-
-#### 11. Branch Consolidation (November 17, 2025)
-- ✅ **Merged feature branch into development**
-  - Created backup: `development-backup-before-merge` at commit `02f8f04`
-  - Renamed `claude/continue-refactoring-01Uxdw4hm76Yd5ipHuR6BQAn` → `development`
-  - Force pushed to `origin/development`
-  - All work now consolidated in single `development` branch
-  - Updated `.gitignore` to exclude `venv-*/` directories
-
-### 🔄 In Progress
-
-**Current Task:** Ready for next phase - see "What's Next?" section below
-
-**Recently Completed:**
-- ✅ Source text extraction for all 9 concept types (Pass 1-3)
-- ✅ Deprecated template cleanup
-- ✅ Branch consolidation
-
-**Previous Work:** LLM Service Migration - Phase 2 (4/24 files migrated)
-
-**Completed Migrations:**
-- ✅ case_role_matching_service.py - Semantic role matching with LLM validation
-- ✅ role_description_service.py - Standardized role descriptions
-- ✅ conversation_to_case_service.py - Converts agent conversations to NSPE cases
-- ✅ ethics_committee_agent.py - Simulates ethics committee discussions
-
-**Remaining (20 files):**
-- firac_analysis_service.py - Multiple LLM calls (complex)
-- document_annotation_pipeline.py - Annotation orchestration
-- enhanced_guideline_association_service.py - Uses send_message() method
-- simulation_controller.py - Uses send_message() method
-- 16 other services (see migration plan)
-
-**Low Priority:**
-- `/ttl_triple_association/` (107K) - Evaluate if still needed
-
-**Not Found (already cleaned):**
-- `/archive/` directory
-- `/realm/` directory
-- `/mclaren/` directory
-
----
-
-## Git Commit History (This Session)
-
-1. `3f683d7` - Consolidate dependencies into single requirements.txt
-2. `a35a672` - Update LangChain dependencies to 1.x versions
-3. `3678f9f` - Update langchain to 1.0.0 (latest stable release)
-4. `fabb4fa` - Fix langchain-community version requirement
-5. `ea50df0` - Add langchain-classic and update imports for LangChain 1.0
-6. `c48f29e` - Fix remaining langchain imports in deprecated services
-7. `69a5dde` - Fix empty section handling in scenario pipeline overview
-8. `371762c` - Add session progress tracking and update CLAUDE.md
-9. `e8176d4` - Remove database backups from version control (26 MB saved)
-10. `42f2ce0` - Update PROGRESS.md with repository cleanup status
-11. `e12a5db` - Remove ontology_editor module - functionality moved to OntServe
-12. `d591335` - Update PROGRESS.md - ontology_editor removal complete
-13. `e623754` - Remove deprecated cases_structure_update.py route (309 lines)
-14. `8a4f4e9` - Update PROGRESS.md - cases_structure_update cleanup
-15. `f6c65a5` - Add LLM service migration plan
-16. `7346251` - Remove deprecation warnings from LLM services (Phase 1 start)
-17. `a11f09c` - Complete Phase 1: Remove deprecation warnings from claude_service.py
-18. `042a195` - Update documentation: Phase 1 LLM migration complete
-19. `3db4fd2` - Phase 2 Migration (1/24): Migrate case_role_matching_service.py
-20. `308b9c0` - Phase 2 Migration (2/24): Migrate role_description_service.py
-21. `adc209c` - Phase 2 Migration (3/24): Migrate conversation_to_case_service.py
-22. `f36665a` - Phase 2 Migration (4/24): Migrate ethics_committee_agent.py
-23. `06523f6` - Update PROGRESS.md: Phase 2 migration progress (4/24 complete)
-24. `54f5399` - Add comprehensive ProEthica-OntServe integration documentation
-25. `c086f7c` - Fix ontology_editor import error by creating EntityService stub
-26. `0bf6852` - Update PROGRESS.md with session status and next steps
-27. `a89091b` - Add "Clear & Re-run" functionality to prevent duplicate extractions
-28. `4c38dc0` - Update PROGRESS.md: Clear & Re-run feature complete
-29. `c2e897b` - Clean up root directory: remove outdated docs and organize test files
-30. `2d0b531` - Update PROGRESS.md: change active branch to current session
-31. `7d4e832` - Add source text context to Pass 1 entity extraction (Roles only)
-32. `161eada` - Add UI display for source text context in entity review page
-33. `dd48436` - Commit text snippets (Pass 1 complete: Roles, States, Resources)
-34. `de415ae` - Commit source text for additional entities (Pass 2: Principles, Obligations, Constraints, Capabilities)
-35. `5272b6c` - Update source text extraction for events and actions (Pass 3 complete)
-36. `0d2cfdf` - Remove old templates (archive deprecated Pass 3 templates and routes)
-
-**All commits pushed to:** `origin/development`
-
----
-
-## Technical Context
-
-### LangChain Architecture (Hybrid Approach)
-- **LangGraph** (modern): Used in temporal dynamics system
-  - Files: event_engine.py, temporal_dynamics/graph_builder.py, temporal_dynamics/state.py
-  - 7-stage graph-based workflow with state management
-- **LangChain Classic** (legacy): Used in decision/extraction services
-  - Files: decision_engine.py, llm_service.py, concept_splitter.py, etc.
-  - Legacy chains and prompts from pre-1.0 LangChain
-  - Maintained for backward compatibility
-
-### Key Dependencies Installed
-```
-langchain>=1.0.0
-langchain-core>=1.0.0
-langchain-classic>=1.0.0        # Contains legacy chains/prompts
-langchain-anthropic>=1.0.0
-langchain-community>=0.4.0      # No 1.0 release yet
-langgraph>=0.2.0
-anthropic>=0.45.0
-```
-
-### Application Status
-- ✅ Starts successfully
 - ✅ All imports working
 - ✅ OntServe MCP server detected on port 8082
 - ✅ Database connection successful
+- ✅ Clear & Re-run functionality working for all passes
+
+**Demo Ready:**
+- ✅ Step 1-3 extraction with clear functionality
+- ✅ Step 4 synthesis with clear + refresh
+- ✅ No duplicate entities on re-run
+- ✅ Clean entity count displays
 
 ---
 
-## What's Next? (Priority Order)
+## What's Next?
 
-### Option A: Continue Phase 2 LLM Migration (20/24 files remaining)
-**Effort:** Medium | **Impact:** High | **Risk:** Low
+### For Demo (Immediate)
+1. **Test extraction workflow end-to-end**
+   - Run Pass 1 → Pass 2 → Pass 3 → Step 4
+   - Verify clear buttons work
+   - Test duplicate prevention
 
-Continue migrating services to LLMManager with established pattern:
-1. Simple services (5-10 more files) - ~1-2 hours
-2. Complex services (firac_analysis, document_annotation) - requires planning
-3. Services using `send_message()` - different pattern needed
+2. **Check committed entities**
+   - Test "Refresh from OntServe" button
+   - Verify entity counts after refresh
 
-**Benefits:**
-- Centralized LLM management (easier domain switching)
-- Consistent timeout/retry handling
-- Better token tracking
-- Removes dependency on compatibility layers
+### After Demo (Priority)
+1. **Continue LLM Migration** (Phase 2: 20/24 files remaining)
+   - Migrate remaining services to LLMManager
+   - Standardized timeout/retry handling
+   - Better token tracking
 
-**Next files to migrate:**
-- `enhanced_guideline_association_service.py` (uses send_message)
-- `firac_analysis_service.py` (multiple generate_response calls)
-- `document_annotation_pipeline.py` (annotation orchestration)
-- `simulation_controller.py` (uses send_message)
+2. **Test Core Functionality**
+   - Verify migrated services still work
+   - Integration tests for clear functionality
+   - End-to-end extraction tests
 
----
-
-### Option B: Test Core Functionality After Refactoring
-**Effort:** Low | **Impact:** High | **Risk:** None
-
-Verify that refactored code still works:
-1. Test case extraction (9-concept system)
-2. Test role matching with migrated services
-3. Test scenario generation
-4. Check for any runtime errors
-
-**Why now:**
-- 4 services migrated (case_role_matching, role_description, conversation_to_case, ethics_committee)
-- Good checkpoint before continuing
-- Catch issues early
+3. **Repository Cleanup Round 2**
+   - Evaluate `/ttl_triple_association/` (107K)
+   - Clean up experimental files
+   - Review annotation service duplicates
 
 ---
 
-### Option C: Repository Cleanup - Round 2
-**Effort:** Low | **Impact:** Medium | **Risk:** Low
+## Key Commands
 
-Continue cleaning up legacy code:
-1. **Evaluate ttl_triple_association** (107K) - Still needed?
-2. **Clean up experimental files:**
-   - 5 prediction service variants
-   - llm_service_fix.py (experiment)
-3. **Review annotation services** - Multiple implementations?
-
-**Benefits:**
-- Smaller codebase
-- Easier navigation
-- Less maintenance burden
-
----
-
-### Option D: Improve OntServe Integration
-**Effort:** Medium | **Impact:** Medium | **Risk:** Low
-
-Based on integration documentation:
-1. Migrate OntServeAnnotationService to use MCP (unified interface)
-2. Create OntServe write API wrapper (replace EntityService stub)
-3. Test all ProEthica → OntServe integration points
-4. Add integration tests
-
-**Why:**
-- Documentation already written (PROETHICA_ONTSERVE_INTEGRATION.md)
-- Prepares for OntServe refactoring
-- Single integration point (MCP only)
-
----
-
-## Recommendation
-
-**Best Next Step: Option B (Test Core Functionality)**
-- Quick validation checkpoint (~30 min)
-- Catch any issues from Phase 1-2 migrations
-- Then continue with Option A (Phase 2 migration)
-
-**After Testing:**
-- Continue Option A until all 24 files migrated
-- Then Option C (cleanup experimental files)
-- Then Option D (OntServe improvements)
-
----
-
-## Legacy Next Steps (Completed)
-
-### ~~1. Repository Cleanup~~ ✅ COMPLETE
-- ✅ Removed backups (26 MB)
-- ✅ Removed ontology_editor
-- ✅ Removed cases_structure_update.py
-- ⏳ ttl_triple_association evaluation pending
-
-### ~~2. LLM Centralization~~ ⏳ IN PROGRESS (Phase 2: 4/24)
-Phase 1 complete, Phase 2 ongoing:
-- Easier model switching (Sonnet 4 ↔ Sonnet 4.5 ↔ other models)
-- Multi-domain support preparation
-- Standardized timeout handling
-- Token usage tracking
-
-Files to refactor:
-- 76 files with hardcoded model references
-- 4 MCP client implementations to consolidate
-
-### 3. Testing (Before Production)
 ```bash
-# Run test suite
-pytest tests/
+# Ensure correct branch
+git checkout development
 
-# Verify key workflows
-# - Case extraction
-# - Scenario generation
-# - Step 4 synthesis
-# - Step 5 participant mapping
+# Pull latest
+git pull origin development
+
+# Start application
+source venv-proethica/bin/activate
+python run.py
+
+# Check database
+export PGPASSWORD=PASS
+psql -h localhost -U postgres -d ai_ethical_dm -c "SELECT COUNT(*) FROM temporary_rdf_storage WHERE case_id = 8;"
 ```
+
+---
+
+## Known Issues
+
+1. **Orphaned Entities (RESOLVED)**
+   - Issue: Entities remained when prompts deleted
+   - Fix: Clear now deletes both committed and uncommitted
+   - Legacy data: Manually cleaned up 34 orphaned entities
+
+2. **LangChain 1.0 Migration (COMPLETE)**
+   - All imports updated
+   - `langchain-classic` installed for legacy code
+   - No breaking changes
+
+3. **MCP Integration (WORKING)**
+   - OntServe running on port 8082
+   - All API calls functioning
+   - Refresh functionality working
 
 ---
 
 ## Reference Files
 
-**Planning Documents:**
-- [CLEANUP_REFACTORING.md](CLEANUP_REFACTORING.md) - This session's plan
-- [docs/CLEANUP_REFACTORING_PLAN.md](docs/CLEANUP_REFACTORING_PLAN.md) - Complete multi-phase plan
-- [CLAUDE.md](CLAUDE.md) - Primary project instructions
+**Planning:**
+- [docs/LLM_SERVICE_MIGRATION_PLAN.md](docs/LLM_SERVICE_MIGRATION_PLAN.md) - Migration roadmap
+- [docs/PROETHICA_ONTSERVE_INTEGRATION.md](docs/PROETHICA_ONTSERVE_INTEGRATION.md) - OntServe integration
 
-**Implementation Context:**
-- [INSTALL.md](INSTALL.md) - Installation instructions
-- [requirements.txt](requirements.txt) - All dependencies
-- [pyproject.toml](pyproject.toml) - Python project metadata
-
----
-
-## Commands to Continue This Work
-
-```bash
-# 1. Ensure you're on the correct branch
-git checkout development
-
-# 2. Pull latest changes
-git pull origin development
-
-# 3. Check what's been done
-git log --oneline -10
-
-# 4. Continue with next task
-# See "What's Next?" section above
-```
-
----
-
-## Known Issues & Notes
-
-1. **Empty Sections:** dissenting_opinion sections may be empty in some cases
-   - Fixed: overview.py now skips empty sections
-   - Empty sections won't cause processing issues
-
-2. **LangChain Migration:** Fully migrated to 1.0
-   - All old imports updated
-   - langchain-classic installed for legacy chains
-   - No breaking changes to functionality
-
-3. **Database:** PostgreSQL connection working
-   - Connection string: postgresql://postgres:PASS@localhost:5432/ai_ethical_dm
-   - Environment: development
-
-4. **MCP Integration:** OntServe running on port 8082
-   - All OntServe API calls working
-   - No changes needed
+**Implementation:**
+- [INSTALL.md](INSTALL.md) - Installation guide
+- [requirements.txt](requirements.txt) - Dependencies
 
 ---
 

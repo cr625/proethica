@@ -236,7 +236,7 @@ class RDFExtractionConverter:
                                          Literal(individual["source_text"])))
 
             # Add active obligations (NEW)
-            if "active_obligations" in individual:
+            if "active_obligations" in individual and individual["active_obligations"] is not None:
                 # Ensure it's a list, not a string
                 obligations = individual["active_obligations"]
                 if isinstance(obligations, str):
@@ -246,7 +246,7 @@ class RDFExtractionConverter:
                                              Literal(obligation)))
 
             # Add ethical tensions (NEW)
-            if "ethical_tensions" in individual:
+            if "ethical_tensions" in individual and individual["ethical_tensions"] is not None:
                 # Ensure it's a list, not a string
                 tensions = individual["ethical_tensions"]
                 if isinstance(tensions, str):
