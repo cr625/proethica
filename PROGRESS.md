@@ -1,8 +1,96 @@
 # ProEthica Refactoring Progress
 
-**Last Updated:** November 19, 2025 (Late Evening - Phase 1 Complete)
+**Last Updated:** November 19, 2025 (End of Day - Demo Prep Complete)
 **Active Branch:** `development`
-**Current Focus:** Entity Storage Architecture - Phase 1 Provenance IMPLEMENTED
+**Current Focus:** Demo Testing & Verification
+
+---
+
+## DEMO PREP STATUS - November 19, 2025 (Evening)
+
+**Ready for Demo Tonight:** ✅
+
+### Completed Today
+
+#### 1. Phase 1 Provenance - FULLY TESTED ✅
+- ✅ Successfully committed 10 classes with full provenance to `proethica-intermediate-extracted.ttl`
+- ✅ All provenance properties verified (case ID, section, pass, timestamps, source text)
+- ✅ Committed to git (both ProEthica and OntServe repos)
+- ✅ OntServe loading provenance ontology correctly
+
+#### 2. Critical Bug Fixes ✅
+- ✅ **Pass 2 Facts Section Display** - Fixed orphaned entities issue
+  - Problem: 32 Pass 2 entities from Facts section weren't showing in review page
+  - Root cause: Entities stored without corresponding extraction_prompts records
+  - Fix: Created missing extraction_prompts linking sessions to section_type='facts'
+  - Now visible: 6 principles, 8 obligations, 8 constraints, 10 capabilities
+
+- ✅ **Config Import Errors** - Fixed OntServe refresh script path issues
+  - Simplified sys.path setup to avoid package name conflicts
+  - Refresh functionality now works without errors
+
+- ✅ **Dateutil Dependency** - Removed external dependency
+  - Using built-in `datetime.fromisoformat()` instead
+  - No more "module not found" errors
+
+- ✅ **Git Tracking of Extraction Data** - Fixed dev/prod data conflict risk
+  - Problem: Runtime extraction data was tracked in git, risking overwrites between environments
+  - Fixed: Removed from tracking, added to .gitignore
+  - Now excluded: `proethica-intermediate-extracted.ttl`, `proethica-case-*.ttl`
+  - Still tracked (correct): Schema files only (core, intermediate, cases, provenance)
+  - Impact: Dev and production can have different extracted data without conflicts
+
+#### 3. Test Environment Prepared ✅
+- ✅ **Case 13 cleaned** - Ready for fresh end-to-end demo
+  - All 163 entities deleted
+  - All 18 extraction prompts cleared
+  - Clean slate for testing complete workflow
+
+- ✅ **Case 7 status** - Partially extracted for reference
+  - Pass 1: Complete (10 classes, 15 individuals committed with provenance)
+  - Pass 2: Complete (73 entities - 32 facts + 41 discussion)
+  - Pass 3: In progress (temporal dynamics extraction running)
+
+### What's Ready for Demo Tonight
+
+**Tested & Working:**
+1. ✅ Pass 1 extraction (Facts section) with provenance
+2. ✅ Commit to OntServe with full provenance preservation
+3. ✅ Pass 2 Facts section extraction and display
+4. ✅ Pass 2 Discussion section extraction and display
+5. ✅ Entity review pages showing correct counts
+6. ✅ Clear and re-run functionality (all passes)
+
+**Available Test Cases:**
+- **Case 7:** Partially complete (good for showing existing work)
+- **Case 13:** Clean slate (good for fresh demo of full workflow)
+
+### Known Issues (Non-Critical)
+
+1. **Step 3 Temporal Extraction Performance**
+   - Issue: LLM API calls can be slow (2-5 minutes for full extraction)
+   - Workaround: Stay on page until extraction completes
+   - Note: SSE connection closes if user navigates away
+
+2. **Provenance Not Yet on Temporal Entities**
+   - Pass 3 entities don't have Phase 1 provenance yet
+   - Would need Phase 2 work to add section/pass tracking
+   - Not critical for tonight's demo
+
+### Demo Recommendations
+
+**Best Demo Flow:**
+1. Use **Case 13** for clean end-to-end walkthrough
+2. Show **Pass 1 extraction** → Review → **Commit with provenance**
+3. Check `proethica-intermediate-extracted.ttl` to show provenance properties
+4. Show **Pass 2 extraction** (Facts or Discussion)
+5. Demonstrate **Clear & Re-run** functionality
+6. Optionally show **Pass 3 temporal dynamics** (if time allows, be patient)
+
+**Files to Show:**
+- `OntServe/ontologies/proethica-intermediate-extracted.ttl` - Classes with provenance
+- `OntServe/ontologies/proethica-case-13.ttl` - Case-specific individuals
+- `OntServe/ontologies/proethica-provenance.ttl` - Provenance ontology definition
 
 ---
 
