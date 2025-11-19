@@ -656,6 +656,11 @@ function generateSynthesisAnnotations() {
     });
 }
 
+// Helper function to get CSRF token
+function getCsrfToken() {
+    return document.querySelector('meta[name="csrf-token"]')?.content || '';
+}
+
 // Refresh from OntServe button handler
 const refreshBtn = document.getElementById('refreshFromOntServeBtn');
 if (refreshBtn) {
@@ -667,7 +672,8 @@ if (refreshBtn) {
         fetch('/scenario_pipeline/case/' + currentCaseId + '/entities/refresh_committed', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
             }
         })
         .then(response => response.json())

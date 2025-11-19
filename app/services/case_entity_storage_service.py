@@ -483,15 +483,16 @@ class CaseEntityStorageService:
         """
         try:
             from app.models import TemporaryRDFStorage, ExtractionPrompt
+            from app.models.document_concept_annotation import DocumentConceptAnnotation
 
             # Map pass to extraction_type for RDF storage
             # Note: Pass 3 uses 'temporal_dynamics_enhanced' as extraction_type for all entities
-            # Note: Pass 4 stores synthesis results (code provisions, questions, conclusions)
+            # Note: Pass 4 stores synthesis results (code provisions, questions, conclusions) + precedent references
             pass_extraction_types = {
                 'pass1': ['roles', 'states', 'resources'],
                 'pass2': ['principles', 'obligations', 'constraints', 'capabilities'],
                 'pass3': ['temporal_dynamics_enhanced'],  # Single extraction type for all temporal entities
-                'pass4': ['code_provision_reference', 'ethical_question', 'ethical_conclusion']  # Synthesis results
+                'pass4': ['code_provision_reference', 'ethical_question', 'ethical_conclusion', 'precedent_case_reference']  # Synthesis results + precedent references
             }
 
             # Map pass to concept_type for ExtractionPrompt
@@ -519,6 +520,7 @@ class CaseEntityStorageService:
                 'temporary_concepts': 0,
                 'rdf_triples': 0,
                 'extraction_prompts': 0,
+                'synthesis_annotations': 0,  # Text span annotations for Step 4
                 'types_cleared': extraction_types,
                 'section_type': section_type
             }
@@ -545,12 +547,12 @@ class CaseEntityStorageService:
             cleared_stats['temporary_concepts'] = concept_query.count()
             concept_query.delete(synchronize_session='fetch')
 
-            # 2. Clear RDF storage for specified extraction types
+            # 2. Clear RDF storage for specified extraction types (BOTH committed and uncommitted)
             for extraction_type in extraction_types:
                 rdf_query = db.session.query(TemporaryRDFStorage).filter_by(
                     case_id=case_id,
-                    extraction_type=extraction_type,
-                    is_committed=False  # Only uncommitted
+                    extraction_type=extraction_type
+                    # NOTE: Clearing both committed and uncommitted entities
                 )
 
                 # Add section filter if specified
@@ -577,11 +579,26 @@ class CaseEntityStorageService:
                 cleared_stats['extraction_prompts'] += prompt_count
                 prompt_query.delete(synchronize_session='fetch')
 
+            # 4. For Pass 4: Clear synthesis annotations (text span mappings)
+            if extraction_pass == 'pass4':
+                annotation_query = db.session.query(DocumentConceptAnnotation).filter_by(
+                    document_type='case',
+                    document_id=case_id,
+                    ontology_name='step4_synthesis'
+                )
+
+                annotation_count = annotation_query.count()
+                cleared_stats['synthesis_annotations'] = annotation_count
+                annotation_query.delete(synchronize_session='fetch')
+
+                logger.info(f"Cleared {annotation_count} synthesis annotations for case {case_id}")
+
             db.session.commit()
 
             total_cleared = (cleared_stats['temporary_concepts'] +
                            cleared_stats['rdf_triples'] +
-                           cleared_stats['extraction_prompts'])
+                           cleared_stats['extraction_prompts'] +
+                           cleared_stats['synthesis_annotations'])
 
             section_label = section_type.replace('_', ' ').title() if section_type else 'all sections'
             message = f"Cleared {total_cleared} items from {extraction_pass.upper()} ({section_label})"
@@ -628,12 +645,12 @@ class CaseEntityStorageService:
 
             # Map pass to extraction_type for RDF storage
             # Note: Pass 3 uses 'temporal_dynamics_enhanced' as extraction_type for all entities
-            # Note: Pass 4 stores synthesis results (code provisions, questions, conclusions)
+            # Note: Pass 4 stores synthesis results (code provisions, questions, conclusions) + precedent references
             pass_extraction_types = {
                 'pass1': ['roles', 'states', 'resources'],
                 'pass2': ['principles', 'obligations', 'constraints', 'capabilities'],
                 'pass3': ['temporal_dynamics_enhanced'],  # Single extraction type for all temporal entities
-                'pass4': ['code_provision_reference', 'ethical_question', 'ethical_conclusion']  # Synthesis results
+                'pass4': ['code_provision_reference', 'ethical_question', 'ethical_conclusion', 'precedent_case_reference']  # Synthesis results + precedent references
             }
 
             extraction_types = pass_extraction_types.get(extraction_pass)

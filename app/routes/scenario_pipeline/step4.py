@@ -238,7 +238,7 @@ def step4_review(case_id):
                 'rdf_json_ld': entity.rdf_json_ld or {}
             })
 
-        # Get code provisions and convert to dicts
+        # Get code provisions and convert to dicts (both committed and uncommitted)
         provisions_objs = TemporaryRDFStorage.query.filter_by(
             case_id=case_id,
             extraction_type='code_provision_reference'
@@ -255,7 +255,7 @@ def step4_review(case_id):
                 'rdf_json_ld': p.rdf_json_ld or {}
             })
 
-        # Get questions and convert to dicts
+        # Get questions and convert to dicts (both committed and uncommitted)
         questions_objs = TemporaryRDFStorage.query.filter_by(
             case_id=case_id,
             extraction_type='ethical_question'
@@ -272,7 +272,7 @@ def step4_review(case_id):
                 'rdf_json_ld': q.rdf_json_ld or {}
             })
 
-        # Get conclusions and convert to dicts
+        # Get conclusions and convert to dicts (both committed and uncommitted)
         conclusions_objs = TemporaryRDFStorage.query.filter_by(
             case_id=case_id,
             extraction_type='ethical_conclusion'
@@ -336,23 +336,25 @@ def step4_review(case_id):
 
 def _get_all_entities_for_graph(case_id: int) -> List:
     """
-    Get all extracted entities from Passes 1-3 for graph visualization.
-    Returns list of entity objects for Cytoscape rendering.
+    Get all extracted entities from Passes 1-3 + precedent references for graph visualization.
+    Returns list of entity objects for Cytoscape rendering (both committed and uncommitted).
     """
-    entity_types = [
-        'roles', 'states', 'resources',
-        'principles', 'obligations', 'constraints', 'capabilities',
-        'actions', 'events'
+    # Include Pass 1-3 extraction types PLUS precedent_case_reference
+    extraction_types = [
+        'roles', 'states', 'resources',  # Pass 1
+        'principles', 'obligations', 'constraints', 'capabilities',  # Pass 2
+        'temporal_dynamics_enhanced',  # Pass 3 (all temporal entities)
+        'precedent_case_reference'  # Step 6 precedent discovery (shown in Step 4 graph)
     ]
 
     all_entities = []
-    for entity_type in entity_types:
-        entities = TemporaryRDFStorage.query.filter_by(
-            case_id=case_id,
-            entity_type=entity_type,
-            storage_type='individual'
-        ).all()
-        all_entities.extend(entities)
+    # Query by extraction_type to get relevant entities
+    entities = TemporaryRDFStorage.query.filter(
+        TemporaryRDFStorage.case_id == case_id,
+        TemporaryRDFStorage.extraction_type.in_(extraction_types),
+        TemporaryRDFStorage.storage_type == 'individual'
+    ).all()
+    all_entities.extend(entities)
 
     return all_entities
 
