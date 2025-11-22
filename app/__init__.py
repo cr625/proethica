@@ -7,8 +7,16 @@ from flask import Flask
 from flask_login import LoginManager
 from flask_wtf.csrf import CSRFProtect, generate_csrf
 
+from app.blueprints import (
+    ADMIN_BLUEPRINTS,
+    ANNOTATION_BLUEPRINTS,
+    CORE_BLUEPRINTS,
+    SCENARIO_BLUEPRINTS,
+)
 from app.models import db
 from app.template_filters import init_app as init_filters
+from app.utils.app_init import init_csrf_exemptions, smoke_test_db_connection
+
 
 def create_app(config_name=None):
     """
@@ -77,23 +85,7 @@ def create_app(config_name=None):
         from app.models.user import User
         return User.query.get(int(user_id))
     
-    # Simply test database connection without schema verification
-    with app.app_context():
-        try:
-            from sqlalchemy import create_engine
-            
-            # Create engine from app config
-            engine = create_engine(app.config['SQLALCHEMY_DATABASE_URI'])
-            
-            # Test connection only
-            connection = engine.connect()
-            connection.close()
-            
-            if os.environ.get('DEBUG', '').lower() == 'true':
-                print("Database connection successful.")
-        except Exception as e:
-            print(f"Warning: Database connection error: {str(e)}")
-            print("The application may not function correctly without database access.")
+    smoke_test_db_connection(app)
     
     # Register template filters
     init_filters(app)
@@ -121,122 +113,16 @@ def create_app(config_name=None):
             # In case CSRF not fully configured, avoid breaking templates
             return {}
 
-    # Register blueprints
-    from app.routes.index import index_bp
-    from app.routes.auth import auth_bp
-    from app.routes.dashboard import dashboard_bp
-    from app.routes.worlds import worlds_bp
-    from app.routes.domains import domains_bp
-    from app.routes.roles import roles_bp
-    from app.routes.resources import resources_bp
-    from app.routes.conditions import conditions_bp
-    from app.routes.scenarios import scenarios_bp
-    from app.routes.scenario_pipeline import interactive_scenario_bp
-    from app.routes.scenario_pipeline.entity_review import bp as entity_review_bp
-    from app.routes.scenario_pipeline.step4 import bp as step4_bp
-    from app.routes.scenario_pipeline.step5 import bp as step5_bp
-    from app.routes.characters import characters_bp
-    from app.routes.events import events_bp
-    from app.routes.simulation import simulation_bp
-    # STUB ROUTES: Ontology functionality moved to OntServe - these redirect to OntServe
-    from app.routes.ontology import ontology_bp
-    from app.routes.debug import debug_bp
-    from app.routes.documents import documents_bp
-    from app.routes.cases import cases_bp
-    from app.routes.document_structure import doc_structure_bp
-    from app.routes.test_routes import test_bp
-    from app.routes.experiment import experiment_bp
-    from app.routes.type_management import type_management_bp
-    from app.routes.debug_env import debug_env_bp
-    from app.routes.wizard import wizard_bp
-    from app.routes.guidelines import guidelines_bp
-    from app.routes.admin import admin_bp
-    from app.routes.admin_prompts import admin_prompts_bp
-    from app.routes.prompt_builder import prompt_builder_bp
-    from app.routes.worlds_extract_only import worlds_extract_only_bp
-    from app.routes.annotations import annotations_bp
-    from app.routes.agent import agent_bp
-    # Enhanced intelligent annotations
-    from app.routes.intelligent_annotations import intelligent_annotations_bp
-    # Enhanced guideline annotations with multi-agent orchestration
-    from app.routes.enhanced_annotations import bp as enhanced_annotations_bp
-    # LLM-enhanced annotation routes
-    from app.routes.llm_annotations import bp as llm_annotations_bp
-    # Annotation review routes
-    from app.routes.annotation_review import bp as annotation_review_bp
-    # Annotation versioning API routes
-    from app.routes.annotation_versions import annotation_versions_bp
-    # Unified document annotation API routes
-    from app.routes.api_document_annotations import bp as api_document_annotations_bp
-    # Reasoning inspector routes
-    from app.routes.reasoning import reasoning_bp
-    # PROV-O provenance viewer routes
-    from app.routes.provenance import provenance_bp
+    def register_blueprints(blueprint_groups):
+        for blueprint, options in blueprint_groups:
+            app.register_blueprint(blueprint, **options)
+
+    register_blueprints(CORE_BLUEPRINTS)
+    register_blueprints(SCENARIO_BLUEPRINTS)
+    register_blueprints(ANNOTATION_BLUEPRINTS)
+    register_blueprints(ADMIN_BLUEPRINTS)
     
-    app.register_blueprint(index_bp)
-    app.register_blueprint(auth_bp)
-    app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
-    app.register_blueprint(worlds_bp, url_prefix='/worlds')
-    app.register_blueprint(domains_bp, url_prefix='/domains')
-    app.register_blueprint(roles_bp, url_prefix='/roles')
-    app.register_blueprint(resources_bp, url_prefix='/resources')
-    app.register_blueprint(conditions_bp, url_prefix='/conditions')
-    app.register_blueprint(scenarios_bp, url_prefix='/scenarios')
-    app.register_blueprint(interactive_scenario_bp)  # Uses /scenario_pipeline prefix from blueprint
-    app.register_blueprint(entity_review_bp, url_prefix='/scenario_pipeline')
-    app.register_blueprint(step4_bp)  # Uses /scenario_pipeline prefix from blueprint
-    app.register_blueprint(step5_bp)  # Step 5: Scenario Generation
-    app.register_blueprint(characters_bp, url_prefix='/characters')
-    app.register_blueprint(events_bp, url_prefix='/events')
-    app.register_blueprint(simulation_bp, url_prefix='/simulation')
-    # STUB ROUTES: Ontology routes redirect to OntServe
-    app.register_blueprint(ontology_bp, url_prefix='/ontology')
-    app.register_blueprint(debug_bp, url_prefix='/debug')
-    app.register_blueprint(documents_bp, url_prefix='/documents')
-    app.register_blueprint(cases_bp, url_prefix='/cases')
-    app.register_blueprint(doc_structure_bp)
-    app.register_blueprint(experiment_bp, url_prefix='/experiment')
-    app.register_blueprint(type_management_bp)
-    app.register_blueprint(debug_env_bp)
-    app.register_blueprint(wizard_bp)
-    app.register_blueprint(test_bp)
-    app.register_blueprint(guidelines_bp)
-    app.register_blueprint(admin_bp)
-    app.register_blueprint(admin_prompts_bp)
-    app.register_blueprint(prompt_builder_bp)
-    app.register_blueprint(worlds_extract_only_bp)
-    app.register_blueprint(annotations_bp)
-    app.register_blueprint(agent_bp)  # Register the agent blueprint
-    app.register_blueprint(intelligent_annotations_bp)  # Register intelligent annotations
-    app.register_blueprint(enhanced_annotations_bp)  # Register enhanced annotations with MCP integration
-    app.register_blueprint(llm_annotations_bp)  # Register LLM-enhanced annotations
-    app.register_blueprint(annotation_review_bp)  # Register annotation review endpoints
-    app.register_blueprint(annotation_versions_bp)  # Register annotation versioning API
-    app.register_blueprint(api_document_annotations_bp)  # Register unified document annotation API
-    app.register_blueprint(reasoning_bp)  # Register reasoning inspector routes
-    app.register_blueprint(provenance_bp)  # Register PROV-O provenance viewer routes
-    
-    # Exempt API routes from CSRF protection
-    from app.routes.api_document_annotations import init_csrf_exemption
-    init_csrf_exemption(app)
-    from app.routes.scenario_pipeline.interactive_builder import init_csrf_exemption as init_scenario_csrf_exemption
-    init_scenario_csrf_exemption(app)
-    
-    # Exempt specific case routes from CSRF protection
-    from app.routes.cases import init_cases_csrf_exemption
-    init_cases_csrf_exemption(app)
-    
-    # Initialize CSRF exemptions after registering blueprints
-    from app.routes.scenario_pipeline.step1 import init_step1_csrf_exemption
-    from app.routes.scenario_pipeline.step2 import init_step2_csrf_exemption
-    from app.routes.scenario_pipeline.step3 import init_step3_csrf_exemption
-    from app.routes.scenario_pipeline.step4 import init_step4_csrf_exemption
-    from app.routes.scenario_pipeline.step5 import init_step5_csrf_exemption
-    init_step1_csrf_exemption(app)
-    init_step2_csrf_exemption(app)
-    init_step3_csrf_exemption(app)
-    init_step4_csrf_exemption(app)
-    init_step5_csrf_exemption(app)
+    init_csrf_exemptions(app)
     
     
     # Make db accessible at app level for imports in other modules
