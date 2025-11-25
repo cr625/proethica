@@ -98,9 +98,8 @@ _src/
 # **/CLAUDE.md      # Subproject instructions - needed for context
 
 # Documentation directories (development/internal only)
-# TEMPORARILY EXPOSED FOR CLEANUP WORK (2025-11-16)
-# docs/             # Planning and architecture docs - needed for refactoring
-# */docs/           # Subproject docs
+docs/
+*/docs/
 
 # Scripts and development artifacts
 # TEMPORARILY EXPOSED FOR CLEANUP WORK (2025-11-16)
@@ -157,7 +156,14 @@ database_backups/
 backups/
 # docs/  # COMMENTED OUT 2025-11-16 - docs now exposed for cleanup work
 
+# Documentation artifacts (LaTeX diagrams, PDFs - local only)
+docs/diagrams/
+
 # Database backups (should not be in version control)
 /backups/
 *.sql.gz
 *.sql.bak
+CLAUDE.md
+PROGRESS.md
+**/CLAUDE.md
+**/PROGRESS.md
