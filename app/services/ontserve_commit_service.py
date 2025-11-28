@@ -108,10 +108,6 @@ class OntServeCommitService:
                 results['individuals_committed'] = individual_result['count']
                 if individual_result.get('error'):
                     results['errors'].append(individual_result['error'])
-                # Temporarily disabled - OntServe refresh has import issues but is not critical
-                # else:
-                #     # Also refresh the case ontology to extract individuals
-                #     self._refresh_case_ontology(case_id)
 
             # Mark entities as committed
             for entity in entities:
@@ -121,12 +117,25 @@ class OntServeCommitService:
             from app import db
             db.session.commit()
 
-            # Temporarily disabled - OntServe refresh has import issues but is not critical
-            # TTL files are correctly written, database sync can be done manually
-            # sync_result = self._synchronize_with_ontserve()
-            # if not sync_result['success']:
-            #     results['errors'].append(f"Sync warning: {sync_result.get('error', 'Unknown error')}")
-            # results['sync_status'] = sync_result
+            # Sync with OntServe database (register case ontology + refresh entities)
+            if individuals_to_commit:
+                # Register the case ontology if new, then refresh entities
+                register_result = self._register_case_ontology(case_id)
+                if register_result.get('success'):
+                    refresh_result = self._refresh_case_ontology(case_id)
+                    if not refresh_result.get('success'):
+                        results['errors'].append(f"OntServe refresh warning: {refresh_result.get('error', 'Unknown')}")
+                    else:
+                        results['ontserve_synced'] = True
+                else:
+                    results['errors'].append(f"OntServe register warning: {register_result.get('error', 'Unknown')}")
+
+            if classes_to_commit:
+                sync_result = self._synchronize_with_ontserve()
+                if not sync_result['success']:
+                    results['errors'].append(f"OntServe sync warning: {sync_result.get('error', 'Unknown')}")
+                else:
+                    results['ontserve_synced'] = True
 
             return results
 
@@ -434,12 +443,13 @@ class OntServeCommitService:
                     'error': 'Refresh script not found'
                 }
 
-            # Refresh the extracted ontology to pick up new classes
+            # Refresh the extracted ontology (scripts handle their own path setup)
             result = subprocess.run(
                 ["python", str(refresh_script), "proethica-intermediate-extracted"],
                 capture_output=True,
                 text=True,
-                cwd=str(self.ontserve_path)
+                cwd=str(self.ontserve_path),
+                timeout=60
             )
 
             if result.returncode == 0:
@@ -464,6 +474,13 @@ class OntServeCommitService:
                     'error': result.stderr
                 }
 
+        except subprocess.TimeoutExpired:
+            logger.error("Sync script timed out")
+            return {
+                'success': False,
+                'error': 'Sync timed out'
+            }
+
         except Exception as e:
             logger.error(f"Error synchronizing with OntServe: {e}")
             return {
@@ -482,15 +499,15 @@ class OntServeCommitService:
 
             if not register_script.exists():
                 logger.warning("Registration script not found, trying to register via refresh")
-                # Fallback to just trying refresh
                 return self._refresh_case_ontology(case_id)
 
-            # Run the registration script
+            # Run the registration script (scripts handle their own path setup)
             result = subprocess.run(
                 ["python", str(register_script)],
                 capture_output=True,
                 text=True,
-                cwd=str(self.ontserve_path)
+                cwd=str(self.ontserve_path),
+                timeout=60
             )
 
             if result.returncode == 0:
@@ -498,9 +515,11 @@ class OntServeCommitService:
                 return {'success': True}
             else:
                 logger.error(f"Failed to register case ontology: {result.stderr}")
-                # Try refresh as fallback
-                return self._refresh_case_ontology(case_id)
+                return {'success': False, 'error': result.stderr}
 
+        except subprocess.TimeoutExpired:
+            logger.error("Registration script timed out")
+            return {'success': False, 'error': 'Registration timed out'}
         except Exception as e:
             logger.error(f"Error registering case ontology: {e}")
             return {'success': False, 'error': str(e)}
@@ -515,11 +534,13 @@ class OntServeCommitService:
             refresh_script = self.ontserve_path / "scripts" / "refresh_entity_extraction.py"
             case_ontology_name = f"proethica-case-{case_id}"
 
+            # Run refresh script (scripts handle their own path setup)
             result = subprocess.run(
                 ["python", str(refresh_script), case_ontology_name],
                 capture_output=True,
                 text=True,
-                cwd=str(self.ontserve_path)
+                cwd=str(self.ontserve_path),
+                timeout=60
             )
 
             if result.returncode == 0:
@@ -529,6 +550,9 @@ class OntServeCommitService:
                 logger.error(f"Failed to refresh case ontology: {result.stderr}")
                 return {'success': False, 'error': result.stderr}
 
+        except subprocess.TimeoutExpired:
+            logger.error(f"Refresh script timed out for {case_ontology_name}")
+            return {'success': False, 'error': 'Refresh timed out'}
         except Exception as e:
             logger.error(f"Error refreshing case ontology: {e}")
             return {'success': False, 'error': str(e)}
