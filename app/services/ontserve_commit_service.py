@@ -46,6 +46,8 @@ class OntServeCommitService:
         self.ontserve_path = Path("/home/chris/onto/OntServe")
         self.ontologies_dir = self.ontserve_path / "ontologies"
         self.mcp_url = "http://localhost:8082"
+        # Use OntServe's venv Python for subprocess calls (has pgvector, etc.)
+        self.ontserve_python = str(self.ontserve_path / "venv-ontserve" / "bin" / "python")
 
         # Ensure directories exist
         self.ontologies_dir.mkdir(parents=True, exist_ok=True)
@@ -445,7 +447,7 @@ class OntServeCommitService:
 
             # Refresh the extracted ontology (scripts handle their own path setup)
             result = subprocess.run(
-                ["python", str(refresh_script), "proethica-intermediate-extracted"],
+                [self.ontserve_python, str(refresh_script), "proethica-intermediate-extracted"],
                 capture_output=True,
                 text=True,
                 cwd=str(self.ontserve_path),
@@ -503,7 +505,7 @@ class OntServeCommitService:
 
             # Run the registration script (scripts handle their own path setup)
             result = subprocess.run(
-                ["python", str(register_script)],
+                [self.ontserve_python, str(register_script)],
                 capture_output=True,
                 text=True,
                 cwd=str(self.ontserve_path),
@@ -536,7 +538,7 @@ class OntServeCommitService:
 
             # Run refresh script (scripts handle their own path setup)
             result = subprocess.run(
-                ["python", str(refresh_script), case_ontology_name],
+                [self.ontserve_python, str(refresh_script), case_ontology_name],
                 capture_output=True,
                 text=True,
                 cwd=str(self.ontserve_path),
