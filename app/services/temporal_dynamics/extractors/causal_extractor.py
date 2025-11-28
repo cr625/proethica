@@ -262,32 +262,122 @@ def _parse_causal_response(response_text: str) -> List[Dict]:
     """
     Parse LLM response to extract causal chains.
 
-    Handles both direct JSON and markdown code blocks.
+    Handles various JSON formats with robust error handling.
     """
-    try:
-        # Try direct JSON parse first
-        result = json.loads(response_text)
-        return result.get('causal_relationships', [])
+    import re
 
-    except json.JSONDecodeError:
-        # Try to extract JSON from markdown code block
-        import re
-
-        # Look for ```json ... ``` block
-        json_match = re.search(r'```json\s*\n(.*?)\n```', response_text, re.DOTALL)
-        if json_match:
-            json_str = json_match.group(1)
-            result = json.loads(json_str)
-            return result.get('causal_relationships', [])
-
-        # Look for { ... } object
-        json_match = re.search(r'\{.*"causal_relationships".*\}', response_text, re.DOTALL)
-        if json_match:
-            result = json.loads(json_match.group(0))
-            return result.get('causal_relationships', [])
-
-        logger.error(f"Could not parse causal response as JSON: {response_text[:200]}")
+    if not response_text or not response_text.strip():
+        logger.error("[Stage 5] Empty response text received")
         return []
+
+    logger.info(f"[Stage 5] Parsing response of {len(response_text)} characters")
+
+    # Strategy 1: Try direct JSON parse
+    try:
+        result = json.loads(response_text)
+        chains = result.get('causal_relationships', [])
+        logger.info(f"[Stage 5] Direct JSON parse successful: {len(chains)} causal chains")
+        return chains
+    except json.JSONDecodeError as e:
+        logger.debug(f"[Stage 5] Direct JSON parse failed: {e}")
+
+    # Strategy 2: Extract from markdown code block
+    json_match = re.search(r'```(?:json)?\s*\n(.*?)\n```', response_text, re.DOTALL)
+    if json_match:
+        json_str = json_match.group(1).strip()
+        try:
+            result = json.loads(json_str)
+            chains = result.get('causal_relationships', [])
+            logger.info(f"[Stage 5] Markdown block parse successful: {len(chains)} causal chains")
+            return chains
+        except json.JSONDecodeError as e:
+            logger.debug(f"[Stage 5] Markdown block parse failed: {e}")
+            chains = _try_fix_and_parse_causal(json_str, "markdown block")
+            if chains is not None:
+                return chains
+
+    # Strategy 3: Find JSON object containing "causal_relationships"
+    json_match = re.search(r'(\{[^{}]*"causal_relationships"\s*:\s*\[.*?\][^{}]*\})', response_text, re.DOTALL)
+    if json_match:
+        json_str = json_match.group(1)
+        try:
+            result = json.loads(json_str)
+            chains = result.get('causal_relationships', [])
+            logger.info(f"[Stage 5] Regex extraction successful: {len(chains)} causal chains")
+            return chains
+        except json.JSONDecodeError as e:
+            logger.debug(f"[Stage 5] Regex extraction failed: {e}")
+            chains = _try_fix_and_parse_causal(json_str, "regex extraction")
+            if chains is not None:
+                return chains
+
+    # Strategy 4: Find any JSON object with brace matching
+    start_idx = response_text.find('{')
+    if start_idx != -1:
+        depth = 0
+        end_idx = start_idx
+        for i, char in enumerate(response_text[start_idx:], start_idx):
+            if char == '{':
+                depth += 1
+            elif char == '}':
+                depth -= 1
+                if depth == 0:
+                    end_idx = i + 1
+                    break
+
+        if end_idx > start_idx:
+            json_str = response_text[start_idx:end_idx]
+            try:
+                result = json.loads(json_str)
+                chains = result.get('causal_relationships', [])
+                logger.info(f"[Stage 5] Brace matching parse successful: {len(chains)} causal chains")
+                return chains
+            except json.JSONDecodeError as e:
+                logger.debug(f"[Stage 5] Brace matching parse failed: {e}")
+                chains = _try_fix_and_parse_causal(json_str, "brace matching")
+                if chains is not None:
+                    return chains
+
+    logger.error(f"[Stage 5] All JSON parsing strategies failed")
+    logger.error(f"[Stage 5] Response preview (first 500 chars): {response_text[:500]}")
+    return []
+
+
+def _try_fix_and_parse_causal(json_str: str, source: str) -> List[Dict]:
+    """Attempt to fix common JSON issues and parse for causal chains."""
+    import re
+
+    # Fix 1: Remove trailing commas
+    fixed = re.sub(r',\s*([}\]])', r'\1', json_str)
+    try:
+        result = json.loads(fixed)
+        chains = result.get('causal_relationships', [])
+        logger.info(f"[Stage 5] Fixed trailing commas from {source}: {len(chains)} chains")
+        return chains
+    except json.JSONDecodeError:
+        pass
+
+    # Fix 2: Replace single quotes
+    fixed = re.sub(r"(?<=[{,:\[])\s*'([^']*?)'\s*(?=[,}\]:])", r'"\1"', json_str)
+    try:
+        result = json.loads(fixed)
+        chains = result.get('causal_relationships', [])
+        logger.info(f"[Stage 5] Fixed single quotes from {source}: {len(chains)} chains")
+        return chains
+    except json.JSONDecodeError:
+        pass
+
+    # Fix 3: Handle unescaped newlines
+    fixed = json_str.replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
+    try:
+        result = json.loads(fixed)
+        chains = result.get('causal_relationships', [])
+        logger.info(f"[Stage 5] Fixed newlines from {source}: {len(chains)} chains")
+        return chains
+    except json.JSONDecodeError:
+        pass
+
+    return None
 
 
 def _enforce_max_depth(causal_chains: List[Dict]) -> List[Dict]:

@@ -265,29 +265,135 @@ def _parse_action_response(response_text: str) -> List[Dict]:
     """
     Parse LLM response to extract actions.
 
-    Handles both direct JSON and markdown code blocks.
+    Handles various JSON formats with robust error handling:
+    - Direct JSON
+    - Markdown code blocks (```json ... ```)
+    - JSON embedded in text
+    - Common JSON formatting issues (trailing commas, etc.)
     """
-    try:
-        # Try direct JSON parse first
-        result = json.loads(response_text)
-        return result.get('actions', [])
+    import re
 
-    except json.JSONDecodeError:
-        # Try to extract JSON from markdown code block
-        import re
-
-        # Look for ```json ... ``` block
-        json_match = re.search(r'```json\s*\n(.*?)\n```', response_text, re.DOTALL)
-        if json_match:
-            json_str = json_match.group(1)
-            result = json.loads(json_str)
-            return result.get('actions', [])
-
-        # Look for { ... } object
-        json_match = re.search(r'\{.*"actions".*\}', response_text, re.DOTALL)
-        if json_match:
-            result = json.loads(json_match.group(0))
-            return result.get('actions', [])
-
-        logger.error(f"Could not parse action response as JSON: {response_text[:200]}")
+    if not response_text or not response_text.strip():
+        logger.error("[Stage 3] Empty response text received")
         return []
+
+    # Log response length for debugging
+    logger.info(f"[Stage 3] Parsing response of {len(response_text)} characters")
+
+    # Strategy 1: Try direct JSON parse
+    try:
+        result = json.loads(response_text)
+        actions = result.get('actions', [])
+        logger.info(f"[Stage 3] Direct JSON parse successful: {len(actions)} actions")
+        return actions
+    except json.JSONDecodeError as e:
+        logger.debug(f"[Stage 3] Direct JSON parse failed: {e}")
+
+    # Strategy 2: Extract from markdown code block (```json ... ```)
+    json_match = re.search(r'```(?:json)?\s*\n(.*?)\n```', response_text, re.DOTALL)
+    if json_match:
+        json_str = json_match.group(1).strip()
+        try:
+            result = json.loads(json_str)
+            actions = result.get('actions', [])
+            logger.info(f"[Stage 3] Markdown block parse successful: {len(actions)} actions")
+            return actions
+        except json.JSONDecodeError as e:
+            logger.debug(f"[Stage 3] Markdown block parse failed: {e}")
+            # Try fixing common issues
+            actions = _try_fix_and_parse(json_str, "markdown block")
+            if actions is not None:
+                return actions
+
+    # Strategy 3: Find outermost JSON object containing "actions"
+    # Use a more careful regex that finds balanced braces
+    json_match = re.search(r'(\{[^{}]*"actions"\s*:\s*\[.*?\][^{}]*\})', response_text, re.DOTALL)
+    if json_match:
+        json_str = json_match.group(1)
+        try:
+            result = json.loads(json_str)
+            actions = result.get('actions', [])
+            logger.info(f"[Stage 3] Regex extraction successful: {len(actions)} actions")
+            return actions
+        except json.JSONDecodeError as e:
+            logger.debug(f"[Stage 3] Regex extraction failed: {e}")
+            actions = _try_fix_and_parse(json_str, "regex extraction")
+            if actions is not None:
+                return actions
+
+    # Strategy 4: Find any JSON object and look for actions key
+    # Start from first { and find matching }
+    start_idx = response_text.find('{')
+    if start_idx != -1:
+        # Find the matching closing brace
+        depth = 0
+        end_idx = start_idx
+        for i, char in enumerate(response_text[start_idx:], start_idx):
+            if char == '{':
+                depth += 1
+            elif char == '}':
+                depth -= 1
+                if depth == 0:
+                    end_idx = i + 1
+                    break
+
+        if end_idx > start_idx:
+            json_str = response_text[start_idx:end_idx]
+            try:
+                result = json.loads(json_str)
+                actions = result.get('actions', [])
+                logger.info(f"[Stage 3] Brace matching parse successful: {len(actions)} actions")
+                return actions
+            except json.JSONDecodeError as e:
+                logger.debug(f"[Stage 3] Brace matching parse failed: {e}")
+                actions = _try_fix_and_parse(json_str, "brace matching")
+                if actions is not None:
+                    return actions
+
+    # All strategies failed - log detailed error
+    logger.error(f"[Stage 3] All JSON parsing strategies failed")
+    logger.error(f"[Stage 3] Response preview (first 500 chars): {response_text[:500]}")
+    logger.error(f"[Stage 3] Response preview (last 200 chars): {response_text[-200:]}")
+    return []
+
+
+def _try_fix_and_parse(json_str: str, source: str) -> List[Dict]:
+    """
+    Attempt to fix common JSON issues and parse.
+
+    Returns list of actions if successful, None if failed.
+    """
+    import re
+
+    # Fix 1: Remove trailing commas before ] or }
+    fixed = re.sub(r',\s*([}\]])', r'\1', json_str)
+    try:
+        result = json.loads(fixed)
+        actions = result.get('actions', [])
+        logger.info(f"[Stage 3] Fixed trailing commas from {source}: {len(actions)} actions")
+        return actions
+    except json.JSONDecodeError:
+        pass
+
+    # Fix 2: Replace single quotes with double quotes (careful with apostrophes)
+    # Only replace quotes that look like JSON string delimiters
+    fixed = re.sub(r"(?<=[{,:\[])\s*'([^']*?)'\s*(?=[,}\]:])", r'"\1"', json_str)
+    try:
+        result = json.loads(fixed)
+        actions = result.get('actions', [])
+        logger.info(f"[Stage 3] Fixed single quotes from {source}: {len(actions)} actions")
+        return actions
+    except json.JSONDecodeError:
+        pass
+
+    # Fix 3: Handle unescaped newlines in strings
+    fixed = json_str.replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
+    try:
+        result = json.loads(fixed)
+        actions = result.get('actions', [])
+        logger.info(f"[Stage 3] Fixed newlines from {source}: {len(actions)} actions")
+        return actions
+    except json.JSONDecodeError:
+        pass
+
+    return None

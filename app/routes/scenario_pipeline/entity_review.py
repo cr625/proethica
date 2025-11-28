@@ -1104,7 +1104,18 @@ def commit_temporal_entities(case_id):
         if result['success']:
             return jsonify(result)
         else:
-            return jsonify(result), 500
+            # Check if this is "already committed" vs actual error
+            error_msg = result.get('error', '')
+            if 'No uncommitted' in error_msg or 'already committed' in error_msg.lower():
+                # Not an error - entities are already committed
+                return jsonify({
+                    'success': True,
+                    'message': 'All temporal entities have already been committed',
+                    'already_committed': True
+                })
+            else:
+                # Actual error
+                return jsonify(result), 500
 
     except Exception as e:
         logger.error(f"Error committing temporal entities: {e}")
@@ -1226,6 +1237,11 @@ def review_enhanced_temporal(case_id):
 
         extraction_complete = len(temporal_entities) > 0
 
+        # Check commit status
+        uncommitted_count = sum(1 for e in temporal_entities if not e.is_committed)
+        committed_count = sum(1 for e in temporal_entities if e.is_committed)
+        all_committed = extraction_complete and uncommitted_count == 0
+
         # Calculate summary statistics
         summary = {
             'total_entities': len(temporal_entities),
@@ -1233,7 +1249,10 @@ def review_enhanced_temporal(case_id):
             'events': len(events),
             'allen_relations': len(allen_relations),
             'causal_chains': len(causal_chains),
-            'has_timeline': timeline is not None
+            'has_timeline': timeline is not None,
+            'committed_count': committed_count,
+            'uncommitted_count': uncommitted_count,
+            'all_committed': all_committed
         }
 
         context = {
@@ -1246,7 +1265,8 @@ def review_enhanced_temporal(case_id):
             'allen_relations': allen_relations,
             'causal_chains': causal_chains,
             'timeline': timeline,
-            'summary': summary
+            'summary': summary,
+            'all_committed': all_committed
         }
 
         return render_template('entity_review/enhanced_temporal_review.html', **context)

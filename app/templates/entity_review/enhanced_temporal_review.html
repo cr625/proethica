@@ -45,27 +45,14 @@
     </div>
 
     <div class="alert alert-success">
-        <h5><i class="bi bi-check-circle"></i> Extraction Complete</h5>
-        <p class="mb-2">Enhanced temporal dynamics extraction completed successfully.</p>
-        <div class="row">
-            <div class="col-md-2">
-                <strong>Total Entities:</strong> {{ summary.total_entities }}
-            </div>
-            <div class="col-md-2">
-                <strong>Actions Extracted:</strong> {{ summary.actions }}
-            </div>
-            <div class="col-md-2">
-                <strong>Events Extracted:</strong> {{ summary.events }}
-            </div>
-            <div class="col-md-2">
-                <strong>Causal Chains:</strong> {{ summary.causal_chains }}
-            </div>
-            <div class="col-md-2">
-                <strong>Allen Relations:</strong> {{ summary.allen_relations }}
-            </div>
-            <div class="col-md-2">
-                <strong>Timeline:</strong> {% if summary.has_timeline %}<i class="bi bi-check-circle text-success"></i>{% else %}<i class="bi bi-x-circle text-muted"></i>{% endif %}
-            </div>
+        <h5 class="mb-2"><i class="bi bi-check-circle"></i> Extraction Complete</h5>
+        <div class="mb-2"><strong>Total Entities:</strong> {{ summary.total_entities }}</div>
+        <div class="d-flex flex-wrap gap-4">
+            <div><strong>Actions:</strong> {{ summary.actions }}</div>
+            <div><strong>Events:</strong> {{ summary.events }}</div>
+            <div><strong>Causal Chains:</strong> {{ summary.causal_chains }}</div>
+            <div><strong>Allen Relations:</strong> {{ summary.allen_relations }}</div>
+            <div><strong>Timeline:</strong> {{ timeline.total_elements if timeline else 0 }}</div>
         </div>
     </div>
 
@@ -573,16 +560,23 @@
     <!-- Commit to OntServe Section -->
     {% if extraction_complete %}
     <div class="card mb-4">
-        <div class="card-header bg-success bg-opacity-10">
+        <div class="card-header {% if all_committed %}bg-secondary{% else %}bg-success{% endif %} bg-opacity-10">
             <h5 class="mb-0"><i class="bi bi-database-check"></i> Commit to OntServe</h5>
         </div>
         <div class="card-body">
+            {% if all_committed %}
+            <div class="alert alert-success mb-3">
+                <h6 class="mb-1"><i class="bi bi-check-circle"></i> All Entities Committed</h6>
+                <p class="mb-0">All {{ summary.total_entities }} temporal entities have been committed to OntServe.</p>
+            </div>
+            {% else %}
             <p>Commit these temporal entities to OntServe permanent storage for use across cases.</p>
+            {% endif %}
 
             <div class="alert alert-info">
-                <strong>What will be committed:</strong>
+                <strong>{% if all_committed %}Committed entities:{% else %}What will be committed:{% endif %}</strong>
                 <ul class="mb-0">
-                    <li><strong>Actions ({{summary.actions }})</strong> - Individual actions as case-specific entities</li>
+                    <li><strong>Actions ({{ summary.actions }})</strong> - Individual actions as case-specific entities</li>
                     <li><strong>Events ({{ summary.events }})</strong> - Individual events as case-specific entities</li>
                     <li><strong>Allen Relations ({{ summary.allen_relations }})</strong> - Temporal relationships with OWL-Time properties</li>
                     <li><strong>Causal Chains ({{ summary.causal_chains }})</strong> - NESS test causal analysis</li>
@@ -590,9 +584,15 @@
                 </ul>
             </div>
 
+            {% if all_committed %}
+            <button id="commit-temporal-btn" class="btn btn-outline-secondary" disabled>
+                <i class="bi bi-check-circle"></i> Already Committed to OntServe
+            </button>
+            {% else %}
             <button id="commit-temporal-btn" class="btn btn-success" onclick="commitTemporalEntities()">
                 <i class="bi bi-database-add"></i> Commit All Temporal Entities to OntServe
             </button>
+            {% endif %}
 
             <div id="commit-status" class="mt-3" style="display: none;"></div>
         </div>
@@ -717,22 +717,37 @@ function commitTemporalEntities() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            statusDiv.innerHTML = `
-                <div class="alert alert-success">
-                    <h6><i class="bi bi-check-circle"></i> Success!</h6>
-                    <p>${data.message}</p>
-                    <ul class="mb-0">
-                        <li><strong>Actions committed:</strong> ${data.result.actions_committed || 0}</li>
-                        <li><strong>Events committed:</strong> ${data.result.events_committed || 0}</li>
-                        <li><strong>Allen relations committed:</strong> ${data.result.allen_relations_committed || 0}</li>
-                        <li><strong>Causal chains committed:</strong> ${data.result.causal_chains_committed || 0}</li>
-                        <li><strong>Timeline committed:</strong> ${data.result.timeline_committed || 0}</li>
-                    </ul>
-                </div>
-            `;
-            button.innerHTML = '<i class="bi bi-check-circle"></i> Committed Successfully';
-            button.classList.remove('btn-success');
-            button.classList.add('btn-outline-success');
+            if (data.already_committed) {
+                // Entities were already committed
+                statusDiv.innerHTML = `
+                    <div class="alert alert-info">
+                        <h6><i class="bi bi-info-circle"></i> Already Committed</h6>
+                        <p>${data.message}</p>
+                    </div>
+                `;
+                button.innerHTML = '<i class="bi bi-check-circle"></i> Already Committed';
+                button.classList.remove('btn-success');
+                button.classList.add('btn-outline-secondary');
+            } else {
+                // Fresh commit
+                statusDiv.innerHTML = `
+                    <div class="alert alert-success">
+                        <h6><i class="bi bi-check-circle"></i> Success!</h6>
+                        <p>${data.message}</p>
+                        <ul class="mb-0">
+                            <li><strong>Actions committed:</strong> ${data.result ? data.result.actions_committed : 0}</li>
+                            <li><strong>Events committed:</strong> ${data.result ? data.result.events_committed : 0}</li>
+                            <li><strong>Allen relations committed:</strong> ${data.result ? data.result.allen_relations_committed : 0}</li>
+                            <li><strong>Causal chains committed:</strong> ${data.result ? data.result.causal_chains_committed : 0}</li>
+                            <li><strong>Timeline committed:</strong> ${data.result ? data.result.timeline_committed : 0}</li>
+                        </ul>
+                        ${data.ontserve_synced ? '<p class="mt-2 mb-0"><i class="bi bi-database-check"></i> Synced to OntServe database</p>' : ''}
+                    </div>
+                `;
+                button.innerHTML = '<i class="bi bi-check-circle"></i> Committed Successfully';
+                button.classList.remove('btn-success');
+                button.classList.add('btn-outline-success');
+            }
         } else {
             statusDiv.innerHTML = `
                 <div class="alert alert-danger">
