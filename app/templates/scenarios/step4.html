@@ -125,6 +125,15 @@
         </div>
 
         {% if synthesis_status.completed %}
+            <div id="synthesis-status-area">
+                <div class="alert alert-success mb-3">
+                    <i class="bi bi-check-circle"></i> Synthesis complete!
+                    <strong>{{ synthesis_status.provisions_count }}</strong> provisions,
+                    <strong>{{ synthesis_status.questions_count }}</strong> questions,
+                    <strong>{{ synthesis_status.conclusions_count }}</strong> conclusions extracted.
+                </div>
+            </div>
+
             {% if current_user.is_authenticated %}
             <button type="button" class="btn btn-primary" onclick="runSynthesis()">
                 <i class="bi bi-arrow-repeat"></i> Re-run Synthesis
@@ -142,8 +151,10 @@
                 <i class="bi bi-clipboard-check"></i> View Step 4 Review
             </a>
         {% else %}
-            <div class="alert alert-info mb-3">
-                <i class="bi bi-info-circle"></i> Synthesis not yet performed. Click below to start.
+            <div id="synthesis-status-area">
+                <div class="alert alert-info mb-3">
+                    <i class="bi bi-info-circle"></i> Synthesis not yet performed. Click below to start.
+                </div>
             </div>
 
             {% if current_user.is_authenticated %}
@@ -325,6 +336,7 @@ function runSynthesis() {
     const stageInfo = document.getElementById('stage-info');
     const currentStageSpan = document.getElementById('current-stage');
     const summaryCard = document.getElementById('synthesis-summary');
+    const accordionContainer = document.getElementById('synthesis-stages-accordion');
 
     // Reset state
     messageCount = 0;
@@ -335,21 +347,55 @@ function runSynthesis() {
         endTime: null
     };
 
-    // Show progress card
+    // Show progress card and reset UI
     if (progressCard) {
         progressCard.style.display = 'block';
     }
     progressBar.style.width = '0%';
     progressBar.textContent = '0%';
-    messagesDiv.innerHTML = '';
+    messagesDiv.innerHTML = '<div class="text-muted"><i class="bi bi-hourglass-split"></i> Clearing previous data...</div>';
     summaryCard.style.display = 'none';
     stageInfo.style.display = 'block';
     progressIcon.className = 'bi bi-hourglass-split';
-    currentStageSpan.textContent = 'Initializing...';
+    currentStageSpan.textContent = 'Clearing previous synthesis data...';
     document.getElementById('log-count').textContent = '0 messages';
+
+    // Reset accordion
+    if (accordionContainer) {
+        accordionContainer.innerHTML = '<em class="text-muted">Stages will appear here as synthesis progresses...</em>';
+    }
 
     // Scroll to progress card
     progressCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    // Clear existing data first, then run synthesis
+    fetch(`/scenario_pipeline/case/${currentCaseId}/entities/clear_and_rerun/pass4`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify({})
+    })
+    .then(response => response.json())
+    .then(clearResult => {
+        if (!clearResult.success) {
+            console.warn('Could not clear previous data:', clearResult.error);
+        }
+        messagesDiv.innerHTML = '';
+        currentStageSpan.textContent = 'Initializing...';
+        startSynthesisStream();
+    })
+    .catch(error => {
+        console.warn('Error clearing data (proceeding anyway):', error);
+        messagesDiv.innerHTML = '';
+        currentStageSpan.textContent = 'Initializing...';
+        startSynthesisStream();
+    });
+}
+
+function startSynthesisStream() {
+    const messagesDiv = document.getElementById('progress-messages');
 
     // Create EventSource for Server-Sent Events
     const eventSource = new EventSource(
@@ -411,6 +457,25 @@ function runSynthesis() {
             // Save synthesis results to database
             saveSynthesisResults(data).then(() => {
                 addMessage('success', '✓ Results saved successfully');
+
+                // Show warning banner with clear button (synthesis has now been run)
+                const warningBanner = document.getElementById('synthesis-warning-banner');
+                if (warningBanner) {
+                    warningBanner.style.display = 'block';
+                }
+
+                // Update the status message area
+                const statusArea = document.getElementById('synthesis-status-area');
+                if (statusArea) {
+                    statusArea.innerHTML = `
+                        <div class="alert alert-success mb-3">
+                            <i class="bi bi-check-circle"></i> Synthesis complete!
+                            <strong>${summary.provisions_count || 0}</strong> provisions,
+                            <strong>${summary.questions_count || 0}</strong> questions,
+                            <strong>${summary.conclusions_count || 0}</strong> conclusions extracted.
+                        </div>
+                    `;
+                }
 
                 // Add refresh button
                 const refreshBtn = document.createElement('button');
