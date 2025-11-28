@@ -157,11 +157,11 @@ def synthesize_case_streaming(case_id):
                             ]
                             
                             # Capture LLM trace
-                            if hasattr(validator, 'last_prompt') and hasattr(validator, 'last_response'):
+                            if hasattr(validator, 'last_validation_prompt') and hasattr(validator, 'last_validation_response'):
                                 llm_traces.append({
                                     'stage': f'PROVISION_VALIDATION_{code}',
-                                    'prompt': validator.last_prompt,
-                                    'response': validator.last_response,
+                                    'prompt': validator.last_validation_prompt,
+                                    'response': validator.last_validation_response,
                                     'model': 'claude-opus-4',
                                     'timestamp': datetime.utcnow().isoformat()
                                 })
