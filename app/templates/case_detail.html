@@ -4,100 +4,9 @@
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/structure-viewer.css') }}">
-<style>
-    /* Show more/less functionality */
-    .collapsible-section {
-        position: relative;
-        max-height: 200px;
-        overflow: hidden;
-        transition: max-height 0.3s ease;
-    }
-
-    .collapsible-section.expanded {
-        max-height: none !important;
-        overflow: visible;
-    }
-
-    .collapsible-section::after {
-        content: '';
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        height: 60px;
-        background: linear-gradient(to bottom, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.8) 50%, rgba(255, 255, 255, 1) 100%);
-        pointer-events: none;
-        z-index: 1;
-    }
-
-    .collapsible-section.expanded::after {
-        display: none;
-    }
-
-    .section-content {
-        position: relative;
-        z-index: 0;
-    }
-
-    .show-more-link {
-        display: inline-block;
-        margin-top: 10px;
-        color: #0066cc;
-        cursor: pointer;
-        text-decoration: none;
-        font-weight: 500;
-    }
-
-    .show-more-link:hover {
-        text-decoration: underline;
-        color: #0052cc;
-    }
-</style>
 {% endblock %}
 
 {% block content %}
-<!-- Floating Table of Contents -->
-<div id="toc-nav" class="toc-navigation visible">
-    <div class="toc-header">
-        <h6 class="mb-0">
-            <i class="bi bi-list"></i> Navigation
-        </h6>
-        <button type="button" class="btn-close btn-close-white" id="toc-close" aria-label="Close"></button>
-    </div>
-    <div class="toc-content">
-        <ul class="toc-list">
-            <li><a href="#top" class="toc-link">Menu</a></li>
-            {% if case.doc_metadata and case.doc_metadata.subject_tags %}
-            <li><a href="#subject-tags" class="toc-link">Subject Tags</a></li>
-            {% endif %}
-            {% if case.doc_metadata and (case.doc_metadata.display_format == 'extraction_style' or (case.doc_metadata.sections_dual and case.doc_metadata.sections_dual.facts)) %}
-            <li><a href="#facts-section" class="toc-link">Facts</a></li>
-            {% endif %}
-            {% if case.doc_metadata and (case.doc_metadata.display_format == 'extraction_style' or (case.doc_metadata.sections_dual and case.doc_metadata.sections_dual.questions)) %}
-            <li><a href="#questions-section" class="toc-link">Questions</a></li>
-            {% endif %}
-            {% if case.doc_metadata and (case.doc_metadata.display_format == 'extraction_style' or (case.doc_metadata.sections_dual and case.doc_metadata.sections_dual.nspe_references)) %}
-            <li><a href="#nspe-references-section" class="toc-link">NSPE References</a></li>
-            {% endif %}
-            {% if case.doc_metadata and (case.doc_metadata.display_format == 'extraction_style' or (case.doc_metadata.sections_dual and case.doc_metadata.sections_dual.discussion)) %}
-            <li><a href="#discussion-section" class="toc-link">Discussion</a></li>
-            {% endif %}
-            {% if case.doc_metadata and (case.doc_metadata.display_format == 'extraction_style' or (case.doc_metadata.sections_dual and case.doc_metadata.sections_dual.conclusion)) %}
-            <li><a href="#conclusions-section" class="toc-link">Conclusions</a></li>
-            {% endif %}
-            {% if case.doc_metadata and case.doc_metadata.sections_dual and case.doc_metadata.sections_dual.dissenting_opinion %}
-            <li><a href="#dissent-section" class="toc-link">Dissent</a></li>
-            {% endif %}
-            <li><a href="#scenario-section" class="toc-link">Scenario</a></li>
-        </ul>
-    </div>
-</div>
-
-<!-- TOC Toggle Button -->
-<button id="toc-toggle" class="toc-toggle-btn" title="Show Navigation">
-    <i class="bi bi-list"></i>
-</button>
-
 <div class="container" id="top">
     <!-- Top action bar placed above the title to avoid layout issues when the title wraps -->
     <div class="d-flex justify-content-between gap-2 mb-2 flex-wrap">
@@ -113,10 +22,9 @@
                     <i class="bi bi-pencil"></i> Edit
                     <i class="bi bi-lock ms-1"></i>
                 </button>
-                <button class="btn btn-primary" disabled title="Structure analysis and precedent matching coming soon">
+                <a href="{{ url_for('cases.view_case_structure', id=case.id) }}" class="btn btn-primary" title="View document sections, embeddings, and structure">
                     <i class="bi bi-diagram-3"></i> Structure
-                    <i class="bi bi-lock ms-1"></i>
-                </button>
+                </a>
                 {% if annotation_count and annotation_count > 0 %}
                 <a href="{{ url_for('cases.view_case_annotations', id=case.id) }}" class="btn btn-success">
                     <i class="bi bi-tags"></i> Annotations
@@ -219,12 +127,27 @@
             {% if case.doc_metadata.sections_dual.facts and case.doc_metadata.sections_dual.facts.html %}
             <div class="mb-4" id="facts-section">
                 <h4>Facts</h4>
-                <div class="collapsible-section">
-                    <div class="section-content">
-                        {{ case.doc_metadata.sections_dual.facts.html|safe }}
-                    </div>
-                </div>
-                <a href="#" class="show-more-link" data-target="facts-section">Show more</a>
+                {{ case.doc_metadata.sections_dual.facts.html|safe }}
+            </div>
+            {% endif %}
+
+            <!-- Questions Section -->
+            {% if case.doc_metadata.sections_dual.question and case.doc_metadata.sections_dual.question.html %}
+            <div class="mb-4" id="questions-section">
+                {% if case.doc_metadata.questions_list and case.doc_metadata.questions_list|length > 1 %}
+                <h4>Questions</h4>
+                {% else %}
+                <h4>Question</h4>
+                {% endif %}
+                {{ case.doc_metadata.sections_dual.question.html|safe }}
+            </div>
+            {% endif %}
+
+            <!-- NSPE Code of Ethics References Section -->
+            {% if case.doc_metadata.sections_dual.references and case.doc_metadata.sections_dual.references.html %}
+            <div class="mb-4" id="references-section">
+                <h4>NSPE Code of Ethics References</h4>
+                {{ case.doc_metadata.sections_dual.references.html|safe }}
             </div>
             {% endif %}
 
@@ -232,12 +155,27 @@
             {% if case.doc_metadata.sections_dual.discussion and case.doc_metadata.sections_dual.discussion.html %}
             <div class="mb-4" id="discussion-section">
                 <h4>Discussion</h4>
-                <div class="collapsible-section">
-                    <div class="section-content">
-                        {{ case.doc_metadata.sections_dual.discussion.html|safe }}
-                    </div>
-                </div>
-                <a href="#" class="show-more-link" data-target="discussion-section">Show more</a>
+                {{ case.doc_metadata.sections_dual.discussion.html|safe }}
+            </div>
+            {% endif %}
+
+            <!-- Conclusions Section -->
+            {% if case.doc_metadata.sections_dual.conclusion and case.doc_metadata.sections_dual.conclusion.html %}
+            <div class="mb-4" id="conclusion-section">
+                {% if case.doc_metadata.conclusion_items and case.doc_metadata.conclusion_items|length > 1 %}
+                <h4>Conclusions</h4>
+                {% else %}
+                <h4>Conclusion</h4>
+                {% endif %}
+                {{ case.doc_metadata.sections_dual.conclusion.html|safe }}
+            </div>
+            {% endif %}
+
+            <!-- Dissent Section (if present) -->
+            {% if case.doc_metadata.sections_dual.dissenting_opinion and case.doc_metadata.sections_dual.dissenting_opinion.html %}
+            <div class="mb-4" id="dissent-section">
+                <h4>Dissenting Opinion</h4>
+                {{ case.doc_metadata.sections_dual.dissenting_opinion.html|safe }}
             </div>
             {% endif %}
             {% else %}
@@ -646,33 +584,6 @@
         docIdEl.id = 'document-id';
         docIdEl.value = '{{ case.id }}';
         document.body.appendChild(docIdEl);
-
-        // Show more/less functionality
-        document.querySelectorAll('.show-more-link').forEach(function (link) {
-            const targetId = link.getAttribute('data-target');
-            const targetSection = document.getElementById(targetId);
-
-            // Check if content actually needs to be collapsed
-            if (targetSection && targetSection.scrollHeight <= 200) {
-                // Content is short enough, no need for show more
-                link.style.display = 'none';
-                targetSection.classList.remove('collapsible-section');
-            }
-
-            link.addEventListener('click', function (e) {
-                e.preventDefault();
-
-                if (targetSection.classList.contains('expanded')) {
-                    targetSection.classList.remove('expanded');
-                    link.textContent = 'Show more';
-                    // Scroll to the top of the section when collapsing
-                    targetSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                } else {
-                    targetSection.classList.add('expanded');
-                    link.textContent = 'Show less';
-                }
-            });
-        });
     });
 
     // Disable old term links highlighting (will be replaced with annotation-based highlighting)
@@ -768,122 +679,5 @@
             });
     };
 
-    // Table of Contents functionality
-    document.addEventListener('DOMContentLoaded', function () {
-        const tocNav = document.getElementById('toc-nav');
-        const tocToggle = document.getElementById('toc-toggle');
-        const tocClose = document.getElementById('toc-close');
-        const tocLinks = document.querySelectorAll('.toc-link');
-
-        // Check if this is extraction-style content
-        const extractionStyleDiv = document.querySelector('[data-extraction-style="true"]');
-        if (extractionStyleDiv) {
-            // Hide the navigation for extraction-style content since links don't work properly
-            if (tocNav) {
-                tocNav.style.display = 'none';
-            }
-            if (tocToggle) {
-                tocToggle.style.display = 'none';
-            }
-        } else {
-            // Show TOC by default on page load for non-extraction-style content
-            if (tocNav) {
-                tocNav.classList.add('visible');
-            }
-            if (tocToggle) {
-                tocToggle.classList.add('hidden');
-            }
-        }
-
-        // Toggle TOC visibility
-        function showTOC() {
-            if (tocNav) {
-                tocNav.classList.add('visible');
-            }
-            if (tocToggle) {
-                tocToggle.classList.add('hidden');
-            }
-        }
-
-        function hideTOC() {
-            if (tocNav) {
-                tocNav.classList.remove('visible');
-            }
-            if (tocToggle) {
-                tocToggle.classList.remove('hidden');
-            }
-        }
-
-        // Event listeners
-        if (tocToggle) {
-            tocToggle.addEventListener('click', showTOC);
-        }
-
-        if (tocClose) {
-            tocClose.addEventListener('click', hideTOC);
-        }
-
-        // Smooth scrolling for navigation links
-        tocLinks.forEach(link => {
-            link.addEventListener('click', function (e) {
-                e.preventDefault();
-                const targetId = this.getAttribute('href').substring(1);
-                const targetElement = document.getElementById(targetId);
-
-                if (targetElement) {
-                    // Remove active class from all links
-                    tocLinks.forEach(l => l.classList.remove('active'));
-                    // Add active class to clicked link
-                    this.classList.add('active');
-
-                    // Smooth scroll to target
-                    targetElement.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'start'
-                    });
-
-                    // Hide TOC after navigation on mobile
-                    if (window.innerWidth <= 768) {
-                        hideTOC();
-                    }
-                }
-            });
-        });
-
-        // Highlight active section based on scroll position
-        function updateActiveSection() {
-            const sections = ['top', 'subject-tags', 'facts-section', 'questions-section', 'nspe-references-section',
-                           'conclusions-section', 'dissent-section', 'discussion-section', 'scenario-section'];
-            let currentSection = '';
-
-            sections.forEach(sectionId => {
-                const element = document.getElementById(sectionId);
-                if (element) {
-                    const rect = element.getBoundingClientRect();
-                    if (rect.top <= 100) {
-                        currentSection = sectionId;
-                    }
-                }
-            });
-
-            // Update active link
-            tocLinks.forEach(link => {
-                link.classList.remove('active');
-                if (link.getAttribute('href') === '#' + currentSection) {
-                    link.classList.add('active');
-                }
-            });
-        }
-
-        // Update active section on scroll (throttled)
-        let scrollTimeout;
-        window.addEventListener('scroll', function () {
-            clearTimeout(scrollTimeout);
-            scrollTimeout = setTimeout(updateActiveSection, 100);
-        });
-
-        // Initial active section update
-        updateActiveSection();
-    });
 </script>
 {% endblock %}

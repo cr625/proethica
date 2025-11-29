@@ -613,7 +613,9 @@ class CaseEntityStorageService:
             }
 
         except Exception as e:
+            import traceback
             logger.error(f"Error clearing {extraction_pass} for case {case_id}: {e}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
             db.session.rollback()
             return {
                 'success': False,

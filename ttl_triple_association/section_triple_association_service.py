@@ -51,8 +51,8 @@ class SectionTripleAssociationService:
         """
         # Database settings
         self.db_url = db_url or os.environ.get(
-            "DATABASE_URL", 
-            "postgresql://postgres:postgres@localhost:5433/ai_ethical_dm"
+            "DATABASE_URL",
+            "postgresql://postgres:PASS@localhost:5432/ai_ethical_dm"
         )
         
         # Initialize database connection

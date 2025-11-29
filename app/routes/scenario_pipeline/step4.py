@@ -306,6 +306,88 @@ def step4_review(case_id):
             concept_type = ann.concept_type
             annotation_counts[concept_type] = annotation_counts.get(concept_type, 0) + 1
 
+        # Get transformation classification from precedent features
+        transformation_data = None
+        precedent_features = None
+        try:
+            from sqlalchemy import text
+            result = db.session.execute(
+                text("""
+                    SELECT transformation_type, transformation_pattern,
+                           outcome_type, outcome_confidence, outcome_reasoning,
+                           provisions_cited, subject_tags,
+                           principle_tensions, obligation_conflicts,
+                           features_version, extracted_at
+                    FROM case_precedent_features
+                    WHERE case_id = :case_id
+                """),
+                {'case_id': case_id}
+            ).fetchone()
+            if result:
+                transformation_data = {
+                    'type': result[0],
+                    'pattern': result[1]
+                }
+                precedent_features = {
+                    'transformation_type': result[0],
+                    'transformation_pattern': result[1],
+                    'outcome_type': result[2],
+                    'outcome_confidence': result[3],
+                    'outcome_reasoning': result[4],
+                    'provisions_cited': result[5] or [],
+                    'subject_tags': result[6] or [],
+                    'principle_tensions': result[7] or [],
+                    'obligation_conflicts': result[8] or [],
+                    'features_version': result[9],
+                    'extracted_at': result[10]
+                }
+        except Exception as e:
+            logger.debug(f"No transformation data found for case {case_id}: {e}")
+
+        # Build comprehensive data inventory for downstream services
+        # Count entities by type from Passes 1-3
+        entity_type_counts = {}
+        for entity in all_entities:
+            etype = entity.get('entity_type', 'unknown')
+            entity_type_counts[etype] = entity_type_counts.get(etype, 0) + 1
+
+        data_inventory = {
+            # Source data (Passes 1-3)
+            'passes_1_3': {
+                'total_entities': len(all_entities),
+                'by_type': entity_type_counts,
+                'available': len(all_entities) > 0
+            },
+            # Step 4 Synthesis outputs
+            'step4_synthesis': {
+                'provisions': len(provisions),
+                'questions': len(questions),
+                'conclusions': len(conclusions),
+                'annotations': len(existing_annotations),
+                'available': len(provisions) > 0 or len(questions) > 0
+            },
+            # Precedent Discovery features
+            'precedent_features': {
+                'has_features': precedent_features is not None,
+                'outcome_type': precedent_features.get('outcome_type') if precedent_features else None,
+                'transformation_type': precedent_features.get('transformation_type') if precedent_features else None,
+                'provisions_count': len(precedent_features.get('provisions_cited', [])) if precedent_features else 0,
+                'subject_tags_count': len(precedent_features.get('subject_tags', [])) if precedent_features else 0,
+                'has_principle_tensions': bool(precedent_features.get('principle_tensions')) if precedent_features else False,
+                'has_obligation_conflicts': bool(precedent_features.get('obligation_conflicts')) if precedent_features else False,
+                'has_embeddings': False  # TODO: Check for embeddings
+            },
+            # What's needed for scenario generation
+            'scenario_ready': {
+                'has_roles': entity_type_counts.get('roles', 0) > 0,
+                'has_actions': entity_type_counts.get('actions', 0) > 0,
+                'has_events': entity_type_counts.get('events', 0) > 0,
+                'has_states': entity_type_counts.get('states', 0) > 0,
+                'has_questions': len(questions) > 0,
+                'has_conclusions': len(conclusions) > 0
+            }
+        }
+
         context = {
             'case': case,
             'saved_synthesis': saved_synthesis,
@@ -322,7 +404,11 @@ def step4_review(case_id):
             'conclusion_count': len(conclusions),
             'has_synthesis_annotations': len(existing_annotations) > 0,
             'annotation_count': len(existing_annotations),
-            'annotation_breakdown': annotation_counts
+            'annotation_breakdown': annotation_counts,
+            'transformation_data': transformation_data,
+            'precedent_features': precedent_features,
+            'data_inventory': data_inventory,
+            'entity_type_counts': entity_type_counts
         }
 
         return render_template('scenario_pipeline/step4_review.html', **context)
@@ -466,84 +552,75 @@ def get_entities_summary(case_id: int) -> Dict:
     Get summary of all extracted entities from Passes 1-3.
 
     Returns:
-        Dict with entity counts by type
+        Dict with entity counts by type (includes both committed and uncommitted)
     """
     from sqlalchemy import func
 
     # Use case-insensitive queries with func.lower()
+    # Count ALL entities regardless of commit status for synthesis display
     summary = {}
 
-    # Pass 1 - Only count uncommitted entities
+    # Pass 1 - Count all entities (committed or not)
     summary['roles'] = TemporaryRDFStorage.query.filter(
         TemporaryRDFStorage.case_id == case_id,
         func.lower(TemporaryRDFStorage.entity_type) == 'roles',
-        TemporaryRDFStorage.storage_type == 'individual',
-        TemporaryRDFStorage.is_committed == False
+        TemporaryRDFStorage.storage_type == 'individual'
     ).count()
 
     summary['states'] = TemporaryRDFStorage.query.filter(
         TemporaryRDFStorage.case_id == case_id,
         func.lower(TemporaryRDFStorage.entity_type) == 'states',
-        TemporaryRDFStorage.storage_type == 'individual',
-        TemporaryRDFStorage.is_committed == False
+        TemporaryRDFStorage.storage_type == 'individual'
     ).count()
 
     summary['resources'] = TemporaryRDFStorage.query.filter(
         TemporaryRDFStorage.case_id == case_id,
         func.lower(TemporaryRDFStorage.entity_type) == 'resources',
-        TemporaryRDFStorage.storage_type == 'individual',
-        TemporaryRDFStorage.is_committed == False
+        TemporaryRDFStorage.storage_type == 'individual'
     ).count()
 
-    # Pass 2 - Only count uncommitted entities
+    # Pass 2 - Count all entities (committed or not)
     summary['principles'] = TemporaryRDFStorage.query.filter(
         TemporaryRDFStorage.case_id == case_id,
         func.lower(TemporaryRDFStorage.entity_type) == 'principles',
-        TemporaryRDFStorage.storage_type == 'individual',
-        TemporaryRDFStorage.is_committed == False
+        TemporaryRDFStorage.storage_type == 'individual'
     ).count()
 
     summary['obligations'] = TemporaryRDFStorage.query.filter(
         TemporaryRDFStorage.case_id == case_id,
         func.lower(TemporaryRDFStorage.entity_type) == 'obligations',
-        TemporaryRDFStorage.storage_type == 'individual',
-        TemporaryRDFStorage.is_committed == False
+        TemporaryRDFStorage.storage_type == 'individual'
     ).count()
 
     summary['constraints'] = TemporaryRDFStorage.query.filter(
         TemporaryRDFStorage.case_id == case_id,
         func.lower(TemporaryRDFStorage.entity_type) == 'constraints',
-        TemporaryRDFStorage.storage_type == 'individual',
-        TemporaryRDFStorage.is_committed == False
+        TemporaryRDFStorage.storage_type == 'individual'
     ).count()
 
     summary['capabilities'] = TemporaryRDFStorage.query.filter(
         TemporaryRDFStorage.case_id == case_id,
         func.lower(TemporaryRDFStorage.entity_type) == 'capabilities',
-        TemporaryRDFStorage.storage_type == 'individual',
-        TemporaryRDFStorage.is_committed == False
+        TemporaryRDFStorage.storage_type == 'individual'
     ).count()
 
-    # Pass 3 - Handle combined Actions_events or separate actions/events (only uncommitted)
+    # Pass 3 - Handle combined Actions_events or separate actions/events
     actions_events_count = TemporaryRDFStorage.query.filter(
         TemporaryRDFStorage.case_id == case_id,
         func.lower(TemporaryRDFStorage.entity_type) == 'actions_events',
-        TemporaryRDFStorage.storage_type == 'individual',
-        TemporaryRDFStorage.is_committed == False
+        TemporaryRDFStorage.storage_type == 'individual'
     ).count()
 
     actions_only = TemporaryRDFStorage.query.filter(
         TemporaryRDFStorage.case_id == case_id,
         func.lower(TemporaryRDFStorage.entity_type) == 'actions',
-        TemporaryRDFStorage.storage_type == 'individual',
-        TemporaryRDFStorage.is_committed == False
+        TemporaryRDFStorage.storage_type == 'individual'
     ).count()
 
     events_only = TemporaryRDFStorage.query.filter(
         TemporaryRDFStorage.case_id == case_id,
         func.lower(TemporaryRDFStorage.entity_type) == 'events',
-        TemporaryRDFStorage.storage_type == 'individual',
-        TemporaryRDFStorage.is_committed == False
+        TemporaryRDFStorage.storage_type == 'individual'
     ).count()
 
     # If combined, split evenly for display (or query individually)

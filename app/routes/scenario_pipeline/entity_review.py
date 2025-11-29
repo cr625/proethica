@@ -1285,6 +1285,8 @@ def clear_and_rerun_pass(case_id, extraction_pass):
         data = request.get_json() or {}
         section_type = data.get('section_type')
 
+        logger.info(f"clear_and_rerun_pass called: case_id={case_id}, extraction_pass={extraction_pass}, section_type={section_type}")
+
         # Clear the extraction pass
         result = CaseEntityStorageService.clear_extraction_pass(
             case_id=case_id,
@@ -1293,6 +1295,7 @@ def clear_and_rerun_pass(case_id, extraction_pass):
         )
 
         if not result['success']:
+            logger.error(f"clear_extraction_pass failed: {result}")
             return jsonify(result), 400
 
         # Determine redirect URL based on pass

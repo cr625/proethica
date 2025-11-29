@@ -45,6 +45,8 @@ def init_cases_csrf_exemption(app):
         app.csrf.exempt(generate_direct_scenario)
         # Also exempt the clear_scenario route from CSRF protection
         app.csrf.exempt(clear_scenario)
+        # Exempt embedding generation from CSRF
+        app.csrf.exempt(generate_case_embeddings)
 
 @cases_bp.route('/', methods=['GET'])
 @auth_optional
@@ -2526,3 +2528,129 @@ def view_case_annotations(id):
         return redirect(url_for('cases.list_cases'))
     
     return render_template('case_annotations.html', **context)
+
+
+@cases_bp.route('/<int:id>/structure', methods=['GET'])
+@auth_optional
+def view_case_structure(id):
+    """View document structure and embeddings for a case."""
+    from app.models.document_section import DocumentSection
+    from app.services.section_embedding_service import SectionEmbeddingService
+
+    case = Document.query.get_or_404(id)
+
+    # Get document sections from database
+    sections = DocumentSection.query.filter_by(document_id=id).order_by(DocumentSection.section_type).all()
+
+    # Also get sections from doc_metadata.sections_dual for display
+    sections_dual = {}
+    if case.doc_metadata and 'sections_dual' in case.doc_metadata:
+        sections_dual = case.doc_metadata.get('sections_dual', {})
+
+    # Build section stats
+    section_stats = []
+    for section in sections:
+        has_embedding = section.embedding is not None
+        embed_dim = None
+        if has_embedding:
+            # Get dimension from database
+            try:
+                result = db.session.execute(
+                    db.text("SELECT vector_dims(embedding) FROM document_sections WHERE id = :id"),
+                    {'id': section.id}
+                ).fetchone()
+                embed_dim = result[0] if result else None
+            except Exception:
+                embed_dim = 384  # Assume default
+
+        # Get HTML/text content lengths from sections_dual
+        html_len = 0
+        text_len = 0
+        if section.section_type in sections_dual:
+            dual_data = sections_dual[section.section_type]
+            html_len = len(dual_data.get('html', '')) if dual_data.get('html') else 0
+            text_len = len(dual_data.get('text', '')) if dual_data.get('text') else 0
+
+        section_stats.append({
+            'id': section.id,
+            'section_type': section.section_type,
+            'section_id': section.section_id,
+            'content_len': len(section.content) if section.content else 0,
+            'html_len': html_len,
+            'text_len': text_len,
+            'has_embedding': has_embedding,
+            'embed_dim': embed_dim,
+            'created_at': section.created_at,
+            'updated_at': section.updated_at,
+            'content': section.content  # For collapsible display
+        })
+
+    # Calculate overall stats
+    total_sections = len(section_stats)
+    sections_with_embeddings = sum(1 for s in section_stats if s['has_embedding'])
+    embedding_coverage = (sections_with_embeddings / total_sections * 100) if total_sections > 0 else 0
+
+    # Check for dimension issues
+    dimensions = set(s['embed_dim'] for s in section_stats if s['embed_dim'])
+    has_dimension_issue = len(dimensions) > 1 or (dimensions and 1536 in dimensions)
+
+    # Get precedent preview (top 3 similar cases by discussion section)
+    similar_cases = []
+    if sections_with_embeddings > 0:
+        try:
+            # Find cases with similar discussion sections
+            service = SectionEmbeddingService()
+            discussion_section = next((s for s in sections if s.section_type == 'discussion' and s.embedding), None)
+            if discussion_section:
+                # Query for similar sections from OTHER documents
+                similar = service.find_similar_sections(
+                    discussion_section.content,
+                    section_type='discussion',
+                    limit=10  # Get more to filter out same document
+                )
+                # Filter out current document and take top 3
+                for s in similar:
+                    if s['document_id'] != id and len(similar_cases) < 3:
+                        similar_cases.append({
+                            'case_id': s['document_id'],
+                            'title': s['document_title'],
+                            'similarity': s['similarity'],
+                            'section_type': s['section_type']
+                        })
+        except Exception as e:
+            logger.warning(f"Error finding similar cases: {e}")
+
+    return render_template('case_structure.html',
+        case=case,
+        sections_dual=sections_dual,
+        section_stats=section_stats,
+        total_sections=total_sections,
+        sections_with_embeddings=sections_with_embeddings,
+        embedding_coverage=embedding_coverage,
+        has_dimension_issue=has_dimension_issue,
+        dimensions=list(dimensions),
+        similar_cases=similar_cases
+    )
+
+
+@cases_bp.route('/<int:id>/structure/generate-embeddings', methods=['POST'])
+@auth_required_for_write
+def generate_case_embeddings(id):
+    """Generate or regenerate embeddings for a case's sections."""
+    from app.services.section_embedding_service import SectionEmbeddingService
+
+    case = Document.query.get_or_404(id)
+
+    try:
+        service = SectionEmbeddingService()
+        result = service.process_document_sections(id)
+
+        if result.get('success'):
+            flash(f'Generated embeddings for {result.get("sections_embedded", 0)} sections', 'success')
+        else:
+            flash(f'Error generating embeddings: {result.get("error", "Unknown error")}', 'danger')
+    except Exception as e:
+        logger.error(f"Error generating embeddings for case {id}: {e}")
+        flash(f'Error: {str(e)}', 'danger')
+
+    return redirect(url_for('cases.view_case_structure', id=id))

@@ -240,8 +240,12 @@ def create_app(config_name=None):
     init_step3_csrf_exemption(app)
     init_step4_csrf_exemption(app)
     init_step5_csrf_exemption(app)
-    
-    
+
+    # Exempt document structure routes from CSRF protection
+    from app.routes.document_structure import init_doc_structure_csrf_exemption
+    init_doc_structure_csrf_exemption(app)
+
+
     # Make db accessible at app level for imports in other modules
     app.db = db
     

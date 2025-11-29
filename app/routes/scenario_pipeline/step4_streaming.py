@@ -346,13 +346,98 @@ def synthesize_case_streaming(case_id):
                 
                 yield sse_message({
                     'stage': 'PART_C_COMPLETE',
-                    'progress': 95,
+                    'progress': 90,
                     'messages': ['Part C complete: Synthesis ready for storage']
                 })
-                
+
+                # =============================================================
+                # PART D: TRANSFORMATION CLASSIFICATION
+                # =============================================================
+                yield sse_message({
+                    'stage': 'PART_D_START',
+                    'progress': 92,
+                    'messages': ['Part D: Classifying transformation type...']
+                })
+
+                try:
+                    from app.services.case_analysis import TransformationClassifier
+
+                    # Format questions and conclusions for classifier
+                    questions_for_classifier = [
+                        {
+                            'entity_definition': getattr(q, 'question_text', ''),
+                            'rdf_json_ld': {}
+                        }
+                        for q in synthesis_results['questions']
+                    ]
+                    conclusions_for_classifier = [
+                        {
+                            'entity_definition': getattr(c, 'conclusion_text', ''),
+                            'rdf_json_ld': {
+                                'conclusionType': getattr(c, 'conclusion_type', 'unknown')
+                            }
+                        }
+                        for c in synthesis_results['conclusions']
+                    ]
+
+                    classifier = TransformationClassifier(llm_client)
+                    transformation_result = classifier.classify(
+                        case_id=case_id,
+                        questions=questions_for_classifier,
+                        conclusions=conclusions_for_classifier,
+                        resolution_patterns=[],  # Skip DB lookup in generator context
+                        use_llm=True,
+                        case_title=case.title  # Pass pre-loaded title
+                    )
+
+                    synthesis_results['transformation'] = {
+                        'type': transformation_result.transformation_type,
+                        'confidence': transformation_result.confidence,
+                        'reasoning': transformation_result.reasoning,
+                        'pattern': transformation_result.pattern_description
+                    }
+
+                    # Capture LLM trace
+                    if hasattr(classifier, 'last_prompt') and classifier.last_prompt:
+                        llm_traces.append({
+                            'stage': 'TRANSFORMATION_CLASSIFICATION',
+                            'prompt': classifier.last_prompt,
+                            'response': classifier.last_response or '',
+                            'model': 'claude-sonnet-4',
+                            'timestamp': datetime.utcnow().isoformat()
+                        })
+
+                    yield sse_message({
+                        'stage': 'PART_D_COMPLETE',
+                        'progress': 95,
+                        'messages': [
+                            f'Transformation: {transformation_result.transformation_type}',
+                            f'Confidence: {transformation_result.confidence:.0%}'
+                        ],
+                        'llm_trace': [llm_traces[-1]] if llm_traces and llm_traces[-1].get('stage') == 'TRANSFORMATION_CLASSIFICATION' else []
+                    })
+
+                except Exception as e:
+                    logger.warning(f"Transformation classification failed: {e}")
+                    synthesis_results['transformation'] = {
+                        'type': 'unclear',
+                        'confidence': 0.0,
+                        'reasoning': f'Classification failed: {str(e)}',
+                        'pattern': ''
+                    }
+                    yield sse_message({
+                        'stage': 'PART_D_WARNING',
+                        'progress': 95,
+                        'messages': [f'Transformation classification skipped: {str(e)}']
+                    })
+
                 # =============================================================
                 # COMPLETION - Return data for frontend to save
                 # =============================================================
+                transformation_data = synthesis_results.get('transformation', {
+                    'type': 'unclear', 'confidence': 0, 'reasoning': '', 'pattern': ''
+                })
+
                 completion_data = {
                     'complete': True,
                     'progress': 100,
@@ -362,7 +447,8 @@ def synthesize_case_streaming(case_id):
                         'questions_count': len(synthesis_results['questions']),
                         'conclusions_count': len(synthesis_results['conclusions']),
                         'total_nodes': synthesis_results['synthesis']['total_nodes'],
-                        'llm_interactions': len(llm_traces)
+                        'llm_interactions': len(llm_traces),
+                        'transformation_type': transformation_data.get('type', 'unclear')
                     },
                     # Include session_id and llm_traces for database saving
                     'session_id': session_id,
@@ -391,7 +477,8 @@ def synthesize_case_streaming(case_id):
                         'entity_graph': {
                             'total_nodes': synthesis_results['synthesis']['total_nodes'],
                             'node_types': synthesis_results['synthesis']['node_types']
-                        }
+                        },
+                        'transformation': transformation_data
                     }
                 }
                 yield sse_message(completion_data)
@@ -632,6 +719,24 @@ def save_step4_streaming_results(case_id):
         db.session.add(extraction_prompt)
         db.session.commit()
 
+        # Save transformation to precedent features
+        transformation_data = synthesis_results.get('transformation', {})
+        transformation_saved = False
+        if transformation_data and transformation_data.get('type'):
+            try:
+                from app.services.case_analysis import TransformationClassifier, TransformationResult
+                result = TransformationResult(
+                    transformation_type=transformation_data.get('type', 'unclear'),
+                    confidence=transformation_data.get('confidence', 0.0),
+                    reasoning=transformation_data.get('reasoning', ''),
+                    pattern_description=transformation_data.get('pattern', '')
+                )
+                classifier = TransformationClassifier()
+                transformation_saved = classifier.save_to_features(case_id, result)
+                logger.info(f"[Save Endpoint] Saved transformation type: {result.transformation_type}")
+            except Exception as e:
+                logger.warning(f"Failed to save transformation to features: {e}")
+
         logger.info(f"Successfully saved Step 4 streaming results for case {case_id}")
         logger.info(f"[Save Endpoint] Saved {len(provisions_list)} provisions, {len(questions_list)} questions, and {len(conclusions_list)} conclusions")
 
@@ -642,7 +747,9 @@ def save_step4_streaming_results(case_id):
             'traces_saved': len(llm_traces),
             'provisions_saved': len(provisions_list),
             'questions_saved': len(questions_list),
-            'conclusions_saved': len(conclusions_list)
+            'conclusions_saved': len(conclusions_list),
+            'transformation_saved': transformation_saved,
+            'transformation_type': transformation_data.get('type', 'unclear')
         })
 
     except Exception as e:

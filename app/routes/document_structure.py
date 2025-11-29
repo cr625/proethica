@@ -28,6 +28,15 @@ from ttl_triple_association.section_triple_association_storage import SectionTri
 # Create blueprint
 doc_structure_bp = Blueprint('doc_structure', __name__, url_prefix='/structure')
 
+
+def init_doc_structure_csrf_exemption(app):
+    """Exempt document structure routes from CSRF protection"""
+    if hasattr(app, 'csrf') and app.csrf:
+        from app.routes.document_structure import generate_structure, generate_embeddings
+        app.csrf.exempt(generate_structure)
+        app.csrf.exempt(generate_embeddings)
+
+
 @doc_structure_bp.route('/view/<int:id>', methods=['GET'])
 def view_structure(id):
     """View document structure for a specific case."""

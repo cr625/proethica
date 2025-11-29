@@ -2,6 +2,32 @@
 
 {% block title %}Step 4 Review - Case {{ case.id }}{% endblock %}
 
+{% block styles %}
+<style>
+    .bg-purple { background-color: #6F42C1 !important; }
+    .applies-to-item { font-size: 0.9rem; }
+    .qc-link-card {
+        border-left: 4px solid #FFC107;
+        transition: all 0.2s ease;
+    }
+    .qc-link-card:hover {
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .qc-arrow {
+        font-size: 1.5rem;
+        color: #28A745;
+    }
+    .linked-conclusion {
+        border-left: 4px solid #28A745;
+        background-color: #f8fff8;
+    }
+    .unlinked-item {
+        border-left: 4px solid #6c757d;
+        opacity: 0.8;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid mt-4">
     <!-- Header -->
@@ -67,46 +93,95 @@
 
     <!-- Summary Cards -->
     <div class="row mb-4">
-        <div class="col-md-3">
+        <div class="col">
             <div class="card text-center border-primary">
-                <div class="card-body">
-                    <h3 class="text-primary">{{ entity_count }}</h3>
-                    <p class="mb-0">Total Entities</p>
-                    <small class="text-muted">Passes 1-3</small>
+                <div class="card-body py-2">
+                    <h4 class="text-primary mb-0">{{ entity_count }}</h4>
+                    <small class="text-muted">Entities</small>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col">
             <div class="card text-center border-info">
-                <div class="card-body">
-                    <h3 class="text-info">{{ provision_count }}</h3>
-                    <p class="mb-0">Code Provisions</p>
-                    <small class="text-muted">NSPE References</small>
+                <div class="card-body py-2">
+                    <h4 class="text-info mb-0">{{ provision_count }}</h4>
+                    <small class="text-muted">Provisions</small>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col">
             <div class="card text-center border-warning">
-                <div class="card-body">
-                    <h3 class="text-warning">{{ question_count }}</h3>
-                    <p class="mb-0">Questions</p>
-                    <small class="text-muted">Ethical Dilemmas</small>
+                <div class="card-body py-2">
+                    <h4 class="text-warning mb-0">{{ question_count }}</h4>
+                    <small class="text-muted">Questions</small>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col">
             <div class="card text-center border-success">
-                <div class="card-body">
-                    <h3 class="text-success">{{ conclusion_count }}</h3>
-                    <p class="mb-0">Conclusions</p>
-                    <small class="text-muted">Board Findings</small>
+                <div class="card-body py-2">
+                    <h4 class="text-success mb-0">{{ conclusion_count }}</h4>
+                    <small class="text-muted">Conclusions</small>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card text-center border-purple" style="border-color: #6F42C1 !important;">
+                <div class="card-body py-2">
+                    {% if transformation_data and transformation_data.type %}
+                    <h4 class="mb-0" style="color: #6F42C1;">
+                        {% if transformation_data.type == 'transfer' %}Transfer
+                        {% elif transformation_data.type == 'stalemate' %}Stalemate
+                        {% elif transformation_data.type == 'oscillation' %}Oscillation
+                        {% elif transformation_data.type == 'phase_lag' %}Phase Lag
+                        {% else %}{{ transformation_data.type|title }}{% endif %}
+                    </h4>
+                    <small class="text-muted">Transformation</small>
+                    {% else %}
+                    <h4 class="text-muted mb-0">--</h4>
+                    <small class="text-muted">Transformation</small>
+                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Transformation Details (if available) -->
+    {% if transformation_data and transformation_data.type and transformation_data.type != 'unclear' %}
+    <div class="alert alert-light border mb-4">
+        <div class="d-flex align-items-center">
+            <span class="badge me-2" style="background-color: #6F42C1;">
+                {% if transformation_data.type == 'transfer' %}Transfer
+                {% elif transformation_data.type == 'stalemate' %}Stalemate
+                {% elif transformation_data.type == 'oscillation' %}Oscillation
+                {% elif transformation_data.type == 'phase_lag' %}Phase Lag
+                {% else %}{{ transformation_data.type|title }}{% endif %}
+            </span>
+            <span>
+                {% if transformation_data.type == 'transfer' %}
+                Resolution transfers obligation/responsibility to another party
+                {% elif transformation_data.type == 'stalemate' %}
+                Competing obligations remain in tension without clear resolution
+                {% elif transformation_data.type == 'oscillation' %}
+                Duties shift back and forth between parties over time
+                {% elif transformation_data.type == 'phase_lag' %}
+                Delayed consequences reveal obligations not initially apparent
+                {% endif %}
+            </span>
+        </div>
+        {% if transformation_data.pattern %}
+        <small class="text-muted d-block mt-1">{{ transformation_data.pattern }}</small>
+        {% endif %}
+    </div>
+    {% endif %}
+
     <!-- Tabs -->
     <ul class="nav nav-tabs mb-3" id="reviewTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="inventory-tab" data-bs-toggle="tab" data-bs-target="#inventory" type="button">
+                <i class="bi bi-box-seam"></i> Data Inventory
+            </button>
+        </li>
         <li class="nav-item" role="presentation">
             <button class="nav-link active" id="graph-tab" data-bs-toggle="tab" data-bs-target="#graph" type="button">
                 <i class="bi bi-diagram-3"></i> Entity Graph
@@ -125,6 +200,302 @@
     </ul>
 
     <div class="tab-content" id="reviewTabContent">
+        <!-- Data Inventory Tab -->
+        <div class="tab-pane fade" id="inventory" role="tabpanel">
+            <div class="alert alert-info mb-4">
+                <i class="bi bi-info-circle"></i> This inventory shows data available for <strong>Precedent Discovery</strong> and <strong>Scenario Generation</strong>. Green items are ready; yellow items are missing and could enhance results.
+            </div>
+
+            <div class="row">
+                <!-- Source Data: Passes 1-3 -->
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header bg-primary text-white">
+                            <h6 class="mb-0"><i class="bi bi-layers me-2"></i>Source Data (Passes 1-3)</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <span class="badge {% if data_inventory.passes_1_3.available %}bg-success{% else %}bg-warning{% endif %} mb-2">
+                                    {{ data_inventory.passes_1_3.total_entities }} Total Entities
+                                </span>
+                            </div>
+                            <table class="table table-sm table-borderless mb-0">
+                                <tbody>
+                                {% for etype, count in entity_type_counts.items() %}
+                                <tr>
+                                    <td>
+                                        <span class="badge me-1
+                                            {% if etype == 'roles' %}bg-primary
+                                            {% elif etype == 'states' %}bg-info
+                                            {% elif etype == 'resources' %}bg-secondary
+                                            {% elif etype == 'principles' %}bg-purple
+                                            {% elif etype == 'obligations' %}bg-warning text-dark
+                                            {% elif etype == 'constraints' %}bg-danger
+                                            {% elif etype == 'capabilities' %}bg-success
+                                            {% elif etype == 'actions' %}bg-dark
+                                            {% elif etype == 'events' %}bg-secondary
+                                            {% else %}bg-light text-dark{% endif %}">
+                                            {{ count }}
+                                        </span>
+                                        {{ etype|title }}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 4 Synthesis -->
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header bg-success text-white">
+                            <h6 class="mb-0"><i class="bi bi-gear me-2"></i>Step 4 Synthesis</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <span class="badge {% if data_inventory.step4_synthesis.available %}bg-success{% else %}bg-warning{% endif %}">
+                                    {% if data_inventory.step4_synthesis.available %}Ready{% else %}Not Run{% endif %}
+                                </span>
+                            </div>
+                            <table class="table table-sm">
+                                <tbody>
+                                <tr>
+                                    <td><i class="bi bi-{% if provision_count > 0 %}check-circle text-success{% else %}x-circle text-warning{% endif %}"></i> Code Provisions</td>
+                                    <td class="text-end"><strong>{{ provision_count }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td><i class="bi bi-{% if question_count > 0 %}check-circle text-success{% else %}x-circle text-warning{% endif %}"></i> Questions</td>
+                                    <td class="text-end"><strong>{{ question_count }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td><i class="bi bi-{% if conclusion_count > 0 %}check-circle text-success{% else %}x-circle text-warning{% endif %}"></i> Conclusions</td>
+                                    <td class="text-end"><strong>{{ conclusion_count }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td><i class="bi bi-{% if transformation_data and transformation_data.type %}check-circle text-success{% else %}x-circle text-warning{% endif %}"></i> Transformation</td>
+                                    <td class="text-end">
+                                        {% if transformation_data and transformation_data.type %}
+                                        <span class="badge bg-purple">{{ transformation_data.type|title }}</span>
+                                        {% else %}
+                                        <span class="text-muted">--</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><i class="bi bi-{% if has_synthesis_annotations %}check-circle text-success{% else %}x-circle text-muted{% endif %}"></i> Annotations</td>
+                                    <td class="text-end"><strong>{{ annotation_count }}</strong></td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Precedent Features -->
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header bg-info text-white">
+                            <h6 class="mb-0"><i class="bi bi-link-45deg me-2"></i>Precedent Features</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <span class="badge {% if data_inventory.precedent_features.has_features %}bg-success{% else %}bg-warning{% endif %}">
+                                    {% if data_inventory.precedent_features.has_features %}Extracted{% else %}Not Extracted{% endif %}
+                                </span>
+                            </div>
+                            {% if precedent_features %}
+                            <table class="table table-sm">
+                                <tbody>
+                                <tr>
+                                    <td><i class="bi bi-check-circle text-success"></i> Outcome</td>
+                                    <td class="text-end">
+                                        <span class="badge {% if precedent_features.outcome_type == 'ethical' %}bg-success{% elif precedent_features.outcome_type == 'unethical' %}bg-danger{% else %}bg-secondary{% endif %}">
+                                            {{ precedent_features.outcome_type|title }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><i class="bi bi-check-circle text-success"></i> Provisions Cited</td>
+                                    <td class="text-end"><strong>{{ precedent_features.provisions_cited|length }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td><i class="bi bi-check-circle text-success"></i> Subject Tags</td>
+                                    <td class="text-end"><strong>{{ precedent_features.subject_tags|length }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td><i class="bi bi-{% if data_inventory.precedent_features.has_principle_tensions %}check-circle text-success{% else %}x-circle text-warning{% endif %}"></i> Principle Tensions</td>
+                                    <td class="text-end">
+                                        {% if data_inventory.precedent_features.has_principle_tensions %}
+                                        <span class="badge bg-success">Yes</span>
+                                        {% else %}
+                                        <span class="badge bg-warning text-dark">Missing</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><i class="bi bi-{% if data_inventory.precedent_features.has_obligation_conflicts %}check-circle text-success{% else %}x-circle text-warning{% endif %}"></i> Obligation Conflicts</td>
+                                    <td class="text-end">
+                                        {% if data_inventory.precedent_features.has_obligation_conflicts %}
+                                        <span class="badge bg-success">Yes</span>
+                                        {% else %}
+                                        <span class="badge bg-warning text-dark">Missing</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><i class="bi bi-{% if data_inventory.precedent_features.has_embeddings %}check-circle text-success{% else %}x-circle text-warning{% endif %}"></i> Embeddings</td>
+                                    <td class="text-end">
+                                        {% if data_inventory.precedent_features.has_embeddings %}
+                                        <span class="badge bg-success">Yes</span>
+                                        {% else %}
+                                        <span class="badge bg-warning text-dark">Missing</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                </tbody>
+                            </table>
+                            {% else %}
+                            <p class="text-muted mb-0">No precedent features extracted. Run feature extraction first.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Flow Diagram -->
+            <div class="card mt-2">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-arrow-right-circle me-2"></i>Data Flow to Downstream Services</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card border-info">
+                                <div class="card-header bg-info text-white py-2">
+                                    <strong><i class="bi bi-link-45deg me-2"></i>Precedent Discovery</strong>
+                                </div>
+                                <div class="card-body py-2">
+                                    <small>
+                                    <table class="table table-sm table-borderless mb-0">
+                                        <tr><td><i class="bi bi-{% if precedent_features and precedent_features.outcome_type %}check text-success{% else %}x text-warning{% endif %}"></i> Outcome Classification</td><td class="text-muted">Match ethical/unethical outcomes</td></tr>
+                                        <tr><td><i class="bi bi-{% if precedent_features and precedent_features.provisions_cited %}check text-success{% else %}x text-warning{% endif %}"></i> Provisions Cited</td><td class="text-muted">Jaccard overlap matching</td></tr>
+                                        <tr><td><i class="bi bi-{% if transformation_data and transformation_data.type %}check text-success{% else %}x text-warning{% endif %}"></i> Transformation Type</td><td class="text-muted">Pattern similarity</td></tr>
+                                        <tr><td><i class="bi bi-{% if precedent_features and precedent_features.subject_tags %}check text-success{% else %}x text-warning{% endif %}"></i> Subject Tags</td><td class="text-muted">Topic overlap</td></tr>
+                                        <tr><td><i class="bi bi-{% if data_inventory.precedent_features.has_principle_tensions %}check text-success{% else %}x text-warning{% endif %}"></i> Principle Tensions</td><td class="text-muted">Conflict pattern matching</td></tr>
+                                        <tr><td><i class="bi bi-{% if data_inventory.precedent_features.has_embeddings %}check text-success{% else %}x text-warning{% endif %}"></i> Section Embeddings</td><td class="text-muted">Semantic similarity (cosine)</td></tr>
+                                    </table>
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card border-success">
+                                <div class="card-header bg-success text-white py-2">
+                                    <strong><i class="bi bi-play-circle me-2"></i>Scenario Generation</strong>
+                                </div>
+                                <div class="card-body py-2">
+                                    <small>
+                                    <table class="table table-sm table-borderless mb-0">
+                                        <tr><td><i class="bi bi-{% if data_inventory.scenario_ready.has_roles %}check text-success{% else %}x text-warning{% endif %}"></i> Roles (Characters)</td><td class="text-muted">Scenario participants</td></tr>
+                                        <tr><td><i class="bi bi-{% if data_inventory.scenario_ready.has_actions %}check text-success{% else %}x text-warning{% endif %}"></i> Actions</td><td class="text-muted">Decision points</td></tr>
+                                        <tr><td><i class="bi bi-{% if data_inventory.scenario_ready.has_events %}check text-success{% else %}x text-warning{% endif %}"></i> Events</td><td class="text-muted">Timeline markers</td></tr>
+                                        <tr><td><i class="bi bi-{% if data_inventory.scenario_ready.has_states %}check text-success{% else %}x text-warning{% endif %}"></i> States</td><td class="text-muted">Scenario conditions</td></tr>
+                                        <tr><td><i class="bi bi-{% if data_inventory.scenario_ready.has_questions %}check text-success{% else %}x text-warning{% endif %}"></i> Questions</td><td class="text-muted">Ethical dilemmas</td></tr>
+                                        <tr><td><i class="bi bi-{% if data_inventory.scenario_ready.has_conclusions %}check text-success{% else %}x text-warning{% endif %}"></i> Conclusions</td><td class="text-muted">Resolution paths</td></tr>
+                                    </table>
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detailed Precedent Features -->
+            {% if precedent_features %}
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-list-ul me-2"></i>Extracted Precedent Features (Detail)</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Provisions Cited</h6>
+                            <div class="mb-3">
+                                {% for prov in precedent_features.provisions_cited %}
+                                <span class="badge bg-secondary me-1 mb-1">{{ prov }}</span>
+                                {% else %}
+                                <span class="text-muted">None extracted</span>
+                                {% endfor %}
+                            </div>
+
+                            <h6>Subject Tags</h6>
+                            <div class="mb-3">
+                                {% for tag in precedent_features.subject_tags %}
+                                <span class="badge bg-warning text-dark me-1 mb-1">{{ tag }}</span>
+                                {% else %}
+                                <span class="text-muted">None extracted</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Outcome Analysis</h6>
+                            <p class="mb-2">
+                                <strong>Type:</strong>
+                                <span class="badge {% if precedent_features.outcome_type == 'ethical' %}bg-success{% elif precedent_features.outcome_type == 'unethical' %}bg-danger{% else %}bg-secondary{% endif %}">
+                                    {{ precedent_features.outcome_type|title }}
+                                </span>
+                                {% if precedent_features.outcome_confidence %}
+                                <small class="text-muted">({{ (precedent_features.outcome_confidence * 100)|round|int }}% confidence)</small>
+                                {% endif %}
+                            </p>
+                            {% if precedent_features.outcome_reasoning %}
+                            <p class="small text-muted">{{ precedent_features.outcome_reasoning }}</p>
+                            {% endif %}
+
+                            <h6>Transformation</h6>
+                            <p class="mb-0">
+                                <span class="badge bg-purple">{{ precedent_features.transformation_type|title }}</span>
+                            </p>
+                            {% if precedent_features.transformation_pattern %}
+                            <p class="small text-muted mt-1">{{ precedent_features.transformation_pattern }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Missing Data Recommendations -->
+            <div class="card mt-4 border-warning">
+                <div class="card-header bg-warning text-dark">
+                    <h6 class="mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Enhancement Opportunities</h6>
+                </div>
+                <div class="card-body">
+                    <p class="mb-2">The following features could improve precedent matching accuracy:</p>
+                    <ul class="mb-0">
+                        {% if not data_inventory.precedent_features.has_principle_tensions %}
+                        <li><strong>Principle Tensions</strong> - Identify which ethical principles conflict (Phase 3 planned)</li>
+                        {% endif %}
+                        {% if not data_inventory.precedent_features.has_obligation_conflicts %}
+                        <li><strong>Obligation Conflicts</strong> - Map competing duties (Phase 3 planned)</li>
+                        {% endif %}
+                        {% if not data_inventory.precedent_features.has_embeddings %}
+                        <li><strong>Section Embeddings</strong> - Enable semantic similarity search (Phase 4: fix 1536-dim issue)</li>
+                        {% endif %}
+                        {% if not data_inventory.step4_synthesis.available %}
+                        <li><strong>Step 4 Synthesis</strong> - Run synthesis to extract provisions, questions, and conclusions</li>
+                        {% endif %}
+                        {% if data_inventory.precedent_features.has_features and data_inventory.step4_synthesis.available and data_inventory.precedent_features.has_embeddings %}
+                        <li class="text-success"><i class="bi bi-check-circle"></i> All primary features extracted - precedent matching optimized!</li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+
         <!-- Entity Graph Tab -->
         <div class="tab-pane fade show active" id="graph" role="tabpanel">
             <div class="card">
@@ -215,9 +586,25 @@
 
                                 {% if provision.rdf_json_ld and provision.rdf_json_ld.appliesTo %}
                                 <p class="mb-2"><strong>Applies To:</strong></p>
-                                <div class="d-flex flex-wrap gap-2">
+                                <div class="applies-to-list">
                                     {% for entity in provision.rdf_json_ld.appliesTo %}
-                                    <span class="badge bg-secondary">{{ entity }}</span>
+                                    <div class="applies-to-item mb-2 p-2 border rounded bg-light">
+                                        <div class="d-flex align-items-center">
+                                            <span class="badge me-2
+                                                {% if entity.entity_type|lower == 'roles' %}bg-primary
+                                                {% elif entity.entity_type|lower == 'obligations' %}bg-warning text-dark
+                                                {% elif entity.entity_type|lower == 'principles' %}bg-purple
+                                                {% elif entity.entity_type|lower == 'actions' %}bg-dark
+                                                {% elif entity.entity_type|lower == 'states' %}bg-info
+                                                {% else %}bg-secondary{% endif %}">
+                                                {{ entity.entity_type|default('Entity') }}
+                                            </span>
+                                            <strong>{{ entity.entity_label|default(entity) }}</strong>
+                                        </div>
+                                        {% if entity.reasoning %}
+                                        <small class="text-muted d-block mt-1 fst-italic">{{ entity.reasoning }}</small>
+                                        {% endif %}
+                                    </div>
                                     {% endfor %}
                                 </div>
                                 {% endif %}
@@ -233,98 +620,229 @@
 
         <!-- Questions & Conclusions Tab -->
         <div class="tab-pane fade" id="questions" role="tabpanel">
-            <div class="row">
-                <!-- Questions Column -->
-                <div class="col-md-6">
-                    <div class="card">
+            <!-- View Toggle -->
+            <div class="mb-3">
+                <div class="btn-group" role="group">
+                    <input type="radio" class="btn-check" name="qcView" id="linkedView" checked>
+                    <label class="btn btn-outline-primary" for="linkedView">Linked View</label>
+                    <input type="radio" class="btn-check" name="qcView" id="splitView">
+                    <label class="btn btn-outline-primary" for="splitView">Side-by-Side</label>
+                </div>
+            </div>
+
+            <!-- LINKED VIEW: Shows Q→C relationships clearly -->
+            <div id="linkedViewContent">
+                <div class="alert alert-info mb-3">
+                    <i class="bi bi-info-circle"></i> Each question is shown with its corresponding conclusion(s). This reveals the board's reasoning flow.
+                </div>
+
+                {% if questions %}
+                    {% for question in questions %}
+                    <div class="card mb-4 qc-link-card" id="qc-pair-{{ loop.index }}">
+                        <!-- Question Header -->
                         <div class="card-header bg-warning text-dark">
-                            <h5><i class="bi bi-question-circle"></i> Ethical Questions</h5>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0">
+                                    <i class="bi bi-question-circle me-2"></i>
+                                    {{ question.entity_label }}
+                                </h6>
+                                {% if question.rdf_json_ld and question.rdf_json_ld.relatedProvisions %}
+                                <div>
+                                    {% for prov in question.rdf_json_ld.relatedProvisions %}
+                                    <span class="badge bg-secondary">{{ prov }}</span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
                         </div>
                         <div class="card-body">
-                            {% if questions %}
-                                {% for question in questions %}
-                                <div class="card mb-3" id="question-{{ loop.index }}">
-                                    <div class="card-header bg-warning text-dark">
-                                        <strong>{{ question.entity_label }}</strong>
-                                    </div>
-                                    <div class="card-body">
-                                        <p>{{ question.entity_definition }}</p>
+                            <!-- Question Text -->
+                            <p class="mb-3">{{ question.entity_definition }}</p>
 
-                                        {% if question.rdf_json_ld and question.rdf_json_ld.mentionedEntities %}
-                                        <div class="mb-2">
-                                            <small class="text-muted"><strong>Mentioned Entities:</strong></small><br>
-                                            {% for entity in question.rdf_json_ld.mentionedEntities %}
-                                            <span class="badge bg-info me-1">{{ entity }}</span>
-                                            {% endfor %}
-                                        </div>
-                                        {% endif %}
-
-                                        {% if question.rdf_json_ld and question.rdf_json_ld.relatedProvisions %}
-                                        <div>
-                                            <small class="text-muted"><strong>Related Provisions:</strong></small><br>
-                                            {% for prov in question.rdf_json_ld.relatedProvisions %}
-                                            <span class="badge bg-secondary me-1">{{ prov }}</span>
-                                            {% endfor %}
-                                        </div>
-                                        {% endif %}
-                                    </div>
-                                </div>
+                            {% if question.rdf_json_ld and question.rdf_json_ld.mentionedEntities %}
+                            <div class="mb-3">
+                                <small class="text-muted"><strong>Involves:</strong></small>
+                                {% for entity in question.rdf_json_ld.mentionedEntities %}
+                                <span class="badge bg-info me-1">{{ entity }}</span>
                                 {% endfor %}
-                            {% else %}
-                                <p class="text-muted">No questions extracted yet.</p>
+                            </div>
+                            {% endif %}
+
+                            <!-- Arrow to Conclusions -->
+                            <div class="text-center my-2">
+                                <span class="qc-arrow"><i class="bi bi-arrow-down-circle-fill"></i></span>
+                                <small class="text-muted d-block">Board's Answer</small>
+                            </div>
+
+                            <!-- Linked Conclusions -->
+                            {% set question_num = question.entity_label|replace('Question_', '')|replace('Question ', '') %}
+                            {% set found_conclusion = false %}
+                            {% for conclusion in conclusions %}
+                                {% if conclusion.rdf_json_ld and conclusion.rdf_json_ld.answersQuestions %}
+                                    {% for answered_q in conclusion.rdf_json_ld.answersQuestions %}
+                                        {% if question_num in answered_q or question.entity_label in answered_q %}
+                                            {% set found_conclusion = true %}
+                                            <div class="card linked-conclusion mb-2">
+                                                <div class="card-body py-2">
+                                                    <div class="d-flex justify-content-between align-items-start">
+                                                        <div>
+                                                            <strong class="text-success">
+                                                                <i class="bi bi-check-circle me-1"></i>
+                                                                {{ conclusion.entity_label }}
+                                                            </strong>
+                                                            <p class="mb-1 mt-1">{{ conclusion.entity_definition }}</p>
+                                                        </div>
+                                                        {% if conclusion.rdf_json_ld.conclusionType %}
+                                                        <span class="badge bg-dark">{{ conclusion.rdf_json_ld.conclusionType }}</span>
+                                                        {% endif %}
+                                                    </div>
+                                                    {% if conclusion.rdf_json_ld.citedProvisions %}
+                                                    <div class="mt-2">
+                                                        <small class="text-muted">Cites:</small>
+                                                        {% for prov in conclusion.rdf_json_ld.citedProvisions %}
+                                                        <span class="badge bg-secondary badge-sm">{{ prov }}</span>
+                                                        {% endfor %}
+                                                    </div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if not found_conclusion %}
+                            <div class="alert alert-secondary mb-0">
+                                <small><i class="bi bi-dash-circle"></i> No linked conclusion found for this question.</small>
+                            </div>
                             {% endif %}
                         </div>
                     </div>
-                </div>
+                    {% endfor %}
 
-                <!-- Conclusions Column -->
-                <div class="col-md-6">
-                    <div class="card">
-                        <div class="card-header bg-success text-white">
-                            <h5><i class="bi bi-check-circle"></i> Board Conclusions</h5>
+                    <!-- Unlinked Conclusions -->
+                    {% set unlinked_conclusions = [] %}
+                    {% for conclusion in conclusions %}
+                        {% if not conclusion.rdf_json_ld or not conclusion.rdf_json_ld.answersQuestions or conclusion.rdf_json_ld.answersQuestions|length == 0 %}
+                            {% set _ = unlinked_conclusions.append(conclusion) %}
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if unlinked_conclusions|length > 0 %}
+                    <div class="card mt-4 unlinked-item">
+                        <div class="card-header bg-secondary text-white">
+                            <h6 class="mb-0"><i class="bi bi-link-45deg"></i> Additional Conclusions (No Direct Question Link)</h6>
                         </div>
                         <div class="card-body">
-                            {% if conclusions %}
-                                {% for conclusion in conclusions %}
-                                <div class="card mb-3" id="conclusion-{{ loop.index }}">
-                                    <div class="card-header bg-success text-white">
-                                        <strong>{{ conclusion.entity_label }}</strong>
-                                    </div>
-                                    <div class="card-body">
-                                        <p>{{ conclusion.entity_definition }}</p>
-
-                                        {% if conclusion.rdf_json_ld and conclusion.rdf_json_ld.answersQuestions %}
-                                        <div class="mb-2">
-                                            <small class="text-muted"><strong>Answers:</strong></small><br>
-                                            {% for q in conclusion.rdf_json_ld.answersQuestions %}
-                                            <a href="#question-{{ loop.index }}" class="btn btn-sm btn-outline-warning">
-                                                {{ q }}
-                                            </a>
-                                            {% endfor %}
-                                        </div>
-                                        {% endif %}
-
-                                        {% if conclusion.rdf_json_ld and conclusion.rdf_json_ld.citedProvisions %}
-                                        <div class="mb-2">
-                                            <small class="text-muted"><strong>Cited Provisions:</strong></small><br>
-                                            {% for prov in conclusion.rdf_json_ld.citedProvisions %}
-                                            <span class="badge bg-secondary me-1">{{ prov }}</span>
-                                            {% endfor %}
-                                        </div>
-                                        {% endif %}
-
-                                        {% if conclusion.rdf_json_ld and conclusion.rdf_json_ld.conclusionType %}
-                                        <div>
-                                            <small class="text-muted"><strong>Type:</strong></small>
-                                            <span class="badge bg-dark">{{ conclusion.rdf_json_ld.conclusionType }}</span>
-                                        </div>
-                                        {% endif %}
-                                    </div>
-                                </div>
+                            {% for conclusion in unlinked_conclusions %}
+                            <div class="mb-3 pb-3 {% if not loop.last %}border-bottom{% endif %}">
+                                <strong>{{ conclusion.entity_label }}</strong>
+                                <p class="mb-1">{{ conclusion.entity_definition }}</p>
+                                {% if conclusion.rdf_json_ld and conclusion.rdf_json_ld.citedProvisions %}
+                                <small class="text-muted">Cites:</small>
+                                {% for prov in conclusion.rdf_json_ld.citedProvisions %}
+                                <span class="badge bg-secondary badge-sm">{{ prov }}</span>
                                 {% endfor %}
-                            {% else %}
-                                <p class="text-muted">No conclusions extracted yet.</p>
-                            {% endif %}
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                {% else %}
+                    <div class="alert alert-warning">No questions extracted yet. Run Step 4 synthesis first.</div>
+                {% endif %}
+            </div>
+
+            <!-- SPLIT VIEW: Original side-by-side layout -->
+            <div id="splitViewContent" style="display: none;">
+                <div class="row">
+                    <!-- Questions Column -->
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header bg-warning text-dark">
+                                <h5 class="mb-0"><i class="bi bi-question-circle"></i> Ethical Questions</h5>
+                            </div>
+                            <div class="card-body">
+                                {% if questions %}
+                                    {% for question in questions %}
+                                    <div class="card mb-3" id="question-{{ loop.index }}">
+                                        <div class="card-header bg-warning text-dark py-2">
+                                            <strong>{{ question.entity_label }}</strong>
+                                        </div>
+                                        <div class="card-body">
+                                            <p>{{ question.entity_definition }}</p>
+                                            {% if question.rdf_json_ld and question.rdf_json_ld.mentionedEntities %}
+                                            <div class="mb-2">
+                                                <small class="text-muted"><strong>Mentioned:</strong></small>
+                                                {% for entity in question.rdf_json_ld.mentionedEntities %}
+                                                <span class="badge bg-info me-1">{{ entity }}</span>
+                                                {% endfor %}
+                                            </div>
+                                            {% endif %}
+                                            {% if question.rdf_json_ld and question.rdf_json_ld.relatedProvisions %}
+                                            <div>
+                                                <small class="text-muted"><strong>Provisions:</strong></small>
+                                                {% for prov in question.rdf_json_ld.relatedProvisions %}
+                                                <span class="badge bg-secondary me-1">{{ prov }}</span>
+                                                {% endfor %}
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <p class="text-muted">No questions extracted yet.</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Conclusions Column -->
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header bg-success text-white">
+                                <h5 class="mb-0"><i class="bi bi-check-circle"></i> Board Conclusions</h5>
+                            </div>
+                            <div class="card-body">
+                                {% if conclusions %}
+                                    {% for conclusion in conclusions %}
+                                    <div class="card mb-3" id="conclusion-{{ loop.index }}">
+                                        <div class="card-header bg-success text-white py-2">
+                                            <strong>{{ conclusion.entity_label }}</strong>
+                                        </div>
+                                        <div class="card-body">
+                                            <p>{{ conclusion.entity_definition }}</p>
+                                            {% if conclusion.rdf_json_ld and conclusion.rdf_json_ld.answersQuestions %}
+                                            <div class="mb-2">
+                                                <small class="text-muted"><strong>Answers:</strong></small>
+                                                {% for q in conclusion.rdf_json_ld.answersQuestions %}
+                                                <span class="badge bg-warning text-dark me-1">{{ q }}</span>
+                                                {% endfor %}
+                                            </div>
+                                            {% endif %}
+                                            {% if conclusion.rdf_json_ld and conclusion.rdf_json_ld.citedProvisions %}
+                                            <div class="mb-2">
+                                                <small class="text-muted"><strong>Cites:</strong></small>
+                                                {% for prov in conclusion.rdf_json_ld.citedProvisions %}
+                                                <span class="badge bg-secondary me-1">{{ prov }}</span>
+                                                {% endfor %}
+                                            </div>
+                                            {% endif %}
+                                            {% if conclusion.rdf_json_ld and conclusion.rdf_json_ld.conclusionType %}
+                                            <div>
+                                                <small class="text-muted"><strong>Type:</strong></small>
+                                                <span class="badge bg-dark">{{ conclusion.rdf_json_ld.conclusionType }}</span>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <p class="text-muted">No conclusions extracted yet.</p>
+                                {% endif %}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -602,6 +1120,20 @@ URI: ${data.uri}
         alert(details);
     });
 
+    // Q&C View Toggle
+    document.getElementById('linkedView').addEventListener('change', function() {
+        if (this.checked) {
+            document.getElementById('linkedViewContent').style.display = 'block';
+            document.getElementById('splitViewContent').style.display = 'none';
+        }
+    });
+
+    document.getElementById('splitView').addEventListener('change', function() {
+        if (this.checked) {
+            document.getElementById('linkedViewContent').style.display = 'none';
+            document.getElementById('splitViewContent').style.display = 'block';
+        }
+    });
 
 });
 
