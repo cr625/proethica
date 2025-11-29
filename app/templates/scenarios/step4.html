@@ -395,7 +395,14 @@ function runSynthesis() {
 }
 
 function startSynthesisStream() {
+    // Get DOM elements (re-query since these are needed in this scope)
+    const progressBar = document.getElementById('progress-bar');
+    const progressIcon = document.getElementById('progress-icon');
+    const progressHeader = document.getElementById('progress-header-text');
     const messagesDiv = document.getElementById('progress-messages');
+    const stageInfo = document.getElementById('stage-info');
+    const currentStageSpan = document.getElementById('current-stage');
+    const summaryCard = document.getElementById('synthesis-summary');
 
     // Create EventSource for Server-Sent Events
     const eventSource = new EventSource(
@@ -691,7 +698,8 @@ async function saveSynthesisResults(data) {
         {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
             },
             body: JSON.stringify(saveData)
         }

@@ -828,7 +828,19 @@ def process_url_pipeline():
         except Exception as e:
             logger.error(f"Error generating section embeddings: {str(e)}")
             # Continue anyway - embeddings can be generated later
-        
+
+        # Generate precedent features for similarity matching
+        # References: CBR-RAG (2024), NS-LCR (2024) - see docs/PRECEDENT_DISCOVERY_PLAN.md
+        try:
+            from app.services.precedent.case_feature_extractor import CaseFeatureExtractor
+            feature_extractor = CaseFeatureExtractor()
+            features = feature_extractor.extract_precedent_features(document.id)
+            feature_extractor.save_features(features)
+            logger.info(f"Extracted precedent features for case {document.id}: outcome={features.outcome_type}, provisions={len(features.provisions_cited)}")
+        except Exception as e:
+            logger.warning(f"Error extracting precedent features: {str(e)}")
+            # Continue anyway - features can be extracted later
+
         # Log success with document ID and structure information
         logger.info(f"Case saved successfully with ID: {document.id}, includes document structure: {'document_structure' in metadata}")
         
@@ -1210,7 +1222,28 @@ def create_from_url():
             # Remove temporary triples data from metadata
             document.doc_metadata.pop('triples_to_process', None)
             db.session.commit()
-        
+
+        # Generate section embeddings for the new document
+        try:
+            from app.services.section_embedding_service import SectionEmbeddingService
+            section_embedding_service = SectionEmbeddingService()
+            embedding_result = section_embedding_service.process_document_sections(document.id)
+            if embedding_result.get('success'):
+                logger.info(f"Generated embeddings for {embedding_result.get('sections_embedded')} sections")
+        except Exception as e:
+            logger.warning(f"Error generating section embeddings: {str(e)}")
+
+        # Generate precedent features for similarity matching
+        # References: CBR-RAG (2024), NS-LCR (2024) - see docs/PRECEDENT_DISCOVERY_PLAN.md
+        try:
+            from app.services.precedent.case_feature_extractor import CaseFeatureExtractor
+            feature_extractor = CaseFeatureExtractor()
+            features = feature_extractor.extract_precedent_features(document.id)
+            feature_extractor.save_features(features)
+            logger.info(f"Extracted precedent features for case {document.id}: outcome={features.outcome_type}")
+        except Exception as e:
+            logger.warning(f"Error extracting precedent features: {str(e)}")
+
         flash('Case created successfully from URL', 'success')
         return redirect(url_for('cases.edit_case_form', id=document.id))
         

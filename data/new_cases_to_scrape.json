@@ -1,0 +1,37 @@
+{
+  "description": "5 new NSPE cases to scrape to reach 23 total for AAAI demo",
+  "created": "2025-11-28",
+  "cases": [
+    {
+      "case_number": "22-1",
+      "title": "Unlicensed Practice by Nonengineers with 'Engineer' in Job Titles",
+      "url": "https://www.nspe.org/career-growth/ethics/board-ethical-review-cases/unlicensed-practice-nonengineers-engineer-job",
+      "year": "2022"
+    },
+    {
+      "case_number": "21-12",
+      "title": "Duty to Report - Material Information",
+      "url": "https://www.nspe.org/career-growth/ethics/board-ethical-review-cases/duty-report-material-information",
+      "year": "2021"
+    },
+    {
+      "case_number": "21-11",
+      "title": "Public Welfare at What Cost?",
+      "url": "https://www.nspe.org/career-growth/ethics/board-ethical-review-cases/public-welfare-what-cost",
+      "year": "2021"
+    },
+    {
+      "case_number": "21-10",
+      "title": "Protecting Public Health, Safety, and Welfare",
+      "url": "https://www.nspe.org/career-growth/ethics/board-ethical-review-cases/protecting-public-health-safety-welfare",
+      "year": "2021"
+    },
+    {
+      "case_number": "21-9",
+      "title": "Misrepresentation of Qualifications",
+      "url": "https://www.nspe.org/career-growth/ethics/board-ethical-review-cases/misrepresentation-qualifications",
+      "year": "2021"
+    }
+  ],
+  "notes": "These cases are the next 5 oldest after the current database contents (22-2 to 24-05). After adding these, the database will have 23 cases matching the AAAI paper claim."
+}

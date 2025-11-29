@@ -172,7 +172,9 @@ def create_app(config_name=None):
     from app.routes.reasoning import reasoning_bp
     # PROV-O provenance viewer routes
     from app.routes.provenance import provenance_bp
-    
+    # Precedent discovery routes
+    from app.routes.precedents import precedents_bp
+
     app.register_blueprint(index_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
@@ -215,7 +217,8 @@ def create_app(config_name=None):
     app.register_blueprint(api_document_annotations_bp)  # Register unified document annotation API
     app.register_blueprint(reasoning_bp)  # Register reasoning inspector routes
     app.register_blueprint(provenance_bp)  # Register PROV-O provenance viewer routes
-    
+    app.register_blueprint(precedents_bp)  # Register precedent discovery routes
+
     # Exempt API routes from CSRF protection
     from app.routes.api_document_annotations import init_csrf_exemption
     init_csrf_exemption(app)
