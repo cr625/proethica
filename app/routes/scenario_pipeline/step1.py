@@ -166,12 +166,19 @@ def step1b(case_id):
     """
     Step 1b: Contextual Framework Pass for Discussion Section
     Same exact structure as step1 but shows Discussion section content and prompts
+
+    Requires: Step 1 Facts extraction must be completed first
     """
+    # Get pipeline status first to check prerequisites
+    pipeline_status = PipelineStatusService.get_step_status(case_id)
+
+    # Enforce prerequisite: Step 1 Facts must be completed
+    if not pipeline_status.get('step1', {}).get('facts_complete', False):
+        flash('Please complete Step 1 (Facts extraction) before proceeding to Discussion.', 'warning')
+        return redirect(url_for('scenario_pipeline.step1', case_id=case_id))
+
     # Load data with section_type='discussion' to get discussion prompts
     case, facts_section, discussion_section, saved_prompts = step1_data(case_id, section_type='discussion')
-
-    # Get pipeline status for navigation
-    pipeline_status = PipelineStatusService.get_step_status(case_id)
 
     # Template context
     context = {

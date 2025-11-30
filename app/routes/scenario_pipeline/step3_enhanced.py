@@ -14,6 +14,7 @@ import asyncio
 
 from app.models import Document
 from app.services.temporal_dynamics import build_temporal_dynamics_graph
+from app.services.case_entity_storage_service import CaseEntityStorageService
 from app.utils.environment_auth import auth_required_for_llm
 
 logger = logging.getLogger(__name__)
@@ -49,6 +50,19 @@ def extract_enhanced_temporal_dynamics(case_id):
             return jsonify({'error': 'Facts section not found'}), 400
 
         logger.info(f"[Enhanced TD] Facts: {len(facts_text)} chars, Discussion: {len(discussion_text)} chars")
+
+        # Auto-clear: Remove any uncommitted Pass 3 entities before running new extraction
+        # This prevents duplicate entities when re-running extraction
+        clear_result = CaseEntityStorageService.clear_extraction_pass(
+            case_id=case_id,
+            extraction_pass='pass3'
+        )
+        if clear_result.get('success'):
+            cleared_count = clear_result.get('entities_cleared', 0) + clear_result.get('prompts_cleared', 0)
+            if cleared_count > 0:
+                logger.info(f"[Enhanced TD] Auto-cleared {cleared_count} uncommitted entities/prompts before extraction")
+        else:
+            logger.warning(f"[Enhanced TD] Auto-clear failed: {clear_result.get('error', 'Unknown error')}")
 
         # Initialize state
         initial_state = {

@@ -210,16 +210,6 @@
                 </div>
             </div>
 
-            <!-- Re-run Warning Banner (shown by JavaScript if extraction exists) -->
-            <div id="rerunWarningBanner" class="alert alert-warning alert-dismissible fade show" role="alert" style="display: none;">
-                <i class="bi bi-exclamation-triangle-fill"></i>
-                <strong>Re-run Warning:</strong> This section was already extracted.
-                Re-running without clearing will create <strong>duplicate</strong> entities.
-                <br><small class="text-muted">
-                    Click <strong>"Clear Pass 1 Uncommitted"</strong> first, or use <strong>"Clear & Re-run Pass 1"</strong> below for one-click workflow.
-                </small>
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
 
             <!-- Entity Type Counts -->
             <div class="row mb-3">
@@ -231,17 +221,13 @@
                                 <i class="bi bi-person-badge"></i> Roles
                             </h5>
                             <div class="row text-center">
-                                <div class="col-4">
+                                <div class="col-6">
                                     <div class="fs-3 fw-bold">{{ rdf_data.by_type.roles.classes|length if rdf_data and rdf_data.by_type and rdf_data.by_type.roles else 0 }}</div>
                                     <small class="text-muted">Classes</small>
                                 </div>
-                                <div class="col-4">
+                                <div class="col-6">
                                     <div class="fs-3 fw-bold">{{ rdf_data.by_type.roles.individuals|length if rdf_data and rdf_data.by_type and rdf_data.by_type.roles else 0 }}</div>
                                     <small class="text-muted">Individuals</small>
-                                </div>
-                                <div class="col-4">
-                                    <div class="fs-3 fw-bold">{{ rdf_data.by_type.roles.relationships|length if rdf_data and rdf_data.by_type and rdf_data.by_type.roles and rdf_data.by_type.roles.relationships else 0 }}</div>
-                                    <small class="text-muted">References</small>
                                 </div>
                             </div>
                         </div>
@@ -256,17 +242,13 @@
                                 <i class="bi bi-diagram-3"></i> States
                             </h5>
                             <div class="row text-center">
-                                <div class="col-4">
+                                <div class="col-6">
                                     <div class="fs-3 fw-bold">{{ rdf_data.by_type.states.classes|length if rdf_data and rdf_data.by_type and rdf_data.by_type.states else 0 }}</div>
                                     <small class="text-muted">Classes</small>
                                 </div>
-                                <div class="col-4">
+                                <div class="col-6">
                                     <div class="fs-3 fw-bold">{{ rdf_data.by_type.states.individuals|length if rdf_data and rdf_data.by_type and rdf_data.by_type.states else 0 }}</div>
                                     <small class="text-muted">Individuals</small>
-                                </div>
-                                <div class="col-4">
-                                    <div class="fs-3 fw-bold">{{ rdf_data.by_type.states.relationships|length if rdf_data and rdf_data.by_type and rdf_data.by_type.states and rdf_data.by_type.states.relationships else 0 }}</div>
-                                    <small class="text-muted">References</small>
                                 </div>
                             </div>
                         </div>
@@ -281,17 +263,13 @@
                                 <i class="bi bi-box-seam"></i> Resources
                             </h5>
                             <div class="row text-center">
-                                <div class="col-4">
+                                <div class="col-6">
                                     <div class="fs-3 fw-bold">{{ rdf_data.by_type.resources.classes|length if rdf_data and rdf_data.by_type and rdf_data.by_type.resources else 0 }}</div>
                                     <small class="text-muted">Classes</small>
                                 </div>
-                                <div class="col-4">
+                                <div class="col-6">
                                     <div class="fs-3 fw-bold">{{ rdf_data.by_type.resources.individuals|length if rdf_data and rdf_data.by_type and rdf_data.by_type.resources else 0 }}</div>
                                     <small class="text-muted">Individuals</small>
-                                </div>
-                                <div class="col-4">
-                                    <div class="fs-3 fw-bold">{{ rdf_data.by_type.resources.relationships|length if rdf_data and rdf_data.by_type and rdf_data.by_type.resources and rdf_data.by_type.resources.relationships else 0 }}</div>
-                                    <small class="text-muted">References</small>
                                 </div>
                             </div>
                         </div>
@@ -486,6 +464,37 @@
                                 {% if type_data.relationships %}
                                 All {{ concept_type }} references point to entities already extracted from previous sections.
                                 {% endif %}
+                            </div>
+                            {% endif %}
+
+                            <!-- Show existing OntServe classes for reference (always visible) -->
+                            {% if ontserve_classes and ontserve_classes[concept_type] %}
+                            <div class="mt-3">
+                                <a class="text-decoration-none" data-bs-toggle="collapse" href="#ontserve-{{ concept_type }}-classes" role="button" aria-expanded="false">
+                                    <i class="fas fa-chevron-down"></i>
+                                    <strong>Available {{ concept_type|title }} Classes in OntServe</strong>
+                                    <span class="badge bg-secondary">{{ ontserve_classes[concept_type]|length }}</span>
+                                </a>
+                                <div class="collapse mt-2" id="ontserve-{{ concept_type }}-classes">
+                                    <div class="card card-body bg-light">
+                                        <small class="text-muted mb-2">
+                                            These {{ concept_type }} classes already exist in the shared ontology.
+                                            Individuals extracted below are typed using these classes.
+                                        </small>
+                                        <div class="row">
+                                            {% for cls in ontserve_classes[concept_type]|sort(attribute='label') %}
+                                            <div class="col-md-6 col-lg-4 mb-2">
+                                                <div class="border rounded p-2 bg-white h-100">
+                                                    <strong class="text-primary">{{ cls.label }}</strong>
+                                                    {% if cls.description %}
+                                                    <br/><small class="text-muted">{{ cls.description[:100] }}{% if cls.description|length > 100 %}...{% endif %}</small>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                             {% endif %}
                         </div>
@@ -1413,28 +1422,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Check if extraction has been run and show warning banner
-    function checkExtractionStatus() {
-        const sectionType = '{{ section_type }}' || 'facts';
-
-        appFetch(`/scenario_pipeline/case/${caseId}/entities/check_extraction/pass1?section_type=${sectionType}`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.success && data.has_been_run) {
-                    // Show warning banner
-                    const warningBanner = document.getElementById('rerunWarningBanner');
-                    if (warningBanner) {
-                        warningBanner.style.display = 'block';
-                    }
-                }
-            })
-            .catch(error => {
-                console.error('Error checking extraction status:', error);
-            });
-    }
-
-    // Call on page load
-    checkExtractionStatus();
 
     // Clear & Re-run button handler
     const clearAndRerunBtn = document.getElementById('clearAndRerunBtn');

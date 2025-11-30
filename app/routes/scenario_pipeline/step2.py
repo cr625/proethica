@@ -1360,7 +1360,17 @@ def step2b(case_id):
     """
     Step 2b: Normative Pass for Discussion Section
     Extracts principles, obligations, constraints, and capabilities from Discussion section
+
+    Requires: Step 2 Facts extraction must be completed first
     """
+    # Get pipeline status first to check prerequisites
+    pipeline_status = PipelineStatusService.get_step_status(case_id)
+
+    # Enforce prerequisite: Step 2 Facts must be completed
+    if not pipeline_status.get('step2', {}).get('facts_complete', False):
+        flash('Please complete Step 2 (Facts extraction) before proceeding to Discussion.', 'warning')
+        return redirect(url_for('scenario_pipeline.step2', case_id=case_id))
+
     # Load data with section_type='discussion' to get discussion prompts
     case, facts_section, saved_prompts = step2_data(case_id, section_type='discussion')
 
@@ -1380,10 +1390,6 @@ def step2b(case_id):
             discussion_section_key = section_key
             discussion_section = _format_section_for_llm(section_key, section_content, case_doc=case)
             break
-
-    # Template context
-    # Get pipeline status for navigation
-    pipeline_status = PipelineStatusService.get_step_status(case_id)
 
     context = {
         'case': case,

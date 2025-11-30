@@ -433,6 +433,48 @@
                     </div>
                 </div>
             </div>
+            {% else %}
+            <div class="row mb-3">
+                <div class="col-12">
+                    <div class="alert alert-info mb-0">
+                        <i class="fas fa-info-circle"></i>
+                        No new {{ concept_type }} classes were identified in this section.
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Show existing OntServe classes for reference (always visible) -->
+            {% if ontserve_classes and ontserve_classes[concept_type] %}
+            <div class="row mb-3">
+                <div class="col-12">
+                    <a class="text-decoration-none" data-bs-toggle="collapse" href="#ontserve-{{ concept_type }}-classes" role="button" aria-expanded="false">
+                        <i class="fas fa-chevron-down"></i>
+                        <strong>Available {{ concept_type|title }} Classes in OntServe</strong>
+                        <span class="badge bg-secondary">{{ ontserve_classes[concept_type]|length }}</span>
+                    </a>
+                    <div class="collapse mt-2" id="ontserve-{{ concept_type }}-classes">
+                        <div class="card card-body bg-light">
+                            <small class="text-muted mb-2">
+                                These {{ concept_type }} classes already exist in the shared ontology.
+                                Individuals extracted below are typed using these classes.
+                            </small>
+                            <div class="row">
+                                {% for cls in ontserve_classes[concept_type]|sort(attribute='label') %}
+                                <div class="col-md-6 col-lg-4 mb-2">
+                                    <div class="border rounded p-2 bg-white h-100">
+                                        <strong class="text-primary">{{ cls.label }}</strong>
+                                        {% if cls.description %}
+                                        <br/><small class="text-muted">{{ cls.description[:100] }}{% if cls.description|length > 100 %}...{% endif %}</small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
             {% endif %}
 
             <!-- INDIVIDUALS SUB-SECTION -->

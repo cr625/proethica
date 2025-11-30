@@ -1,24 +1,65 @@
-{% extends "scenarios/base_step.html" %}
+{% extends "base.html" %}
 
-{% block step_title %}{{ step_title }}{% endblock %}
-{% block step_header %}Enhanced Temporal Dynamics - Extraction Review{% endblock %}
-{% block step_subtitle %}Review extracted temporal entities with OWL-Time integration and Allen algebra{% endblock %}
+{% block title %}Enhanced Temporal Review - Case {{ case.id }}{% endblock %}
 
-{% block step_navigation %}
-<div class="d-flex justify-content-between mb-3">
-    <a href="{{ url_for('scenario_pipeline.step3', case_id=case.id) }}" class="btn btn-outline-secondary">
-        <i class="bi bi-arrow-left"></i> Back to Step 3
-    </a>
-    <div>
-        <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}" class="btn btn-success">
-            Continue to Step 4 <i class="bi bi-arrow-right"></i>
-        </a>
-    </div>
-</div>
+{% block head %}
+{{ super() }}
+<style>
+    .page-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1.5rem 0;
+        margin-bottom: 2rem;
+    }
+    .accordion-button:not(.collapsed) {
+        background-color: rgba(13, 110, 253, 0.1);
+    }
+    details summary {
+        cursor: pointer;
+    }
+    pre code {
+        display: block;
+        background: #f5f5f5;
+        padding: 10px;
+        border-radius: 4px;
+        overflow-x: auto;
+    }
+</style>
 {% endblock %}
 
-{% block step_content %}
+{% block content %}
+<!-- Page Header -->
+<div class="page-header">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="mb-2">
+                    <i class="bi bi-clock-history"></i> Enhanced Temporal Dynamics - Extraction Review
+                </h1>
+                <p class="mb-0 lead">Review extracted temporal entities with OWL-Time integration and Allen algebra</p>
+            </div>
+            <div class="col-md-4 text-md-end">
+                <a href="{{ url_for('scenario_pipeline.step3', case_id=case.id) }}" class="btn btn-light">
+                    <i class="bi bi-arrow-left"></i> Back to Step 3
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="container-fluid">
+    <!-- Navigation -->
+    <div class="d-flex justify-content-between mb-4">
+        <div>
+            <span class="text-muted">Case:</span> <strong>{{ case.title }}</strong>
+        </div>
+        <div>
+            <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}" class="btn btn-success">
+                Continue to Step 4 <i class="bi bi-arrow-right"></i>
+            </a>
+        </div>
+    </div>
+
     {% if not extraction_complete %}
     <div class="alert alert-info">
         <h5><i class="bi bi-info-circle"></i> Enhanced Temporal Extraction Review</h5>
@@ -27,22 +68,6 @@
         </p>
     </div>
     {% else %}
-
-    <!-- Warning banner if extraction has been run before -->
-    <div id="extraction-warning-banner" class="alert alert-warning" style="display: none;">
-        <div class="d-flex justify-content-between align-items-center">
-            <div>
-                <h6 class="mb-1"><i class="bi bi-exclamation-triangle"></i> Previous Extraction Detected</h6>
-                <p class="mb-0 small">
-                    Temporal dynamics extraction has already been run for this case.
-                    Running extraction again without clearing will create duplicate entities.
-                </p>
-            </div>
-            <button id="clear-and-rerun-btn" class="btn btn-warning btn-sm">
-                <i class="bi bi-trash"></i> Clear Pass 3 Data
-            </button>
-        </div>
-    </div>
 
     <div class="alert alert-success">
         <h5 class="mb-2"><i class="bi bi-check-circle"></i> Extraction Complete</h5>
@@ -603,97 +628,12 @@
 </div>
 {% endblock %}
 
-{% block step_styles %}
-<style>
-    .accordion-button:not(.collapsed) {
-        background-color: rgba(13, 110, 253, 0.1);
-    }
-    details summary {
-        cursor: pointer;
-    }
-    pre code {
-        display: block;
-        background: #f5f5f5;
-        padding: 10px;
-        border-radius: 4px;
-        overflow-x: auto;
-    }
-</style>
-{% endblock %}
-
-{% block step_scripts %}
+{% block scripts %}
+{{ super() }}
 <script>
 function getCsrfToken() {
     return document.querySelector('meta[name="csrf-token"]')?.content || '';
 }
-
-// Check extraction status on page load
-document.addEventListener('DOMContentLoaded', function() {
-    checkExtractionStatus();
-});
-
-function checkExtractionStatus() {
-    fetch('/scenario_pipeline/case/{{ case.id }}/entities/check_extraction/pass3', {
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/json'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success && data.has_been_run) {
-            // Show warning banner
-            document.getElementById('extraction-warning-banner').style.display = 'block';
-        }
-    })
-    .catch(error => {
-        console.error('Error checking extraction status:', error);
-    });
-}
-
-function clearAndRerunPass3() {
-    if (!confirm('This will clear all temporal dynamics entities (actions, events, causal chains, timeline, Allen relations) and stored prompts/artifacts for this case.\n\nYou will need to go back to Step 3 to re-run extraction. Continue?')) {
-        return;
-    }
-
-    const button = document.getElementById('clear-and-rerun-btn');
-    button.disabled = true;
-    button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Clearing...';
-
-    fetch('/scenario_pipeline/case/{{ case.id }}/entities/clear_and_rerun/pass3', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCsrfToken()
-        },
-        body: JSON.stringify({})
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            // Reload page to show "no extraction" state
-            alert('Pass 3 data cleared successfully.\n\nGo to Step 3 to re-run extraction if needed.');
-            window.location.reload();
-        } else {
-            alert('Error: ' + (data.error || 'Failed to clear extraction'));
-            button.disabled = false;
-            button.innerHTML = '<i class="bi bi-trash"></i> Clear Pass 3 Data';
-        }
-    })
-    .catch(error => {
-        alert('Error clearing extraction: ' + error.message);
-        button.disabled = false;
-        button.innerHTML = '<i class="bi bi-trash"></i> Clear Pass 3 Data';
-    });
-}
-
-// Attach click handler to clear button
-document.addEventListener('DOMContentLoaded', function() {
-    const clearBtn = document.getElementById('clear-and-rerun-btn');
-    if (clearBtn) {
-        clearBtn.addEventListener('click', clearAndRerunPass3);
-    }
-});
 
 function commitTemporalEntities() {
     const button = document.getElementById('commit-temporal-btn');

@@ -64,22 +64,6 @@
             </div>
         </div>
 
-        <!-- Warning banner if extraction has been run before -->
-        <div id="extraction-warning-banner" class="alert alert-warning" style="display: none;">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h6 class="mb-1"><i class="bi bi-exclamation-triangle"></i> Previous Extraction Detected</h6>
-                    <p class="mb-0 small">
-                        Temporal dynamics extraction has already been run for this case.
-                        Running extraction again without clearing will create duplicate entities.
-                    </p>
-                </div>
-                <button id="clear-pass3-btn" class="btn btn-warning btn-sm">
-                    <i class="bi bi-trash"></i> Clear Pass 3 Data
-                </button>
-            </div>
-        </div>
-
         <!-- Enhanced Temporal Dynamics Pass Button -->
         <div class="d-grid gap-2 d-md-flex justify-content-md-center mb-4">
             {% if current_user.is_authenticated %}
@@ -409,73 +393,7 @@
 
         // Load saved extraction state (Enhanced Temporal)
         loadSavedExtractionState();
-
-        // Check if extraction has been run before
-        checkExtractionStatus();
-
-        // Attach clear button handler
-        const clearBtn = document.getElementById('clear-pass3-btn');
-        if (clearBtn) {
-            clearBtn.addEventListener('click', clearPass3Data);
-        }
     });
-
-    function checkExtractionStatus() {
-        fetch(`/scenario_pipeline/case/${currentCaseId}/entities/check_extraction/pass3`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success && data.has_been_run) {
-                // Show warning banner
-                document.getElementById('extraction-warning-banner').style.display = 'block';
-            }
-        })
-        .catch(error => {
-            console.error('Error checking extraction status:', error);
-        });
-    }
-
-    function clearPass3Data() {
-        if (!confirm('This will clear all temporal dynamics entities (actions, events, causal chains, timeline, Allen relations) for this case. Continue?')) {
-            return;
-        }
-
-        const button = document.getElementById('clear-pass3-btn');
-        button.disabled = true;
-        button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Clearing...';
-
-        fetch(`/scenario_pipeline/case/${currentCaseId}/entities/clear_and_rerun/pass3`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCsrfToken()
-            },
-            body: JSON.stringify({})
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Hide warning banner
-                document.getElementById('extraction-warning-banner').style.display = 'none';
-                button.disabled = false;
-                button.innerHTML = '<i class="bi bi-trash"></i> Clear Pass 3 Data';
-                alert('Pass 3 data cleared successfully. You can now run extraction again.');
-            } else {
-                alert('Error: ' + (data.error || 'Failed to clear extraction'));
-                button.disabled = false;
-                button.innerHTML = '<i class="bi bi-trash"></i> Clear Pass 3 Data';
-            }
-        })
-        .catch(error => {
-            alert('Error clearing extraction: ' + error.message);
-            button.disabled = false;
-            button.innerHTML = '<i class="bi bi-trash"></i> Clear Pass 3 Data';
-        });
-    }
 
     function getCsrfToken() {
         return document.querySelector('meta[name="csrf-token"]')?.content || '';
@@ -1066,7 +984,7 @@
         }
     }
 
-    function executeEnhancedTemporalPass() {
+    async function executeEnhancedTemporalPass() {
         const progressCard = document.getElementById("enhancedTemporalProgress");
         const progressBar = document.getElementById("enhanced-progress-bar");
         const progressIcon = document.getElementById("enhanced-progress-icon");
@@ -1075,6 +993,7 @@
         const stageInfo = document.getElementById("enhanced-stage-info");
         const currentStage = document.getElementById("enhanced-current-stage");
         const summaryCard = document.getElementById("enhanced-summary");
+        const accordionContainer = document.getElementById("enhanced-stages-accordion");
         const currentCaseId = {{ case.id }};
 
         // Reset state
@@ -1094,11 +1013,39 @@
         summaryCard.style.display = "none";
         stageInfo.style.display = "block";
         progressIcon.className = "bi bi-hourglass-split";
-        currentStage.textContent = "Initializing...";
+        currentStage.textContent = "Clearing existing Pass 3 data...";
         document.getElementById("log-count").textContent = "0 messages";
+
+        // Clear the accordion container
+        accordionContainer.innerHTML = '<em class="text-muted">Stages will appear here as extraction progresses...</em>';
 
         // Scroll to progress card
         progressCard.scrollIntoView({ behavior: "smooth", block: "start" });
+
+        // Clear existing Pass 3 data first
+        try {
+            addEnhancedMessage("info", "Clearing existing Pass 3 entities...");
+            const clearResponse = await fetch(`/scenario_pipeline/case/${currentCaseId}/entities/clear_and_rerun/pass3`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken()
+                },
+                body: JSON.stringify({})
+            });
+            const clearData = await clearResponse.json();
+            if (clearData.success) {
+                addEnhancedMessage("success", "Cleared existing Pass 3 data");
+                // Hide warning banner since we just cleared
+                document.getElementById('extraction-warning-banner').style.display = 'none';
+            } else {
+                addEnhancedMessage("warning", "Warning: Could not clear existing data - " + (clearData.error || 'unknown error'));
+            }
+        } catch (error) {
+            addEnhancedMessage("warning", "Warning: Could not clear existing data - " + error.message);
+        }
+
+        currentStage.textContent = "Starting extraction...";
 
         // Create EventSource for Server-Sent Events
         const eventSource = new EventSource(

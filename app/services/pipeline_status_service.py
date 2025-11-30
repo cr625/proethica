@@ -23,7 +23,8 @@ class PipelineStatusService:
     PASS2_TYPES = ['principles', 'obligations', 'constraints', 'capabilities']
 
     # Pass 3 entity types (Temporal Dynamics)
-    PASS3_TYPES = ['actions', 'events']
+    # Note: 'temporal_dynamics_enhanced' is the extraction_type used by the enhanced step3 extraction
+    PASS3_TYPES = ['actions', 'events', 'actions_events', 'temporal_dynamics_enhanced']
 
     @classmethod
     def get_step_status(cls, case_id: int) -> Dict[str, Any]:
