@@ -140,10 +140,15 @@ def step1(case_id):
     Step 1: Contextual Framework Pass for Facts and Discussion Sections
     Shows both sections with entities pass buttons for extracting roles, states, and resources.
     """
+    from app.services.extraction.mock_llm_provider import get_data_source_display
+
     case, facts_section, discussion_section, saved_prompts = step1_data(case_id)
 
     # Get pipeline status for navigation
     pipeline_status = PipelineStatusService.get_step_status(case_id)
+
+    # Get data source info for UI display (mock mode indicator)
+    data_source_info = get_data_source_display()
 
     # Template context
     context = {
@@ -156,7 +161,11 @@ def step1(case_id):
         'next_step_name': 'Discussion Section',
         'prev_step_url': url_for('scenario_pipeline.overview', case_id=case_id),
         'saved_prompts': saved_prompts,
-        'pipeline_status': pipeline_status
+        'pipeline_status': pipeline_status,
+        'data_source': data_source_info['source'],
+        'data_source_label': data_source_info['label'],
+        'is_mock_mode': data_source_info['is_mock'],
+        'data_source_warning': data_source_info.get('warning')
     }
 
     # Use multi-section template with separate extractors
@@ -2196,10 +2205,14 @@ def get_saved_prompt(case_id):
     """
     from flask import request, jsonify
     from app.models import ExtractionPrompt
+    from app.services.extraction.mock_llm_provider import get_data_source_display
 
     try:
         concept_type = request.args.get('concept_type', 'roles')
         section_type = request.args.get('section_type', 'facts')  # Support section_type parameter
+
+        # Get current data source info for UI display
+        data_source_info = get_data_source_display()
 
         # Get the saved prompt from database with section_type
         saved_prompt = ExtractionPrompt.get_active_prompt(case_id, concept_type, section_type=section_type)
@@ -2211,12 +2224,17 @@ def get_saved_prompt(case_id):
                 'raw_response': saved_prompt.raw_response,  # Include the raw response
                 'created_at': saved_prompt.created_at.strftime('%Y-%m-%d %H:%M'),
                 'llm_model': saved_prompt.llm_model,
-                'section_type': saved_prompt.section_type
+                'section_type': saved_prompt.section_type,
+                'data_source': 'cached',  # This is saved data
+                'data_source_label': 'Cached Response'
             })
         else:
             return jsonify({
                 'success': False,
-                'message': f'No saved prompt found for {concept_type} in {section_type} section'
+                'message': f'No saved prompt found for {concept_type} in {section_type} section',
+                'data_source': data_source_info['source'],
+                'data_source_label': data_source_info['label'],
+                'is_mock_mode': data_source_info['is_mock']
             })
 
     except Exception as e:
@@ -2810,6 +2828,10 @@ def extract_individual_concept(case_id):
         # Log what we're about to send
         logger.info(f"DEBUG: About to send prompt in response (first 200 chars): {extraction_prompt[:200] if extraction_prompt else 'None'}")
 
+        # Get data source info for UI
+        from app.services.extraction.mock_llm_provider import get_data_source_display
+        data_source_info = get_data_source_display()
+
         response_data = {
             'success': True,
             'concept_type': concept_type,
@@ -2823,7 +2845,10 @@ def extract_individual_concept(case_id):
                 'timestamp': datetime.datetime.now().isoformat(),
                 'provenance_tracked': USE_VERSIONED
             },
-            'session_id': session_id
+            'session_id': session_id,
+            'data_source': data_source_info['source'],
+            'data_source_label': data_source_info['label'],
+            'is_mock_mode': data_source_info['is_mock']
         }
 
         # Add special formatting for dual extraction types (roles and states)

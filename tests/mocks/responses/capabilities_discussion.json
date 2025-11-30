@@ -1,0 +1,58 @@
+{
+  "capabilities": [
+    {
+      "label": "Ethical Evaluation Capability",
+      "definition": "Ability to evaluate professional conduct against ethical codes and standards",
+      "capability_type": "institutional",
+      "bearer": "Board of Ethical Review",
+      "methods": ["Code application", "Precedent analysis", "Reasoned judgment"],
+      "application_in_case": "Evaluating Engineer A's AI use against NSPE Code",
+      "source_text": "The Board of Ethical Review (BER) has a long history of open and welcome advocacy",
+      "confidence": 0.93
+    },
+    {
+      "label": "Technology Adaptation",
+      "definition": "Ability of the engineering profession to incorporate new technologies while maintaining professional standards",
+      "capability_type": "professional",
+      "bearer": "Engineering profession",
+      "evidence": "History of adopting CAD, CADD, and now AI tools",
+      "application_in_case": "Framework for evaluating ethical AI use",
+      "source_text": "BER has a long history of open and welcome advocacy for the introduction of new technologies",
+      "confidence": 0.91
+    },
+    {
+      "label": "Direction and Control Exercise",
+      "definition": "Ability to maintain supervisory authority over work products regardless of their origin",
+      "capability_type": "professional_skill",
+      "bearer": "Engineer A",
+      "demonstrated_for": "Report (through thorough review)",
+      "not_demonstrated_for": "Design documents (only cursory review)",
+      "source_text": "the final document remained under Engineer A's direction and control",
+      "confidence": 0.90
+    },
+    {
+      "label": "AI Output Verification",
+      "definition": "Ability to verify, validate, and correct AI-generated content and designs",
+      "capability_type": "professional_skill",
+      "bearer": "Engineer A",
+      "requirements": [
+        "Understanding of AI limitations",
+        "Domain expertise for evaluation",
+        "Systematic verification process"
+      ],
+      "application_in_case": "Thorough for report, insufficient for designs",
+      "source_text": "Engineer A conducted a thorough review of the report",
+      "confidence": 0.89
+    },
+    {
+      "label": "Ethical Judgment Application",
+      "definition": "Ability to apply ethical principles to novel situations not explicitly covered by codes",
+      "capability_type": "professional_judgment",
+      "bearer": "Engineers",
+      "application_in_case": "Determining appropriate AI disclosure practices",
+      "guidance": "Ethical principles favor transparency for substantial AI contributions",
+      "source_text": "Ethical principles favor transparency when AI plays a substantial role in generating work products",
+      "confidence": 0.88
+    }
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "states": [
+    {
+      "label": "Professional Competence",
+      "definition": "The state of possessing adequate knowledge, skill, and experience to perform engineering work in a specific domain",
+      "state_type": "qualification",
+      "bearer": "Engineer A",
+      "applies_to": "environmental engineering, groundwater analysis",
+      "temporal_scope": "established",
+      "source_text": "Engineer A, as an experienced environmental engineer, was competent to analyze groundwater monitoring data",
+      "confidence": 0.94
+    },
+    {
+      "label": "Direction and Control",
+      "definition": "The state where an engineer maintains supervisory authority over work products and their development",
+      "state_type": "professional",
+      "bearer": "Engineer A",
+      "applies_to": "report preparation",
+      "temporal_scope": "during report creation",
+      "source_text": "the final document remained under Engineer A's direction and control",
+      "confidence": 0.91
+    },
+    {
+      "label": "Responsible Charge Deficiency",
+      "definition": "The state of failing to maintain adequate professional oversight and engagement in the engineering process",
+      "state_type": "professional",
+      "bearer": "Engineer A",
+      "applies_to": "design documents",
+      "temporal_scope": "during AI-assisted design",
+      "source_text": "Engineer A did not maintain responsible charge in violation of licensure law",
+      "confidence": 0.92
+    },
+    {
+      "label": "Technology Acceptance",
+      "definition": "The state where a professional community acknowledges new tools as legitimate aids to practice",
+      "state_type": "institutional",
+      "bearer": "Engineering profession",
+      "applies_to": "AI tools",
+      "temporal_scope": "evolving",
+      "source_text": "BER has a long history of open and welcome advocacy for the introduction of new technologies",
+      "confidence": 0.88
+    },
+    {
+      "label": "Regulatory Uncertainty",
+      "definition": "The state where no clear guidelines exist for a specific professional practice",
+      "state_type": "institutional",
+      "bearer": "Engineering profession",
+      "applies_to": "AI disclosure requirements",
+      "temporal_scope": "current",
+      "source_text": "at the time of the BER's review of this case there is no universal guideline mandating AI disclosure",
+      "confidence": 0.90
+    }
+  ]
+}

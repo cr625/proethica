@@ -1,0 +1,107 @@
+{
+  "new_role_classes": [
+    {
+      "label": "AI-Assisted Engineer",
+      "definition": "A professional engineer who integrates artificial intelligence tools into their practice to augment design, analysis, or documentation processes while maintaining responsible charge over outputs",
+      "distinguishing_features": [
+        "Uses AI software as productivity tools",
+        "Must verify and validate AI-generated outputs",
+        "Maintains professional judgment over AI recommendations",
+        "Responsible for quality assurance of AI-assisted work"
+      ],
+      "professional_scope": "Engineering design, analysis, and documentation with AI tool integration",
+      "typical_qualifications": [
+        "Professional engineering license",
+        "Domain expertise in relevant engineering field",
+        "Understanding of AI tool capabilities and limitations"
+      ],
+      "generated_obligations": [
+        "Verify accuracy of AI-generated content",
+        "Maintain responsible charge over all outputs",
+        "Understand limitations of AI tools used"
+      ],
+      "associated_virtues": ["Diligence", "Technical competence", "Intellectual honesty"],
+      "relationship_type": "Professional Peer",
+      "domain_context": "Engineering",
+      "examples_from_case": "Engineer A using AI drafting tools and language models for report generation",
+      "source_text": "Engineer A opted to use open-sourced artificial intelligence (AI) software to create an initial draft",
+      "confidence": 0.85
+    }
+  ],
+  "role_individuals": [
+    {
+      "name": "Engineer A",
+      "role_classification": "Environmental Engineer",
+      "attributes": {
+        "experience": "several years",
+        "license": "professional engineering license",
+        "specialty": "environmental engineering",
+        "technical_expertise": "strong",
+        "writing_confidence": "less confident in technical writing"
+      },
+      "relationships": [
+        {"type": "retained_by", "target": "Client W"},
+        {"type": "mentored_by", "target": "Engineer B"},
+        {"type": "uses_tool", "target": "AI drafting software"}
+      ],
+      "active_obligations": [
+        "Prepare comprehensive environmental report",
+        "Develop engineering design documents",
+        "Analyze groundwater monitoring data",
+        "Maintain responsible charge over work products"
+      ],
+      "ethical_tensions": [
+        "Technical competence vs. reliance on AI tools",
+        "Efficiency vs. thorough review of AI outputs",
+        "Client confidentiality vs. AI data exposure"
+      ],
+      "case_involvement": "Primary engineer retained to prepare report and design documents, chose to use AI tools",
+      "source_text": "Engineer A, an environmental engineer with several years of experience and holding a professional engineering license",
+      "confidence": 0.95
+    },
+    {
+      "name": "Engineer B",
+      "role_classification": "Senior Engineering Mentor",
+      "attributes": {
+        "status": "retired",
+        "previous_role": "mentor and supervisor to Engineer A",
+        "expertise": "quality assurance reviews"
+      },
+      "relationships": [
+        {"type": "mentor_to", "target": "Engineer A"},
+        {"type": "supervisor_of", "target": "Engineer A"}
+      ],
+      "active_obligations": [
+        "Previously provided guidance and QA reviews"
+      ],
+      "ethical_tensions": [],
+      "case_involvement": "Former mentor whose retirement created a gap in Engineer A's quality assurance process",
+      "source_text": "Engineer A had relied on guidance and quality assurance reviews by their mentor and supervisor, Engineer B",
+      "confidence": 0.90
+    },
+    {
+      "name": "Client W",
+      "role_classification": "Engineering Client",
+      "attributes": {
+        "type": "client organization",
+        "project": "environmental assessment and infrastructure modification"
+      },
+      "relationships": [
+        {"type": "retains", "target": "Engineer A"},
+        {"type": "provides_data_to", "target": "Engineer A"}
+      ],
+      "active_obligations": [
+        "Provide necessary project information",
+        "Review deliverables",
+        "Authorize work scope"
+      ],
+      "ethical_tensions": [
+        "Trust in engineer vs. need to verify work quality",
+        "Confidential information protection"
+      ],
+      "case_involvement": "Retained Engineer A, provided project information, reviewed and identified issues in deliverables",
+      "source_text": "Client W to prepare a comprehensive report addressing the manufacture, use, and characteristics",
+      "confidence": 0.92
+    }
+  ]
+}

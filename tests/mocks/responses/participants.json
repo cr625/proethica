@@ -1,0 +1,142 @@
+{
+  "participants": [
+    {
+      "id": "engineer_a",
+      "name": "Engineer A",
+      "type": "individual",
+      "role": "Environmental Engineer",
+      "description": "Licensed professional engineer with several years of environmental engineering experience, strong technical expertise but less confident in technical writing",
+      "attributes": {
+        "license": "Professional Engineering License",
+        "experience": "Several years",
+        "specialty": "Environmental engineering",
+        "technical_expertise": "Strong",
+        "writing_confidence": "Less confident"
+      },
+      "motivations": [
+        "Deliver quality work products to client",
+        "Compensate for loss of mentor support",
+        "Improve efficiency through technology adoption"
+      ],
+      "ethical_tensions": [
+        "Efficiency vs. thoroughness in review",
+        "Technology reliance vs. professional judgment",
+        "Convenience vs. client confidentiality"
+      ],
+      "key_actions": [
+        "Selected AI tools for report and design generation",
+        "Performed thorough review of report",
+        "Performed only cursory review of designs",
+        "Sealed and submitted deliverables"
+      ],
+      "relationships": [
+        {"target": "client_w", "type": "serves"},
+        {"target": "engineer_b", "type": "mentored_by"},
+        {"target": "ai_tools", "type": "uses"}
+      ],
+      "confidence": 0.95
+    },
+    {
+      "id": "engineer_b",
+      "name": "Engineer B",
+      "type": "individual",
+      "role": "Senior Engineering Mentor",
+      "description": "Former mentor and supervisor to Engineer A, recently retired and no longer available for professional guidance",
+      "attributes": {
+        "status": "Retired",
+        "expertise": "Quality assurance reviews",
+        "relationship": "Mentor/supervisor to Engineer A"
+      },
+      "motivations": [],
+      "ethical_tensions": [],
+      "key_actions": [
+        "Previously provided guidance and QA reviews"
+      ],
+      "relationships": [
+        {"target": "engineer_a", "type": "mentored"}
+      ],
+      "confidence": 0.88
+    },
+    {
+      "id": "client_w",
+      "name": "Client W",
+      "type": "organization",
+      "role": "Engineering Client",
+      "description": "Organization that retained Engineer A to prepare environmental report and engineering design documents",
+      "attributes": {
+        "project": "Environmental assessment and groundwater infrastructure modifications"
+      },
+      "motivations": [
+        "Obtain quality engineering deliverables",
+        "Ensure regulatory compliance",
+        "Protect confidential information"
+      ],
+      "ethical_tensions": [
+        "Trust in engineer vs. verification needs"
+      ],
+      "key_actions": [
+        "Retained Engineer A",
+        "Provided project information",
+        "Reviewed deliverables",
+        "Identified design deficiencies",
+        "Requested revisions"
+      ],
+      "relationships": [
+        {"target": "engineer_a", "type": "retains"}
+      ],
+      "confidence": 0.92
+    },
+    {
+      "id": "ai_tools",
+      "name": "AI Software Tools",
+      "type": "technology",
+      "role": "Engineering Aid",
+      "description": "Open-source AI language processing software and AI-assisted drafting tools used by Engineer A",
+      "attributes": {
+        "type": "Open-source",
+        "market_status": "New to market",
+        "capabilities": ["Text generation", "Design drafting"]
+      },
+      "limitations": [
+        "Requires verification of outputs",
+        "May expose data to public domain",
+        "Cannot replace professional judgment"
+      ],
+      "key_actions": [
+        "Generated draft report text",
+        "Generated preliminary design documents"
+      ],
+      "relationships": [
+        {"target": "engineer_a", "type": "used_by"}
+      ],
+      "confidence": 0.87
+    },
+    {
+      "id": "ber",
+      "name": "Board of Ethical Review",
+      "type": "institution",
+      "role": "Ethics Review Body",
+      "description": "NSPE body that evaluates engineering ethical conduct and provides advisory opinions",
+      "attributes": {
+        "organization": "NSPE",
+        "function": "Ethical evaluation and guidance"
+      },
+      "motivations": [
+        "Uphold professional standards",
+        "Provide guidance on emerging issues",
+        "Balance technology adoption with ethics"
+      ],
+      "ethical_tensions": [],
+      "key_actions": [
+        "Evaluated Engineer A's conduct",
+        "Applied NSPE Code provisions",
+        "Referenced precedent cases",
+        "Issued advisory opinion"
+      ],
+      "relationships": [
+        {"target": "engineer_a", "type": "evaluates"}
+      ],
+      "confidence": 0.90
+    }
+  ]
+}

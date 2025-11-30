@@ -1,0 +1,65 @@
+{
+  "obligations": [
+    {
+      "label": "Report Preparation Obligation",
+      "definition": "Duty to prepare a comprehensive report addressing manufacture, use, and characteristics of organic compound",
+      "obligation_type": "contractual",
+      "obligor": "Engineer A",
+      "obligee": "Client W",
+      "scope": "Prepare technical report on emerging contaminant",
+      "source_text": "retained by Client W to prepare a comprehensive report addressing the manufacture, use, and characteristics",
+      "confidence": 0.95
+    },
+    {
+      "label": "Design Document Preparation Obligation",
+      "definition": "Duty to develop engineering design documents for groundwater infrastructure modifications",
+      "obligation_type": "contractual",
+      "obligor": "Engineer A",
+      "obligee": "Client W",
+      "scope": "Develop plans and specifications for infrastructure modifications",
+      "source_text": "tasked to develop engineering design documents (plans and specifications)",
+      "confidence": 0.94
+    },
+    {
+      "label": "Groundwater Analysis Obligation",
+      "definition": "Duty to perform analysis of site groundwater monitoring data",
+      "obligation_type": "professional",
+      "obligor": "Engineer A",
+      "obligee": "Client W",
+      "scope": "Analyze monitoring data from site observed for over a year",
+      "source_text": "perform an analysis of groundwater monitoring data from a site Engineer A had been observing",
+      "confidence": 0.93
+    },
+    {
+      "label": "Content Verification Obligation",
+      "definition": "Duty to verify accuracy and originality of work product content",
+      "obligation_type": "professional",
+      "obligor": "Engineer A",
+      "scope": "Cross-check facts and verify content does not plagiarize",
+      "fulfillment": "Partially fulfilled for report, inadequately fulfilled for designs",
+      "source_text": "cross-checking key facts against professional journal articles and verifying the phrasing",
+      "confidence": 0.91
+    },
+    {
+      "label": "Regulatory Compliance Obligation",
+      "definition": "Duty to ensure engineering designs comply with applicable local regulations",
+      "obligation_type": "legal",
+      "obligor": "Engineer A",
+      "obligee": "Public/Regulatory authority",
+      "scope": "Include all required safety features per local regulations",
+      "violation": "Omitted key safety features required by local regulations",
+      "source_text": "omission of key safety features required by local regulations",
+      "confidence": 0.92
+    },
+    {
+      "label": "Document Revision Obligation",
+      "definition": "Duty to revise plans to satisfy professional and regulatory standards after client identifies deficiencies",
+      "obligation_type": "contractual",
+      "obligor": "Engineer A",
+      "obligee": "Client W",
+      "trigger": "Client identification of design issues",
+      "source_text": "instructed Engineer A to revise the plans, ensuring that all elements satisfied the necessary professional and regulatory standards",
+      "confidence": 0.90
+    }
+  ]
+}

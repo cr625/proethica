@@ -1,0 +1,67 @@
+{
+  "obligations": [
+    {
+      "label": "Maintain Responsible Charge",
+      "definition": "Duty to be actively engaged in the engineering process from conception to completion",
+      "obligation_type": "professional",
+      "obligor": "Engineer A",
+      "obligee": "Public/Client",
+      "source": "NSPE Position Statement 10-1778",
+      "fulfillment_status": "Violated for design documents",
+      "source_text": "Engineer A did not maintain responsible charge in violation of licensure law",
+      "confidence": 0.94
+    },
+    {
+      "label": "Protect Client Confidentiality",
+      "definition": "Duty not to disclose confidential client information without prior consent",
+      "obligation_type": "professional",
+      "obligor": "Engineer A",
+      "obligee": "Client W",
+      "source": "NSPE Code II.1.c",
+      "violation": "Uploaded client data to open-source AI without consent",
+      "source_text": "Per Code section II.1.c, confidential information can only be shared with prior consent of the Client",
+      "confidence": 0.92
+    },
+    {
+      "label": "Provide Proper Attribution",
+      "definition": "Duty to give credit for engineering work to those to whom credit is due",
+      "obligation_type": "professional",
+      "obligor": "Engineer A",
+      "source": "NSPE Code III.9",
+      "scope": "Include appropriate citations and acknowledge significant contributions",
+      "source_text": "engineers are required to give credit for engineering work to those to whom credit is due",
+      "confidence": 0.89
+    },
+    {
+      "label": "Exercise Professional Judgment",
+      "definition": "Duty to apply engineering judgment rather than relying blindly on tool outputs",
+      "obligation_type": "professional",
+      "obligor": "Engineer A",
+      "source": "BER Case 98-3",
+      "scope": "Review, challenge, and understand AI recommendations before acceptance",
+      "source_text": "technology must never be a replacement of a substitute for engineering judgment",
+      "confidence": 0.91
+    },
+    {
+      "label": "Comply with Licensure Law",
+      "definition": "Duty to adhere to state engineering licensure requirements",
+      "obligation_type": "legal",
+      "obligor": "Engineer A",
+      "obligee": "State licensing board",
+      "source": "NSPE Code III.8.a",
+      "violation": "Failed to maintain responsible charge as required by licensure law",
+      "source_text": "Engineer A did not maintain responsible charge in violation of licensure law which violates Code section III.8.a",
+      "confidence": 0.93
+    },
+    {
+      "label": "Consider AI Disclosure",
+      "definition": "Ethical obligation to consider disclosing AI involvement when it plays a significant role in work products",
+      "obligation_type": "ethical",
+      "obligor": "Engineer A",
+      "obligee": "Client W",
+      "status": "No universal mandate but ethical principles favor transparency",
+      "source_text": "Ethical principles favor transparency when AI plays a substantial role in generating work products",
+      "confidence": 0.86
+    }
+  ]
+}

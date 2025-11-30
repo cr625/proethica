@@ -1,0 +1,71 @@
+{
+  "states": [
+    {
+      "label": "Licensed Professional Status",
+      "definition": "The condition of holding a valid professional engineering license authorizing practice",
+      "state_type": "qualification",
+      "bearer": "Engineer A",
+      "temporal_scope": "ongoing",
+      "source_text": "holding a professional engineering license",
+      "confidence": 0.95
+    },
+    {
+      "label": "Mentor Unavailability",
+      "definition": "The state where a previously available mentor or supervisor is no longer accessible for guidance",
+      "state_type": "circumstantial",
+      "bearer": "Engineer A",
+      "temporal_scope": "current",
+      "caused_by": "Engineer B's retirement",
+      "source_text": "Engineer B recently retired and was no longer available to Engineer A in a work capacity",
+      "confidence": 0.92
+    },
+    {
+      "label": "Technical Writing Uncertainty",
+      "definition": "A state of reduced confidence in one's ability to produce professional technical documentation",
+      "state_type": "psychological",
+      "bearer": "Engineer A",
+      "temporal_scope": "ongoing",
+      "source_text": "personally, less confident in their technical writing",
+      "confidence": 0.88
+    },
+    {
+      "label": "Tool Inexperience",
+      "definition": "The state of lacking prior practical experience with a specific software tool or technology",
+      "state_type": "knowledge",
+      "bearer": "Engineer A",
+      "applies_to": "AI drafting software",
+      "temporal_scope": "at time of use",
+      "source_text": "The AI drafting software was new to the market and Engineer A had no previous experience with the tool",
+      "confidence": 0.94
+    },
+    {
+      "label": "Draft Status",
+      "definition": "The state of a document being preliminary and subject to revision before final approval",
+      "state_type": "document",
+      "bearer": "Technical report",
+      "temporal_scope": "during review",
+      "source_text": "clearly identify that the supplied report was a draft",
+      "confidence": 0.90
+    },
+    {
+      "label": "Client Concern",
+      "definition": "A state where the client has identified issues and expressed doubt about deliverable quality",
+      "state_type": "relational",
+      "bearer": "Client W",
+      "applies_to": "Engineering design documents",
+      "temporal_scope": "after review",
+      "source_text": "Client W raised concerns about the accuracy and reliability of the engineering design",
+      "confidence": 0.91
+    },
+    {
+      "label": "Regulatory Non-compliance",
+      "definition": "The state of a design or document failing to meet required regulatory standards",
+      "state_type": "compliance",
+      "bearer": "AI-generated design documents",
+      "applies_to": "local safety regulations",
+      "temporal_scope": "identified during review",
+      "source_text": "omission of key safety features required by local regulations",
+      "confidence": 0.93
+    }
+  ]
+}

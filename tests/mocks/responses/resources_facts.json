@@ -1,0 +1,91 @@
+{
+  "resources": [
+    {
+      "label": "Professional Engineering License",
+      "definition": "A state-issued credential authorizing an individual to practice engineering and seal documents",
+      "resource_type": "credential",
+      "holder": "Engineer A",
+      "function": "Authorizes professional engineering practice and document sealing",
+      "source_text": "holding a professional engineering license",
+      "confidence": 0.95
+    },
+    {
+      "label": "AI Language Processing Software",
+      "definition": "Open-source artificial intelligence software capable of generating text based on prompts and input data",
+      "resource_type": "software_tool",
+      "holder": "Engineer A",
+      "characteristics": [
+        "open-source",
+        "new to market",
+        "generates text from prompts",
+        "uses large language models"
+      ],
+      "function": "Generate draft report text from input information",
+      "source_text": "open-sourced artificial intelligence (AI) software to create an initial draft",
+      "confidence": 0.93
+    },
+    {
+      "label": "AI-Assisted Drafting Tools",
+      "definition": "Software tools that use AI to generate engineering drawings, layouts, and technical specifications",
+      "resource_type": "software_tool",
+      "holder": "Engineer A",
+      "characteristics": [
+        "generates preliminary designs",
+        "creates layouts and specifications",
+        "requires engineering review"
+      ],
+      "function": "Generate preliminary engineering design documents",
+      "source_text": "AI-assisted drafting tools to generate preliminary design documents",
+      "confidence": 0.92
+    },
+    {
+      "label": "Groundwater Monitoring Data",
+      "definition": "Technical data collected from observation of groundwater conditions at a specific site over time",
+      "resource_type": "technical_data",
+      "holder": "Engineer A",
+      "provider": "Client W",
+      "characteristics": [
+        "site-specific",
+        "collected over one year",
+        "relates to emerging contaminant"
+      ],
+      "function": "Basis for environmental analysis and report",
+      "source_text": "analysis of groundwater monitoring data from a site Engineer A had been observing for over a year",
+      "confidence": 0.94
+    },
+    {
+      "label": "Professional Journal Articles",
+      "definition": "Peer-reviewed technical literature used for fact verification and professional reference",
+      "resource_type": "reference_material",
+      "holder": "Engineer A",
+      "function": "Cross-check and verify AI-generated content accuracy",
+      "source_text": "cross-checking key facts against professional journal articles",
+      "confidence": 0.88
+    },
+    {
+      "label": "Professional Seal",
+      "definition": "An official stamp or mark that an engineer applies to documents to certify professional responsibility",
+      "resource_type": "credential",
+      "holder": "Engineer A",
+      "function": "Certify professional responsibility for sealed documents",
+      "legal_requirement": "consistent with state law",
+      "source_text": "applied their seal consistent with state law",
+      "confidence": 0.91
+    },
+    {
+      "label": "Client-Provided Information",
+      "definition": "Project data and requirements provided by the client for engineering work",
+      "resource_type": "project_data",
+      "holder": "Engineer A",
+      "provider": "Client W",
+      "characteristics": [
+        "potentially confidential",
+        "project-specific",
+        "required for analysis"
+      ],
+      "function": "Input data for report and design preparation",
+      "source_text": "relevant information provided by Client W",
+      "confidence": 0.90
+    }
+  ]
+}

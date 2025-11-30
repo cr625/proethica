@@ -1,0 +1,43 @@
+{
+  "questions": [
+    {
+      "number": 1,
+      "text": "Was Engineer A's use of AI to create the report text ethical, given that Engineer A thoroughly checked the report?",
+      "question_type": "ethical_evaluation",
+      "focus": "AI use for report text generation with thorough verification",
+      "key_factors": [
+        "Thoroughness of Engineer A's review",
+        "Accuracy of final content",
+        "Maintenance of direction and control"
+      ],
+      "relevant_provisions": ["II.2.b", "I.2", "I.5"],
+      "confidence": 0.95
+    },
+    {
+      "number": 2,
+      "text": "Was Engineer A's use of AI-assisted drafting tools to create the engineering design documents ethical, given that Engineer A reviewed the design at a high level?",
+      "question_type": "ethical_evaluation",
+      "focus": "AI use for design generation with cursory review",
+      "key_factors": [
+        "Level of review performed",
+        "Safety feature omissions",
+        "Responsible charge maintenance"
+      ],
+      "relevant_provisions": ["I.1", "II.2.b", "III.8.a"],
+      "confidence": 0.94
+    },
+    {
+      "number": 3,
+      "text": "If the use of AI was acceptable, did Engineer A have an ethical obligation to disclose the use of AI in any form to the Client?",
+      "question_type": "disclosure_requirement",
+      "focus": "AI disclosure obligations",
+      "key_factors": [
+        "Existence of disclosure requirements",
+        "Transparency principles",
+        "Client expectations"
+      ],
+      "relevant_provisions": ["III.9", "I.5"],
+      "confidence": 0.92
+    }
+  ]
+}

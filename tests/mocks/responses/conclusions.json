@@ -1,0 +1,44 @@
+{
+  "conclusions": [
+    {
+      "question_number": 1,
+      "conclusion": "Partly ethical, partly unethical",
+      "summary": "Engineer A's use of AI in report writing was partly ethical and partly unethical",
+      "ethical_aspects": [
+        "Engineer A was competent in the domain",
+        "Thorough review and verification of AI-generated content",
+        "Ensured accuracy and compliance with professional standards"
+      ],
+      "unethical_aspects": [
+        "Did not obtain client permission to use confidential information in AI",
+        "Did not document required technical citations"
+      ],
+      "key_finding": "Ethical use of AI to create report text must satisfy all pertinent requirements",
+      "confidence": 0.94
+    },
+    {
+      "question_number": 2,
+      "conclusion": "Not unethical per se, but misuse was unethical",
+      "summary": "The use of AI-assisted drafting tools was not unethical per se, but Engineer A's misuse was unethical",
+      "reasoning": "Engineer A failed to maintain Responsible Charge over the AI tool and its output before sealing and providing to Client W",
+      "key_issues": [
+        "Only cursory review performed",
+        "Misaligned dimensions not caught",
+        "Safety features omitted",
+        "Regulatory non-compliance"
+      ],
+      "key_finding": "AI-assisted drafting requires at least the same level of scrutiny as human-created work",
+      "confidence": 0.93
+    },
+    {
+      "question_number": 3,
+      "conclusion": "No obligation, but transparency recommended",
+      "summary": "Engineer A has no professional or ethical obligation to disclose AI use to Client W",
+      "conditions": "Unless disclosure required under contract with Client W",
+      "current_state": "No universal guideline mandating AI disclosure in engineering work at time of review",
+      "guidance": "Ethical principles favor transparency when AI plays a substantial role in generating work products",
+      "recommendation": "Engineers integrating AI should adopt rigorous verification processes and consider disclosing AI involvement when significant",
+      "confidence": 0.91
+    }
+  ]
+}

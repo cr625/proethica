@@ -50,11 +50,28 @@ class ResourceIndividual:
 class DualResourcesExtractor:
     """Extract both new resource classes and individual resource instances"""
 
-    def __init__(self):
+    def __init__(self, llm_client=None):
+        """
+        Initialize the dual resources extractor.
+
+        Args:
+            llm_client: Optional LLM client for dependency injection (used in testing).
+                       If None and MOCK_LLM_ENABLED=true, uses mock client.
+                       Otherwise uses the default LLM client from llm_utils.
+        """
+        # Use mock provider to get appropriate client (mock if enabled, None otherwise)
+        from app.services.extraction.mock_llm_provider import (
+            get_llm_client_for_extraction,
+            get_current_data_source,
+            DataSource
+        )
+        self.llm_client = get_llm_client_for_extraction(llm_client)
+        self.data_source = get_current_data_source()
         self.mcp_client = get_external_mcp_client()
         self.existing_resource_classes = self._load_existing_resource_classes()
         self.model_name = ModelConfig.get_claude_model("powerful")
         self.last_raw_response = None  # Store the raw LLM response
+        self.last_prompt = None  # Store the prompt sent to LLM
 
     def extract_dual_resources(self, case_text: str, case_id: int, section_type: str) -> Tuple[List[CandidateResourceClass], List[ResourceIndividual]]:
         """
@@ -62,29 +79,30 @@ class DualResourcesExtractor:
 
         Returns:
             Tuple of (candidate_resource_classes, resource_individuals)
+
+        Raises:
+            ExtractionError: If LLM call fails (NOT silently caught)
         """
-        try:
-            # 1. Generate dual extraction prompt
-            prompt = self._create_dual_resources_extraction_prompt(case_text, section_type)
+        # Store section_type for mock client lookup
+        self._current_section_type = section_type
 
-            # 2. Call LLM for dual extraction
-            extraction_result = self._call_llm_for_dual_extraction(prompt)
+        # 1. Generate dual extraction prompt
+        prompt = self._create_dual_resources_extraction_prompt(case_text, section_type)
 
-            # 3. Parse and validate results
-            candidate_classes = self._parse_candidate_resource_classes(extraction_result.get('new_resource_classes', []), case_id)
-            resource_individuals = self._parse_resource_individuals(extraction_result.get('resource_individuals', []), case_id, section_type)
+        # 2. Call LLM for dual extraction - errors will propagate, NOT be swallowed
+        extraction_result = self._call_llm_for_dual_extraction(prompt)
 
-            # 4. Cross-reference: link individuals to new classes if applicable
-            self._link_individuals_to_new_classes(resource_individuals, candidate_classes)
+        # 3. Parse and validate results
+        candidate_classes = self._parse_candidate_resource_classes(extraction_result.get('new_resource_classes', []), case_id)
+        resource_individuals = self._parse_resource_individuals(extraction_result.get('resource_individuals', []), case_id, section_type)
 
-            logger.info(f"Extracted {len(candidate_classes)} candidate resource classes and {len(resource_individuals)} resource individuals from case {case_id}")
+        # 4. Cross-reference: link individuals to new classes if applicable
+        self._link_individuals_to_new_classes(resource_individuals, candidate_classes)
 
-            # Return raw extraction results - let route handler manage storage
-            return candidate_classes, resource_individuals
+        logger.info(f"Extracted {len(candidate_classes)} candidate resource classes and {len(resource_individuals)} resource individuals from case {case_id} (source: {self.data_source.value})")
 
-        except Exception as e:
-            logger.error(f"Error in dual resources extraction: {e}")
-            return [], []
+        # Return raw extraction results - let route handler manage storage
+        return candidate_classes, resource_individuals
 
     def _load_existing_resource_classes(self) -> List[Dict[str, Any]]:
         """Load existing resource classes from proethica-intermediate via MCP"""
@@ -236,7 +254,29 @@ Focus on resources that:
 
     def _call_llm_for_dual_extraction(self, prompt: str) -> Dict[str, Any]:
         """Call LLM for dual resource extraction"""
+        # Store prompt for later retrieval
+        self.last_prompt = prompt
+
         try:
+            # Use injected client if available (for testing), otherwise get default
+            if self.llm_client is not None:
+                # Mock client - call with extraction type for fixture lookup
+                response = self.llm_client.call(
+                    prompt=prompt,
+                    extraction_type='resources',
+                    section_type=getattr(self, '_current_section_type', 'facts')
+                )
+                response_text = response.content if hasattr(response, 'content') else str(response)
+                self.last_raw_response = response_text
+                try:
+                    return json.loads(response_text)
+                except json.JSONDecodeError:
+                    import re
+                    json_match = re.search(r'\{[\s\S]*\}', response_text)
+                    if json_match:
+                        return json.loads(json_match.group())
+                    return {"new_resource_classes": [], "resource_individuals": []}
+
             from app.utils.llm_utils import get_llm_client
 
             llm_client = get_llm_client()

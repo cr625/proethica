@@ -1,0 +1,54 @@
+{
+  "principles": [
+    {
+      "label": "Public Safety Paramount",
+      "definition": "Engineers shall hold paramount the safety, health, and welfare of the public in the performance of their professional duties",
+      "principle_type": "fundamental",
+      "source": "NSPE Fundamental Canon I.1",
+      "applies_to": ["Engineer A", "Engineering profession"],
+      "manifestation_in_case": "Omitted safety features in AI-generated designs could compromise public welfare",
+      "source_text": "conflicting with the Fundamental Canon I.1, hold paramount the safety, health, and welfare of the public",
+      "confidence": 0.96
+    },
+    {
+      "label": "Technology as Tool Principle",
+      "definition": "Technology must be used as an aid to engineering practice, not as a substitute for professional judgment",
+      "principle_type": "professional",
+      "source": "BER Case 98-3",
+      "applies_to": ["Engineer A", "Engineering profession"],
+      "manifestation_in_case": "AI tools should augment but not replace engineering judgment",
+      "source_text": "technology must not replace or be used as a substitute for engineering judgement",
+      "confidence": 0.93
+    },
+    {
+      "label": "Responsible Charge Principle",
+      "definition": "Engineers must be actively engaged in the engineering process from conception to completion",
+      "principle_type": "professional",
+      "source": "NSPE Position Statement 10-1778",
+      "applies_to": ["Engineer A"],
+      "manifestation_in_case": "Engineer A's cursory review of AI designs may not satisfy responsible charge requirements",
+      "source_text": "Being actively engaged in the engineering process, from conception to completion",
+      "confidence": 0.94
+    },
+    {
+      "label": "Attribution Principle",
+      "definition": "Engineers shall give credit for engineering work to those to whom credit is due",
+      "principle_type": "professional",
+      "source": "NSPE Code III.9",
+      "applies_to": ["Engineer A"],
+      "manifestation_in_case": "Question of whether AI contributions require attribution",
+      "source_text": "engineers shall give credit for engineering work to those to whom credit is due",
+      "confidence": 0.90
+    },
+    {
+      "label": "Avoidance of Deception Principle",
+      "definition": "Engineers shall avoid deceptive acts in solicitation of employment or professional engagement",
+      "principle_type": "ethical",
+      "source": "NSPE Fundamental Canon I.5",
+      "applies_to": ["Engineer A"],
+      "manifestation_in_case": "Non-disclosure of AI use evaluated against deception standards",
+      "source_text": "Fundamental Canon I.5 requires an Engineer to avoid deceptive acts, which was not violated here",
+      "confidence": 0.88
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "constraints": [
+    {
+      "label": "Responsible Charge Requirement",
+      "definition": "Legal and professional requirement that engineers maintain active engagement in work from conception to completion",
+      "constraint_type": "professional",
+      "affects": "Engineer A",
+      "source": "NSPE Position Statement 10-1778",
+      "impact": "Mere post-preparation review insufficient to satisfy responsible charge",
+      "source_text": "Reviewing drawings or documents after preparation without involvement in the design and development process does not satisfy the definition of Responsible Charge",
+      "confidence": 0.94
+    },
+    {
+      "label": "Technology Non-Substitution Principle",
+      "definition": "Technology must not replace or substitute for engineering judgment",
+      "constraint_type": "professional",
+      "affects": "All engineers using AI/software tools",
+      "source": "BER Case 98-3",
+      "impact": "AI outputs must be critically evaluated, not blindly accepted",
+      "source_text": "technology must never be a replacement of a substitute for engineering judgment",
+      "confidence": 0.93
+    },
+    {
+      "label": "Confidentiality Prior Consent Requirement",
+      "definition": "Client information cannot be shared without prior client consent",
+      "constraint_type": "professional",
+      "affects": "Engineer A",
+      "source": "NSPE Code II.1.c",
+      "impact": "AI tools receiving client data require client authorization",
+      "source_text": "Per Code section II.1.c, confidential information can only be shared with prior consent of the Client",
+      "confidence": 0.92
+    },
+    {
+      "label": "Competence Area Limitation",
+      "definition": "Engineers may only practice in areas where they are qualified by education or experience",
+      "constraint_type": "professional",
+      "affects": "All engineers",
+      "source": "NSPE Code II.2.a",
+      "impact": "Use of unfamiliar tools requires understanding their limitations",
+      "source_text": "engineers must undertake assignments only when qualified by education or experience in the specific technical fields involved",
+      "confidence": 0.91
+    },
+    {
+      "label": "Absence of AI Disclosure Mandate",
+      "definition": "No universal professional requirement currently mandates disclosure of AI use in engineering work",
+      "constraint_type": "regulatory_gap",
+      "affects": "Engineering profession",
+      "status": "No mandate, but ethical principles favor transparency",
+      "source_text": "at the time of the BER's review of this case there is no universal guideline mandating AI disclosure",
+      "confidence": 0.89
+    },
+    {
+      "label": "Direction and Control Requirement",
+      "definition": "Engineers may only seal documents prepared under their direction and control",
+      "constraint_type": "legal",
+      "affects": "Engineer A",
+      "source": "NSPE Code II.2.b",
+      "impact": "AI-generated content must be brought under engineer's control before sealing",
+      "source_text": "Engineers shall not affix their signatures to any plans or documents not prepared under their direction and control",
+      "confidence": 0.93
+    }
+  ]
+}

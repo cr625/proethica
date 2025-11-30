@@ -1,0 +1,46 @@
+{
+  "transformation": {
+    "classification": "transfer",
+    "definition": "A transfer occurs when ethical tensions are resolved by clarifying how existing principles apply to new circumstances",
+    "reasoning": "The case transfers established principles of responsible charge and professional judgment to the new context of AI tool usage",
+    "initial_state": {
+      "description": "Uncertainty about how traditional engineering ethics apply to AI-assisted practice",
+      "tensions": [
+        "Efficiency vs. thoroughness in AI output review",
+        "Technology adoption vs. professional judgment",
+        "Convenience vs. client confidentiality"
+      ]
+    },
+    "final_state": {
+      "description": "Clarified application of existing principles to AI context",
+      "resolutions": [
+        "Responsible charge requirements apply equally to AI-generated work",
+        "Technology is a tool, not a substitute for judgment",
+        "Confidentiality obligations extend to AI data handling"
+      ]
+    },
+    "key_principles_applied": [
+      {
+        "principle": "Responsible Charge",
+        "traditional_application": "Active engagement in work from conception to completion",
+        "ai_context_application": "Engineer must critically evaluate and understand AI outputs before acceptance"
+      },
+      {
+        "principle": "Direction and Control",
+        "traditional_application": "Documents prepared under engineer's supervision",
+        "ai_context_application": "AI outputs brought under control through thorough review and verification"
+      },
+      {
+        "principle": "Competence",
+        "traditional_application": "Practice only in qualified areas",
+        "ai_context_application": "Understanding AI tool limitations is part of competent use"
+      }
+    ],
+    "precedent_continuity": {
+      "from": "BER Case 90-6 (CADD systems) and BER Case 98-3 (CD-ROM design tools)",
+      "to": "Current AI language and drafting tools",
+      "principle_preserved": "Technology must not replace engineering judgment"
+    },
+    "confidence": 0.92
+  }
+}

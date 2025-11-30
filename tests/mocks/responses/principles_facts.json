@@ -1,0 +1,54 @@
+{
+  "principles": [
+    {
+      "label": "Competence Principle",
+      "definition": "Engineers shall perform services only in areas where they possess adequate education, training, and experience",
+      "principle_type": "professional",
+      "source": "NSPE Fundamental Canon I.2",
+      "applies_to": ["Engineer A"],
+      "manifestation_in_case": "Engineer A demonstrated environmental engineering competence but lacked experience with AI tools",
+      "source_text": "Engineer A, an environmental engineer with several years of experience",
+      "confidence": 0.94
+    },
+    {
+      "label": "Direction and Control Principle",
+      "definition": "Engineers shall not affix signatures to documents not prepared under their direction and control",
+      "principle_type": "professional",
+      "source": "NSPE Code II.2.b",
+      "applies_to": ["Engineer A"],
+      "manifestation_in_case": "Question of whether AI-generated documents were under Engineer A's direction and control",
+      "source_text": "Engineer A did not cite their use of AI-software or its large language models",
+      "confidence": 0.92
+    },
+    {
+      "label": "Quality Assurance Principle",
+      "definition": "Professional work products should be verified for accuracy and compliance before delivery",
+      "principle_type": "professional",
+      "source": "Professional practice standards",
+      "applies_to": ["Engineer A", "Engineer B"],
+      "manifestation_in_case": "Engineer A conducted thorough review of report but only cursory review of designs",
+      "source_text": "Engineer A conducted a thorough review of the report, cross-checking key facts",
+      "confidence": 0.91
+    },
+    {
+      "label": "Transparency Principle",
+      "definition": "Engineers should be forthright about methods, tools, and significant contributors to their work",
+      "principle_type": "ethical",
+      "source": "Professional integrity standards",
+      "applies_to": ["Engineer A"],
+      "manifestation_in_case": "Engineer A did not disclose use of AI tools to Client W",
+      "source_text": "Engineer A did not cite their use of AI-software or its large language models",
+      "confidence": 0.89
+    },
+    {
+      "label": "Client Confidentiality Principle",
+      "definition": "Engineers shall treat client information as confidential and not disclose without consent",
+      "principle_type": "professional",
+      "source": "NSPE Code II.1.c",
+      "applies_to": ["Engineer A"],
+      "manifestation_in_case": "Uploading client data to open-source AI software may expose confidential information",
+      "source_text": "gathered the relevant information provided by Client W and relied on the AI software",
+      "confidence": 0.88
+    }
+  ]
+}

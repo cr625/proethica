@@ -167,6 +167,16 @@
                                     <li><a class="dropdown-item" href="/tools/provenance">
                                             <i class="bi bi-diagram-3 me-2"></i>Provenance Viewer
                                         </a></li>
+                                    {% if current_user and current_user.is_authenticated and current_user.is_admin %}
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><h6 class="dropdown-header">Admin Tools</h6></li>
+                                    <li><a class="dropdown-item" href="/pipeline/dashboard">
+                                            <i class="bi bi-speedometer2 me-2"></i>Pipeline Dashboard
+                                        </a></li>
+                                    <li><a class="dropdown-item" href="/pipeline/queue">
+                                            <i class="bi bi-list-task me-2"></i>Queue Management
+                                        </a></li>
+                                    {% endif %}
                                 </ul>
                             </li>
                         </ul>

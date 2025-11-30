@@ -1,0 +1,60 @@
+{
+  "provisions": [
+    {
+      "code_section": "Fundamental Canon I.1",
+      "text": "Hold paramount the safety, health, and welfare of the public",
+      "relevance": "Omitted safety features in AI-generated designs could compromise public welfare",
+      "application_to_case": "Engineer A's insufficient review of design documents risked public safety",
+      "confidence": 0.95
+    },
+    {
+      "code_section": "Fundamental Canon I.2",
+      "text": "Perform services only in areas of their competence",
+      "relevance": "Engineer A was competent in environmental engineering but inexperienced with AI tools",
+      "application_to_case": "Technical competence established; tool competence questionable",
+      "confidence": 0.93
+    },
+    {
+      "code_section": "Fundamental Canon I.5",
+      "text": "Avoid deceptive acts",
+      "relevance": "Question of whether non-disclosure of AI use constitutes deception",
+      "application_to_case": "BER found no deception where AI-generated content was accurate and verified",
+      "confidence": 0.90
+    },
+    {
+      "code_section": "Code Section II.1.c",
+      "text": "Confidential information can only be shared with prior consent of the Client",
+      "relevance": "Uploading client data to open-source AI may expose confidential information",
+      "application_to_case": "Engineer A did not obtain client consent before using AI with client data",
+      "confidence": 0.92
+    },
+    {
+      "code_section": "Code Section II.2.a",
+      "text": "Undertake assignments only when qualified by education or experience in the specific technical fields involved",
+      "relevance": "Establishes competency requirements for engineering work",
+      "application_to_case": "Engineer A qualified in environmental engineering domain",
+      "confidence": 0.91
+    },
+    {
+      "code_section": "Code Section II.2.b",
+      "text": "Engineers shall not affix their signatures to any plans or documents not prepared under their direction and control",
+      "relevance": "Core question of whether AI-generated content was under Engineer A's direction and control",
+      "application_to_case": "Report satisfied requirement through thorough review; designs did not",
+      "confidence": 0.94
+    },
+    {
+      "code_section": "Code Section III.8.a",
+      "text": "Comply with state and federal laws and regulations",
+      "relevance": "Licensure law requires responsible charge over sealed documents",
+      "application_to_case": "Engineer A violated licensure law by not maintaining responsible charge over designs",
+      "confidence": 0.92
+    },
+    {
+      "code_section": "Code Section III.9",
+      "text": "Give credit for engineering work to those to whom credit is due",
+      "relevance": "Question of whether AI contributions require attribution",
+      "application_to_case": "Engineer A did not provide required technical citations",
+      "confidence": 0.89
+    }
+  ]
+}

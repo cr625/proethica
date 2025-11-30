@@ -1,0 +1,64 @@
+{
+  "resources": [
+    {
+      "label": "NSPE Code of Ethics",
+      "definition": "The formal code of professional conduct established by the National Society of Professional Engineers",
+      "resource_type": "regulatory_document",
+      "holder": "Engineering profession",
+      "sections_referenced": [
+        "Fundamental Canon I.1 - Hold paramount public safety",
+        "Fundamental Canon I.2 - Perform services in areas of competence",
+        "Fundamental Canon I.5 - Avoid deceptive acts",
+        "Code section II.1.c - Confidential information",
+        "Code section II.2.a - Undertake qualified assignments",
+        "Code section II.2.b - Direction and control",
+        "Code section III.8.a - Licensure law compliance",
+        "Code section III.9 - Give credit where due"
+      ],
+      "function": "Establish ethical standards for professional engineering practice",
+      "source_text": "Fundamental Canon I.2 states that engineers perform services only in areas of their competence",
+      "confidence": 0.96
+    },
+    {
+      "label": "BER Case 90-6",
+      "definition": "A prior Board of Ethical Review case addressing engineer's use of computer-assisted drafting and design tools",
+      "resource_type": "precedent_case",
+      "holder": "NSPE BER",
+      "year": 1990,
+      "relevance": "Established that engineers may ethically sign and seal CADD-prepared documents",
+      "function": "Provide precedent for technology use in engineering practice",
+      "source_text": "In BER Case 90-6, the BER looked at a hypothetical involving an engineer's use of computer assisted drafting",
+      "confidence": 0.93
+    },
+    {
+      "label": "BER Case 98-3",
+      "definition": "A prior Board of Ethical Review case addressing competency requirements when using design software",
+      "resource_type": "precedent_case",
+      "holder": "NSPE BER",
+      "year": 1998,
+      "relevance": "Established that technology cannot substitute for engineering judgment",
+      "function": "Provide precedent limiting uncritical reliance on software tools",
+      "source_text": "BER Case 98-3 discussed a solicitation by mail for engineers to use new technology",
+      "confidence": 0.92
+    },
+    {
+      "label": "NSPE Position Statement No. 10-1778",
+      "definition": "Official NSPE position statement defining 'Responsible Charge' in engineering practice",
+      "resource_type": "policy_document",
+      "holder": "NSPE",
+      "key_definition": "Being actively engaged in the engineering process, from conception to completion",
+      "function": "Define professional responsibility requirements",
+      "source_text": "NSPE defines 'Responsible Charge' in NSPE Position Statement No. 10-1778",
+      "confidence": 0.94
+    },
+    {
+      "label": "Local Safety Regulations",
+      "definition": "Jurisdiction-specific requirements for safety features in engineering designs",
+      "resource_type": "regulatory_requirement",
+      "holder": "Regulatory authority",
+      "function": "Establish mandatory safety requirements for engineering designs",
+      "source_text": "key safety features required by local regulations",
+      "confidence": 0.87
+    }
+  ]
+}

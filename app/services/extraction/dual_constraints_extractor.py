@@ -56,8 +56,23 @@ class DualConstraintsExtractor:
     Based on professional ethics literature emphasizing boundaries and limitations.
     """
 
-    def __init__(self):
-        """Initialize with MCP client for existing ontology awareness"""
+    def __init__(self, llm_client=None):
+        """
+        Initialize with MCP client for existing ontology awareness.
+
+        Args:
+            llm_client: Optional LLM client for dependency injection (used in testing).
+                       If None and MOCK_LLM_ENABLED=true, uses mock client.
+                       Otherwise uses the default LLM client from llm_utils.
+        """
+        # Use mock provider to get appropriate client (mock if enabled, None otherwise)
+        from app.services.extraction.mock_llm_provider import (
+            get_llm_client_for_extraction,
+            get_current_data_source,
+            DataSource
+        )
+        self.llm_client = get_llm_client_for_extraction(llm_client)
+        self.data_source = get_current_data_source()
         try:
             from app.services.external_mcp_client import get_external_mcp_client
             self.mcp_client = get_external_mcp_client()
@@ -74,6 +89,7 @@ class DualConstraintsExtractor:
 
         # Store last raw response for RDF conversion
         self.last_raw_response = None
+        self.last_prompt = None  # Store the prompt sent to LLM
 
     def _load_existing_constraint_classes(self) -> List[Dict[str, Any]]:
         """Load existing constraint classes from the ontology"""
@@ -101,6 +117,9 @@ class DualConstraintsExtractor:
             Tuple of (candidate_constraint_classes, constraint_individuals)
         """
         logger.info(f"Starting dual constraints extraction for case {case_id}, section {section_type}")
+
+        # Store section_type for mock client lookup
+        self._current_section_type = section_type
 
         # Create the dual extraction prompt
         prompt = self._create_dual_constraints_extraction_prompt(case_text, section_type)
@@ -203,7 +222,28 @@ Return ONLY the JSON structure, no additional text."""
 
     def _call_llm_for_dual_extraction(self, prompt: str) -> Dict[str, Any]:
         """Call LLM and parse the dual extraction response"""
+        # Store prompt for later retrieval
+        self.last_prompt = prompt
+
         try:
+            # Use injected client if available (for testing), otherwise get default
+            if self.llm_client is not None:
+                # Mock client - call with extraction type for fixture lookup
+                response = self.llm_client.call(
+                    prompt=prompt,
+                    extraction_type='constraints',
+                    section_type=getattr(self, '_current_section_type', 'facts')
+                )
+                response_text = response.content if hasattr(response, 'content') else str(response)
+                self.last_raw_response = response_text
+                try:
+                    return json.loads(response_text)
+                except json.JSONDecodeError:
+                    json_match = re.search(r'\{[\s\S]*\}', response_text)
+                    if json_match:
+                        return json.loads(json_match.group())
+                    return {"new_constraint_classes": [], "constraint_individuals": []}
+
             # Import the LLM client getter
             try:
                 from app.utils.llm_utils import get_llm_client

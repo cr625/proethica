@@ -1,0 +1,338 @@
+{% extends "base.html" %}
+
+{% block title %}Pipeline Queue Management{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2>Pipeline Queue Management</h2>
+            <p class="text-muted">Select cases for automated processing</p>
+            <a href="{{ url_for('pipeline.dashboard') }}" class="btn btn-outline-secondary btn-sm">Back to Dashboard</a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Case Selection -->
+        <div class="col-md-7">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Available Cases</h5>
+                    <div>
+                        <button class="btn btn-sm btn-outline-primary" id="selectAll">Select All</button>
+                        <button class="btn btn-sm btn-outline-secondary" id="selectNone">Select None</button>
+                    </div>
+                </div>
+                <div class="card-body" style="max-height: 500px; overflow-y: auto;">
+                    <div class="mb-3">
+                        <input type="text" class="form-control" id="caseFilter" placeholder="Filter cases...">
+                    </div>
+                    <table class="table table-sm table-hover" id="casesTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px;"><input type="checkbox" id="selectAllCheckbox"></th>
+                                <th>ID</th>
+                                <th>Title</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for case in cases %}
+                            <tr data-case-id="{{ case.id }}" class="case-row">
+                                <td>
+                                    <input type="checkbox" class="case-checkbox" value="{{ case.id }}"
+                                        {% if case.is_queued %}disabled{% endif %}>
+                                </td>
+                                <td>{{ case.id }}</td>
+                                <td>{{ case.title[:50] }}{% if case.title|length > 50 %}...{% endif %}</td>
+                                <td>
+                                    {% if case.is_queued %}
+                                    <span class="badge bg-info">Queued</span>
+                                    {% elif case.latest_run %}
+                                        {% if case.latest_run.status == 'completed' %}
+                                        <span class="badge bg-success">Done</span>
+                                        {% elif case.latest_run.status == 'failed' %}
+                                        <span class="badge bg-danger">Failed</span>
+                                        {% else %}
+                                        <span class="badge bg-warning">{{ case.latest_run.status }}</span>
+                                        {% endif %}
+                                    {% else %}
+                                    <span class="badge bg-secondary">Not processed</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="card-footer">
+                    <div class="row align-items-center">
+                        <div class="col-md-4">
+                            <select class="form-select form-select-sm" id="groupSelect">
+                                <option value="">No group</option>
+                                {% for group in group_names %}
+                                <option value="{{ group }}">{{ group }}</option>
+                                {% endfor %}
+                                <option value="__new__">+ New group...</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <select class="form-select form-select-sm" id="prioritySelect">
+                                <option value="0">Normal priority</option>
+                                <option value="1">High priority</option>
+                                <option value="2">Urgent</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <button class="btn btn-primary" id="addToQueueBtn">
+                                Add to Queue (<span id="selectedCount">0</span>)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Current Queue -->
+        <div class="col-md-5">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Current Queue ({{ queue_items|length }})</h5>
+                    <div>
+                        <button class="btn btn-sm btn-success" id="startQueueBtn"
+                            {% if not queue_items %}disabled{% endif %}>
+                            Start Processing
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" id="clearQueueBtn"
+                            {% if not queue_items %}disabled{% endif %}>
+                            Clear
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body" style="max-height: 500px; overflow-y: auto;">
+                    {% if queue_items %}
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Case</th>
+                                <th>Priority</th>
+                                <th>Group</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="queueTable">
+                            {% for item in queue_items %}
+                            <tr data-queue-id="{{ item.id }}">
+                                <td>Case {{ item.case_id }}</td>
+                                <td>
+                                    {% if item.priority == 2 %}
+                                    <span class="badge bg-danger">Urgent</span>
+                                    {% elif item.priority == 1 %}
+                                    <span class="badge bg-warning">High</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">Normal</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ item.group_name or '-' }}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-danger remove-queue-btn"
+                                        data-queue-id="{{ item.id }}">
+                                        Remove
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <p class="text-muted text-center">Queue is empty. Select cases to add.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Processing Info -->
+            <div class="card mt-3">
+                <div class="card-body">
+                    <small class="text-muted">
+                        <strong>Processing order:</strong> Urgent > High > Normal, then by queue order.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- New Group Modal -->
+<div class="modal fade" id="newGroupModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create New Group</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="text" class="form-control" id="newGroupName" placeholder="Group name">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="createGroupBtn">Create</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const checkboxes = document.querySelectorAll('.case-checkbox:not(:disabled)');
+    const selectedCountEl = document.getElementById('selectedCount');
+
+    function updateSelectedCount() {
+        const count = document.querySelectorAll('.case-checkbox:checked').length;
+        selectedCountEl.textContent = count;
+    }
+
+    // Select all/none
+    document.getElementById('selectAll').addEventListener('click', () => {
+        checkboxes.forEach(cb => cb.checked = true);
+        updateSelectedCount();
+    });
+
+    document.getElementById('selectNone').addEventListener('click', () => {
+        checkboxes.forEach(cb => cb.checked = false);
+        updateSelectedCount();
+    });
+
+    document.getElementById('selectAllCheckbox').addEventListener('change', function() {
+        checkboxes.forEach(cb => cb.checked = this.checked);
+        updateSelectedCount();
+    });
+
+    checkboxes.forEach(cb => cb.addEventListener('change', updateSelectedCount));
+
+    // Filter cases
+    document.getElementById('caseFilter').addEventListener('input', function() {
+        const filter = this.value.toLowerCase();
+        document.querySelectorAll('.case-row').forEach(row => {
+            const text = row.textContent.toLowerCase();
+            row.style.display = text.includes(filter) ? '' : 'none';
+        });
+    });
+
+    // Group select
+    document.getElementById('groupSelect').addEventListener('change', function() {
+        if (this.value === '__new__') {
+            new bootstrap.Modal(document.getElementById('newGroupModal')).show();
+            this.value = '';
+        }
+    });
+
+    document.getElementById('createGroupBtn').addEventListener('click', function() {
+        const name = document.getElementById('newGroupName').value.trim();
+        if (name) {
+            const select = document.getElementById('groupSelect');
+            const option = new Option(name, name);
+            select.insertBefore(option, select.lastElementChild);
+            select.value = name;
+            bootstrap.Modal.getInstance(document.getElementById('newGroupModal')).hide();
+        }
+    });
+
+    // Add to queue
+    document.getElementById('addToQueueBtn').addEventListener('click', async function() {
+        const selected = Array.from(document.querySelectorAll('.case-checkbox:checked'))
+            .map(cb => parseInt(cb.value));
+
+        if (selected.length === 0) {
+            alert('Please select at least one case');
+            return;
+        }
+
+        const priority = parseInt(document.getElementById('prioritySelect').value);
+        const groupName = document.getElementById('groupSelect').value || null;
+
+        try {
+            const response = await fetch('/pipeline/api/queue', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    case_ids: selected,
+                    priority: priority,
+                    group_name: groupName
+                })
+            });
+            const data = await response.json();
+            if (data.success) {
+                alert(`Added ${data.added.length} cases to queue`);
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        } catch (e) {
+            alert('Error: ' + e.message);
+        }
+    });
+
+    // Remove from queue
+    document.querySelectorAll('.remove-queue-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const queueId = this.dataset.queueId;
+            try {
+                const response = await fetch(`/pipeline/api/queue/${queueId}`, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+                if (data.success) {
+                    location.reload();  // Refresh to update case status badges
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        });
+    });
+
+    // Start queue processing
+    document.getElementById('startQueueBtn').addEventListener('click', async function() {
+        if (!confirm('Start processing the queue?')) return;
+
+        try {
+            const response = await fetch('/pipeline/api/queue/start', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({limit: 10})
+            });
+            const data = await response.json();
+            if (data.success) {
+                alert('Queue processing started');
+                window.location.href = '/pipeline/dashboard';
+            } else {
+                alert('Error: ' + data.error);
+            }
+        } catch (e) {
+            alert('Error: ' + e.message);
+        }
+    });
+
+    // Clear queue
+    document.getElementById('clearQueueBtn').addEventListener('click', async function() {
+        if (!confirm('Clear all items from the queue?')) return;
+
+        try {
+            const response = await fetch('/pipeline/api/queue/clear', {
+                method: 'POST'
+            });
+            const data = await response.json();
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        } catch (e) {
+            alert('Error: ' + e.message);
+        }
+    });
+
+});
+</script>
+{% endblock %}

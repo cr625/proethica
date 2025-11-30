@@ -1,0 +1,60 @@
+{
+  "new_role_classes": [
+    {
+      "label": "Board of Ethical Review Member",
+      "definition": "A professional serving on an ethics review board that evaluates engineering conduct against professional codes and standards",
+      "distinguishing_features": [
+        "Interprets professional codes of ethics",
+        "Evaluates case-specific ethical conduct",
+        "Issues advisory opinions",
+        "Considers precedent from prior cases"
+      ],
+      "professional_scope": "Professional ethics adjudication and guidance",
+      "typical_qualifications": [
+        "Senior professional engineer",
+        "Expertise in engineering ethics",
+        "Experience with professional conduct standards"
+      ],
+      "generated_obligations": [
+        "Apply ethical standards consistently",
+        "Consider relevant precedents",
+        "Provide reasoned analysis"
+      ],
+      "associated_virtues": ["Fairness", "Wisdom", "Impartiality"],
+      "relationship_type": "Professional Peer",
+      "domain_context": "Engineering Ethics",
+      "examples_from_case": "BER analyzing Engineer A's conduct against NSPE Code",
+      "source_text": "The Board of Ethical Review (BER) has a long history of open and welcome advocacy",
+      "confidence": 0.88
+    }
+  ],
+  "role_individuals": [
+    {
+      "name": "Board of Ethical Review",
+      "role_classification": "Ethics Review Body",
+      "attributes": {
+        "type": "professional ethics board",
+        "organization": "NSPE",
+        "function": "evaluate engineering ethical conduct"
+      },
+      "relationships": [
+        {"type": "evaluates", "target": "Engineer A"},
+        {"type": "applies", "target": "NSPE Code of Ethics"},
+        {"type": "references", "target": "BER Case 90-6"},
+        {"type": "references", "target": "BER Case 98-3"}
+      ],
+      "active_obligations": [
+        "Evaluate ethical conduct against professional standards",
+        "Consider precedent cases",
+        "Provide guidance on emerging technology use"
+      ],
+      "ethical_tensions": [
+        "Embracing new technology vs. maintaining professional standards",
+        "Specific guidance vs. flexible principles"
+      ],
+      "case_involvement": "Reviewing Engineer A's use of AI tools and rendering ethical opinion",
+      "source_text": "The Board of Ethical Review (BER) has a long history of open and welcome advocacy",
+      "confidence": 0.95
+    }
+  ]
+}

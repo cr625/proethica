@@ -1,0 +1,197 @@
+{
+  "decision_points": [
+    {
+      "id": "dp_1",
+      "title": "Tool Selection Decision",
+      "description": "Engineer A's decision to use AI tools for report and design generation",
+      "decision_maker": "Engineer A",
+      "context": "Loss of mentor support, need to deliver complex deliverables",
+      "options": [
+        {
+          "id": "opt_1a",
+          "description": "Use AI tools to generate drafts",
+          "selected": true,
+          "consequences": [
+            "Increased efficiency",
+            "Risk of insufficient review",
+            "Potential confidentiality exposure"
+          ]
+        },
+        {
+          "id": "opt_1b",
+          "description": "Seek alternative human review/mentorship",
+          "selected": false,
+          "consequences": [
+            "Maintains traditional workflow",
+            "May delay deliverables",
+            "Preserves established QA process"
+          ]
+        },
+        {
+          "id": "opt_1c",
+          "description": "Develop writing skills independently",
+          "selected": false,
+          "consequences": [
+            "Long-term capability building",
+            "Initial quality concerns",
+            "No confidentiality risk"
+          ]
+        }
+      ],
+      "ethical_considerations": [
+        "Competence with unfamiliar tools",
+        "Client data exposure risk",
+        "Quality assurance adequacy"
+      ],
+      "temporal_position": "early",
+      "confidence": 0.93
+    },
+    {
+      "id": "dp_2",
+      "title": "Report Review Depth Decision",
+      "description": "Engineer A's decision on how thoroughly to review AI-generated report",
+      "decision_maker": "Engineer A",
+      "context": "AI-generated draft report ready for review",
+      "options": [
+        {
+          "id": "opt_2a",
+          "description": "Conduct thorough review with cross-checking",
+          "selected": true,
+          "consequences": [
+            "High confidence in accuracy",
+            "Direction and control established",
+            "Time investment required"
+          ]
+        },
+        {
+          "id": "opt_2b",
+          "description": "Conduct cursory review only",
+          "selected": false,
+          "consequences": [
+            "Time savings",
+            "Risk of errors",
+            "Questionable direction/control"
+          ]
+        }
+      ],
+      "ethical_considerations": [
+        "Direction and control requirements",
+        "Professional responsibility for content",
+        "Client expectations of quality"
+      ],
+      "temporal_position": "mid",
+      "confidence": 0.91
+    },
+    {
+      "id": "dp_3",
+      "title": "Design Review Depth Decision",
+      "description": "Engineer A's decision on how thoroughly to review AI-generated designs",
+      "decision_maker": "Engineer A",
+      "context": "AI-generated design documents ready for review",
+      "options": [
+        {
+          "id": "opt_3a",
+          "description": "Conduct comprehensive design review",
+          "selected": false,
+          "consequences": [
+            "Catch errors and omissions",
+            "Satisfy responsible charge",
+            "Ensure regulatory compliance"
+          ]
+        },
+        {
+          "id": "opt_3b",
+          "description": "Conduct cursory high-level review only",
+          "selected": true,
+          "consequences": [
+            "Missed dimensional errors",
+            "Missed safety feature omissions",
+            "Failed responsible charge",
+            "Regulatory non-compliance"
+          ]
+        }
+      ],
+      "ethical_considerations": [
+        "Public safety implications",
+        "Responsible charge requirements",
+        "Regulatory compliance obligations"
+      ],
+      "outcome": "Client discovered deficiencies",
+      "temporal_position": "mid",
+      "confidence": 0.94
+    },
+    {
+      "id": "dp_4",
+      "title": "AI Disclosure Decision",
+      "description": "Engineer A's decision whether to disclose AI tool usage to client",
+      "decision_maker": "Engineer A",
+      "context": "Submitting AI-assisted deliverables to client",
+      "options": [
+        {
+          "id": "opt_4a",
+          "description": "Disclose AI usage to client",
+          "selected": false,
+          "consequences": [
+            "Transparency maintained",
+            "Client can assess implications",
+            "May raise client concerns"
+          ]
+        },
+        {
+          "id": "opt_4b",
+          "description": "Do not disclose AI usage",
+          "selected": true,
+          "consequences": [
+            "No disclosure obligation violated (per BER)",
+            "Client unaware of methods used",
+            "Trust implications if discovered"
+          ]
+        }
+      ],
+      "ethical_considerations": [
+        "Transparency principles",
+        "Client trust and expectations",
+        "Absence of disclosure mandate"
+      ],
+      "ber_finding": "No obligation to disclose, but transparency favored when AI plays substantial role",
+      "temporal_position": "late",
+      "confidence": 0.89
+    },
+    {
+      "id": "dp_5",
+      "title": "Seal Application Decision",
+      "description": "Engineer A's decision to apply professional seal to draft documents",
+      "decision_maker": "Engineer A",
+      "context": "Submitting draft report and designs to client",
+      "options": [
+        {
+          "id": "opt_5a",
+          "description": "Apply seal after thorough review",
+          "selected": true,
+          "consequences": [
+            "Certifies professional responsibility",
+            "Legal implications",
+            "Must satisfy direction/control requirements"
+          ]
+        },
+        {
+          "id": "opt_5b",
+          "description": "Withhold seal pending further review",
+          "selected": false,
+          "consequences": [
+            "Reduced liability exposure",
+            "Client may question commitment",
+            "More cautious approach"
+          ]
+        }
+      ],
+      "ethical_considerations": [
+        "Sealing only work under direction and control",
+        "Legal requirements of state law",
+        "Professional responsibility certification"
+      ],
+      "temporal_position": "late",
+      "confidence": 0.90
+    }
+  ]
+}

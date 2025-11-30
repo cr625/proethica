@@ -16,10 +16,19 @@
 {% endblock %}
 
 {% block step_content %}
+{% if is_mock_mode %}
+<div class="alert alert-warning alert-dismissible fade show mb-3" role="alert">
+    <strong><i class="bi bi-exclamation-triangle"></i> {{ data_source_label }}</strong>
+    <br>{{ data_source_warning }}
+    <br><small class="text-muted">Set MOCK_LLM_ENABLED=false in environment to use real LLM.</small>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endif %}
 <div class="step-card">
     <div class="step-header">
         <h4 class="mb-0">
             <i class="bi bi-file-text"></i> Facts Section
+            {% if is_mock_mode %}<span class="badge bg-warning text-dark ms-2">Mock Mode</span>{% endif %}
         </h4>
     </div>
     <div class="step-content">

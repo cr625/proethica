@@ -48,12 +48,29 @@ class RoleIndividual:
 class DualRoleExtractor:
     """Extract both new role classes and individual role instances"""
 
-    def __init__(self):
+    def __init__(self, llm_client=None):
+        """
+        Initialize the dual role extractor.
+
+        Args:
+            llm_client: Optional LLM client for dependency injection (used in testing).
+                       If None and MOCK_LLM_ENABLED=true, uses mock client.
+                       Otherwise uses the default LLM client from llm_utils.
+        """
+        # Use mock provider to get appropriate client (mock if enabled, None otherwise)
+        from app.services.extraction.mock_llm_provider import (
+            get_llm_client_for_extraction,
+            get_current_data_source,
+            DataSource
+        )
+        self.llm_client = get_llm_client_for_extraction(llm_client)
+        self.data_source = get_current_data_source()
         self.mcp_client = get_external_mcp_client()
         self.validation_service = CandidateRoleValidationService()
         self.existing_role_classes = self._load_existing_role_classes()
         self.model_name = ModelConfig.get_claude_model("powerful")
         self.last_raw_response = None  # Store the raw LLM response
+        self.last_prompt = None  # Store the prompt sent to LLM
 
     def extract_dual_roles(self, case_text: str, case_id: int, section_type: str) -> Tuple[List[CandidateRoleClass], List[RoleIndividual]]:
         """
@@ -61,29 +78,30 @@ class DualRoleExtractor:
 
         Returns:
             Tuple of (candidate_role_classes, role_individuals)
+
+        Raises:
+            ExtractionError: If LLM call fails (NOT silently caught)
         """
-        try:
-            # 1. Generate dual extraction prompt
-            prompt = self._create_dual_role_extraction_prompt(case_text, section_type)
+        # Store section_type for mock client lookup
+        self._current_section_type = section_type
 
-            # 2. Call LLM for dual extraction
-            extraction_result = self._call_llm_for_dual_extraction(prompt)
+        # 1. Generate dual extraction prompt
+        prompt = self._create_dual_role_extraction_prompt(case_text, section_type)
 
-            # 3. Parse and validate results
-            candidate_classes = self._parse_candidate_role_classes(extraction_result.get('new_role_classes', []), case_id)
-            role_individuals = self._parse_role_individuals(extraction_result.get('role_individuals', []), case_id, section_type)
+        # 2. Call LLM for dual extraction - errors will propagate, NOT be swallowed
+        extraction_result = self._call_llm_for_dual_extraction(prompt)
 
-            # 4. Cross-reference: link individuals to new classes if applicable
-            self._link_individuals_to_new_classes(role_individuals, candidate_classes)
+        # 3. Parse and validate results
+        candidate_classes = self._parse_candidate_role_classes(extraction_result.get('new_role_classes', []), case_id)
+        role_individuals = self._parse_role_individuals(extraction_result.get('role_individuals', []), case_id, section_type)
 
-            logger.info(f"Extracted {len(candidate_classes)} candidate role classes and {len(role_individuals)} role individuals from case {case_id}")
+        # 4. Cross-reference: link individuals to new classes if applicable
+        self._link_individuals_to_new_classes(role_individuals, candidate_classes)
 
-            # Return raw extraction results - let route handler manage storage
-            return candidate_classes, role_individuals
+        logger.info(f"Extracted {len(candidate_classes)} candidate role classes and {len(role_individuals)} role individuals from case {case_id} (source: {self.data_source.value})")
 
-        except Exception as e:
-            logger.error(f"Error in dual role extraction: {e}")
-            return [], []
+        # Return raw extraction results - let route handler manage storage
+        return candidate_classes, role_individuals
 
     def _load_existing_role_classes(self) -> List[Dict[str, Any]]:
         """Load existing role classes from proethica-intermediate via MCP"""
@@ -197,63 +215,93 @@ Respond with valid JSON in this format:
         return "\n".join(formatted_roles)
 
     def _call_llm_for_dual_extraction(self, prompt: str) -> Dict[str, Any]:
-        """Call LLM with dual extraction prompt"""
-        try:
-            # Import the LLM client getter
+        """
+        Call LLM with dual extraction prompt.
+
+        Raises:
+            LLMConnectionError: If LLM client unavailable or connection fails
+            LLMResponseError: If LLM returns unparseable response
+        """
+        from app.services.extraction.mock_llm_provider import (
+            LLMConnectionError, LLMResponseError, DataSource
+        )
+
+        # Store prompt for later retrieval
+        self.last_prompt = prompt
+
+        # Use injected client if available (for testing/mock), otherwise get default
+        if self.llm_client is not None:
+            # Mock or injected client - call with extraction type for fixture lookup
+            response = self.llm_client.call(
+                prompt=prompt,
+                extraction_type='roles',
+                section_type=getattr(self, '_current_section_type', 'facts')
+            )
+            response_text = response.content if hasattr(response, 'content') else str(response)
+            self.last_raw_response = response_text
             try:
-                from app.utils.llm_utils import get_llm_client
-            except ImportError:
-                logger.error("Could not import get_llm_client")
-                return {"new_role_classes": [], "role_individuals": []}
+                return json.loads(response_text)
+            except json.JSONDecodeError:
+                import re
+                json_match = re.search(r'\{[\s\S]*\}', response_text)
+                if json_match:
+                    return json.loads(json_match.group())
+                # For mock mode, this is a fixture configuration issue
+                raise LLMResponseError(f"Could not parse JSON from response (source: {self.data_source.value}): {response_text[:200]}")
 
-            client = get_llm_client()
-            if client is None:
-                logger.error("No LLM client available")
-                return {"new_role_classes": [], "role_individuals": []}
+        # Real LLM mode - errors must propagate, not be silently converted to empty results
+        try:
+            from app.utils.llm_utils import get_llm_client
+        except ImportError as e:
+            raise LLMConnectionError(f"Could not import get_llm_client: {e}")
 
-            # Try Anthropic messages API
-            if hasattr(client, 'messages') and hasattr(client.messages, 'create'):
-                response = client.messages.create(
-                    model=self.model_name,
-                    max_tokens=4000,
-                    temperature=0.3,
-                    messages=[{
-                        "role": "user",
-                        "content": prompt
-                    }]
-                )
+        client = get_llm_client()
+        if client is None:
+            raise LLMConnectionError("No LLM client available - check API key configuration")
 
-                # Handle response content
-                content = getattr(response, 'content', None)
-                if content and isinstance(content, list) and len(content) > 0:
-                    response_text = getattr(content[0], 'text', None) or str(content[0])
-                else:
-                    response_text = str(response)
+        # Try Anthropic messages API
+        if not (hasattr(client, 'messages') and hasattr(client.messages, 'create')):
+            raise LLMConnectionError("LLM client does not support messages.create API")
 
-                response_text = response_text.strip()
-
-                # Store raw response for debugging
-                self.last_raw_response = response_text
-
-                # Parse JSON response
-                try:
-                    return json.loads(response_text)
-                except json.JSONDecodeError:
-                    # Try to extract JSON from mixed response
-                    import re
-                    json_match = re.search(r'\{[\s\S]*\}', response_text)
-                    if json_match:
-                        return json.loads(json_match.group())
-                    else:
-                        logger.error(f"Could not parse JSON from LLM response: {response_text}")
-                        return {"new_role_classes": [], "role_individuals": []}
-            else:
-                logger.error("LLM client does not support messages.create")
-                return {"new_role_classes": [], "role_individuals": []}
-
+        try:
+            response = client.messages.create(
+                model=self.model_name,
+                max_tokens=4000,
+                temperature=0.3,
+                messages=[{
+                    "role": "user",
+                    "content": prompt
+                }]
+            )
         except Exception as e:
-            logger.error(f"Error calling LLM for dual extraction: {e}")
-            return {"new_role_classes": [], "role_individuals": []}
+            raise LLMConnectionError(f"LLM API call failed: {e}")
+
+        # Handle response content
+        content = getattr(response, 'content', None)
+        if content and isinstance(content, list) and len(content) > 0:
+            response_text = getattr(content[0], 'text', None) or str(content[0])
+        else:
+            response_text = str(response)
+
+        response_text = response_text.strip()
+
+        # Store raw response for debugging
+        self.last_raw_response = response_text
+
+        # Parse JSON response
+        try:
+            return json.loads(response_text)
+        except json.JSONDecodeError:
+            # Try to extract JSON from mixed response
+            import re
+            json_match = re.search(r'\{[\s\S]*\}', response_text)
+            if json_match:
+                try:
+                    return json.loads(json_match.group())
+                except json.JSONDecodeError:
+                    pass
+            # Real LLM returned unparseable response - this is an error, not empty results
+            raise LLMResponseError(f"Could not parse JSON from LLM response: {response_text[:500]}")
 
     def _parse_candidate_role_classes(self, raw_classes: List[Dict], case_id: int) -> List[CandidateRoleClass]:
         """Parse and validate candidate role classes from LLM response"""

@@ -174,6 +174,8 @@ def create_app(config_name=None):
     from app.routes.provenance import provenance_bp
     # Precedent discovery routes
     from app.routes.precedents import precedents_bp
+    # Pipeline automation dashboard
+    from app.routes.pipeline_dashboard import pipeline_bp
 
     app.register_blueprint(index_bp)
     app.register_blueprint(auth_bp)
@@ -218,6 +220,7 @@ def create_app(config_name=None):
     app.register_blueprint(reasoning_bp)  # Register reasoning inspector routes
     app.register_blueprint(provenance_bp)  # Register PROV-O provenance viewer routes
     app.register_blueprint(precedents_bp)  # Register precedent discovery routes
+    app.register_blueprint(pipeline_bp)  # Pipeline automation dashboard
 
     # Exempt API routes from CSRF protection
     from app.routes.api_document_annotations import init_csrf_exemption
@@ -244,6 +247,10 @@ def create_app(config_name=None):
     # Exempt document structure routes from CSRF protection
     from app.routes.document_structure import init_doc_structure_csrf_exemption
     init_doc_structure_csrf_exemption(app)
+
+    # Exempt pipeline API routes from CSRF protection
+    from app.routes.pipeline_dashboard import init_pipeline_csrf_exemption
+    init_pipeline_csrf_exemption(app)
 
 
     # Make db accessible at app level for imports in other modules

@@ -1,0 +1,60 @@
+{
+  "constraints": [
+    {
+      "label": "Mentor Unavailability Constraint",
+      "definition": "The absence of Engineer B's guidance and quality assurance review capability",
+      "constraint_type": "situational",
+      "affects": "Engineer A",
+      "impact": "Forced reliance on alternative methods for quality assurance",
+      "workaround_attempted": "Use of AI tools to supplement missing mentorship",
+      "source_text": "Engineer B recently retired and was no longer available to Engineer A in a work capacity",
+      "confidence": 0.93
+    },
+    {
+      "label": "Tool Inexperience Constraint",
+      "definition": "Lack of prior experience with the specific AI software tools being used",
+      "constraint_type": "knowledge",
+      "affects": "Engineer A",
+      "impact": "Limited understanding of AI tool capabilities, limitations, and proper use",
+      "source_text": "The AI drafting software was new to the market and Engineer A had no previous experience with the tool",
+      "confidence": 0.91
+    },
+    {
+      "label": "Open-Source Data Exposure",
+      "definition": "The inherent risk of data exposure when using open-source AI platforms",
+      "constraint_type": "technical",
+      "affects": "Client confidentiality",
+      "impact": "Client information potentially placed in public domain",
+      "source_text": "The AI drafting software was also open-sourced",
+      "confidence": 0.88
+    },
+    {
+      "label": "Writing Confidence Limitation",
+      "definition": "Engineer A's personal uncertainty about technical writing abilities",
+      "constraint_type": "psychological",
+      "affects": "Engineer A",
+      "impact": "Motivated seeking alternative approaches to report drafting",
+      "source_text": "personally, less confident in their technical writing",
+      "confidence": 0.87
+    },
+    {
+      "label": "Local Regulatory Requirements",
+      "definition": "Mandatory safety feature requirements imposed by local regulations",
+      "constraint_type": "regulatory",
+      "affects": "Engineering design documents",
+      "impact": "All designs must include specified safety features",
+      "violation_consequence": "Non-compliance with regulatory standards",
+      "source_text": "key safety features required by local regulations",
+      "confidence": 0.92
+    },
+    {
+      "label": "State Seal Requirements",
+      "definition": "Legal requirements governing when and how engineers may apply their professional seal",
+      "constraint_type": "legal",
+      "affects": "Engineer A",
+      "impact": "Sealed documents carry legal weight and professional responsibility",
+      "source_text": "applied their seal consistent with state law",
+      "confidence": 0.90
+    }
+  ]
+}

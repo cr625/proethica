@@ -555,8 +555,8 @@ class CaseEntityStorageService:
                     # NOTE: Clearing both committed and uncommitted entities
                 )
 
-                # Add section filter if specified
-                if section_session_ids is not None:
+                # Filter by extraction session IDs from prompts
+                if section_session_ids:
                     rdf_query = rdf_query.filter(
                         TemporaryRDFStorage.extraction_session_id.in_(section_session_ids)
                     )

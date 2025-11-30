@@ -41,6 +41,10 @@ class Config:
     # OntServe Web Interface URL - for navigation links
     ONTSERVE_WEB_URL = os.environ.get('ONTSERVE_WEB_URL', 'http://localhost:5003')
 
+    # Mock LLM mode - when enabled, extractors use mock responses instead of real LLM calls
+    # Set MOCK_LLM_ENABLED=true in .env to enable mock mode for UI testing
+    MOCK_LLM_ENABLED = os.environ.get('MOCK_LLM_ENABLED', 'false').lower() == 'true'
+
 
 class DevelopmentConfig(Config):
     """Development configuration."""

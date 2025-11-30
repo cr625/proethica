@@ -107,12 +107,29 @@ class EventIndividual:
 class DualActionsEventsExtractor:
     """Extract both new temporal classes and individual temporal instances"""
 
-    def __init__(self):
+    def __init__(self, llm_client=None):
+        """
+        Initialize the dual actions/events extractor.
+
+        Args:
+            llm_client: Optional LLM client for dependency injection (used in testing).
+                       If None and MOCK_LLM_ENABLED=true, uses mock client.
+                       Otherwise uses the default LLM client from llm_utils.
+        """
+        # Use mock provider to get appropriate client (mock if enabled, None otherwise)
+        from app.services.extraction.mock_llm_provider import (
+            get_llm_client_for_extraction,
+            get_current_data_source,
+            DataSource
+        )
+        self.llm_client = get_llm_client_for_extraction(llm_client)
+        self.data_source = get_current_data_source()
         self.mcp_client = get_external_mcp_client()
         self.existing_action_classes = self._load_existing_action_classes()
         self.existing_event_classes = self._load_existing_event_classes()
         self.model_name = ModelConfig.get_claude_model("powerful")
         self.last_raw_response = None  # CRITICAL for RDF conversion
+        self.last_prompt = None  # Store the prompt sent to LLM
 
     def extract_dual_actions_events(self, case_text: str, case_id: int, section_type: str) -> Tuple[
         List[CandidateActionClass], List[ActionIndividual],
@@ -123,47 +140,48 @@ class DualActionsEventsExtractor:
 
         Returns:
             Tuple of (candidate_action_classes, action_individuals, candidate_event_classes, event_individuals)
+
+        Raises:
+            ExtractionError: If LLM call fails (NOT silently caught)
         """
-        try:
-            # 1. Generate dual extraction prompt
-            prompt = self._create_dual_temporal_extraction_prompt(case_text, section_type)
+        # Store section_type for mock client lookup
+        self._current_section_type = section_type
 
-            # 2. Call LLM for dual extraction
-            extraction_result = self._call_llm_for_dual_extraction(prompt)
+        # 1. Generate dual extraction prompt
+        prompt = self._create_dual_temporal_extraction_prompt(case_text, section_type)
 
-            # 3. Parse and validate results
-            candidate_action_classes = self._parse_candidate_action_classes(
-                extraction_result.get('new_action_classes', []), case_id
-            )
-            action_individuals = self._parse_action_individuals(
-                extraction_result.get('action_individuals', []), case_id, section_type
-            )
-            candidate_event_classes = self._parse_candidate_event_classes(
-                extraction_result.get('new_event_classes', []), case_id
-            )
-            event_individuals = self._parse_event_individuals(
-                extraction_result.get('event_individuals', []), case_id, section_type
-            )
+        # 2. Call LLM for dual extraction - errors will propagate, NOT be swallowed
+        extraction_result = self._call_llm_for_dual_extraction(prompt)
 
-            # 4. Cross-reference: link individuals to new classes if applicable
-            self._link_individuals_to_new_classes(
-                action_individuals, candidate_action_classes,
-                event_individuals, candidate_event_classes
-            )
+        # 3. Parse and validate results
+        candidate_action_classes = self._parse_candidate_action_classes(
+            extraction_result.get('new_action_classes', []), case_id
+        )
+        action_individuals = self._parse_action_individuals(
+            extraction_result.get('action_individuals', []), case_id, section_type
+        )
+        candidate_event_classes = self._parse_candidate_event_classes(
+            extraction_result.get('new_event_classes', []), case_id
+        )
+        event_individuals = self._parse_event_individuals(
+            extraction_result.get('event_individuals', []), case_id, section_type
+        )
 
-            # 5. Extract temporal relationships using Allen's interval algebra
-            self._extract_temporal_relationships(action_individuals, event_individuals)
+        # 4. Cross-reference: link individuals to new classes if applicable
+        self._link_individuals_to_new_classes(
+            action_individuals, candidate_action_classes,
+            event_individuals, candidate_event_classes
+        )
 
-            logger.info(f"Extracted {len(candidate_action_classes)} candidate action classes, "
-                       f"{len(action_individuals)} action individuals, "
-                       f"{len(candidate_event_classes)} candidate event classes, "
-                       f"{len(event_individuals)} event individuals from case {case_id}")
+        # 5. Extract temporal relationships using Allen's interval algebra
+        self._extract_temporal_relationships(action_individuals, event_individuals)
 
-            return candidate_action_classes, action_individuals, candidate_event_classes, event_individuals
+        logger.info(f"Extracted {len(candidate_action_classes)} candidate action classes, "
+                   f"{len(action_individuals)} action individuals, "
+                   f"{len(candidate_event_classes)} candidate event classes, "
+                   f"{len(event_individuals)} event individuals from case {case_id} (source: {self.data_source.value})")
 
-        except Exception as e:
-            logger.error(f"Error in dual actions/events extraction: {e}")
-            return [], [], [], []
+        return candidate_action_classes, action_individuals, candidate_event_classes, event_individuals
 
     def get_last_raw_response(self) -> Optional[str]:
         """Return the raw LLM response for RDF conversion"""
@@ -403,7 +421,29 @@ Respond with valid JSON in this format:
 
     def _call_llm_for_dual_extraction(self, prompt: str) -> Dict[str, Any]:
         """Call LLM with dual extraction prompt"""
+        # Store prompt for later retrieval
+        self.last_prompt = prompt
+
         try:
+            # Use injected client if available (for testing), otherwise get default
+            if self.llm_client is not None:
+                # Mock client - call with extraction type for fixture lookup
+                response = self.llm_client.call(
+                    prompt=prompt,
+                    extraction_type='actions_events',
+                    section_type=getattr(self, '_current_section_type', 'facts')
+                )
+                response_text = response.content if hasattr(response, 'content') else str(response)
+                self.last_raw_response = response_text
+                try:
+                    return json.loads(response_text)
+                except json.JSONDecodeError:
+                    import re
+                    json_match = re.search(r'\{[\s\S]*\}', response_text)
+                    if json_match:
+                        return json.loads(json_match.group())
+                    return {"new_action_classes": [], "action_individuals": [], "new_event_classes": [], "event_individuals": []}
+
             # Import the LLM client getter
             try:
                 from app.utils.llm_utils import get_llm_client

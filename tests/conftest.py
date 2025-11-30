@@ -294,3 +294,67 @@ def auth_client(client, create_test_user):
         'submit': 'Sign In'
     }, follow_redirects=True)
     return client
+
+
+# Mock LLM fixtures for fast unit testing
+
+@pytest.fixture
+def mock_llm_client():
+    """
+    Provide a mock LLM client that returns pre-defined responses from fixtures.
+
+    Usage:
+        def test_role_extraction(mock_llm_client):
+            extractor = DualRoleExtractor(llm_client=mock_llm_client)
+            classes, individuals = extractor.extract_dual_roles(...)
+    """
+    from tests.mocks import MockLLMClient
+    return MockLLMClient()
+
+
+@pytest.fixture
+def mock_llm_client_factory():
+    """
+    Provide a factory for creating mock LLM clients with custom overrides.
+
+    Usage:
+        def test_custom_response(mock_llm_client_factory):
+            client = mock_llm_client_factory.create_with_overrides({
+                'roles_facts': {'new_role_classes': [...], 'role_individuals': [...]}
+            })
+    """
+    from tests.mocks.llm_client import MockLLMClientFactory
+    return MockLLMClientFactory()
+
+
+@pytest.fixture
+def sample_case_text():
+    """
+    Provide sample case text for extraction tests.
+    Based on Case 7 (AI in Engineering Practice).
+    """
+    return """
+    Engineer A, an environmental engineer with several years of experience and holding a professional
+    engineering license, was retained by Client W to prepare a comprehensive report addressing the
+    manufacture, use, and characteristics of an organic compound identified as an emerging contaminant
+    of concern. This work required Engineer A to perform an analysis of groundwater monitoring data
+    from a site Engineer A had been observing for over a year. In addition, Engineer A was tasked to
+    develop engineering design documents (plans and specifications) for modifications to groundwater
+    infrastructure at the same site.
+
+    Engineer A is known for their strong technical expertise but is, personally, less confident in
+    their technical writing. Previously, Engineer A had relied on guidance and quality assurance
+    reviews by their mentor and supervisor, Engineer B, to refine report drafts. But Engineer B
+    recently retired and was no longer available to Engineer A in a work capacity.
+
+    Faced with the need to deliver both the report and the engineering design documents without the
+    review by and mentorship from Engineer B, Engineer A opted to use open-sourced artificial
+    intelligence (AI) software to create an initial draft of the necessary report and to use
+    AI-assisted drafting tools to generate preliminary design documents.
+    """
+
+
+@pytest.fixture
+def sample_case_id():
+    """Provide a sample case ID for extraction tests."""
+    return 7

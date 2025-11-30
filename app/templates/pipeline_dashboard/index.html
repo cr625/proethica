@@ -1,0 +1,327 @@
+{% extends "base.html" %}
+
+{% block title %}Pipeline Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2>Pipeline Dashboard</h2>
+            <p class="text-muted">Monitor automated case processing</p>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Total Cases</h5>
+                    <h2>{{ case_count }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <h5 class="card-title">Active Runs</h5>
+                    <h2>{{ active_runs|length }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Queued</h5>
+                    <h2>{{ queue_count }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Actions</h5>
+                    <a href="{{ url_for('pipeline.queue_page') }}" class="btn btn-light btn-sm">Manage Queue</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Runs -->
+    {% if active_runs %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-warning">
+                <div class="card-header bg-warning">
+                    <h5 class="mb-0">Active Runs - Processing</h5>
+                </div>
+                <div class="card-body">
+                    {% for run in active_runs %}
+                    <div class="border rounded p-3 mb-3 {% if loop.first %}bg-light{% endif %}">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div>
+                                <strong>Run #{{ run.id }}</strong> -
+                                <a href="{{ url_for('scenario_pipeline.step1', case_id=run.case_id) }}">
+                                    Case {{ run.case_id }}
+                                </a>
+                            </div>
+                            <div class="d-flex align-items-center">
+                                <span class="badge bg-warning text-dark fs-6 me-3">{{ run.status|replace('_', ' ')|title }}</span>
+                                <div class="timer-display bg-dark text-warning px-3 py-1 rounded" style="font-family: monospace; font-size: 1.5rem; font-weight: bold;" data-start-time="{{ run.started_at.isoformat() if run.started_at else '' }}">
+                                    {{ "%.0f"|format(run.duration_seconds) }}s
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Granular current step with flash animation -->
+                        {% if run.current_step %}
+                        <div class="alert alert-info py-2 px-3 mb-2 status-bar" data-current-step="{{ run.current_step }}" style="font-size: 1.1rem;">
+                            <strong>Current:</strong> <span class="status-text">{{ run.current_step|title }}</span>
+                        </div>
+                        {% else %}
+                        <div class="alert alert-secondary py-2 px-3 mb-2">
+                            <strong>Current:</strong> <span class="status-text">Initializing...</span>
+                        </div>
+                        {% endif %}
+
+                        <!-- Progress Bar -->
+                        {% set completed_count = (run.steps_completed or [])|length %}
+                        {% set total_steps = 5 %}
+                        {% set progress_pct = (completed_count / total_steps * 100)|int %}
+                        <div class="progress mb-2" style="height: 30px;">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-success" style="width: {{ progress_pct }}%; min-width: 120px;">
+                                {{ completed_count }}/{{ total_steps }} steps complete
+                            </div>
+                        </div>
+
+                        <!-- Step Details -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small class="text-muted d-block mb-1">Completed:</small>
+                                {% for step in (run.steps_completed or []) %}
+                                <span class="badge bg-success me-1 mb-1">{{ step|replace('_', ' ') }}</span>
+                                {% endfor %}
+                                {% if run.status not in ['pending', 'completed', 'failed'] %}
+                                <span class="badge bg-warning text-dark me-1 mb-1">{{ run.status|replace('_', ' ') }} (running...)</span>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <!-- Extraction Results -->
+                                {% if run.step_results %}
+                                <small class="text-muted d-block mb-1">Entities extracted:</small>
+                                {% set total_entities = namespace(count=0) %}
+                                {% for step_name, results in (run.step_results or {}).items() %}
+                                    {% if results.roles %}
+                                        {% set total_entities.count = total_entities.count + (results.roles.individuals or 0) %}
+                                    {% endif %}
+                                    {% if results.states %}
+                                        {% set total_entities.count = total_entities.count + (results.states.individuals or 0) %}
+                                    {% endif %}
+                                    {% if results.resources %}
+                                        {% set total_entities.count = total_entities.count + (results.resources.individuals or 0) %}
+                                    {% endif %}
+                                {% endfor %}
+                                <span class="badge bg-info me-1">Total: {{ total_entities.count }} entities</span>
+                                {% for step_name, results in (run.step_results or {}).items() %}
+                                    {% if results.roles and results.roles.individuals %}
+                                    <span class="badge bg-secondary me-1" title="{{ step_name }}">Roles: {{ results.roles.individuals }}</span>
+                                    {% endif %}
+                                    {% if results.states and results.states.individuals %}
+                                    <span class="badge bg-secondary me-1" title="{{ step_name }}">States: {{ results.states.individuals }}</span>
+                                    {% endif %}
+                                    {% if results.resources and results.resources.individuals %}
+                                    <span class="badge bg-secondary me-1" title="{{ step_name }}">Resources: {{ results.resources.individuals }}</span>
+                                    {% endif %}
+                                {% endfor %}
+                                {% else %}
+                                <small class="text-muted">Starting extraction...</small>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recent Runs -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Recent Runs</h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_runs %}
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Run ID</th>
+                                <th>Case</th>
+                                <th>Status</th>
+                                <th>Steps Completed</th>
+                                <th>Started</th>
+                                <th>Duration</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for run in recent_runs %}
+                            <tr>
+                                <td>{{ run.id }}</td>
+                                <td>
+                                    <a href="{{ url_for('scenario_pipeline.step1', case_id=run.case_id) }}">
+                                        Case {{ run.case_id }}
+                                    </a>
+                                </td>
+                                <td>
+                                    {% if run.status == 'completed' %}
+                                    <span class="badge bg-success">{{ run.status }}</span>
+                                    {% elif run.status == 'failed' %}
+                                    <span class="badge bg-danger">{{ run.status }}</span>
+                                    {% elif run.status == 'pending' %}
+                                    <span class="badge bg-secondary">{{ run.status }}</span>
+                                    {% else %}
+                                    <span class="badge bg-warning">{{ run.status }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ (run.steps_completed or [])|length }}</td>
+                                <td>{{ run.started_at.strftime('%Y-%m-%d %H:%M') if run.started_at else '-' }}</td>
+                                <td>{{ "%.1f"|format(run.duration_seconds) }}s</td>
+                                <td>
+                                    {% if run.status == 'failed' %}
+                                    <button class="btn btn-sm btn-outline-warning retry-btn" data-run-id="{{ run.id }}">
+                                        Retry
+                                    </button>
+                                    {% endif %}
+                                    <button class="btn btn-sm btn-outline-info details-btn" data-run-id="{{ run.id }}">
+                                        Details
+                                    </button>
+                                </td>
+                            </tr>
+                            {% if run.error_message %}
+                            <tr class="table-danger">
+                                <td colspan="7">
+                                    <small><strong>Error ({{ run.error_step or 'unknown step' }}):</strong> {{ run.error_message[:200] }}...</small>
+                                </td>
+                            </tr>
+                            {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <p class="text-muted">No pipeline runs yet. <a href="{{ url_for('pipeline.queue_page') }}">Start processing cases</a>.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Run Details Modal -->
+<div class="modal fade" id="detailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Run Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <pre id="runDetails" class="bg-light p-3" style="max-height: 400px; overflow-y: auto;"></pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    @keyframes flash {
+        0%, 100% { background-color: #cfe2ff; }
+        50% { background-color: #fff3cd; }
+    }
+    .status-bar.flash {
+        animation: flash 0.5s ease-in-out 3;
+    }
+    .timer-display {
+        min-width: 100px;
+        text-align: center;
+    }
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Live timer update - use server duration and increment locally
+    const timerDisplays = document.querySelectorAll('.timer-display');
+    timerDisplays.forEach(timer => {
+        // Get initial duration from server (in seconds)
+        const text = timer.textContent.trim();
+        let initialSeconds = parseInt(text) || 0;
+
+        setInterval(() => {
+            initialSeconds++;
+            const mins = Math.floor(initialSeconds / 60);
+            const secs = initialSeconds % 60;
+            if (mins > 0) {
+                timer.textContent = `${mins}m ${secs}s`;
+            } else {
+                timer.textContent = `${secs}s`;
+            }
+        }, 1000);
+    });
+
+    // Store previous status for flash detection
+    const statusBars = document.querySelectorAll('.status-bar');
+    const previousStatus = sessionStorage.getItem('previousStatus');
+    statusBars.forEach(bar => {
+        const currentStatus = bar.dataset.currentStep;
+        if (previousStatus && previousStatus !== currentStatus) {
+            bar.classList.add('flash');
+            setTimeout(() => bar.classList.remove('flash'), 1500);
+        }
+        sessionStorage.setItem('previousStatus', currentStatus);
+    });
+
+    // Retry button
+    document.querySelectorAll('.retry-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const runId = this.dataset.runId;
+            if (!confirm('Retry this failed run?')) return;
+
+            try {
+                const response = await fetch(`/pipeline/api/runs/${runId}/retry`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                if (data.success) {
+                    alert('Retry queued successfully');
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        });
+    });
+
+    // Details button
+    document.querySelectorAll('.details-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const runId = this.dataset.runId;
+            try {
+                const response = await fetch(`/pipeline/api/runs/${runId}`);
+                const data = await response.json();
+                document.getElementById('runDetails').textContent = JSON.stringify(data, null, 2);
+                new bootstrap.Modal(document.getElementById('detailsModal')).show();
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        });
+    });
+
+    // Auto-refresh if there are active runs (every 5 seconds)
+    {% if active_runs %}
+    setTimeout(() => location.reload(), 5000);
+    {% endif %}
+});
+</script>
+{% endblock %}

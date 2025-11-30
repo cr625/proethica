@@ -1,0 +1,64 @@
+{
+  "capabilities": [
+    {
+      "label": "Environmental Engineering Expertise",
+      "definition": "Ability to analyze groundwater data, assess contaminant risks, and prepare environmental reports",
+      "capability_type": "professional_skill",
+      "bearer": "Engineer A",
+      "evidence": "Several years of experience, strong technical expertise",
+      "application_in_case": "Analysis of groundwater monitoring data for emerging contaminant",
+      "source_text": "Engineer A, an environmental engineer with several years of experience",
+      "confidence": 0.94
+    },
+    {
+      "label": "AI Tool Utilization",
+      "definition": "Ability to use AI software tools for drafting and content generation",
+      "capability_type": "technical_skill",
+      "bearer": "Engineer A",
+      "limitations": "New to tool, unfamiliar with full functionality",
+      "application_in_case": "Used AI for report drafting and design document generation",
+      "source_text": "Engineer A opted to use open-sourced artificial intelligence (AI) software",
+      "confidence": 0.85
+    },
+    {
+      "label": "Content Verification",
+      "definition": "Ability to cross-check and verify accuracy of technical content against authoritative sources",
+      "capability_type": "professional_skill",
+      "bearer": "Engineer A",
+      "methods": ["Cross-checking against journal articles", "Search engine verification"],
+      "application_in_case": "Thorough verification of report content",
+      "source_text": "cross-checking key facts against professional journal articles and verifying the phrasing",
+      "confidence": 0.91
+    },
+    {
+      "label": "Document Sealing Authority",
+      "definition": "Legal authority to apply professional seal to engineering documents",
+      "capability_type": "credential_authority",
+      "bearer": "Engineer A",
+      "basis": "Professional engineering license, state law",
+      "application_in_case": "Applied seal to draft report",
+      "source_text": "applied their seal consistent with state law",
+      "confidence": 0.93
+    },
+    {
+      "label": "Quality Assurance Review",
+      "definition": "Ability to review and refine technical documents for quality and accuracy",
+      "capability_type": "professional_skill",
+      "bearer": "Engineer B",
+      "status": "No longer available due to retirement",
+      "previous_application": "Refined Engineer A's report drafts",
+      "source_text": "Engineer A had relied on guidance and quality assurance reviews by their mentor and supervisor, Engineer B",
+      "confidence": 0.90
+    },
+    {
+      "label": "Site-Specific Adaptation",
+      "definition": "Ability to modify designs to align with specific site conditions",
+      "capability_type": "professional_skill",
+      "bearer": "Engineer A",
+      "application_in_case": "Adjusted AI-generated design elements for site-specific conditions",
+      "limitation": "Only cursory review performed",
+      "source_text": "adjusted certain elements to align with site-specific conditions",
+      "confidence": 0.87
+    }
+  ]
+}
