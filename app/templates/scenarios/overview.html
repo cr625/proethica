@@ -126,15 +126,6 @@
 </div>
 {% endfor %}
 
-<!-- Navigation button at bottom -->
-<div class="navigation-buttons">
-    <div class="d-flex justify-content-end">
-        <a href="{{ url_for('scenario_pipeline.step1', case_id=case.id) }}" class="btn btn-primary btn-lg">
-            Continue to Step 1: Contextual Framework <i class="bi bi-arrow-right"></i>
-        </a>
-    </div>
-</div>
-
 {% endblock %}
 
 {% block step_styles %}

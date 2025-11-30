@@ -57,9 +57,6 @@
                     <div class="prompt-preview mb-3" id="rolesPromptSection" style="{% if saved_prompts.roles and saved_prompts.roles is mapping and (saved_prompts.roles.matching or saved_prompts.roles.extraction) %}{% else %}display: none;{% endif %}">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <h6 class="mb-0"><i class="bi bi-cpu"></i> LLM Prompts</h6>
-                            <button class="btn btn-outline-secondary btn-sm" onclick="regenerateConceptPrompt('roles')">
-                                <i class="bi bi-arrow-clockwise"></i> Regenerate
-                            </button>
                         </div>
                         <div class="prompt-text" id="rolesPromptText">
 {%- if saved_prompts.roles and saved_prompts.roles is mapping -%}
@@ -139,9 +136,6 @@
                     <div class="prompt-preview mb-3" id="statesPromptSection" style="{% if saved_prompts.states and saved_prompts.states is mapping and (saved_prompts.states.matching or saved_prompts.states.extraction) %}{% else %}display: none;{% endif %}">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <h6 class="mb-0"><i class="bi bi-cpu"></i> LLM Prompts</h6>
-                            <button class="btn btn-outline-secondary btn-sm" onclick="regenerateConceptPrompt('states')">
-                                <i class="bi bi-arrow-clockwise"></i> Regenerate
-                            </button>
                         </div>
                         <div class="prompt-text" id="statesPromptText">
 {%- if saved_prompts.states and saved_prompts.states is mapping -%}
@@ -221,9 +215,6 @@
                     <div class="prompt-preview mb-3" id="resourcesPromptSection" style="{% if saved_prompts.resources and saved_prompts.resources is mapping and (saved_prompts.resources.matching or saved_prompts.resources.extraction) %}{% else %}display: none;{% endif %}">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <h6 class="mb-0"><i class="bi bi-cpu"></i> LLM Prompts</h6>
-                            <button class="btn btn-outline-secondary btn-sm" onclick="regenerateConceptPrompt('resources')">
-                                <i class="bi bi-arrow-clockwise"></i> Regenerate
-                            </button>
                         </div>
                         <div class="prompt-text" id="resourcesPromptText">
 {%- if saved_prompts.resources and saved_prompts.resources is mapping -%}
@@ -299,13 +290,6 @@
         </div>
         {% endif %}
     </div>
-</div>
-
-<!-- Navigation to Conclusions Section -->
-<div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4 mb-4">
-    <a href="{{ url_for('scenario_pipeline.step1d', case_id=case.id) }}" class="btn btn-primary btn-lg">
-        Continue to Step 1d: Conclusions Section <i class="bi bi-arrow-right"></i>
-    </a>
 </div>
 
 {% endblock %}
@@ -666,32 +650,66 @@ function displayConceptResults(conceptType, data) {
     resultsContent.innerHTML = html;
 }
 
-function regenerateConceptPrompt(conceptType) {
-    // Clear the saved prompt and regenerate
-    const promptText = document.getElementById(`${conceptType}PromptText`);
-
-    // Show loading
-    promptText.innerHTML = `
-        <div class="text-center">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Regenerating prompt...</span>
-            </div>
-            <p class="mt-2">Regenerating ${conceptType} prompt...</p>
-        </div>
-    `;
-
-    // Clear results if any
-    const resultsSection = document.getElementById(`${conceptType}Results`);
-    resultsSection.style.display = 'none';
-
-    // Trigger extraction which will generate a new prompt
-    extractIndividualConcept(conceptType);
+async function clearEntitiesForType(conceptType, sectionType) {
+    // Clear existing entities for this concept type before re-extraction
+    try {
+        const response = await fetch(`/scenario_pipeline/case/${caseId}/entities/clear_by_types`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+            },
+            body: JSON.stringify({
+                extraction_types: [conceptType],
+                section_type: sectionType
+            })
+        });
+        const data = await response.json();
+        if (data.success) {
+            console.log(`Cleared ${conceptType} entities: ${data.message}`);
+        }
+        return data;
+    } catch (error) {
+        console.error(`Error clearing ${conceptType} entities:`, error);
+        return { success: false, error: error.message };
+    }
 }
 
-function executeFullContextualPass() {
-    // Execute all three extractions
+async function executeFullContextualPass() {
+    const mainButton = document.getElementById('contextualPassBtn');
+    mainButton.disabled = true;
+    mainButton.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Clearing & Tagging All...';
+
+    // Clear all Pass 1 entities for questions section first
+    try {
+        const response = await fetch(`/scenario_pipeline/case/${caseId}/entities/clear_by_types`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+            },
+            body: JSON.stringify({
+                extraction_types: ['roles', 'states', 'resources'],
+                section_type: 'questions'
+            })
+        });
+        const data = await response.json();
+        if (data.success) {
+            console.log(`Cleared all Pass 1 entities: ${data.message}`);
+        }
+    } catch (error) {
+        console.error('Error clearing Pass 1 entities:', error);
+    }
+
+    // Reset main button
+    mainButton.disabled = false;
+    mainButton.innerHTML = `
+        <i class="bi bi-arrow-right-circle"></i> Full Contextual Framework Pass
+        <small class="d-block">Extract All: Roles + States + Resources</small>
+    `;
+
+    // Execute all three tagging operations
     ['roles', 'states', 'resources'].forEach(conceptType => {
-        // Simulate button click for each
         const button = document.querySelector(`#${conceptType}Section button`);
         if (button) {
             button.click();
@@ -700,13 +718,16 @@ function executeFullContextualPass() {
 }
 
 // Tag Referenced Entities (instead of extracting new ones)
-function tagReferencedEntities(entityType) {
+async function tagReferencedEntities(entityType) {
     console.log('Tagging referenced ' + entityType + '...');
 
     const btn = event.target;
     const originalText = btn.innerHTML;
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Tagging...';
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Clearing & Tagging...';
+
+    // Clear existing entities first
+    await clearEntitiesForType(entityType, 'questions');
 
     fetch('/scenario_pipeline/case/' + caseId + '/tag_entities_in_questions', {
         method: 'POST',

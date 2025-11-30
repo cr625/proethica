@@ -13,6 +13,7 @@ from contextlib import nullcontext
 from flask import render_template, request, jsonify, redirect, url_for, flash
 from app.models import Document, db
 from app.routes.scenario_pipeline.overview import _format_section_for_llm
+from app.services.pipeline_status_service import PipelineStatusService
 from app.services.extraction.enhanced_prompts_principles import EnhancedPrinciplesExtractor, create_enhanced_principles_prompt
 from app.services.extraction.enhanced_prompts_obligations import EnhancedObligationsExtractor, create_enhanced_obligations_prompt
 from app.services.extraction.enhanced_prompts_constraints import EnhancedConstraintsExtractor, create_enhanced_constraints_prompt
@@ -868,6 +869,9 @@ def step2(case_id):
             if saved_prompt:
                 saved_prompts[concept_type] = saved_prompt
 
+        # Get pipeline status for navigation
+        pipeline_status = PipelineStatusService.get_step_status(case_id)
+
         context = {
             'case': case,
             'discussion_section': facts_section,  # Keep variable name for template compatibility
@@ -876,8 +880,10 @@ def step2(case_id):
             'current_step': 2,
             'step_title': 'Normative Pass - Facts Section',
             'next_step_url': url_for('scenario_pipeline.step2b', case_id=case_id),
-            'prev_step_url': url_for('scenario_pipeline.step1b', case_id=case_id),  # Back to Pass 1 Discussion (step1e deprecated)
-            'saved_prompts': saved_prompts
+            'next_step_name': 'Discussion Section',
+            'prev_step_url': url_for('scenario_pipeline.step1b', case_id=case_id),
+            'saved_prompts': saved_prompts,
+            'pipeline_status': pipeline_status
         }
 
         return render_template('scenarios/step2_multi_section.html', **context)
@@ -1376,6 +1382,9 @@ def step2b(case_id):
             break
 
     # Template context
+    # Get pipeline status for navigation
+    pipeline_status = PipelineStatusService.get_step_status(case_id)
+
     context = {
         'case': case,
         'discussion_section': discussion_section,
@@ -1383,9 +1392,11 @@ def step2b(case_id):
         'section_display_name': 'Discussion Section',
         'current_step': 2,
         'step_title': 'Normative Pass - Discussion',
-        'next_step_url': url_for('scenario_pipeline.step3', case_id=case_id),  # Go to Pass 3 (Questions moved to Step 4)
+        'next_step_url': url_for('scenario_pipeline.step3', case_id=case_id),
+        'next_step_name': 'Temporal Dynamics',
         'prev_step_url': url_for('scenario_pipeline.step2', case_id=case_id),
-        'saved_prompts': saved_prompts
+        'saved_prompts': saved_prompts,
+        'pipeline_status': pipeline_status
     }
 
     return render_template('scenarios/step2_multi_section.html', **context)
@@ -1416,6 +1427,9 @@ def step2c(case_id):
             break
 
     # Template context
+    # Get pipeline status for navigation
+    pipeline_status = PipelineStatusService.get_step_status(case_id)
+
     context = {
         'case': case,
         'discussion_section': questions_section,  # Keep variable name for template compatibility
@@ -1425,7 +1439,8 @@ def step2c(case_id):
         'step_title': 'Normative Pass - Questions',
         'next_step_url': url_for('scenario_pipeline.step2d', case_id=case_id),
         'prev_step_url': url_for('scenario_pipeline.step2b', case_id=case_id),
-        'saved_prompts': saved_prompts
+        'saved_prompts': saved_prompts,
+        'pipeline_status': pipeline_status
     }
 
     return render_template('scenarios/step2_multi_section.html', **context)
@@ -1456,6 +1471,9 @@ def step2d(case_id):
             break
 
     # Template context
+    # Get pipeline status for navigation
+    pipeline_status = PipelineStatusService.get_step_status(case_id)
+
     context = {
         'case': case,
         'discussion_section': conclusions_section,  # Keep variable name for template compatibility
@@ -1465,7 +1483,8 @@ def step2d(case_id):
         'step_title': 'Normative Pass - Conclusions',
         'next_step_url': url_for('scenario_pipeline.step2e', case_id=case_id),
         'prev_step_url': url_for('scenario_pipeline.step2c', case_id=case_id),
-        'saved_prompts': saved_prompts
+        'saved_prompts': saved_prompts,
+        'pipeline_status': pipeline_status
     }
 
     return render_template('scenarios/step2_multi_section.html', **context)
@@ -1496,6 +1515,9 @@ def step2e(case_id):
             references_section = _format_section_for_llm(section_key, section_content, case_doc=case)
             break
 
+    # Get pipeline status for navigation
+    pipeline_status = PipelineStatusService.get_step_status(case_id)
+
     # Template context
     context = {
         'case': case,
@@ -1506,7 +1528,8 @@ def step2e(case_id):
         'step_title': 'Normative Pass - References',
         'next_step_url': url_for('scenario_pipeline.step3', case_id=case_id),  # Last section goes to step3
         'prev_step_url': url_for('scenario_pipeline.step2d', case_id=case_id),
-        'saved_prompts': saved_prompts
+        'saved_prompts': saved_prompts,
+        'pipeline_status': pipeline_status
     }
 
     return render_template('scenarios/step2_multi_section.html', **context)

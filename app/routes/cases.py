@@ -58,8 +58,8 @@ def list_cases():
     # Get search query from request parameters
     query = request.args.get('query', '')
 
-    # Get analysis filter from query parameters (default: True - show analyzed only)
-    show_analyzed_only = request.args.get('analyzed_only', 'true').lower() == 'true'
+    # Get analysis filter from query parameters (default: False - show all cases)
+    show_analyzed_only = request.args.get('analyzed_only', 'false').lower() == 'true'
     
     # Initialize variables
     cases = []
@@ -2646,6 +2646,8 @@ def generate_case_embeddings(id):
         result = service.process_document_sections(id)
 
         if result.get('success'):
+            # Sync embeddings to case_precedent_features for precedent discovery
+            _sync_embeddings_to_precedent_features(id)
             flash(f'Generated embeddings for {result.get("sections_embedded", 0)} sections', 'success')
         else:
             flash(f'Error generating embeddings: {result.get("error", "Unknown error")}', 'danger')
@@ -2654,3 +2656,39 @@ def generate_case_embeddings(id):
         flash(f'Error: {str(e)}', 'danger')
 
     return redirect(url_for('cases.view_case_structure', id=id))
+
+
+def _sync_embeddings_to_precedent_features(case_id):
+    """Sync section embeddings from document_sections to case_precedent_features."""
+    try:
+        # Check if case_precedent_features row exists
+        exists = db.session.execute(
+            db.text("SELECT 1 FROM case_precedent_features WHERE case_id = :id"),
+            {'id': case_id}
+        ).fetchone()
+
+        if not exists:
+            logger.info(f"No precedent features row for case {case_id}, skipping sync")
+            return
+
+        # Sync each section type
+        for section_type, column in [('facts', 'facts_embedding'),
+                                      ('discussion', 'discussion_embedding'),
+                                      ('conclusion', 'conclusion_embedding')]:
+            db.session.execute(
+                db.text(f"""
+                    UPDATE case_precedent_features cpf
+                    SET {column} = ds.embedding
+                    FROM document_sections ds
+                    WHERE ds.document_id = cpf.case_id
+                      AND ds.section_type = :section_type
+                      AND ds.embedding IS NOT NULL
+                      AND cpf.case_id = :case_id
+                """),
+                {'section_type': section_type, 'case_id': case_id}
+            )
+
+        db.session.commit()
+        logger.info(f"Synced embeddings to precedent features for case {case_id}")
+    except Exception as e:
+        logger.warning(f"Failed to sync embeddings to precedent features: {e}")

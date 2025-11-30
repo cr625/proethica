@@ -12,6 +12,7 @@ from contextlib import nullcontext
 from flask import render_template, request, jsonify, redirect, url_for, flash, session
 from app.models import Document
 from app.routes.scenario_pipeline.overview import _format_section_for_llm
+from app.services.pipeline_status_service import PipelineStatusService
 
 logger = logging.getLogger(__name__)
 
@@ -141,16 +142,21 @@ def step1(case_id):
     """
     case, facts_section, discussion_section, saved_prompts = step1_data(case_id)
 
+    # Get pipeline status for navigation
+    pipeline_status = PipelineStatusService.get_step_status(case_id)
+
     # Template context
     context = {
         'case': case,
         'facts_section': facts_section,
         'discussion_section': discussion_section,
         'current_step': 1,
-        'step_title': 'Contextual Framework Pass - Facts & Discussion',
-        'next_step_url': url_for('scenario_pipeline.step2', case_id=case_id),
+        'step_title': 'Contextual Framework Pass - Facts',
+        'next_step_url': url_for('scenario_pipeline.step1b', case_id=case_id),
+        'next_step_name': 'Discussion Section',
         'prev_step_url': url_for('scenario_pipeline.overview', case_id=case_id),
-        'saved_prompts': saved_prompts
+        'saved_prompts': saved_prompts,
+        'pipeline_status': pipeline_status
     }
 
     # Use multi-section template with separate extractors
@@ -164,6 +170,9 @@ def step1b(case_id):
     # Load data with section_type='discussion' to get discussion prompts
     case, facts_section, discussion_section, saved_prompts = step1_data(case_id, section_type='discussion')
 
+    # Get pipeline status for navigation
+    pipeline_status = PipelineStatusService.get_step_status(case_id)
+
     # Template context
     context = {
         'case': case,
@@ -171,9 +180,11 @@ def step1b(case_id):
         'discussion_section': discussion_section,
         'current_step': 1,
         'step_title': 'Contextual Framework Pass - Discussion',
-        'next_step_url': url_for('scenario_pipeline.step2', case_id=case_id),  # Go to Pass 2 (Questions/Conclusions moved to Step 4)
+        'next_step_url': url_for('scenario_pipeline.step2', case_id=case_id),
+        'next_step_name': 'Normative Requirements',
         'prev_step_url': url_for('scenario_pipeline.step1', case_id=case_id),
-        'saved_prompts': saved_prompts  # These are now discussion-specific prompts
+        'saved_prompts': saved_prompts,  # These are now discussion-specific prompts
+        'pipeline_status': pipeline_status
     }
 
     # Use step1b.html template
@@ -2310,15 +2321,17 @@ def extract_individual_concept(case_id):
                     case_id=case_id,
                     concept_type='roles',
                     prompt_text=extraction_prompt,
-                    raw_response=raw_llm_response,  # Save the raw LLM response
+                    raw_response=raw_llm_response,
                     step_number=1,
-                    section_type=section_type,  # Include section_type
+                    section_type=section_type,
                     llm_model=ModelConfig.get_claude_model("powerful") if llm_client else "fallback",
                     extraction_session_id=session_id
                 )
-                logger.info(f"Saved roles extraction prompt and response for case {case_id}")
+                logger.info(f"Saved roles extraction prompt id={saved_prompt.id} for case {case_id}, section_type={section_type}")
             except Exception as e:
-                logger.warning(f"Could not save extraction prompt: {e}")
+                import traceback
+                logger.error(f"Error saving roles extraction prompt for case {case_id}: {e}")
+                logger.error(traceback.format_exc())
             logger.info(f"DEBUG RDF: raw_llm_response available: {raw_llm_response is not None}, length: {len(raw_llm_response) if raw_llm_response else 0}")
 
             # Convert the raw response to RDF if we have it
@@ -2453,15 +2466,17 @@ def extract_individual_concept(case_id):
                     case_id=case_id,
                     concept_type='states',
                     prompt_text=extraction_prompt,
-                    raw_response=raw_llm_response,  # Save the raw LLM response
+                    raw_response=raw_llm_response,
                     step_number=1,
-                    section_type=section_type,  # Include section_type
+                    section_type=section_type,
                     llm_model=ModelConfig.get_claude_model("powerful") if llm_client else "fallback",
                     extraction_session_id=session_id
                 )
-                logger.info(f"Saved states extraction prompt and response for case {case_id}, section: {section_type}")
+                logger.info(f"Saved states extraction prompt id={saved_prompt.id} for case {case_id}, section_type={section_type}")
             except Exception as e:
-                logger.warning(f"Could not save extraction prompt: {e}")
+                import traceback
+                logger.error(f"Error saving states extraction prompt for case {case_id}: {e}")
+                logger.error(traceback.format_exc())
             logger.info(f"DEBUG RDF: raw_llm_response available: {raw_llm_response is not None}, length: {len(raw_llm_response) if raw_llm_response else 0}")
 
             # Convert the raw response to RDF if we have it
@@ -2578,15 +2593,17 @@ def extract_individual_concept(case_id):
                     case_id=case_id,
                     concept_type='resources',
                     prompt_text=extraction_prompt,
-                    raw_response=raw_llm_response,  # Save the raw LLM response
+                    raw_response=raw_llm_response,
                     step_number=1,
-                    section_type=section_type,  # Include section_type
+                    section_type=section_type,
                     llm_model=ModelConfig.get_claude_model("powerful") if llm_client else "fallback",
                     extraction_session_id=session_id
                 )
-                logger.info(f"Saved resources extraction prompt and response for case {case_id}, section: {section_type}")
+                logger.info(f"Saved resources extraction prompt id={saved_prompt.id} for case {case_id}, section_type={section_type}")
             except Exception as e:
-                logger.warning(f"Could not save extraction prompt: {e}")
+                import traceback
+                logger.error(f"Error saving resources extraction prompt for case {case_id}: {e}")
+                logger.error(traceback.format_exc())
             logger.info(f"DEBUG RDF: raw_llm_response available: {raw_llm_response is not None}, length: {len(raw_llm_response) if raw_llm_response else 0}")
 
             # Convert the raw response to RDF if we have it

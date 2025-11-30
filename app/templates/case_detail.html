@@ -25,21 +25,6 @@
                 <a href="{{ url_for('cases.view_case_structure', id=case.id) }}" class="btn btn-primary" title="View document sections, embeddings, and structure">
                     <i class="bi bi-diagram-3"></i> Structure
                 </a>
-                {% if annotation_count and annotation_count > 0 %}
-                <a href="{{ url_for('cases.view_case_annotations', id=case.id) }}" class="btn btn-success">
-                    <i class="bi bi-tags"></i> Annotations
-                    <span class="badge bg-light text-dark ms-1">{{ annotation_count }}</span>
-                </a>
-                <button class="btn btn-outline-success" disabled title="Annotation regeneration disabled in production">
-                    <i class="bi bi-arrow-clockwise"></i> Reannotate
-                    <i class="bi bi-lock ms-1"></i>
-                </button>
-                {% else %}
-                <button class="btn btn-success" disabled title="Annotation generation disabled in production">
-                    <i class="bi bi-magic"></i> Generate Annotations
-                    <i class="bi bi-lock ms-1"></i>
-                </button>
-                {% endif %}
                 {% if case.source %}
                 <a href="{{ case.source }}" class="btn btn-info" target="_blank">
                     <i class="bi bi-box-arrow-up-right"></i> Source

@@ -46,14 +46,60 @@
     }
 
     .pipeline-step {
-        padding: 0.5rem 1rem;
+        padding: 0.5rem 0.75rem;
         margin: 0.25rem 0;
         border-radius: 0.25rem;
         cursor: pointer;
         transition: all 0.2s ease;
         text-decoration: none;
         color: #5a5c69;
-        display: block;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .pipeline-step .step-number {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background-color: #e3e6f0;
+        color: #5a5c69;
+        font-size: 0.75rem;
+        font-weight: 600;
+        flex-shrink: 0;
+        transition: all 0.2s ease;
+    }
+
+    .pipeline-step .step-number.complete {
+        background-color: #1cc88a;
+        color: white;
+    }
+
+    .pipeline-step .step-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        flex-shrink: 0;
+    }
+
+    .pipeline-step .step-label {
+        flex: 1;
+        font-size: 0.875rem;
+    }
+
+    .pipeline-step .step-check {
+        color: #1cc88a;
+        font-size: 0.875rem;
+    }
+
+    .pipeline-step .step-lock {
+        color: #858796;
+        font-size: 0.75rem;
     }
 
     .pipeline-step.active {
@@ -61,7 +107,31 @@
         color: white;
     }
 
-    .pipeline-step:hover {
+    .pipeline-step.active .step-number {
+        background-color: white;
+        color: #4e73df;
+    }
+
+    .pipeline-step.active .step-number.complete {
+        background-color: #1cc88a;
+        color: white;
+    }
+
+    .pipeline-step.active .step-check {
+        color: white;
+    }
+
+    .pipeline-step.completed:not(.active) {
+        background-color: #f0fdf4;
+    }
+
+    .pipeline-step.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+
+    .pipeline-step:hover:not(.active):not(.disabled) {
         background-color: #f8f9fc;
         text-decoration: none;
         color: #5a5c69;
@@ -70,6 +140,76 @@
     .pipeline-step.active:hover {
         background-color: #375a7f;
         color: white;
+    }
+
+    /* Step groups with substeps */
+    .pipeline-step-group {
+        margin: 0.25rem 0;
+    }
+
+    .pipeline-step-group.disabled {
+        opacity: 0.5;
+    }
+
+    .pipeline-substeps {
+        display: none;
+        padding-left: 1.75rem;
+        margin-top: 0.25rem;
+    }
+
+    .pipeline-step-group.expanded .pipeline-substeps {
+        display: block;
+    }
+
+    .pipeline-substep {
+        display: block;
+        padding: 0.25rem 0.5rem;
+        margin: 0.125rem 0;
+        border-radius: 0.25rem;
+        text-decoration: none;
+        color: #858796;
+        font-size: 0.8rem;
+        transition: all 0.2s ease;
+    }
+
+    .pipeline-substep:hover {
+        background-color: #f8f9fc;
+        color: #5a5c69;
+        text-decoration: none;
+    }
+
+    .pipeline-substep.active {
+        background-color: #e8f0fe;
+        color: #4e73df;
+        font-weight: 500;
+    }
+
+    .pipeline-substep .substep-label {
+        margin-left: 0.25rem;
+    }
+
+    .pipeline-substep .substep-check {
+        color: #1cc88a;
+        font-size: 0.7rem;
+        margin-left: 0.25rem;
+    }
+
+    .pipeline-substep .substep-lock {
+        color: #858796;
+        font-size: 0.65rem;
+        margin-left: auto;
+    }
+
+    .pipeline-substep.disabled {
+        cursor: not-allowed;
+        opacity: 0.6;
+        display: flex;
+        align-items: center;
+    }
+
+    .pipeline-substep.disabled:hover {
+        background-color: transparent;
+        color: #858796;
     }
 
     .case-title {
@@ -116,55 +256,7 @@
     <div class="row">
         <!-- Navigation Sidebar -->
         <div class="col-md-3">
-            <div class="pipeline-nav">
-                <h5 class="mb-3">
-                    <i class="bi bi-list-ul"></i> Pipeline Steps
-                </h5>
-
-                <a href="{{ url_for('scenario_pipeline.overview', case_id=case.id) }}"
-                    class="pipeline-step {% if request.endpoint == 'scenario_pipeline.overview' %}active{% endif %}">
-                    <i class="bi bi-file-text"></i> Overview
-                </a>
-                <a href="{{ url_for('scenario_pipeline.step1', case_id=case.id) }}"
-                    class="pipeline-step {% if request.endpoint == 'scenario_pipeline.step1' %}active{% endif %}">
-                    <i class="bi bi-1-circle"></i> Step 1: Contextual Framework
-                </a>
-                <a href="{{ url_for('scenario_pipeline.step2', case_id=case.id) }}"
-                    class="pipeline-step {% if request.endpoint == 'scenario_pipeline.step2' %}active{% endif %}">
-                    <i class="bi bi-2-circle"></i> Step 2: Normative Requirements
-                </a>
-                <a href="{{ url_for('scenario_pipeline.step3', case_id=case.id) }}"
-                    class="pipeline-step {% if request.endpoint == 'scenario_pipeline.step3' %}active{% endif %}">
-                    <i class="bi bi-3-circle"></i> Step 3: Temporal Dynamics
-                </a>
-                <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}"
-                    class="pipeline-step {% if request.endpoint == 'step4.step4_synthesis' %}active{% endif %}">
-                    <i class="bi bi-4-circle"></i> Step 4: Whole-Case Synthesis
-                </a>
-                <a href="{{ url_for('step5.step5_scenario_generation', case_id=case.id) }}"
-                    class="pipeline-step {% if request.endpoint == 'step5.step5_scenario_generation' %}active{% endif %}">
-                    <i class="bi bi-5-circle"></i> Step 5: Scenario Generation
-                </a>
-
-                <hr class="my-3">
-
-                <div class="d-grid gap-2">
-                    {% if current_step > 1 and prev_step_url and prev_step_url != '#' %}
-                    <a href="{{ prev_step_url }}" class="btn btn-outline-secondary">
-                        <i class="bi bi-arrow-left"></i> Previous
-                    </a>
-                    {% endif %}
-                    {% if current_step < 5 and next_step_url and next_step_url !='#' %}
-                    <a href="{{ next_step_url }}" class="btn btn-primary">
-                        Next <i class="bi bi-arrow-right"></i>
-                    </a>
-                    {% elif current_step < 5 %}
-                    <button class="btn btn-outline-secondary" disabled>
-                        Next <i class="bi bi-arrow-right"></i> (Coming Soon)
-                    </button>
-                    {% endif %}
-                </div>
-            </div>
+            {% include 'scenarios/_pipeline_steps.html' %}
         </div>
 
         <!-- Main Content Area -->
@@ -188,33 +280,48 @@
             </div>
             {% endblock %}
 
-            <!-- Navigation buttons at bottom -->
+            <!-- Navigation buttons at bottom - override with step_navigation_bottom block -->
+            {% block step_navigation_bottom %}
+            {# Determine if next step is available based on current step completion #}
+            {% set next_step_available = true %}
+            {% if current_step == 1 %}
+                {% set next_step_available = pipeline_status.step1.complete if pipeline_status else false %}
+            {% elif current_step == 2 %}
+                {% set next_step_available = pipeline_status.step2.complete if pipeline_status else false %}
+            {% elif current_step == 3 %}
+                {% set next_step_available = pipeline_status.step3.complete if pipeline_status else false %}
+            {% elif current_step == 4 %}
+                {% set next_step_available = pipeline_status.step4.complete if pipeline_status else false %}
+            {% endif %}
             <div class="navigation-buttons">
-                <div class="d-flex justify-content-between">
+                <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        {% if current_step > 1 and prev_step_url and prev_step_url != '#' %}
+                        {% if prev_step_url and prev_step_url != '#' %}
                         <a href="{{ prev_step_url }}" class="btn btn-outline-secondary">
-                            <i class="bi bi-arrow-left"></i> Previous Step
+                            <i class="bi bi-arrow-left"></i> Back
                         </a>
                         {% endif %}
                     </div>
                     <div>
-                        {% if current_step < 5 and next_step_url and next_step_url !='#' %}
-                        <a href="{{ next_step_url }}" class="btn btn-primary">
-                            Next Step <i class="bi bi-arrow-right"></i>
-                        </a>
-                        {% elif current_step < 5 %}
-                        <button class="btn btn-outline-secondary" disabled>
-                            Next Step <i class="bi bi-arrow-right"></i> (Coming Soon)
-                        </button>
-                        {% else %}
-                        <a href="{{ url_for('cases.view_case', id=case.id) }}" class="btn btn-success">
+                        {% if next_step_url and next_step_url != '#' %}
+                            {% if next_step_available %}
+                            <a href="{{ next_step_url }}" class="btn btn-primary btn-lg">
+                                {{ next_step_name|default('Continue') }} <i class="bi bi-arrow-right"></i>
+                            </a>
+                            {% else %}
+                            <span class="btn btn-secondary btn-lg disabled" title="Complete this step first">
+                                <i class="bi bi-lock-fill me-1"></i> {{ next_step_name|default('Continue') }}
+                            </span>
+                            {% endif %}
+                        {% elif current_step >= 5 %}
+                        <a href="{{ url_for('cases.view_case', id=case.id) }}" class="btn btn-success btn-lg">
                             <i class="bi bi-check-circle"></i> Complete
                         </a>
                         {% endif %}
                     </div>
                 </div>
             </div>
+            {% endblock %}
         </div>
     </div>
 </div>

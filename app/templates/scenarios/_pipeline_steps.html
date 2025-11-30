@@ -1,0 +1,155 @@
+{#
+Pipeline Steps Navigation Component
+
+Usage:
+    {% include 'scenarios/_pipeline_steps.html' %}
+
+Required context variables:
+    - case: The case object
+    - pipeline_status: Dict from PipelineStatusService.get_step_status()
+    - current_step: Current step number (1-5) or 0 for overview
+    - step_title: Current step title (used to determine active sub-step)
+#}
+
+<div class="pipeline-nav">
+    <h5 class="mb-3">
+        <i class="bi bi-list-ul"></i> Pipeline Steps
+    </h5>
+
+    {# Overview - always available #}
+    <a href="{{ url_for('scenario_pipeline.overview', case_id=case.id) }}"
+       class="pipeline-step {% if current_step == 0 %}active{% endif %}">
+        <span class="step-icon">
+            <i class="bi bi-file-text"></i>
+        </span>
+        <span class="step-label">Overview</span>
+    </a>
+
+    {# Step 1: Contextual Framework - always available #}
+    {% set step1_complete = pipeline_status.step1.complete if pipeline_status else false %}
+    {% set step1_facts_complete = pipeline_status.step1.facts_complete if pipeline_status else false %}
+    {% set step1_active = current_step == 1 %}
+    {% set step1_on_facts = step1_active and 'Discussion' not in step_title|default('Facts') %}
+    {% set step1_on_discussion = step1_active and 'Discussion' in step_title|default('') %}
+    <div class="pipeline-step-group {% if step1_active %}expanded{% endif %}">
+        <a href="{{ url_for('scenario_pipeline.step1', case_id=case.id) }}"
+           class="pipeline-step {% if step1_active %}active{% endif %} {% if step1_complete %}completed{% endif %}">
+            <span class="step-number {% if step1_complete %}complete{% endif %}">1</span>
+            <span class="step-label">Contextual Framework</span>
+            {% if step1_complete %}
+            <span class="step-check"><i class="bi bi-check-lg"></i></span>
+            {% endif %}
+        </a>
+        {# Sub-steps for Step 1 #}
+        <div class="pipeline-substeps">
+            <a href="{{ url_for('scenario_pipeline.step1', case_id=case.id) }}"
+               class="pipeline-substep {% if step1_on_facts %}active{% endif %}">
+                <span class="substep-label">Facts</span>
+                {% if step1_facts_complete %}
+                <span class="substep-check"><i class="bi bi-check-sm"></i></span>
+                {% endif %}
+            </a>
+            {% if step1_facts_complete or step1_on_discussion %}
+            <a href="{{ url_for('scenario_pipeline.step1b', case_id=case.id) }}"
+               class="pipeline-substep {% if step1_on_discussion %}active{% endif %}">
+                <span class="substep-label">Discussion</span>
+            </a>
+            {% else %}
+            <span class="pipeline-substep disabled">
+                <span class="substep-label">Discussion</span>
+                <span class="substep-lock"><i class="bi bi-lock-fill"></i></span>
+            </span>
+            {% endif %}
+        </div>
+    </div>
+
+    {# Step 2: Normative Requirements - available if step 1 complete #}
+    {% set step2_complete = pipeline_status.step2.complete if pipeline_status else false %}
+    {% set step2_facts_complete = pipeline_status.step2.facts_complete if pipeline_status else false %}
+    {% set step2_available = step1_complete or current_step >= 2 %}
+    {% set step2_active = current_step == 2 %}
+    {% set step2_on_facts = step2_active and 'Discussion' not in step_title|default('Facts') %}
+    {% set step2_on_discussion = step2_active and 'Discussion' in step_title|default('') %}
+    <div class="pipeline-step-group {% if step2_active %}expanded{% endif %} {% if not step2_available %}disabled{% endif %}">
+        <a href="{% if step2_available %}{{ url_for('scenario_pipeline.step2', case_id=case.id) }}{% else %}#{% endif %}"
+           class="pipeline-step {% if step2_active %}active{% endif %} {% if step2_complete %}completed{% endif %} {% if not step2_available %}disabled{% endif %}"
+           {% if not step2_available %}aria-disabled="true" tabindex="-1"{% endif %}>
+            <span class="step-number {% if step2_complete %}complete{% endif %}">2</span>
+            <span class="step-label">Normative Requirements</span>
+            {% if step2_complete %}
+            <span class="step-check"><i class="bi bi-check-lg"></i></span>
+            {% elif not step2_available %}
+            <span class="step-lock"><i class="bi bi-lock-fill"></i></span>
+            {% endif %}
+        </a>
+        {# Sub-steps for Step 2 #}
+        {% if step2_available %}
+        <div class="pipeline-substeps">
+            <a href="{{ url_for('scenario_pipeline.step2', case_id=case.id) }}"
+               class="pipeline-substep {% if step2_on_facts %}active{% endif %}">
+                <span class="substep-label">Facts</span>
+                {% if step2_facts_complete %}
+                <span class="substep-check"><i class="bi bi-check-sm"></i></span>
+                {% endif %}
+            </a>
+            {% if step2_facts_complete or step2_on_discussion %}
+            <a href="{{ url_for('scenario_pipeline.step2b', case_id=case.id) }}"
+               class="pipeline-substep {% if step2_on_discussion %}active{% endif %}">
+                <span class="substep-label">Discussion</span>
+            </a>
+            {% else %}
+            <span class="pipeline-substep disabled">
+                <span class="substep-label">Discussion</span>
+                <span class="substep-lock"><i class="bi bi-lock-fill"></i></span>
+            </span>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+    {# Step 3: Temporal Dynamics - available if step 2 complete #}
+    {% set step3_complete = pipeline_status.step3.complete if pipeline_status else false %}
+    {% set step3_available = step2_complete or current_step >= 3 %}
+    <a href="{% if step3_available %}{{ url_for('scenario_pipeline.step3', case_id=case.id) }}{% else %}#{% endif %}"
+       class="pipeline-step {% if current_step == 3 %}active{% endif %} {% if step3_complete %}completed{% endif %} {% if not step3_available %}disabled{% endif %}"
+       {% if not step3_available %}aria-disabled="true" tabindex="-1"{% endif %}>
+        <span class="step-number {% if step3_complete %}complete{% endif %}">3</span>
+        <span class="step-label">Temporal Dynamics</span>
+        {% if step3_complete %}
+        <span class="step-check"><i class="bi bi-check-lg"></i></span>
+        {% elif not step3_available %}
+        <span class="step-lock"><i class="bi bi-lock-fill"></i></span>
+        {% endif %}
+    </a>
+
+    {# Step 4: Whole-Case Synthesis - available if step 3 complete #}
+    {% set step4_complete = pipeline_status.step4.complete if pipeline_status else false %}
+    {% set step4_available = step3_complete or current_step >= 4 %}
+    <a href="{% if step4_available %}{{ url_for('step4.step4_synthesis', case_id=case.id) }}{% else %}#{% endif %}"
+       class="pipeline-step {% if current_step == 4 %}active{% endif %} {% if step4_complete %}completed{% endif %} {% if not step4_available %}disabled{% endif %}"
+       {% if not step4_available %}aria-disabled="true" tabindex="-1"{% endif %}>
+        <span class="step-number {% if step4_complete %}complete{% endif %}">4</span>
+        <span class="step-label">Whole-Case Synthesis</span>
+        {% if step4_complete %}
+        <span class="step-check"><i class="bi bi-check-lg"></i></span>
+        {% elif not step4_available %}
+        <span class="step-lock"><i class="bi bi-lock-fill"></i></span>
+        {% endif %}
+    </a>
+
+    {# Step 5: Scenario Generation - available if step 4 complete #}
+    {% set step5_complete = pipeline_status.step5.complete if pipeline_status else false %}
+    {% set step5_available = step4_complete or current_step >= 5 %}
+    <a href="{% if step5_available %}{{ url_for('step5.step5_scenario_generation', case_id=case.id) }}{% else %}#{% endif %}"
+       class="pipeline-step {% if current_step == 5 %}active{% endif %} {% if step5_complete %}completed{% endif %} {% if not step5_available %}disabled{% endif %}"
+       {% if not step5_available %}aria-disabled="true" tabindex="-1"{% endif %}>
+        <span class="step-number {% if step5_complete %}complete{% endif %}">5</span>
+        <span class="step-label">Scenario Generation</span>
+        {% if step5_complete %}
+        <span class="step-check"><i class="bi bi-check-lg"></i></span>
+        {% elif not step5_available %}
+        <span class="step-lock"><i class="bi bi-lock-fill"></i></span>
+        {% endif %}
+    </a>
+
+</div>

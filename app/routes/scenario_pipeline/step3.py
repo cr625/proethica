@@ -12,6 +12,7 @@ from contextlib import nullcontext
 from flask import render_template, request, jsonify, redirect, url_for, flash
 from app.models import Document, db
 from app.routes.scenario_pipeline.overview import _format_section_for_llm
+from app.services.pipeline_status_service import PipelineStatusService
 from app.services.extraction.enhanced_prompts_actions import EnhancedActionsExtractor, create_enhanced_actions_prompt
 from app.services.extraction.enhanced_prompts_events import EnhancedEventsExtractor, create_enhanced_events_prompt
 from app.services.extraction.dual_actions_events_extractor import DualActionsEventsExtractor
@@ -95,6 +96,9 @@ def step3(case_id):
         # Check for saved extraction data
         saved_prompt = ExtractionPrompt.get_active_prompt(case_id, 'actions_events')
 
+        # Get pipeline status for navigation
+        pipeline_status = PipelineStatusService.get_step_status(case_id)
+
         # Template context
         context = {
             'case': case,
@@ -102,12 +106,14 @@ def step3(case_id):
             'discussion_section_key': facts_section_key,
             'current_step': 3,
             'step_title': 'Temporal Dynamics Pass - Facts Section',
-            'next_step_url': url_for('step4.step4_synthesis', case_id=case_id),  # Go to Step 4 Whole-Case Synthesis
-            'prev_step_url': url_for('scenario_pipeline.step2b', case_id=case_id),  # Back to Pass 2 Discussion
+            'next_step_url': url_for('step4.step4_synthesis', case_id=case_id),
+            'next_step_name': 'Whole-Case Synthesis',
+            'prev_step_url': url_for('scenario_pipeline.step2b', case_id=case_id),
             'has_saved_extraction': saved_prompt is not None,
             'saved_prompt': saved_prompt.prompt_text if saved_prompt else None,
             'saved_response': saved_prompt.raw_response if saved_prompt else None,
-            'saved_model': saved_prompt.llm_model if saved_prompt else None
+            'saved_model': saved_prompt.llm_model if saved_prompt else None,
+            'pipeline_status': pipeline_status
         }
 
         return render_template('scenarios/step3_dual_extraction.html', **context)

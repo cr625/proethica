@@ -10,6 +10,7 @@ import logging
 from flask import render_template, redirect, url_for, flash
 from app.models import Document
 from app.services.scenario_pipeline.segmenter import segment_sections
+from app.services.pipeline_status_service import PipelineStatusService
 from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
@@ -387,13 +388,19 @@ def step1(case_id):
             except Exception as e:
                 logger.warning(f"Segmentation processing failed: {e}")
         
+        # Get pipeline status for navigation
+        pipeline_status = PipelineStatusService.get_step_status(case_id)
+
         # Template context
         context = {
             'case': case,
             'sections': sections,
-            'current_step': 1,
+            'current_step': 0,  # Overview is step 0
+            'step_title': 'Content Review',
             'next_step_url': url_for('scenario_pipeline.step1', case_id=case_id),  # Go to Step 1
-            'prev_step_url': None  # No previous step
+            'next_step_name': 'Contextual Framework',
+            'prev_step_url': None,  # No previous step
+            'pipeline_status': pipeline_status
         }
         
         return render_template('scenarios/overview.html', **context)

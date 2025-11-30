@@ -10,6 +10,7 @@ from flask import Blueprint, render_template, request, jsonify
 
 from app.models import Document, TemporaryRDFStorage, ExtractionPrompt, db
 from app.utils.environment_auth import auth_required_for_llm, auth_optional
+from app.services.pipeline_status_service import PipelineStatusService
 
 # Import scenario generation
 from app.routes.scenario_pipeline.generate_scenario import generate_scenario_from_case
@@ -45,6 +46,9 @@ def step5_scenario_generation(case_id):
         # Get entity counts for display
         entity_counts = eligibility.entity_counts
 
+        # Get pipeline status for navigation
+        pipeline_status = PipelineStatusService.get_step_status(case_id)
+
         return render_template(
             'scenarios/step5.html',
             case=case,
@@ -52,7 +56,8 @@ def step5_scenario_generation(case_id):
             entity_counts=entity_counts,
             current_step=5,
             prev_step_url=f"/scenario_pipeline/case/{case_id}/step4",
-            next_step_url="#"  # No step 6 yet
+            next_step_url="#",  # No step 6 yet
+            pipeline_status=pipeline_status
         )
 
     except Exception as e:

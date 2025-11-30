@@ -263,7 +263,7 @@
                         </div>
                     </div>
                     {% endfor %}
-                    <a href="#" class="btn btn-outline-info btn-sm w-100" disabled title="Full precedent discovery coming soon">
+                    <a href="{{ url_for('precedents.find_precedents', case_id=case.id) }}" class="btn btn-outline-info btn-sm w-100">
                         <i class="bi bi-search"></i> Find More Precedents
                     </a>
                     {% elif sections_with_embeddings == 0 %}

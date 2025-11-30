@@ -256,6 +256,30 @@ def create_app(config_name=None):
             'environment': app.config.get('ENVIRONMENT', 'development'),
             'app_name': 'ProEthica'
         }
+
+    @app.context_processor
+    def inject_pipeline_status():
+        """
+        Inject pipeline_status for scenario pipeline pages.
+        Only runs the query if we're on a scenario pipeline route with a case_id.
+        """
+        from flask import request
+        result = {'pipeline_status': None}
+
+        # Only compute for scenario_pipeline routes
+        if request.endpoint and 'scenario_pipeline' in request.endpoint or \
+           request.endpoint and request.endpoint.startswith('step4.') or \
+           request.endpoint and request.endpoint.startswith('step5.'):
+            # Try to get case_id from URL parameters
+            case_id = request.view_args.get('case_id') if request.view_args else None
+            if case_id:
+                try:
+                    from app.services.pipeline_status_service import PipelineStatusService
+                    result['pipeline_status'] = PipelineStatusService.get_step_status(case_id)
+                except Exception as e:
+                    logging.getLogger(__name__).warning(f"Failed to get pipeline status: {e}")
+
+        return result
     
     # Error handlers for authentication and permissions
     @app.errorhandler(403)

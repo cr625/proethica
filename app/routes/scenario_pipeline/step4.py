@@ -17,6 +17,7 @@ from typing import Dict, List, Tuple, Optional
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
 
 from app.models import Document, TemporaryRDFStorage, ExtractionPrompt, db
+from app.services.pipeline_status_service import PipelineStatusService
 from app.utils.llm_utils import get_llm_client
 from app.utils.environment_auth import auth_required_for_llm, auth_optional
 
@@ -76,6 +77,9 @@ def step4_synthesis(case_id):
             concept_type='whole_case_synthesis'
         ).order_by(ExtractionPrompt.created_at.desc()).first()
 
+        # Get pipeline status for navigation
+        pipeline_status = PipelineStatusService.get_step_status(case_id)
+
         return render_template(
             'scenarios/step4.html',
             case=case,
@@ -84,7 +88,9 @@ def step4_synthesis(case_id):
             saved_synthesis=saved_synthesis,
             current_step=4,
             prev_step_url=f"/scenario_pipeline/case/{case_id}/step3",
-            next_step_url=f"/scenario_pipeline/case/{case_id}/step5"
+            next_step_url=f"/scenario_pipeline/case/{case_id}/step5",
+            next_step_name='Scenario Generation',
+            pipeline_status=pipeline_status
         )
 
     except Exception as e:

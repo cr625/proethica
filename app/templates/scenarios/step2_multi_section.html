@@ -105,11 +105,6 @@
                     <div class="prompt-preview mb-3" id="principlesPromptSection" style="{% if not saved_prompts.principles %}display: none;{% endif %}">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <h6 class="mb-0"><i class="bi bi-cpu"></i> LLM Prompt</h6>
-                            {% if current_user.is_authenticated %}
-                            <button class="btn btn-outline-secondary btn-sm" onclick="regenerateConceptPrompt('principles')">
-                                <i class="bi bi-arrow-clockwise"></i> Regenerate
-                            </button>
-                            {% endif %}
                         </div>
                         <div class="prompt-text" id="principlesPromptText">
                             {% if saved_prompts.principles %}
@@ -162,11 +157,6 @@
                     <div class="prompt-preview mb-3" id="obligationsPromptSection" style="{% if not saved_prompts.obligations %}display: none;{% endif %}">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <h6 class="mb-0"><i class="bi bi-cpu"></i> LLM Prompt</h6>
-                            {% if current_user.is_authenticated %}
-                            <button class="btn btn-outline-secondary btn-sm" onclick="regenerateConceptPrompt('obligations')">
-                                <i class="bi bi-arrow-clockwise"></i> Regenerate
-                            </button>
-                            {% endif %}
                         </div>
                         <div class="prompt-text" id="obligationsPromptText">
                             {% if saved_prompts.obligations %}
@@ -219,11 +209,6 @@
                     <div class="prompt-preview mb-3" id="constraintsPromptSection" style="{% if not saved_prompts.constraints %}display: none;{% endif %}">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <h6 class="mb-0"><i class="bi bi-cpu"></i> LLM Prompt</h6>
-                            {% if current_user.is_authenticated %}
-                            <button class="btn btn-outline-secondary btn-sm" onclick="regenerateConceptPrompt('constraints')">
-                                <i class="bi bi-arrow-clockwise"></i> Regenerate
-                            </button>
-                            {% endif %}
                         </div>
                         <div class="prompt-text" id="constraintsPromptText">
                             {% if saved_prompts.constraints %}
@@ -276,11 +261,6 @@
                     <div class="prompt-preview mb-3" id="capabilitiesPromptSection" style="{% if not saved_prompts.capabilities %}display: none;{% endif %}">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <h6 class="mb-0"><i class="bi bi-cpu"></i> LLM Prompt</h6>
-                            {% if current_user.is_authenticated %}
-                            <button class="btn btn-outline-secondary btn-sm" onclick="regenerateConceptPrompt('capabilities')">
-                                <i class="bi bi-arrow-clockwise"></i> Regenerate
-                            </button>
-                            {% endif %}
                         </div>
                         <div class="prompt-text" id="capabilitiesPromptText">
                             {% if saved_prompts.capabilities %}
@@ -351,39 +331,6 @@
     </div>
 </div>
 
-<!-- Navigation to Next Section -->
-{% if step_title == 'Normative Pass - Facts Section' %}
-    <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4 mb-4">
-        <a href="{{ url_for('scenario_pipeline.step2b', case_id=case.id) }}" class="btn btn-primary btn-lg">
-            Continue to Step 2b: Discussion Section <i class="bi bi-arrow-right"></i>
-        </a>
-    </div>
-{% elif step_title == 'Normative Pass - Discussion' %}
-    <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4 mb-4">
-        <a href="{{ next_step_url }}" class="btn btn-primary btn-lg">
-            Continue to Step 3: Temporal Dynamics (Facts) <i class="bi bi-arrow-right"></i>
-        </a>
-    </div>
-{% elif step_title == 'Normative Pass - Questions' %}
-    <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4 mb-4">
-        <a href="{{ url_for('scenario_pipeline.step2d', case_id=case.id) }}" class="btn btn-primary btn-lg">
-            Continue to Step 2d: Conclusions Section <i class="bi bi-arrow-right"></i>
-        </a>
-    </div>
-{% elif step_title == 'Normative Pass - Conclusions' %}
-    <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4 mb-4">
-        <a href="{{ url_for('scenario_pipeline.step2e', case_id=case.id) }}" class="btn btn-primary btn-lg">
-            Continue to Step 2e: References Section <i class="bi bi-arrow-right"></i>
-        </a>
-    </div>
-{% elif step_title == 'Normative Pass - References' %}
-    <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4 mb-4">
-        <a href="{{ url_for('scenario_pipeline.step3', case_id=case.id) }}" class="btn btn-success btn-lg">
-            Continue to Step 3: Temporal Dynamics Pass <i class="bi bi-arrow-right"></i>
-        </a>
-    </div>
-{% endif %}
-
 {% endblock %}
 
 {% block step_styles %}
@@ -449,17 +396,16 @@ const markNavigationStarted = () => {
     }
 };
 
-// Override window.location.href to detect client-side redirects
-const originalLocationHref = Object.getOwnPropertyDescriptor(window.location, 'href').set;
-Object.defineProperty(window.location, 'href', {
-    set: function(value) {
+// Detect normal navigation via beforeunload event
+window.addEventListener('beforeunload', markNavigationStarted);
+
+// Detect link clicks for smooth navigation
+document.addEventListener('click', (e) => {
+    const link = e.target.closest('a');
+    if (link && link.href && !link.href.startsWith('javascript:')) {
         markNavigationStarted();
-        originalLocationHref.call(window.location, value);
     }
 });
-
-// Also detect normal navigation
-window.addEventListener('beforeunload', markNavigationStarted);
 
 // Load saved prompts on page load
 document.addEventListener('DOMContentLoaded', function() {
@@ -500,7 +446,31 @@ function loadSavedPrompt(conceptType) {
         });
 }
 
-function extractIndividualConcept(conceptType) {
+async function clearEntitiesForType(conceptType, sectionType) {
+    // Clear existing entities for this concept type before re-extraction
+    try {
+        const response = await appFetch(`/scenario_pipeline/case/${caseId}/entities/clear_by_types`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                extraction_types: [conceptType],
+                section_type: sectionType
+            })
+        });
+        const data = await response.json();
+        if (data.success) {
+            console.log(`Cleared ${conceptType} entities: ${data.message}`);
+        }
+        return data;
+    } catch (error) {
+        console.error(`Error clearing ${conceptType} entities:`, error);
+        return { success: false, error: error.message };
+    }
+}
+
+async function extractIndividualConcept(conceptType) {
     const button = event.target.closest('button');
     const promptSection = document.getElementById(`${conceptType}PromptSection`);
     const promptText = document.getElementById(`${conceptType}PromptText`);
@@ -509,18 +479,21 @@ function extractIndividualConcept(conceptType) {
 
     // Disable button and show loading
     button.disabled = true;
-    button.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Extracting...';
+    button.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Clearing & Extracting...';
 
     // Show prompt section with loading
     promptSection.style.display = 'block';
     promptText.innerHTML = `
         <div class="text-center">
             <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Generating prompt...</span>
+                <span class="visually-hidden">Clearing existing entities...</span>
             </div>
-            <p class="mt-2">Generating prompt and extracting ${conceptType}...</p>
+            <p class="mt-2">Clearing existing ${conceptType} and extracting fresh...</p>
         </div>
     `;
+
+    // Clear existing entities first
+    await clearEntitiesForType(conceptType, currentSectionType);
 
     // Execute extraction using appFetch (handles 401 redirect)
     appFetch(`{{ url_for('scenario_pipeline.step2_extract_individual', case_id=case.id) }}`, {
@@ -575,35 +548,30 @@ function extractIndividualConcept(conceptType) {
     });
 }
 
-function regenerateConceptPrompt(conceptType) {
-    if (!confirm(`This will regenerate the ${conceptType} prompt and discard the current one. Continue?`)) {
-        return;
-    }
-
-    // Clear saved prompt from database using appFetch (handles 401 redirect)
-    appFetch(`{{ url_for('scenario_pipeline.step2_clear_prompt', case_id=case.id) }}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            concept_type: conceptType
-        })
-    })
-    .then(() => {
-        // Now extract with new prompt
-        extractIndividualConcept(conceptType);
-    })
-    .catch(error => {
-        console.error('Error clearing prompt:', error);
-        alert('Failed to clear prompt. Please try again.');
-    });
-}
-
-function executeFullNormativePass() {
+async function executeFullNormativePass() {
     const button = document.getElementById('normativePassBtn');
     button.disabled = true;
-    button.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Running Full Pass...';
+    button.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Clearing & Extracting All...';
+
+    // Clear all Pass 2 entities for current section first
+    try {
+        const response = await appFetch(`/scenario_pipeline/case/${caseId}/entities/clear_by_types`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                extraction_types: ['principles', 'obligations', 'constraints', 'capabilities'],
+                section_type: currentSectionType
+            })
+        });
+        const data = await response.json();
+        if (data.success) {
+            console.log(`Cleared all Pass 2 entities: ${data.message}`);
+        }
+    } catch (error) {
+        console.error('Error clearing Pass 2 entities:', error);
+    }
 
     // Run all four extractors in sequence
     Promise.all([
