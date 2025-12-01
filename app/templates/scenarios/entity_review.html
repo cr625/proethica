@@ -138,6 +138,45 @@
         margin-bottom: 0.5rem;
         line-height: 1.4;
     }
+
+    /* Match status styling */
+    .match-status-badge {
+        cursor: pointer;
+        transition: transform 0.1s ease;
+    }
+
+    .match-status-badge:hover {
+        transform: scale(1.05);
+    }
+
+    .match-linked {
+        background-color: #28a745 !important;
+    }
+
+    .match-review {
+        background-color: #ffc107 !important;
+        color: #212529 !important;
+    }
+
+    .match-new {
+        background-color: #6c757d !important;
+    }
+
+    .match-confidence-bar {
+        height: 4px;
+        border-radius: 2px;
+        margin-top: 4px;
+        background-color: #e9ecef;
+    }
+
+    .match-confidence-fill {
+        height: 100%;
+        border-radius: 2px;
+    }
+
+    .confidence-high { background-color: #28a745; }
+    .confidence-medium { background-color: #ffc107; }
+    .confidence-low { background-color: #dc3545; }
 </style>
 {% endblock %}
 
@@ -374,9 +413,10 @@
                                             <th width="3%">
                                                 <input type="checkbox" class="rdf-class-select-all" data-concept-type="{{ concept_type }}">
                                             </th>
-                                            <th width="20%">Class Label</th>
-                                            <th width="35%">Definition</th>
-                                            <th width="40%">Properties & Relations</th>
+                                            <th width="18%">Class Label</th>
+                                            <th width="12%">Match Status</th>
+                                            <th width="30%">Definition</th>
+                                            <th width="35%">Properties & Relations</th>
                                             <th width="2%">Source</th>
                                         </tr>
                                     </thead>
@@ -407,6 +447,59 @@
                                                 {% if cls.rdf_json_ld and cls.rdf_json_ld.get('source_text') %}
                                                 <br/>
                                                 <small class="text-info"><i class="fas fa-quote-left"></i> "{{ cls.rdf_json_ld.get('source_text')[:150] }}{% if cls.rdf_json_ld.get('source_text')|length > 150 %}...{% endif %}"</small>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if cls.matched_ontology_uri %}
+                                                    {% set confidence = cls.match_confidence or 0 %}
+                                                    {% if confidence >= 0.90 %}
+                                                    <span class="badge match-status-badge match-linked"
+                                                          data-bs-toggle="modal" data-bs-target="#matchDetailsModal"
+                                                          data-entity-id="{{ cls.id }}"
+                                                          data-entity-label="{{ cls.entity_label }}"
+                                                          data-matched-uri="{{ cls.matched_ontology_uri }}"
+                                                          data-matched-label="{{ cls.matched_ontology_label or 'Unknown' }}"
+                                                          data-confidence="{{ confidence }}"
+                                                          data-method="{{ cls.match_method or 'llm' }}"
+                                                          data-reasoning="{{ cls.match_reasoning or '' }}"
+                                                          title="Linked: {{ cls.matched_ontology_label or cls.matched_ontology_uri }}">
+                                                        <i class="bi bi-link-45deg"></i> Linked
+                                                    </span>
+                                                    {% else %}
+                                                    <span class="badge match-status-badge match-review"
+                                                          data-bs-toggle="modal" data-bs-target="#matchDetailsModal"
+                                                          data-entity-id="{{ cls.id }}"
+                                                          data-entity-label="{{ cls.entity_label }}"
+                                                          data-matched-uri="{{ cls.matched_ontology_uri }}"
+                                                          data-matched-label="{{ cls.matched_ontology_label or 'Unknown' }}"
+                                                          data-confidence="{{ confidence }}"
+                                                          data-method="{{ cls.match_method or 'llm' }}"
+                                                          data-reasoning="{{ cls.match_reasoning or '' }}"
+                                                          title="Review: {{ cls.matched_ontology_label or cls.matched_ontology_uri }}">
+                                                        <i class="bi bi-search"></i> Review
+                                                    </span>
+                                                    {% endif %}
+                                                    <br/>
+                                                    <small class="text-muted">{{ cls.matched_ontology_label or cls.matched_ontology_uri.split('#')[-1] }}</small>
+                                                    <div class="match-confidence-bar">
+                                                        <div class="match-confidence-fill {% if confidence >= 0.90 %}confidence-high{% elif confidence >= 0.75 %}confidence-medium{% else %}confidence-low{% endif %}"
+                                                             style="width: {{ (confidence * 100)|int }}%"></div>
+                                                    </div>
+                                                {% else %}
+                                                    <span class="badge match-status-badge match-new"
+                                                          data-bs-toggle="modal" data-bs-target="#matchDetailsModal"
+                                                          data-entity-id="{{ cls.id }}"
+                                                          data-entity-label="{{ cls.entity_label }}"
+                                                          data-matched-uri=""
+                                                          data-matched-label=""
+                                                          data-confidence="0"
+                                                          data-method=""
+                                                          data-reasoning=""
+                                                          title="New class - no match found">
+                                                        <i class="bi bi-plus-circle"></i> New
+                                                    </span>
+                                                    <br/>
+                                                    <small class="text-muted">No existing match</small>
                                                 {% endif %}
                                             </td>
                                             <td><small>{{ cls.entity_definition or '-' }}</small></td>
@@ -538,9 +631,10 @@
                                             <th width="3%">
                                                 <input type="checkbox" class="rdf-individual-select-all" data-concept-type="{{ concept_type }}">
                                             </th>
-                                            <th width="20%">Individual</th>
-                                            <th width="15%">rdf:type</th>
-                                            <th width="60%">Properties & Relations</th>
+                                            <th width="18%">Individual</th>
+                                            <th width="12%">Match Status</th>
+                                            <th width="12%">rdf:type</th>
+                                            <th width="53%">Properties & Relations</th>
                                             <th width="2%">Source</th>
                                         </tr>
                                     </thead>
@@ -571,6 +665,59 @@
                                                 {% if indiv.rdf_json_ld and indiv.rdf_json_ld.get('source_text') %}
                                                 <br/>
                                                 <small class="text-info"><i class="fas fa-quote-left"></i> "{{ indiv.rdf_json_ld.get('source_text')[:150] }}{% if indiv.rdf_json_ld.get('source_text')|length > 150 %}...{% endif %}"</small>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if indiv.matched_ontology_uri %}
+                                                    {% set confidence = indiv.match_confidence or 0 %}
+                                                    {% if confidence >= 0.90 %}
+                                                    <span class="badge match-status-badge match-linked"
+                                                          data-bs-toggle="modal" data-bs-target="#matchDetailsModal"
+                                                          data-entity-id="{{ indiv.id }}"
+                                                          data-entity-label="{{ indiv.entity_label }}"
+                                                          data-matched-uri="{{ indiv.matched_ontology_uri }}"
+                                                          data-matched-label="{{ indiv.matched_ontology_label or 'Unknown' }}"
+                                                          data-confidence="{{ confidence }}"
+                                                          data-method="{{ indiv.match_method or 'llm' }}"
+                                                          data-reasoning="{{ indiv.match_reasoning or '' }}"
+                                                          title="Linked: {{ indiv.matched_ontology_label or indiv.matched_ontology_uri }}">
+                                                        <i class="bi bi-link-45deg"></i> Linked
+                                                    </span>
+                                                    {% else %}
+                                                    <span class="badge match-status-badge match-review"
+                                                          data-bs-toggle="modal" data-bs-target="#matchDetailsModal"
+                                                          data-entity-id="{{ indiv.id }}"
+                                                          data-entity-label="{{ indiv.entity_label }}"
+                                                          data-matched-uri="{{ indiv.matched_ontology_uri }}"
+                                                          data-matched-label="{{ indiv.matched_ontology_label or 'Unknown' }}"
+                                                          data-confidence="{{ confidence }}"
+                                                          data-method="{{ indiv.match_method or 'llm' }}"
+                                                          data-reasoning="{{ indiv.match_reasoning or '' }}"
+                                                          title="Review: {{ indiv.matched_ontology_label or indiv.matched_ontology_uri }}">
+                                                        <i class="bi bi-search"></i> Review
+                                                    </span>
+                                                    {% endif %}
+                                                    <br/>
+                                                    <small class="text-muted">{{ indiv.matched_ontology_label or indiv.matched_ontology_uri.split('#')[-1] }}</small>
+                                                    <div class="match-confidence-bar">
+                                                        <div class="match-confidence-fill {% if confidence >= 0.90 %}confidence-high{% elif confidence >= 0.75 %}confidence-medium{% else %}confidence-low{% endif %}"
+                                                             style="width: {{ (confidence * 100)|int }}%"></div>
+                                                    </div>
+                                                {% else %}
+                                                    <span class="badge match-status-badge match-new"
+                                                          data-bs-toggle="modal" data-bs-target="#matchDetailsModal"
+                                                          data-entity-id="{{ indiv.id }}"
+                                                          data-entity-label="{{ indiv.entity_label }}"
+                                                          data-matched-uri=""
+                                                          data-matched-label=""
+                                                          data-confidence="0"
+                                                          data-method=""
+                                                          data-reasoning=""
+                                                          title="New individual - no match found">
+                                                        <i class="bi bi-plus-circle"></i> New
+                                                    </span>
+                                                    <br/>
+                                                    <small class="text-muted">No existing match</small>
                                                 {% endif %}
                                             </td>
                                             <td>
@@ -1012,6 +1159,114 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary" id="saveEntityBtn">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Match Details Modal -->
+<div class="modal fade" id="matchDetailsModal" tabindex="-1" aria-labelledby="matchDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="matchDetailsModalLabel">
+                    <i class="bi bi-link-45deg"></i> Entity Match Details
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="matchEntityId">
+
+                <!-- Entity Label -->
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Entity</label>
+                    <div class="form-control-plaintext fs-5" id="matchEntityLabel">-</div>
+                </div>
+
+                <!-- Current Match Status -->
+                <div class="card mb-3">
+                    <div class="card-header bg-light">
+                        <strong>Current Match</strong>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label text-muted small">Matched Class</label>
+                                <div id="matchedClassLabel" class="fw-bold">-</div>
+                                <small id="matchedClassUri" class="text-muted">-</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-muted small">Confidence</label>
+                                <div id="matchConfidenceValue" class="fw-bold">-</div>
+                                <div class="progress" style="height: 8px;">
+                                    <div id="matchConfidenceBar" class="progress-bar" role="progressbar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                <label class="form-label text-muted small">Match Method</label>
+                                <div id="matchMethodValue">-</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-muted small">Status</label>
+                                <div id="matchStatusBadge">-</div>
+                            </div>
+                        </div>
+                        <div class="row mt-3" id="matchReasoningSection">
+                            <div class="col-12">
+                                <label class="form-label text-muted small">Reasoning</label>
+                                <div id="matchReasoningValue" class="small bg-light p-2 rounded">-</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Manual Override Section -->
+                {% if current_user.is_authenticated %}
+                <div class="card mb-3">
+                    <div class="card-header bg-light">
+                        <strong>Manual Override</strong>
+                        <small class="text-muted ms-2">(Admin only)</small>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Search for Alternative Match</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="searchMatchInput"
+                                       placeholder="Search OntServe classes...">
+                                <button class="btn btn-outline-secondary" type="button" id="searchMatchBtn">
+                                    <i class="bi bi-search"></i> Search
+                                </button>
+                            </div>
+                        </div>
+                        <div id="searchResults" class="mb-3" style="max-height: 200px; overflow-y: auto; display: none;">
+                            <!-- Search results will be populated here -->
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-outline-success" id="confirmMatchBtn" disabled>
+                                <i class="bi bi-check-circle"></i> Confirm Current Match
+                            </button>
+                            <button type="button" class="btn btn-outline-warning" id="markAsNewBtn">
+                                <i class="bi bi-plus-circle"></i> Mark as New Class
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i>
+                    <a href="{{ url_for('auth.login') }}">Login</a> to manually adjust entity matches.
+                </div>
+                {% endif %}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                {% if current_user.is_authenticated %}
+                <button type="button" class="btn btn-primary" id="saveMatchBtn" disabled>
+                    <i class="bi bi-save"></i> Save Changes
+                </button>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -1488,6 +1743,241 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             }
         });
+    }
+
+    // Match Details Modal handling
+    const matchDetailsModal = document.getElementById('matchDetailsModal');
+    if (matchDetailsModal) {
+        matchDetailsModal.addEventListener('show.bs.modal', function(event) {
+            const trigger = event.relatedTarget;
+            if (!trigger) return;
+
+            // Get data from the trigger element
+            const entityId = trigger.dataset.entityId;
+            const entityLabel = trigger.dataset.entityLabel;
+            const matchedUri = trigger.dataset.matchedUri;
+            const matchedLabel = trigger.dataset.matchedLabel;
+            const confidence = parseFloat(trigger.dataset.confidence) || 0;
+            const method = trigger.dataset.method || 'unknown';
+            const reasoning = trigger.dataset.reasoning || '';
+
+            // Populate modal fields
+            document.getElementById('matchEntityId').value = entityId;
+            document.getElementById('matchEntityLabel').textContent = entityLabel;
+
+            // Matched class info
+            if (matchedUri) {
+                document.getElementById('matchedClassLabel').textContent = matchedLabel || 'Unknown';
+                document.getElementById('matchedClassUri').textContent = matchedUri;
+            } else {
+                document.getElementById('matchedClassLabel').textContent = 'No match';
+                document.getElementById('matchedClassUri').textContent = 'Entity marked as new class';
+            }
+
+            // Confidence
+            const confidencePercent = Math.round(confidence * 100);
+            document.getElementById('matchConfidenceValue').textContent = `${confidencePercent}%`;
+            const confidenceBar = document.getElementById('matchConfidenceBar');
+            confidenceBar.style.width = `${confidencePercent}%`;
+            confidenceBar.className = 'progress-bar';
+            if (confidence >= 0.90) {
+                confidenceBar.classList.add('bg-success');
+            } else if (confidence >= 0.75) {
+                confidenceBar.classList.add('bg-warning');
+            } else if (confidence > 0) {
+                confidenceBar.classList.add('bg-danger');
+            } else {
+                confidenceBar.classList.add('bg-secondary');
+            }
+
+            // Method
+            const methodDisplay = {
+                'llm': 'LLM Extraction',
+                'embedding': 'Embedding Similarity',
+                'manual': 'Manual Override',
+                'label_match': 'Label Match'
+            };
+            document.getElementById('matchMethodValue').textContent = methodDisplay[method] || method || 'Not specified';
+
+            // Status badge
+            const statusBadge = document.getElementById('matchStatusBadge');
+            if (matchedUri) {
+                if (confidence >= 0.90) {
+                    statusBadge.innerHTML = '<span class="badge bg-success">Auto-Linked</span>';
+                } else if (confidence >= 0.75) {
+                    statusBadge.innerHTML = '<span class="badge bg-warning text-dark">Needs Review</span>';
+                } else {
+                    statusBadge.innerHTML = '<span class="badge bg-secondary">Low Confidence</span>';
+                }
+            } else {
+                statusBadge.innerHTML = '<span class="badge bg-secondary">New Class</span>';
+            }
+
+            // Reasoning
+            const reasoningSection = document.getElementById('matchReasoningSection');
+            const reasoningValue = document.getElementById('matchReasoningValue');
+            if (reasoning) {
+                reasoningSection.style.display = 'block';
+                reasoningValue.textContent = reasoning;
+            } else {
+                reasoningSection.style.display = 'none';
+            }
+
+            // Enable/disable buttons
+            const confirmBtn = document.getElementById('confirmMatchBtn');
+            if (confirmBtn) {
+                confirmBtn.disabled = !matchedUri;
+            }
+        });
+
+        // Search for alternative matches
+        const searchBtn = document.getElementById('searchMatchBtn');
+        const searchInput = document.getElementById('searchMatchInput');
+        const searchResults = document.getElementById('searchResults');
+
+        if (searchBtn && searchInput && searchResults) {
+            searchBtn.addEventListener('click', function() {
+                const query = searchInput.value.trim();
+                if (!query) return;
+
+                searchBtn.disabled = true;
+                searchBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Searching...';
+
+                appFetch(`/scenario_pipeline/case/${caseId}/entities/search_ontserve?q=${encodeURIComponent(query)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        searchResults.innerHTML = '';
+                        searchResults.style.display = 'block';
+
+                        if (data.success && data.results && data.results.length > 0) {
+                            data.results.forEach(result => {
+                                const item = document.createElement('div');
+                                item.className = 'border rounded p-2 mb-2 search-result-item';
+                                item.style.cursor = 'pointer';
+                                item.innerHTML = `
+                                    <strong>${result.label}</strong>
+                                    <br/><small class="text-muted">${result.uri}</small>
+                                    ${result.description ? `<br/><small>${result.description.substring(0, 100)}...</small>` : ''}
+                                `;
+                                item.addEventListener('click', function() {
+                                    // Highlight selected
+                                    document.querySelectorAll('.search-result-item').forEach(el => el.classList.remove('border-primary'));
+                                    this.classList.add('border-primary');
+
+                                    // Store selected match
+                                    searchResults.dataset.selectedUri = result.uri;
+                                    searchResults.dataset.selectedLabel = result.label;
+
+                                    // Enable save button
+                                    const saveBtn = document.getElementById('saveMatchBtn');
+                                    if (saveBtn) saveBtn.disabled = false;
+                                });
+                                searchResults.appendChild(item);
+                            });
+                        } else {
+                            searchResults.innerHTML = '<div class="text-muted">No matching classes found</div>';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Search error:', error);
+                        searchResults.innerHTML = '<div class="text-danger">Search failed</div>';
+                        searchResults.style.display = 'block';
+                    })
+                    .finally(() => {
+                        searchBtn.disabled = false;
+                        searchBtn.innerHTML = '<i class="bi bi-search"></i> Search';
+                    });
+            });
+
+            // Search on Enter key
+            searchInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    searchBtn.click();
+                }
+            });
+        }
+
+        // Mark as new class
+        const markAsNewBtn = document.getElementById('markAsNewBtn');
+        if (markAsNewBtn) {
+            markAsNewBtn.addEventListener('click', function() {
+                const entityId = document.getElementById('matchEntityId').value;
+                if (!entityId) return;
+
+                if (!confirm('Mark this entity as a new class? This will clear any existing match.')) return;
+
+                this.disabled = true;
+                this.innerHTML = '<i class="bi bi-hourglass-split"></i> Processing...';
+
+                appFetch(`/scenario_pipeline/case/${caseId}/entities/${entityId}/mark_new`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Entity marked as new class');
+                        location.reload();
+                    } else {
+                        alert(`Error: ${data.error}`);
+                    }
+                })
+                .catch(error => {
+                    console.error('Mark as new error:', error);
+                    alert(`Error: ${error}`);
+                })
+                .finally(() => {
+                    this.disabled = false;
+                    this.innerHTML = '<i class="bi bi-plus-circle"></i> Mark as New Class';
+                });
+            });
+        }
+
+        // Save match changes
+        const saveMatchBtn = document.getElementById('saveMatchBtn');
+        if (saveMatchBtn) {
+            saveMatchBtn.addEventListener('click', function() {
+                const entityId = document.getElementById('matchEntityId').value;
+                const selectedUri = searchResults?.dataset.selectedUri;
+                const selectedLabel = searchResults?.dataset.selectedLabel;
+
+                if (!entityId || !selectedUri) {
+                    alert('Please select a match from the search results first');
+                    return;
+                }
+
+                this.disabled = true;
+                this.innerHTML = '<i class="bi bi-hourglass-split"></i> Saving...';
+
+                appFetch(`/scenario_pipeline/case/${caseId}/entities/${entityId}/set_match`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        matched_uri: selectedUri,
+                        matched_label: selectedLabel,
+                        method: 'manual',
+                        confidence: 1.0
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Match updated successfully');
+                        location.reload();
+                    } else {
+                        alert(`Error: ${data.error}`);
+                    }
+                })
+                .catch(error => {
+                    console.error('Save match error:', error);
+                    alert(`Error: ${error}`);
+                })
+                .finally(() => {
+                    this.disabled = false;
+                    this.innerHTML = '<i class="bi bi-save"></i> Save Changes';
+                });
+            });
+        }
     }
 });
 </script>

@@ -151,6 +151,12 @@ EXTRACTION GUIDELINES:
 TEXT TO ANALYZE:
 {text if isinstance(text, str) else str(text)}
 
+**MATCH DECISION RULES:**
+For each state, evaluate against existing ontology states listed above:
+- If the state IS the same concept as an existing class: match with HIGH confidence (0.85-1.0)
+- If the state is a VARIANT of an existing class: match to parent with MEDIUM confidence (0.70-0.85)
+- If genuinely NEW: match_decision.matches_existing = false
+
 OUTPUT FORMAT:
 Return a JSON array with this exact structure:
 [
@@ -158,8 +164,8 @@ Return a JSON array with this exact structure:
     "label": "Conflict of Interest Present",
     "description": "State where professional has personal interest that could influence judgment",
     "type": "state",
-    "state_category": "conflict",  // conflict, risk, competence, relationship, information, emergency
-    "persistence_type": "inertial",  // inertial (persistent) or non-inertial (momentary)
+    "state_category": "conflict",
+    "persistence_type": "inertial",
     "obligation_activation": ["Disclosure duty", "Recusal consideration", "Transparency requirement"],
     "action_constraints": ["Cannot make unilateral decisions", "Must document all actions"],
     "principle_transformation": "Transforms integrity principle into specific disclosure obligations",
@@ -170,11 +176,25 @@ Return a JSON array with this exact structure:
     "ethical_impact": "Triggers disclosure and management obligations",
     "contextual_factors": ["Personal interest", "Professional judgment"],
     "importance": "high",
-    "is_existing": false,
-    "ontology_match_reasoning": "New state not in existing ontology",
-    "confidence": 0.85
+    "confidence": 0.85,
+    "match_decision": {{
+      "matches_existing": true,
+      "matched_uri": "http://proethica.org/ontology/intermediate#ConflictOfInterest",
+      "matched_label": "Conflict of Interest",
+      "confidence": 0.90,
+      "reasoning": "This state is a specific instance of the existing Conflict of Interest state class."
+    }}
   }}
 ]
+
+If no match exists, use:
+    "match_decision": {{
+      "matches_existing": false,
+      "matched_uri": null,
+      "matched_label": null,
+      "confidence": 0.0,
+      "reasoning": "This is a novel state type not represented in the current ontology."
+    }}
 
 Extract states that represent environmental conditions affecting ethical requirements and evaluation.
 """
@@ -306,6 +326,12 @@ EXTRACTION GUIDELINES:
 TEXT TO ANALYZE:
 {text[:3000] if isinstance(text, str) else str(text)[:3000]}
 
+**MATCH DECISION RULES:**
+For each capability, evaluate against existing ontology capabilities listed above:
+- If the capability IS the same concept as an existing class: match with HIGH confidence (0.85-1.0)
+- If the capability is a VARIANT of an existing class: match to parent with MEDIUM confidence (0.70-0.85)
+- If genuinely NEW: match_decision.matches_existing = false
+
 OUTPUT FORMAT:
 Return a JSON array with this exact structure:
 [
@@ -313,7 +339,7 @@ Return a JSON array with this exact structure:
     "label": "Technical Design Capability",
     "description": "Professional ability to create and evaluate engineering designs meeting safety standards",
     "type": "capability",
-    "capability_category": "technical",  // technical, ethical_reasoning, communication, perceptual, learning, judgment
+    "capability_category": "technical",
     "enables_actions": ["Design review", "Safety assessment", "Technical approval"],
     "required_for_obligations": ["Competent performance duty", "Safety assurance obligation"],
     "domain_specificity": "Engineering design and analysis",
@@ -321,9 +347,25 @@ Return a JSON array with this exact structure:
     "meta_capability": "Recognizing design limitations and uncertainty",
     "learning_aspect": "Continuous update with new standards and methods",
     "scholarly_grounding": "Domain expertise for ethical reasoning (Tolmeijer et al. 2021)",
-    "confidence": 0.85
+    "confidence": 0.85,
+    "match_decision": {{
+      "matches_existing": true,
+      "matched_uri": "http://proethica.org/ontology/intermediate#TechnicalCapability",
+      "matched_label": "Technical Capability",
+      "confidence": 0.85,
+      "reasoning": "This is a specific instance of the existing Technical Capability class."
+    }}
   }}
 ]
+
+If no match exists, use:
+    "match_decision": {{
+      "matches_existing": false,
+      "matched_uri": null,
+      "matched_label": null,
+      "confidence": 0.0,
+      "reasoning": "This is a novel capability not represented in the current ontology."
+    }}
 
 Extract capabilities that represent competencies required for professional ethical practice.
 """

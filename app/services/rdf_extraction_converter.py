@@ -41,6 +41,11 @@ class RDFExtractionConverter:
         self.class_graph = Graph()  # For new classes (proethica-intermediate)
         self.individual_graph = Graph()  # For individuals (case-specific)
 
+        # Store match_decision info for entity-ontology linking
+        # Keyed by entity URI, contains match_decision dict from LLM
+        self._class_match_decisions = {}
+        self._individual_match_decisions = {}
+
         # Bind common prefixes
         self._bind_prefixes()
 
@@ -110,6 +115,10 @@ class RDFExtractionConverter:
             class_label = role_class.get("label", "UnknownRole")
             safe_label = class_label.replace(" ", "")
             class_uri = self.PROETHICA_INT[safe_label]
+
+            # Store match_decision for entity-ontology linking if present
+            if 'match_decision' in role_class:
+                self._class_match_decisions[str(class_uri)] = role_class['match_decision']
 
             # Basic class definition
             self.class_graph.add((class_uri, RDF.type, OWL.Class))
@@ -194,6 +203,10 @@ class RDFExtractionConverter:
             name = individual.get("name", "UnknownIndividual")
             safe_name = name.replace(" ", "_").replace("'", "")
             individual_uri = case_ns[safe_name]
+
+            # Store match_decision for entity-ontology linking if present
+            if 'match_decision' in individual:
+                self._individual_match_decisions[str(individual_uri)] = individual['match_decision']
 
             # Basic individual definition
             self.individual_graph.add((individual_uri, RDF.type, OWL.NamedIndividual))
@@ -314,6 +327,8 @@ class RDFExtractionConverter:
         # Clear graphs for new conversion
         self.class_graph = Graph()
         self.individual_graph = Graph()
+        self._class_match_decisions = {}  # Reset match decisions for this conversion
+        self._individual_match_decisions = {}
         self._bind_prefixes()
 
         # Process new state classes
@@ -333,6 +348,10 @@ class RDFExtractionConverter:
         class_label = state_class.get('label', 'UnknownState')
         safe_label = class_label.replace(" ", "")
         class_uri = URIRef(f"{self.PROETHICA_INT}{safe_label}")
+
+        # Store match_decision for entity-ontology linking if present
+        if 'match_decision' in state_class:
+            self._class_match_decisions[str(class_uri)] = state_class['match_decision']
 
         # Add class definition
         self.class_graph.add((class_uri, RDF.type, OWL.Class))
@@ -810,6 +829,11 @@ class RDFExtractionConverter:
                         class_info["properties"][pred_label] = []
                     class_info["properties"][pred_label].append(str(obj))
 
+            # Add match_decision for entity-ontology linking if available
+            uri_str = str(subj)
+            if uri_str in self._class_match_decisions:
+                class_info["match_decision"] = self._class_match_decisions[uri_str]
+
             result["new_classes"].append(class_info)
 
         # Extract individuals
@@ -852,6 +876,11 @@ class RDFExtractionConverter:
                             indiv_info["properties"][pred_label] = []
                         indiv_info["properties"][pred_label].append(str(obj))
 
+            # Add match_decision for entity-ontology linking if available
+            uri_str = str(subj)
+            if uri_str in self._individual_match_decisions:
+                indiv_info["match_decision"] = self._individual_match_decisions[uri_str]
+
             result["new_individuals"].append(indiv_info)
 
         return result
@@ -881,6 +910,8 @@ class RDFExtractionConverter:
         # Clear graphs for new conversion
         self.class_graph = Graph()
         self.individual_graph = Graph()
+        self._class_match_decisions = {}  # Reset match decisions for this conversion
+        self._individual_match_decisions = {}
         self._bind_prefixes()
 
         # Process new principle classes
@@ -899,6 +930,10 @@ class RDFExtractionConverter:
         class_label = principle_class.get('label', 'UnknownPrinciple')
         safe_label = class_label.replace(" ", "")
         class_uri = URIRef(f"{self.PROETHICA_INT}{safe_label}")
+
+        # Store match_decision for entity-ontology linking if present
+        if 'match_decision' in principle_class:
+            self._class_match_decisions[str(class_uri)] = principle_class['match_decision']
 
         # Add class type and label
         self.class_graph.add((class_uri, RDF.type, OWL.Class))
@@ -1103,6 +1138,8 @@ class RDFExtractionConverter:
         # Clear and initialize graphs
         self.class_graph = Graph()
         self.individual_graph = Graph()
+        self._class_match_decisions = {}  # Reset match decisions for this conversion
+        self._individual_match_decisions = {}
         self._bind_prefixes()
 
         # Clear temporary triples storage
@@ -1124,6 +1161,10 @@ class RDFExtractionConverter:
         # Create URI for the new class
         safe_label = obligation_class['label'].replace(" ", "")
         class_uri = URIRef(f"{self.PROETHICA_INT}{safe_label}")
+
+        # Store match_decision for entity-ontology linking if present
+        if 'match_decision' in obligation_class:
+            self._class_match_decisions[str(class_uri)] = obligation_class['match_decision']
 
         # Add class definition
         self.class_graph.add((class_uri, RDF.type, OWL.Class))
@@ -1345,6 +1386,8 @@ class RDFExtractionConverter:
         # Clear and initialize graphs
         self.class_graph = Graph()
         self.individual_graph = Graph()
+        self._class_match_decisions = {}  # Reset match decisions for this conversion
+        self._individual_match_decisions = {}
         self._bind_prefixes()
 
         # Clear temporary triples storage
@@ -1366,6 +1409,10 @@ class RDFExtractionConverter:
         # Create URI for the new class
         safe_label = constraint_class['label'].replace(" ", "")
         class_uri = URIRef(f"{self.PROETHICA_INT}{safe_label}")
+
+        # Store match_decision for entity-ontology linking if present
+        if 'match_decision' in constraint_class:
+            self._class_match_decisions[str(class_uri)] = constraint_class['match_decision']
 
         # Add class definition
         self.class_graph.add((class_uri, RDF.type, OWL.Class))
@@ -1582,6 +1629,8 @@ class RDFExtractionConverter:
         # Clear the graphs for new conversion
         self.class_graph = Graph()
         self.individual_graph = Graph()
+        self._class_match_decisions = {}  # Reset match decisions for this conversion
+        self._individual_match_decisions = {}
         self._bind_prefixes()
 
         # Initialize temporary structure for storage
@@ -1643,6 +1692,10 @@ class RDFExtractionConverter:
         label = capability_class.get('label', 'UnknownCapability')
         safe_label = label.replace(" ", "")
         class_uri = URIRef(f"{self.PROETHICA}{safe_label}")
+
+        # Store match_decision for entity-ontology linking if present
+        if 'match_decision' in capability_class:
+            self._class_match_decisions[str(class_uri)] = capability_class['match_decision']
 
         # Add class definition
         self.class_graph.add((class_uri, RDF.type, OWL.Class))
@@ -1750,6 +1803,8 @@ class RDFExtractionConverter:
         # Clear graphs
         self.class_graph = Graph()
         self.individual_graph = Graph()
+        self._class_match_decisions = {}  # Reset match decisions for this conversion
+        self._individual_match_decisions = {}
         self._bind_prefixes()
 
         timestamp = extraction_timestamp
@@ -1771,6 +1826,10 @@ class RDFExtractionConverter:
         label = action_class.get('label', 'Unknown Action')
         safe_label = label.replace(" ", "")
         class_uri = URIRef(f"{self.PROETHICA_INT}{safe_label}")
+
+        # Store match_decision for entity-ontology linking if present
+        if 'match_decision' in action_class:
+            self._class_match_decisions[str(class_uri)] = action_class['match_decision']
 
         # Basic class definition
         self.class_graph.add((class_uri, RDF.type, OWL.Class))
@@ -1906,6 +1965,8 @@ class RDFExtractionConverter:
         # Clear graphs
         self.class_graph = Graph()
         self.individual_graph = Graph()
+        self._class_match_decisions = {}  # Reset match decisions for this conversion
+        self._individual_match_decisions = {}
         self._bind_prefixes()
 
         timestamp = extraction_timestamp
@@ -1927,6 +1988,10 @@ class RDFExtractionConverter:
         label = event_class.get('label', 'Unknown Event')
         safe_label = label.replace(" ", "")
         class_uri = URIRef(f"{self.PROETHICA_INT}{safe_label}")
+
+        # Store match_decision for entity-ontology linking if present
+        if 'match_decision' in event_class:
+            self._class_match_decisions[str(class_uri)] = event_class['match_decision']
 
         # Basic class definition
         self.class_graph.add((class_uri, RDF.type, OWL.Class))

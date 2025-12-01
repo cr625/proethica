@@ -67,6 +67,13 @@ class TemporaryRDFStorage(db.Model):
     # PROV-O Provenance Metadata (Added 2025-10-12)
     provenance_metadata = db.Column(db.JSON)  # Provenance tracking (activity_id, section_type, match_reasoning, etc.)
 
+    # OntServe Class Matching (Added 2025-12-01 for Entity-Ontology Linking)
+    matched_ontology_uri = db.Column(db.String(500))  # URI of matched OntServe class
+    matched_ontology_label = db.Column(db.String(255))  # Label of matched OntServe class
+    match_confidence = db.Column(db.Float)  # Confidence score 0.0-1.0
+    match_method = db.Column(db.String(50))  # 'llm', 'embedding', 'exact_label', 'user_override'
+    match_reasoning = db.Column(db.Text)  # Explanation of why this match was made
+
     # Relationships
     case = db.relationship('Document', backref='temporary_rdf_entities', lazy=True)
 
@@ -107,7 +114,13 @@ class TemporaryRDFStorage(db.Model):
             'cited_by_role': self.cited_by_role,
             'available_to_role': self.available_to_role,
             # PROV-O provenance metadata
-            'provenance_metadata': self.provenance_metadata
+            'provenance_metadata': self.provenance_metadata,
+            # OntServe class matching
+            'matched_ontology_uri': self.matched_ontology_uri,
+            'matched_ontology_label': self.matched_ontology_label,
+            'match_confidence': self.match_confidence,
+            'match_method': self.match_method,
+            'match_reasoning': self.match_reasoning
         }
 
     def _ensure_serializable(self, data):
@@ -212,6 +225,9 @@ class TemporaryRDFStorage(db.Model):
             # Clean the class_info to ensure all values are JSON-serializable
             clean_class_info = cls._clean_json_data(class_info)
 
+            # Extract match_decision if present (for entity-ontology linking)
+            match_decision = class_info.get('match_decision', {})
+
             entity = cls(
                 case_id=case_id,
                 extraction_session_id=extraction_session_id,
@@ -226,7 +242,13 @@ class TemporaryRDFStorage(db.Model):
                 extraction_model=extraction_model,
                 triple_count=len(class_info.get('properties', {})) + 4,  # Basic triples
                 property_count=len(class_info.get('properties', {})),
-                provenance_metadata=provenance_data or {}
+                provenance_metadata=provenance_data or {},
+                # Entity-ontology linking fields
+                matched_ontology_uri=match_decision.get('matched_uri'),
+                matched_ontology_label=match_decision.get('matched_label'),
+                match_confidence=match_decision.get('confidence'),
+                match_method='llm' if match_decision.get('matches_existing') else None,
+                match_reasoning=match_decision.get('reasoning')
             )
             db.session.add(entity)
             created_entities.append(entity)
@@ -235,6 +257,10 @@ class TemporaryRDFStorage(db.Model):
         for indiv_info in rdf_data.get('new_individuals', []):
             # Clean the indiv_info to ensure all values are JSON-serializable
             clean_indiv_info = cls._clean_json_data(indiv_info)
+
+            # Extract match_decision if present (for entity-ontology linking)
+            # For individuals, the match links them to their class type in OntServe
+            match_decision = indiv_info.get('match_decision', {})
 
             entity = cls(
                 case_id=case_id,
@@ -251,7 +277,13 @@ class TemporaryRDFStorage(db.Model):
                 triple_count=len(indiv_info.get('properties', {})) + len(indiv_info.get('relationships', [])) + 2,
                 property_count=len(indiv_info.get('properties', {})),
                 relationship_count=len(indiv_info.get('relationships', [])),
-                provenance_metadata=provenance_data or {}
+                provenance_metadata=provenance_data or {},
+                # Entity-ontology linking fields (individual linked to class type)
+                matched_ontology_uri=match_decision.get('matched_uri'),
+                matched_ontology_label=match_decision.get('matched_label'),
+                match_confidence=match_decision.get('confidence'),
+                match_method='llm' if match_decision.get('matches_existing') else None,
+                match_reasoning=match_decision.get('reasoning')
             )
             db.session.add(entity)
             created_entities.append(entity)

@@ -115,20 +115,41 @@ Based on analysis of 500+ engineering ethics cases, all professional roles fall 
 GUIDELINE TEXT:
 {text if isinstance(text, str) else str(text)}
 
+**MATCH DECISION RULES:**
+For each role, evaluate against the existing ontology roles listed above:
+- If the extracted role IS the same concept as an existing class: match with HIGH confidence (0.85-1.0)
+- If the extracted role is a SPECIALIZATION of an existing class: match to parent with MEDIUM confidence (0.70-0.85)
+- If the extracted role is RELATED but distinct: do NOT match, it's a new concept
+- If genuinely NEW with no close equivalent: match_decision.matches_existing = false
+
 OUTPUT: JSON array with ALL roles found:
 [
   {{
-    "label": "Environmental Engineer",  // Role name from text
+    "label": "Environmental Engineer",
     "description": "Licensed engineer specializing in environmental impact assessment",
     "type": "role",
-    "role_category": "provider_client",  // REQUIRED: provider_client|professional_peer|employer_relationship|public_responsibility
+    "role_category": "provider_client",
     "obligations_generated": ["Environmental protection", "Accurate reporting", "Public safety"],
-    "text_references": ["Engineer A, an environmental engineer"],  // Quote from text
-    "importance": "high",  // high|medium|low based on centrality to case
-    "is_existing": true,  // true if matches ontology role, false if novel
-    "ontology_match": "Engineer Role"  // Which ontology role it matches (if is_existing: true)
+    "text_references": ["Engineer A, an environmental engineer"],
+    "importance": "high",
+    "match_decision": {{
+      "matches_existing": true,
+      "matched_uri": "http://proethica.org/ontology/intermediate#Engineer",
+      "matched_label": "Engineer",
+      "confidence": 0.85,
+      "reasoning": "Environmental Engineer is a specialization of the existing Engineer class. Core professional obligations align."
+    }}
   }}
 ]
+
+If no match exists, use:
+    "match_decision": {{
+      "matches_existing": false,
+      "matched_uri": null,
+      "matched_label": null,
+      "confidence": 0.0,
+      "reasoning": "This is a novel role type not represented in the current ontology."
+    }}
 
 REMEMBER: Check ALL roles against the existing ontology roles listed above FIRST!
 """
@@ -275,6 +296,12 @@ EXTRACTION GUIDELINES:
 GUIDELINE TEXT:
 {text if isinstance(text, str) else str(text)}
 
+**MATCH DECISION RULES:**
+For each resource, evaluate against existing ontology resources:
+- If the resource IS the same as an existing class: match with HIGH confidence (0.85-1.0)
+- If the resource is a VARIANT of an existing class: match to parent with MEDIUM confidence (0.70-0.85)
+- If genuinely NEW: match_decision.matches_existing = false
+
 OUTPUT FORMAT:
 Return a JSON array with this structure:
 [
@@ -282,18 +309,32 @@ Return a JSON array with this structure:
     "label": "NSPE Code of Ethics",
     "description": "National Society of Professional Engineers' formal code establishing professional identity and ethical obligations",
     "type": "resource",
-    "resource_category": "professional_code",  // One of: professional_code, case_precedent, expert_interpretation, technical_standard, legal_resource, decision_tool, reference_material
+    "resource_category": "professional_code",
     "extensional_function": "Provides deliberation framework and identity-establishing principles for engineering practice",
     "professional_knowledge_type": "Codified collective professional wisdom",
     "usage_context": ["Ethical decision-making", "Professional identity establishment", "Accountability framework"],
     "text_references": ["specific quote mentioning this resource"],
     "theoretical_grounding": "Professional code as identity framework (McLaren 2003)",
-    "authority_level": "primary",  // primary, secondary, supplementary
+    "authority_level": "primary",
     "importance": "high",
-    "is_existing": false,
-    "ontology_match_reasoning": "Exact match to NSPE Code in ontology"
+    "match_decision": {{
+      "matches_existing": true,
+      "matched_uri": "http://proethica.org/ontology/intermediate#ProfessionalCode",
+      "matched_label": "Professional Code",
+      "confidence": 0.90,
+      "reasoning": "NSPE Code is a specific instance of the Professional Code class in the ontology."
+    }}
   }}
 ]
+
+If no match exists, use:
+    "match_decision": {{
+      "matches_existing": false,
+      "matched_uri": null,
+      "matched_label": null,
+      "confidence": 0.0,
+      "reasoning": "This resource type is not represented in the current ontology."
+    }}
 
 Focus on identifying resources that provide extensional grounding for professional ethical decision-making rather than merely listing documents.
 """

@@ -19,6 +19,7 @@ from app.services.extraction.dual_actions_events_extractor import DualActionsEve
 from app.models.temporary_rdf_storage import TemporaryRDFStorage
 from app.models.extraction_prompt import ExtractionPrompt
 from app.services.rdf_extraction_converter import RDFExtractionConverter
+from app.services.auto_commit_service import AutoCommitService
 from app.utils.llm_utils import get_llm_client
 from models import ModelConfig
 
@@ -806,6 +807,20 @@ def extract_individual_actions_events(case_id):
                 }
             })
 
+        # Trigger auto-commit to link entities to OntServe classes
+        auto_commit_result = None
+        try:
+            auto_commit_service = AutoCommitService()
+            auto_commit_result = auto_commit_service.commit_case_entities(case_id)
+            logger.info(
+                f"Auto-commit completed for case {case_id}: "
+                f"{auto_commit_result.linked_count} linked, "
+                f"{auto_commit_result.new_class_count} new classes"
+            )
+        except Exception as e:
+            logger.warning(f"Auto-commit failed for case {case_id}: {e}")
+            # Don't fail the extraction if auto-commit fails
+
         # Response data
         response_data = {
             'success': True,
@@ -825,7 +840,13 @@ def extract_individual_actions_events(case_id):
                 },
                 'temporal_relationships': True,
                 'allen_algebra': True
-            }
+            },
+            'auto_commit': {
+                'success': auto_commit_result is not None,
+                'linked_count': auto_commit_result.linked_count if auto_commit_result else 0,
+                'new_class_count': auto_commit_result.new_class_count if auto_commit_result else 0,
+                'entity_classes': auto_commit_result.entity_classes if auto_commit_result else {}
+            } if auto_commit_result else None
         }
 
         return jsonify(response_data)

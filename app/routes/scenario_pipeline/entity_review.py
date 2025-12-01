@@ -1451,3 +1451,357 @@ def check_extraction_status(case_id, extraction_pass):
     except Exception as e:
         logger.error(f"Error checking extraction status: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/case/<int:case_id>/entities/auto_commit', methods=['POST'])
+@auth_required_for_write
+def trigger_auto_commit(case_id):
+    """
+    Manually trigger auto-commit for entity-ontology linking.
+
+    Links extracted entities to OntServe classes based on LLM match decisions,
+    generates case TTL file, and updates precedent features for Jaccard calculation.
+    """
+    try:
+        from app.services.auto_commit_service import AutoCommitService
+
+        data = request.get_json() or {}
+        force = data.get('force', False)
+
+        auto_commit_service = AutoCommitService()
+        result = auto_commit_service.commit_case_entities(case_id, force=force)
+
+        # Convert dataclass to dict for JSON response
+        response = {
+            'success': True,
+            'case_id': result.case_id,
+            'total_entities': result.total_entities,
+            'linked_count': result.linked_count,
+            'new_class_count': result.new_class_count,
+            'skipped_count': result.skipped_count,
+            'error_count': result.error_count,
+            'entity_classes': result.entity_classes,
+            'ttl_file': result.ttl_file,
+            'message': f"Auto-commit complete: {result.linked_count} linked, {result.new_class_count} new classes"
+        }
+
+        # Include detailed results if requested
+        if data.get('include_details', False) and result.results:
+            response['results'] = [
+                {
+                    'entity_id': r.entity_id,
+                    'entity_label': r.entity_label,
+                    'entity_type': r.entity_type,
+                    'action': r.action,
+                    'linked_uri': r.linked_uri,
+                    'confidence': r.confidence,
+                    'reasoning': r.reasoning,
+                    'error': r.error
+                }
+                for r in result.results
+            ]
+
+        return jsonify(response)
+
+    except Exception as e:
+        logger.error(f"Error in auto-commit for case {case_id}: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@bp.route('/case/<int:case_id>/entities/auto_commit_status')
+@auth_optional
+def get_auto_commit_status(case_id):
+    """
+    Get the auto-commit status for a case.
+
+    Returns information about entity matching status and Jaccard readiness.
+    """
+    try:
+        from app.services.auto_commit_service import AutoCommitService
+
+        auto_commit_service = AutoCommitService()
+        status = auto_commit_service.get_commit_status(case_id)
+
+        return jsonify({
+            'success': True,
+            'status': status
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting auto-commit status for case {case_id}: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@bp.route('/case/<int:case_id>/entities/search_ontserve')
+@auth_optional
+def search_ontserve_classes(case_id):
+    """
+    Search OntServe for matching classes.
+
+    Used by the match details modal for manual linking.
+    """
+    try:
+        from sqlalchemy import create_engine, text
+
+        query_param = request.args.get('q', '').strip()
+        if not query_param:
+            return jsonify({
+                'success': False,
+                'error': 'Search query required'
+            }), 400
+
+        # Search OntServe database for matching classes
+        ontserve_engine = create_engine('postgresql://postgres:PASS@localhost:5432/ontserve')
+
+        with ontserve_engine.connect() as conn:
+            # Search by label (case-insensitive)
+            search_query = text("""
+                SELECT uri, label, entity_type, comment
+                FROM ontology_entities
+                WHERE uri LIKE 'http://proethica.org/ontology/%'
+                AND (
+                    LOWER(label) LIKE LOWER(:search_pattern)
+                    OR LOWER(comment) LIKE LOWER(:search_pattern)
+                )
+                ORDER BY
+                    CASE WHEN LOWER(label) = LOWER(:exact_match) THEN 0 ELSE 1 END,
+                    label
+                LIMIT 20
+            """)
+
+            result = conn.execute(search_query, {
+                'search_pattern': f'%{query_param}%',
+                'exact_match': query_param
+            })
+
+            results = []
+            for row in result:
+                results.append({
+                    'uri': row[0],
+                    'label': row[1],
+                    'entity_type': row[2],
+                    'description': row[3]
+                })
+
+        return jsonify({
+            'success': True,
+            'query': query_param,
+            'results': results,
+            'count': len(results)
+        })
+
+    except Exception as e:
+        logger.error(f"Error searching OntServe: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@bp.route('/case/<int:case_id>/entities/<int:entity_id>/set_match', methods=['POST'])
+@auth_required_for_write
+def set_entity_match(case_id, entity_id):
+    """
+    Set or update the match for an entity.
+
+    Used for manual linking from the match details modal.
+    """
+    try:
+        from app.models.temporary_rdf_storage import TemporaryRDFStorage
+
+        data = request.get_json() or {}
+        matched_uri = data.get('matched_uri')
+        matched_label = data.get('matched_label')
+        method = data.get('method', 'manual')
+        confidence = data.get('confidence', 1.0)
+        reasoning = data.get('reasoning', 'Manually linked by user')
+
+        # Find the entity
+        entity = TemporaryRDFStorage.query.filter_by(id=entity_id, case_id=case_id).first()
+        if not entity:
+            return jsonify({
+                'success': False,
+                'error': 'Entity not found'
+            }), 404
+
+        # Update match fields
+        entity.matched_ontology_uri = matched_uri
+        entity.matched_ontology_label = matched_label
+        entity.match_confidence = confidence
+        entity.match_method = method
+        entity.match_reasoning = reasoning
+
+        db.session.commit()
+
+        logger.info(f"Updated match for entity {entity_id}: {matched_label} ({matched_uri})")
+
+        return jsonify({
+            'success': True,
+            'entity_id': entity_id,
+            'matched_uri': matched_uri,
+            'matched_label': matched_label,
+            'confidence': confidence,
+            'method': method
+        })
+
+    except Exception as e:
+        logger.error(f"Error setting entity match: {e}")
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@bp.route('/case/<int:case_id>/entities/<int:entity_id>/mark_new', methods=['POST'])
+@auth_required_for_write
+def mark_entity_as_new(case_id, entity_id):
+    """
+    Mark an entity as a new class (clear any existing match).
+
+    Used when the user wants to create a new class instead of linking to existing.
+    """
+    try:
+        from app.models.temporary_rdf_storage import TemporaryRDFStorage
+
+        # Find the entity
+        entity = TemporaryRDFStorage.query.filter_by(id=entity_id, case_id=case_id).first()
+        if not entity:
+            return jsonify({
+                'success': False,
+                'error': 'Entity not found'
+            }), 404
+
+        # Clear match fields
+        entity.matched_ontology_uri = None
+        entity.matched_ontology_label = None
+        entity.match_confidence = None
+        entity.match_method = 'manual'
+        entity.match_reasoning = 'Marked as new class by user'
+
+        db.session.commit()
+
+        logger.info(f"Marked entity {entity_id} as new class")
+
+        return jsonify({
+            'success': True,
+            'entity_id': entity_id,
+            'message': 'Entity marked as new class'
+        })
+
+    except Exception as e:
+        logger.error(f"Error marking entity as new: {e}")
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@bp.route('/case/<int:case_id>/entities/entity_overlap')
+@auth_optional
+def get_entity_overlap(case_id):
+    """
+    Get entity class overlap between this case and other cases for Jaccard similarity.
+
+    Returns the entity_classes for this case and overlap statistics with other cases.
+    """
+    try:
+        from sqlalchemy import text
+
+        # Get entity_classes for this case
+        query = text("""
+            SELECT case_id, entity_classes
+            FROM case_precedent_features
+            WHERE entity_classes IS NOT NULL
+        """)
+        results = db.session.execute(query).fetchall()
+
+        if not results:
+            return jsonify({
+                'success': True,
+                'case_id': case_id,
+                'entity_classes': {},
+                'overlap_with_cases': [],
+                'message': 'No cases have entity_classes data yet'
+            })
+
+        # Find this case's entity classes
+        this_case_classes = None
+        other_cases = []
+
+        for row in results:
+            if row[0] == case_id:
+                this_case_classes = row[1] or {}
+            else:
+                other_cases.append({
+                    'case_id': row[0],
+                    'entity_classes': row[1] or {}
+                })
+
+        if this_case_classes is None:
+            return jsonify({
+                'success': True,
+                'case_id': case_id,
+                'entity_classes': {},
+                'overlap_with_cases': [],
+                'message': 'This case has no entity_classes data. Run auto-commit first.'
+            })
+
+        # Calculate Jaccard overlap with each other case
+        def calculate_jaccard(classes_a, classes_b):
+            """Calculate Jaccard similarity across all entity types."""
+            all_uris_a = set()
+            all_uris_b = set()
+
+            for entity_type, uris in classes_a.items():
+                all_uris_a.update(uris)
+            for entity_type, uris in classes_b.items():
+                all_uris_b.update(uris)
+
+            if not all_uris_a and not all_uris_b:
+                return 0.0, []
+
+            intersection = all_uris_a & all_uris_b
+            union = all_uris_a | all_uris_b
+
+            if not union:
+                return 0.0, []
+
+            return len(intersection) / len(union), list(intersection)
+
+        overlap_results = []
+        for other in other_cases:
+            jaccard, shared_uris = calculate_jaccard(this_case_classes, other['entity_classes'])
+            if jaccard > 0:  # Only include cases with some overlap
+                overlap_results.append({
+                    'case_id': other['case_id'],
+                    'jaccard_similarity': round(jaccard, 3),
+                    'shared_classes_count': len(shared_uris),
+                    'shared_class_uris': shared_uris[:10]  # Limit to first 10 for display
+                })
+
+        # Sort by similarity descending
+        overlap_results.sort(key=lambda x: x['jaccard_similarity'], reverse=True)
+
+        return jsonify({
+            'success': True,
+            'case_id': case_id,
+            'entity_classes': this_case_classes,
+            'total_classes': sum(len(uris) for uris in this_case_classes.values()),
+            'overlap_with_cases': overlap_results,
+            'cases_with_overlap': len(overlap_results)
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting entity overlap for case {case_id}: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500

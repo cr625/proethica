@@ -238,6 +238,12 @@ For each principle, apply this three-step process (based on empirical studies of
 GUIDELINE TEXT:
 {text if isinstance(text, str) else str(text)}
 
+**MATCH DECISION RULES:**
+For each principle, evaluate against existing ontology principles listed above:
+- If the principle IS the same concept as an existing class: match with HIGH confidence (0.85-1.0)
+- If the principle is a VARIANT of an existing class: match to parent with MEDIUM confidence (0.70-0.85)
+- If genuinely NEW: match_decision.matches_existing = false
+
 OUTPUT FORMAT:
 Return a JSON array with this structure:
 [
@@ -245,10 +251,10 @@ Return a JSON array with this structure:
     "label": "Public Welfare Paramount",
     "description": "Fundamental principle placing public safety and welfare above all other considerations",
     "type": "principle",
-    "principle_category": "fundamental_ethical",  // One of: fundamental_ethical, professional_virtue, relational, domain_specific
+    "principle_category": "fundamental_ethical",
     "extensional_definition": ["NSPE Case 92-6 on public safety disclosure", "Challenger disaster precedent"],
     "operationalization": {{
-      "abstraction_level": "high",  // high, medium, low
+      "abstraction_level": "high",
       "specific_requirements": ["Report safety risks", "Refuse unsafe work", "Disclose conflicts"],
       "balancing_criteria": "Public welfare overrides client confidentiality when immediate danger exists"
     }},
@@ -260,10 +266,24 @@ Return a JSON array with this structure:
     "theoretical_grounding": "McLaren (2003) - Requires extensional definition through safety cases",
     "professional_grounding": "NSPE Fundamental Canon 1",
     "importance": "high",
-    "is_existing": false,
-    "ontology_match_reasoning": "Exact match to PublicWelfarePrinciple in ontology"
+    "match_decision": {{
+      "matches_existing": true,
+      "matched_uri": "http://proethica.org/ontology/intermediate#PublicWelfarePrinciple",
+      "matched_label": "Public Welfare Principle",
+      "confidence": 0.90,
+      "reasoning": "This principle is a direct match to the existing Public Welfare Principle class."
+    }}
   }}
 ]
+
+If no match exists, use:
+    "match_decision": {{
+      "matches_existing": false,
+      "matched_uri": null,
+      "matched_label": null,
+      "confidence": 0.0,
+      "reasoning": "This is a novel principle not represented in the current ontology."
+    }}
 
 Focus on identifying principles that serve as abstract ethical foundations requiring interpretation rather than concrete rules or specific obligations.
 """
@@ -359,10 +379,17 @@ Focus on identifying principles that serve as abstract ethical foundations requi
                         'theoretical_grounding': p.get('theoretical_grounding'),
                         'professional_grounding': p.get('professional_grounding'),
                         
-                        # Ontology matching
-                        'is_existing': p.get('is_existing', False),
+                        # Ontology matching (legacy fields for backward compat)
+                        'is_existing': p.get('is_existing', False) or (p.get('match_decision', {}).get('matches_existing', False)),
                         'ontology_match_reasoning': p.get('ontology_match_reasoning'),
-                        
+
+                        # NEW: Structured match decision for entity-ontology linking
+                        'match_decision': p.get('match_decision', {}),
+                        'matched_ontology_uri': p.get('match_decision', {}).get('matched_uri'),
+                        'matched_ontology_label': p.get('match_decision', {}).get('matched_label'),
+                        'match_confidence': p.get('match_decision', {}).get('confidence'),
+                        'match_reasoning': p.get('match_decision', {}).get('reasoning'),
+
                         # Metadata
                         'extraction_method': 'enhanced_chapter2',
                         'extracted_at': datetime.now().isoformat()

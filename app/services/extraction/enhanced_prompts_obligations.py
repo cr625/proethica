@@ -216,6 +216,12 @@ For each obligation, provide:
 TEXT TO ANALYZE:
 {text if isinstance(text, str) else str(text)}
 
+**MATCH DECISION RULES:**
+For each obligation, evaluate against existing ontology obligations listed above:
+- If the obligation IS the same concept as an existing class: match with HIGH confidence (0.85-1.0)
+- If the obligation is a VARIANT of an existing class: match to parent with MEDIUM confidence (0.70-0.85)
+- If genuinely NEW: match_decision.matches_existing = false
+
 IMPORTANT EXTRACTION GUIDELINES:
 - Identify both explicit obligations ("must", "shall", "required") and implicit ones
 - Look for professional duties implied by the situation
@@ -244,9 +250,25 @@ Example format:
         "potential_conflicts": ["Client Confidentiality", "Project Timeline"],
         "monitoring_criteria": "Documentation of disclosure communications",
         "nspe_reference": "II.3.a - Engineers shall be objective and truthful",
-        "contextual_factors": "Safety-critical infrastructure project"
+        "contextual_factors": "Safety-critical infrastructure project",
+        "match_decision": {{
+            "matches_existing": true,
+            "matched_uri": "http://proethica.org/ontology/intermediate#DisclosureObligation",
+            "matched_label": "Disclosure Obligation",
+            "confidence": 0.85,
+            "reasoning": "This is a specific instance of the existing Disclosure Obligation class."
+        }}
     }}
 ]
+
+If no match exists, use:
+    "match_decision": {{
+        "matches_existing": false,
+        "matched_uri": null,
+        "matched_label": null,
+        "confidence": 0.0,
+        "reasoning": "This is a novel obligation not represented in the current ontology."
+    }}
 """
     return prompt
 
@@ -420,6 +442,9 @@ class EnhancedObligationsExtractor:
                     logger.warning(f"Skipping item with no label or description: {item}")
                     continue
 
+                # Extract match_decision if present
+                match_decision = item.get('match_decision', {})
+
                 candidate = ConceptCandidate(
                     label=label,
                     description=description,
@@ -436,7 +461,13 @@ class EnhancedObligationsExtractor:
                         'nspe_reference': item.get('nspe_reference', ''),
                         'contextual_factors': item.get('contextual_factors', ''),
                         'extraction_method': 'llm_enhanced',
-                        'prompt_version': '2.0_normative_pass'
+                        'prompt_version': '2.0_normative_pass',
+                        # Entity-ontology linking fields
+                        'match_decision': match_decision,
+                        'matched_ontology_uri': match_decision.get('matched_uri'),
+                        'matched_ontology_label': match_decision.get('matched_label'),
+                        'match_confidence': match_decision.get('confidence'),
+                        'match_reasoning': match_decision.get('reasoning')
                     }
                 )
                 candidates.append(candidate)

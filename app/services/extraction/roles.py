@@ -369,6 +369,9 @@ Focus on accuracy over quantity. Extract only clear, unambiguous roles.
                 if not isinstance(role_data, dict):
                     continue
                     
+                # Extract match_decision if present (new structured format)
+                match_decision = role_data.get('match_decision', {})
+
                 candidate = ConceptCandidate(
                     label=role_data.get('label', ''),
                     description=role_data.get('description', ''),
@@ -385,8 +388,15 @@ Focus on accuracy over quantity. Extract only clear, unambiguous roles.
                         'obligations_generated': role_data.get('obligations_generated', []),
                         'ethical_filter_function': role_data.get('ethical_filter_function'),
                         'theoretical_grounding': role_data.get('theoretical_grounding'),
-                        'is_existing': role_data.get('is_existing'),
+                        # Legacy fields (backward compat)
+                        'is_existing': role_data.get('is_existing') or match_decision.get('matches_existing'),
                         'ontology_match_reasoning': role_data.get('ontology_match_reasoning'),
+                        # NEW: Structured match decision for entity-ontology linking
+                        'match_decision': match_decision,
+                        'matched_ontology_uri': match_decision.get('matched_uri'),
+                        'matched_ontology_label': match_decision.get('matched_label'),
+                        'match_confidence': match_decision.get('confidence'),
+                        'match_reasoning': match_decision.get('reasoning'),
                         # Store complete raw data for full preservation
                         'raw_llm_data': role_data
                     }
