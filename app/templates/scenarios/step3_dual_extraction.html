@@ -400,13 +400,29 @@
     }
 
     function loadSavedExtractionState() {
-        // Fetch saved extraction prompt and raw response using appFetch (handles 401 redirect)
-        appFetch(`/scenario_pipeline/case/${currentCaseId}/step3/get_saved_prompt?concept_type=actions_events`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.success && (data.prompt_text || data.raw_response)) {
-                    console.log('Found saved extraction data');
-                    restoreExtractionUI(data);
+        // Try to load separate actions and events prompts first (new multi-call approach)
+        const actionsPromise = appFetch(`/scenario_pipeline/case/${currentCaseId}/step3/get_saved_prompt?concept_type=actions&section_type=temporal`)
+            .then(r => r.json()).catch(() => ({ success: false }));
+        const eventsPromise = appFetch(`/scenario_pipeline/case/${currentCaseId}/step3/get_saved_prompt?concept_type=events&section_type=temporal`)
+            .then(r => r.json()).catch(() => ({ success: false }));
+        // Also try legacy combined actions_events prompt
+        const combinedPromise = appFetch(`/scenario_pipeline/case/${currentCaseId}/step3/get_saved_prompt?concept_type=actions_events&section_type=temporal`)
+            .then(r => r.json()).catch(() => ({ success: false }));
+
+        Promise.all([actionsPromise, eventsPromise, combinedPromise])
+            .then(([actionsData, eventsData, combinedData]) => {
+                const hasActions = actionsData.success && (actionsData.prompt_text || actionsData.raw_response);
+                const hasEvents = eventsData.success && (eventsData.prompt_text || eventsData.raw_response);
+                const hasCombined = combinedData.success && (combinedData.prompt_text || combinedData.raw_response);
+
+                if (hasActions || hasEvents) {
+                    // New multi-call approach: display both separate prompts
+                    console.log('Found separate actions/events extraction data');
+                    restoreMultiExtractionUI(actionsData, eventsData);
+                } else if (hasCombined) {
+                    // Legacy combined approach
+                    console.log('Found combined extraction data');
+                    restoreExtractionUI(combinedData);
                 } else {
                     console.log('No saved extraction found');
                 }
@@ -414,6 +430,94 @@
             .catch(error => {
                 console.log('No saved extraction found or error loading:', error);
             });
+    }
+
+    function restoreMultiExtractionUI(actionsData, eventsData) {
+        // Show the progress card for multi-extraction display
+        const progressCard = document.getElementById("enhancedTemporalProgress");
+        const progressBar = document.getElementById("enhanced-progress-bar");
+        const progressIcon = document.getElementById("enhanced-progress-icon");
+        const progressHeader = document.getElementById("enhanced-progress-header");
+        const messagesDiv = document.getElementById("enhanced-messages");
+        const summaryCard = document.getElementById("enhanced-summary");
+        const stageInfo = document.getElementById("enhanced-stage-info");
+        const accordionContainer = document.getElementById("enhanced-stages-accordion");
+
+        progressCard.style.display = "block";
+        stageInfo.style.display = "none";
+
+        // Set progress to 100% (completed)
+        progressBar.style.width = "100%";
+        progressBar.textContent = "100%";
+        progressBar.classList.remove("progress-bar-animated");
+        progressBar.classList.add("bg-success");
+        progressIcon.className = "bi bi-check-circle text-success";
+        progressHeader.textContent = "Extraction Complete (Loaded from Previous Run)";
+
+        // Clear and rebuild messages log
+        messagesDiv.innerHTML = "";
+
+        // Count how many extractions we have
+        const hasActions = actionsData.success && actionsData.raw_response;
+        const hasEvents = eventsData.success && eventsData.raw_response;
+        const stageCount = (hasActions ? 1 : 0) + (hasEvents ? 1 : 0);
+
+        // Add summary message
+        addEnhancedMessage("success", `Loaded previous extraction (${stageCount} separate extractions)`);
+        if (hasActions) {
+            addEnhancedMessage("info", `Actions: ${actionsData.created_at || 'Unknown'} - ${actionsData.llm_model || 'Unknown model'}`);
+        }
+        if (hasEvents) {
+            addEnhancedMessage("info", `Events: ${eventsData.created_at || 'Unknown'} - ${eventsData.llm_model || 'Unknown model'}`);
+        }
+
+        // Show summary card
+        summaryCard.style.display = "block";
+        document.getElementById("enhanced-summary-content").innerHTML = `
+            <div class="row">
+                <div class="col-md-4">
+                    <strong>Extractions:</strong> ${stageCount} separate
+                </div>
+                <div class="col-md-4">
+                    <strong>Actions:</strong> ${hasActions ? 'Complete' : 'Not found'}
+                </div>
+                <div class="col-md-4">
+                    <strong>Events:</strong> ${hasEvents ? 'Complete' : 'Not found'}
+                </div>
+            </div>
+        `;
+
+        // Rebuild accordion with data
+        accordionContainer.innerHTML = '';
+
+        // Add Actions extraction
+        if (hasActions) {
+            const actionsTrace = {
+                stage: 'ACTIONS',
+                prompt: actionsData.prompt_text || '',
+                response: actionsData.raw_response || '',
+                model: actionsData.llm_model || 'Unknown',
+                timestamp: actionsData.created_at || '',
+                tokens: null
+            };
+            displayStagePromptResponse(actionsTrace);
+        }
+
+        // Add Events extraction
+        if (hasEvents) {
+            const eventsTrace = {
+                stage: 'EVENTS',
+                prompt: eventsData.prompt_text || '',
+                response: eventsData.raw_response || '',
+                model: eventsData.llm_model || 'Unknown',
+                timestamp: eventsData.created_at || '',
+                tokens: null
+            };
+            displayStagePromptResponse(eventsTrace);
+        }
+
+        // Scroll to progress card
+        progressCard.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
     function restoreExtractionUI(savedData) {
@@ -436,7 +540,7 @@
         progressBar.classList.remove("progress-bar-animated");
         progressBar.classList.add("bg-success");
         progressIcon.className = "bi bi-check-circle text-success";
-        progressHeader.textContent = "Enhanced Extraction Complete (Loaded from Previous Run)";
+        progressHeader.textContent = "Extraction Complete (Loaded from Previous Run)";
 
         // Clear and rebuild messages log
         messagesDiv.innerHTML = "";
@@ -445,12 +549,13 @@
         const combinedPrompt = savedData.prompt_text || "";
         const combinedResponse = savedData.raw_response || "";
 
-        // Extract stage sections from combined prompt/response
+        // Check if this is a multi-stage extraction (has === STAGE_NAME === markers) or single combined extraction
         const stageMatches = combinedPrompt.match(/=== ([A-Z_]+) ===/g);
-        const stages = stageMatches ? stageMatches.map(m => m.replace(/=== | ===/g, '')) : [];
+        const isMultiStage = stageMatches && stageMatches.length > 0;
+        const stages = isMultiStage ? stageMatches.map(m => m.replace(/=== | ===/g, '')) : ['DUAL_TEMPORAL'];
 
         // Add summary message
-        addEnhancedMessage("success", `✓ Loaded previous extraction with ${stages.length} stages`);
+        addEnhancedMessage("success", `Loaded previous extraction (${isMultiStage ? stages.length + ' stages' : 'combined extraction'})`);
         addEnhancedMessage("info", `Extracted: ${savedData.created_at || 'Unknown date'}`);
         addEnhancedMessage("info", `Model: ${savedData.llm_model || 'Unknown model'}`);
 
@@ -465,45 +570,52 @@
                     <strong>Model:</strong> ${savedData.llm_model || 'Unknown'}
                 </div>
                 <div class="col-md-4">
-                    <strong>Stages:</strong> ${stages.length}
+                    <strong>Type:</strong> ${isMultiStage ? stages.length + ' stages' : 'Combined Extraction'}
                 </div>
-            </div>
-            <div class="mt-3">
-                <strong>Extraction Stages:</strong>
-                <ul class="mb-0">
-                    ${stages.map(s => '<li>' + s + '</li>').join('')}
-                </ul>
             </div>
         `;
 
-        // Rebuild accordion with stage data
+        // Rebuild accordion with data
         accordionContainer.innerHTML = '';
 
-        // Split prompt and response by stage
-        const promptSections = combinedPrompt.split(/=== ([A-Z_]+) ===/);
-        const responseSections = combinedResponse.split(/=== ([A-Z_]+) RESPONSE ===/);
+        if (isMultiStage) {
+            // Multi-stage extraction: Split prompt and response by stage markers
+            const promptSections = combinedPrompt.split(/=== ([A-Z_]+) ===/);
+            const responseSections = combinedResponse.split(/=== ([A-Z_]+) RESPONSE ===/);
 
-        for (let i = 1; i < promptSections.length; i += 2) {
-            const stageName = promptSections[i];
-            const stagePrompt = promptSections[i + 1] ? promptSections[i + 1].trim() : '';
+            for (let i = 1; i < promptSections.length; i += 2) {
+                const stageName = promptSections[i];
+                const stagePrompt = promptSections[i + 1] ? promptSections[i + 1].trim() : '';
 
-            // Find matching response
-            let stageResponse = '';
-            const responseIndex = responseSections.findIndex(section => section === stageName);
-            if (responseIndex !== -1 && responseSections[responseIndex + 1]) {
-                stageResponse = responseSections[responseIndex + 1].trim();
+                // Find matching response
+                let stageResponse = '';
+                const responseIndex = responseSections.findIndex(section => section === stageName);
+                if (responseIndex !== -1 && responseSections[responseIndex + 1]) {
+                    stageResponse = responseSections[responseIndex + 1].trim();
+                }
+
+                // Create trace object for displayStagePromptResponse
+                const trace = {
+                    stage: stageName,
+                    prompt: stagePrompt,
+                    response: stageResponse,
+                    model: savedData.llm_model || 'Unknown',
+                    timestamp: savedData.created_at || '',
+                    tokens: null
+                };
+
+                displayStagePromptResponse(trace);
             }
-
-            // Create trace object for displayStagePromptResponse
+        } else {
+            // Single combined extraction (from pipeline/dashboard): Display as one stage
             const trace = {
-                stage: stageName,
-                prompt: stagePrompt,
-                response: stageResponse,
+                stage: 'Dual Temporal Extraction (Actions & Events)',
+                prompt: combinedPrompt,
+                response: combinedResponse,
                 model: savedData.llm_model || 'Unknown',
                 timestamp: savedData.created_at || '',
                 tokens: null
             };
-
             displayStagePromptResponse(trace);
         }
 

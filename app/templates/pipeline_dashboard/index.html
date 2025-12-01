@@ -6,8 +6,37 @@
 <div class="container-fluid mt-4">
     <div class="row mb-4">
         <div class="col-12">
-            <h2>Pipeline Dashboard</h2>
-            <p class="text-muted">Monitor automated case processing</p>
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h2>Pipeline Dashboard</h2>
+                    <p class="text-muted">Monitor automated case processing</p>
+                </div>
+                <!-- Service Status Widget -->
+                <div id="serviceStatus" class="d-flex align-items-center gap-3 p-2 border rounded bg-light">
+                    <div class="d-flex align-items-center">
+                        <span class="me-2">Redis:</span>
+                        <span id="redisStatus" class="badge bg-secondary">Checking...</span>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <span class="me-2">Celery:</span>
+                        <span id="celeryStatus" class="badge bg-secondary">Checking...</span>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <span class="me-2">Workers:</span>
+                        <span id="workerCount" class="badge bg-secondary">-</span>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <span class="me-2">Tasks:</span>
+                        <span id="activeTasks" class="badge bg-secondary">-</span>
+                    </div>
+                    <button id="refreshStatusBtn" class="btn btn-sm btn-outline-secondary" title="Refresh status">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+                            <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -66,6 +95,13 @@
                                 </a>
                             </div>
                             <div class="d-flex align-items-center">
+                                <button class="btn btn-sm btn-danger me-2 cancel-btn"
+                                        data-run-id="{{ run.id }}"
+                                        data-case-id="{{ run.case_id }}"
+                                        data-current-step="{{ run.current_step }}"
+                                        title="Cancel this pipeline run">
+                                    Cancel
+                                </button>
                                 <span class="badge bg-warning text-dark fs-6 me-3">{{ run.status|replace('_', ' ')|title }}</span>
                                 <div class="timer-display bg-dark text-warning px-3 py-1 rounded" style="font-family: monospace; font-size: 1.5rem; font-weight: bold;" data-start-time="{{ run.started_at.isoformat() if run.started_at else '' }}">
                                     {{ "%.0f"|format(run.duration_seconds) }}s
@@ -191,8 +227,11 @@
                                 <td>{{ "%.1f"|format(run.duration_seconds) }}s</td>
                                 <td>
                                     {% if run.status == 'failed' %}
-                                    <button class="btn btn-sm btn-outline-warning retry-btn" data-run-id="{{ run.id }}">
-                                        Retry
+                                    <button class="btn btn-sm btn-warning retry-btn"
+                                            data-run-id="{{ run.id }}"
+                                            data-failed-step="{{ run.error_step or run.current_step }}"
+                                            data-steps-completed="{{ (run.steps_completed or [])|length }}">
+                                        Resume from {{ run.error_step or run.current_step or 'failed step' }}
                                     </button>
                                     {% endif %}
                                     <button class="btn btn-sm btn-outline-info details-btn" data-run-id="{{ run.id }}">
@@ -249,6 +288,110 @@
 </style>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Service Status Check
+    async function checkServiceStatus() {
+        try {
+            const response = await fetch('/pipeline/api/service-status');
+            const data = await response.json();
+
+            // Update Redis status
+            const redisEl = document.getElementById('redisStatus');
+            if (data.redis.status === 'connected') {
+                redisEl.className = 'badge bg-success';
+                redisEl.textContent = 'Connected';
+            } else {
+                redisEl.className = 'badge bg-danger';
+                redisEl.textContent = 'Disconnected';
+            }
+
+            // Update Celery status
+            const celeryEl = document.getElementById('celeryStatus');
+            if (data.celery.status === 'online') {
+                celeryEl.className = 'badge bg-success';
+                celeryEl.textContent = 'Online';
+            } else {
+                celeryEl.className = 'badge bg-danger';
+                celeryEl.textContent = 'Offline';
+            }
+
+            // Update worker count
+            const workerEl = document.getElementById('workerCount');
+            const workerCount = data.celery.worker_count || 0;
+            workerEl.className = workerCount > 0 ? 'badge bg-success' : 'badge bg-warning';
+            workerEl.textContent = workerCount;
+
+            // Update active tasks
+            const tasksEl = document.getElementById('activeTasks');
+            const activeTasks = data.celery.active_tasks || 0;
+            tasksEl.className = activeTasks > 0 ? 'badge bg-info' : 'badge bg-secondary';
+            tasksEl.textContent = activeTasks;
+
+            // Update overall status indicator
+            const statusWidget = document.getElementById('serviceStatus');
+            if (data.overall === 'healthy') {
+                statusWidget.classList.remove('border-danger', 'border-warning');
+                statusWidget.classList.add('border-success');
+            } else if (data.overall === 'degraded') {
+                statusWidget.classList.remove('border-danger', 'border-success');
+                statusWidget.classList.add('border-warning');
+            } else {
+                statusWidget.classList.remove('border-success', 'border-warning');
+                statusWidget.classList.add('border-danger');
+            }
+
+        } catch (e) {
+            console.error('Service status check failed:', e);
+            document.getElementById('redisStatus').className = 'badge bg-secondary';
+            document.getElementById('redisStatus').textContent = 'Error';
+            document.getElementById('celeryStatus').className = 'badge bg-secondary';
+            document.getElementById('celeryStatus').textContent = 'Error';
+        }
+    }
+
+    // Check status immediately and every 10 seconds
+    checkServiceStatus();
+    setInterval(checkServiceStatus, 10000);
+
+    // Refresh status button
+    document.getElementById('refreshStatusBtn').addEventListener('click', checkServiceStatus);
+
+    // Cancel button handler
+    document.querySelectorAll('.cancel-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const runId = this.dataset.runId;
+            const caseId = this.dataset.caseId;
+            const currentStep = this.dataset.currentStep || 'unknown';
+
+            const msg = `Cancel pipeline run #${runId} for Case ${caseId}?\n\n` +
+                        `Currently at: ${currentStep}\n\n` +
+                        `This will stop the extraction and mark the run as cancelled.`;
+
+            if (!confirm(msg)) return;
+
+            this.disabled = true;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+            try {
+                const response = await fetch(`/pipeline/api/runs/${runId}/cancel`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                if (data.success) {
+                    alert(`Pipeline cancelled.\n\nStopped at: ${data.previous_step}\nTasks revoked: ${data.revoked_tasks?.length || 0}`);
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.error);
+                    this.disabled = false;
+                    this.textContent = 'Cancel';
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+                this.disabled = false;
+                this.textContent = 'Cancel';
+            }
+        });
+    });
+
     // Live timer update - use server duration and increment locally
     const timerDisplays = document.querySelectorAll('.timer-display');
     timerDisplays.forEach(timer => {
@@ -284,7 +427,17 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.retry-btn').forEach(btn => {
         btn.addEventListener('click', async function() {
             const runId = this.dataset.runId;
-            if (!confirm('Retry this failed run?')) return;
+            const failedStep = this.dataset.failedStep || 'unknown';
+            const stepsCompleted = this.dataset.stepsCompleted || '0';
+
+            const msg = `Resume pipeline from "${failedStep}"?\n\n` +
+                        `${stepsCompleted} steps already completed will be skipped.\n` +
+                        `The pipeline will continue from where it failed.`;
+
+            if (!confirm(msg)) return;
+
+            this.disabled = true;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Resuming...';
 
             try {
                 const response = await fetch(`/pipeline/api/runs/${runId}/retry`, {
@@ -292,13 +445,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
                 const data = await response.json();
                 if (data.success) {
-                    alert('Retry queued successfully');
+                    alert(`Resume started!\n\nResuming from: ${data.failed_step}\nSteps already done: ${(data.steps_completed || []).join(', ') || 'none'}`);
                     location.reload();
                 } else {
                     alert('Error: ' + data.error);
+                    this.disabled = false;
+                    this.textContent = 'Resume';
                 }
             } catch (e) {
                 alert('Error: ' + e.message);
+                this.disabled = false;
+                this.textContent = 'Resume';
             }
         });
     });

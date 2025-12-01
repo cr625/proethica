@@ -94,7 +94,15 @@ def step3(case_id):
             facts_section = _format_section_for_llm(first_key, raw_sections[first_key], case_doc=case)
         
         # Check for saved extraction data
-        saved_prompt = ExtractionPrompt.get_active_prompt(case_id, 'actions_events')
+        # Step 3 uses section_type='temporal' for combined facts+discussion extraction
+        # Now check for separate actions and events prompts (new multi-call approach)
+        saved_actions_prompt = ExtractionPrompt.get_active_prompt(case_id, 'actions', section_type='temporal')
+        saved_events_prompt = ExtractionPrompt.get_active_prompt(case_id, 'events', section_type='temporal')
+        # Also check for legacy combined actions_events prompt (backwards compatibility)
+        saved_combined_prompt = ExtractionPrompt.get_active_prompt(case_id, 'actions_events', section_type='temporal')
+
+        # Determine if we have saved extraction data
+        has_saved_extraction = (saved_actions_prompt is not None) or (saved_events_prompt is not None) or (saved_combined_prompt is not None)
 
         # Get pipeline status for navigation
         pipeline_status = PipelineStatusService.get_step_status(case_id)
@@ -109,10 +117,20 @@ def step3(case_id):
             'next_step_url': url_for('step4.step4_synthesis', case_id=case_id),
             'next_step_name': 'Whole-Case Synthesis',
             'prev_step_url': url_for('scenario_pipeline.step2b', case_id=case_id),
-            'has_saved_extraction': saved_prompt is not None,
-            'saved_prompt': saved_prompt.prompt_text if saved_prompt else None,
-            'saved_response': saved_prompt.raw_response if saved_prompt else None,
-            'saved_model': saved_prompt.llm_model if saved_prompt else None,
+            'has_saved_extraction': has_saved_extraction,
+            # New multi-extraction data
+            'saved_actions_prompt': saved_actions_prompt.prompt_text if saved_actions_prompt else None,
+            'saved_actions_response': saved_actions_prompt.raw_response if saved_actions_prompt else None,
+            'saved_actions_model': saved_actions_prompt.llm_model if saved_actions_prompt else None,
+            'saved_actions_date': saved_actions_prompt.created_at.strftime('%Y-%m-%d %H:%M') if saved_actions_prompt else None,
+            'saved_events_prompt': saved_events_prompt.prompt_text if saved_events_prompt else None,
+            'saved_events_response': saved_events_prompt.raw_response if saved_events_prompt else None,
+            'saved_events_model': saved_events_prompt.llm_model if saved_events_prompt else None,
+            'saved_events_date': saved_events_prompt.created_at.strftime('%Y-%m-%d %H:%M') if saved_events_prompt else None,
+            # Legacy combined prompt (backwards compatibility)
+            'saved_prompt': saved_combined_prompt.prompt_text if saved_combined_prompt else None,
+            'saved_response': saved_combined_prompt.raw_response if saved_combined_prompt else None,
+            'saved_model': saved_combined_prompt.llm_model if saved_combined_prompt else None,
             'pipeline_status': pipeline_status
         }
 
@@ -831,9 +849,11 @@ def step3_get_saved_prompt(case_id):
     from app.models import ExtractionPrompt
     try:
         concept_type = request.args.get('concept_type', 'actions_events')
+        # Step 3 uses section_type='temporal' for combined facts+discussion extraction
+        section_type = request.args.get('section_type', 'temporal')
 
         # Get the saved prompt from database
-        saved_prompt = ExtractionPrompt.get_active_prompt(case_id, concept_type)
+        saved_prompt = ExtractionPrompt.get_active_prompt(case_id, concept_type, section_type=section_type)
 
         if saved_prompt:
             return jsonify({

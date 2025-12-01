@@ -127,7 +127,8 @@ class DualActionsEventsExtractor:
         self.mcp_client = get_external_mcp_client()
         self.existing_action_classes = self._load_existing_action_classes()
         self.existing_event_classes = self._load_existing_event_classes()
-        self.model_name = ModelConfig.get_claude_model("powerful")
+        # Use Sonnet (default) instead of Opus (powerful) - Opus times out on long extractions
+        self.model_name = ModelConfig.get_claude_model("default")
         self.last_raw_response = None  # CRITICAL for RDF conversion
         self.last_prompt = None  # Store the prompt sent to LLM
 
@@ -488,6 +489,13 @@ Respond with valid JSON in this format:
             return result
 
         except Exception as e:
+            error_msg = str(e).lower()
+            # Re-raise connection errors so pipeline can handle them properly
+            if 'connection' in error_msg or 'timeout' in error_msg or 'api' in error_msg:
+                logger.error(f"API connection error for dual actions/events extraction: {e}")
+                from app.services.extraction.mock_llm_provider import LLMConnectionError
+                raise LLMConnectionError(f"LLM API connection failed: {e}") from e
+            # For other errors (parsing, etc.), return empty results
             logger.error(f"Error calling LLM for dual actions/events extraction: {e}")
             return {"new_action_classes": [], "action_individuals": [], "new_event_classes": [], "event_individuals": []}
 

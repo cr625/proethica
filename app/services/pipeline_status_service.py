@@ -3,6 +3,10 @@ Pipeline Status Service
 
 Provides step completion status for the scenario pipeline.
 Used by the UI to show which steps are complete and which are available.
+
+Hybrid approach:
+- Checks for RDF entities (confirms extraction succeeded, not just attempted)
+- Joins to ExtractionPrompt via extraction_session_id to get section_type
 """
 
 from typing import Dict, Any
@@ -14,17 +18,20 @@ logger = logging.getLogger(__name__)
 
 
 class PipelineStatusService:
-    """Service to check pipeline step completion status for a case."""
+    """Service to check pipeline step completion status for a case.
 
-    # Pass 1 entity types (Contextual Framework)
-    PASS1_TYPES = ['roles', 'states', 'resources']
+    Checks for actual RDF entities (not just prompts) to confirm extraction succeeded.
+    Uses extraction_session_id linkage to prompts to determine section_type.
+    """
 
-    # Pass 2 entity types (Normative Requirements)
-    PASS2_TYPES = ['principles', 'obligations', 'constraints', 'capabilities']
+    # Step 1 entity types (Contextual Framework)
+    STEP1_TYPES = ('roles', 'states', 'resources')
 
-    # Pass 3 entity types (Temporal Dynamics)
-    # Note: 'temporal_dynamics_enhanced' is the extraction_type used by the enhanced step3 extraction
-    PASS3_TYPES = ['actions', 'events', 'actions_events', 'temporal_dynamics_enhanced']
+    # Step 2 entity types (Normative Requirements)
+    STEP2_TYPES = ('principles', 'obligations', 'constraints', 'capabilities')
+
+    # Step 3 entity types (Temporal Dynamics)
+    STEP3_TYPES = ('actions', 'events', 'actions_events', 'temporal_dynamics_enhanced')
 
     @classmethod
     def get_step_status(cls, case_id: int) -> Dict[str, Any]:
@@ -34,18 +41,18 @@ class PipelineStatusService:
         Returns:
             Dictionary with step completion info:
             {
-                'step1': {'complete': bool, 'entity_count': int},
-                'step2': {'complete': bool, 'entity_count': int},
-                'step3': {'complete': bool, 'entity_count': int},
+                'step1': {'complete': bool, 'facts_complete': bool, 'discussion_complete': bool},
+                'step2': {'complete': bool, 'facts_complete': bool, 'discussion_complete': bool},
+                'step3': {'complete': bool},
                 'step4': {'complete': bool, 'has_provisions': bool, 'has_qa': bool},
                 'step5': {'complete': bool, 'has_scenario': bool}
             }
         """
         try:
             status = {
-                'step1': cls._check_step1(case_id),
-                'step2': cls._check_step2(case_id),
-                'step3': cls._check_step3(case_id),
+                'step1': cls._check_extraction_step(case_id, cls.STEP1_TYPES),
+                'step2': cls._check_extraction_step(case_id, cls.STEP2_TYPES),
+                'step3': cls._check_extraction_step(case_id, cls.STEP3_TYPES),
                 'step4': cls._check_step4(case_id),
                 'step5': cls._check_step5(case_id),
             }
@@ -53,147 +60,67 @@ class PipelineStatusService:
         except Exception as e:
             logger.error(f"Error getting pipeline status for case {case_id}: {e}")
             return {
-                'step1': {'complete': False, 'entity_count': 0},
-                'step2': {'complete': False, 'entity_count': 0},
-                'step3': {'complete': False, 'entity_count': 0},
+                'step1': {'complete': False, 'facts_complete': False, 'discussion_complete': False},
+                'step2': {'complete': False, 'facts_complete': False, 'discussion_complete': False},
+                'step3': {'complete': False},
                 'step4': {'complete': False, 'has_provisions': False, 'has_qa': False},
                 'step5': {'complete': False, 'has_scenario': False},
             }
 
     @classmethod
-    def _check_step1(cls, case_id: int) -> Dict[str, Any]:
-        """Check if Step 1 (Contextual Framework) has been run.
+    def _check_extraction_step(cls, case_id: int, extraction_types: tuple) -> Dict[str, Any]:
+        """Check if an extraction step has completed by looking for RDF entities.
 
-        Also tracks section-level completion (facts vs discussion).
+        Uses entity existence (not just prompts) to confirm extraction succeeded.
+        Joins to prompts via extraction_session_id to get reliable section_type.
         """
-        # Overall count
-        query = text("""
+        # Overall count - do we have any entities for this step?
+        total_query = text("""
             SELECT COUNT(*) as count
             FROM temporary_rdf_storage
             WHERE case_id = :case_id
             AND extraction_type IN :types
         """)
-        result = db.session.execute(
-            query,
-            {'case_id': case_id, 'types': tuple(cls.PASS1_TYPES)}
+        total_result = db.session.execute(
+            total_query,
+            {'case_id': case_id, 'types': extraction_types}
         ).fetchone()
-        count = result.count if result else 0
+        total_count = total_result.count if total_result else 0
 
-        # Facts section count (section_type is stored in provenance_metadata JSONB)
+        # Facts section - join to prompts to get section_type
         facts_query = text("""
-            SELECT COUNT(*) as count
-            FROM temporary_rdf_storage
-            WHERE case_id = :case_id
-            AND extraction_type IN :types
-            AND provenance_metadata->>'section_type' = 'facts'
+            SELECT COUNT(DISTINCT r.id) as count
+            FROM temporary_rdf_storage r
+            JOIN extraction_prompts p ON r.extraction_session_id = p.extraction_session_id
+            WHERE r.case_id = :case_id
+            AND r.extraction_type IN :types
+            AND p.section_type = 'facts'
         """)
         facts_result = db.session.execute(
             facts_query,
-            {'case_id': case_id, 'types': tuple(cls.PASS1_TYPES)}
+            {'case_id': case_id, 'types': extraction_types}
         ).fetchone()
         facts_count = facts_result.count if facts_result else 0
 
-        # Discussion section count
+        # Discussion section - join to prompts to get section_type
         discussion_query = text("""
-            SELECT COUNT(*) as count
-            FROM temporary_rdf_storage
-            WHERE case_id = :case_id
-            AND extraction_type IN :types
-            AND provenance_metadata->>'section_type' = 'discussion'
+            SELECT COUNT(DISTINCT r.id) as count
+            FROM temporary_rdf_storage r
+            JOIN extraction_prompts p ON r.extraction_session_id = p.extraction_session_id
+            WHERE r.case_id = :case_id
+            AND r.extraction_type IN :types
+            AND p.section_type = 'discussion'
         """)
         discussion_result = db.session.execute(
             discussion_query,
-            {'case_id': case_id, 'types': tuple(cls.PASS1_TYPES)}
+            {'case_id': case_id, 'types': extraction_types}
         ).fetchone()
         discussion_count = discussion_result.count if discussion_result else 0
 
         return {
-            'complete': count > 0,
-            'entity_count': count,
+            'complete': total_count > 0,
             'facts_complete': facts_count > 0,
-            'facts_count': facts_count,
-            'discussion_complete': discussion_count > 0,
-            'discussion_count': discussion_count
-        }
-
-    @classmethod
-    def _check_step2(cls, case_id: int) -> Dict[str, Any]:
-        """Check if Step 2 (Normative Requirements) has been run.
-
-        Also tracks section-level completion (facts vs discussion).
-        Note: For backwards compatibility, NULL section_type is treated as 'facts'
-        since older extractions didn't track section_type.
-        """
-        # Overall count
-        query = text("""
-            SELECT COUNT(*) as count
-            FROM temporary_rdf_storage
-            WHERE case_id = :case_id
-            AND extraction_type IN :types
-        """)
-        result = db.session.execute(
-            query,
-            {'case_id': case_id, 'types': tuple(cls.PASS2_TYPES)}
-        ).fetchone()
-        count = result.count if result else 0
-
-        # Facts section count (section_type is stored in provenance_metadata JSONB)
-        # Treat NULL section_type as 'facts' for backwards compatibility
-        facts_query = text("""
-            SELECT COUNT(*) as count
-            FROM temporary_rdf_storage
-            WHERE case_id = :case_id
-            AND extraction_type IN :types
-            AND (provenance_metadata->>'section_type' = 'facts'
-                 OR provenance_metadata->>'section_type' IS NULL)
-        """)
-        facts_result = db.session.execute(
-            facts_query,
-            {'case_id': case_id, 'types': tuple(cls.PASS2_TYPES)}
-        ).fetchone()
-        facts_count = facts_result.count if facts_result else 0
-
-        # Discussion section count
-        discussion_query = text("""
-            SELECT COUNT(*) as count
-            FROM temporary_rdf_storage
-            WHERE case_id = :case_id
-            AND extraction_type IN :types
-            AND provenance_metadata->>'section_type' = 'discussion'
-        """)
-        discussion_result = db.session.execute(
-            discussion_query,
-            {'case_id': case_id, 'types': tuple(cls.PASS2_TYPES)}
-        ).fetchone()
-        discussion_count = discussion_result.count if discussion_result else 0
-
-        return {
-            'complete': count > 0,
-            'entity_count': count,
-            'facts_complete': facts_count > 0,
-            'facts_count': facts_count,
-            'discussion_complete': discussion_count > 0,
-            'discussion_count': discussion_count
-        }
-
-    @classmethod
-    def _check_step3(cls, case_id: int) -> Dict[str, Any]:
-        """Check if Step 3 (Temporal Dynamics) has been run."""
-        query = text("""
-            SELECT COUNT(*) as count
-            FROM temporary_rdf_storage
-            WHERE case_id = :case_id
-            AND extraction_type IN :types
-        """)
-        result = db.session.execute(
-            query,
-            {'case_id': case_id, 'types': tuple(cls.PASS3_TYPES)}
-        ).fetchone()
-
-        count = result.count if result else 0
-        return {
-            'complete': count > 0,
-            'entity_count': count
+            'discussion_complete': discussion_count > 0
         }
 
     @classmethod

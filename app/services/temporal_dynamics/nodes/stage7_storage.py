@@ -307,6 +307,7 @@ def _save_extraction_summary(case_id: int, state: Dict) -> None:
         llm_model = llm_trace[0].get('model', 'claude-opus-4-1-20250805') if llm_trace else 'unknown'
 
         # Save to extraction_prompts table
+        # Use section_type='temporal' to match Step 3 page expectations
         ExtractionPrompt.save_prompt(
             case_id=case_id,
             concept_type='actions_events',
@@ -314,7 +315,7 @@ def _save_extraction_summary(case_id: int, state: Dict) -> None:
             raw_response=combined_response,
             step_number=3,
             llm_model=llm_model,
-            section_type='facts'
+            section_type='temporal'
         )
 
         logger.info(f"[Stage 7] Saved extraction summary to extraction_prompts for Step 3 display")

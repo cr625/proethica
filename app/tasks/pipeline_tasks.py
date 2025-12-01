@@ -46,8 +46,8 @@ STEP1_ENTITY_TYPES = ['roles', 'states', 'resources']
 # Step 2: Pass 2 Extraction (principles, obligations, constraints, capabilities)
 STEP2_ENTITY_TYPES = ['principles', 'obligations', 'constraints', 'capabilities']
 
-# Step 3: Pass 3 Extraction (actions/events combined)
-STEP3_ENTITY_TYPES = ['actions_events']
+# Step 3: Pass 3 Extraction (actions and events separately)
+STEP3_ENTITY_TYPES = ['actions', 'events']
 
 
 def get_case_sections(case_id: int) -> dict:
@@ -135,6 +135,14 @@ def run_extraction(extractor_class, case_text: str, case_id: int,
         classes, individuals = extractor.extract_dual_capabilities(
             case_text=case_text, case_id=case_id, section_type=section_type
         )
+    elif entity_type == 'actions':
+        classes, individuals = extractor.extract_dual_actions(
+            case_text=case_text, case_id=case_id, section_type=section_type
+        )
+    elif entity_type == 'events':
+        classes, individuals = extractor.extract_dual_events(
+            case_text=case_text, case_id=case_id, section_type=section_type
+        )
     elif entity_type == 'actions_events':
         action_classes, action_individuals, event_classes, event_individuals = \
             extractor.extract_dual_actions_events(
@@ -176,9 +184,10 @@ def run_extraction(extractor_class, case_text: str, case_id: int,
                     extraction_session_id=session_id,
                     extraction_type='actions_events',
                     rdf_data=rdf_data,
-                    extraction_model='claude-sonnet-4-20250514'
+                    extraction_model='claude-sonnet-4-20250514',
+                    provenance_data={'section_type': section_type}
                 )
-                logger.info(f"Stored actions_events RDF entities for case {case_id}, session {session_id}")
+                logger.info(f"Stored actions_events RDF entities for case {case_id}, session {session_id}, section_type={section_type}")
         except Exception as e:
             logger.warning(f"Could not store actions_events RDF: {e}")
 
@@ -234,6 +243,10 @@ def run_extraction(extractor_class, case_text: str, case_id: int,
                 rdf_converter.convert_constraints_extraction_to_rdf(raw_data, case_id)
             elif entity_type == 'capabilities':
                 rdf_converter.convert_capabilities_extraction_to_rdf(raw_data, case_id)
+            elif entity_type == 'actions':
+                rdf_converter.convert_actions_extraction_to_rdf(raw_data, case_id)
+            elif entity_type == 'events':
+                rdf_converter.convert_events_extraction_to_rdf(raw_data, case_id)
 
             rdf_data = rdf_converter.get_temporary_triples()
             TemporaryRDFStorage.store_extraction_results(
@@ -241,9 +254,10 @@ def run_extraction(extractor_class, case_text: str, case_id: int,
                 extraction_session_id=session_id,
                 extraction_type=entity_type,
                 rdf_data=rdf_data,
-                extraction_model='claude-sonnet-4-20250514'
+                extraction_model='claude-sonnet-4-20250514',
+                provenance_data={'section_type': section_type}
             )
-            logger.info(f"Stored {entity_type} RDF entities for case {case_id}, session {session_id}")
+            logger.info(f"Stored {entity_type} RDF entities for case {case_id}, session {session_id}, section_type={section_type}")
     except Exception as e:
         logger.warning(f"Could not store {entity_type} RDF: {e}")
 
@@ -292,6 +306,12 @@ def get_extractor_class(entity_type: str):
     elif entity_type == 'actions_events':
         from app.services.extraction.dual_actions_events_extractor import DualActionsEventsExtractor
         return DualActionsEventsExtractor
+    elif entity_type == 'actions':
+        from app.services.extraction.dual_actions_extractor import DualActionsExtractor
+        return DualActionsExtractor
+    elif entity_type == 'events':
+        from app.services.extraction.dual_events_extractor import DualEventsExtractor
+        return DualEventsExtractor
     else:
         raise ValueError(f"Unknown entity type: {entity_type}")
 
@@ -417,7 +437,17 @@ def run_step3_task(self, run_id: int):
     """
     Execute Step 3 (Pass 3) extraction for a case.
 
-    Extracts actions and events with temporal relationships.
+    Uses the full 7-stage enhanced temporal dynamics LangGraph:
+    - Stage 1: Section analysis (combine facts + discussion)
+    - Stage 2: Temporal marker extraction
+    - Stage 3: Action extraction (volitional decisions)
+    - Stage 4: Event extraction (occurrences)
+    - Stage 5: Causal chain analysis (NESS test, responsibility)
+    - Stage 6: Temporal sequencing (timeline, Allen relations)
+    - Stage 7: RDF storage (actions, events, causal_chains, timeline)
+
+    This is the same extraction pipeline used by the UI, but runs
+    synchronously without SSE streaming.
 
     Args:
         run_id: PipelineRun ID
@@ -425,7 +455,7 @@ def run_step3_task(self, run_id: int):
     Returns:
         dict with extraction results
     """
-    logger.info(f"[Task {self.request.id}] Starting Step 3 for run {run_id}")
+    logger.info(f"[Task {self.request.id}] Starting Step 3 (Enhanced Temporal) for run {run_id}")
 
     run = PipelineRun.query.get(run_id)
     if not run:
@@ -437,20 +467,130 @@ def run_step3_task(self, run_id: int):
     db.session.commit()
 
     try:
-        sections = get_case_sections(run.case_id)
-        # Step 3 typically uses combined text or facts
-        case_text = sections['facts'] + "\n\n" + sections['discussion']
+        # Import the LangGraph builder
+        from app.services.temporal_dynamics import build_temporal_dynamics_graph
+        from app.services.case_entity_storage_service import CaseEntityStorageService
 
-        extractor_class = get_extractor_class('actions_events')
-        results = run_extraction(
-            extractor_class, case_text, run.case_id, 'combined', 'actions_events',
-            step_number=3
+        # Get case sections
+        sections = get_case_sections(run.case_id)
+        facts_text = sections.get('facts', '')
+        discussion_text = sections.get('discussion', '')
+
+        if not facts_text:
+            raise ValueError(f"No facts section found for case {run.case_id}")
+
+        logger.info(f"[Task {self.request.id}] Facts: {len(facts_text)} chars, Discussion: {len(discussion_text)} chars")
+
+        # Auto-clear uncommitted Pass 3 entities before running new extraction
+        run.current_step = "Clearing previous extraction"
+        db.session.commit()
+
+        clear_result = CaseEntityStorageService.clear_extraction_pass(
+            case_id=run.case_id,
+            extraction_pass='pass3'
         )
+        if clear_result.get('success'):
+            cleared_count = clear_result.get('entities_cleared', 0) + clear_result.get('prompts_cleared', 0)
+            if cleared_count > 0:
+                logger.info(f"[Task {self.request.id}] Auto-cleared {cleared_count} uncommitted entities/prompts")
+        else:
+            logger.warning(f"[Task {self.request.id}] Auto-clear failed: {clear_result.get('error', 'Unknown')}")
+
+        # Initialize state for LangGraph (same as step3_enhanced.py)
+        from datetime import datetime as dt
+        initial_state = {
+            'case_id': run.case_id,
+            'facts_text': facts_text,
+            'discussion_text': discussion_text,
+            'extraction_session_id': str(uuid.uuid4()),
+            'unified_narrative': {},
+            'temporal_markers': {},
+            'actions': [],
+            'events': [],
+            'causal_chains': [],
+            'timeline': {},
+            'current_stage': '',
+            'progress_percentage': 0,
+            'stage_messages': [],
+            'errors': [],
+            'start_time': dt.utcnow().isoformat(),
+            'end_time': '',
+            'llm_trace': []
+        }
+
+        # Build and run the LangGraph synchronously
+        run.current_step = "Building temporal dynamics graph"
+        db.session.commit()
+
+        logger.info(f"[Task {self.request.id}] Building LangGraph for enhanced temporal extraction")
+        graph = build_temporal_dynamics_graph()
+
+        # Run the graph synchronously with streaming to track progress
+        run.current_step = "Running 7-stage temporal extraction"
+        db.session.commit()
+
+        results = {
+            'actions': 0,
+            'events': 0,
+            'causal_chains': 0,
+            'allen_relations': 0,
+            'stages_completed': []
+        }
+
+        logger.info(f"[Task {self.request.id}] Starting LangGraph execution")
+
+        # Use stream() to get updates and track progress
+        for chunk in graph.stream(initial_state, stream_mode="updates"):
+            for node_name, updates in chunk.items():
+                stage = updates.get('current_stage', '')
+                progress = updates.get('progress_percentage', 0)
+                messages = updates.get('stage_messages', [])
+                errors = updates.get('errors', [])
+
+                # Update pipeline run status with current stage
+                if stage:
+                    run.current_step = f"Stage: {stage} ({progress}%)"
+                    db.session.commit()
+
+                logger.info(f"[Task {self.request.id}] {node_name}: {stage} - {progress}%")
+
+                if messages:
+                    for msg in messages:
+                        logger.info(f"[Task {self.request.id}] {msg}")
+
+                if errors:
+                    for err in errors:
+                        logger.error(f"[Task {self.request.id}] Stage error: {err}")
+
+                # Track completed stages
+                if stage:
+                    results['stages_completed'].append(stage)
+
+                # Extract counts from final storage stage
+                if node_name == 'store_rdf_node':
+                    # Parse the storage message for counts
+                    for msg in messages:
+                        if 'Stored' in msg:
+                            # Parse: "Stored X actions, Y events, Z causal chains..."
+                            import re
+                            action_match = re.search(r'(\d+) actions', msg)
+                            event_match = re.search(r'(\d+) events', msg)
+                            chain_match = re.search(r'(\d+) causal chains', msg)
+                            allen_match = re.search(r'(\d+) Allen relations', msg)
+
+                            if action_match:
+                                results['actions'] = int(action_match.group(1))
+                            if event_match:
+                                results['events'] = int(event_match.group(1))
+                            if chain_match:
+                                results['causal_chains'] = int(chain_match.group(1))
+                            if allen_match:
+                                results['allen_relations'] = int(allen_match.group(1))
 
         run.mark_step_complete(step_name, results)
         db.session.commit()
 
-        logger.info(f"[Task {self.request.id}] Step 3 completed: {results}")
+        logger.info(f"[Task {self.request.id}] Step 3 (Enhanced Temporal) completed: {results}")
         return {'success': True, 'step': step_name, 'results': results}
 
     except Exception as e:
@@ -550,6 +690,106 @@ def run_full_pipeline_task(self, case_id: int, config: dict = None, user_id: int
             'run_id': run_id,
             'case_id': case_id,
             'error': str(e)
+        }
+
+
+@celery.task(bind=True, name='proethica.tasks.resume_pipeline')
+def resume_pipeline_task(self, run_id: int):
+    """
+    Resume a failed pipeline from the failed step.
+
+    This allows continuing a pipeline that failed due to transient errors
+    (like API timeouts) without re-running completed steps.
+
+    Args:
+        run_id: PipelineRun ID to resume
+
+    Returns:
+        dict with results
+    """
+    logger.info(f"[Task {self.request.id}] Resuming pipeline run {run_id}")
+
+    run = PipelineRun.query.get(run_id)
+    if not run:
+        raise ValueError(f"Run {run_id} not found")
+
+    if run.status != PIPELINE_STATUS['FAILED']:
+        raise ValueError(f"Can only resume failed runs (current status: {run.status})")
+
+    # Get the failed step
+    failed_step = run.error_step or run.current_step
+    if not failed_step:
+        raise ValueError("No failed step recorded - cannot resume")
+
+    # Clear error and update status
+    run.error_message = None
+    run.error_step = None
+    run.retry_count = (run.retry_count or 0) + 1
+    run.set_status(PIPELINE_STATUS['RUNNING'])
+    db.session.commit()
+
+    logger.info(f"[Task {self.request.id}] Resuming from step: {failed_step} (retry #{run.retry_count})")
+
+    try:
+        # Determine which steps to run based on what failed
+        completed = set(run.steps_completed or [])
+
+        # Step 1 facts
+        if 'step1_facts' not in completed:
+            logger.info(f"[Task {self.request.id}] Running Step 1 facts...")
+            run_step1_task.apply(args=[run_id, 'facts'])
+
+        # Step 1 discussion
+        if 'step1_discussion' not in completed:
+            logger.info(f"[Task {self.request.id}] Running Step 1 discussion...")
+            run_step1_task.apply(args=[run_id, 'discussion'])
+
+        # Step 2 facts
+        if 'step2_facts' not in completed:
+            logger.info(f"[Task {self.request.id}] Running Step 2 facts...")
+            run_step2_task.apply(args=[run_id, 'facts'])
+
+        # Step 2 discussion
+        if 'step2_discussion' not in completed:
+            logger.info(f"[Task {self.request.id}] Running Step 2 discussion...")
+            run_step2_task.apply(args=[run_id, 'discussion'])
+
+        # Step 3
+        if 'step3' not in completed:
+            logger.info(f"[Task {self.request.id}] Running Step 3...")
+            run_step3_task.apply(args=[run_id])
+
+        # Mark as completed
+        run = PipelineRun.query.get(run_id)
+        run.set_status(PIPELINE_STATUS['COMPLETED'])
+        db.session.commit()
+
+        logger.info(f"[Task {self.request.id}] Pipeline resumed and completed for run {run_id}")
+
+        return {
+            'success': True,
+            'run_id': run_id,
+            'case_id': run.case_id,
+            'steps_completed': run.steps_completed,
+            'retry_count': run.retry_count,
+            'duration_seconds': run.duration_seconds
+        }
+
+    except Exception as e:
+        logger.error(f"[Task {self.request.id}] Resume failed for run {run_id}: {e}", exc_info=True)
+
+        # Mark as failed again
+        run = PipelineRun.query.get(run_id)
+        if run:
+            run.set_error(str(e))
+            db.session.commit()
+
+        return {
+            'success': False,
+            'run_id': run_id,
+            'case_id': run.case_id if run else None,
+            'error': str(e),
+            'retry_count': run.retry_count if run else None
         }
 
 
