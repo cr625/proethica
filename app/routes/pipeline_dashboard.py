@@ -33,6 +33,7 @@ def init_pipeline_csrf_exemption(app):
         app.csrf.exempt(api_retry_run)
         app.csrf.exempt(api_cancel_run)
         app.csrf.exempt(api_service_status)
+        app.csrf.exempt(api_reprocess_case)
 
 
 # Web Pages
@@ -613,3 +614,96 @@ def api_cancel_run(run_id):
             'message': f'Pipeline run {run_id} marked as cancelled (task revocation may have failed)',
             'warning': str(e)
         })
+
+
+@pipeline_bp.route('/api/reprocess/<int:case_id>', methods=['POST'])
+def api_reprocess_case(case_id):
+    """
+    Reprocess a case from scratch, clearing existing extractions.
+
+    This allows re-running the pipeline on a completed case to test new changes.
+
+    Options (via JSON body):
+        - clear_committed: If true, also clears committed entities (default: true)
+        - clear_prompts: If true, clears extraction prompts (default: true)
+
+    Args:
+        case_id: Case ID to reprocess
+
+    Returns:
+        JSON with reprocessing result and new task ID
+    """
+    from app.models.temporary_rdf_storage import TemporaryRDFStorage
+    from app.models.extraction_prompt import ExtractionPrompt
+
+    # Verify case exists
+    case = Document.query.get(case_id)
+    if not case:
+        return jsonify({'error': f'Case {case_id} not found'}), 404
+
+    data = request.get_json() or {}
+    clear_committed = data.get('clear_committed', True)
+    clear_prompts = data.get('clear_prompts', True)
+    config = data.get('config', {})
+
+    cleared_stats = {
+        'rdf_entities': 0,
+        'extraction_prompts': 0,
+        'previous_runs': 0
+    }
+
+    try:
+        # Clear RDF entities
+        if clear_committed:
+            # Clear ALL entities for this case
+            deleted = TemporaryRDFStorage.query.filter_by(case_id=case_id).delete()
+            cleared_stats['rdf_entities'] = deleted
+            logger.info(f"Cleared {deleted} RDF entities (including committed) for case {case_id}")
+        else:
+            # Only clear uncommitted
+            deleted = TemporaryRDFStorage.query.filter_by(
+                case_id=case_id,
+                is_committed=False
+            ).delete()
+            cleared_stats['rdf_entities'] = deleted
+            logger.info(f"Cleared {deleted} uncommitted RDF entities for case {case_id}")
+
+        # Clear extraction prompts
+        if clear_prompts:
+            deleted = ExtractionPrompt.query.filter_by(case_id=case_id).delete()
+            cleared_stats['extraction_prompts'] = deleted
+            logger.info(f"Cleared {deleted} extraction prompts for case {case_id}")
+
+        # Mark previous runs as superseded (don't delete, keep history)
+        previous_runs = PipelineRun.query.filter_by(case_id=case_id).all()
+        for run in previous_runs:
+            if run.status not in ['superseded']:
+                run.status = 'superseded'
+                cleared_stats['previous_runs'] += 1
+
+        db.session.commit()
+
+        # Start new pipeline
+        from app.tasks.pipeline_tasks import run_full_pipeline_task
+
+        result = run_full_pipeline_task.delay(
+            case_id=case_id,
+            config=config
+        )
+
+        logger.info(f"Reprocessing case {case_id}: cleared {cleared_stats}, new task {result.id}")
+
+        return jsonify({
+            'success': True,
+            'message': f'Reprocessing case {case_id}',
+            'task_id': result.id,
+            'cleared': cleared_stats
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error reprocessing case {case_id}: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500

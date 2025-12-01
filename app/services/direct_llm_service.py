@@ -53,20 +53,20 @@ class DirectLLMService:
         else:
             logger.warning("⚠️ OpenAI API key not configured")
             
-        # Initialize Gemini
+        # Initialize Gemini (optional - only if explicitly enabled)
+        # Gemini is not used in the current pipeline, so skip unless configured
+        enable_gemini = os.environ.get("ENABLE_GEMINI", "false").lower() == "true"
         google_key = os.environ.get("GOOGLE_API_KEY")
-        if google_key and not google_key.startswith("your-"):
+        if enable_gemini and google_key and not google_key.startswith("your-"):
             try:
                 import google.generativeai as genai
                 genai.configure(api_key=google_key)
                 self.gemini_client = genai.GenerativeModel('gemini-1.5-flash')
-                logger.info("✅ Gemini client initialized successfully")
+                logger.info("Gemini client initialized successfully")
             except ImportError:
-                logger.error("❌ Google GenerativeAI library not installed")
+                logger.debug("Gemini library not installed (optional)")
             except Exception as e:
-                logger.error(f"❌ Failed to initialize Gemini client: {e}")
-        else:
-            logger.warning("⚠️ Gemini API key not configured")
+                logger.debug(f"Gemini initialization skipped: {e}")
     
     def send_message_with_context(self, 
                                  message: str,

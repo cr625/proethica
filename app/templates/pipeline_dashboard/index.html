@@ -231,7 +231,15 @@
                                             data-run-id="{{ run.id }}"
                                             data-failed-step="{{ run.error_step or run.current_step }}"
                                             data-steps-completed="{{ (run.steps_completed or [])|length }}">
-                                        Resume from {{ run.error_step or run.current_step or 'failed step' }}
+                                        Resume
+                                    </button>
+                                    {% endif %}
+                                    {% if run.status in ['completed', 'failed', 'cancelled', 'superseded'] %}
+                                    <button class="btn btn-sm btn-outline-primary reprocess-btn"
+                                            data-case-id="{{ run.case_id }}"
+                                            data-run-status="{{ run.status }}"
+                                            title="Clear all data and reprocess from scratch">
+                                        Reprocess
                                     </button>
                                     {% endif %}
                                     <button class="btn btn-sm btn-outline-info details-btn" data-run-id="{{ run.id }}">
@@ -456,6 +464,54 @@ document.addEventListener('DOMContentLoaded', function() {
                 alert('Error: ' + e.message);
                 this.disabled = false;
                 this.textContent = 'Resume';
+            }
+        });
+    });
+
+    // Reprocess button
+    document.querySelectorAll('.reprocess-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const caseId = this.dataset.caseId;
+            const runStatus = this.dataset.runStatus;
+
+            const msg = `Reprocess Case ${caseId} from scratch?\n\n` +
+                        `This will:\n` +
+                        `- Clear ALL extracted entities (including committed)\n` +
+                        `- Clear all extraction prompts\n` +
+                        `- Mark previous runs as superseded\n` +
+                        `- Start a fresh pipeline run\n\n` +
+                        `Previous status: ${runStatus}`;
+
+            if (!confirm(msg)) return;
+
+            this.disabled = true;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+            try {
+                const response = await fetch(`/pipeline/api/reprocess/${caseId}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({clear_committed: true, clear_prompts: true})
+                });
+                const data = await response.json();
+                if (data.success) {
+                    const cleared = data.cleared || {};
+                    alert(`Reprocessing started!\n\n` +
+                          `Cleared:\n` +
+                          `- ${cleared.rdf_entities || 0} RDF entities\n` +
+                          `- ${cleared.extraction_prompts || 0} prompts\n` +
+                          `- ${cleared.previous_runs || 0} previous runs marked superseded\n\n` +
+                          `New task: ${data.task_id}`);
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.error);
+                    this.disabled = false;
+                    this.textContent = 'Reprocess';
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+                this.disabled = false;
+                this.textContent = 'Reprocess';
             }
         });
     });

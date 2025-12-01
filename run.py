@@ -38,6 +38,62 @@ def check_mcp_server(host='localhost', port=8082):
     except:
         return False
 
+
+def check_redis(host='localhost', port=6379, db=1):
+    """Check if Redis is running and accessible."""
+    try:
+        import redis
+        r = redis.Redis(host=host, port=port, db=db, socket_timeout=2)
+        r.ping()
+        info = r.info('server')
+        return True, info.get('redis_version', 'unknown')
+    except ImportError:
+        return False, "redis library not installed"
+    except Exception as e:
+        return False, str(e)
+
+
+def check_celery_worker():
+    """Check if Celery worker is running."""
+    try:
+        # Check for celery process
+        result = subprocess.run(
+            ['pgrep', '-f', 'celery.*worker'],
+            capture_output=True,
+            timeout=5
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
+def check_pipeline_services():
+    """Check all pipeline-related services and log their status."""
+    logger.info("=" * 50)
+    logger.info("Pipeline Service Status Check")
+    logger.info("=" * 50)
+
+    # Check Redis
+    redis_ok, redis_info = check_redis()
+    if redis_ok:
+        logger.info(f"  Redis: Connected (v{redis_info})")
+    else:
+        logger.warning(f"  Redis: NOT CONNECTED - {redis_info}")
+        logger.warning("    Pipeline automation will not work without Redis!")
+        logger.warning("    Start Redis with: sudo service redis-server start")
+
+    # Check Celery (warning only - it might start later)
+    celery_ok = check_celery_worker()
+    if celery_ok:
+        logger.info("  Celery: Worker running")
+    else:
+        logger.info("  Celery: No worker detected (start separately if needed)")
+        logger.info("    Start Celery with: celery -A celery_config worker --loglevel=info")
+
+    logger.info("=" * 50)
+
+    return redis_ok
+
 def start_mcp_server():
     """Attempt to start the OntServe MCP server."""
     try:
@@ -104,9 +160,12 @@ def start_mcp_server():
 
 def main():
     """Main entry point for the ProEthica application."""
+    # Check pipeline services (Redis, Celery)
+    check_pipeline_services()
+
     # Check if MCP server integration should be skipped entirely
     skip_mcp = os.environ.get('SKIP_MCP', 'false').lower() == 'true'
-    
+
     if skip_mcp:
         logger.info("MCP server integration disabled (SKIP_MCP=true)")
         os.environ['ONTSERVE_MCP_ENABLED'] = 'false'
