@@ -506,6 +506,16 @@
             <div class="row mb-5">
                 <div class="col-12">
                     <h5 class="mb-3">{{ concept_type|title }} Individuals</h5>
+
+                    {# Show message if individuals exist but no new classes were extracted #}
+                    {% if type_data.individuals and not type_data.classes %}
+                    <div class="alert alert-light border mb-3">
+                        <i class="bi bi-info-circle text-info"></i>
+                        <strong>No new {{ concept_type }} classes were discovered</strong> - the {{ type_data.individuals|length }} individual(s) below reference existing classes from the ontology.
+                        <br/><small class="text-muted">Each individual's rdf:type shows which existing class it belongs to.</small>
+                    </div>
+                    {% endif %}
+
                     <div class="card border-info shadow-sm">
                         <div class="card-header bg-info text-white">
                             <div class="d-flex justify-content-between align-items-center">
@@ -803,25 +813,40 @@
                             </h4>
                         </div>
                         <div class="card-body">
-                            <div class="alert alert-info">
+                            <div class="alert alert-info mb-3">
                                 <i class="bi bi-info-circle"></i>
-                                {% if section_type == 'facts' %}
-                                <strong>No new {{ concept_type }} classes were found in the facts section.</strong>
-                                <p class="mb-0 mt-2">This could mean:</p>
-                                <ul class="mb-0">
-                                    <li>All {{ concept_type }} classes in the facts section were already present in the ontology</li>
-                                    <li>Individuals corresponding to those {{ concept_type }} classes should be displayed above</li>
-                                </ul>
-                                {% else %}
-                                <strong>No new {{ concept_type }} classes were found in this section.</strong>
-                                <p class="mb-0 mt-2">This could mean:</p>
-                                <ul class="mb-0">
-                                    <li>All {{ concept_type }} classes were already captured in the Facts section</li>
-                                    <li>The LLM determined no new {{ concept_type }} types appear in this section</li>
-                                    <li>Check the Facts section entities if you expected to see {{ concept_type }} here</li>
-                                </ul>
-                                {% endif %}
+                                <strong>No new {{ concept_type }} were extracted for this section.</strong>
+                                <p class="mb-0 mt-2">The extraction did not find any {{ concept_type }} to add. This typically means the case text doesn't contain relevant {{ concept_type }} for this section, or extraction hasn't been run yet.</p>
                             </div>
+
+                            {% if ontserve_classes and ontserve_classes[concept_type] %}
+                            <!-- Show existing classes from OntServe -->
+                            <div class="mt-3">
+                                <h6 class="text-muted">
+                                    <i class="bi bi-database"></i> Existing {{ concept_type|title }} in Ontology ({{ ontserve_classes[concept_type]|length }})
+                                </h6>
+                                <p class="small text-muted">These {{ concept_type }} already exist in OntServe. When extraction runs, individuals may reference these existing classes.</p>
+                                <div class="existing-classes-list" style="max-height: 200px; overflow-y: auto;">
+                                    <div class="row">
+                                    {% for cls in ontserve_classes[concept_type][:12] %}
+                                        <div class="col-md-6 mb-2">
+                                            <div class="card border-light">
+                                                <div class="card-body py-2 px-3">
+                                                    <strong class="small">{{ cls.label }}</strong>
+                                                    {% if cls.description %}
+                                                    <br/><small class="text-muted">{{ cls.description[:80] }}{% if cls.description|length > 80 %}...{% endif %}</small>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                    </div>
+                                    {% if ontserve_classes[concept_type]|length > 12 %}
+                                    <p class="small text-muted mt-2">...and {{ ontserve_classes[concept_type]|length - 12 }} more</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
                 </div>

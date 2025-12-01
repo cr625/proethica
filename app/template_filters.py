@@ -5,6 +5,7 @@ Custom template filters for the application.
 import os
 import re
 import markdown
+from datetime import datetime
 from flask import current_app
 from markupsafe import Markup
 from app.services.concept_hierarchy_service import ConceptHierarchyService
@@ -160,5 +161,45 @@ def init_app(app):
         
         color_class = type_colors.get(primary_type, 'bg-secondary')
         display_type = primary_type.capitalize() if primary_type else 'Concept'
-        
+
         return Markup(f'<span class="badge {color_class}">{display_type}</span>')
+
+    @app.template_filter('localtime')
+    def localtime_filter(dt, format='full'):
+        """
+        Convert a UTC datetime to a span that JavaScript will convert to local time.
+
+        Usage in templates:
+            {{ some_datetime | localtime }}           -> Full datetime
+            {{ some_datetime | localtime('short') }} -> Short format (date only)
+            {{ some_datetime | localtime('time') }}  -> Time only
+
+        The span contains data-utc attribute with ISO timestamp.
+        JavaScript in base.html converts these to local timezone on page load.
+
+        Args:
+            dt: datetime object (assumed to be UTC)
+            format: 'full' (default), 'short' (date only), 'time' (time only)
+
+        Returns:
+            HTML span element with data-utc attribute
+        """
+        if not dt:
+            return ''
+
+        # Handle both datetime objects and strings
+        if isinstance(dt, str):
+            try:
+                dt = datetime.fromisoformat(dt.replace('Z', '+00:00'))
+            except ValueError:
+                return dt  # Return as-is if we can't parse
+
+        # Format as ISO with Z suffix to indicate UTC
+        iso_timestamp = dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+        # Fallback display (shown briefly before JS runs, or if JS disabled)
+        fallback = dt.strftime('%Y-%m-%d %H:%M') + ' UTC'
+
+        return Markup(
+            f'<span class="local-time" data-utc="{iso_timestamp}" data-format="{format}">{fallback}</span>'
+        )

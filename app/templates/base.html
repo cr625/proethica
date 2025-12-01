@@ -167,6 +167,9 @@
                                     <li><a class="dropdown-item" href="/tools/provenance">
                                             <i class="bi bi-diagram-3 me-2"></i>Provenance Viewer
                                         </a></li>
+                                    <li><a class="dropdown-item" href="/tools/references">
+                                            <i class="bi bi-journal-bookmark me-2"></i>References
+                                        </a></li>
                                     {% if current_user and current_user.is_authenticated and current_user.is_admin %}
                                     <li><hr class="dropdown-divider"></li>
                                     <li><h6 class="dropdown-header">Admin Tools</h6></li>
@@ -282,6 +285,29 @@
             window.appFetch = appFetch;
         })();
     </script>
+
+    <!-- UTC to Local Time Conversion -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.local-time').forEach(function(el) {
+                const utc = el.dataset.utc;
+                const format = el.dataset.format || 'full';
+                if (utc) {
+                    const date = new Date(utc);
+                    let formatted;
+                    if (format === 'short') {
+                        formatted = date.toLocaleDateString();
+                    } else if (format === 'time') {
+                        formatted = date.toLocaleTimeString();
+                    } else {
+                        formatted = date.toLocaleString();
+                    }
+                    el.textContent = formatted;
+                }
+            });
+        });
+    </script>
+
     {% block scripts %}
     <script>
         function toggleDescription(worldId) {

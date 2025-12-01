@@ -102,79 +102,50 @@
 
 <!-- Synthesis Control Card -->
 <div class="card mb-4">
-    <div class="card-header">
+    <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">
             <i class="bi bi-gear"></i> Whole-Case Synthesis
         </h5>
-    </div>
-    <div class="card-body">
-        <!-- Warning banner if synthesis has been run before -->
-        <div id="synthesis-warning-banner" class="alert alert-warning" style="display: none;">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h6 class="mb-1"><i class="bi bi-exclamation-triangle"></i> Previous Synthesis Detected</h6>
-                    <p class="mb-0 small">
-                        Whole-case synthesis has already been run for this case.
-                        Running synthesis again without clearing will overwrite previous results.
-                    </p>
-                </div>
-                <button id="clear-pass4-btn" class="btn btn-warning btn-sm">
-                    <i class="bi bi-trash"></i> Clear Synthesis Data
-                </button>
-            </div>
-        </div>
-
         {% if synthesis_status.completed %}
-            <div id="synthesis-status-area">
-                <div class="alert alert-success mb-3">
-                    <i class="bi bi-check-circle"></i> Synthesis complete!
-                    <strong>{{ synthesis_status.provisions_count }}</strong> provisions,
-                    <strong>{{ synthesis_status.questions_count }}</strong> questions,
-                    <strong>{{ synthesis_status.conclusions_count }}</strong> conclusions extracted.
-                </div>
-            </div>
-
-            {% if current_user.is_authenticated %}
-            <button type="button" class="btn btn-primary" onclick="runSynthesis()">
-                <i class="bi bi-arrow-repeat"></i> Re-run Synthesis
-            </button>
-            <button id="refreshFromOntServeBtn" class="btn btn-info ms-2">
-                <i class="bi bi-arrow-repeat"></i> Refresh from OntServe
-            </button>
-            {% else %}
-            <button type="button" class="btn btn-secondary" onclick="window.location.href='{{ url_for('auth.login') }}';" title="Login required to run synthesis">
-                <i class="bi bi-lock-fill"></i> Re-run Synthesis (Login Required)
-            </button>
-            {% endif %}
-
-            <a href="{{ url_for('step4.step4_review', case_id=case.id) }}" class="btn btn-success ms-2">
-                <i class="bi bi-clipboard-check"></i> View Step 4 Review
-            </a>
-        {% else %}
-            <div id="synthesis-status-area">
-                <div class="alert alert-info mb-3">
-                    <i class="bi bi-info-circle"></i> Synthesis not yet performed. Click below to start.
-                </div>
-            </div>
-
-            {% if current_user.is_authenticated %}
-            <button type="button" class="btn btn-lg btn-primary" onclick="runSynthesis()">
-                <i class="bi bi-play-circle"></i> Run Whole-Case Synthesis
-            </button>
-            {% else %}
-            <button type="button" class="btn btn-lg btn-secondary" onclick="window.location.href='{{ url_for('auth.login') }}';" title="Login required to run synthesis">
-                <i class="bi bi-lock-fill"></i> Run Whole-Case Synthesis (Login Required)
-            </button>
-            {% endif %}
+        <span class="badge bg-success"><i class="bi bi-check-circle"></i> Complete</span>
         {% endif %}
     </div>
-</div>
+    <div class="card-body py-3">
+        <div id="synthesis-status-area">
+            {% if synthesis_status.completed %}
+            <p class="mb-2">
+                <strong>{{ synthesis_status.provisions_count }}</strong> provisions,
+                <strong>{{ synthesis_status.questions_count }}</strong> questions,
+                <strong>{{ synthesis_status.conclusions_count }}</strong> conclusions extracted.
+                <small class="text-muted">(Re-running will replace these results)</small>
+            </p>
+            {% else %}
+            <p class="text-muted mb-2">Synthesis not yet performed. Click below to start.</p>
+            {% endif %}
+        </div>
 
-<!-- Review Button (Always Visible) -->
-<div class="d-grid gap-2 d-md-flex justify-content-md-center mb-4">
-    <a href="{{ url_for('step4.step4_review', case_id=case.id) }}" class="btn btn-outline-primary">
-        <i class="bi bi-eye"></i> Review Step 4 Synthesis Results
-    </a>
+        {% if current_user.is_authenticated %}
+            {% if synthesis_status.completed %}
+            <button type="button" class="btn btn-outline-primary btn-sm" onclick="runSynthesis()">
+                <i class="bi bi-arrow-repeat"></i> Re-run Synthesis
+            </button>
+            <a href="{{ url_for('step4.step4_review', case_id=case.id) }}" class="btn btn-success btn-sm ms-2">
+                <i class="bi bi-clipboard-check"></i> View Review
+            </a>
+            <button id="clear-pass4-btn" class="btn btn-outline-secondary btn-sm ms-2" title="Clear synthesis data">
+                <i class="bi bi-trash"></i> Clear
+            </button>
+            {% else %}
+            <button type="button" class="btn btn-primary" onclick="runSynthesis()">
+                <i class="bi bi-play-circle"></i> Run Whole-Case Synthesis
+            </button>
+            {% endif %}
+        {% else %}
+            <button type="button" class="btn btn-secondary" onclick="window.location.href='{{ url_for('auth.login') }}';" title="Login required">
+                <i class="bi bi-lock-fill"></i> Login to Run Synthesis
+            </button>
+        {% endif %}
+    </div>
 </div>
 
 <!-- Synthesis Progress Card (Hidden until synthesis starts) -->
@@ -232,6 +203,13 @@
     </div>
 </div>
 
+<!-- Navigation to review page -->
+<div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4">
+    <a href="{{ url_for('step4.step4_review', case_id=case.id) }}" class="btn btn-outline-primary">
+        <i class="bi bi-eye"></i> Review Step 4 Synthesis Results
+    </a>
+</div>
+
 {% endblock %}
 
 {% block step_scripts %}
@@ -245,11 +223,8 @@ let synthesisData = {
     endTime: null
 };
 
-// Check if synthesis has been run before on page load
+// Attach clear button handler on page load
 document.addEventListener('DOMContentLoaded', function() {
-    checkSynthesisStatus();
-
-    // Attach clear button handler
     const clearBtn = document.getElementById('clear-pass4-btn');
     if (clearBtn) {
         clearBtn.addEventListener('click', clearPass4Data);
@@ -258,25 +233,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function getCsrfToken() {
     return document.querySelector('meta[name="csrf-token"]')?.content || '';
-}
-
-function checkSynthesisStatus() {
-    fetch(`/scenario_pipeline/case/${currentCaseId}/entities/check_extraction/pass4`, {
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/json'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success && data.has_been_run) {
-            // Show warning banner
-            document.getElementById('synthesis-warning-banner').style.display = 'block';
-        }
-    })
-    .catch(error => {
-        console.error('Error checking synthesis status:', error);
-    });
 }
 
 function clearPass4Data() {
@@ -465,22 +421,16 @@ function startSynthesisStream() {
             saveSynthesisResults(data).then(() => {
                 addMessage('success', '✓ Results saved successfully');
 
-                // Show warning banner with clear button (synthesis has now been run)
-                const warningBanner = document.getElementById('synthesis-warning-banner');
-                if (warningBanner) {
-                    warningBanner.style.display = 'block';
-                }
-
                 // Update the status message area
                 const statusArea = document.getElementById('synthesis-status-area');
                 if (statusArea) {
                     statusArea.innerHTML = `
-                        <div class="alert alert-success mb-3">
-                            <i class="bi bi-check-circle"></i> Synthesis complete!
+                        <p class="mb-2">
                             <strong>${summary.provisions_count || 0}</strong> provisions,
                             <strong>${summary.questions_count || 0}</strong> questions,
                             <strong>${summary.conclusions_count || 0}</strong> conclusions extracted.
-                        </div>
+                            <small class="text-muted">(Re-running will replace these results)</small>
+                        </p>
                     `;
                 }
 
@@ -759,10 +709,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 <strong>LLM Interactions:</strong> ${summary.llm_interactions || 0}
             </div>
             <div class="col-md-6">
-                <strong>Completed:</strong> {{ saved_synthesis.created_at.strftime('%Y-%m-%d %H:%M') }}
+                <strong>Completed:</strong> <span class="local-time" data-utc="{{ saved_synthesis.created_at.strftime('%Y-%m-%dT%H:%M:%SZ') }}" data-format="full">{{ saved_synthesis.created_at.strftime('%Y-%m-%d %H:%M') }} UTC</span>
             </div>
         </div>
     `;
+
+    // Convert any local-time spans that were just added to the DOM
+    document.querySelectorAll('.local-time').forEach(function(el) {
+        if (el.dataset.utc && !el.dataset.converted) {
+            const date = new Date(el.dataset.utc);
+            el.textContent = date.toLocaleString();
+            el.dataset.converted = 'true';
+        }
+    });
 
     // Parse saved prompts and responses
     const savedPromptText = {{ saved_synthesis.prompt_text | tojson | safe }};
@@ -804,76 +763,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Add status message
-    messagesDiv.innerHTML = '';
-    addMessage('info', 'Loaded saved synthesis results from database');
-    addMessage('success', 'Synthesis completed: {{ saved_synthesis.created_at.strftime('%Y-%m-%d %H:%M') }}');
 });
 {% endif %}
-
-// Refresh from OntServe button handler
-const refreshBtn = document.getElementById('refreshFromOntServeBtn');
-if (refreshBtn) {
-    refreshBtn.addEventListener('click', function() {
-        this.disabled = true;
-        const originalText = this.innerHTML;
-        this.innerHTML = '<i class="bi bi-arrow-repeat"></i> Refreshing...';
-
-        fetch(`/scenario_pipeline/case/${currentCaseId}/entities/refresh_committed`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCsrfToken()
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Show detailed refresh results
-                let message = data.message || 'Refresh completed';
-
-                if (data.result && data.result.details) {
-                    const modified = data.result.details.filter(d => d.status === 'modified').length;
-                    const unchanged = data.result.details.filter(d => d.status === 'unchanged').length;
-                    const notFound = data.result.details.filter(d => d.status === 'not_found').length;
-                    const deleted = data.deleted_count || 0;
-
-                    if (modified > 0) {
-                        message += `\n\nChanges detected:\n`;
-                        data.result.details.filter(d => d.status === 'modified').forEach(entity => {
-                            message += `- ${entity.entity_label}: ${entity.changes ? entity.changes.length : 0} field(s) updated\n`;
-                        });
-                    }
-
-                    if (deleted > 0) {
-                        message += `\n${deleted} entities deleted (not found in OntServe)`;
-                    }
-
-                    if (notFound > 0 && deleted === 0) {
-                        message += `\n⚠ ${notFound} entities not found in OntServe (may have been deleted)`;
-                    }
-                }
-
-                alert(message);
-
-                // Reload the page to show updated data
-                if ((data.result && data.result.modified > 0) || data.deleted_count > 0) {
-                    location.reload();
-                }
-            } else {
-                alert('Error refreshing entities: ' + (data.error || 'Unknown error'));
-            }
-
-            this.disabled = false;
-            this.innerHTML = originalText;
-        })
-        .catch(error => {
-            alert('Error refreshing entities: ' + error.message);
-            this.disabled = false;
-            this.innerHTML = originalText;
-        });
-    });
-}
 
 </script>
 {% endblock %}

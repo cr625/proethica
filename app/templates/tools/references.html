@@ -1,0 +1,402 @@
+{% extends "base.html" %}
+
+{% block title %}References - ProEthica{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-journal-bookmark"></i> References</h2>
+            <p class="text-muted mb-0">Academic sources and theoretical foundations for ProEthica</p>
+        </div>
+    </div>
+
+    <!-- Transformation Classification -->
+    <div class="card mb-4" id="transformation">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="bi bi-arrow-repeat me-2"></i>Transformation Classification</h5>
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <h6>Source</h6>
+                <p class="mb-1">
+                    <strong>Marchais-Roubelat, A. and Roubelat, F. (2015)</strong>
+                </p>
+                <p class="fst-italic mb-2">
+                    "Designing a moving strategic foresight approach: ontological and methodological issues of scenario design"
+                </p>
+                <p class="text-muted mb-0">
+                    <i class="bi bi-journal me-1"></i><em>Foresight</em>, Vol. 17 No. 6, pp. 545-555.
+                    <a href="https://doi.org/10.1108/FS-12-2014-0085" target="_blank" class="ms-2">
+                        <i class="bi bi-box-arrow-up-right"></i> DOI
+                    </a>
+                </p>
+            </div>
+
+            <hr>
+
+            <h6>Transformation Types</h6>
+            <p class="text-muted mb-3">
+                From Table II (p. 550) - "Steering rule" evaluates process transformations to challenge scenario duration.
+            </p>
+
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 15%;">Type</th>
+                            <th style="width: 35%;">Definition (from paper)</th>
+                            <th style="width: 50%;">Application to NSPE Cases</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="badge bg-success">Transfer</span></td>
+                            <td>"Shifts from a scenario set to a new one"</td>
+                            <td>Resolution transfers obligation/responsibility to another party. The ethical burden moves from one stakeholder to another.</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge bg-warning text-dark">Stalemate</span></td>
+                            <td>"Stakeholders cannot quit the scenario, as they seem to be trapped in the set of rules"</td>
+                            <td>Competing obligations remain in tension without clear resolution. Both duties are valid but incompatible.</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge bg-info">Oscillation</span></td>
+                            <td>"Stakeholders go to and fro between different sets of rules"</td>
+                            <td>Duties shift back and forth between parties over time. Responsibility cycles as circumstances change.</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge bg-secondary">Phase Lag</span></td>
+                            <td>"Some stakeholders do not follow the set of rules of the scenario where they are engaged, performing parallel scenarios"</td>
+                            <td>Delayed consequences reveal obligations not initially apparent. Hidden defects or future harms emerge later.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="alert alert-light border mt-3">
+                <h6 class="alert-heading"><i class="bi bi-lightbulb me-2"></i>Context</h6>
+                <p class="mb-0 small">
+                    Marchais-Roubelat and Roubelat's framework comes from strategic foresight methodology,
+                    specifically their "action-based scenarios" approach. ProEthica applies these transformation
+                    types to classify how NSPE Board of Ethical Review cases resolve competing ethical obligations.
+                    The classification helps identify patterns in ethical reasoning that can inform precedent discovery.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 9-Concept Framework -->
+    <div class="card mb-4" id="nine-concept">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0"><i class="bi bi-grid-3x3 me-2"></i>9-Concept Framework D = (R, P, O, S, Rs, A, E, Ca, Cs)</h5>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-light border mb-4">
+                <h6 class="alert-heading">Foundational Works</h6>
+                <ul class="mb-0 small">
+                    <li><strong>McLaren, B.M. (2003)</strong> - Extensional definition of ethical principles through case-based reasoning (SIROCCO system)</li>
+                    <li><strong>Berreby, F. et al. (2017)</strong> - ACE modular architecture for ethical reasoning systems</li>
+                    <li><strong>Tolmeijer, S. et al. (2021)</strong> - Requirements taxonomy for ethical decision-making agents</li>
+                </ul>
+            </div>
+
+            <div class="row">
+                <div class="col-md-4">
+                    <h6>Pass 1: Situational</h6>
+                    <ul class="list-unstyled">
+                        <li><span class="badge bg-primary me-2">R</span> Roles</li>
+                        <li><span class="badge bg-info me-2">S</span> States</li>
+                        <li><span class="badge bg-secondary me-2">Rs</span> Resources</li>
+                    </ul>
+                </div>
+                <div class="col-md-4">
+                    <h6>Pass 2: Normative</h6>
+                    <ul class="list-unstyled">
+                        <li><span class="badge bg-purple me-2" style="background-color: #6F42C1 !important;">P</span> Principles</li>
+                        <li><span class="badge bg-warning text-dark me-2">O</span> Obligations</li>
+                        <li><span class="badge bg-danger me-2">Cs</span> Constraints</li>
+                        <li><span class="badge bg-success me-2">Ca</span> Capabilities</li>
+                    </ul>
+                </div>
+                <div class="col-md-4">
+                    <h6>Pass 3: Temporal</h6>
+                    <ul class="list-unstyled">
+                        <li><span class="badge bg-dark me-2">A</span> Actions</li>
+                        <li><span class="badge bg-secondary me-2">E</span> Events</li>
+                    </ul>
+                </div>
+            </div>
+
+            <hr>
+
+            <!-- Accordion for each component -->
+            <div class="accordion" id="componentAccordion">
+                <!-- Roles -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseRoles">
+                            <span class="badge bg-primary me-2">R</span> <strong>Roles</strong> - Professional Identity
+                        </button>
+                    </h2>
+                    <div id="collapseRoles" class="accordion-collapse collapse" data-bs-parent="#componentAccordion">
+                        <div class="accordion-body small">
+                            <p>Professional roles generate distinctive ethical obligations tied to professional goals and practices.</p>
+                            <ul class="mb-0">
+                                <li><strong>Oakley & Cocking (2001)</strong> - Role morality and professional duties</li>
+                                <li><strong>Dennis et al. (2016)</strong> - Roles as filters determining which obligations apply</li>
+                                <li><strong>Cointe et al. (2016)</strong> - Multi-agent frameworks for role-based principle interpretation</li>
+                                <li><strong>Kong et al. (2020)</strong> - Identity roles and virtues across engineering, law, accounting</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Principles -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapsePrinciples">
+                            <span class="badge me-2" style="background-color: #6F42C1;">P</span> <strong>Principles</strong> - Abstract Ethical Foundations
+                        </button>
+                    </h2>
+                    <div id="collapsePrinciples" class="accordion-collapse collapse" data-bs-parent="#componentAccordion">
+                        <div class="accordion-body small">
+                            <p>Abstract ethical principles require extensional definition through precedents to achieve concrete meaning.</p>
+                            <ul class="mb-0">
+                                <li><strong>McLaren (2003)</strong> - Extensional vs intensional principle definition</li>
+                                <li><strong>Hallamaa & Kalliokoski (2022)</strong> - Context-sensitivity of principles</li>
+                                <li><strong>Taddeo et al. (2024)</strong> - Principle operationalization steps</li>
+                                <li><strong>Anderson & Anderson (2018)</strong> - GenEth: learning principles from expert examples</li>
+                                <li><strong>Benzmuller et al. (2020)</strong> - LogiKEy higher-order logic formalization</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Obligations -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseObligations">
+                            <span class="badge bg-warning text-dark me-2">O</span> <strong>Obligations</strong> - Concrete Professional Requirements
+                        </button>
+                    </h2>
+                    <div id="collapseObligations" class="accordion-collapse collapse" data-bs-parent="#componentAccordion">
+                        <div class="accordion-body small">
+                            <p>Obligations specify what, when, by whom, and under what conditions - the "moral core" of professional ethics.</p>
+                            <ul class="mb-0">
+                                <li><strong>Dennis et al. (2016)</strong> - Principles vs obligations distinction</li>
+                                <li><strong>Scheutz & Malle (2014)</strong> - Obligations as permissible/obligatory/forbidden actions</li>
+                                <li><strong>Anderson & Anderson (2006, 2007, 2011)</strong> - Prima facie duty framework</li>
+                                <li><strong>Ganascia (2007)</strong> - Answer set programming for conflicting obligations</li>
+                                <li><strong>Dennis & del Olmo (2021)</strong> - Defeasible deontic logic</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- States -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseStates">
+                            <span class="badge bg-info me-2">S</span> <strong>States</strong> - Environmental Context
+                        </button>
+                    </h2>
+                    <div id="collapseStates" class="accordion-collapse collapse" data-bs-parent="#componentAccordion">
+                        <div class="accordion-body small">
+                            <p>Context determines which principles activate and how they apply - identical actions receive different moral evaluations.</p>
+                            <ul class="mb-0">
+                                <li><strong>Rao et al. (2023)</strong> - Context-dependence in moral evaluation</li>
+                                <li><strong>Berreby et al. (2017)</strong> - Event Calculus for state representation</li>
+                                <li><strong>Almpani et al. (2023)</strong> - Context as environmental states</li>
+                                <li><strong>Sarmiento et al. (2023)</strong> - Causal reasoning with state transitions</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Resources -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseResources">
+                            <span class="badge bg-secondary me-2">Rs</span> <strong>Resources</strong> - Professional Knowledge Sources
+                        </button>
+                    </h2>
+                    <div id="collapseResources" class="accordion-collapse collapse" data-bs-parent="#componentAccordion">
+                        <div class="accordion-body small">
+                            <p>Professional ethical knowledge is largely encoded in cases and codes rather than explicit rules.</p>
+                            <ul class="mb-0">
+                                <li><strong>Ashley & McLaren (1995)</strong> - Case-based reasoning foundations</li>
+                                <li><strong>Guarini (2006)</strong> - Neural network case classification</li>
+                                <li><strong>Davis (1991)</strong> - Multiple functions of professional codes</li>
+                                <li><strong>Frankel (1989)</strong> - Hierarchical structure in codes</li>
+                                <li><strong>Kong et al. (2020)</strong> - Computational linguistics for code analysis</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseActions">
+                            <span class="badge bg-dark me-2">A</span> <strong>Actions</strong> - Professional Decisions
+                        </button>
+                    </h2>
+                    <div id="collapseActions" class="accordion-collapse collapse" data-bs-parent="#componentAccordion">
+                        <div class="accordion-body small">
+                            <p>Professional actions require multi-criteria assessment across deontological, consequentialist, and virtue dimensions.</p>
+                            <ul class="mb-0">
+                                <li><strong>Bonnemains et al. (2018)</strong> - Multi-criteria action evaluation</li>
+                                <li><strong>Govindarajulu & Bringsjord (2017)</strong> - Doctrine of Double Effect formalization</li>
+                                <li><strong>Sarmiento et al. (2023)</strong> - Causal relationships with NESS test</li>
+                                <li><strong>Dawson (1994)</strong> - Professional actions as distinct categories</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Events -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseEvents">
+                            <span class="badge bg-secondary me-2">E</span> <strong>Events</strong> - Temporal Dynamics
+                        </button>
+                    </h2>
+                    <div id="collapseEvents" class="accordion-collapse collapse" data-bs-parent="#componentAccordion">
+                        <div class="accordion-body small">
+                            <p>Ethical evaluation depends on event sequences - appropriate responses depend on historical context and anticipated future.</p>
+                            <ul class="mb-0">
+                                <li><strong>Zhang et al. (2023)</strong> - Moral event classification</li>
+                                <li><strong>Anderson & Anderson (2018)</strong> - Event sequence evaluation</li>
+                                <li><strong>Govindarajulu & Bringsjord (2017)</strong> - Temporal modal logic</li>
+                                <li><strong>Arkin (2008)</strong> - "Ethical black box" for event documentation</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Capabilities -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseCapabilities">
+                            <span class="badge bg-success me-2">Ca</span> <strong>Capabilities</strong> - Professional Competence
+                        </button>
+                    </h2>
+                    <div id="collapseCapabilities" class="accordion-collapse collapse" data-bs-parent="#componentAccordion">
+                        <div class="accordion-body small">
+                            <p>Competence transcends technical skill - includes communication, knowledge, reasoning, values, and reflection.</p>
+                            <ul class="mb-0">
+                                <li><strong>Epstein (2002)</strong> - Multidimensional professional competence</li>
+                                <li><strong>Cervantes et al. (2020)</strong> - Capacities/capabilities/competencies taxonomy</li>
+                                <li><strong>Stenseke (2022)</strong> - Functional competence vs moral agency</li>
+                                <li><strong>Dennis et al. (2016)</strong> - Formal verification for capability sufficiency</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Constraints -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseConstraints">
+                            <span class="badge bg-danger me-2">Cs</span> <strong>Constraints</strong> - Professional Boundaries
+                        </button>
+                    </h2>
+                    <div id="collapseConstraints" class="accordion-collapse collapse" data-bs-parent="#componentAccordion">
+                        <div class="accordion-body small">
+                            <p>Constraints establish inviolable limits - boundaries while obligations specify requirements.</p>
+                            <ul class="mb-0">
+                                <li><strong>Ganascia (2007)</strong> - Hard vs soft (defeasible) constraints</li>
+                                <li><strong>Furbach et al. (2014)</strong> - Deontic constraints and prioritization</li>
+                                <li><strong>Taddeo et al. (2024)</strong> - Legal/regulatory constraint interaction</li>
+                                <li><strong>Arkin (2008)</strong> - Architectural "ethical governors"</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Precedent Discovery -->
+    <div class="card mb-4" id="precedents">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0"><i class="bi bi-link-45deg me-2"></i>Precedent Discovery</h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted mb-3">
+                ProEthica uses sentence embeddings and case-based reasoning to find relevant prior
+                NSPE Board of Ethical Review decisions.
+            </p>
+
+            <h6>Foundational Text</h6>
+            <div class="border-start border-3 border-success ps-3 mb-3">
+                <p class="mb-1"><strong>Richter, M.M. & Weber, R.O. (2013)</strong></p>
+                <p class="fst-italic mb-1">Case-Based Reasoning: A Textbook</p>
+                <p class="small text-muted mb-0">
+                    Springer. ISBN: 978-3-642-40166-4.
+                    <a href="https://link.springer.com/book/10.1007/978-3-642-40167-1" target="_blank">
+                        <i class="bi bi-box-arrow-up-right ms-1"></i> SpringerLink
+                    </a>
+                </p>
+                <p class="small mt-2 mb-0">
+                    Textbook covering CBR theory: similarity measures, retrieval, and adaptation.
+                    Provides the foundation for experience-based problem solving applied in ProEthica.
+                </p>
+            </div>
+
+            <h6>Embedding Methods</h6>
+            <div class="border-start border-3 border-info ps-3 mb-3">
+                <p class="mb-1"><strong>Reimers, N. & Gurevych, I. (2019)</strong></p>
+                <p class="fst-italic mb-1">Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks</p>
+                <p class="small text-muted mb-0">
+                    <em>Proceedings of EMNLP-IJCNLP 2019</em>, pp. 3982-3992.
+                    <a href="https://doi.org/10.18653/v1/D19-1410" target="_blank">DOI: 10.18653/v1/D19-1410</a>
+                    |
+                    <a href="https://aclanthology.org/D19-1410/" target="_blank">ACL Anthology</a>
+                </p>
+                <p class="small mt-2 mb-0">
+                    Sentence-BERT (SBERT) for semantic similarity via dense vectors.
+                    ProEthica uses all-MiniLM-L6-v2 for cosine similarity across case sections.
+                </p>
+            </div>
+
+            <h6>Legal Case Retrieval</h6>
+            <div class="border-start border-3 border-warning ps-3 mb-3">
+                <p class="mb-1"><strong>Sun, Z., Zhang, K., Yu, W., Wang, H. & Xu, J. (2024)</strong></p>
+                <p class="fst-italic mb-1">Logic Rules as Explanations for Legal Case Retrieval</p>
+                <p class="small text-muted mb-0">
+                    <em>Proceedings of LREC-COLING 2024</em>, pp. 10747-10759.
+                    <a href="https://aclanthology.org/2024.lrec-main.939/" target="_blank">ACL Anthology</a>
+                </p>
+                <p class="small mt-2 mb-0">
+                    Neural-Symbolic Legal Case Retrieval (NS-LCR): combines embeddings with
+                    logic rules for explainable retrieval in legal contexts.
+                </p>
+            </div>
+
+            <div class="border-start border-3 border-secondary ps-3 mb-3">
+                <p class="mb-1"><strong>Wiratunga, N., Abeyratne, R., Jayawardena, L., et al. (2024)</strong></p>
+                <p class="fst-italic mb-1">CBR-RAG: Case-Based Reasoning for Retrieval Augmented Generation in LLMs for Legal Question Answering</p>
+                <p class="small text-muted mb-0">
+                    <em>arXiv preprint arXiv:2404.04302</em>.
+                    <a href="https://arxiv.org/abs/2404.04302" target="_blank">arXiv</a>
+                </p>
+                <p class="small mt-2 mb-0">
+                    Integrates CBR with RAG for legal QA. Compares domain-specific vs general embeddings.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Future References -->
+    <div class="card mb-4" id="additional">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-bookmark me-2"></i>Additional References</h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted mb-0">Additional academic references will be added as the system develops.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

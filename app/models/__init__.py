@@ -83,3 +83,6 @@ from app.models.scenario_participant import ScenarioParticipant
 
 # Pipeline automation models (added 2025-11-30)
 from app.models.pipeline_run import PipelineRun, PipelineQueue, PIPELINE_STATUS
+
+# Document sections with embeddings
+from app.models.document_section import DocumentSection

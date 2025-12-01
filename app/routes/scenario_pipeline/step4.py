@@ -381,7 +381,7 @@ def step4_review(case_id):
                 'subject_tags_count': len(precedent_features.get('subject_tags', [])) if precedent_features else 0,
                 'has_principle_tensions': bool(precedent_features.get('principle_tensions')) if precedent_features else False,
                 'has_obligation_conflicts': bool(precedent_features.get('obligation_conflicts')) if precedent_features else False,
-                'has_embeddings': False  # TODO: Check for embeddings
+                'has_embeddings': False  # Updated dynamically below
             },
             # What's needed for scenario generation
             'scenario_ready': {
@@ -393,6 +393,17 @@ def step4_review(case_id):
                 'has_conclusions': len(conclusions) > 0
             }
         }
+
+        # Check if case has section embeddings
+        try:
+            from app.models import DocumentSection
+            embedding_count = DocumentSection.query.filter(
+                DocumentSection.document_id == case_id,
+                DocumentSection.embedding.isnot(None)
+            ).count()
+            data_inventory['precedent_features']['has_embeddings'] = embedding_count > 0
+        except Exception as e:
+            logger.debug(f"Could not check embeddings for case {case_id}: {e}")
 
         context = {
             'case': case,

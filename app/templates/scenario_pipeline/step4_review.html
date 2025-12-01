@@ -136,10 +136,18 @@
                         {% elif transformation_data.type == 'phase_lag' %}Phase Lag
                         {% else %}{{ transformation_data.type|title }}{% endif %}
                     </h4>
-                    <small class="text-muted">Transformation</small>
+                    <small class="text-muted">Transformation
+                        <a href="/tools/references#transformation" title="Marchais-Roubelat & Roubelat (2015)" class="text-muted ms-1">
+                            <i class="bi bi-info-circle"></i>
+                        </a>
+                    </small>
                     {% else %}
                     <h4 class="text-muted mb-0">--</h4>
-                    <small class="text-muted">Transformation</small>
+                    <small class="text-muted">Transformation
+                        <a href="/tools/references#transformation" title="Marchais-Roubelat & Roubelat (2015)" class="text-muted ms-1">
+                            <i class="bi bi-info-circle"></i>
+                        </a>
+                    </small>
                     {% endif %}
                 </div>
             </div>
@@ -468,32 +476,6 @@
             </div>
             {% endif %}
 
-            <!-- Missing Data Recommendations -->
-            <div class="card mt-4 border-warning">
-                <div class="card-header bg-warning text-dark">
-                    <h6 class="mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Enhancement Opportunities</h6>
-                </div>
-                <div class="card-body">
-                    <p class="mb-2">The following features could improve precedent matching accuracy:</p>
-                    <ul class="mb-0">
-                        {% if not data_inventory.precedent_features.has_principle_tensions %}
-                        <li><strong>Principle Tensions</strong> - Identify which ethical principles conflict (Phase 3 planned)</li>
-                        {% endif %}
-                        {% if not data_inventory.precedent_features.has_obligation_conflicts %}
-                        <li><strong>Obligation Conflicts</strong> - Map competing duties (Phase 3 planned)</li>
-                        {% endif %}
-                        {% if not data_inventory.precedent_features.has_embeddings %}
-                        <li><strong>Section Embeddings</strong> - Enable semantic similarity search (Phase 4: fix 1536-dim issue)</li>
-                        {% endif %}
-                        {% if not data_inventory.step4_synthesis.available %}
-                        <li><strong>Step 4 Synthesis</strong> - Run synthesis to extract provisions, questions, and conclusions</li>
-                        {% endif %}
-                        {% if data_inventory.precedent_features.has_features and data_inventory.step4_synthesis.available and data_inventory.precedent_features.has_embeddings %}
-                        <li class="text-success"><i class="bi bi-check-circle"></i> All primary features extracted - precedent matching optimized!</li>
-                        {% endif %}
-                    </ul>
-                </div>
-            </div>
         </div>
 
         <!-- Entity Graph Tab -->
@@ -680,7 +662,8 @@
                             {% for conclusion in conclusions %}
                                 {% if conclusion.rdf_json_ld and conclusion.rdf_json_ld.answersQuestions %}
                                     {% for answered_q in conclusion.rdf_json_ld.answersQuestions %}
-                                        {% if question_num in answered_q or question.entity_label in answered_q %}
+                                        {% set answered_q_str = answered_q|string %}
+                                        {% if question_num in answered_q_str or question.entity_label in answered_q_str %}
                                             {% set found_conclusion = true %}
                                             <div class="card linked-conclusion mb-2">
                                                 <div class="card-body py-2">

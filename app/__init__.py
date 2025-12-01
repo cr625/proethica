@@ -172,6 +172,8 @@ def create_app(config_name=None):
     from app.routes.reasoning import reasoning_bp
     # PROV-O provenance viewer routes
     from app.routes.provenance import provenance_bp
+    # Tools routes (references, etc.)
+    from app.routes.tools import tools_bp
     # Precedent discovery routes
     from app.routes.precedents import precedents_bp
     # Pipeline automation dashboard
@@ -219,6 +221,7 @@ def create_app(config_name=None):
     app.register_blueprint(api_document_annotations_bp)  # Register unified document annotation API
     app.register_blueprint(reasoning_bp)  # Register reasoning inspector routes
     app.register_blueprint(provenance_bp)  # Register PROV-O provenance viewer routes
+    app.register_blueprint(tools_bp)  # Register tools routes (references, etc.)
     app.register_blueprint(precedents_bp)  # Register precedent discovery routes
     app.register_blueprint(pipeline_bp)  # Pipeline automation dashboard
 

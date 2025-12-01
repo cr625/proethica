@@ -4,15 +4,17 @@ Transformation Classifier Service
 Classifies the transformation type of NSPE ethics cases based on
 how the ethical situation was resolved.
 
-Transformation Types (from ProEthica formalism):
-- transfer: Resolution transfers obligation/responsibility to another party
-- stalemate: Competing obligations remain in tension without clear resolution
-- oscillation: Duties shift back and forth between parties over time
-- phase_lag: Delayed consequences reveal obligations not initially apparent
+Transformation Types:
+- transfer: Shifts from a scenario set to a new one (obligation moves to another party)
+- stalemate: Stakeholders trapped in set of rules (competing obligations remain unresolved)
+- oscillation: Stakeholders go to and fro between different sets of rules
+- phase_lag: Some stakeholders perform parallel scenarios (delayed consequences emerge)
 
-References:
-- ProEthica 9-Concept Formalism
-- NSPE Board of Ethical Review case patterns
+Reference:
+    Marchais-Roubelat, A. and Roubelat, F. (2015), "Designing a moving strategic
+    foresight approach: ontological and methodological issues of scenario design",
+    Foresight, Vol. 17 No. 6, pp. 545-555. Table II (p. 550) - Steering Rule.
+    DOI: 10.1108/FS-12-2014-0085
 """
 
 import logging
