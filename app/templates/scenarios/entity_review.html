@@ -142,24 +142,33 @@
     /* Match status styling */
     .match-status-badge {
         cursor: pointer;
-        transition: transform 0.1s ease;
+        transition: all 0.15s ease;
+        padding: 0.35em 0.65em;
+        font-size: 0.85em;
+        border: 1px solid transparent;
     }
 
     .match-status-badge:hover {
-        transform: scale(1.05);
+        transform: scale(1.08);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     }
 
     .match-linked {
         background-color: #28a745 !important;
+        color: #fff !important;
+        border-color: #1e7e34 !important;
     }
 
     .match-review {
         background-color: #ffc107 !important;
-        color: #212529 !important;
+        color: #000 !important;
+        border-color: #d39e00 !important;
     }
 
     .match-new {
         background-color: #6c757d !important;
+        color: #fff !important;
+        border-color: #545b62 !important;
     }
 
     .match-confidence-bar {
@@ -205,23 +214,9 @@
                             <i class="bi bi-arrow-left"></i> Back to Facts
                         </a>
                         {% endif %}
-                        {% if current_user.is_authenticated %}
-                        <button id="refreshFromOntServeBtn" class="btn btn-sm btn-info">
-                            <i class="bi bi-arrow-repeat"></i> Refresh from OntServe
-                        </button>
-                        {% endif %}
                     </div>
                     <div>
                         {% if current_user.is_authenticated %}
-                        <button id="clearAndRerunBtn" class="btn btn-sm btn-primary">
-                            <i class="bi bi-arrow-clockwise"></i> Clear & Re-run Pass 1
-                        </button>
-                        <button id="clearAllEntitiesBtn" class="btn btn-sm btn-warning">
-                            <i class="bi bi-trash"></i> Clear Pass 1 Uncommitted{% if section_label %} ({{ section_label }}){% endif %}
-                        </button>
-                        <button id="clearExtractedClassesBtn" class="btn btn-sm btn-danger">
-                            <i class="bi bi-x-circle"></i> Clear Extracted Classes
-                        </button>
                         <button id="commitSelectedBtn" class="btn btn-sm btn-success">
                             <i class="bi bi-check-circle"></i> Commit Selected to OntServe
                         </button>
@@ -1488,158 +1483,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Refresh from OntServe button
-    const refreshBtn = document.getElementById('refreshFromOntServeBtn');
-    if (refreshBtn) {
-        refreshBtn.addEventListener('click', function() {
-            this.disabled = true;
-            const originalText = this.innerHTML;
-            this.innerHTML = '<i class="bi bi-arrow-repeat"></i> Refreshing...';
-
-            appFetch(`/scenario_pipeline/case/${caseId}/entities/refresh_committed`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // Show detailed refresh results
-                    let message = data.message || 'Refresh completed';
-
-                    if (data.result && data.result.details) {
-                        const modified = data.result.details.filter(d => d.status === 'modified').length;
-                        const unchanged = data.result.details.filter(d => d.status === 'unchanged').length;
-                        const notFound = data.result.details.filter(d => d.status === 'not_found').length;
-
-                        if (modified > 0) {
-                            message += `\n\nChanges detected:\n`;
-                            data.result.details.filter(d => d.status === 'modified').forEach(entity => {
-                                message += `- ${entity.entity_label}: ${entity.changes ? entity.changes.length : 0} field(s) updated\n`;
-                            });
-                        }
-
-                        if (notFound > 0) {
-                            message += `\n⚠ ${notFound} entities not found in OntServe (may have been deleted)`;
-                        }
-                    }
-
-                    alert(message);
-
-                    // Reload the page to show updated data
-                    if ((data.result && data.result.modified > 0) || data.deleted_count > 0) {
-                        location.reload();
-                    }
-                } else {
-                    alert('Error refreshing entities: ' + (data.error || 'Unknown error'));
-                }
-
-                this.disabled = false;
-                this.innerHTML = originalText;
-            })
-            .catch(error => {
-                console.error('Error refreshing entities:', error);
-                alert('Error refreshing entities: ' + error.message);
-                this.disabled = false;
-                this.innerHTML = originalText;
-            });
-        });
-    }
-
-    // Clear extracted classes button
-    const clearExtractedBtn = document.getElementById('clearExtractedClassesBtn');
-    if (clearExtractedBtn) {
-        clearExtractedBtn.addEventListener('click', function() {
-            if (confirm('This will clear ALL extracted classes from proethica-intermediate-extracted.ttl.\n\nA backup will be created before clearing.\n\nAre you sure you want to continue?')) {
-                this.disabled = true;
-                const originalText = this.innerHTML;
-                this.innerHTML = 'Clearing Classes...';
-
-                appFetch('/scenario_pipeline/ontology/clear_extracted_classes', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        let message = data.message || 'Successfully cleared extracted classes';
-                        if (data.result && data.result.backup_file) {
-                            message += `\n\nBackup saved to: ${data.result.backup_file}`;
-                        }
-                        alert(message);
-
-                        // Reload to reflect changes
-                        location.reload();
-                    } else {
-                        alert('Error clearing extracted classes: ' + (data.error || 'Unknown error'));
-                    }
-
-                    this.disabled = false;
-                    this.innerHTML = originalText;
-                })
-                .catch(error => {
-                    console.error('Error clearing extracted classes:', error);
-                    alert('Error clearing extracted classes: ' + error.message);
-                    this.disabled = false;
-                    this.innerHTML = originalText;
-                });
-            }
-        });
-    }
-
-    // Clear all uncommitted entities button
-    const clearBtn = document.getElementById('clearAllEntitiesBtn');
-    const sectionType = '{{ section_type }}' || 'facts';
-    const sectionLabel = '{{ section_label }}' || 'Facts';
-
-    if (clearBtn) {
-        clearBtn.addEventListener('click', function() {
-            if (confirm(`This will clear ONLY uncommitted Pass 1 entities (Roles, States, Resources) from the ${sectionLabel} section.\n\nOther sections will be preserved.\nCommitted entities in OntServe will be preserved.\n\nContinue?`)) {
-                this.disabled = true;
-                this.textContent = `Clearing ${sectionLabel}...`;
-
-                // Clear only Pass 1 extraction types for this section
-                appFetch(`/scenario_pipeline/case/${caseId}/entities/clear_by_types`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        extraction_types: ['roles', 'states', 'resources'],
-                        section_type: sectionType  // Add section filter
-                    })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        // Show detailed message about what was cleared and preserved
-                        let message = data.message || `Cleared ${data.cleared_count} entities`;
-
-                        if (data.preserved_count && data.preserved_count > 0) {
-                            message += `\n\nNote: ${data.preserved_count} committed entities were preserved in OntServe and remain visible there.`;
-                        }
-
-                        alert(message);
-                        location.reload();
-                    } else {
-                        alert(`Error: ${data.error}`);
-                    }
-                })
-                .catch(error => {
-                    console.error('Clear error:', error);
-                    alert(`Error: ${error}`);
-                })
-                .finally(() => {
-                    this.disabled = false;
-                    this.textContent = 'Clear Pass 1 Uncommitted';
-                });
-            }
-        });
-    }
-
     function updateEntitySelection(entityId, selected) {
         appFetch(`/scenario_pipeline/case/${caseId}/entities/update_selection`, {
             method: 'POST',
@@ -1702,48 +1545,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-
-    // Clear & Re-run button handler
-    const clearAndRerunBtn = document.getElementById('clearAndRerunBtn');
-    if (clearAndRerunBtn) {
-        clearAndRerunBtn.addEventListener('click', function() {
-            const sectionType = '{{ section_type }}' || 'facts';
-            const sectionLabel = '{{ section_label }}' || 'Facts';
-
-            if (confirm(`This will:\n1. Clear all uncommitted Pass 1 entities from ${sectionLabel}\n2. Redirect to extraction page\n\nContinue?`)) {
-                this.disabled = true;
-                this.innerHTML = '<i class="bi bi-hourglass-split"></i> Clearing...';
-
-                appFetch(`/scenario_pipeline/case/${caseId}/entities/clear_and_rerun/pass1`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        section_type: sectionType
-                    })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        // Show success message and redirect
-                        alert(data.message + '\n\nRedirecting to extraction page...');
-                        window.location.href = data.redirect_url;
-                    } else {
-                        alert(`Error: ${data.error || 'Unknown error'}`);
-                        this.disabled = false;
-                        this.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Clear & Re-run Pass 1';
-                    }
-                })
-                .catch(error => {
-                    console.error('Clear and rerun error:', error);
-                    alert(`Error: ${error}`);
-                    this.disabled = false;
-                    this.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Clear & Re-run Pass 1';
-                });
-            }
-        });
-    }
 
     // Match Details Modal handling
     const matchDetailsModal = document.getElementById('matchDetailsModal');

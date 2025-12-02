@@ -286,6 +286,16 @@ def _save_extraction_summary(case_id: int, state: Dict) -> None:
             logger.info("[Stage 7] No LLM trace to save to extraction_prompts")
             return
 
+        # Debug: Log what stages are in the trace
+        stages_in_trace = [entry.get('stage', 'unknown') for entry in llm_trace]
+        logger.info(f"[Stage 7] LLM trace has {len(llm_trace)} entries: {stages_in_trace}")
+        for entry in llm_trace:
+            stage = entry.get('stage', 'unknown')
+            has_response = bool(entry.get('response'))
+            has_error = bool(entry.get('error'))
+            has_warning = bool(entry.get('warning'))
+            logger.info(f"[Stage 7]   - {stage}: response={has_response}, error={has_error}, warning={has_warning}")
+
         # Build combined prompt and response from all stages
         combined_prompt_parts = []
         combined_response_parts = []
@@ -294,11 +304,21 @@ def _save_extraction_summary(case_id: int, state: Dict) -> None:
             stage = trace_entry.get('stage', f'stage_{i}')
             prompt = trace_entry.get('prompt', '')
             response = trace_entry.get('response', '')
+            error = trace_entry.get('error', '')
+            warning = trace_entry.get('warning', '')
 
             if prompt:
                 combined_prompt_parts.append(f"=== {stage.upper()} ===\n{prompt}\n")
+
+            # Always include response section - show error/warning if no response
             if response:
                 combined_response_parts.append(f"=== {stage.upper()} RESPONSE ===\n{response}\n")
+            elif error:
+                combined_response_parts.append(f"=== {stage.upper()} RESPONSE ===\nERROR: {error}\n")
+            elif warning:
+                combined_response_parts.append(f"=== {stage.upper()} RESPONSE ===\nWARNING: {warning}\n")
+            elif prompt:  # Had a prompt but no response
+                combined_response_parts.append(f"=== {stage.upper()} RESPONSE ===\n(No response available)\n")
 
         combined_prompt = "\n".join(combined_prompt_parts)
         combined_response = "\n".join(combined_response_parts)

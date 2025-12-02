@@ -595,17 +595,11 @@ class OntServeCommitService:
             case_file = self.ontologies_dir / f"proethica-case-{case_id}.ttl"
             case_ontology_exists = case_file.exists()
 
-            # Check if extracted file exists
-            extracted_file = self.ontologies_dir / "proethica-intermediate-extracted.ttl"
-            extracted_ontology_exists = extracted_file.exists()
-
             return {
                 'pending_count': pending,
                 'committed_count': committed,
                 'case_ontology_exists': case_ontology_exists,
-                'case_ontology_file': str(case_file) if case_ontology_exists else None,
-                'extracted_ontology_exists': extracted_ontology_exists,
-                'extracted_ontology_file': str(extracted_file) if extracted_ontology_exists else None
+                'case_ontology_file': str(case_file) if case_ontology_exists else None
             }
 
         except Exception as e:
@@ -614,83 +608,3 @@ class OntServeCommitService:
                 'error': str(e)
             }
 
-    def clear_extracted_classes(self) -> Dict[str, Any]:
-        """
-        Clear all extracted classes from proethica-intermediate-extracted.ttl.
-        This allows for testing with a clean slate.
-
-        Returns:
-            Dictionary with operation results
-        """
-        try:
-            extracted_file = self.ontologies_dir / "proethica-intermediate-extracted.ttl"
-
-            # Check if file exists
-            if not extracted_file.exists():
-                return {
-                    'success': True,
-                    'message': 'No extracted classes file exists',
-                    'classes_removed': 0
-                }
-
-            # Load the existing file to count classes
-            graph = Graph()
-            graph.parse(str(extracted_file), format='turtle')
-
-            # Count classes before clearing
-            class_count = len(list(graph.subjects(RDF.type, OWL.Class)))
-
-            # Back up the file before clearing (optional)
-            backup_file = extracted_file.with_suffix('.ttl.bak')
-            import shutil
-            shutil.copy2(extracted_file, backup_file)
-            logger.info(f"Backed up extracted classes to {backup_file}")
-
-            # Create an empty graph with just namespace declarations
-            new_graph = Graph()
-            new_graph.bind("proeth", PROETHICA)
-            new_graph.bind("proeth-core", PROETHICA_CORE)
-            new_graph.bind("proeth-cases", PROETHICA_CASES)
-            new_graph.bind("owl", OWL)
-            new_graph.bind("rdfs", RDFS)
-            new_graph.bind("rdf", RDF)
-            new_graph.bind("skos", SKOS)
-            new_graph.bind("dcterms", DCTERMS)
-            new_graph.bind("prov", PROV)
-
-            # Add a comment indicating this file was cleared
-            new_graph.add((
-                URIRef(str(PROETHICA)),
-                RDFS.comment,
-                Literal(f"Extracted classes cleared on {datetime.now().isoformat()}. Backup saved as {backup_file.name}")
-            ))
-
-            # Write the empty graph to file
-            new_graph.serialize(str(extracted_file), format='turtle')
-
-            # Also clear the committed status in the database for all class entities
-            from app.models import db
-            cleared_db_count = TemporaryRDFStorage.query.filter_by(
-                storage_type='class',
-                is_committed=True
-            ).update({'is_committed': False})
-
-            db.session.commit()
-
-            # Refresh OntServe database to reflect the changes
-            self._synchronize_with_ontserve()
-
-            return {
-                'success': True,
-                'message': f'Successfully cleared {class_count} classes from extracted ontology',
-                'classes_removed': class_count,
-                'backup_file': str(backup_file),
-                'database_entries_reset': cleared_db_count
-            }
-
-        except Exception as e:
-            logger.error(f"Error clearing extracted classes: {e}")
-            return {
-                'success': False,
-                'error': str(e)
-            }

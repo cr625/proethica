@@ -255,6 +255,10 @@ def create_app(config_name=None):
     from app.routes.pipeline_dashboard import init_pipeline_csrf_exemption
     init_pipeline_csrf_exemption(app)
 
+    # Exempt entity review API routes from CSRF protection
+    from app.routes.scenario_pipeline.entity_review import init_entity_review_csrf_exemption
+    init_entity_review_csrf_exemption(app)
+
 
     # Make db accessible at app level for imports in other modules
     app.db = db

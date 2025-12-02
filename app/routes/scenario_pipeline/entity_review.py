@@ -22,6 +22,31 @@ logger = logging.getLogger(__name__)
 bp = Blueprint('entity_review', __name__)
 
 
+# Function to exempt specific routes from CSRF after app initialization
+def init_entity_review_csrf_exemption(app):
+    """Exempt entity review API routes from CSRF protection since they're called via AJAX"""
+    if hasattr(app, 'csrf') and app.csrf:
+        try:
+            from app.routes.scenario_pipeline.entity_review import (
+                trigger_auto_commit,
+                clear_case_ontology,
+                set_entity_match,
+                mark_entity_as_new,
+                commit_entities_to_ontserve,
+                clear_entities_by_types,
+                clear_all_entities
+            )
+            app.csrf.exempt(trigger_auto_commit)
+            app.csrf.exempt(clear_case_ontology)
+            app.csrf.exempt(set_entity_match)
+            app.csrf.exempt(mark_entity_as_new)
+            app.csrf.exempt(commit_entities_to_ontserve)
+            app.csrf.exempt(clear_entities_by_types)
+            app.csrf.exempt(clear_all_entities)
+        except Exception as e:
+            logger.warning(f"Could not exempt entity_review routes from CSRF: {e}")
+
+
 @bp.route('/case/<int:case_id>/rdf_entities/update_selection', methods=['POST'])
 def update_rdf_entity_selection(case_id):
     """Update the selection status of an RDF entity."""
@@ -1036,58 +1061,6 @@ def get_case_summary(case_id):
         return jsonify({'error': str(e)})
 
 
-@bp.route('/ontology/clear_extracted_classes', methods=['POST'])
-def clear_extracted_classes():
-    """Clear all extracted classes from proethica-intermediate-extracted.ttl.
-
-    This is useful for testing with a clean slate.
-    Creates a backup before clearing.
-    """
-    try:
-        from app.services.ontserve_commit_service import OntServeCommitService
-
-        commit_service = OntServeCommitService()
-        result = commit_service.clear_extracted_classes()
-
-        if result['success']:
-            message = result.get('message', 'Successfully cleared extracted classes')
-
-            if request.is_json:
-                return jsonify({
-                    'success': True,
-                    'message': message,
-                    'result': result
-                })
-            else:
-                flash(message, 'success')
-                # Redirect to a sensible location - maybe the main page
-                return redirect(url_for('index.index'))
-        else:
-            error_msg = f"Failed to clear extracted classes: {result.get('error', 'Unknown error')}"
-
-            if request.is_json:
-                return jsonify({
-                    'success': False,
-                    'error': error_msg
-                })
-            else:
-                flash(error_msg, 'error')
-                return redirect(url_for('index.index'))
-
-    except Exception as e:
-        logger.error(f"Error clearing extracted classes: {e}")
-        error_msg = f"Error clearing extracted classes: {str(e)}"
-
-        if request.is_json:
-            return jsonify({
-                'success': False,
-                'error': error_msg
-            })
-        else:
-            flash(error_msg, 'error')
-            return redirect(url_for('index.index'))
-
-
 @bp.route('/case/<int:case_id>/entities/refresh_committed', methods=['POST'])
 @auth_required_for_write  # Require auth for write operations
 def refresh_committed_from_ontserve(case_id):
@@ -1532,6 +1505,37 @@ def get_auto_commit_status(case_id):
 
     except Exception as e:
         logger.error(f"Error getting auto-commit status for case {case_id}: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@bp.route('/case/<int:case_id>/entities/clear_ontology', methods=['POST'])
+@auth_required_for_write
+def clear_case_ontology(case_id):
+    """
+    Clear a case's OntServe ontology to prepare for re-extraction.
+
+    This removes the case TTL file and resets committed entities,
+    preventing circular matches when re-running extraction.
+
+    Should be called before re-running extraction on a case that
+    has already been committed to OntServe.
+    """
+    try:
+        from app.services.auto_commit_service import AutoCommitService
+
+        data = request.get_json() or {}
+        reset_committed = data.get('reset_committed', True)
+
+        auto_commit_service = AutoCommitService()
+        result = auto_commit_service.clear_case_ontology(case_id, reset_committed=reset_committed)
+
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"Error clearing case ontology for case {case_id}: {e}")
         return jsonify({
             'success': False,
             'error': str(e)

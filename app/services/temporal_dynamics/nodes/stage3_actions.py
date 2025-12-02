@@ -26,16 +26,32 @@ def extract_actions(state: TemporalDynamicsState) -> Dict:
     """
     logger.info(f"[Stage 3] Extracting actions for case {state['case_id']}")
 
+    # Log input state for debugging
+    narrative = state['unified_narrative']
+    temporal_markers = state['temporal_markers']
+    logger.info(f"[Stage 3] Input narrative keys: {list(narrative.keys()) if narrative else 'EMPTY'}")
+    logger.info(f"[Stage 3] Input temporal_markers keys: {list(temporal_markers.keys()) if temporal_markers else 'EMPTY'}")
+
+    if not narrative or not narrative.get('unified_timeline_summary'):
+        logger.warning(f"[Stage 3] WARNING: Empty or missing unified_narrative for case {state['case_id']}")
+
     try:
         # Extract actions using unified narrative and temporal markers
         actions = extract_actions_with_metadata(
-            narrative=state['unified_narrative'],
-            temporal_markers=state['temporal_markers'],
+            narrative=narrative,
+            temporal_markers=temporal_markers,
             case_id=state['case_id'],
             llm_trace=state.get('llm_trace', [])
         )
 
         logger.info(f"[Stage 3] Extracted {len(actions)} actions")
+
+        # Prepare message based on results
+        if len(actions) == 0:
+            stage_message = 'WARNING: 0 actions extracted - check LLM response format'
+            logger.warning(f"[Stage 3] {stage_message}")
+        else:
+            stage_message = f'Extracted {len(actions)} volitional actions with intentions'
 
         # Return state updates (including accumulated llm_trace)
         return {
@@ -43,7 +59,7 @@ def extract_actions(state: TemporalDynamicsState) -> Dict:
             'llm_trace': state.get('llm_trace', []),  # Return accumulated trace
             'current_stage': 'action_extraction',
             'progress_percentage': 45,
-            'stage_messages': [f'✓ Extracted {len(actions)} volitional actions with intentions']
+            'stage_messages': [stage_message]
         }
 
     except Exception as e:

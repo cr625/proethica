@@ -122,9 +122,16 @@ def extract_enhanced_temporal_dynamics(case_id):
                         # Send as SSE
                         yield f"data: {json.dumps(progress_data)}\n\n"
 
+                # Commit temporal entities to case TTL (after Stage 7 storage)
+                logger.info("[Enhanced TD] Committing temporal entities to case TTL...")
+                from app.services.auto_commit_service import commit_temporal_entities
+                commit_result = commit_temporal_entities(case_id)
+                logger.info(f"[Enhanced TD] Temporal commit result: {commit_result}")
+
                 # Send completion event
+                commit_message = f"Committed {commit_result.get('total', 0)} temporal entities to case ontology" if commit_result.get('status') == 'success' else 'Temporal extraction complete'
                 logger.info("[Enhanced TD] Graph execution complete")
-                yield f"data: {json.dumps({'complete': True, 'progress': 100, 'messages': ['Enhanced temporal extraction complete!']})}\n\n"
+                yield f"data: {json.dumps({'complete': True, 'progress': 100, 'messages': ['Enhanced temporal extraction complete!', commit_message], 'commit_result': commit_result})}\n\n"
 
             except Exception as e:
                 logger.error(f"[Enhanced TD] Error during streaming: {e}", exc_info=True)
