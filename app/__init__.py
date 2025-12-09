@@ -178,6 +178,8 @@ def create_app(config_name=None):
     from app.routes.precedents import precedents_bp
     # Pipeline automation dashboard
     from app.routes.pipeline_dashboard import pipeline_bp
+    # Documentation routes
+    from app.routes.docs import docs_bp
 
     app.register_blueprint(index_bp)
     app.register_blueprint(auth_bp)
@@ -224,6 +226,7 @@ def create_app(config_name=None):
     app.register_blueprint(tools_bp)  # Register tools routes (references, etc.)
     app.register_blueprint(precedents_bp)  # Register precedent discovery routes
     app.register_blueprint(pipeline_bp)  # Pipeline automation dashboard
+    app.register_blueprint(docs_bp)  # Documentation routes
 
     # Exempt API routes from CSRF protection
     from app.routes.api_document_annotations import init_csrf_exemption

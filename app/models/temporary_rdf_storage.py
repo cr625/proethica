@@ -189,6 +189,10 @@ class TemporaryRDFStorage(db.Model):
         """
         Store RDF extraction results from the converter.
 
+        Implements cross-section entity merging: when the same entity (e.g., "Engineer K")
+        is extracted from both facts and discussion, properties are merged into a single
+        record with provenance tracking from each section.
+
         Args:
             case_id: The case ID
             extraction_session_id: Unique session identifier
@@ -198,17 +202,22 @@ class TemporaryRDFStorage(db.Model):
             provenance_data: Optional PROV-O provenance metadata (activity_id, section_type, match_reasoning, etc.)
 
         Returns:
-            List of created TemporaryRDFStorage objects
+            List of created/updated TemporaryRDFStorage objects
         """
         import logging
-        logger = logging.getLogger(__name__)
+        from app.services.entity_merge_service import EntityMergeService
 
-        logger.info(f"DEBUG store_extraction_results called for {extraction_type} case {case_id}")
-        logger.info(f"DEBUG RDF data keys: {list(rdf_data.keys()) if rdf_data else 'None'}")
-        logger.info(f"DEBUG Classes count: {len(rdf_data.get('new_classes', []))}")
-        logger.info(f"DEBUG Individuals count: {len(rdf_data.get('new_individuals', []))}")
+        logger = logging.getLogger(__name__)
+        merge_service = EntityMergeService()
+
+        logger.info(f"store_extraction_results called for {extraction_type} case {case_id}")
+        logger.info(f"RDF data: {len(rdf_data.get('new_classes', []))} classes, {len(rdf_data.get('new_individuals', []))} individuals")
 
         created_entities = []
+        merged_count = 0
+
+        # Get section type from provenance data
+        section_type = provenance_data.get('section_type', 'unknown') if provenance_data else 'unknown'
 
         # Clear any existing temporary entities for this case, extraction type, AND session
         # Only delete entities from the SAME extraction session to avoid deleting entities from other sections
@@ -218,80 +227,204 @@ class TemporaryRDFStorage(db.Model):
             extraction_session_id=extraction_session_id,
             is_committed=False
         ).delete()
-        logger.info(f"DEBUG Deleted {deleted_count} existing {extraction_type} entities from session {extraction_session_id}")
+        if deleted_count > 0:
+            logger.info(f"Deleted {deleted_count} existing {extraction_type} entities from session {extraction_session_id}")
 
-        # Store new classes
+        # Store new classes with merge detection
         for class_info in rdf_data.get('new_classes', []):
-            # Clean the class_info to ensure all values are JSON-serializable
             clean_class_info = cls._clean_json_data(class_info)
-
-            # Extract match_decision if present (for entity-ontology linking)
             match_decision = class_info.get('match_decision', {})
 
-            entity = cls(
-                case_id=case_id,
-                extraction_session_id=extraction_session_id,
-                extraction_type=extraction_type,
-                storage_type='class',
-                ontology_target='proethica-intermediate',
-                entity_label=class_info['label'],
-                entity_uri=class_info['uri'],
-                entity_type=extraction_type.capitalize(),
-                entity_definition=class_info.get('definition', ''),
-                rdf_json_ld=clean_class_info,
-                extraction_model=extraction_model,
-                triple_count=len(class_info.get('properties', {})) + 4,  # Basic triples
-                property_count=len(class_info.get('properties', {})),
-                provenance_metadata=provenance_data or {},
-                # Entity-ontology linking fields
-                matched_ontology_uri=match_decision.get('matched_uri'),
-                matched_ontology_label=match_decision.get('matched_label'),
-                match_confidence=match_decision.get('confidence'),
-                match_method='llm' if match_decision.get('matches_existing') else None,
-                match_reasoning=match_decision.get('reasoning')
+            # Check for existing entity from another section
+            existing = cls._find_existing_entity(
+                case_id, class_info['label'], extraction_type.capitalize(), extraction_session_id
             )
-            db.session.add(entity)
-            created_entities.append(entity)
 
-        # Store individuals
+            if existing:
+                # Merge into existing entity
+                cls._merge_into_existing(existing, clean_class_info, section_type)
+                created_entities.append(existing)
+                merged_count += 1
+                logger.info(f"Merged class '{class_info['label']}' from {section_type} into existing entity")
+            else:
+                # Initialize section tracking in JSON-LD
+                clean_class_info['section_sources'] = [section_type]
+                if clean_class_info.get('source_text'):
+                    clean_class_info['source_texts'] = {section_type: clean_class_info['source_text']}
+
+                entity = cls(
+                    case_id=case_id,
+                    extraction_session_id=extraction_session_id,
+                    extraction_type=extraction_type,
+                    storage_type='class',
+                    ontology_target='proethica-intermediate',
+                    entity_label=class_info['label'],
+                    entity_uri=class_info['uri'],
+                    entity_type=extraction_type.capitalize(),
+                    entity_definition=class_info.get('definition', ''),
+                    rdf_json_ld=clean_class_info,
+                    extraction_model=extraction_model,
+                    triple_count=len(class_info.get('properties', {})) + 4,
+                    property_count=len(class_info.get('properties', {})),
+                    provenance_metadata=provenance_data or {},
+                    matched_ontology_uri=match_decision.get('matched_uri'),
+                    matched_ontology_label=match_decision.get('matched_label'),
+                    match_confidence=match_decision.get('confidence'),
+                    match_method='llm' if match_decision.get('matches_existing') else None,
+                    match_reasoning=match_decision.get('reasoning'),
+                    is_selected=True
+                )
+                db.session.add(entity)
+                created_entities.append(entity)
+
+        # Store individuals with merge detection
         for indiv_info in rdf_data.get('new_individuals', []):
-            # Clean the indiv_info to ensure all values are JSON-serializable
             clean_indiv_info = cls._clean_json_data(indiv_info)
-
-            # Extract match_decision if present (for entity-ontology linking)
-            # For individuals, the match links them to their class type in OntServe
             match_decision = indiv_info.get('match_decision', {})
 
-            entity = cls(
-                case_id=case_id,
-                extraction_session_id=extraction_session_id,
-                extraction_type=extraction_type,
-                storage_type='individual',
-                ontology_target=f'proethica-case-{case_id}',
-                entity_label=indiv_info['label'],
-                entity_uri=indiv_info['uri'],
-                entity_type=extraction_type.capitalize(),
-                entity_definition='',  # Individuals don't have definitions
-                rdf_json_ld=clean_indiv_info,
-                extraction_model=extraction_model,
-                triple_count=len(indiv_info.get('properties', {})) + len(indiv_info.get('relationships', [])) + 2,
-                property_count=len(indiv_info.get('properties', {})),
-                relationship_count=len(indiv_info.get('relationships', [])),
-                provenance_metadata=provenance_data or {},
-                # Entity-ontology linking fields (individual linked to class type)
-                matched_ontology_uri=match_decision.get('matched_uri'),
-                matched_ontology_label=match_decision.get('matched_label'),
-                match_confidence=match_decision.get('confidence'),
-                match_method='llm' if match_decision.get('matches_existing') else None,
-                match_reasoning=match_decision.get('reasoning')
+            # Check for existing entity from another section
+            existing = cls._find_existing_entity(
+                case_id, indiv_info['label'], extraction_type.capitalize(), extraction_session_id
             )
-            db.session.add(entity)
-            created_entities.append(entity)
 
-        logger.info(f"DEBUG About to commit {len(created_entities)} {extraction_type} entities")
+            if existing:
+                # Merge into existing entity
+                cls._merge_into_existing(existing, clean_indiv_info, section_type)
+                created_entities.append(existing)
+                merged_count += 1
+                logger.info(f"Merged individual '{indiv_info['label']}' from {section_type} into existing entity")
+            else:
+                # Initialize section tracking in JSON-LD
+                clean_indiv_info['section_sources'] = [section_type]
+                if clean_indiv_info.get('source_text'):
+                    clean_indiv_info['source_texts'] = {section_type: clean_indiv_info['source_text']}
+
+                entity = cls(
+                    case_id=case_id,
+                    extraction_session_id=extraction_session_id,
+                    extraction_type=extraction_type,
+                    storage_type='individual',
+                    ontology_target=f'proethica-case-{case_id}',
+                    entity_label=indiv_info['label'],
+                    entity_uri=indiv_info['uri'],
+                    entity_type=extraction_type.capitalize(),
+                    entity_definition='',
+                    rdf_json_ld=clean_indiv_info,
+                    extraction_model=extraction_model,
+                    triple_count=len(indiv_info.get('properties', {})) + len(indiv_info.get('relationships', [])) + 2,
+                    property_count=len(indiv_info.get('properties', {})),
+                    relationship_count=len(indiv_info.get('relationships', [])),
+                    provenance_metadata=provenance_data or {},
+                    matched_ontology_uri=match_decision.get('matched_uri'),
+                    matched_ontology_label=match_decision.get('matched_label'),
+                    match_confidence=match_decision.get('confidence'),
+                    match_method='llm' if match_decision.get('matches_existing') else None,
+                    match_reasoning=match_decision.get('reasoning'),
+                    is_selected=True
+                )
+                db.session.add(entity)
+                created_entities.append(entity)
+
         db.session.commit()
-        logger.info(f"DEBUG Committed {len(created_entities)} {extraction_type} entities successfully")
+        logger.info(f"Stored {len(created_entities)} {extraction_type} entities ({merged_count} merged from other sections)")
         return created_entities
+
+    @classmethod
+    def _find_existing_entity(cls, case_id: int, entity_label: str, entity_type: str, current_session_id: str):
+        """Find an existing entity with same label from a different section."""
+        return cls.query.filter(
+            cls.case_id == case_id,
+            cls.entity_label == entity_label,
+            cls.entity_type == entity_type,
+            cls.extraction_session_id != current_session_id,
+            cls.is_committed == False
+        ).first()
+
+    @classmethod
+    def _merge_into_existing(cls, existing_entity, new_json_ld: dict, new_section_type: str):
+        """Merge properties from new extraction into existing entity."""
+        existing_json = existing_entity.rdf_json_ld or {}
+
+        # Initialize section_sources if not present
+        if 'section_sources' not in existing_json:
+            existing_json['section_sources'] = []
+            # Try to determine existing section from provenance
+            if existing_entity.provenance_metadata and existing_entity.provenance_metadata.get('section_type'):
+                existing_json['section_sources'].append(existing_entity.provenance_metadata['section_type'])
+
+        # Add new section to sources
+        if new_section_type not in existing_json['section_sources']:
+            existing_json['section_sources'].append(new_section_type)
+
+        # Merge properties
+        existing_props = existing_json.get('properties', {})
+        new_props = new_json_ld.get('properties', {})
+
+        for prop_name, new_values in new_props.items():
+            if not isinstance(new_values, list):
+                new_values = [new_values]
+
+            if prop_name not in existing_props:
+                existing_props[prop_name] = new_values
+            else:
+                existing_values = existing_props[prop_name]
+                if not isinstance(existing_values, list):
+                    existing_values = [existing_values]
+
+                for val in new_values:
+                    if val and val not in existing_values and val != "None":
+                        existing_values.append(val)
+
+                existing_props[prop_name] = existing_values
+
+        existing_json['properties'] = existing_props
+
+        # Merge source texts with section labels
+        if 'source_texts' not in existing_json:
+            existing_json['source_texts'] = {}
+            # Preserve existing source_text under its section
+            if existing_json.get('source_text') and existing_json.get('section_sources'):
+                first_section = existing_json['section_sources'][0] if existing_json['section_sources'] else 'unknown'
+                existing_json['source_texts'][first_section] = existing_json['source_text']
+
+        # Add new source text
+        if new_json_ld.get('source_text'):
+            existing_json['source_texts'][new_section_type] = new_json_ld['source_text']
+
+        # Update main source_text as combined view
+        combined_sources = []
+        for section, text in existing_json.get('source_texts', {}).items():
+            combined_sources.append(f"[{section}] {text}")
+        if combined_sources:
+            existing_json['source_text'] = " | ".join(combined_sources)
+
+        # Merge relationships
+        existing_rels = existing_json.get('relationships', [])
+        new_rels = new_json_ld.get('relationships', [])
+
+        existing_rel_keys = {(r.get('type'), r.get('target_uri')) for r in existing_rels}
+        for rel in new_rels:
+            rel_key = (rel.get('type'), rel.get('target_uri'))
+            if rel_key not in existing_rel_keys:
+                existing_rels.append(rel)
+
+        existing_json['relationships'] = existing_rels
+
+        # Merge types
+        existing_types = set(existing_json.get('types', []))
+        new_types = set(new_json_ld.get('types', []))
+        existing_json['types'] = list(existing_types | new_types)
+
+        # Update the entity
+        existing_entity.rdf_json_ld = existing_json
+        existing_entity.updated_at = db.func.now()
+
+        # Update counts
+        existing_entity.property_count = sum(
+            len(v) if isinstance(v, list) else 1
+            for v in existing_props.values()
+        )
+        existing_entity.relationship_count = len(existing_rels)
 
     @classmethod
     def _clean_json_data(cls, data):

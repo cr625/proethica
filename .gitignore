@@ -97,9 +97,11 @@ _src/
 # CLAUDE.md         # Project instructions - needed for context
 # **/CLAUDE.md      # Subproject instructions - needed for context
 
-# Documentation directories (development/internal only)
-docs/
-*/docs/
+# Internal/development documentation (not public)
+docs-internal/
+*/docs-internal/
+
+# Public documentation is tracked (docs/)
 
 # Scripts and development artifacts
 # TEMPORARILY EXPOSED FOR CLEANUP WORK (2025-11-16)

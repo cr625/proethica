@@ -1,0 +1,93 @@
+site_name: ProEthica Documentation
+site_description: User manual for ProEthica - Professional Ethics Analysis Tool
+site_author: Christopher B. Rauch
+site_url: https://proethica.org/docs
+
+# Repository
+repo_url: https://github.com/cr625/proethica
+repo_name: proethica
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    # Dark mode (matches ProEthica theme)
+    - scheme: slate
+      primary: deep-purple
+      accent: amber
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    # Light mode
+    - scheme: default
+      primary: deep-purple
+      accent: amber
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+  icon:
+    logo: material/scale-balance
+    repo: fontawesome/brands/github
+
+  font:
+    text: Segoe UI
+    code: Roboto Mono
+
+plugins:
+  - search:
+      lang: en
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - First Login: getting-started/first-login.md
+  - Concepts:
+      - Nine-Concept Framework: concepts/nine-concepts.md
+  - How-To Guides:
+      - Upload Cases: how-to/upload-cases.md
+      - "Phase 1: Extraction": how-to/phase1-extraction.md
+      - "Phase 2: Analysis": how-to/phase2-analysis.md
+      - "Phase 3: Scenario": how-to/phase3-scenario.md
+      - Entity Review: how-to/entity-review.md
+      - Precedent Discovery: how-to/precedent-discovery.md
+      - Pipeline Automation: how-to/pipeline-automation.md
+      - Settings: how-to/settings.md
+  - Reference:
+      - System Architecture: reference/architecture.md
+      - Ontology Integration: reference/ontology-integration.md
+      - Transformation Types: reference/transformation-types.md
+  - FAQ: faq.md
+  - "Back to ProEthica": "/"
+
+extra_css:
+  - assets/css/custom.css
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/cr625/proethica

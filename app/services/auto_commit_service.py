@@ -401,6 +401,10 @@ class AutoCommitService:
         """
         Generate case-specific .ttl file with individuals typed to OntServe classes.
 
+        Implements property merging: when the same individual is extracted from
+        multiple sections (facts, discussion), properties are merged rather than
+        the second extraction being skipped.
+
         Args:
             case_id: The case ID
             entities: List of entities to include
@@ -435,59 +439,183 @@ class AutoCommitService:
             # Create a map of entity_id to result for quick lookup
             result_map = {r.entity_id: r for r in results}
 
-            individuals_added = 0
-
+            # Group entities by URI for merging
+            entities_by_uri: Dict[str, List[Tuple[TemporaryRDFStorage, EntityCommitResult]]] = {}
             for entity in entities:
                 result = result_map.get(entity.id)
                 if not result or result.action in ('error', 'skipped'):
                     continue
 
-                # Create individual URI
                 safe_label = self._make_safe_uri(entity.entity_label)
-                individual_uri = case_ns[safe_label]
+                uri_key = str(case_ns[safe_label])
 
-                # Skip if already exists
-                if (individual_uri, RDF.type, OWL.NamedIndividual) in g:
-                    continue
+                if uri_key not in entities_by_uri:
+                    entities_by_uri[uri_key] = []
+                entities_by_uri[uri_key].append((entity, result))
 
-                # Add as NamedIndividual
-                g.add((individual_uri, RDF.type, OWL.NamedIndividual))
-                g.add((individual_uri, RDFS.label, Literal(entity.entity_label)))
+            individuals_added = 0
+            individuals_merged = 0
 
-                # Add type reference to OntServe class
-                if result.linked_uri:
-                    class_uri = URIRef(result.linked_uri)
-                    g.add((individual_uri, RDF.type, class_uri))
-                elif result.action == 'new_class':
-                    # For new classes, type to the core concept
-                    core_type = self._get_core_type(entity.entity_type)
-                    if core_type:
-                        g.add((individual_uri, RDF.type, core_type))
+            for uri_key, entity_list in entities_by_uri.items():
+                individual_uri = URIRef(uri_key)
+                already_exists = (individual_uri, RDF.type, OWL.NamedIndividual) in g
 
-                # Add definition if available
-                if entity.entity_definition:
-                    g.add((individual_uri, SKOS.definition, Literal(entity.entity_definition)))
+                if already_exists:
+                    # Merge properties from all new entities into existing individual
+                    for entity, result in entity_list:
+                        self._merge_entity_properties(g, individual_uri, entity, result, case_id)
+                    individuals_merged += len(entity_list)
+                    logger.debug(f"Merged {len(entity_list)} extractions into existing {entity_list[0][0].entity_label}")
+                else:
+                    # Create new individual and merge all extractions
+                    first_entity, first_result = entity_list[0]
 
-                # Add provenance
-                g.add((individual_uri, PROV.generatedAtTime, Literal(datetime.utcnow())))
-                g.add((individual_uri, PROV.wasGeneratedBy, Literal(f"ProEthica Case {case_id} Auto-Commit")))
+                    # Add as NamedIndividual
+                    g.add((individual_uri, RDF.type, OWL.NamedIndividual))
+                    g.add((individual_uri, RDFS.label, Literal(first_entity.entity_label)))
 
-                # Add match metadata
-                if result.confidence:
-                    g.add((individual_uri, URIRef(str(PROETHICA) + "matchConfidence"),
-                           Literal(result.confidence, datatype=XSD.float)))
+                    # Add type reference to OntServe class
+                    if first_result.linked_uri:
+                        class_uri = URIRef(first_result.linked_uri)
+                        g.add((individual_uri, RDF.type, class_uri))
+                    elif first_result.action == 'new_class':
+                        core_type = self._get_core_type(first_entity.entity_type)
+                        if core_type:
+                            g.add((individual_uri, RDF.type, core_type))
 
-                individuals_added += 1
+                    # Add provenance
+                    g.add((individual_uri, PROV.generatedAtTime, Literal(datetime.utcnow())))
+                    g.add((individual_uri, PROV.wasGeneratedBy, Literal(f"ProEthica Case {case_id} Auto-Commit")))
+
+                    # Add match metadata from first result
+                    if first_result.confidence:
+                        g.add((individual_uri, URIRef(str(PROETHICA) + "matchConfidence"),
+                               Literal(first_result.confidence, datatype=XSD.float)))
+
+                    # Merge properties from ALL extractions (facts + discussion)
+                    for entity, result in entity_list:
+                        self._merge_entity_properties(g, individual_uri, entity, result, case_id)
+
+                    individuals_added += 1
+
+                    if len(entity_list) > 1:
+                        logger.info(f"Created {first_entity.entity_label} with merged properties from {len(entity_list)} sections")
 
             # Save the graph
             g.serialize(destination=case_file, format='turtle')
-            logger.info(f"Generated case TTL with {individuals_added} individuals: {case_file}")
+            logger.info(f"Generated case TTL: {individuals_added} new, {individuals_merged} merged: {case_file}")
 
             return str(case_file)
 
         except Exception as e:
             logger.error(f"Error generating case TTL for case {case_id}: {e}")
             return None
+
+    def _merge_entity_properties(
+        self,
+        g: Graph,
+        individual_uri: URIRef,
+        entity: TemporaryRDFStorage,
+        result: EntityCommitResult,
+        case_id: int
+    ):
+        """
+        Merge properties from an entity extraction into an existing individual.
+
+        Handles multi-value properties by adding new values without duplicating.
+        Tracks source texts per section for provenance.
+
+        Args:
+            g: The RDF graph
+            individual_uri: URI of the individual to merge into
+            entity: The entity with properties to merge
+            result: The commit result for this entity
+            case_id: The case ID
+        """
+        # Get section type from linked extraction prompt
+        section_type = self._get_entity_section_type(entity)
+
+        # Parse JSON-LD properties
+        if not entity.rdf_json_ld:
+            return
+
+        try:
+            json_data = json.loads(entity.rdf_json_ld) if isinstance(entity.rdf_json_ld, str) else entity.rdf_json_ld
+        except (json.JSONDecodeError, TypeError):
+            return
+
+        properties = json_data.get('properties', {})
+
+        # Define property mappings to RDF predicates
+        property_mappings = {
+            'hasTitle': URIRef(str(PROETHICA) + "hasTitle"),
+            'hasLicense': URIRef(str(PROETHICA) + "hasLicense"),
+            'hasSpecialization': URIRef(str(PROETHICA) + "hasSpecialization"),
+            'hasExperience': URIRef(str(PROETHICA) + "hasExperience"),
+            'hasExpertise': URIRef(str(PROETHICA) + "hasExpertise"),
+            'caseInvolvement': URIRef(str(PROETHICA) + "caseInvolvement"),
+            'hasActiveObligation': URIRef(str(PROETHICA) + "hasActiveObligation"),
+            'hasEthicalTension': URIRef(str(PROETHICA) + "hasEthicalTension"),
+        }
+
+        # Add properties, avoiding duplicates
+        for prop_name, values in properties.items():
+            if prop_name in property_mappings:
+                predicate = property_mappings[prop_name]
+                if not isinstance(values, list):
+                    values = [values]
+
+                for value in values:
+                    if value and value != "None":
+                        literal = Literal(value)
+                        # Check if this exact triple already exists
+                        if (individual_uri, predicate, literal) not in g:
+                            g.add((individual_uri, predicate, literal))
+
+        # Add source text with section annotation
+        source_text = json_data.get('source_text') or properties.get('sourceText', [None])[0]
+        if source_text:
+            # Use section-specific predicate to preserve both sources
+            section_predicate = URIRef(str(PROETHICA) + f"sourceText_{section_type}")
+            g.add((individual_uri, section_predicate, Literal(source_text)))
+
+            # Also add to generic sourceText for backward compatibility
+            generic_predicate = URIRef(str(PROETHICA) + "sourceText")
+            source_with_section = f"[{section_type}] {source_text}"
+            if (individual_uri, generic_predicate, Literal(source_with_section)) not in g:
+                g.add((individual_uri, generic_predicate, Literal(source_with_section)))
+
+        # Add definition if available
+        if entity.entity_definition:
+            definition_literal = Literal(entity.entity_definition)
+            if (individual_uri, SKOS.definition, definition_literal) not in g:
+                g.add((individual_uri, SKOS.definition, definition_literal))
+
+        # Handle relationships
+        relationships = json_data.get('relationships', [])
+        for rel in relationships:
+            rel_type = rel.get('type')
+            target = rel.get('target')
+            target_uri_str = rel.get('target_uri')
+
+            if rel_type and target_uri_str:
+                rel_predicate = URIRef(str(PROETHICA) + rel_type)
+                target_uri = URIRef(target_uri_str)
+                if (individual_uri, rel_predicate, target_uri) not in g:
+                    g.add((individual_uri, rel_predicate, target_uri))
+
+    def _get_entity_section_type(self, entity: TemporaryRDFStorage) -> str:
+        """Get the section type (facts/discussion) for an entity."""
+        try:
+            from app.models.extraction_prompt import ExtractionPrompt
+            prompt = ExtractionPrompt.query.filter_by(
+                extraction_session_id=entity.extraction_session_id
+            ).first()
+            if prompt and prompt.section_type:
+                return prompt.section_type
+        except Exception:
+            pass
+        return "unknown"
 
     def _get_core_type(self, entity_type: str) -> Optional[URIRef]:
         """Get the core ontology type URI for an entity type."""

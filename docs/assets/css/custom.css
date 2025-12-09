@@ -1,0 +1,73 @@
+/* ProEthica Documentation Custom Styles */
+
+/* Theme-aware images */
+[data-md-color-scheme="slate"] .light-only { display: none; }
+[data-md-color-scheme="default"] .dark-only { display: none; }
+
+/* Table styling */
+.md-typeset table:not([class]) {
+    font-size: 0.85rem;
+}
+
+.md-typeset table:not([class]) th {
+    background-color: var(--md-primary-fg-color);
+    color: var(--md-primary-bg-color);
+}
+
+/* Code block styling */
+.md-typeset code {
+    font-size: 0.85em;
+}
+
+/* Admonition customization */
+.md-typeset .admonition.tip,
+.md-typeset details.tip {
+    border-color: var(--md-accent-fg-color);
+}
+
+/* Navigation improvements */
+.md-nav__link {
+    font-size: 0.75rem;
+}
+
+/* Screenshot styling */
+.md-typeset img {
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+[data-md-color-scheme="slate"] .md-typeset img {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Flow diagram styling */
+.md-typeset pre code {
+    white-space: pre;
+}
+
+/* Transformation type indicators */
+.transformation-transfer { color: #4CAF50; }
+.transformation-stalemate { color: #FF9800; }
+.transformation-oscillation { color: #2196F3; }
+.transformation-phase-lag { color: #9C27B0; }
+
+/* Concept type colors */
+.concept-role { color: #E91E63; }
+.concept-principle { color: #9C27B0; }
+.concept-obligation { color: #673AB7; }
+.concept-state { color: #3F51B5; }
+.concept-resource { color: #2196F3; }
+.concept-action { color: #009688; }
+.concept-event { color: #4CAF50; }
+.concept-capability { color: #8BC34A; }
+.concept-constraint { color: #FF5722; }
+
+/* Phase indicators */
+.phase-1 { border-left: 4px solid #4CAF50; }
+.phase-2 { border-left: 4px solid #FF9800; }
+.phase-3 { border-left: 4px solid #2196F3; }
+
+/* Footer styling */
+.md-footer-meta {
+    background-color: var(--md-default-bg-color);
+}

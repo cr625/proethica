@@ -432,14 +432,24 @@
                                                     <i class="fas fa-check-circle"></i> Committed
                                                 </span>
                                                 {% endif %}
-                                                {% if cls.cross_section_matches %}
+                                                {% if cls.rdf_json_ld and cls.rdf_json_ld.get('section_sources') and cls.rdf_json_ld.get('section_sources')|length > 1 %}
+                                                <span class="badge bg-warning text-dark ms-2" title="Merged from multiple sections">
+                                                    <i class="bi bi-layers"></i> Merged: {{ cls.rdf_json_ld.get('section_sources') | join(', ') }}
+                                                </span>
+                                                {% elif cls.cross_section_matches %}
                                                 <span class="badge bg-info ms-2" title="Also extracted from other section(s)">
                                                     <i class="bi bi-info-circle"></i> Also in: {{ cls.cross_section_matches | map(attribute='section_label') | join(', ') }}
                                                 </span>
                                                 {% endif %}
                                                 <br/>
                                                 <small class="text-muted">rdfs:subClassOf {{ concept_type|title }}</small>
-                                                {% if cls.rdf_json_ld and cls.rdf_json_ld.get('source_text') %}
+                                                {% if cls.rdf_json_ld and cls.rdf_json_ld.get('source_texts') %}
+                                                {# Show source texts by section #}
+                                                {% for section, text in cls.rdf_json_ld.get('source_texts').items() %}
+                                                <br/>
+                                                <small class="text-info"><i class="fas fa-quote-left"></i> <strong>[{{ section }}]</strong> "{{ text[:120] }}{% if text|length > 120 %}...{% endif %}"</small>
+                                                {% endfor %}
+                                                {% elif cls.rdf_json_ld and cls.rdf_json_ld.get('source_text') %}
                                                 <br/>
                                                 <small class="text-info"><i class="fas fa-quote-left"></i> "{{ cls.rdf_json_ld.get('source_text')[:150] }}{% if cls.rdf_json_ld.get('source_text')|length > 150 %}...{% endif %}"</small>
                                                 {% endif %}
@@ -650,14 +660,24 @@
                                                     <i class="fas fa-check-circle"></i> Committed
                                                 </span>
                                                 {% endif %}
-                                                {% if indiv.cross_section_matches %}
+                                                {% if indiv.rdf_json_ld and indiv.rdf_json_ld.get('section_sources') and indiv.rdf_json_ld.get('section_sources')|length > 1 %}
+                                                <span class="badge bg-warning text-dark ms-2" title="Merged from multiple sections">
+                                                    <i class="bi bi-layers"></i> Merged: {{ indiv.rdf_json_ld.get('section_sources') | join(', ') }}
+                                                </span>
+                                                {% elif indiv.cross_section_matches %}
                                                 <span class="badge bg-info ms-2" title="Also extracted from other section(s)">
                                                     <i class="bi bi-info-circle"></i> Also in: {{ indiv.cross_section_matches | map(attribute='section_label') | join(', ') }}
                                                 </span>
                                                 {% endif %}
                                                 <br/>
                                                 <small class="text-muted">Individual Instance</small>
-                                                {% if indiv.rdf_json_ld and indiv.rdf_json_ld.get('source_text') %}
+                                                {% if indiv.rdf_json_ld and indiv.rdf_json_ld.get('source_texts') %}
+                                                {# Show source texts by section #}
+                                                {% for section, text in indiv.rdf_json_ld.get('source_texts').items() %}
+                                                <br/>
+                                                <small class="text-info"><i class="fas fa-quote-left"></i> <strong>[{{ section }}]</strong> "{{ text[:120] }}{% if text|length > 120 %}...{% endif %}"</small>
+                                                {% endfor %}
+                                                {% elif indiv.rdf_json_ld and indiv.rdf_json_ld.get('source_text') %}
                                                 <br/>
                                                 <small class="text-info"><i class="fas fa-quote-left"></i> "{{ indiv.rdf_json_ld.get('source_text')[:150] }}{% if indiv.rdf_json_ld.get('source_text')|length > 150 %}...{% endif %}"</small>
                                                 {% endif %}
