@@ -283,8 +283,138 @@ SET facts_embedding = (
 WHERE facts_embedding IS NULL;
 ```
 
+## Case Similarity Network
+
+The Similarity Network provides a visual overview of all cases and their relationships based on computed similarity scores.
+
+### Accessing the Network
+
+Navigate to: **Cases** > **Similarity Network** in the navigation bar
+
+Or direct URL: `/cases/precedents/network`
+
+Alternative access:
+- From Precedent Discovery page, click **View Similarity Network** button
+
+### Understanding the Visualization
+
+The network displays cases as nodes connected by edges representing similarity relationships.
+
+#### Node Colors (by Outcome)
+
+| Color | Outcome |
+|-------|---------|
+| Green | Ethical |
+| Red | Unethical |
+| Orange | Mixed |
+| Gray | Unknown/Unclear |
+
+#### Edge Colors (by Similarity Score)
+
+| Color | Score Range | Meaning |
+|-------|-------------|---------|
+| Green | > 0.5 | High similarity |
+| Yellow | 0.3 - 0.5 | Moderate similarity |
+| Red | < 0.3 | Low similarity |
+
+Edge thickness also indicates similarity strength.
+
+### Interacting with the Network
+
+#### Click a Node
+
+Displays case details panel showing:
+- Case title and ID
+- Outcome type
+- NSPE Code provisions cited
+- Entity count from extraction
+- Number of connections to other cases
+
+#### Click an Edge
+
+Displays similarity breakdown panel showing:
+- Overall similarity score
+- Component scores:
+  - Facts Similarity (cosine)
+  - Discussion Similarity (cosine)
+  - Provision Overlap (Jaccard)
+  - Outcome Alignment
+  - Tag Overlap (Jaccard)
+  - Principle Overlap (Jaccard)
+- Matching NSPE Code provisions
+
+#### Filtering
+
+Use the **Min Score** dropdown to filter edges:
+
+| Threshold | Typical Result |
+|-----------|----------------|
+| 0.1 | Show all relationships |
+| 0.2 | Default - balanced view |
+| 0.3 | Moderate+ similarity only |
+| 0.4 | Higher similarity only |
+| 0.5 | Strong relationships only |
+
+#### Navigation Controls
+
+- **Drag nodes** to reposition
+- **Scroll** to zoom in/out
+- **Click background** to pan
+- **Zoom buttons** for precise control
+
+### Similarity Components
+
+The network uses six similarity factors:
+
+| Component | Method | Description |
+|-----------|--------|-------------|
+| Facts Similarity | Cosine | Semantic similarity of case facts |
+| Discussion Similarity | Cosine | Semantic similarity of ethical analysis |
+| Provision Overlap | Jaccard | NSPE Code section overlap |
+| Outcome Alignment | Categorical | Ethical/unethical match |
+| Tag Overlap | Jaccard | Subject tag overlap |
+| Principle Overlap | Jaccard | Ethical principle conflicts |
+
+### Focus Mode
+
+To highlight a specific case:
+
+1. Go to Precedents page
+2. Select a case
+3. Click **View Similarity Network**
+
+The focused case appears larger with a highlight ring.
+
+Or use URL parameter: `/cases/precedents/network?case_id=7`
+
+### Network Statistics
+
+The info panel shows:
+- Total cases in network
+- Total edges (similarity relationships)
+- Outcome distribution across cases
+
+### API Access
+
+For programmatic access:
+
+```
+GET /cases/precedents/api/similarity_network?min_score=0.2
+```
+
+Returns JSON with nodes and edges for custom visualization.
+
+Matrix format available:
+
+```
+GET /cases/precedents/api/similarity_matrix?component=overall
+```
+
+Returns NxN similarity matrix for heatmap visualization.
+
 ## Related Guides
 
 - [Upload Cases](upload-cases.md) - Adding cases
 - [Phase 1 Extraction](phase1-extraction.md) - Extraction process
+- [Pipeline Automation](pipeline-automation.md) - Batch processing
 - [Settings](settings.md) - Configuration options

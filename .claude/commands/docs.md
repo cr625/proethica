@@ -107,6 +107,34 @@ with sync_playwright() as p:
 |------|------|-------------|
 | `upload-case-content.png` | `/cases/new` | Add New Case with 4 import methods |
 | `pipeline-dashboard-content.png` | `/pipeline/dashboard` | Pipeline automation dashboard |
+| `similarity-network-content.png` | `/cases/precedents/network` | Case similarity network visualization |
+
+## New Features (2025-12-09)
+
+### Case Similarity Network
+
+**URLs:**
+- **View**: `/cases/precedents/network` - D3.js force-directed graph
+- **API**: `/cases/precedents/api/similarity_network` - JSON graph data
+- **API**: `/cases/precedents/api/similarity_matrix` - NxN similarity matrix
+- **With focus**: `/cases/precedents/network?case_id=7` - Highlight specific case
+
+**Features:**
+- 23 cases with 170 edges (at min_score=0.2)
+- Node color by outcome: green (ethical), red (unethical), orange (mixed), gray (unclear)
+- Edge color by similarity: green (>0.5), yellow (0.3-0.5), red (<0.3)
+- Click node for case details (provisions, entity count, connections)
+- Click edge for similarity breakdown (facts, discussion, provisions, outcome, tags, principles)
+- Min score dropdown filter (0.1-0.5)
+- Zoom/pan controls
+
+**Navigation:**
+- Cases dropdown > Similarity Network
+- Cases dropdown > Find Precedents > "View Similarity Network" button
+
+**Documentation needed:**
+- `docs/how-to/precedent-discovery.md` - Add section about network visualization
+- Screenshot: Wait for graph to settle, then capture with multiple clusters visible
 
 ## Theme Configuration
 

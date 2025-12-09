@@ -1513,6 +1513,15 @@ function getCsrfToken() {
     document.getElementById('d3-close-details').addEventListener('click', function() {
         document.getElementById('d3-entity-details').style.display = 'none';
     });
+
+    // Type hubs toggle
+    document.getElementById('d3-toggle-hubs').addEventListener('click', function() {
+        showTypeHubs = !showTypeHubs;
+        this.classList.toggle('active', showTypeHubs);
+        this.classList.toggle('btn-info', showTypeHubs);
+        this.classList.toggle('btn-outline-info', !showTypeHubs);
+        loadGraph(); // Reload with/without type hubs
+    });
 })();
 </script>
 {% endblock %}

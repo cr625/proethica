@@ -56,10 +56,17 @@
 
 {% block content %}
 <div class="container">
-    <h1 class="mb-2">Find Precedents</h1>
-    <p class="text-muted mb-4">
-        Multi-factor similarity search using provision overlap, semantic similarity, and outcome alignment.
-    </p>
+    <div class="d-flex justify-content-between align-items-start mb-2">
+        <div>
+            <h1 class="mb-2">Find Precedents</h1>
+            <p class="text-muted mb-4">
+                Multi-factor similarity search using provision overlap, semantic similarity, and outcome alignment.
+            </p>
+        </div>
+        <a href="{{ url_for('precedents.similarity_network_view') }}" class="btn btn-outline-primary">
+            <i class="bi bi-diagram-3"></i> View Similarity Network
+        </a>
+    </div>
 
     <!-- Case Selector -->
     <div class="card mb-4">

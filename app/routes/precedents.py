@@ -205,3 +205,287 @@ def _get_primary_method(component_scores):
             primary = method
 
     return primary
+
+
+@precedents_bp.route('/api/similarity_network', methods=['GET'])
+@auth_optional
+def api_similarity_network():
+    """
+    API endpoint for case similarity network visualization.
+
+    Returns graph data for D3.js force-directed visualization showing
+    all cases with precedent features and their pairwise similarities.
+
+    Query params:
+        case_id: Optional focus case (will be highlighted)
+        min_score: Minimum similarity threshold (default: 0.2)
+
+    Returns:
+        JSON with nodes (cases) and edges (similarity relationships)
+    """
+    focus_case_id = request.args.get('case_id', type=int)
+    min_score = request.args.get('min_score', 0.2, type=float)
+
+    try:
+        # Get all cases with features
+        cases_query = text("""
+            SELECT
+                cpf.case_id,
+                d.title,
+                cpf.outcome_type,
+                cpf.transformation_type,
+                cpf.provisions_cited,
+                (SELECT COUNT(*) FROM temporary_rdf_storage WHERE case_id = cpf.case_id) as entity_count
+            FROM case_precedent_features cpf
+            JOIN documents d ON cpf.case_id = d.id
+            ORDER BY cpf.case_id
+        """)
+        cases = db.session.execute(cases_query).fetchall()
+
+        if not cases:
+            return jsonify({
+                'success': False,
+                'error': 'No cases with precedent features found',
+                'nodes': [],
+                'edges': []
+            })
+
+        # Build nodes
+        nodes = []
+        case_ids = []
+        for case in cases:
+            case_id, title, outcome, transformation, provisions, entity_count = case
+            case_ids.append(case_id)
+
+            # Extract case number from title if present
+            case_label = title
+            if 'Case' in title and '-' in title:
+                # Try to extract "Case XX-X" pattern
+                import re
+                match = re.search(r'Case\s+(\d+-\d+)', title)
+                if match:
+                    case_label = f"Case {match.group(1)}"
+
+            nodes.append({
+                'id': case_id,
+                'label': case_label,
+                'full_title': title,
+                'outcome': outcome or 'unknown',
+                'transformation': transformation,
+                'provisions': provisions or [],
+                'entity_count': entity_count or 0,
+                'is_focus': case_id == focus_case_id
+            })
+
+        # Get pairwise similarities from cache or compute
+        edges = []
+        from app.services.precedent import PrecedentSimilarityService
+        similarity_service = PrecedentSimilarityService()
+
+        # Check cache first
+        cache_query = text("""
+            SELECT
+                source_case_id,
+                target_case_id,
+                overall_similarity,
+                facts_similarity,
+                discussion_similarity,
+                provision_overlap,
+                outcome_alignment,
+                tag_overlap,
+                principle_overlap
+            FROM precedent_similarity_cache
+            WHERE overall_similarity >= :min_score
+        """)
+        cached = db.session.execute(cache_query, {'min_score': min_score}).fetchall()
+
+        # Build set of cached pairs
+        cached_pairs = set()
+        for row in cached:
+            src, tgt, overall, facts, disc, prov, outcome, tag, principle = row
+            if src in case_ids and tgt in case_ids:
+                cached_pairs.add((src, tgt))
+                cached_pairs.add((tgt, src))  # Symmetrical
+
+                # Get matching provisions
+                matching_provs = _get_matching_provisions(src, tgt)
+
+                edges.append({
+                    'source': src,
+                    'target': tgt,
+                    'similarity': round(overall, 3),
+                    'components': {
+                        'facts_similarity': round(facts or 0, 3),
+                        'discussion_similarity': round(disc or 0, 3),
+                        'provision_overlap': round(prov or 0, 3),
+                        'outcome_alignment': round(outcome or 0, 3),
+                        'tag_overlap': round(tag or 0, 3),
+                        'principle_overlap': round(principle or 0, 3)
+                    },
+                    'matching_provisions': matching_provs
+                })
+
+        # Compute missing pairs if needed
+        computed_count = 0
+        for i, src_id in enumerate(case_ids):
+            for tgt_id in case_ids[i + 1:]:
+                if (src_id, tgt_id) not in cached_pairs:
+                    # Compute similarity
+                    result = similarity_service.calculate_similarity(src_id, tgt_id)
+                    if result.overall_similarity >= min_score:
+                        edges.append({
+                            'source': src_id,
+                            'target': tgt_id,
+                            'similarity': round(result.overall_similarity, 3),
+                            'components': {
+                                k: round(v, 3) for k, v in result.component_scores.items()
+                            },
+                            'matching_provisions': result.matching_provisions
+                        })
+                        # Cache the result
+                        similarity_service.cache_similarity(result)
+                        computed_count += 1
+
+        logger.info(f"Similarity network: {len(nodes)} nodes, {len(edges)} edges "
+                    f"({computed_count} newly computed)")
+
+        return jsonify({
+            'success': True,
+            'nodes': nodes,
+            'edges': edges,
+            'focus_case_id': focus_case_id,
+            'min_score': min_score,
+            'metadata': {
+                'total_cases': len(nodes),
+                'total_edges': len(edges),
+                'outcome_distribution': _count_outcomes(nodes),
+                'matching_methods': MATCHING_METHODS
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"Error building similarity network: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'nodes': [],
+            'edges': []
+        }), 500
+
+
+@precedents_bp.route('/network', methods=['GET'])
+@auth_optional
+def similarity_network_view():
+    """Display the case similarity network visualization."""
+    focus_case_id = request.args.get('case_id', type=int)
+
+    # Get focus case details if specified
+    focus_case = None
+    if focus_case_id:
+        focus_case = Document.query.get(focus_case_id)
+
+    return render_template(
+        'similarity_network.html',
+        focus_case=focus_case,
+        focus_case_id=focus_case_id,
+        matching_methods=MATCHING_METHODS
+    )
+
+
+@precedents_bp.route('/api/similarity_matrix', methods=['GET'])
+@auth_optional
+def api_similarity_matrix():
+    """
+    API endpoint for NxN case similarity matrix.
+
+    Returns full pairwise similarity matrix for heatmap visualization.
+    """
+    component = request.args.get('component', 'overall')
+
+    try:
+        # Get all cases with features
+        cases_query = text("""
+            SELECT cpf.case_id, d.title, cpf.outcome_type
+            FROM case_precedent_features cpf
+            JOIN documents d ON cpf.case_id = d.id
+            ORDER BY cpf.case_id
+        """)
+        cases = db.session.execute(cases_query).fetchall()
+
+        case_list = []
+        case_ids = []
+        for case_id, title, outcome in cases:
+            case_ids.append(case_id)
+            # Extract case number
+            label = title
+            import re
+            match = re.search(r'Case\s+(\d+-\d+)', title)
+            if match:
+                label = f"Case {match.group(1)}"
+            case_list.append({
+                'id': case_id,
+                'label': label,
+                'outcome': outcome or 'unknown'
+            })
+
+        n = len(case_ids)
+        matrix = [[0.0] * n for _ in range(n)]
+
+        # Fill matrix from cache
+        from app.services.precedent import PrecedentSimilarityService
+        similarity_service = PrecedentSimilarityService()
+
+        for i, src_id in enumerate(case_ids):
+            matrix[i][i] = 1.0  # Self-similarity
+            for j, tgt_id in enumerate(case_ids):
+                if i < j:
+                    result = similarity_service.calculate_similarity(src_id, tgt_id)
+                    if component == 'overall':
+                        score = result.overall_similarity
+                    else:
+                        score = result.component_scores.get(component, 0)
+                    matrix[i][j] = round(score, 3)
+                    matrix[j][i] = round(score, 3)
+
+        return jsonify({
+            'success': True,
+            'cases': case_list,
+            'matrix': matrix,
+            'component': component,
+            'available_components': list(MATCHING_METHODS.keys()) + ['overall']
+        })
+
+    except Exception as e:
+        logger.error(f"Error building similarity matrix: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+def _get_matching_provisions(case_a_id, case_b_id):
+    """Get matching provisions between two cases."""
+    query = text("""
+        SELECT
+            a.provisions_cited AS prov_a,
+            b.provisions_cited AS prov_b
+        FROM case_precedent_features a, case_precedent_features b
+        WHERE a.case_id = :case_a AND b.case_id = :case_b
+    """)
+    result = db.session.execute(query, {'case_a': case_a_id, 'case_b': case_b_id}).fetchone()
+    if result and result[0] and result[1]:
+        set_a = set(result[0])
+        set_b = set(result[1])
+        return sorted(list(set_a & set_b))
+    return []
+
+
+def _count_outcomes(nodes):
+    """Count outcome distribution in node list."""
+    counts = {}
+    for node in nodes:
+        outcome = node.get('outcome', 'unknown')
+        counts[outcome] = counts.get(outcome, 0) + 1
+    return counts
