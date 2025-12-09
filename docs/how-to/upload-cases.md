@@ -2,6 +2,21 @@
 
 This guide covers adding ethics cases to ProEthica for analysis.
 
+## Import Methods
+
+ProEthica provides four methods for adding cases:
+
+![Add New Case interface](../assets/images/screenshots/upload-case-content.png)
+
+| Method | Status | Description |
+|--------|--------|-------------|
+| **Enter URL** | Available | Import from NSPE website URLs |
+| Upload Document | Coming Soon | PDF, DOCX, TXT file upload |
+| Create Manually | Coming Soon | Manual entry of case details |
+| Language Model | Coming Soon | LLM-assisted case creation |
+
+Currently, the **Enter URL** method is the primary way to add cases, optimized for importing NSPE Board of Ethical Review cases directly from the NSPE website.
+
 ## Case Structure
 
 ProEthica processes ethics cases with structured sections. The expected format includes:
@@ -14,37 +29,46 @@ ProEthica processes ethics cases with structured sections. The expected format i
 | **Questions** | Specific ethical questions addressed |
 | **Conclusions** | Board's determinations |
 
-## Uploading a Case
+## Importing via URL
 
-### Step 1: Navigate to Cases
+The URL import method fetches case content directly from the NSPE website.
+
+### Step 1: Navigate to Add Case
 
 1. Click **Cases** in the navigation bar
 2. Click **Add Case** button
+3. Select **Enter URL** (the active green option)
 
-### Step 2: Enter Case Information
+### Step 2: Enter NSPE Case URL
 
-Complete the case form:
+Provide the URL to an NSPE Board of Ethical Review case:
 
-| Field | Description |
-|-------|-------------|
-| **Title** | Case name (e.g., "NSPE Case 24-2: AI in Engineering") |
-| **Source** | Origin of case (e.g., "NSPE BER") |
-| **Content** | Full case text |
+```
+https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/case-XX-X
+```
 
-### Step 3: Section Identification
+The system will:
 
-ProEthica automatically identifies sections from the case text:
+1. Fetch the page content
+2. Extract the case title
+3. Parse Facts, Discussion, Questions, and Conclusions sections
+4. Create the case record
 
-- Facts section (situational description)
-- Discussion section (analysis and reasoning)
-- Questions (ethical questions posed)
-- Conclusions (board determinations)
+### Step 3: Review Imported Content
 
-Review the section breakdown and adjust if needed.
+After import, verify:
 
-### Step 4: Save Case
+- Title extracted correctly
+- All sections identified
+- Content complete
 
-Click **Save** to create the case record.
+### Step 4: Generate Structure
+
+Click **Structure** on the case detail page to:
+
+- View parsed sections
+- Generate embeddings for similarity matching
+- Verify section boundaries
 
 ## Generating Embeddings
 

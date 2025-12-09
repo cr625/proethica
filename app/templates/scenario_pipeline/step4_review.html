@@ -181,8 +181,13 @@
     <!-- Tabs -->
     <ul class="nav nav-tabs mb-3" id="reviewTabs" role="tablist">
         <li class="nav-item" role="presentation">
-            <button class="nav-link active" id="graph-tab" data-bs-toggle="tab" data-bs-target="#graph" type="button">
-                <i class="bi bi-diagram-3"></i> Entity Graph
+            <button class="nav-link active" id="fullgraph-tab" data-bs-toggle="tab" data-bs-target="#fullgraph" type="button">
+                <i class="bi bi-diagram-3"></i> Full Entity Graph ({{ entity_count }})
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="graph-tab" data-bs-toggle="tab" data-bs-target="#graph" type="button">
+                <i class="bi bi-arrow-right-circle"></i> Reasoning Flow
             </button>
         </li>
         <li class="nav-item" role="presentation">
@@ -473,12 +478,84 @@
 
         </div>
 
-        <!-- Entity Graph Tab -->
-        <div class="tab-pane fade show active" id="graph" role="tabpanel">
+        <!-- Full Entity Graph Tab (D3.js) -->
+        <div class="tab-pane fade show active" id="fullgraph" role="tabpanel">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="mb-0"><i class="bi bi-diagram-3"></i> Full Entity Graph</h5>
+                        <small class="text-muted">All <span id="d3-node-count">0</span> entities from Passes 1-4 with relationships</small>
+                    </div>
+                    <div>
+                        <span class="badge bg-primary me-1" id="d3-pass1">Pass 1: 0</span>
+                        <span class="badge bg-success me-1" id="d3-pass2">Pass 2: 0</span>
+                        <span class="badge bg-warning text-dark me-1" id="d3-pass3">Pass 3: 0</span>
+                        <span class="badge bg-danger" id="d3-pass4">Step 4: 0</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- D3 Graph Controls -->
+                    <div class="mb-3 d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="input-group input-group-sm" style="width: 250px;">
+                                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                <input type="text" id="d3-search" class="form-control" placeholder="Search entities...">
+                            </div>
+                        </div>
+                        <div>
+                            <span class="me-2 text-muted small">Filter:</span>
+                            <button class="btn btn-sm btn-outline-secondary d3-filter active" data-pass="all">All</button>
+                            <button class="btn btn-sm btn-outline-primary d3-filter" data-pass="1">Pass 1</button>
+                            <button class="btn btn-sm btn-outline-success d3-filter" data-pass="2">Pass 2</button>
+                            <button class="btn btn-sm btn-outline-warning d3-filter" data-pass="3">Pass 3</button>
+                            <button class="btn btn-sm btn-outline-danger d3-filter" data-pass="4">Step 4</button>
+                            <span class="mx-2 text-muted">|</span>
+                            <button class="btn btn-sm btn-outline-info" id="d3-toggle-hubs" title="Show type hub nodes (R, P, O, S, Rs, A, E, Ca, Cs)">
+                                <i class="bi bi-diagram-2"></i> Type Hubs
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- D3 Graph Container -->
+                    <div id="d3-graph-container" style="width: 100%; height: 600px; border: 1px solid #ddd; background-color: #fafafa; position: relative;">
+                        <svg id="d3-graph-svg" style="width: 100%; height: 100%;"></svg>
+
+                        <!-- Entity Details Panel -->
+                        <div id="d3-entity-details" style="position: absolute; top: 10px; right: 10px; width: 300px; max-height: 350px; overflow-y: auto; background: white; border: 1px solid #dee2e6; border-radius: 0.25rem; padding: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: none; z-index: 100;">
+                            <button type="button" class="btn-close float-end" id="d3-close-details"></button>
+                            <h6 id="d3-detail-label" class="mb-2" style="border-bottom: 2px solid #666; padding-bottom: 5px;"></h6>
+                            <p class="small mb-2">
+                                <span class="badge" id="d3-detail-type"></span>
+                                <span class="badge bg-secondary" id="d3-detail-pass"></span>
+                            </p>
+                            <p class="small text-muted mb-2" id="d3-detail-definition"></p>
+                            <p class="small mb-1"><strong>Connections:</strong></p>
+                            <ul class="small list-unstyled" id="d3-detail-connections"></ul>
+                        </div>
+
+                        <!-- Zoom Controls -->
+                        <div style="position: absolute; bottom: 10px; left: 10px; z-index: 100;">
+                            <button class="btn btn-sm btn-light" id="d3-zoom-in" title="Zoom In"><i class="bi bi-plus-lg"></i></button>
+                            <button class="btn btn-sm btn-light" id="d3-zoom-out" title="Zoom Out"><i class="bi bi-dash-lg"></i></button>
+                            <button class="btn btn-sm btn-light" id="d3-zoom-reset" title="Reset"><i class="bi bi-arrows-fullscreen"></i></button>
+                        </div>
+                    </div>
+
+                    <!-- Legend -->
+                    <div class="mt-3">
+                        <h6>Entity Types</h6>
+                        <div id="d3-legend" class="d-flex flex-wrap gap-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reasoning Flow Tab (Cytoscape) -->
+        <div class="tab-pane fade" id="graph" role="tabpanel">
             <div class="card">
                 <div class="card-header">
-                    <h5><i class="bi bi-diagram-3"></i> Synthesis Reasoning Flow</h5>
-                    <small class="text-muted">Shows how NSPE provisions inform questions and conclusions - the board's reasoning chain (LangGraph-style)</small>
+                    <h5><i class="bi bi-arrow-right-circle"></i> Synthesis Reasoning Flow</h5>
+                    <small class="text-muted">Shows how NSPE provisions inform questions and conclusions - the board's reasoning chain</small>
                 </div>
                 <div class="card-body">
                     <!-- Graph Controls -->
@@ -829,7 +906,9 @@
     </div>
 </div>
 
-<!-- Include Cytoscape.js -->
+<!-- Include D3.js for Full Entity Graph -->
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<!-- Include Cytoscape.js for Reasoning Flow -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.23.0/cytoscape.min.js"></script>
 
 <script>
@@ -1170,5 +1249,270 @@ function generateSynthesisAnnotations() {
 function getCsrfToken() {
     return document.querySelector('meta[name="csrf-token"]')?.content || '';
 }
+
+// ============================================================================
+// D3.js Full Entity Graph
+// ============================================================================
+(function() {
+    const caseId = {{ case.id }};
+    const container = document.getElementById('d3-graph-container');
+    const svg = d3.select('#d3-graph-svg');
+
+    let graphData = null;
+    let simulation = null;
+    let currentFilter = 'all';
+    let searchTerm = '';
+    let showTypeHubs = false;
+
+    // Fetch and render graph
+    loadGraph();
+
+    function loadGraph() {
+        const url = `/scenario_pipeline/case/${caseId}/entity_graph` + (showTypeHubs ? '?type_hubs=true' : '');
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    graphData = data;
+                    renderD3Graph(data);
+                    updateD3Stats(data.metadata);
+                    buildD3Legend(data.metadata.type_colors);
+                } else {
+                    console.error('Failed to load graph:', data.error);
+                    document.getElementById('d3-node-count').textContent = 'Error loading';
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching graph:', error);
+                document.getElementById('d3-node-count').textContent = 'Error';
+            });
+    }
+
+    function renderD3Graph(data) {
+        const width = container.clientWidth;
+        const height = container.clientHeight || 600;
+
+        svg.selectAll('*').remove();
+
+        // Define arrow markers for edges
+        svg.append('defs').append('marker')
+            .attr('id', 'arrowhead')
+            .attr('viewBox', '-0 -5 10 10')
+            .attr('refX', 20)
+            .attr('refY', 0)
+            .attr('orient', 'auto')
+            .attr('markerWidth', 6)
+            .attr('markerHeight', 6)
+            .append('path')
+            .attr('d', 'M 0,-5 L 10,0 L 0,5')
+            .attr('fill', '#666');
+
+        // Create zoom behavior
+        const zoom = d3.zoom()
+            .scaleExtent([0.1, 4])
+            .on('zoom', (event) => g.attr('transform', event.transform));
+
+        svg.call(zoom);
+        const g = svg.append('g');
+
+        // Filter nodes
+        const filteredNodes = filterD3Nodes(data.nodes);
+        const filteredNodeIds = new Set(filteredNodes.map(n => n.id));
+        const filteredEdges = data.edges.filter(e =>
+            filteredNodeIds.has(e.source) && filteredNodeIds.has(e.target) ||
+            filteredNodeIds.has(e.source?.id) && filteredNodeIds.has(e.target?.id)
+        );
+
+        // Create simulation with adjusted forces
+        simulation = d3.forceSimulation(filteredNodes)
+            .force('link', d3.forceLink(filteredEdges).id(d => d.id).distance(d => d.type === 'instance_of' ? 40 : 80))
+            .force('charge', d3.forceManyBody().strength(d => d.is_hub ? -300 : -120))
+            .force('center', d3.forceCenter(width / 2, height / 2))
+            .force('collision', d3.forceCollide().radius(d => d.is_hub ? 40 : 25));
+
+        // Create edges with arrows
+        const link = g.append('g')
+            .attr('class', 'links')
+            .selectAll('line')
+            .data(filteredEdges)
+            .enter().append('line')
+            .attr('stroke', d => d.type === 'instance_of' ? '#ccc' : '#666')
+            .attr('stroke-opacity', d => d.type === 'instance_of' ? 0.3 : 0.7)
+            .attr('stroke-width', d => d.type === 'instance_of' ? 1 : 2)
+            .attr('marker-end', d => d.type !== 'instance_of' ? 'url(#arrowhead)' : null);
+
+        // Create edge labels
+        const edgeLabels = g.append('g')
+            .attr('class', 'edge-labels')
+            .selectAll('text')
+            .data(filteredEdges.filter(e => e.type !== 'instance_of'))
+            .enter().append('text')
+            .attr('font-size', '8px')
+            .attr('fill', '#666')
+            .attr('text-anchor', 'middle')
+            .text(d => d.type.replace(/_/g, ' '));
+
+        // Create nodes
+        const node = g.append('g')
+            .attr('class', 'nodes')
+            .selectAll('g')
+            .data(filteredNodes)
+            .enter().append('g')
+            .style('cursor', 'pointer')
+            .call(d3.drag()
+                .on('start', dragstarted)
+                .on('drag', dragged)
+                .on('end', dragended))
+            .on('click', showD3Details)
+            .on('mouseover', function(event, d) {
+                d3.select(this).select('circle').attr('stroke-width', 3).attr('stroke', '#333');
+                // Highlight connected edges
+                link.attr('stroke-opacity', e => (e.source.id === d.id || e.target.id === d.id) ? 1 : 0.2);
+            })
+            .on('mouseout', function() {
+                d3.select(this).select('circle').attr('stroke-width', 2).attr('stroke', '#fff');
+                link.attr('stroke-opacity', d => d.type === 'instance_of' ? 0.3 : 0.7);
+            });
+
+        node.append('circle')
+            .attr('r', d => d.is_hub ? 18 : getD3NodeSize(d))
+            .attr('fill', d => d.color)
+            .attr('stroke', '#fff')
+            .attr('stroke-width', 2);
+
+        node.append('text')
+            .attr('dy', d => (d.is_hub ? 18 : getD3NodeSize(d)) + 12)
+            .attr('text-anchor', 'middle')
+            .attr('font-size', d => d.is_hub ? '10px' : '9px')
+            .attr('font-weight', d => d.is_hub ? 'bold' : 'normal')
+            .attr('fill', '#333')
+            .text(d => truncateD3Label(d.label, d.is_hub ? 20 : 12));
+
+        simulation.on('tick', () => {
+            link.attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+                .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+            node.attr('transform', d => `translate(${d.x},${d.y})`);
+            edgeLabels
+                .attr('x', d => (d.source.x + d.target.x) / 2)
+                .attr('y', d => (d.source.y + d.target.y) / 2);
+        });
+
+        document.getElementById('d3-node-count').textContent = filteredNodes.length + ' nodes, ' + filteredEdges.length + ' edges';
+
+        // Zoom controls
+        document.getElementById('d3-zoom-in').onclick = () => svg.transition().call(zoom.scaleBy, 1.3);
+        document.getElementById('d3-zoom-out').onclick = () => svg.transition().call(zoom.scaleBy, 0.7);
+        document.getElementById('d3-zoom-reset').onclick = () => svg.transition().call(zoom.transform, d3.zoomIdentity);
+    }
+
+    function filterD3Nodes(nodes) {
+        return nodes.filter(n => {
+            if (currentFilter !== 'all' && n.pass !== parseInt(currentFilter)) return false;
+            if (searchTerm && !n.label.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+            return true;
+        });
+    }
+
+    function getD3NodeSize(node) {
+        const sizes = { 'roles': 10, 'principles': 8, 'obligations': 8, 'temporal_dynamics_enhanced': 8,
+                       'ethical_question': 9, 'ethical_conclusion': 9, 'code_provision_reference': 8 };
+        return sizes[node.type] || 7;
+    }
+
+    function truncateD3Label(label, maxLen) {
+        return label.length <= maxLen ? label : label.substring(0, maxLen) + '...';
+    }
+
+    function showD3Details(event, d) {
+        const panel = document.getElementById('d3-entity-details');
+        document.getElementById('d3-detail-label').textContent = d.label;
+        document.getElementById('d3-detail-label').style.borderColor = d.color;
+
+        const typeBadge = document.getElementById('d3-detail-type');
+        typeBadge.textContent = d.type.replace(/_/g, ' ');
+        typeBadge.style.backgroundColor = d.color;
+
+        const passNames = {1: 'Pass 1', 2: 'Pass 2', 3: 'Pass 3', 4: 'Step 4'};
+        document.getElementById('d3-detail-pass').textContent = passNames[d.pass] || 'Unknown';
+        document.getElementById('d3-detail-definition').textContent = d.definition || 'No definition';
+
+        const connections = graphData.edges.filter(e =>
+            e.source === d.id || e.target === d.id ||
+            e.source?.id === d.id || e.target?.id === d.id
+        );
+
+        const connEl = document.getElementById('d3-detail-connections');
+        connEl.innerHTML = connections.length === 0 ? '<li class="text-muted">None</li>' : '';
+        connections.forEach(conn => {
+            const isSource = conn.source === d.id || conn.source?.id === d.id;
+            const otherNode = graphData.nodes.find(n =>
+                n.id === (isSource ? (conn.target?.id || conn.target) : (conn.source?.id || conn.source))
+            );
+            if (otherNode) {
+                const li = document.createElement('li');
+                li.innerHTML = `<span style="color:${otherNode.color}">${isSource ? '&#8594;' : '&#8592;'}</span> ${otherNode.label}`;
+                connEl.appendChild(li);
+            }
+        });
+        panel.style.display = 'block';
+    }
+
+    function dragstarted(event, d) {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        d.fx = d.x; d.fy = d.y;
+    }
+    function dragged(event, d) { d.fx = event.x; d.fy = event.y; }
+    function dragended(event, d) {
+        if (!event.active) simulation.alphaTarget(0);
+        d.fx = null; d.fy = null;
+    }
+
+    function updateD3Stats(metadata) {
+        const pc = metadata.pass_counts;
+        document.getElementById('d3-pass1').textContent = `Pass 1: ${pc[1] || 0}`;
+        document.getElementById('d3-pass2').textContent = `Pass 2: ${pc[2] || 0}`;
+        document.getElementById('d3-pass3').textContent = `Pass 3: ${pc[3] || 0}`;
+        document.getElementById('d3-pass4').textContent = `Step 4: ${pc[4] || 0}`;
+    }
+
+    function buildD3Legend(colors) {
+        const container = document.getElementById('d3-legend');
+        container.innerHTML = '';
+        const labels = {
+            'roles': 'Roles', 'states': 'States', 'resources': 'Resources',
+            'principles': 'Principles', 'obligations': 'Obligations', 'constraints': 'Constraints',
+            'capabilities': 'Capabilities', 'temporal_dynamics_enhanced': 'Actions/Events',
+            'code_provision_reference': 'Provisions', 'ethical_question': 'Questions', 'ethical_conclusion': 'Conclusions'
+        };
+        Object.entries(colors).forEach(([type, color]) => {
+            if (labels[type]) {
+                const span = document.createElement('span');
+                span.innerHTML = `<span style="display:inline-block;width:12px;height:12px;background:${color};border-radius:50%;margin-right:5px;"></span>${labels[type]}`;
+                container.appendChild(span);
+            }
+        });
+    }
+
+    // Filter buttons
+    document.querySelectorAll('.d3-filter').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.d3-filter').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            currentFilter = this.dataset.pass;
+            if (graphData) renderD3Graph(graphData);
+        });
+    });
+
+    // Search
+    document.getElementById('d3-search').addEventListener('input', function() {
+        searchTerm = this.value;
+        if (graphData) renderD3Graph(graphData);
+    });
+
+    // Close details
+    document.getElementById('d3-close-details').addEventListener('click', function() {
+        document.getElementById('d3-entity-details').style.display = 'none';
+    });
+})();
 </script>
 {% endblock %}

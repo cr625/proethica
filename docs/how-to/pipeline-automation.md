@@ -69,14 +69,28 @@ Navigate to: **Pipeline Dashboard** (`/pipeline/dashboard`)
 
 Or via Cases page: Click **Automation** button
 
+![Pipeline Dashboard](../assets/images/screenshots/pipeline-dashboard-content.png)
+
 ### Dashboard Layout
 
 | Section | Description |
 |---------|-------------|
-| **Service Status** | Health of Redis, Celery, Workers |
-| **Active Runs** | Currently processing pipelines |
-| **Queue** | Pending and completed jobs |
-| **Controls** | Start, cancel, reprocess buttons |
+| **Service Status** | Health of Redis, Celery, Workers (top right) |
+| **Stats Cards** | Total Cases, Active Runs, Queued count |
+| **Recent Runs** | History with status, duration, and actions |
+| **Controls** | Manage Queue, Reprocess, Details buttons |
+
+### Processing Time
+
+Typical extraction time per case:
+
+| Metric | Time |
+|--------|------|
+| **Average** | ~10 minutes |
+| **Range** | 8-15 minutes depending on case complexity |
+| **Steps** | 5 extraction passes (Steps 1, 1b, 2, 2b, 3) |
+
+Processing is currently sequential (one case at a time). Parallel processing across multiple workers is planned for future releases to reduce batch processing time.
 
 ## Service Status
 

@@ -5,6 +5,7 @@ You are a documentation specialist for ProEthica. Help the user create, update, 
 ## Project Context
 
 - **Documentation location**: `docs/` directory
+- **Internal docs**: `docs-internal/` (planning, not public)
 - **MkDocs config**: `mkdocs.yml`
 - **Build output**: `site/` directory
 - **Screenshots**: `docs/assets/images/screenshots/`
@@ -19,37 +20,44 @@ You are a documentation specialist for ProEthica. Help the user create, update, 
 - `docs/concepts/nine-concepts.md` - Nine-concept framework reference
 - `docs/how-to/*.md` - How-to guides for features
 - `docs/reference/*.md` - Technical reference documentation
+- `docs/reference/citations.md` - Academic references with full citations
 - `docs/faq.md` - Frequently asked questions
 
 ## Available Commands
 
 ### Build Documentation
 ```bash
-cd /home/chris/onto/proethica && mkdocs build
+cd /home/chris/onto/proethica && /home/chris/onto/proethica/venv-proethica/bin/mkdocs build
 ```
 
 ### Serve Documentation Locally (for preview)
 ```bash
-cd /home/chris/onto/proethica && mkdocs serve
+cd /home/chris/onto/proethica && /home/chris/onto/proethica/venv-proethica/bin/mkdocs serve
 ```
 
-### Capture Screenshots
+## Capture Screenshots
 
-Use Playwright with Python 3.11. **IMPORTANT**: Use snap chromium (`/snap/bin/chromium`), not Chrome.
+Use Playwright from the proethica venv. **IMPORTANT**: Use snap chromium (`/snap/bin/chromium`), not Chrome.
 
-**Capture a single page:**
-```python
-python3.11 -c "
+### Login Credentials
+- **Username**: `admin@proethica.org`
+- **Password**: `Proethica2187`
+
+### Screenshot Script Template
+```bash
+/home/chris/onto/proethica/venv-proethica/bin/python -c "
 from playwright.sync_api import sync_playwright
 from pathlib import Path
 from PIL import Image
 
 BASE_URL = 'http://localhost:5000'
-OUTPUT_DIR = Path('docs/assets/images/screenshots')
-NAVBAR_HEIGHT = 56  # ProEthica navbar height in pixels
+OUTPUT_DIR = Path('/home/chris/onto/proethica/docs/assets/images/screenshots')
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+NAVBAR_HEIGHT = 56
+USERNAME = 'admin@proethica.org'
+PASSWORD = 'Proethica2187'
 
 with sync_playwright() as p:
-    # IMPORTANT: Use snap chromium, not default chrome
     browser = p.chromium.launch(
         headless=True,
         executable_path='/snap/bin/chromium'
@@ -60,7 +68,15 @@ with sync_playwright() as p:
     )
     page = context.new_page()
 
-    # Navigate and capture
+    # Login first (required for most pages)
+    page.goto(f'{BASE_URL}/auth/login')
+    page.wait_for_load_state('networkidle')
+    page.fill('input[name=\"username\"]', USERNAME)
+    page.fill('input[name=\"password\"]', PASSWORD)
+    page.click('input[type=\"submit\"]')
+    page.wait_for_timeout(2000)
+
+    # Navigate to target page
     page.goto(f'{BASE_URL}/YOUR_URL_HERE')
     page.wait_for_load_state('networkidle')
     page.wait_for_timeout(1000)
@@ -69,15 +85,34 @@ with sync_playwright() as p:
     full_path = OUTPUT_DIR / 'screenshot-name.png'
     page.screenshot(path=str(full_path), full_page=False)
 
-    # Crop navbar for content-only version
+    # Crop navbar for content-only version (multiply by device_scale_factor)
     img = Image.open(full_path)
     width, height = img.size
-    cropped = img.crop((0, NAVBAR_HEIGHT, width, height))
+    cropped = img.crop((0, NAVBAR_HEIGHT * 2, width, height))
     cropped.save(OUTPUT_DIR / 'screenshot-name-content.png')
 
+    print('Screenshot saved')
     browser.close()
 "
 ```
+
+### Login Form Details
+- Username field: `input[name="username"]` (NOT email)
+- Password field: `input[name="password"]`
+- Submit button: `input[type="submit"]` (NOT button element)
+
+## Existing Screenshots
+
+| File | Page | Description |
+|------|------|-------------|
+| `upload-case-content.png` | `/cases/new` | Add New Case with 4 import methods |
+| `pipeline-dashboard-content.png` | `/pipeline/dashboard` | Pipeline automation dashboard |
+
+## Theme Configuration
+
+The default theme is **light mode**. In `mkdocs.yml`, the `scheme: default` palette is listed first.
+
+To toggle: Users can click the sun/moon icon in the header.
 
 ## Theme-Aware Images
 
@@ -109,7 +144,7 @@ For images that should change with light/dark theme, add CSS classes:
 1. Create the markdown file in the appropriate directory
 2. Add to `mkdocs.yml` nav section
 3. Add to "Related Guides" in relevant existing pages
-4. Run `mkdocs build` to verify
+4. Run mkdocs build to verify
 
 ## Screenshot Naming Convention
 
@@ -123,6 +158,7 @@ When updating documentation, align with:
 - `CLAUDE.md` - Project overview
 - `docs-internal/` - Internal development documentation
 - `docs/assets/AAAI_Demo_Paper__Camera_Ready_.pdf` - AAAI 2026 paper
+- `app/templates/tools/references.html` - In-app references page (source for citations.md)
 
 ## Documentation Structure
 
@@ -135,49 +171,68 @@ docs/
 ├── concepts/
 │   └── nine-concepts.md         # Framework reference
 ├── how-to/
-│   ├── upload-cases.md          # Case management
+│   ├── upload-cases.md          # Case management (has screenshot)
 │   ├── phase1-extraction.md     # Extraction guide
 │   ├── phase2-analysis.md       # Analysis guide
 │   ├── phase3-scenario.md       # Scenario guide
 │   ├── entity-review.md         # Entity validation
 │   ├── precedent-discovery.md   # Similarity search
-│   ├── pipeline-automation.md   # Batch processing
+│   ├── pipeline-automation.md   # Batch processing (has screenshot)
 │   └── settings.md              # Configuration
 ├── reference/
 │   ├── architecture.md          # System architecture
 │   ├── ontology-integration.md  # OntServe integration
-│   └── transformation-types.md  # Classification reference
+│   ├── transformation-types.md  # Classification reference
+│   └── citations.md             # Academic references
 ├── faq.md                        # FAQ
 └── assets/
     ├── css/custom.css           # Custom styles
-    └── images/screenshots/      # UI screenshots
+    ├── images/screenshots/      # UI screenshots
+    └── AAAI_Demo_Paper.pdf      # Reference paper
 ```
 
 ## Common Tasks
 
-1. **"Update screenshots"** - Recapture using Playwright, crop navbars, rebuild docs
+1. **"Update screenshots"** - Recapture using Playwright script above, rebuild docs
 2. **"Add new how-to guide"** - Create file, add to nav, link from related pages
 3. **"Update for new feature"** - Find relevant pages, update content, add screenshots
 4. **"Fix documentation"** - Read current content, make targeted edits, rebuild
 
 ## Troubleshooting
 
+### Playwright not found
+Use the proethica venv which has Playwright installed:
+```bash
+/home/chris/onto/proethica/venv-proethica/bin/python -c "from playwright.sync_api import sync_playwright; print('OK')"
+```
+
 ### Playwright can't find Chrome/Chromium
 On this system, use snap chromium at `/snap/bin/chromium`. Do NOT try to install Google Chrome.
+
+### Login fails during screenshot
+Check the login form selectors:
+- Field is `input[name="username"]` not `input[name="email"]`
+- Button is `input[type="submit"]` not `button[type="submit"]`
 
 ### Build fails with broken links
 Use relative paths from the page location:
 ```markdown
-# From docs/how-to/view-results.md linking to docs/how-to/document-processing.md
-[Process Documents](document-processing.md)
+# From docs/how-to/upload-cases.md linking to phase1-extraction.md
+[Phase 1 Extraction](phase1-extraction.md)
 ```
 
 ### Screenshots not displaying
 Check path is correct relative to page:
 ```markdown
-# From docs/how-to/phase1-extraction.md
-# Image at docs/assets/images/screenshots/extraction.png
-![Extraction](../assets/images/screenshots/extraction.png)
+# From docs/how-to/pipeline-automation.md
+![Pipeline Dashboard](../assets/images/screenshots/pipeline-dashboard-content.png)
+```
+
+### Navbar crop is wrong
+Remember to multiply NAVBAR_HEIGHT by device_scale_factor:
+```python
+# With device_scale_factor=2 and NAVBAR_HEIGHT=56
+cropped = img.crop((0, NAVBAR_HEIGHT * 2, width, height))  # Crop at 112px
 ```
 
 ## Writing Style (Quick Reference)
@@ -187,3 +242,12 @@ Check path is correct relative to page:
 - **Be specific**: Describe actual capabilities, not vague claims
 - **UI elements**: Use **Bold** for buttons/menus, `code` for technical terms
 - **No emojis**: Documentation should be professional and technical
+- **Processing times**: Currently ~10 min per case, parallel processing planned
+
+## Flask Integration
+
+Documentation is served at `/docs/` via the Flask app:
+- Route: `app/routes/docs.py`
+- Blueprint: `docs_bp`
+- Serves from: `site/` directory
+- Navigation link: Tools dropdown > Documentation

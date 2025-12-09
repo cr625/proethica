@@ -210,6 +210,274 @@ def save_streaming_results(case_id):
     return save_step4_streaming_results(case_id)
 
 
+@bp.route('/case/<int:case_id>/entity_graph')
+def get_entity_graph_api(case_id):
+    """
+    API endpoint returning entity graph data for D3.js visualization.
+
+    Returns JSON with:
+    - nodes: All entities with type, label, definition, pass info
+    - edges: Relationships between entities (from RDF data)
+    - metadata: Case info and entity counts
+    """
+    try:
+        case = Document.query.get_or_404(case_id)
+
+        # Get all entities
+        entities = TemporaryRDFStorage.query.filter(
+            TemporaryRDFStorage.case_id == case_id,
+            TemporaryRDFStorage.storage_type == 'individual'
+        ).all()
+
+        # Build nodes
+        nodes = []
+        node_ids = set()
+
+        # Entity type to pass mapping
+        type_to_pass = {
+            'roles': 1, 'states': 1, 'resources': 1,
+            'principles': 2, 'obligations': 2, 'constraints': 2, 'capabilities': 2,
+            'temporal_dynamics_enhanced': 3, 'actions': 3, 'events': 3,
+            'code_provision_reference': 4, 'ethical_question': 4, 'ethical_conclusion': 4
+        }
+
+        # Entity type colors
+        type_colors = {
+            'roles': '#2196F3',
+            'states': '#4CAF50',
+            'resources': '#FF9800',
+            'principles': '#9C27B0',
+            'obligations': '#F44336',
+            'constraints': '#795548',
+            'capabilities': '#3F51B5',
+            'temporal_dynamics_enhanced': '#009688',
+            'actions': '#009688',
+            'events': '#FFC107',
+            'code_provision_reference': '#E91E63',
+            'ethical_question': '#00BCD4',
+            'ethical_conclusion': '#CDDC39'
+        }
+
+        for entity in entities:
+            node_id = f"{entity.extraction_type}_{entity.id}"
+            node_ids.add(node_id)
+
+            # Get section from RDF if available
+            section = 'unknown'
+            if entity.rdf_json_ld and isinstance(entity.rdf_json_ld, dict):
+                section = entity.rdf_json_ld.get('sourceSection',
+                          entity.rdf_json_ld.get('section', 'unknown'))
+
+            nodes.append({
+                'id': node_id,
+                'db_id': entity.id,
+                'type': entity.extraction_type,
+                'entity_type': entity.entity_type,
+                'label': entity.entity_label or f"Entity {entity.id}",
+                'definition': entity.entity_definition or '',
+                'pass': type_to_pass.get(entity.extraction_type, 0),
+                'section': section,
+                'color': type_colors.get(entity.extraction_type, '#999999'),
+                'is_committed': entity.is_committed,
+                'is_selected': entity.is_selected
+            })
+
+        # Build edges from RDF relationships
+        edges = []
+        edge_id = 0
+
+        # Create label to node_id mapping for efficient lookup
+        label_to_node = {}
+        for node in nodes:
+            label_to_node[node['label'].lower()] = node['id']
+            # Also map without spaces and with underscores
+            label_to_node[node['label'].lower().replace(' ', '_')] = node['id']
+
+        for entity in entities:
+            if not entity.rdf_json_ld or not isinstance(entity.rdf_json_ld, dict):
+                continue
+
+            source_id = f"{entity.extraction_type}_{entity.id}"
+            rdf = entity.rdf_json_ld
+
+            # PRIMARY: Extract from 'relationships' array (new format)
+            if 'relationships' in rdf and isinstance(rdf['relationships'], list):
+                for rel in rdf['relationships']:
+                    if isinstance(rel, dict) and 'target' in rel:
+                        target_label = rel.get('target', '').lower()
+                        rel_type = rel.get('type', 'related_to')
+
+                        # Find target node by label
+                        target_id = label_to_node.get(target_label)
+                        if not target_id:
+                            target_id = label_to_node.get(target_label.replace(' ', '_'))
+
+                        if target_id and target_id != source_id:
+                            edges.append({
+                                'id': f"edge_{edge_id}",
+                                'source': source_id,
+                                'target': target_id,
+                                'type': rel_type,
+                                'weight': 1.0
+                            })
+                            edge_id += 1
+
+            # SECONDARY: Extract from flat RDF fields (legacy format)
+            relationship_fields = [
+                ('performedBy', 'performed_by'),
+                ('agent', 'has_agent'),
+                ('involves', 'involves'),
+                ('affectedBy', 'affected_by'),
+                ('triggers', 'triggers'),
+                ('enabledBy', 'enabled_by'),
+                ('constrainedBy', 'constrained_by'),
+                ('governedBy', 'governed_by'),
+                ('appliesTo', 'applies_to'),
+                ('relatedTo', 'related_to'),
+                ('answersQuestions', 'answers'),
+                ('citedProvisions', 'cites'),
+                ('mentionedEntities', 'mentions')
+            ]
+
+            for rdf_field, edge_type in relationship_fields:
+                if rdf_field in rdf:
+                    targets = rdf[rdf_field]
+                    if not isinstance(targets, list):
+                        targets = [targets]
+
+                    for target in targets:
+                        target_label = str(target).lower() if not isinstance(target, dict) else target.get('label', str(target)).lower()
+                        target_id = label_to_node.get(target_label)
+                        if not target_id:
+                            target_id = label_to_node.get(target_label.replace(' ', '_'))
+
+                        if target_id and target_id != source_id:
+                            # Avoid duplicate edges
+                            existing = any(e['source'] == source_id and e['target'] == target_id and e['type'] == edge_type for e in edges)
+                            if not existing:
+                                edges.append({
+                                    'id': f"edge_{edge_id}",
+                                    'source': source_id,
+                                    'target': target_id,
+                                    'type': edge_type,
+                                    'weight': 1.0
+                                })
+                                edge_id += 1
+
+        # OPTIONAL: Add type hub nodes if requested via query param
+        show_type_hubs = request.args.get('type_hubs', 'false').lower() == 'true'
+        if show_type_hubs:
+            type_hub_colors = {
+                'roles': '#2196F3', 'states': '#4CAF50', 'resources': '#FF9800',
+                'principles': '#9C27B0', 'obligations': '#F44336', 'constraints': '#795548',
+                'capabilities': '#3F51B5', 'temporal_dynamics_enhanced': '#009688',
+                'code_provision_reference': '#E91E63', 'ethical_question': '#00BCD4',
+                'ethical_conclusion': '#CDDC39'
+            }
+            type_labels = {
+                'roles': 'R (Roles)', 'states': 'S (States)', 'resources': 'Rs (Resources)',
+                'principles': 'P (Principles)', 'obligations': 'O (Obligations)',
+                'constraints': 'Cs (Constraints)', 'capabilities': 'Ca (Capabilities)',
+                'temporal_dynamics_enhanced': 'A/E (Actions/Events)',
+                'code_provision_reference': 'Provisions', 'ethical_question': 'Questions',
+                'ethical_conclusion': 'Conclusions'
+            }
+
+            # Add hub nodes and connect entities to their type hubs
+            for etype in type_to_pass.keys():
+                if any(n['type'] == etype for n in nodes):
+                    hub_id = f"hub_{etype}"
+                    nodes.append({
+                        'id': hub_id,
+                        'db_id': 0,
+                        'type': 'hub',
+                        'entity_type': 'TypeHub',
+                        'label': type_labels.get(etype, etype),
+                        'definition': f'Type hub for {etype}',
+                        'pass': type_to_pass.get(etype, 0),
+                        'section': 'hub',
+                        'color': type_hub_colors.get(etype, '#999'),
+                        'is_hub': True,
+                        'is_committed': False,
+                        'is_selected': False
+                    })
+                    # Connect all entities of this type to the hub
+                    for node in [n for n in nodes if n['type'] == etype]:
+                        edges.append({
+                            'id': f"edge_{edge_id}",
+                            'source': node['id'],
+                            'target': hub_id,
+                            'type': 'instance_of',
+                            'weight': 0.3
+                        })
+                        edge_id += 1
+
+        # Build metadata
+        type_counts = {}
+        pass_counts = {1: 0, 2: 0, 3: 0, 4: 0}
+
+        for node in nodes:
+            etype = node['type']
+            type_counts[etype] = type_counts.get(etype, 0) + 1
+            pass_counts[node['pass']] = pass_counts.get(node['pass'], 0) + 1
+
+        metadata = {
+            'case_id': case_id,
+            'case_title': case.title,
+            'total_nodes': len(nodes),
+            'total_edges': len(edges),
+            'type_counts': type_counts,
+            'pass_counts': pass_counts,
+            'type_colors': type_colors
+        }
+
+        return jsonify({
+            'success': True,
+            'nodes': nodes,
+            'edges': edges,
+            'metadata': metadata
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting entity graph for case {case_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@bp.route('/case/<int:case_id>/entity_graph/view')
+@auth_optional
+def view_entity_graph(case_id):
+    """
+    Display full-page entity graph visualization.
+    """
+    try:
+        case = Document.query.get_or_404(case_id)
+
+        # Get entity summary for sidebar
+        entities_summary = get_entities_summary(case_id)
+
+        # Get pipeline status
+        pipeline_status = PipelineStatusService.get_step_status(case_id)
+
+        return render_template(
+            'scenarios/entity_graph.html',
+            case=case,
+            entities_summary=entities_summary,
+            current_step=4,
+            prev_step_url=f"/scenario_pipeline/case/{case_id}/step4/review",
+            next_step_url=f"/scenario_pipeline/case/{case_id}/step5",
+            pipeline_status=pipeline_status
+        )
+
+    except Exception as e:
+        logger.error(f"Error displaying entity graph for case {case_id}: {e}")
+        return str(e), 500
+
+
 @bp.route('/case/<int:case_id>/step4/review')
 def step4_review(case_id):
     """

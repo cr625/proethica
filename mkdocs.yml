@@ -11,20 +11,20 @@ edit_uri: edit/main/docs/
 theme:
   name: material
   palette:
-    # Dark mode (matches ProEthica theme)
-    - scheme: slate
-      primary: deep-purple
-      accent: amber
-      toggle:
-        icon: material/brightness-4
-        name: Switch to light mode
-    # Light mode
+    # Light mode (default)
     - scheme: default
       primary: deep-purple
       accent: amber
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
+    # Dark mode
+    - scheme: slate
+      primary: deep-purple
+      accent: amber
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
 
   features:
     - navigation.instant
@@ -81,6 +81,7 @@ nav:
       - System Architecture: reference/architecture.md
       - Ontology Integration: reference/ontology-integration.md
       - Transformation Types: reference/transformation-types.md
+      - Academic References: reference/citations.md
   - FAQ: faq.md
   - "Back to ProEthica": "/"
 
