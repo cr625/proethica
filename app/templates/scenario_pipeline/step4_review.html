@@ -611,8 +611,21 @@
         <!-- Code Provisions Tab -->
         <div class="tab-pane fade" id="provisions" role="tabpanel">
             <div class="card">
-                <div class="card-header">
-                    <h5><i class="bi bi-file-text"></i> NSPE Code Provisions Referenced</h5>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-file-text"></i> NSPE Code Provisions Referenced</h5>
+                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#provisionsPromptAccordion" aria-expanded="false">
+                        <i class="bi bi-code-slash"></i> View Prompt/Response
+                    </button>
+                </div>
+                <!-- Provisions Prompt/Response Accordion -->
+                <div class="collapse" id="provisionsPromptAccordion">
+                    <div class="card-body bg-light border-bottom">
+                        <div id="provisionsPromptContent">
+                            <div class="text-center text-muted py-3">
+                                <span class="spinner-border spinner-border-sm me-2"></span> Loading prompt...
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="card-body">
                     {% if provisions %}
@@ -679,6 +692,48 @@
 
         <!-- Questions & Conclusions Tab -->
         <div class="tab-pane fade" id="questions" role="tabpanel">
+            <!-- View Prompt/Response Accordion -->
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="bi bi-question-circle"></i> Questions & Conclusions Extraction</h6>
+                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#qcPromptAccordion" aria-expanded="false">
+                        <i class="bi bi-code-slash"></i> View Prompt/Response
+                    </button>
+                </div>
+                <div class="collapse" id="qcPromptAccordion">
+                    <div class="card-body bg-light">
+                        <ul class="nav nav-tabs nav-tabs-sm mb-3" id="qcPromptTabs">
+                            <li class="nav-item">
+                                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#questionsPrompt" type="button">
+                                    Questions (4b)
+                                </button>
+                            </li>
+                            <li class="nav-item">
+                                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#conclusionsPrompt" type="button">
+                                    Conclusions (4c)
+                                </button>
+                            </li>
+                        </ul>
+                        <div class="tab-content">
+                            <div class="tab-pane fade show active" id="questionsPrompt">
+                                <div id="questionsPromptContent">
+                                    <div class="text-center text-muted py-3">
+                                        <span class="spinner-border spinner-border-sm me-2"></span> Loading prompt...
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="tab-pane fade" id="conclusionsPrompt">
+                                <div id="conclusionsPromptContent">
+                                    <div class="text-center text-muted py-3">
+                                        <span class="spinner-border spinner-border-sm me-2"></span> Loading prompt...
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- View Toggle -->
             <div class="mb-3">
                 <div class="btn-group" role="group">
@@ -914,6 +969,25 @@
             <div class="alert alert-info mb-3">
                 <i class="bi bi-info-circle"></i> <strong>Decision Points</strong> identify key points in the case where ethical choices must be made.
                 These become decision points in Step 5 scenarios, enabling what-if exploration and pros/cons analysis.
+            </div>
+
+            <!-- View Prompt/Response Accordion -->
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center py-2">
+                    <span class="small text-muted">Decision Points Extraction (4e)</span>
+                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#decisionPointsPromptAccordion" aria-expanded="false">
+                        <i class="bi bi-code-slash"></i> View Prompt/Response
+                    </button>
+                </div>
+                <div class="collapse" id="decisionPointsPromptAccordion">
+                    <div class="card-body bg-light">
+                        <div id="decisionPointsPromptContent">
+                            <div class="text-center text-muted py-3">
+                                <span class="spinner-border spinner-border-sm me-2"></span> Loading prompt...
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Extract and Commit Buttons -->
@@ -1786,6 +1860,129 @@ function renderDecisionPoints(points) {
     });
 
     container.innerHTML = html;
+}
+
+// ============================================================================
+// STEP 4 PROMPTS LOADING
+// ============================================================================
+
+let step4PromptsLoaded = false;
+let step4PromptsData = null;
+
+// Load prompts when any accordion is expanded
+document.querySelectorAll('[data-bs-toggle="collapse"]').forEach(button => {
+    button.addEventListener('click', function() {
+        if (!step4PromptsLoaded) {
+            loadStep4Prompts();
+        }
+    });
+});
+
+function loadStep4Prompts() {
+    if (step4PromptsLoaded) return;
+
+    const caseId = {{ case.id }};
+
+    fetch(`/scenario_pipeline/case/${caseId}/step4_prompts`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                step4PromptsData = data.prompts;
+                step4PromptsLoaded = true;
+                renderPromptContents();
+            } else {
+                console.error('Failed to load prompts:', data.error);
+                showPromptError('Failed to load prompts');
+            }
+        })
+        .catch(err => {
+            console.error('Error loading prompts:', err);
+            showPromptError('Error loading prompts: ' + err.message);
+        });
+}
+
+function renderPromptContents() {
+    // Provisions (4a)
+    const provisionsPrompt = step4PromptsData['code_provision_reference'];
+    if (provisionsPrompt) {
+        document.getElementById('provisionsPromptContent').innerHTML = formatPromptDisplay(provisionsPrompt, 'Code Provisions (4a)');
+    } else {
+        document.getElementById('provisionsPromptContent').innerHTML = '<p class="text-muted mb-0">No prompt data available. Run synthesis first.</p>';
+    }
+
+    // Questions (4b)
+    const questionsPrompt = step4PromptsData['ethical_question'];
+    if (questionsPrompt) {
+        document.getElementById('questionsPromptContent').innerHTML = formatPromptDisplay(questionsPrompt, 'Questions (4b)');
+    } else {
+        document.getElementById('questionsPromptContent').innerHTML = '<p class="text-muted mb-0">No prompt data available. Run synthesis first.</p>';
+    }
+
+    // Conclusions (4c)
+    const conclusionsPrompt = step4PromptsData['ethical_conclusion'];
+    if (conclusionsPrompt) {
+        document.getElementById('conclusionsPromptContent').innerHTML = formatPromptDisplay(conclusionsPrompt, 'Conclusions (4c)');
+    } else {
+        document.getElementById('conclusionsPromptContent').innerHTML = '<p class="text-muted mb-0">No prompt data available. Run synthesis first.</p>';
+    }
+
+    // Decision Points (4e)
+    const decisionPointsPrompt = step4PromptsData['decision_point'];
+    if (decisionPointsPrompt) {
+        document.getElementById('decisionPointsPromptContent').innerHTML = formatPromptDisplay(decisionPointsPrompt, 'Decision Points (4e)');
+    } else {
+        document.getElementById('decisionPointsPromptContent').innerHTML = '<p class="text-muted mb-0">No prompt data available. Extract decision points first.</p>';
+    }
+}
+
+function formatPromptDisplay(promptData, title) {
+    const truncatedPrompt = promptData.prompt_text.length > 2000
+        ? promptData.prompt_text.substring(0, 2000) + '...'
+        : promptData.prompt_text;
+    const truncatedResponse = promptData.raw_response && promptData.raw_response.length > 2000
+        ? promptData.raw_response.substring(0, 2000) + '...'
+        : (promptData.raw_response || 'No response recorded');
+
+    const createdAt = promptData.created_at
+        ? new Date(promptData.created_at).toLocaleString()
+        : 'Unknown';
+
+    return `
+        <div class="mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <strong>${title}</strong>
+                <small class="text-muted">Model: ${promptData.llm_model || 'Unknown'} | ${createdAt}</small>
+            </div>
+            <div class="mb-2">
+                <strong class="small">Prompt:</strong>
+                <pre class="bg-white p-2 border rounded small" style="max-height: 300px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(truncatedPrompt)}</pre>
+            </div>
+            <div>
+                <strong class="small">Response:</strong>
+                <pre class="bg-white p-2 border rounded small" style="max-height: 300px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(truncatedResponse)}</pre>
+            </div>
+            ${promptData.results_summary ? `
+                <div class="mt-2">
+                    <strong class="small">Summary:</strong>
+                    <code class="small">${JSON.stringify(promptData.results_summary)}</code>
+                </div>
+            ` : ''}
+        </div>
+    `;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function showPromptError(message) {
+    const errorHtml = `<p class="text-danger mb-0">${message}</p>`;
+    document.getElementById('provisionsPromptContent').innerHTML = errorHtml;
+    document.getElementById('questionsPromptContent').innerHTML = errorHtml;
+    document.getElementById('conclusionsPromptContent').innerHTML = errorHtml;
+    document.getElementById('decisionPointsPromptContent').innerHTML = errorHtml;
 }
 </script>
 {% endblock %}

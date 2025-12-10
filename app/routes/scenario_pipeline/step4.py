@@ -605,10 +605,19 @@ def _classify_conclusion_type(text: str) -> str:
 
 
 def _count_conclusion_types(conclusions: list) -> dict:
-    """Count conclusions by type."""
+    """Count conclusions by type (from dict format)."""
     counts = {}
     for c in conclusions:
         t = c.get('type', 'unclear')
+        counts[t] = counts.get(t, 0) + 1
+    return counts
+
+
+def _count_conclusion_types_from_list(conclusions: list) -> dict:
+    """Count conclusions by type (from EthicalConclusion objects)."""
+    counts = {}
+    for c in conclusions:
+        t = getattr(c, 'conclusion_type', 'unclear')
         counts[t] = counts.get(t, 0) + 1
     return counts
 
@@ -909,63 +918,6 @@ def generate_synthesis_annotations(case_id):
         import traceback
         traceback.print_exc()
 
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
-@bp.route('/case/<int:case_id>/synthesize', methods=['POST'])
-@auth_required_for_llm
-def synthesize_case(case_id):
-    """
-    Execute whole-case synthesis (legacy endpoint).
-
-    Three-part process:
-    1. Extract and link code provisions
-    2. Extract and link questions/conclusions
-    3. Perform cross-section synthesis
-    """
-    try:
-        case = Document.query.get_or_404(case_id)
-
-        logger.info(f"Starting Step 4 synthesis for case {case_id}")
-
-        # PART A: Code Provisions
-        logger.info("Part A: Extracting code provisions")
-        provisions = extract_and_link_provisions(case_id, case)
-
-        # PART B: Questions & Conclusions
-        logger.info("Part B: Extracting questions and conclusions")
-        questions, conclusions = extract_questions_conclusions(
-            case_id,
-            case,
-            provisions
-        )
-
-        # PART C: Cross-Section Synthesis
-        logger.info("Part C: Performing cross-section synthesis")
-        synthesis_results = perform_cross_section_synthesis(
-            case_id,
-            provisions,
-            questions,
-            conclusions
-        )
-
-        logger.info(f"Step 4 synthesis complete for case {case_id}")
-
-        return jsonify({
-            'success': True,
-            'provisions_count': len(provisions),
-            'questions_count': len(questions),
-            'conclusions_count': len(conclusions),
-            'synthesis_results': synthesis_results
-        })
-
-    except Exception as e:
-        logger.error(f"Error in synthesis for case {case_id}: {e}")
-        import traceback
-        traceback.print_exc()
         return jsonify({
             'success': False,
             'error': str(e)
@@ -1418,6 +1370,29 @@ def extract_questions_conclusions(
         extraction_type='ethical_conclusion'
     ).delete(synchronize_session=False)
 
+    # Store ExtractionPrompt for questions (Step 4b)
+    question_prompt_response = question_analyzer.get_last_prompt_and_response()
+    if question_prompt_response.get('prompt'):
+        question_extraction_prompt = ExtractionPrompt(
+            case_id=case_id,
+            concept_type='ethical_question',
+            step_number=4,
+            section_type='questions',
+            prompt_text=question_prompt_response.get('prompt', ''),
+            llm_model='claude-opus-4-20250514',
+            extraction_session_id=session_id,
+            raw_response=question_prompt_response.get('response', ''),
+            results_summary={
+                'total_questions': len(questions),
+                'questions_with_provisions': len([q for q in questions if q.related_provisions])
+            },
+            is_active=True,
+            times_used=1,
+            created_at=datetime.utcnow(),
+            last_used_at=datetime.utcnow()
+        )
+        db.session.add(question_extraction_prompt)
+
     # Store questions
     for question in questions:
         rdf_entity = TemporaryRDFStorage(
@@ -1439,6 +1414,29 @@ def extract_questions_conclusions(
             is_selected=True
         )
         db.session.add(rdf_entity)
+
+    # Store ExtractionPrompt for conclusions (Step 4c)
+    conclusion_prompt_response = conclusion_analyzer.get_last_prompt_and_response()
+    if conclusion_prompt_response.get('prompt'):
+        conclusion_extraction_prompt = ExtractionPrompt(
+            case_id=case_id,
+            concept_type='ethical_conclusion',
+            step_number=4,
+            section_type='conclusions',
+            prompt_text=conclusion_prompt_response.get('prompt', ''),
+            llm_model='claude-opus-4-20250514',
+            extraction_session_id=session_id,
+            raw_response=conclusion_prompt_response.get('response', ''),
+            results_summary={
+                'total_conclusions': len(conclusions),
+                'conclusions_by_type': _count_conclusion_types_from_list(conclusions)
+            },
+            is_active=True,
+            times_used=1,
+            created_at=datetime.utcnow(),
+            last_used_at=datetime.utcnow()
+        )
+        db.session.add(conclusion_extraction_prompt)
 
     # Store conclusions
     for conclusion in conclusions:
@@ -1835,6 +1833,68 @@ def commit_step4_entities(case_id):
         return jsonify({
             'success': False,
             'error': str(e)
+        }), 500
+
+
+# ============================================================================
+# STEP 4 PROMPTS API
+# ============================================================================
+
+@bp.route('/case/<int:case_id>/step4_prompts')
+def get_step4_prompts(case_id):
+    """
+    API endpoint returning Step 4 extraction prompts for provenance display.
+
+    Returns prompts for each substep:
+    - code_provision_reference (4a)
+    - ethical_question (4b)
+    - ethical_conclusion (4c)
+    - whole_case_synthesis (4d - combined)
+    - decision_point (4e)
+    """
+    try:
+        prompts_data = {}
+        concept_types = [
+            'code_provision_reference',
+            'ethical_question',
+            'ethical_conclusion',
+            'whole_case_synthesis',
+            'decision_point'
+        ]
+
+        for concept_type in concept_types:
+            prompt = ExtractionPrompt.query.filter_by(
+                case_id=case_id,
+                concept_type=concept_type,
+                step_number=4
+            ).order_by(ExtractionPrompt.created_at.desc()).first()
+
+            if prompt:
+                prompts_data[concept_type] = {
+                    'id': prompt.id,
+                    'concept_type': prompt.concept_type,
+                    'section_type': prompt.section_type,
+                    'prompt_text': prompt.prompt_text,
+                    'raw_response': prompt.raw_response,
+                    'llm_model': prompt.llm_model,
+                    'created_at': prompt.created_at.isoformat() if prompt.created_at else None,
+                    'results_summary': prompt.results_summary,
+                    'extraction_session_id': prompt.extraction_session_id
+                }
+
+        return jsonify({
+            'success': True,
+            'case_id': case_id,
+            'prompts': prompts_data,
+            'available_types': list(prompts_data.keys())
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting Step 4 prompts for case {case_id}: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'prompts': {}
         }), 500
 
 

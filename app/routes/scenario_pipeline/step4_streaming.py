@@ -692,8 +692,64 @@ def save_step4_streaming_results(case_id):
             case_id=case_id,
             concept_type='whole_case_synthesis'
         ).delete(synchronize_session=False)
+        ExtractionPrompt.query.filter_by(
+            case_id=case_id,
+            concept_type='ethical_question'
+        ).delete(synchronize_session=False)
+        ExtractionPrompt.query.filter_by(
+            case_id=case_id,
+            concept_type='ethical_conclusion'
+        ).delete(synchronize_session=False)
 
-        # Save as single ExtractionPrompt entry
+        # Extract specific LLM traces for each substep
+        question_trace = next((t for t in llm_traces if t.get('stage') == 'QUESTION_EXTRACTION'), None)
+        conclusion_trace = next((t for t in llm_traces if t.get('stage') == 'CONCLUSION_EXTRACTION'), None)
+
+        # Save ExtractionPrompt for questions (Step 4b)
+        if question_trace:
+            question_extraction_prompt = ExtractionPrompt(
+                case_id=case_id,
+                concept_type='ethical_question',
+                step_number=4,
+                section_type='questions',
+                prompt_text=question_trace.get('prompt', ''),
+                llm_model='claude-opus-4-20250514',
+                extraction_session_id=session_id,
+                raw_response=question_trace.get('response', ''),
+                results_summary={
+                    'total_questions': len(questions_list),
+                    'timestamp': question_trace.get('timestamp')
+                },
+                is_active=True,
+                times_used=1,
+                created_at=datetime.utcnow(),
+                last_used_at=datetime.utcnow()
+            )
+            db.session.add(question_extraction_prompt)
+
+        # Save ExtractionPrompt for conclusions (Step 4c)
+        if conclusion_trace:
+            conclusion_extraction_prompt = ExtractionPrompt(
+                case_id=case_id,
+                concept_type='ethical_conclusion',
+                step_number=4,
+                section_type='conclusions',
+                prompt_text=conclusion_trace.get('prompt', ''),
+                llm_model='claude-opus-4-20250514',
+                extraction_session_id=session_id,
+                raw_response=conclusion_trace.get('response', ''),
+                results_summary={
+                    'total_conclusions': len(conclusions_list),
+                    'timestamp': conclusion_trace.get('timestamp')
+                },
+                is_active=True,
+                times_used=1,
+                created_at=datetime.utcnow(),
+                last_used_at=datetime.utcnow()
+            )
+            db.session.add(conclusion_extraction_prompt)
+
+        # Save combined ExtractionPrompt entry (for backward compatibility)
         extraction_prompt = ExtractionPrompt(
             case_id=case_id,
             concept_type='whole_case_synthesis',
