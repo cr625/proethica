@@ -3,8 +3,8 @@
 -- Created: 2025-11-28
 --
 -- References:
--- - CBR-RAG (Markel et al., 2024): https://arxiv.org/html/2404.04302v1
--- - NS-LCR (Zhang et al., 2024): https://arxiv.org/html/2403.01457v1
+-- - CBR-RAG (Wiratunga et al., 2024): https://aclanthology.org/2024.lrec-main.939/
+-- - NS-LCR (Sun et al., 2024): https://aclanthology.org/2024.lrec-main.939/
 
 -- Enable pgvector if not already enabled
 CREATE EXTENSION IF NOT EXISTS vector;

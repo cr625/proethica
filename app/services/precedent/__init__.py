@@ -5,9 +5,9 @@ This module provides services for finding and analyzing precedent cases
 in the NSPE Board of Ethical Review case database.
 
 References:
-- CBR-RAG (Markel et al., 2024): https://arxiv.org/html/2404.04302v1
+- CBR-RAG (Wiratunga et al., 2024): https://aclanthology.org/2024.lrec-main.939/
   Case-Based Reasoning for Retrieval Augmented Generation
-- NS-LCR (Zhang et al., 2024): https://arxiv.org/html/2403.01457v1
+- NS-LCR (Sun et al., 2024): https://aclanthology.org/2024.lrec-main.939/
   Logic Rules as Explanations for Legal Case Retrieval
 """
 

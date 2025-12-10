@@ -205,6 +205,11 @@
                 <i class="bi bi-question-circle"></i> Questions & Conclusions
             </button>
         </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="decision-points-tab" data-bs-toggle="tab" data-bs-target="#decision-points" type="button">
+                <i class="bi bi-signpost-split"></i> Decision Points <span id="decision-point-count" class="badge bg-secondary ms-1" style="display:none;"></span>
+            </button>
+        </li>
     </ul>
 
     <div class="tab-content" id="reviewTabContent">
@@ -903,6 +908,41 @@
                 </div>
             </div>
         </div>
+
+        <!-- Decision Points Tab (Part E) -->
+        <div class="tab-pane fade" id="decision-points" role="tabpanel">
+            <div class="alert alert-info mb-3">
+                <i class="bi bi-info-circle"></i> <strong>Decision Points</strong> identify key points in the case where ethical choices must be made.
+                These become decision points in Step 5 scenarios, enabling what-if exploration and pros/cons analysis.
+            </div>
+
+            <!-- Extract and Commit Buttons -->
+            <div class="mb-4">
+                {% if current_user.is_authenticated %}
+                <button id="extractDecisionPointsBtn" class="btn btn-primary" onclick="extractDecisionPoints()">
+                    <i class="bi bi-lightning-charge"></i> Extract Decision Points
+                </button>
+                <button id="commitStep4Btn" class="btn btn-success ms-2" onclick="commitStep4Entities()" style="display:none;">
+                    <i class="bi bi-cloud-upload"></i> Commit to OntServe
+                </button>
+                {% else %}
+                <button class="btn btn-secondary" disabled title="Login required">
+                    <i class="bi bi-lock-fill"></i> Extract Decision Points (Login Required)
+                </button>
+                {% endif %}
+                <span id="extractionStatus" class="ms-2 text-muted"></span>
+                <span id="commitStatus" class="ms-2 text-muted"></span>
+            </div>
+
+            <!-- Decision Points Container -->
+            <div id="decisionPointsContainer">
+                <div class="text-center text-muted py-5">
+                    <i class="bi bi-signpost-split" style="font-size: 3rem;"></i>
+                    <p class="mt-2">No decision points extracted yet.</p>
+                    <p><small>Click "Extract Decision Points" to analyze this case.</small></p>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -1523,5 +1563,229 @@ function getCsrfToken() {
         loadGraph(); // Reload with/without type hubs
     });
 })();
+
+// ============================================================================
+// DECISION POINTS (Part E)
+// ============================================================================
+
+// Load decision points when tab is shown
+document.getElementById('decision-points-tab').addEventListener('shown.bs.tab', function() {
+    loadDecisionPoints();
+});
+
+// Also load on page load if points exist
+loadDecisionPoints();
+
+function loadDecisionPoints() {
+    const caseId = {{ case.id }};
+
+    fetch(`/scenario_pipeline/case/${caseId}/decision_points`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.decision_points && data.decision_points.length > 0) {
+                renderDecisionPoints(data.decision_points);
+                updateDecisionPointCount(data.decision_points.length);
+                // Show commit button if there are uncommitted decision points
+                const commitBtn = document.getElementById('commitStep4Btn');
+                if (commitBtn) {
+                    commitBtn.style.display = 'inline-block';
+                }
+            }
+        })
+        .catch(err => {
+            console.error('Error loading decision points:', err);
+        });
+}
+
+function extractDecisionPoints() {
+    const caseId = {{ case.id }};
+    const btn = document.getElementById('extractDecisionPointsBtn');
+    const status = document.getElementById('extractionStatus');
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Extracting...';
+    status.textContent = 'Analyzing case for decision points...';
+
+    fetch(`/scenario_pipeline/case/${caseId}/extract_decision_points`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-lightning-charge"></i> Extract Decision Points';
+
+        if (data.success) {
+            status.textContent = `Extracted ${data.count} decision points`;
+            status.className = 'ms-2 text-success';
+            renderDecisionPoints(data.decision_points);
+            updateDecisionPointCount(data.decision_points.length);
+            // Show commit button
+            const commitBtn = document.getElementById('commitStep4Btn');
+            if (commitBtn) {
+                commitBtn.style.display = 'inline-block';
+            }
+        } else {
+            status.textContent = data.error || 'Extraction failed';
+            status.className = 'ms-2 text-danger';
+        }
+    })
+    .catch(err => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-lightning-charge"></i> Extract Decision Points';
+        status.textContent = 'Error: ' + err.message;
+        status.className = 'ms-2 text-danger';
+        console.error('Extraction error:', err);
+    });
+}
+
+function commitStep4Entities() {
+    const caseId = {{ case.id }};
+    const btn = document.getElementById('commitStep4Btn');
+    const status = document.getElementById('commitStatus');
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Committing...';
+    status.textContent = 'Committing entities to OntServe...';
+    status.className = 'ms-2 text-muted';
+
+    fetch(`/scenario_pipeline/case/${caseId}/commit_step4`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-cloud-upload"></i> Commit to OntServe';
+
+        if (data.success) {
+            status.textContent = data.message || 'Committed successfully';
+            status.className = 'ms-2 text-success';
+            // Hide commit button after successful commit
+            btn.style.display = 'none';
+        } else {
+            status.textContent = data.error || 'Commit failed';
+            status.className = 'ms-2 text-danger';
+        }
+    })
+    .catch(err => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-cloud-upload"></i> Commit to OntServe';
+        status.textContent = 'Error: ' + err.message;
+        status.className = 'ms-2 text-danger';
+        console.error('Commit error:', err);
+    });
+}
+
+function updateDecisionPointCount(count) {
+    const badge = document.getElementById('decision-point-count');
+    if (count > 0) {
+        badge.textContent = count;
+        badge.style.display = 'inline';
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
+function renderDecisionPoints(points) {
+    const container = document.getElementById('decisionPointsContainer');
+
+    if (!points || points.length === 0) {
+        container.innerHTML = `
+            <div class="text-center text-muted py-5">
+                <i class="bi bi-signpost-split" style="font-size: 3rem;"></i>
+                <p class="mt-2">No decision points extracted yet.</p>
+                <p><small>Click "Extract Decision Points" to analyze this case.</small></p>
+            </div>
+        `;
+        return;
+    }
+
+    let html = '';
+    points.forEach((point, index) => {
+        // Build options HTML
+        let optionsHtml = '';
+        if (point.options && point.options.length > 0) {
+            optionsHtml = '<div class="mt-3"><strong>Options:</strong><ul class="mb-0 mt-1">';
+            point.options.forEach(opt => {
+                const isBoardChoice = opt.is_board_choice;
+                optionsHtml += `
+                    <li class="${isBoardChoice ? 'fw-bold text-success' : ''}">
+                        ${opt.description}
+                        ${isBoardChoice ? '<span class="badge bg-success ms-1">Board Choice</span>' : ''}
+                    </li>
+                `;
+            });
+            optionsHtml += '</ul></div>';
+        }
+
+        // Build provisions badges
+        let provisionsHtml = '';
+        if (point.applicable_provisions && point.applicable_provisions.length > 0) {
+            provisionsHtml = point.applicable_provisions.map(p =>
+                `<span class="badge bg-secondary me-1">${p}</span>`
+            ).join('');
+        }
+
+        // Build roles badges
+        let rolesHtml = '';
+        if (point.involved_roles && point.involved_roles.length > 0) {
+            rolesHtml = point.involved_roles.map(r =>
+                `<span class="badge bg-info me-1">${r}</span>`
+            ).join('');
+        }
+
+        html += `
+            <div class="card mb-4 border-primary">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">
+                        <i class="bi bi-signpost-split me-2"></i>
+                        Decision Point ${point.point_number}: ${point.point_id}
+                    </h6>
+                    <span class="badge bg-light text-dark">${Math.round(point.confidence * 100)}% confidence</span>
+                </div>
+                <div class="card-body">
+                    <h5>${point.description}</h5>
+
+                    ${point.decision_question ? `
+                        <div class="alert alert-light mt-3">
+                            <strong>Decision Question:</strong><br>
+                            <em>${point.decision_question}</em>
+                        </div>
+                    ` : ''}
+
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <small class="text-muted">Involved Roles:</small><br>
+                            ${rolesHtml || '<span class="text-muted">--</span>'}
+                        </div>
+                        <div class="col-md-6">
+                            <small class="text-muted">Applicable Provisions:</small><br>
+                            ${provisionsHtml || '<span class="text-muted">--</span>'}
+                        </div>
+                    </div>
+
+                    ${optionsHtml}
+
+                    ${point.board_resolution ? `
+                        <div class="alert alert-success mt-3 mb-0">
+                            <strong><i class="bi bi-check-circle me-1"></i>Board Resolution:</strong>
+                            <p class="mb-1 mt-1">${point.board_resolution}</p>
+                            ${point.board_reasoning ? `
+                                <small class="text-muted"><strong>Reasoning:</strong> ${point.board_reasoning}</small>
+                            ` : ''}
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
 </script>
 {% endblock %}

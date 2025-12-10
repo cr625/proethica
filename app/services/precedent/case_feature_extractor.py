@@ -5,9 +5,9 @@ Extracts structured features from NSPE cases at ingestion time
 for efficient precedent matching.
 
 References:
-- CBR-RAG (Markel et al., 2024): https://arxiv.org/html/2404.04302v1
+- CBR-RAG (Wiratunga et al., 2024): https://aclanthology.org/2024.lrec-main.939/
   Hybrid similarity with intra/inter embeddings
-- NS-LCR (Zhang et al., 2024): https://arxiv.org/html/2403.01457v1
+- NS-LCR (Sun et al., 2024): https://aclanthology.org/2024.lrec-main.939/
   Logic rules for explainable case matching
 """
 

@@ -5,9 +5,9 @@ Orchestrates multi-factor similarity search with LLM-enhanced analysis.
 Supports both interactive queries and batch processing.
 
 References:
-- CBR-RAG (Markel et al., 2024): https://arxiv.org/html/2404.04302v1
+- CBR-RAG (Wiratunga et al., 2024): https://aclanthology.org/2024.lrec-main.939/
   Case-based reasoning for RAG
-- NS-LCR (Zhang et al., 2024): https://arxiv.org/html/2403.01457v1
+- NS-LCR (Sun et al., 2024): https://aclanthology.org/2024.lrec-main.939/
   Logic rules for legal case retrieval
 """
 

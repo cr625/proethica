@@ -46,12 +46,14 @@ bp = Blueprint('step4', __name__, url_prefix='/scenario_pipeline')
 def init_step4_csrf_exemption(app):
     """Exempt Step 4 synthesis routes from CSRF protection"""
     if hasattr(app, 'csrf') and app.csrf:
-        from app.routes.scenario_pipeline.step4 import synthesize_case, save_streaming_results, generate_synthesis_annotations
+        from app.routes.scenario_pipeline.step4 import synthesize_case, save_streaming_results, generate_synthesis_annotations, extract_decision_points, commit_step4_entities
         from app.routes.scenario_pipeline.generate_scenario import generate_scenario_from_case
         app.csrf.exempt(synthesize_case)
         app.csrf.exempt(save_streaming_results)
         app.csrf.exempt(generate_synthesis_annotations)
         app.csrf.exempt(generate_scenario_from_case)
+        app.csrf.exempt(extract_decision_points)
+        app.csrf.exempt(commit_step4_entities)
 
 
 @bp.route('/case/<int:case_id>/step4')
@@ -448,34 +450,176 @@ def get_entity_graph_api(case_id):
         }), 500
 
 
-@bp.route('/case/<int:case_id>/entity_graph/view')
-@auth_optional
-def view_entity_graph(case_id):
+# ARCHIVED: Standalone Entity Graph view - functionality available in Step 4 Review page
+# Template archived to: scenarios/archive/entity_graph.html
+# @bp.route('/case/<int:case_id>/entity_graph/view')
+# @auth_optional
+# def view_entity_graph(case_id):
+#     """Display full-page entity graph visualization."""
+#     pass
+
+
+@bp.route('/case/<int:case_id>/qc_flow')
+def get_qc_flow_api(case_id):
     """
-    Display full-page entity graph visualization.
+    API endpoint returning Question-Conclusion flow data for Sankey visualization.
+
+    Returns JSON with:
+    - questions: All ethical questions with metadata
+    - conclusions: All ethical conclusions with type classification
+    - links: Mappings between questions and conclusions
     """
     try:
         case = Document.query.get_or_404(case_id)
 
-        # Get entity summary for sidebar
-        entities_summary = get_entities_summary(case_id)
+        # Get questions
+        questions_query = TemporaryRDFStorage.query.filter(
+            TemporaryRDFStorage.case_id == case_id,
+            TemporaryRDFStorage.entity_type == 'questions'
+        ).all()
 
-        # Get pipeline status
-        pipeline_status = PipelineStatusService.get_step_status(case_id)
+        # Get conclusions
+        conclusions_query = TemporaryRDFStorage.query.filter(
+            TemporaryRDFStorage.case_id == case_id,
+            TemporaryRDFStorage.entity_type == 'conclusions'
+        ).all()
 
-        return render_template(
-            'scenarios/entity_graph.html',
-            case=case,
-            entities_summary=entities_summary,
-            current_step=4,
-            prev_step_url=f"/scenario_pipeline/case/{case_id}/step4/review",
-            next_step_url=f"/scenario_pipeline/case/{case_id}/step5",
-            pipeline_status=pipeline_status
-        )
+        if not questions_query and not conclusions_query:
+            return jsonify({
+                'success': False,
+                'error': 'No questions or conclusions found. Run Step 4 synthesis first.',
+                'questions': [],
+                'conclusions': [],
+                'links': []
+            })
+
+        # Build questions array
+        questions = []
+        for q in questions_query:
+            rdf = q.rdf_json_ld or {}
+            questions.append({
+                'id': f"Q{rdf.get('questionNumber', q.id)}",
+                'db_id': q.id,
+                'number': rdf.get('questionNumber', 0),
+                'text': rdf.get('questionText', q.entity_definition or ''),
+                'label': q.entity_label,
+                'provisions': rdf.get('relatedProvisions', []),
+                'mentioned_entities': rdf.get('mentionedEntities', {})
+            })
+
+        # Build conclusions array with type classification
+        conclusions = []
+        for c in conclusions_query:
+            rdf = c.rdf_json_ld or {}
+            conclusion_text = rdf.get('conclusionText', c.entity_definition or '')
+
+            # Classify conclusion type based on text content
+            conclusion_type = _classify_conclusion_type(conclusion_text)
+
+            conclusions.append({
+                'id': f"C{rdf.get('conclusionNumber', c.id)}",
+                'db_id': c.id,
+                'number': rdf.get('conclusionNumber', 0),
+                'text': conclusion_text,
+                'label': c.entity_label,
+                'type': conclusion_type,
+                'provisions': rdf.get('citedProvisions', []),
+                'answers_questions': rdf.get('answersQuestions', []),
+                'mentioned_entities': rdf.get('mentionedEntities', {})
+            })
+
+        # Build links from conclusions' answersQuestions field
+        links = []
+        for c in conclusions:
+            for q_num in c.get('answers_questions', []):
+                # Find matching question
+                matching_q = next((q for q in questions if q['number'] == q_num), None)
+                if matching_q:
+                    links.append({
+                        'source': matching_q['id'],
+                        'target': c['id'],
+                        'value': 1,  # Link weight for Sankey
+                        'confidence': 0.95  # Based on structural matching
+                    })
+
+        # Sort by number
+        questions.sort(key=lambda x: x['number'])
+        conclusions.sort(key=lambda x: x['number'])
+
+        return jsonify({
+            'success': True,
+            'case_id': case_id,
+            'case_title': case.title,
+            'questions': questions,
+            'conclusions': conclusions,
+            'links': links,
+            'metadata': {
+                'question_count': len(questions),
+                'conclusion_count': len(conclusions),
+                'link_count': len(links),
+                'conclusion_types': _count_conclusion_types(conclusions)
+            }
+        })
 
     except Exception as e:
-        logger.error(f"Error displaying entity graph for case {case_id}: {e}")
-        return str(e), 500
+        logger.error(f"Error building Q-C flow for case {case_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'questions': [],
+            'conclusions': [],
+            'links': []
+        }), 500
+
+
+def _classify_conclusion_type(text: str) -> str:
+    """
+    Classify conclusion type based on text content.
+
+    Returns: 'ethical', 'unethical', 'mixed', or 'recommendation'
+    """
+    text_lower = text.lower()
+
+    # Check for mixed/partial conclusions
+    if 'partly ethical' in text_lower or 'partly unethical' in text_lower:
+        return 'mixed'
+    if 'was not unethical' in text_lower and 'was unethical' in text_lower:
+        return 'mixed'
+
+    # Check for clear ethical determination
+    if 'was not unethical' in text_lower or 'was ethical' in text_lower:
+        if 'was unethical' in text_lower and 'was not unethical' not in text_lower:
+            return 'unethical'
+        return 'ethical'
+
+    if 'was unethical' in text_lower or 'violated' in text_lower:
+        return 'unethical'
+
+    # Check for recommendations
+    if 'should' in text_lower or 'obligation to' in text_lower or 'no professional or ethical obligation' in text_lower:
+        return 'recommendation'
+
+    return 'unclear'
+
+
+def _count_conclusion_types(conclusions: list) -> dict:
+    """Count conclusions by type."""
+    counts = {}
+    for c in conclusions:
+        t = c.get('type', 'unclear')
+        counts[t] = counts.get(t, 0) + 1
+    return counts
+
+
+# ARCHIVED: Standalone Q-C Flow view moved to Step 4 Review page
+# Template archived to: scenarios/archive/qc_flow.html
+# @bp.route('/case/<int:case_id>/qc_flow/view')
+# @auth_optional
+# def view_qc_flow(case_id):
+#     """Display full-page Question-Conclusion flow visualization."""
+#     pass
 
 
 @bp.route('/case/<int:case_id>/step4/review')
@@ -1518,12 +1662,188 @@ def _store_synthesis_results(case_id: int, synthesis) -> None:
     logger.info(f"Stored synthesis results for case {case_id}")
 
 
+# ============================================================================
+# PART E: DECISION POINT EXTRACTION
+# ============================================================================
+
+@bp.route('/case/<int:case_id>/decision_points')
+def get_decision_points(case_id):
+    """
+    API endpoint returning decision points for a case.
+
+    Returns JSON with extracted decision points including:
+    - Decision points with options
+    - Involved roles and provisions
+    - Board resolution and reasoning
+    """
+    try:
+        from app.services.decision_focus_extractor import DecisionFocusExtractor
+
+        extractor = DecisionFocusExtractor()
+        points = extractor.load_from_database(case_id)
+
+        # Convert to JSON-serializable format
+        points_data = []
+        for point in points:
+            points_data.append({
+                'point_id': point.focus_id,
+                'point_number': point.focus_number,
+                'description': point.description,
+                'decision_question': point.decision_question,
+                'involved_roles': point.involved_roles,
+                'applicable_provisions': point.applicable_provisions,
+                'options': [
+                    {
+                        'option_id': opt.option_id,
+                        'description': opt.description,
+                        'is_board_choice': opt.is_board_choice
+                    }
+                    for opt in point.options
+                ],
+                'board_resolution': point.board_resolution,
+                'board_reasoning': point.board_reasoning,
+                'confidence': point.confidence
+            })
+
+        return jsonify({
+            'success': True,
+            'case_id': case_id,
+            'decision_points': points_data,
+            'count': len(points_data)
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting decision points for case {case_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'decision_points': []
+        }), 500
+
+
+@bp.route('/case/<int:case_id>/extract_decision_points', methods=['POST'])
+@auth_required_for_llm
+def extract_decision_points(case_id):
+    """
+    Extract decision points from a case using LLM.
+
+    Part E of Step 4 synthesis - identifies key decision points
+    where ethical choices must be made.
+    """
+    try:
+        from app.services.decision_focus_extractor import DecisionFocusExtractor
+
+        case = Document.query.get_or_404(case_id)
+
+        logger.info(f"Extracting decision points for case {case_id}")
+
+        extractor = DecisionFocusExtractor()
+        points = extractor.extract_decision_focuses(case_id)
+
+        if points:
+            # Save to database
+            extractor.save_to_database(case_id, points)
+
+            logger.info(f"Extracted and saved {len(points)} decision points for case {case_id}")
+
+            # Return the decision points
+            points_data = []
+            for point in points:
+                points_data.append({
+                    'point_id': point.focus_id,
+                    'point_number': point.focus_number,
+                    'description': point.description,
+                    'decision_question': point.decision_question,
+                    'involved_roles': point.involved_roles,
+                    'applicable_provisions': point.applicable_provisions,
+                    'options': [
+                        {
+                            'option_id': opt.option_id,
+                            'description': opt.description,
+                            'is_board_choice': opt.is_board_choice
+                        }
+                        for opt in point.options
+                    ],
+                    'board_resolution': point.board_resolution,
+                    'board_reasoning': point.board_reasoning,
+                    'confidence': point.confidence
+                })
+
+            return jsonify({
+                'success': True,
+                'message': f'Extracted {len(points)} decision points',
+                'decision_points': points_data,
+                'count': len(points)
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'No decision points extracted',
+                'decision_points': []
+            }), 400
+
+    except Exception as e:
+        logger.error(f"Error extracting decision points for case {case_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@bp.route('/case/<int:case_id>/commit_step4', methods=['POST'])
+@auth_required_for_llm
+def commit_step4_entities(case_id):
+    """
+    Commit Step 4 entities (decision points) to OntServe.
+
+    Uses AutoCommitService to link and commit entities from
+    temporary_rdf_storage to the case TTL file.
+    """
+    try:
+        from app.services.auto_commit_service import AutoCommitService
+
+        case = Document.query.get_or_404(case_id)
+
+        logger.info(f"Committing Step 4 entities for case {case_id}")
+
+        auto_commit_service = AutoCommitService()
+        result = auto_commit_service.commit_case_entities(case_id, force=False)
+
+        if result:
+            return jsonify({
+                'success': True,
+                'message': f'Committed {result.total_entities} entities ({result.linked_count} linked, {result.new_class_count} new)',
+                'total_entities': result.total_entities,
+                'linked_count': result.linked_count,
+                'new_class_count': result.new_class_count,
+                'ttl_file': result.ttl_file
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'No entities to commit or commit failed'
+            }), 400
+
+    except Exception as e:
+        logger.error(f"Error committing Step 4 entities for case {case_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 # Scenario Generation Route
 @bp.route("/case/<int:case_id>/generate_scenario")
 def generate_scenario_route(case_id):
     """
     SSE endpoint for scenario generation.
-    
+
     Streams progress through all 9 stages of scenario generation.
     """
     return generate_scenario_from_case(case_id)

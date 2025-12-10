@@ -2,10 +2,12 @@
 Routes for precedent discovery and retrieval.
 
 Academic References:
-- CBR-RAG: Markel, D., Gerstl, A., & Mirsky, Y. (2024). CBR-RAG: Case-based reasoning
-  for retrieval augmented generation. arXiv. https://arxiv.org/html/2404.04302v1
-- NS-LCR: Zhang, Y., et al. (2024). NS-LCR: Neural-symbolic legal case retrieval.
-  arXiv. https://arxiv.org/html/2403.01457v1
+- CBR-RAG: Wiratunga, N., Abeyratne, R., Jayawardena, L., et al. (2024). CBR-RAG:
+  Case-Based Reasoning for Retrieval Augmented Generation in LLMs for Legal Question
+  Answering. Proceedings of LREC-COLING 2024. https://aclanthology.org/2024.lrec-main.939/
+- NS-LCR: Sun, Z., Zhang, K., Yu, W., Wang, H. & Xu, J. (2024). Logic Rules as
+  Explanations for Legal Case Retrieval. Proceedings of LREC-COLING 2024.
+  https://aclanthology.org/2024.lrec-main.939/
 """
 
 import logging
@@ -21,26 +23,26 @@ precedents_bp = Blueprint('precedents', __name__, url_prefix='/cases/precedents'
 
 
 # Method descriptions with APA citations
-# CBR-RAG (Markel et al., 2024) for hybrid similarity approach
-# NS-LCR (Zhang et al., 2024) for dual-level matching
+# CBR-RAG (Wiratunga et al., 2024) for hybrid similarity approach
+# NS-LCR (Sun et al., 2024) for dual-level matching
 MATCHING_METHODS = {
     'facts_similarity': {
         'name': 'Facts Similarity',
         'method': 'Cosine',
         'description': 'Semantic similarity of case facts',
-        'citation': 'CBR-RAG (Markel et al., 2024)'
+        'citation': 'CBR-RAG (Wiratunga et al., 2024)'
     },
     'discussion_similarity': {
         'name': 'Discussion Similarity',
         'method': 'Cosine',
         'description': 'Semantic similarity of ethical analysis',
-        'citation': 'CBR-RAG (Markel et al., 2024)'
+        'citation': 'CBR-RAG (Wiratunga et al., 2024)'
     },
     'provision_overlap': {
         'name': 'Provision Overlap',
         'method': 'Jaccard',
         'description': 'NSPE Code section overlap',
-        'citation': 'NS-LCR (Zhang et al., 2024)'
+        'citation': 'NS-LCR (Sun et al., 2024)'
     },
     'outcome_alignment': {
         'name': 'Outcome Match',
@@ -58,7 +60,7 @@ MATCHING_METHODS = {
         'name': 'Principle Tensions',
         'method': 'Jaccard',
         'description': 'Ethical principle conflicts',
-        'citation': 'NS-LCR (Zhang et al., 2024)'
+        'citation': 'NS-LCR (Sun et al., 2024)'
     }
 }
 
@@ -137,7 +139,7 @@ def _find_precedents_for_case(case_id, limit=10, min_score=0.1):
     """
     Find precedent cases using multi-factor similarity.
 
-    Uses weighted combination approach from CBR-RAG (Markel et al., 2024):
+    Uses weighted combination approach from CBR-RAG (Wiratunga et al., 2024):
     Score = w1*facts_sim + w2*discussion_sim + w3*provision_overlap +
             w4*outcome_alignment + w5*tag_overlap + w6*principle_overlap
     """

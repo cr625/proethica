@@ -5,9 +5,9 @@ Implements CBR-RAG hybrid similarity approach with LLM-based
 dynamic weight adjustment.
 
 References:
-- CBR-RAG (Markel et al., 2024): https://arxiv.org/html/2404.04302v1
+- CBR-RAG (Wiratunga et al., 2024): https://aclanthology.org/2024.lrec-main.939/
   Weighted combination: w1*Sim(Q,Q) + w2*Sim(Q,S) + w3*Sim(Q,E)
-- NS-LCR (Zhang et al., 2024): https://arxiv.org/html/2403.01457v1
+- NS-LCR (Sun et al., 2024): https://aclanthology.org/2024.lrec-main.939/
   Dual-level matching for explainability
 """
 
