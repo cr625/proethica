@@ -90,7 +90,9 @@ Services encapsulate business logic:
 | LLM | claude_service, llm_service | AI integration |
 | Extraction | dual_*_extractor (9) | Concept extraction |
 | Analysis | guideline_analysis, case_synthesis | Case processing |
+| Decision | decision_focus_extractor | Decision point extraction |
 | Storage | case_entity_storage, entity_service | Data management |
+| Commit | auto_commit_service | RDF commit to OntServe |
 | Integration | ontserve_mcp_client | External systems |
 
 ### Route Structure
@@ -135,7 +137,13 @@ Case Document
          ▼                        ▼
 ┌──────────────────┐     ┌──────────────────┐
 │  Case Analysis   │────▶│  Transformation  │
-│  (Rules, Actions)│     │  Classification  │
+│  (Q&C, Provs)    │     │  Classification  │
+└────────┬─────────┘     └────────┬─────────┘
+         │                        │
+         ▼                        ▼
+┌──────────────────┐     ┌──────────────────┐
+│ Decision Points  │────▶│  Commit to       │
+│   Extraction     │     │  OntServe        │
 └────────┬─────────┘     └────────┬─────────┘
          │                        │
          ▼                        ▼
@@ -185,15 +193,23 @@ LLM Response
 | `extraction_prompts` | LLM prompt/response records |
 | `pipeline_runs` | Pipeline execution tracking |
 
-### Analysis Tables
+### Analysis Tables (Step 4)
+
+Step 4 analysis entities use the standard RDF storage pattern in `temporary_rdf_storage`:
+
+| extraction_type | entity_type | Purpose |
+|-----------------|-------------|---------|
+| `code_provision_reference` | resources | NSPE Code references |
+| `ethical_question` | EthicalQuestion | Ethical questions posed |
+| `ethical_conclusion` | BoardConclusion | Board conclusions |
+| `decision_point` | DecisionPoint | Key decision points |
+| `decision_option` | DecisionOption | Options at decision points |
+
+Transformation classification stored in:
 
 | Table | Purpose |
 |-------|---------|
-| `case_provisions` | Code references |
-| `case_questions` | Ethical questions |
-| `case_conclusions` | Board conclusions |
-| `case_institutional_analysis` | Rule analysis |
-| `case_transformation` | Transformation data |
+| `case_precedent_features` | Transformation type and pattern data |
 
 ### Scenario Tables
 

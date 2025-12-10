@@ -186,6 +186,27 @@ proeth-int:CompetenceRequirement rdfs:subClassOf proeth-core:Obligation .
 proeth-int:NSPECodeProvision rdfs:subClassOf proeth-core:Resource .
 ```
 
+### Case Analysis Classes (Step 4)
+
+Added for Step 4 enhanced analysis:
+
+| Class | Parent | Description |
+|-------|--------|-------------|
+| `EthicalQuestion` | BFO generically dependent continuant | Questions posed to Board for ethical review |
+| `BoardConclusion` | BFO generically dependent continuant | Board's formal determinations |
+| `DecisionPoint` | proeth-core:Event | Points where ethical choices must be made |
+| `DecisionOption` | BFO generically dependent continuant | Available options at decision points |
+
+Properties:
+
+| Property | Domain | Range | Description |
+|----------|--------|-------|-------------|
+| `hasOption` | DecisionPoint | DecisionOption | Links decision point to options |
+| `involvesRole` | DecisionPoint | Role | Professional roles involved |
+| `appliesProvision` | DecisionPoint | EthicalCode | Applicable code provisions |
+| `isBoardChoice` | DecisionOption | boolean | Whether this option was chosen |
+| `answersQuestion` | BoardConclusion | EthicalQuestion | Links conclusion to question |
+
 ## Entity Review Integration
 
 ### Available Classes Display

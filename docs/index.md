@@ -52,10 +52,11 @@ Extracted concepts are validated against domain ontologies served via the Model 
 ### Case Analysis
 Phase 2 analyzes extracted entities to identify:
 
-- Principle tensions (e.g., efficiency versus competence)
-- Obligation conflicts (e.g., timely delivery versus validation)
-- Actions taken and alternatives not pursued
+- Code of ethics provisions referenced in the case
+- Ethical questions and board conclusions with linking
 - Transformation classification (transfer, stalemate, oscillation, phase lag)
+- Decision points where ethical choices must be made
+- Options available at each decision point with board resolution
 
 ### Interactive Scenarios
 Phase 3 generates interactive visualizations including:

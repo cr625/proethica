@@ -46,9 +46,8 @@ bp = Blueprint('step4', __name__, url_prefix='/scenario_pipeline')
 def init_step4_csrf_exemption(app):
     """Exempt Step 4 synthesis routes from CSRF protection"""
     if hasattr(app, 'csrf') and app.csrf:
-        from app.routes.scenario_pipeline.step4 import synthesize_case, save_streaming_results, generate_synthesis_annotations, extract_decision_points, commit_step4_entities
+        from app.routes.scenario_pipeline.step4 import save_streaming_results, generate_synthesis_annotations, extract_decision_points, commit_step4_entities
         from app.routes.scenario_pipeline.generate_scenario import generate_scenario_from_case
-        app.csrf.exempt(synthesize_case)
         app.csrf.exempt(save_streaming_results)
         app.csrf.exempt(generate_synthesis_annotations)
         app.csrf.exempt(generate_scenario_from_case)
