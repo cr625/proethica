@@ -210,7 +210,17 @@ def step1c(case_id):
     """
     Step 1c: Contextual Framework Pass for Questions Section
     Extracts roles, states, and resources from the Questions section
+
+    Requires: Step 1b Discussion extraction must be completed first
     """
+    # Get pipeline status first to check prerequisites
+    pipeline_status = PipelineStatusService.get_step_status(case_id)
+
+    # Enforce prerequisite: Step 1b Discussion must be completed
+    if not pipeline_status.get('step1', {}).get('discussion_complete', False):
+        flash('Please complete Step 1b (Discussion extraction) before proceeding to Questions.', 'warning')
+        return redirect(url_for('scenario_pipeline.step1b', case_id=case_id))
+
     # Load data with section_type='questions' to get questions prompts
     case, facts_section, discussion_section, saved_prompts = step1_data(case_id, section_type='questions')
 
@@ -245,7 +255,17 @@ def step1d(case_id):
     """
     Step 1d: Contextual Framework Pass for Conclusions Section
     Extracts roles, states, and resources from the Conclusions section
+
+    Requires: Step 1c Questions extraction must be completed first
     """
+    # Get pipeline status first to check prerequisites
+    pipeline_status = PipelineStatusService.get_step_status(case_id)
+
+    # Enforce prerequisite: Step 1c Questions must be completed
+    if not pipeline_status.get('step1', {}).get('questions_complete', False):
+        flash('Please complete Step 1c (Questions extraction) before proceeding to Conclusions.', 'warning')
+        return redirect(url_for('scenario_pipeline.step1c', case_id=case_id))
+
     # Load data with section_type='conclusions' to get conclusions prompts
     case, facts_section, discussion_section, saved_prompts = step1_data(case_id, section_type='conclusions')
 
@@ -1360,7 +1380,7 @@ def tag_entities_in_questions(case_id):
             'mention_text': m.mention_text,
             'confidence': m.confidence,
             'reasoning': m.reasoning,
-            'is_committed': m.is_committed
+            'is_published': m.is_published
         } for m in matches]
 
         logger.info(f"Tagged {len(matches)} {entity_type} entities and found {len(new_entities)} NEW entities in Questions section")

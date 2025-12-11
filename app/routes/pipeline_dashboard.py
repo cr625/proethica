@@ -663,7 +663,7 @@ def api_reprocess_case(case_id):
             # Only clear uncommitted
             deleted = TemporaryRDFStorage.query.filter_by(
                 case_id=case_id,
-                is_committed=False
+                is_published=False
             ).delete()
             cleared_stats['rdf_entities'] = deleted
             logger.info(f"Cleared {deleted} uncommitted RDF entities for case {case_id}")

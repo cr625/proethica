@@ -60,8 +60,8 @@ class PipelineStatusService:
         except Exception as e:
             logger.error(f"Error getting pipeline status for case {case_id}: {e}")
             return {
-                'step1': {'complete': False, 'facts_complete': False, 'discussion_complete': False},
-                'step2': {'complete': False, 'facts_complete': False, 'discussion_complete': False},
+                'step1': {'complete': False, 'facts_complete': False, 'discussion_complete': False, 'questions_complete': False, 'conclusions_complete': False},
+                'step2': {'complete': False, 'facts_complete': False, 'discussion_complete': False, 'questions_complete': False, 'conclusions_complete': False},
                 'step3': {'complete': False},
                 'step4': {'complete': False, 'has_provisions': False, 'has_qa': False},
                 'step5': {'complete': False, 'has_scenario': False},
@@ -117,10 +117,42 @@ class PipelineStatusService:
         ).fetchone()
         discussion_count = discussion_result.count if discussion_result else 0
 
+        # Questions section - join to prompts to get section_type
+        questions_query = text("""
+            SELECT COUNT(DISTINCT r.id) as count
+            FROM temporary_rdf_storage r
+            JOIN extraction_prompts p ON r.extraction_session_id = p.extraction_session_id
+            WHERE r.case_id = :case_id
+            AND r.extraction_type IN :types
+            AND p.section_type = 'questions'
+        """)
+        questions_result = db.session.execute(
+            questions_query,
+            {'case_id': case_id, 'types': extraction_types}
+        ).fetchone()
+        questions_count = questions_result.count if questions_result else 0
+
+        # Conclusions section - join to prompts to get section_type
+        conclusions_query = text("""
+            SELECT COUNT(DISTINCT r.id) as count
+            FROM temporary_rdf_storage r
+            JOIN extraction_prompts p ON r.extraction_session_id = p.extraction_session_id
+            WHERE r.case_id = :case_id
+            AND r.extraction_type IN :types
+            AND p.section_type = 'conclusions'
+        """)
+        conclusions_result = db.session.execute(
+            conclusions_query,
+            {'case_id': case_id, 'types': extraction_types}
+        ).fetchone()
+        conclusions_count = conclusions_result.count if conclusions_result else 0
+
         return {
             'complete': total_count > 0,
             'facts_complete': facts_count > 0,
-            'discussion_complete': discussion_count > 0
+            'discussion_complete': discussion_count > 0,
+            'questions_complete': questions_count > 0,
+            'conclusions_complete': conclusions_count > 0
         }
 
     @classmethod

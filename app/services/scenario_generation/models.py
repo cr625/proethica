@@ -41,7 +41,7 @@ class RDFEntity:
     case_id: Optional[int] = None
     section_type: Optional[str] = None  # 'facts', 'discussion', 'questions', 'conclusions'
     extraction_session_id: Optional[str] = None
-    is_committed: bool = False
+    is_published: bool = False
     is_selected: bool = False
     is_reviewed: bool = False
     provenance: Optional[Dict] = None
@@ -63,7 +63,7 @@ class RDFEntity:
             'source': self.source,
             'definition': self.definition,
             'section_type': self.section_type,
-            'is_committed': self.is_committed
+            'is_published': self.is_published
         }
 
 

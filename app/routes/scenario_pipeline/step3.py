@@ -722,7 +722,7 @@ def extract_individual_actions_events(case_id):
             TemporaryRDFStorage.query.filter_by(
                 case_id=case_id,
                 extraction_type='actions_events',
-                is_committed=False
+                is_published=False
             ).delete()
 
             TemporaryRDFStorage.store_extraction_results(

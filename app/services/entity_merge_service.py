@@ -53,7 +53,7 @@ class EntityMergeService:
             TemporaryRDFStorage.entity_label == entity_label,
             TemporaryRDFStorage.entity_type == entity_type,
             TemporaryRDFStorage.extraction_session_id != current_session_id,
-            TemporaryRDFStorage.is_committed == False
+            TemporaryRDFStorage.is_published == False
         ).first()
 
         return existing
@@ -268,7 +268,7 @@ class EntityMergeService:
         # Get all uncommitted entities for the case
         entities = TemporaryRDFStorage.query.filter(
             TemporaryRDFStorage.case_id == case_id,
-            TemporaryRDFStorage.is_committed == False
+            TemporaryRDFStorage.is_published == False
         ).all()
 
         # Group by (entity_label, entity_type)

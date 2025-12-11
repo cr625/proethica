@@ -279,7 +279,7 @@ def get_entity_graph_api(case_id):
                 'pass': type_to_pass.get(entity.extraction_type, 0),
                 'section': section,
                 'color': type_colors.get(entity.extraction_type, '#999999'),
-                'is_committed': entity.is_committed,
+                'is_published': entity.is_published,
                 'is_selected': entity.is_selected
             })
 
@@ -399,7 +399,7 @@ def get_entity_graph_api(case_id):
                         'section': 'hub',
                         'color': type_hub_colors.get(etype, '#999'),
                         'is_hub': True,
-                        'is_committed': False,
+                        'is_published': False,
                         'is_selected': False
                     })
                     # Connect all entities of this type to the hub
@@ -1043,21 +1043,21 @@ def get_synthesis_status(case_id: int) -> Dict:
     provisions = TemporaryRDFStorage.query.filter_by(
         case_id=case_id,
         extraction_type='code_provision_reference',
-        is_committed=False
+        is_published=False
     ).count()
 
     # Check for questions (only uncommitted)
     questions = TemporaryRDFStorage.query.filter_by(
         case_id=case_id,
         extraction_type='ethical_question',
-        is_committed=False
+        is_published=False
     ).count()
 
     # Check for conclusions (only uncommitted)
     conclusions = TemporaryRDFStorage.query.filter_by(
         case_id=case_id,
         extraction_type='ethical_conclusion',
-        is_committed=False
+        is_published=False
     ).count()
 
     completed = provisions > 0 or questions > 0 or conclusions > 0

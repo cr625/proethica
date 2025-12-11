@@ -34,7 +34,8 @@ def init_entity_review_csrf_exemption(app):
                 mark_entity_as_new,
                 commit_entities_to_ontserve,
                 clear_entities_by_types,
-                clear_all_entities
+                clear_all_entities,
+                delete_rdf_entity
             )
             app.csrf.exempt(trigger_auto_commit)
             app.csrf.exempt(clear_case_ontology)
@@ -43,6 +44,7 @@ def init_entity_review_csrf_exemption(app):
             app.csrf.exempt(commit_entities_to_ontserve)
             app.csrf.exempt(clear_entities_by_types)
             app.csrf.exempt(clear_all_entities)
+            app.csrf.exempt(delete_rdf_entity)
         except Exception as e:
             logger.warning(f"Could not exempt entity_review routes from CSRF: {e}")
 
@@ -67,6 +69,44 @@ def update_rdf_entity_selection(case_id):
 
     except Exception as e:
         logger.error(f"Error updating RDF entity selection: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/case/<int:case_id>/rdf_entities/<int:entity_id>/delete', methods=['DELETE', 'POST'])
+def delete_rdf_entity(case_id, entity_id):
+    """Delete a single RDF entity from temporary storage.
+
+    Only unpublished (draft) entities can be deleted.
+    Published entities are protected.
+    """
+    try:
+        entity = TemporaryRDFStorage.query.get(entity_id)
+
+        if not entity:
+            return jsonify({'success': False, 'error': 'Entity not found'}), 404
+
+        if entity.case_id != case_id:
+            return jsonify({'success': False, 'error': 'Entity does not belong to this case'}), 403
+
+        if entity.is_published:
+            return jsonify({'success': False, 'error': 'Cannot delete published entities'}), 400
+
+        entity_label = entity.entity_label
+        entity_type = entity.entity_type
+
+        db.session.delete(entity)
+        db.session.commit()
+
+        logger.info(f"Deleted entity '{entity_label}' ({entity_type}) from case {case_id}")
+
+        return jsonify({
+            'success': True,
+            'message': f"Deleted '{entity_label}'"
+        })
+
+    except Exception as e:
+        logger.error(f"Error deleting RDF entity: {e}")
+        db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -652,7 +692,7 @@ def commit_entities_to_ontserve(case_id):
             selected_entities = TemporaryRDFStorage.query.filter_by(
                 case_id=case_id,
                 is_selected=True,
-                is_committed=False
+                is_published=False
             ).all()
             entity_ids = [e.id for e in selected_entities]
 
@@ -835,7 +875,7 @@ def clear_entities_by_types(case_id):
             query = db.session.query(TemporaryRDFStorage).filter_by(
                 case_id=case_id,
                 extraction_type=extraction_type,
-                is_committed=False
+                is_published=False
             )
 
             # Add section filter if specified
@@ -849,7 +889,7 @@ def clear_entities_by_types(case_id):
             delete_query = db.session.query(TemporaryRDFStorage).filter_by(
                 case_id=case_id,
                 extraction_type=extraction_type,
-                is_committed=False
+                is_published=False
             )
             if section_session_ids is not None:
                 delete_query = delete_query.filter(TemporaryRDFStorage.extraction_session_id.in_(section_session_ids))
@@ -880,12 +920,12 @@ def clear_entities_by_types(case_id):
         # Count remaining entities
         remaining_count = db.session.query(TemporaryRDFStorage).filter_by(
             case_id=case_id,
-            is_committed=False
+            is_published=False
         ).count()
 
         committed_count = db.session.query(TemporaryRDFStorage).filter_by(
             case_id=case_id,
-            is_committed=True
+            is_published=True
         ).count()
 
         section_label = section_type.replace('_', ' ').title() if section_type else 'all sections'
@@ -937,17 +977,17 @@ def clear_all_entities(case_id):
         # Count committed entities that will be preserved
         committed_count = db.session.query(TemporaryRDFStorage).filter_by(
             case_id=case_id,
-            is_committed=True
+            is_published=True
         ).count()
 
         # Only delete uncommitted entities
         cleared_stats['rdf_triples'] = db.session.query(TemporaryRDFStorage).filter_by(
             case_id=case_id,
-            is_committed=False
+            is_published=False
         ).count()
         db.session.query(TemporaryRDFStorage).filter_by(
             case_id=case_id,
-            is_committed=False
+            is_published=False
         ).delete()
 
         # 3. Clear saved extraction prompts and responses
@@ -1076,7 +1116,7 @@ def refresh_committed_from_ontserve(case_id):
         # Get all committed entities from ProEthica
         committed_entities = TemporaryRDFStorage.query.filter_by(
             case_id=case_id,
-            is_committed=True
+            is_published=True
         ).all()
 
         if not committed_entities:
@@ -1104,7 +1144,7 @@ def refresh_committed_from_ontserve(case_id):
                 entity = TemporaryRDFStorage.query.filter_by(
                     case_id=case_id,
                     entity_uri=entity_uri,
-                    is_committed=True
+                    is_published=True
                 ).first()
 
                 if entity and 'ontserve_data' in detail:
@@ -1129,7 +1169,7 @@ def refresh_committed_from_ontserve(case_id):
                 entity = TemporaryRDFStorage.query.filter_by(
                     case_id=case_id,
                     entity_uri=entity_uri,
-                    is_committed=True
+                    is_published=True
                 ).first()
 
                 if entity:
@@ -1316,8 +1356,8 @@ def review_enhanced_temporal(case_id):
         extraction_complete = len(temporal_entities) > 0
 
         # Check commit status
-        uncommitted_count = sum(1 for e in temporal_entities if not e.is_committed)
-        committed_count = sum(1 for e in temporal_entities if e.is_committed)
+        uncommitted_count = sum(1 for e in temporal_entities if not e.is_published)
+        committed_count = sum(1 for e in temporal_entities if e.is_published)
         all_committed = extraction_complete and uncommitted_count == 0
 
         # Calculate summary statistics

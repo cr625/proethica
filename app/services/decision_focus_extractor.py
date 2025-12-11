@@ -381,13 +381,13 @@ OUTPUT FORMAT (JSON):
             TemporaryRDFStorage.query.filter_by(
                 case_id=case_id,
                 extraction_type='decision_point',
-                is_committed=False
+                is_published=False
             ).delete()
 
             TemporaryRDFStorage.query.filter_by(
                 case_id=case_id,
                 extraction_type='decision_option',
-                is_committed=False
+                is_published=False
             ).delete()
 
             for focus in focuses:

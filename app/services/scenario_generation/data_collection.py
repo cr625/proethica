@@ -125,7 +125,7 @@ class ScenarioDataCollector:
 
         Loads entities from two sources:
         1. Temporary entities from ProEthica temporary_rdf_storage
-        2. Committed entities from OntServe ontology_entities (via is_committed flag)
+        2. Committed entities from OntServe ontology_entities (via is_published flag)
 
         Args:
             case_id: Case ID to collect data for
@@ -342,7 +342,7 @@ class ScenarioDataCollector:
         """
         query = text("""
             SELECT entity_type, entity_uri, entity_label, entity_definition,
-                   rdf_turtle, rdf_json_ld, is_committed, is_selected, is_reviewed,
+                   rdf_turtle, rdf_json_ld, is_published, is_selected, is_reviewed,
                    extraction_session_id
             FROM temporary_rdf_storage
             WHERE case_id = :case_id
@@ -371,7 +371,7 @@ class ScenarioDataCollector:
                 definition=row.entity_definition,
                 rdf_turtle=row.rdf_turtle,
                 rdf_json_ld=rdf_json_ld,
-                is_committed=row.is_committed or False,
+                is_published=row.is_published or False,
                 is_selected=row.is_selected or False,
                 is_reviewed=row.is_reviewed or False,
                 source='temporary',
@@ -386,7 +386,7 @@ class ScenarioDataCollector:
         """
         Load committed entities from OntServe ontology_entities.
 
-        Current approach: Query entities marked is_committed=true in temporary_rdf_storage.
+        Current approach: Query entities marked is_published=true in temporary_rdf_storage.
         Future enhancement: Also load general engineering ethics entities via MCP.
 
         Args:
@@ -401,7 +401,7 @@ class ScenarioDataCollector:
             SELECT DISTINCT ON (entity_uri) entity_uri, entity_type, entity_label, entity_definition,
                    rdf_turtle, rdf_json_ld
             FROM temporary_rdf_storage
-            WHERE case_id = :case_id AND is_committed = true
+            WHERE case_id = :case_id AND is_published = true
             ORDER BY entity_uri
         """)
         results = db.session.execute(query, {"case_id": case_id}).fetchall()
@@ -428,7 +428,7 @@ class ScenarioDataCollector:
                 rdf_turtle=row.rdf_turtle,
                 rdf_json_ld=rdf_json_ld,
                 source='committed',
-                is_committed=True
+                is_published=True
             ))
 
         return entities_by_type

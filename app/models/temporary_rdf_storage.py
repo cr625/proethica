@@ -2,7 +2,12 @@
 Temporary RDF Storage Model
 
 Database model for storing temporary RDF triples from LLM extractions
-before they are committed to the permanent ontologies.
+before they are published to the permanent ontologies.
+
+Draft/Publish Workflow (2025-12-10):
+- Entities start as drafts (is_published=False)
+- Published to OntServe at end of Step 4 (core entities) or Step 6 (analysis)
+- Re-extraction clears unpublished entities of same type
 """
 
 from datetime import datetime
@@ -43,7 +48,7 @@ class TemporaryRDFStorage(db.Model):
     # Review status
     is_selected = db.Column(db.Boolean, default=False)
     is_reviewed = db.Column(db.Boolean, default=False)
-    is_committed = db.Column(db.Boolean, default=False)
+    is_published = db.Column(db.Boolean, default=False)  # Renamed from is_published (2025-12-10)
     review_notes = db.Column(db.Text)
 
     # Provenance
@@ -98,7 +103,7 @@ class TemporaryRDFStorage(db.Model):
             'entity_definition': self.entity_definition,
             'is_selected': self.is_selected,
             'is_reviewed': self.is_reviewed,
-            'is_committed': self.is_committed,
+            'is_published': self.is_published,
             'review_notes': self.review_notes,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
@@ -147,7 +152,7 @@ class TemporaryRDFStorage(db.Model):
             case_id: The case ID to clear
             extraction_session_id: Optional specific session to clear
         """
-        query = cls.query.filter_by(case_id=case_id, is_committed=False)
+        query = cls.query.filter_by(case_id=case_id, is_published=False)
 
         if extraction_session_id:
             query = query.filter_by(extraction_session_id=extraction_session_id)
@@ -171,7 +176,7 @@ class TemporaryRDFStorage(db.Model):
         Returns:
             List of TemporaryRDFStorage objects
         """
-        query = cls.query.filter_by(case_id=case_id, is_committed=False)
+        query = cls.query.filter_by(case_id=case_id, is_published=False)
 
         if storage_type:
             query = query.filter_by(storage_type=storage_type)
@@ -219,16 +224,17 @@ class TemporaryRDFStorage(db.Model):
         # Get section type from provenance data
         section_type = provenance_data.get('section_type', 'unknown') if provenance_data else 'unknown'
 
-        # Clear any existing temporary entities for this case, extraction type, AND session
-        # Only delete entities from the SAME extraction session to avoid deleting entities from other sections
+        # Clear ALL uncommitted entities of this extraction_type for this case
+        # This ensures clean re-extraction without duplicates from previous runs
+        # Note: This replaces the previous session-based clearing which caused duplicates
+        # when users committed entities then re-ran extraction
         deleted_count = cls.query.filter_by(
             case_id=case_id,
             extraction_type=extraction_type,
-            extraction_session_id=extraction_session_id,
-            is_committed=False
+            is_published=False
         ).delete()
         if deleted_count > 0:
-            logger.info(f"Deleted {deleted_count} existing {extraction_type} entities from session {extraction_session_id}")
+            logger.info(f"Cleared {deleted_count} uncommitted {extraction_type} entities for case {case_id}")
 
         # Store new classes with merge detection
         for class_info in rdf_data.get('new_classes', []):
@@ -331,13 +337,17 @@ class TemporaryRDFStorage(db.Model):
 
     @classmethod
     def _find_existing_entity(cls, case_id: int, entity_label: str, entity_type: str, current_session_id: str):
-        """Find an existing entity with same label from a different section."""
+        """Find an existing uncommitted entity with same label.
+
+        Note: Since store_extraction_results now clears all uncommitted entities
+        of the same extraction_type before storing, this method will typically
+        return None. It's kept for potential future use or manual entity creation.
+        """
         return cls.query.filter(
             cls.case_id == case_id,
             cls.entity_label == entity_label,
             cls.entity_type == entity_type,
-            cls.extraction_session_id != current_session_id,
-            cls.is_committed == False
+            cls.is_published == False
         ).first()
 
     @classmethod

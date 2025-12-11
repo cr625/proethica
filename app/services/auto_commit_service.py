@@ -226,7 +226,7 @@ class AutoCommitService:
         query = TemporaryRDFStorage.query.filter_by(case_id=case_id)
 
         if not include_committed:
-            query = query.filter_by(is_committed=False)
+            query = query.filter_by(is_published=False)
 
         # Order by extraction type to group similar entities
         entities = query.order_by(
@@ -716,7 +716,7 @@ class AutoCommitService:
         """Mark entities as committed in the database."""
         try:
             for entity in entities:
-                entity.is_committed = True
+                entity.is_published = True
                 entity.updated_at = datetime.utcnow()
 
             db.session.commit()
@@ -774,12 +774,12 @@ class AutoCommitService:
             # Count entities by status
             pending = TemporaryRDFStorage.query.filter_by(
                 case_id=case_id,
-                is_committed=False
+                is_published=False
             ).count()
 
             committed = TemporaryRDFStorage.query.filter_by(
                 case_id=case_id,
-                is_committed=True
+                is_published=True
             ).count()
 
             # Count by match status
@@ -904,8 +904,8 @@ class AutoCommitService:
             if reset_committed:
                 reset_count = TemporaryRDFStorage.query.filter_by(
                     case_id=case_id,
-                    is_committed=True
-                ).update({'is_committed': False, 'updated_at': datetime.utcnow()})
+                    is_published=True
+                ).update({'is_published': False, 'updated_at': datetime.utcnow()})
                 db.session.commit()
                 result['entities_reset'] = reset_count
                 logger.info(f"Reset {reset_count} committed entities to uncommitted")
@@ -997,7 +997,7 @@ class AutoCommitService:
 
             # Mark temporal entities as committed
             for entity in temporal_entities:
-                entity.is_committed = True
+                entity.is_published = True
                 entity.updated_at = datetime.utcnow()
             db.session.commit()
 

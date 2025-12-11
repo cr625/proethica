@@ -37,7 +37,7 @@ class TemporalCommitService:
             temporal_entities = TemporaryRDFStorage.query.filter_by(
                 case_id=case_id,
                 extraction_type='temporal_dynamics_enhanced',
-                is_committed=False
+                is_published=False
             ).all()
 
             if not temporal_entities:

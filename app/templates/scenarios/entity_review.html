@@ -216,15 +216,10 @@
                         {% endif %}
                     </div>
                     <div>
-                        {% if current_user.is_authenticated %}
-                        <button id="commitSelectedBtn" class="btn btn-sm btn-success">
-                            <i class="bi bi-check-circle"></i> Commit Selected to OntServe
-                        </button>
-                        {% else %}
-                        <button id="commitSelectedBtnLocked" class="btn btn-sm btn-secondary" onclick="window.location.href='{{ url_for('auth.login') }}';" title="Login required to commit entities to OntServe">
-                            <i class="bi bi-lock-fill"></i> Commit to OntServe (Login Required)
-                        </button>
-                        {% endif %}
+                        <!-- Draft/Publish workflow: Publishing moved to Step 4 Review -->
+                        <span class="badge bg-info" title="Entities will be published to OntServe from Step 4 Review">
+                            <i class="bi bi-info-circle"></i> Draft - Publish at Step 4
+                        </span>
                     </div>
                 </div>
             </div>
@@ -405,9 +400,7 @@
                                 <table class="table table-hover">
                                     <thead>
                                         <tr>
-                                            <th width="3%">
-                                                <input type="checkbox" class="rdf-class-select-all" data-concept-type="{{ concept_type }}">
-                                            </th>
+                                            <th width="3%"></th>
                                             <th width="18%">Class Label</th>
                                             <th width="12%">Match Status</th>
                                             <th width="30%">Definition</th>
@@ -418,20 +411,23 @@
                                     <tbody>
                                         {% for cls in type_data.classes %}
                                         <tr>
-                                            <td>
-                                                <input type="checkbox" class="rdf-entity-checkbox"
-                                                       data-entity-id="{{ cls.id }}"
-                                                       data-entity-type="class"
-                                                       data-concept-type="{{ concept_type }}"
-                                                       {% if cls.is_committed %}disabled title="Already committed to OntServe"{% elif not cls.is_committed %}checked{% endif %}>
+                                            <td class="text-center">
+                                                {% if cls.is_published %}
+                                                <span class="badge bg-success rounded-circle p-1" title="Published to OntServe">
+                                                    <i class="bi bi-check-lg"></i>
+                                                </span>
+                                                {% else %}
+                                                <button type="button" class="btn btn-outline-secondary btn-sm rounded-circle delete-entity-btn p-0"
+                                                        style="width: 24px; height: 24px; line-height: 1;"
+                                                        data-entity-id="{{ cls.id }}"
+                                                        data-entity-label="{{ cls.entity_label }}"
+                                                        title="Remove this entity">
+                                                    <i class="bi bi-x" style="font-size: 14px;"></i>
+                                                </button>
+                                                {% endif %}
                                             </td>
                                             <td>
                                                 <strong>{{ cls.entity_label }}</strong>
-                                                {% if cls.is_committed %}
-                                                <span class="badge bg-success ms-2">
-                                                    <i class="fas fa-check-circle"></i> Committed
-                                                </span>
-                                                {% endif %}
                                                 {% if cls.rdf_json_ld and cls.rdf_json_ld.get('section_sources') and cls.rdf_json_ld.get('section_sources')|length > 1 %}
                                                 <span class="badge bg-warning text-dark ms-2" title="Merged from multiple sections">
                                                     <i class="bi bi-layers"></i> Merged: {{ cls.rdf_json_ld.get('section_sources') | join(', ') }}
@@ -633,9 +629,7 @@
                                 <table class="table table-hover">
                                     <thead>
                                         <tr>
-                                            <th width="3%">
-                                                <input type="checkbox" class="rdf-individual-select-all" data-concept-type="{{ concept_type }}">
-                                            </th>
+                                            <th width="3%"></th>
                                             <th width="18%">Individual</th>
                                             <th width="12%">Match Status</th>
                                             <th width="12%">rdf:type</th>
@@ -646,20 +640,23 @@
                                     <tbody>
                                         {% for indiv in type_data.individuals %}
                                         <tr>
-                                            <td>
-                                                <input type="checkbox" class="rdf-entity-checkbox"
-                                                       data-entity-id="{{ indiv.id }}"
-                                                       data-entity-type="individual"
-                                                       data-concept-type="{{ concept_type }}"
-                                                       {% if indiv.is_committed %}disabled title="Already committed to OntServe"{% elif not indiv.is_committed %}checked{% endif %}>
+                                            <td class="text-center">
+                                                {% if indiv.is_published %}
+                                                <span class="badge bg-success rounded-circle p-1" title="Published to OntServe">
+                                                    <i class="bi bi-check-lg"></i>
+                                                </span>
+                                                {% else %}
+                                                <button type="button" class="btn btn-outline-secondary btn-sm rounded-circle delete-entity-btn p-0"
+                                                        style="width: 24px; height: 24px; line-height: 1;"
+                                                        data-entity-id="{{ indiv.id }}"
+                                                        data-entity-label="{{ indiv.entity_label }}"
+                                                        title="Remove this entity">
+                                                    <i class="bi bi-x" style="font-size: 14px;"></i>
+                                                </button>
+                                                {% endif %}
                                             </td>
                                             <td>
                                                 <strong>{{ indiv.entity_label }}</strong>
-                                                {% if indiv.is_committed %}
-                                                <span class="badge bg-success ms-2">
-                                                    <i class="fas fa-check-circle"></i> Committed
-                                                </span>
-                                                {% endif %}
                                                 {% if indiv.rdf_json_ld and indiv.rdf_json_ld.get('section_sources') and indiv.rdf_json_ld.get('section_sources')|length > 1 %}
                                                 <span class="badge bg-warning text-dark ms-2" title="Merged from multiple sections">
                                                     <i class="bi bi-layers"></i> Merged: {{ indiv.rdf_json_ld.get('section_sources') | join(', ') }}
@@ -882,9 +879,7 @@
                                 <table class="table table-hover table-sm">
                                     <thead>
                                         <tr>
-                                            <th width="3%">
-                                                <input type="checkbox" class="rdf-relationship-select-all" data-concept-type="{{ concept_type }}">
-                                            </th>
+                                            <th width="3%"></th>
                                             <th width="30%">Entity Referenced</th>
                                             <th width="15%">Source Section</th>
                                             <th width="50%">Reference Context</th>
@@ -894,20 +889,23 @@
                                     <tbody>
                                         {% for rel in type_data.relationships %}
                                         <tr>
-                                            <td>
-                                                <input type="checkbox" class="rdf-entity-checkbox"
-                                                       data-entity-id="{{ rel.id }}"
-                                                       data-entity-type="relationship"
-                                                       data-concept-type="{{ concept_type }}"
-                                                       {% if rel.is_committed %}disabled title="Already committed"{% elif not rel.is_committed %}checked{% endif %}>
+                                            <td class="text-center">
+                                                {% if rel.is_published %}
+                                                <span class="badge bg-success rounded-circle p-1" title="Published to OntServe">
+                                                    <i class="bi bi-check-lg"></i>
+                                                </span>
+                                                {% else %}
+                                                <button type="button" class="btn btn-outline-secondary btn-sm rounded-circle delete-entity-btn p-0"
+                                                        style="width: 24px; height: 24px; line-height: 1;"
+                                                        data-entity-id="{{ rel.id }}"
+                                                        data-entity-label="{{ rel.entity_label }}"
+                                                        title="Remove this entity">
+                                                    <i class="bi bi-x" style="font-size: 14px;"></i>
+                                                </button>
+                                                {% endif %}
                                             </td>
                                             <td>
                                                 <strong>{{ rel.entity_label }}</strong>
-                                                {% if rel.is_committed %}
-                                                <span class="badge bg-success ms-1">
-                                                    <i class="fas fa-check-circle"></i> Committed
-                                                </span>
-                                                {% endif %}
                                                 <br/>
                                                 <small class="text-muted">{{ rel.entity_type or 'EntityReference' }}</small>
                                             </td>
@@ -1448,60 +1446,47 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Cancel editing will be available in future update');
     }
 
-    // Commit selected entities
-    const commitBtn = document.getElementById('commitSelectedBtn');
-    if (commitBtn) {
-        commitBtn.addEventListener('click', function() {
-            console.log('Commit button clicked');
-            if (confirm('Commit selected entities to OntServe permanent storage?')) {
-                console.log('User confirmed commit');
-                this.disabled = true;
-                this.textContent = 'Committing...';
+    // Delete entity buttons
+    document.querySelectorAll('.delete-entity-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const entityId = this.dataset.entityId;
+            const entityLabel = this.dataset.entityLabel;
 
-                console.log('Making appFetch request to:', `/scenario_pipeline/case/${caseId}/entities/commit`);
-                appFetch(`/scenario_pipeline/case/${caseId}/entities/commit`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        commit_all_reviewed: false
-                    })
+            if (confirm(`Remove entity "${entityLabel}" from this case?`)) {
+                const btnElement = this;
+                btnElement.disabled = true;
+                btnElement.innerHTML = '<i class="bi bi-hourglass"></i>';
+
+                appFetch(`/scenario_pipeline/case/${caseId}/rdf_entities/${entityId}/delete`, {
+                    method: 'DELETE'
                 })
-                .then(response => {
-                    console.log('Response status:', response.status);
-                    console.log('Response headers:', response.headers);
-                    return response.json();
-                })
+                .then(response => response.json())
                 .then(data => {
-                    console.log('Response data:', data);
                     if (data.success) {
-                        // Updated to show classes and individuals separately
-                        let message = `Successfully committed:\n`;
-                        message += `• ${data.result.classes_committed || 0} new classes to proethica-intermediate-extracted\n`;
-                        message += `• ${data.result.individuals_committed || 0} individuals to proethica-case-${caseId}`;
-
-                        if (data.result.errors && data.result.errors.length > 0) {
-                            message += `\n\nWarnings:\n` + data.result.errors.join('\n');
+                        // Remove the row from the table
+                        const row = btnElement.closest('tr');
+                        if (row) {
+                            row.remove();
                         }
-
-                        alert(message);
-                        location.reload();
+                        console.log(`Deleted entity: ${entityLabel}`);
                     } else {
                         alert(`Error: ${data.error}`);
+                        btnElement.disabled = false;
+                        btnElement.innerHTML = '<i class="bi bi-x-lg"></i>';
                     }
                 })
                 .catch(error => {
-                    console.error('Fetch error:', error);
-                    alert(`Error: ${error}`);
-                })
-                .finally(() => {
-                    this.disabled = false;
-                    this.textContent = 'Commit Selected to OntServe';
+                    console.error('Delete error:', error);
+                    alert(`Error deleting entity: ${error}`);
+                    btnElement.disabled = false;
+                    btnElement.innerHTML = '<i class="bi bi-x-lg"></i>';
                 });
             }
         });
-    }
+    });
+
+    // Legacy: Commit button code removed - publishing moved to Step 4 Review
 
     function updateEntitySelection(entityId, selected) {
         appFetch(`/scenario_pipeline/case/${caseId}/entities/update_selection`, {

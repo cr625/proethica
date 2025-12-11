@@ -28,7 +28,7 @@ class EntityMatch:
     mention_text: str  # How it was mentioned in the new section
     confidence: float  # 0.0 to 1.0
     reasoning: str  # Why this match was made
-    is_committed: bool  # Whether already in OntServe
+    is_published: bool  # Whether already in OntServe
 
 
 class EntityMatchingService:
@@ -242,7 +242,7 @@ class EntityMatchingService:
                         'definition': entity.entity_definition,
                         'storage_type': entity.storage_type,
                         'source_section': section,
-                        'is_committed': entity.is_committed,
+                        'is_published': entity.is_published,
                         'rdf_data': entity.rdf_json_ld
                     })
 
@@ -270,7 +270,7 @@ class EntityMatchingService:
                     'definition': entity.get('definition', ''),
                     'storage_type': 'committed',
                     'source_section': 'ontserve',  # From OntServe
-                    'is_committed': True,
+                    'is_published': True,
                     'rdf_data': entity
                 })
 
@@ -450,7 +450,7 @@ Return ONLY valid JSON array.
                         mention_text=match_data['mention_text'],
                         confidence=match_data['confidence'],
                         reasoning=match_data['reasoning'],
-                        is_committed=entity.get('is_committed', False)
+                        is_published=entity.get('is_published', False)
                     )
                     matches.append(match)
 
@@ -487,7 +487,7 @@ Return ONLY valid JSON array.
                     mention_text=label,
                     confidence=0.7,  # Lower confidence for string matching
                     reasoning=f"Direct string match found in text",
-                    is_committed=entity.get('is_committed', False)
+                    is_published=entity.get('is_published', False)
                 )
                 matches.append(match)
 
@@ -571,7 +571,7 @@ Return ONLY valid JSON array.
                 'mentionText': match.mention_text,
                 'confidence': match.confidence,
                 'reasoning': match.reasoning,
-                'isCommitted': match.is_committed,
+                'isCommitted': match.is_published,
                 # Include full entity data (individual + class info)
                 'entityData': entity_rdf_data
             }

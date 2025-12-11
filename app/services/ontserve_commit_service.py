@@ -111,10 +111,9 @@ class OntServeCommitService:
                 if individual_result.get('error'):
                     results['errors'].append(individual_result['error'])
 
-            # Mark entities as committed
+            # Mark entities as published
             for entity in entities:
-                entity.is_committed = True
-                entity.committed_at = datetime.utcnow()
+                entity.is_published = True
 
             from app import db
             db.session.commit()
@@ -579,16 +578,16 @@ class OntServeCommitService:
         Returns information about what has been committed and what's pending.
         """
         try:
-            # Count pending entities
+            # Count draft (unpublished) entities
             pending = TemporaryRDFStorage.query.filter_by(
                 case_id=case_id,
-                is_committed=False
+                is_published=False
             ).count()
 
-            # Count committed entities
+            # Count published entities
             committed = TemporaryRDFStorage.query.filter_by(
                 case_id=case_id,
-                is_committed=True
+                is_published=True
             ).count()
 
             # Check if case ontology exists
