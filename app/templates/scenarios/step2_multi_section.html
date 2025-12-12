@@ -341,29 +341,50 @@
         transition: opacity 0.15s ease-out;
     }
 
-    .prompt-text {
-        background-color: #f8f9fa;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        max-height: 300px;
-        overflow-y: auto;
-        font-size: 0.9rem;
-        font-family: 'Courier New', monospace;
-        white-space: pre-wrap;
-        word-wrap: break-word;
-    }
     .discussion-text {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.9rem;
+        background-color: #f8f9fa;
+        padding: 0.75rem;
+        border-radius: 0.25rem;
+        border: none;
+        margin: 0;
+        white-space: pre-wrap;
         max-height: 400px;
         overflow-y: auto;
-        white-space: pre-wrap;
-        word-wrap: break-word;
     }
-    .extractor-section {
+
+    .extractor-section .step-card {
         transition: all 0.3s ease;
     }
-    .extractor-section:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+
+    .extractor-section .step-card:hover {
+        box-shadow: 0 0.25rem 2rem 0 rgba(58, 59, 69, 0.2);
+    }
+
+    .prompt-preview {
+        background-color: #f8f9fa;
+        border-radius: 0.5rem;
+        padding: 1rem;
+    }
+
+    .prompt-text {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.85rem;
+        max-height: 300px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        background-color: white;
+        padding: 0.75rem;
+        border-radius: 0.25rem;
+        border: 1px solid #e0e0e0;
+    }
+
+    .results-preview {
+        border-radius: 0.5rem;
+        padding: 1rem;
+        background-color: #f0fff0;
     }
 </style>
 {% endblock %}
@@ -386,6 +407,101 @@ const currentSectionType = 'references';
 {% else %}
 const currentSectionType = 'facts';
 {% endif %}
+
+// Track extraction status for Pass 2 (this section)
+const extractionStatus = {
+    principles: {{ 'true' if saved_prompts.principles and saved_prompts.principles.raw_response else 'false' }},
+    obligations: {{ 'true' if saved_prompts.obligations and saved_prompts.obligations.raw_response else 'false' }},
+    constraints: {{ 'true' if saved_prompts.constraints and saved_prompts.constraints.raw_response else 'false' }},
+    capabilities: {{ 'true' if saved_prompts.capabilities and saved_prompts.capabilities.raw_response else 'false' }}
+};
+
+// Track if we've already shown the completion popup
+let completionPopupShown = false;
+let isInitialLoad = true;
+
+function markExtractionComplete(conceptType) {
+    extractionStatus[conceptType] = true;
+    checkAllExtractionsComplete();
+}
+
+function checkAllExtractionsComplete() {
+    const allComplete = extractionStatus.principles && extractionStatus.obligations &&
+                       extractionStatus.constraints && extractionStatus.capabilities;
+
+    if (allComplete && !isInitialLoad && !completionPopupShown) {
+        showCompletionPopup();
+        completionPopupShown = true;
+    }
+}
+
+function showCompletionPopup() {
+    // Determine next step based on current section
+    const sectionName = '{{ section_display_name }}';
+    {% if step_title == 'Normative Pass - Facts Section' %}
+    const nextSectionUrl = '{{ url_for("scenario_pipeline.step2b", case_id=case.id) }}';
+    const nextSectionText = 'Go to Discussion Section';
+    const completionTitle = 'Facts Section Complete';
+    {% elif step_title == 'Normative Pass - Discussion' %}
+    const nextSectionUrl = '{{ url_for("scenario_pipeline.step3", case_id=case.id) }}';
+    const nextSectionText = 'Go to Step 3';
+    const completionTitle = 'Discussion Section Complete';
+    {% elif step_title == 'Normative Pass - Questions' %}
+    const nextSectionUrl = '{{ url_for("scenario_pipeline.step2d", case_id=case.id) }}';
+    const nextSectionText = 'Go to Conclusions';
+    const completionTitle = 'Questions Section Complete';
+    {% elif step_title == 'Normative Pass - Conclusions' %}
+    const nextSectionUrl = '{{ url_for("scenario_pipeline.step3", case_id=case.id) }}';
+    const nextSectionText = 'Go to Step 3';
+    const completionTitle = 'Conclusions Section Complete';
+    {% else %}
+    const nextSectionUrl = '{{ url_for("scenario_pipeline.step3", case_id=case.id) }}';
+    const nextSectionText = 'Go to Step 3';
+    const completionTitle = 'Section Complete';
+    {% endif %}
+
+    const modalHtml = `
+        <div class="modal fade" id="pass2CompleteModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header bg-success text-white">
+                        <h5 class="modal-title">
+                            <i class="bi bi-check-circle-fill me-2"></i>${completionTitle}
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body text-center py-4">
+                        <p class="mb-3">All four normative requirement types have been extracted from ${sectionName}:</p>
+                        <div class="d-flex flex-wrap justify-content-center gap-2 mb-3">
+                            <span class="badge bg-success fs-6"><i class="bi bi-stars me-1"></i> Principles</span>
+                            <span class="badge bg-warning text-dark fs-6"><i class="bi bi-shield-check me-1"></i> Obligations</span>
+                            <span class="badge bg-danger fs-6"><i class="bi bi-sign-stop me-1"></i> Constraints</span>
+                            <span class="badge bg-info fs-6"><i class="bi bi-gear me-1"></i> Capabilities</span>
+                        </div>
+                        <p class="text-muted">You can proceed to the next section or review the extracted entities.</p>
+                    </div>
+                    <div class="modal-footer justify-content-center">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                            Stay Here
+                        </button>
+                        <a href="{{ url_for('entity_review.review_case_entities_pass2', case_id=case.id) }}" class="btn btn-info">
+                            <i class="bi bi-list-check me-1"></i> Review Entities
+                        </a>
+                        <a href="${nextSectionUrl}" class="btn btn-success btn-lg">
+                            <i class="bi bi-arrow-right-circle me-1"></i> ${nextSectionText}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    if (!document.getElementById('pass2CompleteModal')) {
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        const modal = new bootstrap.Modal(document.getElementById('pass2CompleteModal'));
+        modal.show();
+    }
+}
 
 // Detect navigation/redirect and fade out page smoothly
 let navigationStarted = false;
@@ -413,6 +529,9 @@ document.addEventListener('DOMContentLoaded', function() {
     ['principles', 'obligations', 'constraints', 'capabilities'].forEach(conceptType => {
         loadSavedPrompt(conceptType);
     });
+
+    // Mark initial load complete after a short delay
+    setTimeout(() => { isInitialLoad = false; }, 100);
 });
 
 function loadSavedPrompt(conceptType) {
@@ -479,16 +598,16 @@ async function extractIndividualConcept(conceptType) {
 
     // Disable button and show loading
     button.disabled = true;
-    button.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Clearing & Extracting...';
+    button.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Extracting...';
 
     // Show prompt section with loading
     promptSection.style.display = 'block';
     promptText.innerHTML = `
         <div class="text-center">
             <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Clearing existing entities...</span>
+                <span class="visually-hidden">Processing request...</span>
             </div>
-            <p class="mt-2">Clearing existing ${conceptType} and extracting fresh...</p>
+            <p class="mt-2">Request submitted, awaiting response...</p>
         </div>
     `;
 
@@ -531,6 +650,9 @@ async function extractIndividualConcept(conceptType) {
             }
 
             resultsSection.style.display = 'block';
+
+            // Mark this extraction type as complete and check if all done
+            markExtractionComplete(conceptType);
         } else {
             resultsContent.innerHTML = `<div class="alert alert-danger">${data.error || 'Extraction failed'}</div>`;
             resultsSection.style.display = 'block';
@@ -582,11 +704,11 @@ async function executeFullNormativePass() {
     ])
     .then(results => {
         console.log('Full normative pass completed', results);
-        alert('Full normative pass completed successfully!');
+        // Completion popup will be shown by markExtractionComplete when all are done
     })
     .catch(error => {
         console.error('Error in full pass:', error);
-        alert('Error during full pass. Check individual sections for details.');
+        // Individual errors are shown in each section
     })
     .finally(() => {
         button.disabled = false;
@@ -642,6 +764,9 @@ function updateConceptUI(conceptType, data) {
         const tempDiv = document.createElement('div');
         tempDiv.textContent = data.raw_llm_response;
         resultsContent.innerHTML = `<pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; max-height: 500px; overflow-y: auto;">${tempDiv.innerHTML}</pre>`;
+
+        // Mark this extraction type as complete (for Full Pass tracking)
+        markExtractionComplete(conceptType);
     }
 }
 </script>

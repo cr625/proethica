@@ -427,16 +427,16 @@ async function extractIndividualConcept(conceptType) {
 
     // Disable button and show loading
     button.disabled = true;
-    button.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Clearing & Extracting...';
+    button.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Extracting...';
 
     // Show prompt section with loading
     promptSection.style.display = 'block';
     promptText.innerHTML = `
         <div class="text-center">
             <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Clearing existing entities...</span>
+                <span class="visually-hidden">Processing request...</span>
             </div>
-            <p class="mt-2">Clearing existing ${conceptType} and extracting fresh...</p>
+            <p class="mt-2">Request submitted, awaiting response...</p>
         </div>
     `;
 
@@ -483,6 +483,9 @@ async function extractIndividualConcept(conceptType) {
 
             // Show results section
             resultsSection.style.display = 'block';
+
+            // Mark this extraction type as complete and check if all done
+            markExtractionComplete(conceptType);
         } else {
             resultsContent.innerHTML = `
                 <div class="alert alert-danger">
@@ -623,6 +626,105 @@ function displayConceptResults(conceptType, data) {
     resultsContent.innerHTML = html;
 }
 
+// Track extraction completion status
+const extractionStatus = {
+    roles: {{ 'true' if saved_prompts.roles and saved_prompts.roles.raw_response else 'false' }},
+    states: {{ 'true' if saved_prompts.states and saved_prompts.states.raw_response else 'false' }},
+    resources: {{ 'true' if saved_prompts.resources and saved_prompts.resources.raw_response else 'false' }}
+};
+
+// Track if we've already shown the completion popup (e.g., on page reload)
+let completionPopupShown = false;
+let isInitialLoad = true;
+
+function markExtractionComplete(conceptType) {
+    extractionStatus[conceptType] = true;
+    checkAllExtractionsComplete();
+}
+
+function checkAllExtractionsComplete() {
+    const allComplete = extractionStatus.roles && extractionStatus.states && extractionStatus.resources;
+    const discussionBtn = document.getElementById('discussionSectionBtn');
+
+    if (allComplete && discussionBtn) {
+        // Enable the Discussion button
+        discussionBtn.classList.remove('disabled', 'btn-secondary');
+        discussionBtn.classList.add('btn-primary');
+        discussionBtn.removeAttribute('aria-disabled');
+        discussionBtn.removeAttribute('tabindex');
+        discussionBtn.querySelector('.btn-text').innerHTML = 'Discussion Section <i class="bi bi-arrow-right"></i>';
+        discussionBtn.querySelector('.lock-icon')?.remove();
+
+        // Make it a link if it's a span
+        if (discussionBtn.tagName === 'SPAN') {
+            const link = document.createElement('a');
+            link.href = '{{ url_for("scenario_pipeline.step1b", case_id=case.id) }}';
+            link.id = 'discussionSectionBtn';
+            link.className = 'btn btn-primary btn-lg';
+            link.innerHTML = '<span class="btn-text">Discussion Section <i class="bi bi-arrow-right"></i></span>';
+            discussionBtn.parentNode.replaceChild(link, discussionBtn);
+        }
+
+        // Update sidebar Discussion link
+        const sidebarDiscussion = document.querySelector('.pipeline-substep.disabled');
+        if (sidebarDiscussion && sidebarDiscussion.textContent.includes('Discussion')) {
+            sidebarDiscussion.outerHTML = `
+                <a href="{{ url_for('scenario_pipeline.step1b', case_id=case.id) }}"
+                   class="pipeline-substep">
+                    <span class="substep-label">Discussion</span>
+                </a>`;
+        }
+
+        // Show completion popup only if not initial page load
+        if (!isInitialLoad && !completionPopupShown) {
+            showCompletionPopup();
+            completionPopupShown = true;
+        }
+    }
+}
+
+function showCompletionPopup() {
+    // Create and show a Bootstrap modal for completion
+    const modalHtml = `
+        <div class="modal fade" id="extractionCompleteModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header bg-success text-white">
+                        <h5 class="modal-title">
+                            <i class="bi bi-check-circle-fill me-2"></i>Facts Extraction Complete
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body text-center py-4">
+                        <p class="mb-3">All three entity types have been extracted from the Facts section:</p>
+                        <div class="d-flex justify-content-center gap-3 mb-3">
+                            <span class="badge bg-info fs-6"><i class="bi bi-person-badge me-1"></i> Roles</span>
+                            <span class="badge bg-warning text-dark fs-6"><i class="bi bi-diagram-3 me-1"></i> States</span>
+                            <span class="badge bg-secondary fs-6"><i class="bi bi-box me-1"></i> Resources</span>
+                        </div>
+                        <p class="text-muted">You can now proceed to extract entities from the Discussion section.</p>
+                    </div>
+                    <div class="modal-footer justify-content-center">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                            Stay Here
+                        </button>
+                        <a href="{{ url_for('scenario_pipeline.step1b', case_id=case.id) }}" class="btn btn-success btn-lg">
+                            <i class="bi bi-arrow-right-circle me-1"></i> Go to Discussion Section
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Only show if not already shown
+    if (!document.getElementById('extractionCompleteModal')) {
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        const modal = new bootstrap.Modal(document.getElementById('extractionCompleteModal'));
+        modal.show();
+    }
+}
+
 async function executeFullContextualPass() {
     const mainButton = document.getElementById('contextualPassBtn');
     mainButton.disabled = true;
@@ -663,5 +765,38 @@ async function executeFullContextualPass() {
         }
     });
 }
+
+// Check on page load if already complete
+document.addEventListener('DOMContentLoaded', function() {
+    checkAllExtractionsComplete();
+    // After initial check, allow popup to show on future completions
+    isInitialLoad = false;
+});
 </script>
+{% endblock %}
+
+{% block step_navigation_bottom %}
+<div class="navigation-buttons">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <a href="{{ url_for('scenario_pipeline.overview', case_id=case.id) }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Overview
+            </a>
+        </div>
+        <div>
+            {% set facts_complete = pipeline_status.step1.facts_complete if pipeline_status else false %}
+            {% if facts_complete %}
+            <a href="{{ url_for('scenario_pipeline.step1b', case_id=case.id) }}" id="discussionSectionBtn" class="btn btn-primary btn-lg">
+                <span class="btn-text">Discussion Section <i class="bi bi-arrow-right"></i></span>
+            </a>
+            {% else %}
+            <span id="discussionSectionBtn" class="btn btn-secondary btn-lg disabled" aria-disabled="true" tabindex="-1"
+                  title="Complete Facts extraction first">
+                <i class="bi bi-lock-fill me-1 lock-icon"></i>
+                <span class="btn-text">Discussion Section</span>
+            </span>
+            {% endif %}
+        </div>
+    </div>
+</div>
 {% endblock %}

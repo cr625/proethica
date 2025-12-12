@@ -1125,7 +1125,7 @@
         summaryCard.style.display = "none";
         stageInfo.style.display = "block";
         progressIcon.className = "bi bi-hourglass-split";
-        currentStage.textContent = "Clearing existing Pass 3 data...";
+        currentStage.textContent = "Request submitted, awaiting response...";
         document.getElementById("log-count").textContent = "0 messages";
 
         // Clear the accordion container
@@ -1136,7 +1136,7 @@
 
         // Clear existing Pass 3 data first
         try {
-            addEnhancedMessage("info", "Clearing existing Pass 3 entities...");
+            addEnhancedMessage("info", "Preparing extraction...");
             const clearResponse = await fetch(`/scenario_pipeline/case/${currentCaseId}/entities/clear_and_rerun/pass3`, {
                 method: 'POST',
                 headers: {

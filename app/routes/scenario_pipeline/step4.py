@@ -46,13 +46,14 @@ bp = Blueprint('step4', __name__, url_prefix='/scenario_pipeline')
 def init_step4_csrf_exemption(app):
     """Exempt Step 4 synthesis routes from CSRF protection"""
     if hasattr(app, 'csrf') and app.csrf:
-        from app.routes.scenario_pipeline.step4 import save_streaming_results, generate_synthesis_annotations, extract_decision_points, commit_step4_entities
+        from app.routes.scenario_pipeline.step4 import save_streaming_results, generate_synthesis_annotations, extract_decision_points, commit_step4_entities, publish_all_entities
         from app.routes.scenario_pipeline.generate_scenario import generate_scenario_from_case
         app.csrf.exempt(save_streaming_results)
         app.csrf.exempt(generate_synthesis_annotations)
         app.csrf.exempt(generate_scenario_from_case)
         app.csrf.exempt(extract_decision_points)
         app.csrf.exempt(commit_step4_entities)
+        app.csrf.exempt(publish_all_entities)
 
 
 @bp.route('/case/<int:case_id>/step4')
@@ -825,6 +826,21 @@ def step4_review(case_id):
         except Exception as e:
             logger.debug(f"Could not check embeddings for case {case_id}: {e}")
 
+        # Get publish status
+        unpublished_count = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            is_published=False
+        ).count()
+
+        published_count = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            is_published=True
+        ).count()
+
+        # Get pipeline status for publish validation
+        pipeline_status = PipelineStatusService.get_step_status(case_id)
+        can_publish = pipeline_status.get('step1', {}).get('complete', False) and unpublished_count > 0
+
         context = {
             'case': case,
             'saved_synthesis': saved_synthesis,
@@ -845,7 +861,12 @@ def step4_review(case_id):
             'transformation_data': transformation_data,
             'precedent_features': precedent_features,
             'data_inventory': data_inventory,
-            'entity_type_counts': entity_type_counts
+            'entity_type_counts': entity_type_counts,
+            # Publish status
+            'unpublished_count': unpublished_count,
+            'published_count': published_count,
+            'can_publish': can_publish,
+            'pipeline_status': pipeline_status
         }
 
         return render_template('scenario_pipeline/step4_review.html', **context)
@@ -1894,6 +1915,144 @@ def get_step4_prompts(case_id):
             'success': False,
             'error': str(e),
             'prompts': {}
+        }), 500
+
+
+# ============================================================================
+# PUBLISH ALL ENTITIES
+# ============================================================================
+
+@bp.route('/case/<int:case_id>/publish_all', methods=['POST'])
+@auth_required_for_llm
+def publish_all_entities(case_id):
+    """
+    Publish all entities (Pass 1-3 + Step 4) to OntServe.
+
+    This is the primary publish point for a case analysis.
+    Validates that extraction passes are complete before publishing.
+    """
+    try:
+        from app.services.ontserve_commit_service import OntServeCommitService
+
+        case = Document.query.get_or_404(case_id)
+
+        # Get pipeline status to validate prerequisites
+        pipeline_status = PipelineStatusService.get_step_status(case_id)
+
+        # Check if passes 1-3 have entities
+        pass1_complete = pipeline_status.get('step1', {}).get('complete', False)
+        pass2_complete = pipeline_status.get('step2', {}).get('complete', False)
+        pass3_complete = pipeline_status.get('step3', {}).get('complete', False)
+
+        if not pass1_complete:
+            return jsonify({
+                'success': False,
+                'error': 'Pass 1 (Roles, States, Resources) extraction must be complete before publishing.',
+                'missing_passes': ['Pass 1']
+            }), 400
+
+        # Get all unpublished entities
+        unpublished_entities = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            is_published=False
+        ).all()
+
+        if not unpublished_entities:
+            return jsonify({
+                'success': False,
+                'error': 'No unpublished entities to publish. All entities may already be published.'
+            }), 400
+
+        # Get entity IDs and count by type
+        entity_ids = [e.id for e in unpublished_entities]
+        entity_counts = {}
+        for e in unpublished_entities:
+            etype = e.extraction_type or e.entity_type or 'unknown'
+            entity_counts[etype] = entity_counts.get(etype, 0) + 1
+
+        logger.info(f"Publishing {len(entity_ids)} entities for case {case_id}: {entity_counts}")
+
+        # Use OntServeCommitService to publish
+        commit_service = OntServeCommitService()
+        result = commit_service.commit_selected_entities(case_id, entity_ids)
+
+        if result.get('success'):
+            return jsonify({
+                'success': True,
+                'message': f'Published {len(entity_ids)} entities to OntServe',
+                'total_published': len(entity_ids),
+                'classes_committed': result.get('classes_committed', 0),
+                'individuals_committed': result.get('individuals_committed', 0),
+                'entity_counts': entity_counts,
+                'ontserve_synced': result.get('ontserve_synced', False),
+                'errors': result.get('errors', [])
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': result.get('error', 'Publish failed'),
+                'errors': result.get('errors', [])
+            }), 500
+
+    except Exception as e:
+        logger.error(f"Error publishing entities for case {case_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@bp.route('/case/<int:case_id>/publish_status')
+def get_publish_status(case_id):
+    """
+    Get the publish status for a case.
+
+    Returns counts of published and unpublished entities.
+    """
+    try:
+        from app.services.ontserve_commit_service import OntServeCommitService
+
+        commit_service = OntServeCommitService()
+        status = commit_service.get_commit_status(case_id)
+
+        # Get entity breakdown
+        unpublished = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            is_published=False
+        ).all()
+
+        unpublished_by_type = {}
+        for e in unpublished:
+            etype = e.extraction_type or e.entity_type or 'unknown'
+            unpublished_by_type[etype] = unpublished_by_type.get(etype, 0) + 1
+
+        published = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            is_published=True
+        ).all()
+
+        published_by_type = {}
+        for e in published:
+            etype = e.extraction_type or e.entity_type or 'unknown'
+            published_by_type[etype] = published_by_type.get(etype, 0) + 1
+
+        return jsonify({
+            'success': True,
+            'case_id': case_id,
+            'unpublished_count': status.get('pending_count', 0),
+            'published_count': status.get('committed_count', 0),
+            'unpublished_by_type': unpublished_by_type,
+            'published_by_type': published_by_type,
+            'case_ontology_exists': status.get('case_ontology_exists', False)
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting publish status for case {case_id}: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
         }), 500
 
 

@@ -895,24 +895,28 @@ def clear_entities_by_types(case_id):
                 delete_query = delete_query.filter(TemporaryRDFStorage.extraction_session_id.in_(section_session_ids))
             delete_query.delete()
 
-        # Delete extraction prompts for specified types
-        # NOTE: We delete prompts for ALL sections, not just the current section,
-        # because prompts can exist in different sections than the entities
+        # Delete extraction prompts for specified types - ONLY for the specified section
+        # to preserve prompts from other sections (e.g., don't delete facts prompts when clearing discussion)
         for extraction_type in extraction_types:
             prompt_query = db.session.query(ExtractionPrompt).filter_by(
                 case_id=case_id,
                 concept_type=extraction_type
             )
+            # Apply section filter if specified
+            if section_type:
+                prompt_query = prompt_query.filter_by(section_type=section_type)
 
             # Count prompts that will be deleted
             prompt_count = prompt_query.count()
             cleared_stats['extraction_prompts'] += prompt_count
 
-            # Delete prompts for this extraction type (all sections)
+            # Delete prompts for this extraction type (filtered by section if specified)
             delete_query = db.session.query(ExtractionPrompt).filter_by(
                 case_id=case_id,
                 concept_type=extraction_type
             )
+            if section_type:
+                delete_query = delete_query.filter_by(section_type=section_type)
             delete_query.delete(synchronize_session='fetch')
 
         db.session.commit()

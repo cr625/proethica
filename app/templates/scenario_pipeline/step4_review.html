@@ -36,20 +36,44 @@
             <h2><i class="bi bi-clipboard-check"></i> Step 4: Synthesis Review</h2>
             <p class="text-muted mb-0">Case {{ case.id }}: {{ case.title }}</p>
         </div>
-        <div>
-        <div>
+        <div class="d-flex flex-wrap gap-2">
+            <!-- Publish to OntServe Button -->
+            {% if current_user.is_authenticated %}
+                {% if unpublished_count > 0 and can_publish %}
+                <button id="publishAllBtn" class="btn btn-primary" onclick="publishAllEntities()">
+                    <i class="bi bi-cloud-upload"></i> Publish to OntServe ({{ unpublished_count }})
+                </button>
+                {% elif unpublished_count > 0 and not can_publish %}
+                <button id="publishAllBtn" class="btn btn-secondary" disabled title="Complete Pass 1 extraction before publishing">
+                    <i class="bi bi-cloud-upload"></i> Publish (Pass 1 Required)
+                </button>
+                {% elif published_count > 0 %}
+                <button id="publishAllBtn" class="btn btn-success" disabled>
+                    <i class="bi bi-check-circle"></i> Published ({{ published_count }})
+                </button>
+                {% else %}
+                <button id="publishAllBtn" class="btn btn-secondary" disabled title="Extract entities first">
+                    <i class="bi bi-cloud-upload"></i> No Entities
+                </button>
+                {% endif %}
+            {% else %}
+            <button class="btn btn-secondary" onclick="window.location.href='{{ url_for('auth.login') }}';" title="Login required to publish">
+                <i class="bi bi-lock-fill"></i> Publish (Login Required)
+            </button>
+            {% endif %}
+
             {% if has_synthesis_annotations %}
-                <a href="{{ url_for('cases.view_case', id=case.id) }}?highlight=synthesis" class="btn btn-success me-2">
+                <a href="{{ url_for('cases.view_case', id=case.id) }}?highlight=synthesis" class="btn btn-success">
                     <i class="bi bi-eye"></i> View Case with Annotations ({{ annotation_count }})
                 </a>
             {% else %}
                 {% if current_user.is_authenticated %}
-                <button id="generateAnnotationsBtn" class="btn btn-warning me-2" onclick="generateSynthesisAnnotations()">
+                <button id="generateAnnotationsBtn" class="btn btn-warning" onclick="generateSynthesisAnnotations()">
                     <i class="bi bi-lightbulb"></i> Generate Synthesis Annotations
                 </button>
                 {% else %}
-                <button class="btn btn-secondary me-2" onclick="window.location.href='{{ url_for('auth.login') }}';" title="Login required to generate annotations">
-                    <i class="bi bi-lock-fill"></i> Generate Synthesis Annotations (Login Required)
+                <button class="btn btn-secondary" onclick="window.location.href='{{ url_for('auth.login') }}';" title="Login required to generate annotations">
+                    <i class="bi bi-lock-fill"></i> Generate Annotations (Login Required)
                 </button>
                 {% endif %}
             {% endif %}
@@ -57,7 +81,12 @@
                 <i class="bi bi-arrow-left"></i> Back to Step 4
             </a>
         </div>
-        </div>
+    </div>
+
+    <!-- Alert for publish operations -->
+    <div id="publishAlert" class="alert alert-dismissible fade" role="alert" style="display: none;">
+        <div id="publishMessage"></div>
+        <button type="button" class="btn-close" onclick="document.getElementById('publishAlert').style.display='none'"></button>
     </div>
 
     <!-- Alert for annotation generation -->
@@ -990,22 +1019,19 @@
                 </div>
             </div>
 
-            <!-- Extract and Commit Buttons -->
+            <!-- Extract Button -->
             <div class="mb-4">
                 {% if current_user.is_authenticated %}
                 <button id="extractDecisionPointsBtn" class="btn btn-primary" onclick="extractDecisionPoints()">
                     <i class="bi bi-lightning-charge"></i> Extract Decision Points
                 </button>
-                <button id="commitStep4Btn" class="btn btn-success ms-2" onclick="commitStep4Entities()" style="display:none;">
-                    <i class="bi bi-cloud-upload"></i> Commit to OntServe
-                </button>
+                <span class="badge bg-light text-dark border ms-2">Draft - Publish at header</span>
                 {% else %}
                 <button class="btn btn-secondary" disabled title="Login required">
                     <i class="bi bi-lock-fill"></i> Extract Decision Points (Login Required)
                 </button>
                 {% endif %}
                 <span id="extractionStatus" class="ms-2 text-muted"></span>
-                <span id="commitStatus" class="ms-2 text-muted"></span>
             </div>
 
             <!-- Decision Points Container -->
@@ -1659,11 +1685,6 @@ function loadDecisionPoints() {
             if (data.success && data.decision_points && data.decision_points.length > 0) {
                 renderDecisionPoints(data.decision_points);
                 updateDecisionPointCount(data.decision_points.length);
-                // Show commit button if there are uncommitted decision points
-                const commitBtn = document.getElementById('commitStep4Btn');
-                if (commitBtn) {
-                    commitBtn.style.display = 'inline-block';
-                }
             }
         })
         .catch(err => {
@@ -1692,14 +1713,15 @@ function extractDecisionPoints() {
         btn.innerHTML = '<i class="bi bi-lightning-charge"></i> Extract Decision Points';
 
         if (data.success) {
-            status.textContent = `Extracted ${data.count} decision points`;
+            status.textContent = `Extracted ${data.count} decision points - use Publish button at top to commit`;
             status.className = 'ms-2 text-success';
             renderDecisionPoints(data.decision_points);
             updateDecisionPointCount(data.decision_points.length);
-            // Show commit button
-            const commitBtn = document.getElementById('commitStep4Btn');
-            if (commitBtn) {
-                commitBtn.style.display = 'inline-block';
+            // Update publish button count
+            const publishBtn = document.getElementById('publishAllBtn');
+            if (publishBtn && !publishBtn.disabled) {
+                // Refresh page to update entity counts
+                setTimeout(() => location.reload(), 1500);
             }
         } else {
             status.textContent = data.error || 'Extraction failed';
@@ -1715,45 +1737,7 @@ function extractDecisionPoints() {
     });
 }
 
-function commitStep4Entities() {
-    const caseId = {{ case.id }};
-    const btn = document.getElementById('commitStep4Btn');
-    const status = document.getElementById('commitStatus');
-
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Committing...';
-    status.textContent = 'Committing entities to OntServe...';
-    status.className = 'ms-2 text-muted';
-
-    fetch(`/scenario_pipeline/case/${caseId}/commit_step4`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="bi bi-cloud-upload"></i> Commit to OntServe';
-
-        if (data.success) {
-            status.textContent = data.message || 'Committed successfully';
-            status.className = 'ms-2 text-success';
-            // Hide commit button after successful commit
-            btn.style.display = 'none';
-        } else {
-            status.textContent = data.error || 'Commit failed';
-            status.className = 'ms-2 text-danger';
-        }
-    })
-    .catch(err => {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="bi bi-cloud-upload"></i> Commit to OntServe';
-        status.textContent = 'Error: ' + err.message;
-        status.className = 'ms-2 text-danger';
-        console.error('Commit error:', err);
-    });
-}
+// commitStep4Entities removed - use publishAllEntities() in header instead
 
 function updateDecisionPointCount(count) {
     const badge = document.getElementById('decision-point-count');
@@ -1983,6 +1967,93 @@ function showPromptError(message) {
     document.getElementById('questionsPromptContent').innerHTML = errorHtml;
     document.getElementById('conclusionsPromptContent').innerHTML = errorHtml;
     document.getElementById('decisionPointsPromptContent').innerHTML = errorHtml;
+}
+
+// ============================================================================
+// PUBLISH ALL ENTITIES
+// ============================================================================
+
+function publishAllEntities() {
+    const btn = document.getElementById('publishAllBtn');
+    const alertDiv = document.getElementById('publishAlert');
+    const message = document.getElementById('publishMessage');
+
+    // Confirm with user
+    if (!confirm('Publish all extracted entities to OntServe?\n\nThis will make entities available for querying and precedent discovery.')) {
+        return;
+    }
+
+    // Disable button and show loading
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Publishing...';
+
+    // Show processing message
+    alertDiv.className = 'alert alert-info alert-dismissible fade show';
+    alertDiv.style.display = 'block';
+    message.innerHTML = '<strong>Publishing entities to OntServe...</strong> This may take a moment.';
+
+    // Call API
+    fetch('/scenario_pipeline/case/' + currentCaseId + '/publish_all', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success message
+            alertDiv.className = 'alert alert-success alert-dismissible fade show';
+            let successMsg = `<strong>Published successfully!</strong> ${data.total_published} entities sent to OntServe.`;
+
+            // Show entity breakdown if available
+            if (data.entity_counts) {
+                const counts = Object.entries(data.entity_counts)
+                    .map(([type, count]) => `${count} ${type}`)
+                    .join(', ');
+                successMsg += `<br><small class="text-muted">${counts}</small>`;
+            }
+
+            // Show sync status
+            if (data.ontserve_synced) {
+                successMsg += '<br><small class="text-success">OntServe database synchronized.</small>';
+            }
+
+            // Show any warnings
+            if (data.errors && data.errors.length > 0) {
+                successMsg += '<br><small class="text-warning">Warnings: ' + data.errors.join(', ') + '</small>';
+            }
+
+            message.innerHTML = successMsg;
+
+            // Update button to show published state
+            btn.innerHTML = '<i class="bi bi-check-circle"></i> Published';
+            btn.className = 'btn btn-success';
+            btn.disabled = true;
+
+            // Reload page after 3 seconds to update entity counts
+            setTimeout(function() {
+                location.reload();
+            }, 3000);
+        } else {
+            // Show error message
+            alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+            message.innerHTML = '<strong>Publish failed:</strong> ' + (data.error || 'Unknown error');
+
+            // Re-enable button
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-cloud-upload"></i> Publish to OntServe';
+        }
+    })
+    .catch(err => {
+        alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+        message.innerHTML = '<strong>Error:</strong> ' + err.message;
+
+        // Re-enable button
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-cloud-upload"></i> Publish to OntServe';
+        console.error('Publish error:', err);
+    });
 }
 </script>
 {% endblock %}

@@ -297,12 +297,80 @@
 const caseId = {{ case.id }};
 const currentSectionText = `{{ discussion_section.llm_text if discussion_section else '' }}`;
 
+// Track extraction status for Discussion section
+const extractionStatus = {
+    roles: {{ 'true' if saved_prompts.roles and saved_prompts.roles.raw_response else 'false' }},
+    states: {{ 'true' if saved_prompts.states and saved_prompts.states.raw_response else 'false' }},
+    resources: {{ 'true' if saved_prompts.resources and saved_prompts.resources.raw_response else 'false' }}
+};
+
+// Track if we've already shown the completion popup
+let completionPopupShown = false;
+let isInitialLoad = true;
+
+function markExtractionComplete(conceptType) {
+    extractionStatus[conceptType] = true;
+    checkAllExtractionsComplete();
+}
+
+function checkAllExtractionsComplete() {
+    const allComplete = extractionStatus.roles && extractionStatus.states && extractionStatus.resources;
+
+    if (allComplete && !isInitialLoad && !completionPopupShown) {
+        showCompletionPopup();
+        completionPopupShown = true;
+    }
+}
+
+function showCompletionPopup() {
+    const modalHtml = `
+        <div class="modal fade" id="discussionCompleteModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header bg-success text-white">
+                        <h5 class="modal-title">
+                            <i class="bi bi-check-circle-fill me-2"></i>Discussion Extraction Complete
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body text-center py-4">
+                        <p class="mb-3">All three entity types have been extracted from the Discussion section:</p>
+                        <div class="d-flex justify-content-center gap-3 mb-3">
+                            <span class="badge bg-info fs-6"><i class="bi bi-person-badge me-1"></i> Roles</span>
+                            <span class="badge bg-warning text-dark fs-6"><i class="bi bi-diagram-3 me-1"></i> States</span>
+                            <span class="badge bg-secondary fs-6"><i class="bi bi-box me-1"></i> Resources</span>
+                        </div>
+                        <p class="text-muted">You can now proceed to Step 2 to extract Normative Requirements.</p>
+                    </div>
+                    <div class="modal-footer justify-content-center">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                            Stay Here
+                        </button>
+                        <a href="{{ url_for('scenario_pipeline.step2', case_id=case.id) }}" class="btn btn-success btn-lg">
+                            <i class="bi bi-arrow-right-circle me-1"></i> Go to Step 2
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    if (!document.getElementById('discussionCompleteModal')) {
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        const modal = new bootstrap.Modal(document.getElementById('discussionCompleteModal'));
+        modal.show();
+    }
+}
+
 // Load saved prompts on page load - using vanilla JS instead of jQuery
 document.addEventListener('DOMContentLoaded', function() {
     // Load saved prompts for all three concept types
     ['roles', 'states', 'resources'].forEach(conceptType => {
         loadSavedPrompt(conceptType);
     });
+
+    // Mark initial load complete after a short delay
+    setTimeout(() => { isInitialLoad = false; }, 100);
 });
 
 function loadSavedPrompt(conceptType) {
@@ -374,16 +442,16 @@ async function extractIndividualConcept(conceptType) {
 
     // Disable button and show loading
     button.disabled = true;
-    button.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Clearing & Extracting...';
+    button.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Extracting...';
 
     // Show prompt section with loading
     promptSection.style.display = 'block';
     promptText.innerHTML = `
         <div class="text-center">
             <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Clearing existing entities...</span>
+                <span class="visually-hidden">Processing request...</span>
             </div>
-            <p class="mt-2">Clearing existing ${conceptType} and extracting fresh...</p>
+            <p class="mt-2">Request submitted, awaiting response...</p>
         </div>
     `;
 
@@ -430,6 +498,9 @@ async function extractIndividualConcept(conceptType) {
 
             // Show results section
             resultsSection.style.display = 'block';
+
+            // Mark this extraction type as complete and check if all done
+            markExtractionComplete(conceptType);
         } else {
             resultsContent.innerHTML = `
                 <div class="alert alert-danger">
