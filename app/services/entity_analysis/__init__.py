@@ -43,10 +43,34 @@ from app.services.entity_analysis.decision_point_composer import (
     compose_decision_points
 )
 
-# F1-F3: To be implemented
-# from app.services.entity_analysis.principle_provision_aligner import PrincipleProvisionAligner
-# from app.services.entity_analysis.argument_generator import ArgumentGenerator
-# from app.services.entity_analysis.argument_validator import ArgumentValidator
+# F1: Principle-Provision Alignment
+from app.services.entity_analysis.principle_provision_aligner import (
+    PrincipleProvisionAligner,
+    PrincipleAlignment,
+    ProvisionDetail,
+    AlignmentMap,
+    get_principle_provision_alignment
+)
+
+# F2: Argument Generation
+from app.services.entity_analysis.argument_generator import (
+    ArgumentGenerator,
+    ArgumentComponent,
+    EntityGroundedArgument,
+    GeneratedArguments,
+    generate_arguments
+)
+
+# F3: Argument Validation
+from app.services.entity_analysis.argument_validator import (
+    ArgumentValidator,
+    EntityReferenceValidation,
+    FoundingValueValidation,
+    ProfessionalVirtueValidation,
+    ValidationResult,
+    ValidatedArguments,
+    validate_arguments
+)
 
 __all__ = [
     # E1
@@ -69,4 +93,24 @@ __all__ = [
     'DecisionPointOption',
     'ComposedDecisionPoints',
     'compose_decision_points',
+    # F1
+    'PrincipleProvisionAligner',
+    'PrincipleAlignment',
+    'ProvisionDetail',
+    'AlignmentMap',
+    'get_principle_provision_alignment',
+    # F2
+    'ArgumentGenerator',
+    'ArgumentComponent',
+    'EntityGroundedArgument',
+    'GeneratedArguments',
+    'generate_arguments',
+    # F3
+    'ArgumentValidator',
+    'EntityReferenceValidation',
+    'FoundingValueValidation',
+    'ProfessionalVirtueValidation',
+    'ValidationResult',
+    'ValidatedArguments',
+    'validate_arguments',
 ]
