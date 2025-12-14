@@ -228,8 +228,10 @@ class ObligationCoverageAnalyzer:
         # Detect if this is an instantiated (role-bound) obligation
         is_instantiated = self._is_instantiated_label(label)
 
-        # Extract bound role
-        bound_role, bound_role_uri = self._extract_role_binding(label, role_lookup, entity.case_id)
+        # Extract bound role (passing definition for fallback matching)
+        bound_role, bound_role_uri = self._extract_role_binding(
+            label, role_lookup, entity.case_id, definition
+        )
 
         # Classify decision type
         decision_type = self._classify_decision_type(label, definition)
@@ -261,7 +263,7 @@ class ObligationCoverageAnalyzer:
 
         is_instantiated = self._is_instantiated_label(label)
         constrained_role, constrained_role_uri = self._extract_role_binding(
-            label, role_lookup, entity.case_id
+            label, role_lookup, entity.case_id, definition
         )
 
         # Check if this is a founding value limit (safety, welfare constraints)
@@ -307,28 +309,48 @@ class ObligationCoverageAnalyzer:
         self,
         label: str,
         role_lookup: Dict[str, str],
-        case_id: int
+        case_id: int,
+        definition: str = ""
     ) -> Tuple[Optional[str], Optional[str]]:
         """
-        Extract role binding from an entity label.
+        Extract role binding from an entity label or definition.
 
         Returns (role_label, role_uri) or (None, None) if no binding found.
         """
         label_lower = label.lower()
+        definition_lower = definition.lower() if definition else ""
 
-        # Try to find a role reference in the label
+        # Try to find a role reference in the label first
         for role_key, role_label in role_lookup.items():
             if role_key in label_lower:
                 role_uri = f"case-{case_id}#{role_label.replace(' ', '_')}"
                 return role_label, role_uri
 
-        # Fallback: check for common role prefixes
+        # Fallback: check for common role prefixes in label
         for role in self.role_vocabulary:
             if role in label_lower:
                 # Capitalize for display
                 role_display = role.title()
                 role_uri = f"case-{case_id}#{role_display.replace(' ', '_')}"
                 return role_display, role_uri
+
+        # Second pass: check definition text for role references
+        if definition_lower:
+            for role_key, role_label in role_lookup.items():
+                if role_key in definition_lower:
+                    role_uri = f"case-{case_id}#{role_label.replace(' ', '_')}"
+                    return role_label, role_uri
+
+        # Final fallback for engineering domain: generic obligations likely apply to Engineer A
+        # (the primary role being evaluated in NSPE cases)
+        if 'Engineer A' in role_lookup.values():
+            # Check if this is an engineering-related obligation
+            combined = f"{label_lower} {definition_lower}"
+            eng_keywords = ['engineer', 'design', 'review', 'verification', 'safety',
+                           'disclosure', 'competence', 'ai', 'technical']
+            if any(kw in combined for kw in eng_keywords):
+                role_uri = f"case-{case_id}#Engineer_A"
+                return 'Engineer A', role_uri
 
         return None, None
 

@@ -632,6 +632,66 @@ def _count_conclusion_types_from_list(conclusions: list) -> dict:
 #     pass
 
 
+@bp.route('/case/<int:case_id>/step4/decision_points')
+def step4_decision_points(case_id):
+    """
+    Display Step 4E: Decision Point Composition page.
+
+    Shows E1-E3 pipeline for composing entity-grounded decision points
+    from Role + Obligation/Constraint + ActionSet.
+    """
+    try:
+        case = Document.query.get_or_404(case_id)
+
+        # Get pipeline status for navigation
+        pipeline_status = PipelineStatusService.get_step_status(case_id)
+
+        return render_template(
+            'scenarios/step4_decision_points.html',
+            case=case,
+            current_step=4,
+            step_title='Step 4E: Decision Points',
+            prev_step_url=f"/scenario_pipeline/case/{case_id}/step4",
+            next_step_url=f"/scenario_pipeline/case/{case_id}/step4/arguments",
+            next_step_name='Part F: Arguments',
+            pipeline_status=pipeline_status
+        )
+
+    except Exception as e:
+        logger.error(f"Error displaying Step 4E for case {case_id}: {e}")
+        return str(e), 500
+
+
+@bp.route('/case/<int:case_id>/step4/arguments')
+def step4_arguments(case_id):
+    """
+    Display Step 4F: Entity-Grounded Arguments page.
+
+    Shows F1-F3 pipeline for generating Toulmin-structured arguments
+    with three-tier validation.
+    """
+    try:
+        case = Document.query.get_or_404(case_id)
+
+        # Get pipeline status for navigation
+        pipeline_status = PipelineStatusService.get_step_status(case_id)
+
+        return render_template(
+            'scenarios/step4_arguments.html',
+            case=case,
+            current_step=4,
+            step_title='Step 4F: Arguments',
+            prev_step_url=f"/scenario_pipeline/case/{case_id}/step4/decision_points",
+            next_step_url=f"/scenario_pipeline/case/{case_id}/step4/review",
+            next_step_name='Step 4 Review',
+            pipeline_status=pipeline_status
+        )
+
+    except Exception as e:
+        logger.error(f"Error displaying Step 4F for case {case_id}: {e}")
+        return str(e), 500
+
+
 @bp.route('/case/<int:case_id>/step4/review')
 def step4_review(case_id):
     """
@@ -2235,6 +2295,7 @@ def get_entity_grounded_arguments(case_id):
             ArgumentValidator
         )
         from app.domains import get_domain_config
+        from app.models import TemporaryRDFStorage, ExtractionPrompt
 
         logger.info(f"Running E1-F3 pipeline for case {case_id}")
 
@@ -2267,7 +2328,8 @@ def get_entity_grounded_arguments(case_id):
             'decision_points': [
                 {
                     'focus_id': dp.focus_id,
-                    'focus_description': dp.focus_description,
+                    'description': dp.description,
+                    'decision_question': dp.decision_question,
                     'role_label': dp.grounding.role_label,
                     'obligation_label': dp.grounding.obligation_label,
                     'constraint_label': dp.grounding.constraint_label,
@@ -2277,12 +2339,11 @@ def get_entity_grounded_arguments(case_id):
                             'option_id': opt.option_id,
                             'action_label': opt.action_label,
                             'description': opt.description,
-                            'is_extracted': opt.is_extracted
+                            'is_extracted': opt.is_extracted_action
                         }
                         for opt in dp.options
                     ],
-                    'board_conclusion': dp.board_conclusion,
-                    'board_resolution': dp.board_resolution
+                    'board_conclusion': dp.board_conclusion_text
                 }
                 for dp in decision_points.decision_points
             ],
@@ -2295,9 +2356,68 @@ def get_entity_grounded_arguments(case_id):
             }
         }
 
+        # Persist results to database
+        import uuid
+        from datetime import datetime
+
+        session_id = str(uuid.uuid4())
+
+        # Clear previous arguments for this case
+        TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            extraction_type='argument_generated'
+        ).delete()
+
+        # Save each argument to temporary storage
+        for arg in arguments.arguments:
+            rdf_entity = TemporaryRDFStorage(
+                case_id=case_id,
+                extraction_session_id=session_id,
+                extraction_type='argument_generated',
+                storage_type='individual',
+                entity_type='Argument',
+                entity_label=arg.argument_id,
+                entity_definition=arg.claim.text if arg.claim else '',
+                entity_uri=f"case-{case_id}#{arg.argument_id}",
+                rdf_json_ld=arg.to_dict(),
+                is_selected=True
+            )
+            db.session.add(rdf_entity)
+
+        # Save validations
+        for val in validation.validations:
+            rdf_entity = TemporaryRDFStorage(
+                case_id=case_id,
+                extraction_session_id=session_id,
+                extraction_type='argument_validation',
+                storage_type='individual',
+                entity_type='ArgumentValidation',
+                entity_label=f"val_{val.argument_id}",
+                entity_definition=f"Valid: {val.is_valid}, Score: {val.validation_score:.2f}",
+                entity_uri=f"case-{case_id}#val_{val.argument_id}",
+                rdf_json_ld=val.to_dict(),
+                is_selected=True
+            )
+            db.session.add(rdf_entity)
+
+        # Record the pipeline run
+        pipeline_record = ExtractionPrompt(
+            case_id=case_id,
+            concept_type='entity_arguments',
+            step_number=4,
+            section_type='synthesis',
+            extraction_session_id=session_id,
+            prompt_text='E1-F3 algorithmic pipeline (no LLM)',
+            llm_model='algorithmic',
+            raw_llm_response=f'Generated {len(arguments.arguments)} arguments, {validation.valid_arguments} valid',
+            created_at=datetime.utcnow()
+        )
+        db.session.add(pipeline_record)
+        db.session.commit()
+
         logger.info(
             f"E1-F3 pipeline complete for case {case_id}: "
-            f"{len(arguments.arguments)} arguments, {validation.valid_arguments} valid"
+            f"{len(arguments.arguments)} arguments, {validation.valid_arguments} valid (persisted)"
         )
 
         return jsonify(response_data)
@@ -2314,17 +2434,162 @@ def get_entity_grounded_arguments(case_id):
         }), 500
 
 
+@bp.route('/case/<int:case_id>/llm_decision_points')
+def get_llm_decision_points(case_id):
+    """
+    Get LLM-extracted decision points from Step 4 Synthesis.
+
+    These are the quality decision points extracted by LLM, not algorithmic composition.
+    """
+    try:
+        from app.models import TemporaryRDFStorage, ExtractionPrompt
+
+        # Load decision points extracted by LLM
+        decision_point_entities = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            extraction_type='decision_point'
+        ).all()
+
+        # Load options for these decision points
+        option_entities = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            extraction_type='decision_option'
+        ).all()
+
+        # Get the extraction prompt for provenance
+        extraction_prompt = ExtractionPrompt.query.filter_by(
+            case_id=case_id,
+            concept_type='decision_point',
+            section_type='synthesis'
+        ).order_by(ExtractionPrompt.created_at.desc()).first()
+
+        # Build response
+        decision_points = []
+        for dp in decision_point_entities:
+            json_ld = dp.rdf_json_ld or {}
+
+            # Find options for this decision point
+            dp_options = []
+            dp_label = dp.entity_label
+            for opt in option_entities:
+                opt_json = opt.rdf_json_ld or {}
+                opt_for = opt_json.get('optionFor', '') or opt.entity_definition or ''
+                # Match options to decision points by text similarity
+                if dp_label.lower() in opt_for.lower() or any(
+                    word in opt_for.lower() for word in dp_label.lower().split()[:5]
+                ):
+                    dp_options.append({
+                        'option_id': f"O{len(dp_options)+1}",
+                        'label': opt.entity_label,
+                        'description': opt.entity_definition,
+                        'is_extracted': True,
+                        'json_ld': opt_json
+                    })
+
+            decision_points.append({
+                'id': dp.id,
+                'focus_id': f"DP{len(decision_points)+1}",
+                'label': dp.entity_label,
+                'description': dp.entity_definition,
+                'decision_question': dp.entity_label,  # The label IS the question
+                'options': dp_options,
+                'json_ld': json_ld,
+                'is_selected': dp.is_selected
+            })
+
+        return jsonify({
+            'success': True,
+            'case_id': case_id,
+            'source': 'llm_extraction',
+            'count': len(decision_points),
+            'decision_points': decision_points,
+            'extraction_info': {
+                'model': extraction_prompt.llm_model if extraction_prompt else None,
+                'created_at': extraction_prompt.created_at.isoformat() if extraction_prompt else None,
+                'prompt_preview': (extraction_prompt.prompt_text[:200] + '...') if extraction_prompt and extraction_prompt.prompt_text else None
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"Error loading LLM decision points for case {case_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'decision_points': []
+        }), 500
+
+
 @bp.route('/case/<int:case_id>/entity_arguments/decision_points')
 def get_composed_decision_points(case_id):
     """
-    Get entity-grounded decision points (E1-E3 pipeline only).
+    Get algorithmically composed decision points (E1-E3 pipeline).
 
-    Faster than full pipeline when only decision points needed.
+    Alternative to LLM extraction - composes from extracted entities.
+    Useful for entity grounding analysis.
     """
     try:
         from app.services.entity_analysis import compose_decision_points
+        from app.models import TemporaryRDFStorage, ExtractionPrompt
+        import uuid
+        from datetime import datetime
 
         decision_points = compose_decision_points(case_id)
+
+        # Persist the composed decision points
+        session_id = str(uuid.uuid4())
+
+        # Clear any previous E1-E3 composed decision points for this case
+        TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            extraction_type='decision_point_composed'
+        ).delete()
+
+        # Save each decision point to temporary storage
+        for dp in decision_points.decision_points:
+            rdf_entity = TemporaryRDFStorage(
+                case_id=case_id,
+                extraction_session_id=session_id,
+                extraction_type='decision_point_composed',
+                storage_type='individual',
+                entity_type='DecisionPoint',
+                entity_label=dp.focus_id,
+                entity_definition=dp.description,
+                entity_uri=f"case-{case_id}#{dp.focus_id}",
+                rdf_json_ld={
+                    '@type': 'proethica-int:DecisionPoint',
+                    'focus_id': dp.focus_id,
+                    'focus_number': dp.focus_number,
+                    'description': dp.description,
+                    'decision_question': dp.decision_question,
+                    'intensity_score': dp.intensity_score,
+                    'grounding': dp.grounding.to_dict(),
+                    'options': [opt.to_dict() for opt in dp.options],
+                    'provision_uris': dp.provision_uris,
+                    'provision_labels': dp.provision_labels,
+                    'board_conclusion_text': dp.board_conclusion_text
+                },
+                is_selected=True
+            )
+            db.session.add(rdf_entity)
+
+        # Record the composition run (no LLM prompt, but track metadata)
+        composition_record = ExtractionPrompt(
+            case_id=case_id,
+            concept_type='decision_point_composed',
+            step_number=4,
+            section_type='synthesis',
+            extraction_session_id=session_id,
+            prompt_text='E1-E3 algorithmic composition (no LLM)',
+            llm_model='algorithmic',
+            raw_llm_response=f'Composed {len(decision_points.decision_points)} decision points',
+            created_at=datetime.utcnow()
+        )
+        db.session.add(composition_record)
+        db.session.commit()
+
+        logger.info(f"Persisted {len(decision_points.decision_points)} composed decision points for case {case_id}")
 
         return jsonify({
             'success': True,
@@ -2335,7 +2600,8 @@ def get_composed_decision_points(case_id):
             'decision_points': [
                 {
                     'focus_id': dp.focus_id,
-                    'focus_description': dp.focus_description,
+                    'description': dp.description,
+                    'decision_question': dp.decision_question,
                     'intensity_score': dp.intensity_score,
                     'grounding': {
                         'role_uri': dp.grounding.role_uri,
@@ -2351,15 +2617,14 @@ def get_composed_decision_points(case_id):
                             'action_uri': opt.action_uri,
                             'action_label': opt.action_label,
                             'description': opt.description,
-                            'is_extracted': opt.is_extracted,
+                            'is_extracted': opt.is_extracted_action,
                             'downstream_event_uris': opt.downstream_event_uris
                         }
                         for opt in dp.options
                     ],
                     'provision_uris': dp.provision_uris,
                     'provision_labels': dp.provision_labels,
-                    'board_conclusion': dp.board_conclusion,
-                    'board_resolution': dp.board_resolution
+                    'board_conclusion': dp.board_conclusion_text
                 }
                 for dp in decision_points.decision_points
             ]
@@ -2427,36 +2692,33 @@ def get_obligation_coverage_api(case_id):
             'case_id': case_id,
             'obligations': [
                 {
-                    'uri': o.obligation_uri,
-                    'label': o.obligation_label,
-                    'role_uri': o.role_uri,
-                    'role_label': o.role_label,
-                    'provisions': o.provision_uris,
-                    'is_decision_relevant': o.is_decision_relevant
+                    'uri': o.entity_uri,
+                    'label': o.entity_label,
+                    'definition': o.entity_definition,
+                    'role_uri': o.bound_role_uri,
+                    'role_label': o.bound_role,
+                    'decision_type': o.decision_type,
+                    'provisions': o.related_provisions,
+                    'is_decision_relevant': o.decision_relevant,
+                    'is_instantiated': o.is_instantiated
                 }
                 for o in coverage.obligations
             ],
             'constraints': [
                 {
-                    'uri': c.constraint_uri,
-                    'label': c.constraint_label,
-                    'role_uri': c.role_uri,
-                    'role_label': c.role_label,
-                    'is_decision_relevant': c.is_decision_relevant
+                    'uri': c.entity_uri,
+                    'label': c.entity_label,
+                    'definition': c.entity_definition,
+                    'role_uri': c.constrained_role_uri,
+                    'role_label': c.constrained_role,
+                    'founding_value_limit': c.founding_value_limit,
+                    'is_instantiated': c.is_instantiated
                 }
                 for c in coverage.constraints
             ],
-            'conflict_pairs': [
-                {
-                    'obligation1': p.obligation1_label,
-                    'obligation2': p.obligation2_label,
-                    'conflict_type': p.conflict_type,
-                    'shared_role': p.shared_role
-                }
-                for p in coverage.conflict_pairs
-            ],
-            'role_obligation_bindings': coverage.role_obligation_bindings,
-            'total_decision_relevant': coverage.total_decision_relevant
+            'conflict_pairs': coverage.conflict_pairs,
+            'role_obligation_map': coverage.role_obligation_map,
+            'decision_relevant_count': coverage.decision_relevant_count
         })
 
     except Exception as e:

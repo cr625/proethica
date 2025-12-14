@@ -1,0 +1,387 @@
+{% extends "scenarios/base_step.html" %}
+
+{% block step_title %}Step 4F: Arguments{% endblock %}
+{% block step_header %}Step 4F: Entity-Grounded Arguments{% endblock %}
+{% block step_subtitle %}Toulmin-structured pro/con arguments from F1-F3 pipeline{% endblock %}
+
+{% block step_content %}
+
+<!-- Pipeline Info Card -->
+<div class="card mb-4">
+    <div class="card-header bg-success text-white">
+        <h5 class="mb-0">
+            <i class="bi bi-chat-left-text"></i> F1-F3 Argument Generation Pipeline
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card border-info h-100">
+                    <div class="card-body text-center">
+                        <h6 class="text-info">F1: Principle-Provision Alignment</h6>
+                        <p class="small text-muted mb-0">Aligns extracted principles with code provisions using Beauchamp & Childress framework</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border-warning h-100">
+                    <div class="card-body text-center">
+                        <h6 class="text-warning">F2: Argument Generation</h6>
+                        <p class="small text-muted mb-0">Generates Toulmin-structured arguments (claim, warrant, backing, data)</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border-danger h-100">
+                    <div class="card-body text-center">
+                        <h6 class="text-danger">F3: Argument Validation</h6>
+                        <p class="small text-muted mb-0">Three-tier validation: entity refs, founding value, professional virtues</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Run Pipeline Card -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            <i class="bi bi-play-circle"></i> Run E1-F3 Pipeline (Full)
+        </h5>
+        <span id="pipeline-status-badge" class="badge bg-secondary">Not Run</span>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-info mb-3">
+            <i class="bi bi-info-circle"></i> This runs the full E1-F3 pipeline: decision point composition followed by argument generation and validation.
+        </div>
+
+        <div id="pipeline-status-area" class="mb-3">
+            <p class="text-muted mb-0">Click the button below to generate entity-grounded arguments.</p>
+        </div>
+
+        {% if current_user.is_authenticated %}
+        <button type="button" id="run-pipeline-btn" class="btn btn-success" onclick="runArgumentPipeline()">
+            <i class="bi bi-lightning-charge"></i> Generate Arguments
+        </button>
+        {% else %}
+        <button type="button" class="btn btn-secondary" onclick="window.location.href='{{ url_for('auth.login') }}';" title="Login required">
+            <i class="bi bi-lock-fill"></i> Login Required
+        </button>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Pipeline Results Summary (hidden until run) -->
+<div id="results-summary" class="card mb-4" style="display: none;">
+    <div class="card-header bg-success text-white">
+        <h5 class="mb-0">
+            <i class="bi bi-check-circle"></i> Pipeline Results
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="row mb-3">
+            <div class="col text-center">
+                <h3 id="dp-count" class="text-primary mb-0">0</h3>
+                <small class="text-muted">Decision Points</small>
+            </div>
+            <div class="col text-center">
+                <h3 id="total-args" class="text-info mb-0">0</h3>
+                <small class="text-muted">Total Arguments</small>
+            </div>
+            <div class="col text-center">
+                <h3 id="pro-count" class="text-success mb-0">0</h3>
+                <small class="text-muted">PRO</small>
+            </div>
+            <div class="col text-center">
+                <h3 id="con-count" class="text-danger mb-0">0</h3>
+                <small class="text-muted">CON</small>
+            </div>
+            <div class="col text-center">
+                <h3 id="valid-count" class="text-primary mb-0">0/0</h3>
+                <small class="text-muted">Valid</small>
+            </div>
+            <div class="col text-center">
+                <h3 id="avg-score" class="text-warning mb-0">0%</h3>
+                <small class="text-muted">Avg Score</small>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col text-center">
+                <span id="entity-badge" class="badge bg-secondary me-2">Entity: --%</span>
+                <span id="founding-badge" class="badge bg-secondary me-2">Founding: --%</span>
+                <span id="virtue-badge" class="badge bg-secondary">Virtue: --%</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Alignment Summary (hidden until run) -->
+<div id="alignment-summary" class="card mb-4" style="display: none;">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="bi bi-link-45deg"></i> F1: Principle-Provision Alignment
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4 text-center">
+                <h3 id="alignment-rate" class="text-success mb-0">0%</h3>
+                <small class="text-muted">Alignment Rate</small>
+            </div>
+            <div class="col-md-4 text-center">
+                <h3 id="aligned-principles" class="text-primary mb-0">0</h3>
+                <small class="text-muted">Aligned Principles</small>
+            </div>
+            <div class="col-md-4 text-center">
+                <h3 id="aligned-provisions" class="text-info mb-0">0</h3>
+                <small class="text-muted">Aligned Provisions</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Arguments by Decision Point -->
+<div id="arguments-container">
+    <div class="text-center text-muted py-5">
+        <i class="bi bi-chat-left-text" style="font-size: 3rem;"></i>
+        <p class="mt-2">No arguments generated yet.</p>
+        <p><small>Click "Generate Arguments" to run the F1-F3 pipeline.</small></p>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block step_scripts %}
+<script>
+const caseId = {{ case.id }};
+
+function getCsrfToken() {
+    return document.querySelector('meta[name="csrf-token"]')?.content || '';
+}
+
+function runArgumentPipeline() {
+    const btn = document.getElementById('run-pipeline-btn');
+    const statusBadge = document.getElementById('pipeline-status-badge');
+    const statusArea = document.getElementById('pipeline-status-area');
+    const resultsSummary = document.getElementById('results-summary');
+    const alignmentSummary = document.getElementById('alignment-summary');
+    const container = document.getElementById('arguments-container');
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Running E1-F3...';
+    statusBadge.className = 'badge bg-warning';
+    statusBadge.textContent = 'Running...';
+    statusArea.innerHTML = '<p class="text-muted mb-0"><i class="bi bi-hourglass-split"></i> Composing decision points, aligning principles, generating Toulmin arguments, validating...</p>';
+
+    fetch(`/scenario_pipeline/case/${caseId}/entity_arguments`)
+        .then(response => response.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Re-run Pipeline';
+
+            if (data.success) {
+                statusBadge.className = 'badge bg-success';
+                statusBadge.textContent = 'Complete';
+
+                const summary = data.pipeline_summary;
+                const validation = data.validation_summary;
+
+                // Update results summary
+                document.getElementById('dp-count').textContent = summary.decision_points_count;
+                document.getElementById('total-args').textContent = summary.total_arguments;
+                document.getElementById('pro-count').textContent = summary.pro_arguments;
+                document.getElementById('con-count').textContent = summary.con_arguments;
+                document.getElementById('valid-count').textContent = `${summary.valid_arguments}/${summary.total_arguments}`;
+                document.getElementById('avg-score').textContent = `${Math.round(summary.average_score * 100)}%`;
+
+                // Update validation badges
+                const entityRate = Math.round(validation.entity_test_pass_rate * 100);
+                const foundingRate = Math.round(validation.founding_test_pass_rate * 100);
+                const virtueRate = Math.round(validation.virtue_test_pass_rate * 100);
+
+                document.getElementById('entity-badge').textContent = `Entity: ${entityRate}%`;
+                document.getElementById('entity-badge').className = `badge ${entityRate > 70 ? 'bg-success' : 'bg-warning'} me-2`;
+
+                document.getElementById('founding-badge').textContent = `Founding: ${foundingRate}%`;
+                document.getElementById('founding-badge').className = `badge ${foundingRate > 90 ? 'bg-success' : 'bg-warning'} me-2`;
+
+                document.getElementById('virtue-badge').textContent = `Virtue: ${virtueRate}%`;
+                document.getElementById('virtue-badge').className = `badge ${virtueRate > 70 ? 'bg-success' : 'bg-warning'}`;
+
+                resultsSummary.style.display = 'block';
+
+                // Update alignment summary
+                document.getElementById('alignment-rate').textContent = `${Math.round(summary.alignment_rate * 100)}%`;
+                document.getElementById('aligned-principles').textContent = data.decision_points.length > 0 ? data.decision_points.length : 0;
+                document.getElementById('aligned-provisions').textContent = summary.alignment_rate > 0 ? Math.round(summary.alignment_rate * 10) : 0;
+                alignmentSummary.style.display = 'block';
+
+                statusArea.innerHTML = `<p class="text-success mb-0"><i class="bi bi-check-circle"></i> Generated ${summary.total_arguments} arguments (${summary.pro_arguments} pro, ${summary.con_arguments} con), ${summary.valid_arguments} valid.</p>`;
+
+                // Render arguments
+                renderArguments(data.decision_points, data.arguments, data.validations);
+            } else {
+                statusBadge.className = 'badge bg-danger';
+                statusBadge.textContent = 'Error';
+                statusArea.innerHTML = `<p class="text-danger mb-0"><i class="bi bi-exclamation-triangle"></i> ${data.error || 'Pipeline failed'}</p>`;
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-lightning-charge"></i> Generate Arguments';
+            statusBadge.className = 'badge bg-danger';
+            statusBadge.textContent = 'Error';
+            statusArea.innerHTML = `<p class="text-danger mb-0"><i class="bi bi-exclamation-triangle"></i> ${err.message}</p>`;
+            console.error('Pipeline error:', err);
+        });
+}
+
+function renderArguments(decisionPoints, arguments, validations) {
+    const container = document.getElementById('arguments-container');
+
+    if (!arguments || arguments.length === 0) {
+        container.innerHTML = `
+            <div class="text-center text-muted py-5">
+                <i class="bi bi-chat-left-text" style="font-size: 3rem;"></i>
+                <p class="mt-2">No arguments generated.</p>
+                <p><small>Ensure decision points are composed first (run E1-E3 pipeline).</small></p>
+            </div>
+        `;
+        return;
+    }
+
+    // Create validation lookup
+    const validationMap = {};
+    (validations || []).forEach(v => {
+        validationMap[v.argument_id] = v;
+    });
+
+    // Group arguments by decision point
+    const argsByDP = {};
+    arguments.forEach(arg => {
+        const dpId = arg.decision_point_id || 'unknown';
+        if (!argsByDP[dpId]) {
+            argsByDP[dpId] = { pro: [], con: [] };
+        }
+        if (arg.argument_type === 'pro') {
+            argsByDP[dpId].pro.push(arg);
+        } else {
+            argsByDP[dpId].con.push(arg);
+        }
+    });
+
+    let html = '';
+
+    // Render by decision point
+    Object.keys(argsByDP).forEach(dpId => {
+        const dpArgs = argsByDP[dpId];
+        const dp = decisionPoints.find(d => d.focus_id === dpId) || { focus_description: dpId };
+
+        html += `
+        <div class="card mb-4">
+            <div class="card-header bg-primary bg-opacity-10">
+                <h5 class="mb-0">
+                    <i class="bi bi-signpost-split text-primary"></i>
+                    ${dpId}: ${dp.focus_description || ''}
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <!-- PRO Arguments -->
+                    <div class="col-md-6">
+                        <h6 class="text-success mb-3"><i class="bi bi-hand-thumbs-up"></i> PRO Arguments (${dpArgs.pro.length})</h6>
+                        ${dpArgs.pro.map(arg => renderArgumentCard(arg, validationMap[arg.argument_id], 'success')).join('')}
+                        ${dpArgs.pro.length === 0 ? '<p class="text-muted small">No PRO arguments</p>' : ''}
+                    </div>
+                    <!-- CON Arguments -->
+                    <div class="col-md-6">
+                        <h6 class="text-danger mb-3"><i class="bi bi-hand-thumbs-down"></i> CON Arguments (${dpArgs.con.length})</h6>
+                        ${dpArgs.con.map(arg => renderArgumentCard(arg, validationMap[arg.argument_id], 'danger')).join('')}
+                        ${dpArgs.con.length === 0 ? '<p class="text-muted small">No CON arguments</p>' : ''}
+                    </div>
+                </div>
+            </div>
+        </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+function renderArgumentCard(arg, validation, colorClass) {
+    const isValid = validation && validation.is_valid;
+    const score = validation ? Math.round(validation.overall_score * 100) : 0;
+
+    return `
+    <div class="card mb-3 border-${colorClass}">
+        <div class="card-header py-2 bg-${colorClass} bg-opacity-10 d-flex justify-content-between align-items-center">
+            <small class="fw-bold">${arg.argument_id}</small>
+            <div>
+                ${isValid
+                    ? '<span class="badge bg-success"><i class="bi bi-check"></i> Valid</span>'
+                    : '<span class="badge bg-warning text-dark"><i class="bi bi-question"></i> Review</span>'}
+                <span class="badge bg-secondary ms-1">${score}%</span>
+            </div>
+        </div>
+        <div class="card-body py-2">
+            <!-- Toulmin Structure -->
+            <div class="mb-2">
+                <strong class="text-${colorClass}">Claim:</strong>
+                <p class="mb-1 small">${arg.claim || 'N/A'}</p>
+            </div>
+
+            ${arg.warrant ? `
+            <div class="mb-2">
+                <strong class="text-muted">Warrant:</strong>
+                <p class="mb-1 small text-muted">${arg.warrant}</p>
+            </div>
+            ` : ''}
+
+            ${arg.backing ? `
+            <div class="mb-2">
+                <strong class="text-muted">Backing:</strong>
+                <p class="mb-1 small text-muted">${arg.backing}</p>
+            </div>
+            ` : ''}
+
+            ${arg.data_points && arg.data_points.length > 0 ? `
+            <div class="mb-2">
+                <strong class="text-muted">Data:</strong>
+                <ul class="mb-0 small">
+                    ${arg.data_points.map(d => `<li>${d}</li>`).join('')}
+                </ul>
+            </div>
+            ` : ''}
+
+            <!-- Entity References -->
+            <div class="mt-2 pt-2 border-top">
+                <small class="text-muted">
+                    ${(arg.entity_references || []).map(e => `<span class="badge bg-light text-dark me-1">${e}</span>`).join('')}
+                </small>
+            </div>
+
+            <!-- Validation Details -->
+            ${validation ? `
+            <div class="mt-2 pt-2 border-top">
+                <small>
+                    <span class="badge ${validation.entity_test_passed ? 'bg-success' : 'bg-warning text-dark'} me-1">Entity</span>
+                    <span class="badge ${validation.founding_test_passed ? 'bg-success' : 'bg-warning text-dark'} me-1">Founding</span>
+                    <span class="badge ${validation.virtue_test_passed ? 'bg-success' : 'bg-warning text-dark'}">Virtue</span>
+                </small>
+            </div>
+            ` : ''}
+        </div>
+    </div>
+    `;
+}
+</script>
+{% endblock %}
+
+{% block step_styles %}
+<style>
+    .card {
+        box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
+    }
+</style>
+{% endblock %}
