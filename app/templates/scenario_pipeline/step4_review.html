@@ -1049,44 +1049,21 @@
             </div>
         </div>
 
-        <!-- Pro/Con Arguments Tab (Part F) -->
+        <!-- Pro/Con Arguments Tab (Part F) - Entity-Grounded -->
         <div class="tab-pane fade" id="arguments" role="tabpanel">
             <div class="alert alert-info mb-3">
-                <i class="bi bi-info-circle"></i> <strong>Pro/Con Arguments</strong> analyze the ethical merits of each decision option.
-                Each argument cites relevant NSPE Code provisions and precedent cases. <small class="text-muted">(Requires decision points first)</small>
+                <i class="bi bi-info-circle"></i> <strong>Entity-Grounded Arguments</strong> - Toulmin-structured pro/con arguments derived from extracted entities.
+                <small class="text-muted">Generate arguments in Step 4 main page (Part F), then view results here.</small>
             </div>
 
-            <!-- View Prompt/Response Accordion -->
-            <div class="card mb-3">
-                <div class="card-header d-flex justify-content-between align-items-center py-2">
-                    <span class="small text-muted">Argument Generation (4f)</span>
-                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#argumentsPromptAccordion" aria-expanded="false">
-                        <i class="bi bi-code-slash"></i> View Prompt/Response
-                    </button>
-                </div>
-                <div class="collapse" id="argumentsPromptAccordion">
-                    <div class="card-body bg-light">
-                        <div id="argumentsPromptContent">
-                            <div class="text-center text-muted py-3">
-                                <span class="spinner-border spinner-border-sm me-2"></span> Loading prompt...
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Generate Button -->
-            <div class="mb-4">
-                {% if current_user.is_authenticated %}
-                <button id="generateArgumentsBtn" class="btn btn-primary" onclick="generateArguments()">
-                    <i class="bi bi-chat-left-text"></i> Generate Arguments
+            <!-- Refresh Button -->
+            <div class="mb-3">
+                <button id="refreshArgumentsBtn" class="btn btn-outline-primary btn-sm" onclick="loadEntityArguments()">
+                    <i class="bi bi-arrow-clockwise"></i> Refresh Arguments
                 </button>
-                <span class="badge bg-light text-dark border ms-2">Analyzes each decision option</span>
-                {% else %}
-                <button class="btn btn-secondary" disabled title="Login required">
-                    <i class="bi bi-lock-fill"></i> Generate Arguments (Login Required)
-                </button>
-                {% endif %}
+                <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}" class="btn btn-outline-secondary btn-sm ms-2">
+                    <i class="bi bi-arrow-left"></i> Back to Step 4 (Generate Arguments)
+                </a>
                 <span id="argumentsStatus" class="ms-2 text-muted"></span>
             </div>
 
@@ -1095,7 +1072,7 @@
                 <div class="text-center text-muted py-5">
                     <i class="bi bi-chat-left-text" style="font-size: 3rem;"></i>
                     <p class="mt-2">No arguments generated yet.</p>
-                    <p><small>Extract decision points first, then click "Generate Arguments".</small></p>
+                    <p><small>Go to Step 4 main page and run Part F: Entity-Grounded Arguments.</small></p>
                 </div>
             </div>
         </div>
