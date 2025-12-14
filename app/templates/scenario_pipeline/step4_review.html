@@ -1903,25 +1903,29 @@ function renderDecisionPoints(points) {
 }
 
 // ============================================================================
-// ARGUMENTS (PART F)
+// ENTITY-GROUNDED ARGUMENTS (Part F - Toulmin Structure)
 // ============================================================================
 
-// Load arguments on page load
-loadArguments();
+// Global storage for argument data
+let entityArgumentsData = null;
 
-function loadArguments() {
+// Load arguments on page load (try entity-grounded first)
+loadEntityArguments();
+
+function loadEntityArguments() {
     const caseId = {{ case.id }};
 
-    fetch(`/scenario_pipeline/case/${caseId}/arguments`)
+    fetch(`/scenario_pipeline/case/${caseId}/entity_arguments`)
         .then(response => response.json())
         .then(data => {
             if (data.success && data.arguments && data.arguments.length > 0) {
-                renderArguments(data.arguments);
+                entityArgumentsData = data;
+                renderEntityGroundedArguments(data);
                 updateArgumentCount(data.arguments.length);
             }
         })
         .catch(err => {
-            console.error('Error loading arguments:', err);
+            console.error('Error loading entity arguments:', err);
         });
 }
 
@@ -1931,39 +1935,39 @@ function generateArguments() {
     const status = document.getElementById('argumentsStatus');
 
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Generating...';
-    status.textContent = 'Analyzing decision options for pros/cons...';
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Running E1-F3 Pipeline...';
+    status.textContent = 'Analyzing obligations, actions, and generating Toulmin arguments...';
 
-    fetch(`/scenario_pipeline/case/${caseId}/generate_arguments`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="bi bi-chat-left-text"></i> Generate Arguments';
+    // Use GET to fetch entity-grounded arguments (pipeline runs on demand)
+    fetch(`/scenario_pipeline/case/${caseId}/entity_arguments`)
+        .then(response => response.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-chat-left-text"></i> Generate Arguments';
 
-        if (data.success) {
-            status.textContent = `Generated ${data.pro_count} pro and ${data.con_count} con arguments`;
-            status.className = 'ms-2 text-success';
-            renderArguments(data.arguments);
-            updateArgumentCount(data.arguments.length);
-            // Reload prompts to show the new one
-            step4PromptsLoaded = false;
-        } else {
-            status.textContent = data.error || 'Generation failed';
+            if (data.success) {
+                entityArgumentsData = data;
+                const summary = data.pipeline_summary;
+                status.innerHTML = `
+                    <span class="text-success">
+                        ${summary.total_arguments} arguments (${summary.pro_arguments} pro, ${summary.con_arguments} con)
+                        | ${summary.valid_arguments} valid | Score: ${(summary.average_score * 100).toFixed(0)}%
+                    </span>
+                `;
+                renderEntityGroundedArguments(data);
+                updateArgumentCount(data.arguments.length);
+            } else {
+                status.textContent = data.error || 'Generation failed';
+                status.className = 'ms-2 text-danger';
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-chat-left-text"></i> Generate Arguments';
+            status.textContent = 'Error: ' + err.message;
             status.className = 'ms-2 text-danger';
-        }
-    })
-    .catch(err => {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="bi bi-chat-left-text"></i> Generate Arguments';
-        status.textContent = 'Error: ' + err.message;
-        status.className = 'ms-2 text-danger';
-        console.error('Generation error:', err);
-    });
+            console.error('Generation error:', err);
+        });
 }
 
 function updateArgumentCount(count) {
@@ -1976,103 +1980,256 @@ function updateArgumentCount(count) {
     }
 }
 
-function renderArguments(arguments) {
+function renderEntityGroundedArguments(data) {
     const container = document.getElementById('argumentsContainer');
+    const args = data.arguments || [];
+    const validations = data.validations || [];
+    const decisionPoints = data.decision_points || [];
+    const summary = data.pipeline_summary || {};
 
-    if (!arguments || arguments.length === 0) {
+    if (args.length === 0) {
         container.innerHTML = `
             <div class="text-center text-muted py-5">
                 <i class="bi bi-chat-left-text" style="font-size: 3rem;"></i>
                 <p class="mt-2">No arguments generated yet.</p>
-                <p><small>Extract decision points first, then click "Generate Arguments".</small></p>
+                <p><small>Click "Generate Arguments" to run the E1-F3 entity analysis pipeline.</small></p>
             </div>
         `;
         return;
     }
 
-    // Group by decision point
-    const byDecisionPoint = {};
-    arguments.forEach(arg => {
-        const dpId = arg.decision_point_id;
-        if (!byDecisionPoint[dpId]) {
-            byDecisionPoint[dpId] = [];
-        }
-        byDecisionPoint[dpId].push(arg);
+    // Build validation lookup by argument_id
+    const validationLookup = {};
+    validations.forEach(v => {
+        validationLookup[v.argument_id] = v;
     });
 
-    let html = '';
+    // Build decision point lookup
+    const dpLookup = {};
+    decisionPoints.forEach(dp => {
+        dpLookup[dp.focus_id] = dp;
+    });
 
-    Object.entries(byDecisionPoint).forEach(([dpId, optionArgs]) => {
-        // Group options within this decision point
-        html += `<div class="card mb-4 border-secondary">
-            <div class="card-header bg-secondary text-white">
-                <h6 class="mb-0"><i class="bi bi-signpost-split me-2"></i>Decision Point: ${dpId}</h6>
+    // Pipeline Summary Card
+    let html = `
+        <div class="card mb-4 border-info">
+            <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-graph-up me-2"></i>Entity-Grounded Argument Pipeline (E1-F3)</span>
+                <span class="badge bg-light text-dark">Toulmin Structure</span>
             </div>
-            <div class="card-body">`;
-
-        optionArgs.forEach(optArg => {
-            const proArgs = optArg.pro_arguments || [];
-            const conArgs = optArg.con_arguments || [];
-
-            html += `
-                <div class="card mb-3">
-                    <div class="card-header bg-light">
-                        <strong>Option ${optArg.option_id}:</strong> ${optArg.option_description || ''}
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col">
+                        <h4 class="text-primary mb-0">${summary.decision_points_count || 0}</h4>
+                        <small class="text-muted">Decision Points</small>
                     </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <h6 class="text-success"><i class="bi bi-hand-thumbs-up me-1"></i>PRO Arguments (${proArgs.length})</h6>
-                                ${renderArgumentList(proArgs, 'success')}
-                            </div>
-                            <div class="col-md-6">
-                                <h6 class="text-danger"><i class="bi bi-hand-thumbs-down me-1"></i>CON Arguments (${conArgs.length})</h6>
-                                ${renderArgumentList(conArgs, 'danger')}
-                            </div>
-                        </div>
-                        ${optArg.evaluation_summary ? `
-                            <div class="alert alert-secondary mt-3 mb-0">
-                                <small><strong>Evaluation:</strong> ${optArg.evaluation_summary}</small>
-                            </div>
-                        ` : ''}
+                    <div class="col">
+                        <h4 class="text-success mb-0">${summary.pro_arguments || 0}</h4>
+                        <small class="text-muted">PRO Arguments</small>
+                    </div>
+                    <div class="col">
+                        <h4 class="text-danger mb-0">${summary.con_arguments || 0}</h4>
+                        <small class="text-muted">CON Arguments</small>
+                    </div>
+                    <div class="col">
+                        <h4 class="mb-0" style="color: ${summary.valid_arguments / summary.total_arguments > 0.7 ? '#198754' : '#ffc107'}">${summary.valid_arguments || 0}/${summary.total_arguments || 0}</h4>
+                        <small class="text-muted">Valid</small>
+                    </div>
+                    <div class="col">
+                        <h4 class="mb-0">${((summary.average_score || 0) * 100).toFixed(0)}%</h4>
+                        <small class="text-muted">Avg Score</small>
                     </div>
                 </div>
-            `;
-        });
+                <hr>
+                <div class="row text-center small">
+                    <div class="col">
+                        <span class="badge ${data.validation_summary?.entity_test_pass_rate > 0.7 ? 'bg-success' : 'bg-warning'}">
+                            Entity Refs: ${((data.validation_summary?.entity_test_pass_rate || 0) * 100).toFixed(0)}%
+                        </span>
+                    </div>
+                    <div class="col">
+                        <span class="badge ${data.validation_summary?.founding_test_pass_rate > 0.9 ? 'bg-success' : 'bg-warning'}">
+                            Founding Value: ${((data.validation_summary?.founding_test_pass_rate || 0) * 100).toFixed(0)}%
+                        </span>
+                    </div>
+                    <div class="col">
+                        <span class="badge ${data.validation_summary?.virtue_test_pass_rate > 0.7 ? 'bg-success' : 'bg-warning'}">
+                            Virtues: ${((data.validation_summary?.virtue_test_pass_rate || 0) * 100).toFixed(0)}%
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
 
-        html += '</div></div>';
+    // Group arguments by decision point
+    const byDecisionPoint = {};
+    args.forEach(arg => {
+        const dpId = arg.decision_point_id;
+        if (!byDecisionPoint[dpId]) {
+            byDecisionPoint[dpId] = { pro: [], con: [] };
+        }
+        if (arg.argument_type === 'pro') {
+            byDecisionPoint[dpId].pro.push(arg);
+        } else {
+            byDecisionPoint[dpId].con.push(arg);
+        }
+    });
+
+    // Render each decision point
+    Object.entries(byDecisionPoint).forEach(([dpId, dpArgs]) => {
+        const dp = dpLookup[dpId] || {};
+
+        html += `
+            <div class="card mb-4">
+                <div class="card-header bg-secondary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="bi bi-signpost-split me-2"></i>
+                            <strong>${dpId}</strong>: ${dp.focus_description || 'Decision Point'}
+                        </div>
+                        ${dp.intensity_score ? `<span class="badge bg-warning text-dark">Intensity: ${(dp.intensity_score * 100).toFixed(0)}%</span>` : ''}
+                    </div>
+                    <small class="text-white-50">
+                        Role: ${dp.role_label || 'Unknown'} |
+                        ${dp.obligation_label ? `Obligation: ${dp.obligation_label}` : ''}
+                        ${dp.constraint_label ? ` | Constraint: ${dp.constraint_label}` : ''}
+                    </small>
+                </div>
+                <div class="card-body">
+                    ${dp.board_conclusion ? `
+                        <div class="alert alert-success mb-3 py-2">
+                            <small><strong>Board Resolution:</strong> ${dp.board_conclusion}</small>
+                        </div>
+                    ` : ''}
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-success border-bottom pb-2">
+                                <i class="bi bi-hand-thumbs-up me-1"></i>PRO Arguments (${dpArgs.pro.length})
+                            </h6>
+                            ${dpArgs.pro.map(arg => renderToulminArgument(arg, validationLookup[arg.argument_id], 'success')).join('')}
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-danger border-bottom pb-2">
+                                <i class="bi bi-hand-thumbs-down me-1"></i>CON Arguments (${dpArgs.con.length})
+                            </h6>
+                            ${dpArgs.con.map(arg => renderToulminArgument(arg, validationLookup[arg.argument_id], 'danger')).join('')}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
     });
 
     container.innerHTML = html;
 }
 
-function renderArgumentList(args, colorClass) {
-    if (!args || args.length === 0) {
-        return '<p class="text-muted small mb-0">No arguments</p>';
+function renderToulminArgument(arg, validation, colorClass) {
+    const isValid = validation?.is_valid ?? true;
+    const score = validation?.validation_score ?? 0;
+
+    // Validation badges
+    let validationBadges = '';
+    if (validation) {
+        const entityOk = validation.entity_validation?.is_valid;
+        const foundingOk = validation.founding_value_validation?.is_compliant;
+        const virtueOk = validation.virtue_validation?.is_valid;
+
+        validationBadges = `
+            <span class="badge ${entityOk ? 'bg-success' : 'bg-warning'} me-1" title="Entity References">
+                <i class="bi bi-link-45deg"></i>
+            </span>
+            <span class="badge ${foundingOk ? 'bg-success' : 'bg-danger'} me-1" title="Founding Value">
+                <i class="bi bi-shield-check"></i>
+            </span>
+            <span class="badge ${virtueOk ? 'bg-success' : 'bg-secondary'} me-1" title="Professional Virtues">
+                <i class="bi bi-star"></i>
+            </span>
+        `;
     }
 
-    return args.map(arg => {
-        const citations = arg.provision_citations || [];
-        const citationBadges = citations.map(c =>
-            `<span class="badge bg-secondary me-1">${c}</span>`
-        ).join('');
+    // Virtue badges
+    const virtueBadges = (arg.professional_virtues || []).map(v =>
+        `<span class="badge bg-light text-dark border me-1">${v}</span>`
+    ).join('');
 
-        const strengthBadge = {
-            'strong': 'bg-success',
-            'moderate': 'bg-warning text-dark',
-            'weak': 'bg-secondary'
-        }[arg.strength] || 'bg-secondary';
-
-        return `
-            <div class="border-start border-3 border-${colorClass} ps-2 mb-2">
-                <p class="mb-1"><strong>${arg.claim}</strong></p>
-                <div class="d-flex flex-wrap gap-1 align-items-center">
-                    ${citationBadges}
-                    <span class="badge ${strengthBadge}">${arg.strength}</span>
+    return `
+        <div class="card mb-3 border-${colorClass} ${!isValid ? 'opacity-75' : ''}">
+            <div class="card-header bg-${colorClass} bg-opacity-10 py-2">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="fw-bold">${arg.argument_id}</span>
+                    <div>
+                        ${validationBadges}
+                        <span class="badge ${isValid ? 'bg-success' : 'bg-secondary'}">${(score * 100).toFixed(0)}%</span>
+                    </div>
                 </div>
             </div>
-        `;
-    }).join('');
+            <div class="card-body py-2">
+                <!-- CLAIM -->
+                <div class="mb-2">
+                    <span class="badge bg-dark me-1">CLAIM</span>
+                    <span class="fw-bold">${arg.claim?.text || ''}</span>
+                </div>
+
+                <!-- WARRANT (from Obligation) -->
+                <div class="mb-2">
+                    <span class="badge bg-primary me-1">WARRANT</span>
+                    <span>${arg.warrant?.text || ''}</span>
+                    ${arg.warrant?.entity_label ? `<span class="badge bg-primary bg-opacity-25 ms-1">${arg.warrant.entity_label}</span>` : ''}
+                </div>
+
+                <!-- BACKING (from Provision) -->
+                ${arg.backing?.text ? `
+                <div class="mb-2">
+                    <span class="badge bg-info me-1">BACKING</span>
+                    <span class="small">${arg.backing.text}</span>
+                    ${arg.backing?.entity_label ? `<span class="badge bg-info bg-opacity-25 ms-1">${arg.backing.entity_label}</span>` : ''}
+                </div>
+                ` : ''}
+
+                <!-- DATA/GROUNDS (from Actions/Events) -->
+                ${arg.data && arg.data.length > 0 ? `
+                <div class="mb-2">
+                    <span class="badge bg-secondary me-1">DATA</span>
+                    <ul class="list-unstyled mb-0 ms-4 small">
+                        ${arg.data.map(d => `<li>- ${d.text}</li>`).join('')}
+                    </ul>
+                </div>
+                ` : ''}
+
+                <!-- QUALIFIER -->
+                ${arg.qualifier?.text ? `
+                <div class="mb-2">
+                    <span class="badge bg-warning text-dark me-1">QUALIFIER</span>
+                    <span class="small">${arg.qualifier.text}</span>
+                </div>
+                ` : ''}
+
+                <!-- REBUTTAL -->
+                ${arg.rebuttal?.text ? `
+                <div class="mb-2">
+                    <span class="badge bg-danger me-1">REBUTTAL</span>
+                    <span class="small">${arg.rebuttal.text}</span>
+                </div>
+                ` : ''}
+
+                <!-- Role & Virtues -->
+                <div class="mt-2 pt-2 border-top">
+                    <small class="text-muted">
+                        Role: <span class="badge bg-light text-dark border">${arg.role_label || 'Unknown'}</span>
+                        ${virtueBadges ? `| Virtues: ${virtueBadges}` : ''}
+                    </small>
+                </div>
+
+                <!-- Founding Good Analysis -->
+                ${arg.founding_good_analysis ? `
+                <div class="small text-muted mt-1">
+                    <i class="bi bi-lightbulb me-1"></i>${arg.founding_good_analysis}
+                </div>
+                ` : ''}
+            </div>
+        </div>
+    `;
 }
 
 // ============================================================================
