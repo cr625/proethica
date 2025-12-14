@@ -1,0 +1,96 @@
+{
+  "case_id": 7,
+  "exported_at": "2025-12-14T05:04:55.018954",
+  "fixtures": [
+    {
+      "file": "resources_discussion.json",
+      "concept_type": "resources",
+      "section_type": "discussion",
+      "step": 1
+    },
+    {
+      "file": "resources_facts.json",
+      "concept_type": "resources",
+      "section_type": "facts",
+      "step": 1
+    },
+    {
+      "file": "roles_discussion.json",
+      "concept_type": "roles",
+      "section_type": "discussion",
+      "step": 1
+    },
+    {
+      "file": "roles_facts.json",
+      "concept_type": "roles",
+      "section_type": "facts",
+      "step": 1
+    },
+    {
+      "file": "states_discussion.json",
+      "concept_type": "states",
+      "section_type": "discussion",
+      "step": 1
+    },
+    {
+      "file": "states_facts.json",
+      "concept_type": "states",
+      "section_type": "facts",
+      "step": 1
+    },
+    {
+      "file": "capabilities_discussion.json",
+      "concept_type": "capabilities",
+      "section_type": "discussion",
+      "step": 2
+    },
+    {
+      "file": "capabilities_facts.json",
+      "concept_type": "capabilities",
+      "section_type": "facts",
+      "step": 2
+    },
+    {
+      "file": "constraints_discussion.json",
+      "concept_type": "constraints",
+      "section_type": "discussion",
+      "step": 2
+    },
+    {
+      "file": "constraints_facts.json",
+      "concept_type": "constraints",
+      "section_type": "facts",
+      "step": 2
+    },
+    {
+      "file": "obligations_discussion.json",
+      "concept_type": "obligations",
+      "section_type": "discussion",
+      "step": 2
+    },
+    {
+      "file": "obligations_facts.json",
+      "concept_type": "obligations",
+      "section_type": "facts",
+      "step": 2
+    },
+    {
+      "file": "principles_discussion.json",
+      "concept_type": "principles",
+      "section_type": "discussion",
+      "step": 2
+    },
+    {
+      "file": "principles_facts.json",
+      "concept_type": "principles",
+      "section_type": "facts",
+      "step": 2
+    },
+    {
+      "file": "actions_events.json",
+      "concept_type": "actions_events",
+      "section_type": "temporal",
+      "step": 3
+    }
+  ]
+}

@@ -239,6 +239,11 @@
                 <i class="bi bi-signpost-split"></i> Decision Points <span id="decision-point-count" class="badge bg-secondary ms-1" style="display:none;"></span>
             </button>
         </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="arguments-tab" data-bs-toggle="tab" data-bs-target="#arguments" type="button">
+                <i class="bi bi-chat-left-text"></i> Pro/Con Arguments <span id="argument-count" class="badge bg-secondary ms-1" style="display:none;"></span>
+            </button>
+        </li>
     </ul>
 
     <div class="tab-content" id="reviewTabContent">
@@ -1040,6 +1045,57 @@
                     <i class="bi bi-signpost-split" style="font-size: 3rem;"></i>
                     <p class="mt-2">No decision points extracted yet.</p>
                     <p><small>Click "Extract Decision Points" to analyze this case.</small></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pro/Con Arguments Tab (Part F) -->
+        <div class="tab-pane fade" id="arguments" role="tabpanel">
+            <div class="alert alert-info mb-3">
+                <i class="bi bi-info-circle"></i> <strong>Pro/Con Arguments</strong> analyze the ethical merits of each decision option.
+                Each argument cites relevant NSPE Code provisions and precedent cases. <small class="text-muted">(Requires decision points first)</small>
+            </div>
+
+            <!-- View Prompt/Response Accordion -->
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center py-2">
+                    <span class="small text-muted">Argument Generation (4f)</span>
+                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#argumentsPromptAccordion" aria-expanded="false">
+                        <i class="bi bi-code-slash"></i> View Prompt/Response
+                    </button>
+                </div>
+                <div class="collapse" id="argumentsPromptAccordion">
+                    <div class="card-body bg-light">
+                        <div id="argumentsPromptContent">
+                            <div class="text-center text-muted py-3">
+                                <span class="spinner-border spinner-border-sm me-2"></span> Loading prompt...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Generate Button -->
+            <div class="mb-4">
+                {% if current_user.is_authenticated %}
+                <button id="generateArgumentsBtn" class="btn btn-primary" onclick="generateArguments()">
+                    <i class="bi bi-chat-left-text"></i> Generate Arguments
+                </button>
+                <span class="badge bg-light text-dark border ms-2">Analyzes each decision option</span>
+                {% else %}
+                <button class="btn btn-secondary" disabled title="Login required">
+                    <i class="bi bi-lock-fill"></i> Generate Arguments (Login Required)
+                </button>
+                {% endif %}
+                <span id="argumentsStatus" class="ms-2 text-muted"></span>
+            </div>
+
+            <!-- Arguments Container -->
+            <div id="argumentsContainer">
+                <div class="text-center text-muted py-5">
+                    <i class="bi bi-chat-left-text" style="font-size: 3rem;"></i>
+                    <p class="mt-2">No arguments generated yet.</p>
+                    <p><small>Extract decision points first, then click "Generate Arguments".</small></p>
                 </div>
             </div>
         </div>
@@ -1847,6 +1903,179 @@ function renderDecisionPoints(points) {
 }
 
 // ============================================================================
+// ARGUMENTS (PART F)
+// ============================================================================
+
+// Load arguments on page load
+loadArguments();
+
+function loadArguments() {
+    const caseId = {{ case.id }};
+
+    fetch(`/scenario_pipeline/case/${caseId}/arguments`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.arguments && data.arguments.length > 0) {
+                renderArguments(data.arguments);
+                updateArgumentCount(data.arguments.length);
+            }
+        })
+        .catch(err => {
+            console.error('Error loading arguments:', err);
+        });
+}
+
+function generateArguments() {
+    const caseId = {{ case.id }};
+    const btn = document.getElementById('generateArgumentsBtn');
+    const status = document.getElementById('argumentsStatus');
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Generating...';
+    status.textContent = 'Analyzing decision options for pros/cons...';
+
+    fetch(`/scenario_pipeline/case/${caseId}/generate_arguments`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-chat-left-text"></i> Generate Arguments';
+
+        if (data.success) {
+            status.textContent = `Generated ${data.pro_count} pro and ${data.con_count} con arguments`;
+            status.className = 'ms-2 text-success';
+            renderArguments(data.arguments);
+            updateArgumentCount(data.arguments.length);
+            // Reload prompts to show the new one
+            step4PromptsLoaded = false;
+        } else {
+            status.textContent = data.error || 'Generation failed';
+            status.className = 'ms-2 text-danger';
+        }
+    })
+    .catch(err => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-chat-left-text"></i> Generate Arguments';
+        status.textContent = 'Error: ' + err.message;
+        status.className = 'ms-2 text-danger';
+        console.error('Generation error:', err);
+    });
+}
+
+function updateArgumentCount(count) {
+    const badge = document.getElementById('argument-count');
+    if (count > 0) {
+        badge.textContent = count;
+        badge.style.display = 'inline';
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
+function renderArguments(arguments) {
+    const container = document.getElementById('argumentsContainer');
+
+    if (!arguments || arguments.length === 0) {
+        container.innerHTML = `
+            <div class="text-center text-muted py-5">
+                <i class="bi bi-chat-left-text" style="font-size: 3rem;"></i>
+                <p class="mt-2">No arguments generated yet.</p>
+                <p><small>Extract decision points first, then click "Generate Arguments".</small></p>
+            </div>
+        `;
+        return;
+    }
+
+    // Group by decision point
+    const byDecisionPoint = {};
+    arguments.forEach(arg => {
+        const dpId = arg.decision_point_id;
+        if (!byDecisionPoint[dpId]) {
+            byDecisionPoint[dpId] = [];
+        }
+        byDecisionPoint[dpId].push(arg);
+    });
+
+    let html = '';
+
+    Object.entries(byDecisionPoint).forEach(([dpId, optionArgs]) => {
+        // Group options within this decision point
+        html += `<div class="card mb-4 border-secondary">
+            <div class="card-header bg-secondary text-white">
+                <h6 class="mb-0"><i class="bi bi-signpost-split me-2"></i>Decision Point: ${dpId}</h6>
+            </div>
+            <div class="card-body">`;
+
+        optionArgs.forEach(optArg => {
+            const proArgs = optArg.pro_arguments || [];
+            const conArgs = optArg.con_arguments || [];
+
+            html += `
+                <div class="card mb-3">
+                    <div class="card-header bg-light">
+                        <strong>Option ${optArg.option_id}:</strong> ${optArg.option_description || ''}
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6 class="text-success"><i class="bi bi-hand-thumbs-up me-1"></i>PRO Arguments (${proArgs.length})</h6>
+                                ${renderArgumentList(proArgs, 'success')}
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="text-danger"><i class="bi bi-hand-thumbs-down me-1"></i>CON Arguments (${conArgs.length})</h6>
+                                ${renderArgumentList(conArgs, 'danger')}
+                            </div>
+                        </div>
+                        ${optArg.evaluation_summary ? `
+                            <div class="alert alert-secondary mt-3 mb-0">
+                                <small><strong>Evaluation:</strong> ${optArg.evaluation_summary}</small>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        });
+
+        html += '</div></div>';
+    });
+
+    container.innerHTML = html;
+}
+
+function renderArgumentList(args, colorClass) {
+    if (!args || args.length === 0) {
+        return '<p class="text-muted small mb-0">No arguments</p>';
+    }
+
+    return args.map(arg => {
+        const citations = arg.provision_citations || [];
+        const citationBadges = citations.map(c =>
+            `<span class="badge bg-secondary me-1">${c}</span>`
+        ).join('');
+
+        const strengthBadge = {
+            'strong': 'bg-success',
+            'moderate': 'bg-warning text-dark',
+            'weak': 'bg-secondary'
+        }[arg.strength] || 'bg-secondary';
+
+        return `
+            <div class="border-start border-3 border-${colorClass} ps-2 mb-2">
+                <p class="mb-1"><strong>${arg.claim}</strong></p>
+                <div class="d-flex flex-wrap gap-1 align-items-center">
+                    ${citationBadges}
+                    <span class="badge ${strengthBadge}">${arg.strength}</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// ============================================================================
 // STEP 4 PROMPTS LOADING
 // ============================================================================
 
@@ -1916,6 +2145,14 @@ function renderPromptContents() {
         document.getElementById('decisionPointsPromptContent').innerHTML = formatPromptDisplay(decisionPointsPrompt, 'Decision Points (4e)');
     } else {
         document.getElementById('decisionPointsPromptContent').innerHTML = '<p class="text-muted mb-0">No prompt data available. Extract decision points first.</p>';
+    }
+
+    // Arguments (4f)
+    const argumentsPrompt = step4PromptsData['decision_argument'];
+    if (argumentsPrompt) {
+        document.getElementById('argumentsPromptContent').innerHTML = formatPromptDisplay(argumentsPrompt, 'Arguments (4f)');
+    } else {
+        document.getElementById('argumentsPromptContent').innerHTML = '<p class="text-muted mb-0">No prompt data available. Generate arguments first.</p>';
     }
 }
 

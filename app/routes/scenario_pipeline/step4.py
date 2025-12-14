@@ -46,12 +46,13 @@ bp = Blueprint('step4', __name__, url_prefix='/scenario_pipeline')
 def init_step4_csrf_exemption(app):
     """Exempt Step 4 synthesis routes from CSRF protection"""
     if hasattr(app, 'csrf') and app.csrf:
-        from app.routes.scenario_pipeline.step4 import save_streaming_results, generate_synthesis_annotations, extract_decision_points, commit_step4_entities, publish_all_entities
+        from app.routes.scenario_pipeline.step4 import save_streaming_results, generate_synthesis_annotations, extract_decision_points, generate_arguments, commit_step4_entities, publish_all_entities
         from app.routes.scenario_pipeline.generate_scenario import generate_scenario_from_case
         app.csrf.exempt(save_streaming_results)
         app.csrf.exempt(generate_synthesis_annotations)
         app.csrf.exempt(generate_scenario_from_case)
         app.csrf.exempt(extract_decision_points)
+        app.csrf.exempt(generate_arguments)
         app.csrf.exempt(commit_step4_entities)
         app.csrf.exempt(publish_all_entities)
 
@@ -1812,6 +1813,155 @@ def extract_decision_points(case_id):
         }), 500
 
 
+@bp.route('/case/<int:case_id>/arguments', methods=['GET'])
+def get_arguments(case_id):
+    """
+    Load existing arguments for a case.
+
+    Part F of Step 4 synthesis - pros/cons for decision options.
+    """
+    try:
+        from app.services.argument_generator import ArgumentGenerator
+
+        generator = ArgumentGenerator()
+        arguments = generator.load_from_database(case_id)
+
+        if arguments:
+            args_data = []
+            for dp_args in arguments:
+                args_data.append({
+                    'decision_point_id': dp_args.decision_point_id,
+                    'decision_description': dp_args.decision_description,
+                    'option_id': dp_args.option_id,
+                    'option_description': dp_args.option_description,
+                    'pro_arguments': [
+                        {
+                            'argument_id': arg.argument_id,
+                            'claim': arg.claim,
+                            'provision_citations': arg.provision_citations,
+                            'precedent_references': arg.precedent_references,
+                            'strength': arg.strength
+                        }
+                        for arg in dp_args.pro_arguments
+                    ],
+                    'con_arguments': [
+                        {
+                            'argument_id': arg.argument_id,
+                            'claim': arg.claim,
+                            'provision_citations': arg.provision_citations,
+                            'precedent_references': arg.precedent_references,
+                            'strength': arg.strength
+                        }
+                        for arg in dp_args.con_arguments
+                    ],
+                    'evaluation_summary': dp_args.evaluation_summary
+                })
+
+            return jsonify({
+                'success': True,
+                'arguments': args_data,
+                'count': len(args_data)
+            })
+        else:
+            return jsonify({
+                'success': True,
+                'arguments': [],
+                'count': 0,
+                'message': 'No arguments found. Run "Generate Arguments" first.'
+            })
+
+    except Exception as e:
+        logger.error(f"Error loading arguments for case {case_id}: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@bp.route('/case/<int:case_id>/generate_arguments', methods=['POST'])
+@auth_required_for_llm
+def generate_arguments(case_id):
+    """
+    Generate pro/con arguments for decision points.
+
+    Part F of Step 4 synthesis - creates balanced arguments for each
+    decision option, citing code provisions and precedent cases.
+    """
+    try:
+        from app.services.argument_generator import ArgumentGenerator
+
+        case = Document.query.get_or_404(case_id)
+
+        logger.info(f"Generating arguments for case {case_id}")
+
+        generator = ArgumentGenerator()
+        arguments = generator.generate_arguments(case_id)
+
+        if arguments:
+            # Save to database
+            generator.save_to_database(case_id, arguments)
+
+            # Count total arguments
+            total_pro = sum(len(a.pro_arguments) for a in arguments)
+            total_con = sum(len(a.con_arguments) for a in arguments)
+
+            logger.info(f"Generated {total_pro} pro and {total_con} con arguments for case {case_id}")
+
+            # Return the arguments
+            args_data = []
+            for dp_args in arguments:
+                args_data.append({
+                    'decision_point_id': dp_args.decision_point_id,
+                    'decision_description': dp_args.decision_description,
+                    'option_id': dp_args.option_id,
+                    'option_description': dp_args.option_description,
+                    'pro_arguments': [
+                        {
+                            'argument_id': arg.argument_id,
+                            'claim': arg.claim,
+                            'provision_citations': arg.provision_citations,
+                            'precedent_references': arg.precedent_references,
+                            'strength': arg.strength
+                        }
+                        for arg in dp_args.pro_arguments
+                    ],
+                    'con_arguments': [
+                        {
+                            'argument_id': arg.argument_id,
+                            'claim': arg.claim,
+                            'provision_citations': arg.provision_citations,
+                            'precedent_references': arg.precedent_references,
+                            'strength': arg.strength
+                        }
+                        for arg in dp_args.con_arguments
+                    ],
+                    'evaluation_summary': dp_args.evaluation_summary
+                })
+
+            return jsonify({
+                'success': True,
+                'message': f'Generated {total_pro} pro and {total_con} con arguments',
+                'arguments': args_data,
+                'pro_count': total_pro,
+                'con_count': total_con
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'No arguments generated. Ensure decision points are extracted first.',
+                'arguments': []
+            }), 400
+
+    except Exception as e:
+        logger.error(f"Error generating arguments for case {case_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 @bp.route('/case/<int:case_id>/commit_step4', methods=['POST'])
 @auth_required_for_llm
 def commit_step4_entities(case_id):
@@ -1871,6 +2021,7 @@ def get_step4_prompts(case_id):
     - ethical_conclusion (4c)
     - whole_case_synthesis (4d - combined)
     - decision_point (4e)
+    - decision_argument (4f)
     """
     try:
         prompts_data = {}
@@ -1879,7 +2030,8 @@ def get_step4_prompts(case_id):
             'ethical_question',
             'ethical_conclusion',
             'whole_case_synthesis',
-            'decision_point'
+            'decision_point',
+            'decision_argument'
         ]
 
         for concept_type in concept_types:
