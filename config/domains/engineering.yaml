@@ -64,3 +64,65 @@ metadata:
   source: NSPE Code of Ethics
   version: '2019'
   professional_body: National Society of Professional Engineers
+
+# Entity Analysis Pipeline Configuration (Steps E1-F3)
+# Based on Oakley & Cocking (2001) Role Ethics Foundation
+
+# The fundamental good this profession serves (used in validation)
+founding_good: public_safety
+founding_good_description: Engineers shall hold paramount the safety, health, and welfare of the public
+
+# Professional virtues required for argument validation (Step F3)
+professional_virtues:
+  - competence
+  - trustworthiness
+  - honesty
+  - humility
+  - diligence
+
+# Ethical framework methodology (Step E3 - Decision Composition)
+ethical_framework:
+  name: Harris, Pritchard & Rabins
+  methodology: line_drawing
+  citation: "Harris et al. (2018). Engineering Ethics: Concepts and Cases (6th ed.). Cengage."
+  steps:
+    - Identify paradigm cases (clear right/wrong)
+    - Identify paradigmatic features
+    - Compare case to paradigms
+    - Draw the line based on similarities/differences
+
+# Maps domain principles to Beauchamp & Childress universal categories (Step F1)
+principle_mapping:
+  Public Safety: beneficence
+  Competence: non_maleficence
+  Confidentiality: autonomy
+  Attribution: justice
+  Integrity: non_maleficence
+  Honesty: autonomy
+  Transparency: autonomy
+  Accountability: justice
+
+# Code provision structure for alignment (Step F1)
+provision_structure:
+  code_name: NSPE Code of Ethics
+  hierarchy:
+    - level: fundamental_canons
+      prefix: "I"
+      description: Fundamental Canons
+    - level: rules_of_practice
+      prefix: "II"
+      description: Rules of Practice
+    - level: professional_obligations
+      prefix: "III"
+      description: Professional Obligations
+
+# Role vocabulary for obligation binding (Step E1)
+role_vocabulary:
+  - Engineer
+  - Client
+  - Employer
+  - Public
+  - Contractor
+  - Regulatory Body
+  - Professional Society
+  - Colleague
