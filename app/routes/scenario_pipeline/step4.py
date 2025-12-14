@@ -2208,6 +2208,267 @@ def get_publish_status(case_id):
         }), 500
 
 
+# ============================================================================
+# ENTITY-GROUNDED ARGUMENTS (F1-F3 Pipeline)
+# ============================================================================
+
+@bp.route('/case/<int:case_id>/entity_arguments')
+def get_entity_grounded_arguments(case_id):
+    """
+    Get entity-grounded Toulmin-structured arguments for a case.
+
+    Runs the full E1-F3 pipeline:
+    - E1: Obligation coverage analysis
+    - E2: Action-option mapping with Jones intensity
+    - E3: Decision point composition
+    - F1: Principle-provision alignment
+    - F2: Argument generation (Toulmin structure)
+    - F3: Argument validation (3-tier)
+
+    Returns JSON with arguments, decision points, and validation results.
+    """
+    try:
+        from app.services.entity_analysis import (
+            compose_decision_points,
+            get_principle_provision_alignment,
+            ArgumentGenerator,
+            ArgumentValidator
+        )
+        from app.domains import get_domain_config
+
+        logger.info(f"Running E1-F3 pipeline for case {case_id}")
+
+        # Run pipeline
+        domain_config = get_domain_config('engineering')
+        decision_points = compose_decision_points(case_id)
+        alignment_map = get_principle_provision_alignment(case_id)
+
+        # Use class methods to pass decision_points and alignment_map
+        generator = ArgumentGenerator(domain_config)
+        arguments = generator.generate_arguments(case_id, decision_points, alignment_map)
+
+        validator = ArgumentValidator(domain_config)
+        validation = validator.validate_arguments(case_id, arguments)
+
+        # Build response
+        response_data = {
+            'success': True,
+            'case_id': case_id,
+            'pipeline_summary': {
+                'decision_points_count': len(decision_points.decision_points),
+                'alignment_rate': alignment_map.alignment_rate,
+                'total_arguments': len(arguments.arguments),
+                'pro_arguments': arguments.pro_argument_count,
+                'con_arguments': arguments.con_argument_count,
+                'valid_arguments': validation.valid_arguments,
+                'invalid_arguments': validation.invalid_arguments,
+                'average_score': validation.average_score
+            },
+            'decision_points': [
+                {
+                    'focus_id': dp.focus_id,
+                    'focus_description': dp.focus_description,
+                    'role_label': dp.grounding.role_label,
+                    'obligation_label': dp.grounding.obligation_label,
+                    'constraint_label': dp.grounding.constraint_label,
+                    'intensity_score': dp.intensity_score,
+                    'options': [
+                        {
+                            'option_id': opt.option_id,
+                            'action_label': opt.action_label,
+                            'description': opt.description,
+                            'is_extracted': opt.is_extracted
+                        }
+                        for opt in dp.options
+                    ],
+                    'board_conclusion': dp.board_conclusion,
+                    'board_resolution': dp.board_resolution
+                }
+                for dp in decision_points.decision_points
+            ],
+            'arguments': [arg.to_dict() for arg in arguments.arguments],
+            'validations': [v.to_dict() for v in validation.validations],
+            'validation_summary': {
+                'entity_test_pass_rate': validation.entity_test_pass_rate,
+                'founding_test_pass_rate': validation.founding_test_pass_rate,
+                'virtue_test_pass_rate': validation.virtue_test_pass_rate
+            }
+        }
+
+        logger.info(
+            f"E1-F3 pipeline complete for case {case_id}: "
+            f"{len(arguments.arguments)} arguments, {validation.valid_arguments} valid"
+        )
+
+        return jsonify(response_data)
+
+    except Exception as e:
+        logger.error(f"Error running E1-F3 pipeline for case {case_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'arguments': [],
+            'decision_points': []
+        }), 500
+
+
+@bp.route('/case/<int:case_id>/entity_arguments/decision_points')
+def get_composed_decision_points(case_id):
+    """
+    Get entity-grounded decision points (E1-E3 pipeline only).
+
+    Faster than full pipeline when only decision points needed.
+    """
+    try:
+        from app.services.entity_analysis import compose_decision_points
+
+        decision_points = compose_decision_points(case_id)
+
+        return jsonify({
+            'success': True,
+            'case_id': case_id,
+            'count': len(decision_points.decision_points),
+            'unmatched_obligations': decision_points.unmatched_obligations,
+            'unmatched_actions': decision_points.unmatched_actions,
+            'decision_points': [
+                {
+                    'focus_id': dp.focus_id,
+                    'focus_description': dp.focus_description,
+                    'intensity_score': dp.intensity_score,
+                    'grounding': {
+                        'role_uri': dp.grounding.role_uri,
+                        'role_label': dp.grounding.role_label,
+                        'obligation_uri': dp.grounding.obligation_uri,
+                        'obligation_label': dp.grounding.obligation_label,
+                        'constraint_uri': dp.grounding.constraint_uri,
+                        'constraint_label': dp.grounding.constraint_label
+                    },
+                    'options': [
+                        {
+                            'option_id': opt.option_id,
+                            'action_uri': opt.action_uri,
+                            'action_label': opt.action_label,
+                            'description': opt.description,
+                            'is_extracted': opt.is_extracted,
+                            'downstream_event_uris': opt.downstream_event_uris
+                        }
+                        for opt in dp.options
+                    ],
+                    'provision_uris': dp.provision_uris,
+                    'provision_labels': dp.provision_labels,
+                    'board_conclusion': dp.board_conclusion,
+                    'board_resolution': dp.board_resolution
+                }
+                for dp in decision_points.decision_points
+            ]
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting composed decision points for case {case_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'decision_points': []
+        }), 500
+
+
+@bp.route('/case/<int:case_id>/entity_arguments/alignment')
+def get_principle_alignment(case_id):
+    """
+    Get principle-provision alignment map (F1 only).
+
+    Returns alignment between principles and code provisions.
+    """
+    try:
+        from app.services.entity_analysis import get_principle_provision_alignment
+
+        alignment_map = get_principle_provision_alignment(case_id)
+
+        return jsonify({
+            'success': True,
+            'case_id': case_id,
+            'total_principles': alignment_map.total_principles,
+            'total_provisions': alignment_map.total_provisions,
+            'alignment_rate': alignment_map.alignment_rate,
+            'unaligned_principles': alignment_map.unaligned_principles,
+            'unaligned_provisions': alignment_map.unaligned_provisions,
+            'alignments': [a.to_dict() for a in alignment_map.alignments]
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting principle alignment for case {case_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'alignments': []
+        }), 500
+
+
+@bp.route('/case/<int:case_id>/entity_arguments/coverage')
+def get_obligation_coverage_api(case_id):
+    """
+    Get obligation/constraint coverage analysis (E1 only).
+
+    Returns coverage matrix, conflicts, and role-obligation bindings.
+    """
+    try:
+        from app.services.entity_analysis import get_obligation_coverage as e1_coverage
+
+        coverage = e1_coverage(case_id)
+
+        return jsonify({
+            'success': True,
+            'case_id': case_id,
+            'obligations': [
+                {
+                    'uri': o.obligation_uri,
+                    'label': o.obligation_label,
+                    'role_uri': o.role_uri,
+                    'role_label': o.role_label,
+                    'provisions': o.provision_uris,
+                    'is_decision_relevant': o.is_decision_relevant
+                }
+                for o in coverage.obligations
+            ],
+            'constraints': [
+                {
+                    'uri': c.constraint_uri,
+                    'label': c.constraint_label,
+                    'role_uri': c.role_uri,
+                    'role_label': c.role_label,
+                    'is_decision_relevant': c.is_decision_relevant
+                }
+                for c in coverage.constraints
+            ],
+            'conflict_pairs': [
+                {
+                    'obligation1': p.obligation1_label,
+                    'obligation2': p.obligation2_label,
+                    'conflict_type': p.conflict_type,
+                    'shared_role': p.shared_role
+                }
+                for p in coverage.conflict_pairs
+            ],
+            'role_obligation_bindings': coverage.role_obligation_bindings,
+            'total_decision_relevant': coverage.total_decision_relevant
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting obligation coverage for case {case_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 # Scenario Generation Route
 @bp.route("/case/<int:case_id>/generate_scenario")
 def generate_scenario_route(case_id):
