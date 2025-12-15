@@ -39,6 +39,8 @@ class DecisionOption:
     option_id: str
     description: str
     is_board_choice: bool = False
+    # Entity-grounded references (URIs from Pass 1-3 extraction)
+    involved_action_uris: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -55,6 +57,11 @@ class DecisionFocus:
     board_reasoning: str
     confidence: float = 0.0
     metadata: Dict[str, Any] = field(default_factory=dict)
+    # Entity-grounded references (URIs from Pass 1-3 extraction)
+    involved_role_uris: List[str] = field(default_factory=list)
+    involved_obligation_uris: List[str] = field(default_factory=list)
+    involved_constraint_uris: List[str] = field(default_factory=list)
+    involved_action_uris: List[str] = field(default_factory=list)
 
 
 class DecisionFocusExtractor:
@@ -161,12 +168,18 @@ class DecisionFocusExtractor:
         conclusions: List[Dict],
         provisions: List[Dict]
     ) -> str:
-        """Create LLM prompt for decision focus extraction."""
+        """
+        Create LLM prompt for entity-grounded decision focus extraction.
 
-        # Format entities
+        The prompt includes extracted entities with their URIs so the LLM can
+        reference specific entities when identifying decision points.
+        """
+
+        # Format entities with URIs for grounding
         roles_text = self._format_entity_list(entities.get('roles', []))
         actions_text = self._format_entity_list(entities.get('actions', []))
         obligations_text = self._format_entity_list(entities.get('obligations', []))
+        constraints_text = self._format_entity_list(entities.get('constraints', []))
 
         # Format questions and conclusions
         questions_text = "\n".join([
@@ -193,56 +206,85 @@ CASE: {case_title}
 CASE TEXT:
 {case_text[:6000]}{"..." if len(case_text) > 6000 else ""}
 
-EXTRACTED ROLES:
+## EXTRACTED ENTITIES FROM PASSES 1-3
+
+The entities below were extracted from the case in earlier analysis passes.
+Each entity has a URI in brackets [URI] that you should reference in your output
+to ground the decision points in the extracted entities.
+
+### ROLES (Pass 1):
 {roles_text}
 
-EXTRACTED ACTIONS:
-{actions_text}
-
-EXTRACTED OBLIGATIONS:
+### OBLIGATIONS (Pass 2):
 {obligations_text}
 
-ETHICAL QUESTIONS POSED:
+### CONSTRAINTS (Pass 2):
+{constraints_text}
+
+### ACTIONS (Pass 3):
+{actions_text}
+
+### ETHICAL QUESTIONS POSED:
 {questions_text}
 
-BOARD CONCLUSIONS:
+### BOARD CONCLUSIONS:
 {conclusions_text}
 
-CODE PROVISIONS CITED:
+### CODE PROVISIONS CITED:
 {provisions_text}
 
-TASK:
+## TASK
+
 Identify 1-4 key decision focuses. For each decision focus:
 1. What choice/decision must be made?
-2. Who makes the decision (which role)?
-3. What NSPE Code provisions apply?
-4. What options are available?
-5. Which option did the Board determine was correct?
-6. Why did the Board choose this resolution?
+2. Who makes the decision? Reference the specific role URIs from above.
+3. What obligations/constraints apply? Reference their URIs.
+4. What NSPE Code provisions apply?
+5. What options are available? Link options to relevant action URIs.
+6. Which option did the Board determine was correct?
+7. Why did the Board choose this resolution?
 
-IMPORTANT:
-- A decision focus is a CHOICE POINT, not just a fact
-- Focus on decisions that have ethical implications
-- Options should be distinct, actionable alternatives
-- Use exact role names from the extracted roles
-- Use exact provision numbers (e.g., "II.2.b", "III.8.a")
+## ENTITY GROUNDING REQUIREMENTS
 
-OUTPUT FORMAT (JSON):
+CRITICAL: You MUST reference entity URIs to ground the decision points:
+- involved_role_uris: Include URIs of roles involved in this decision
+- involved_obligation_uris: Include URIs of obligations relevant to this decision
+- involved_constraint_uris: Include URIs of constraints relevant to this decision
+- For options: Include involved_action_uris linking to relevant actions
+
+If an entity has no URI (empty brackets or missing), use an empty array for that field.
+This grounding connects decision points to the formal case ontology.
+
+## OUTPUT FORMAT (JSON)
+
 ```json
 [
   {{
     "focus_id": "DF1",
     "focus_number": 1,
     "description": "Whether Engineer A should disclose the use of AI tools to the client",
-    "decision_question": "Should Engineer A disclose to the client that AI tools were used in preparing the design documents?",
-    "involved_roles": ["Engineer A", "Client"],
+    "decision_question": "Should Engineer A disclose to the client that AI tools were used?",
+    "involved_roles": ["Engineer A", "Client W"],
+    "involved_role_uris": ["http://proethica.org/ontology/case/7#Engineer_A", "http://proethica.org/ontology/case/7#Client_W"],
+    "involved_obligation_uris": ["http://proethica.org/ontology/intermediate#AIDisclosureObligation"],
+    "involved_constraint_uris": [],
     "applicable_provisions": ["II.1.c", "II.3.a"],
     "options": [
-      {{"option_id": "O1", "description": "Disclose AI use to client", "is_board_choice": true}},
-      {{"option_id": "O2", "description": "Not disclose AI use", "is_board_choice": false}}
+      {{
+        "option_id": "O1",
+        "description": "Disclose AI use to client",
+        "is_board_choice": true,
+        "involved_action_uris": []
+      }},
+      {{
+        "option_id": "O2",
+        "description": "Not disclose AI use",
+        "is_board_choice": false,
+        "involved_action_uris": []
+      }}
     ],
     "board_resolution": "Engineer A should disclose the use of AI tools to the client",
-    "board_reasoning": "Transparency with clients is required under II.1.c, and clients have a right to know the methods used in their projects",
+    "board_reasoning": "Transparency with clients is required under II.1.c",
     "confidence": 0.9
   }}
 ]
@@ -250,29 +292,49 @@ OUTPUT FORMAT (JSON):
 
         return prompt
 
-    def _format_entity_list(self, entities: List) -> str:
-        """Format a list of entities for the prompt."""
+    def _format_entity_list(self, entities: List, include_uris: bool = True) -> str:
+        """
+        Format a list of entities for the prompt.
+
+        Args:
+            entities: List of entity dicts with label, definition, uri
+            include_uris: Whether to include URIs for entity grounding
+
+        Returns:
+            Formatted string with entities, URIs in brackets for LLM reference
+        """
         if not entities:
-            return "(none)"
+            return "(none extracted)"
 
         formatted = []
         for entity in entities[:15]:  # Limit to 15
             if isinstance(entity, dict):
                 label = entity.get('label', entity.get('entity_label', 'Unknown'))
                 definition = entity.get('definition', entity.get('entity_definition', ''))
+                uri = entity.get('uri', '') if include_uris else ''
             else:
                 label = getattr(entity, 'entity_label', 'Unknown')
                 definition = getattr(entity, 'entity_definition', '')
+                uri = getattr(entity, 'entity_uri', '') if include_uris else ''
 
             if definition and len(definition) > 80:
                 definition = definition[:80] + "..."
 
-            formatted.append(f"- {label}: {definition}" if definition else f"- {label}")
+            # Format: "- Label [URI]: Definition" or "- Label: Definition" if no URI
+            if uri:
+                line = f"- {label} [{uri}]"
+            else:
+                line = f"- {label}"
+
+            if definition:
+                line += f": {definition}"
+
+            formatted.append(line)
 
         return "\n".join(formatted)
 
     def _parse_response(self, response_text: str) -> List[DecisionFocus]:
-        """Parse LLM response into DecisionFocus objects."""
+        """Parse LLM response into DecisionFocus objects with entity URI references."""
 
         # Extract JSON from response
         json_match = re.search(r'```json\n(.*?)\n```', response_text, re.DOTALL)
@@ -289,14 +351,21 @@ OUTPUT FORMAT (JSON):
 
             focuses = []
             for f_data in focuses_data:
-                # Parse options
+                # Parse options with entity grounding
                 options = []
                 for opt in f_data.get('options', []):
                     options.append(DecisionOption(
                         option_id=opt.get('option_id', ''),
                         description=opt.get('description', ''),
-                        is_board_choice=opt.get('is_board_choice', False)
+                        is_board_choice=opt.get('is_board_choice', False),
+                        involved_action_uris=opt.get('involved_action_uris', [])
                     ))
+
+                # Parse entity URI references for grounding
+                involved_role_uris = f_data.get('involved_role_uris', [])
+                involved_obligation_uris = f_data.get('involved_obligation_uris', [])
+                involved_constraint_uris = f_data.get('involved_constraint_uris', [])
+                involved_action_uris = f_data.get('involved_action_uris', [])
 
                 focus = DecisionFocus(
                     focus_id=f_data.get('focus_id', f"DF{f_data.get('focus_number', 0)}"),
@@ -308,13 +377,26 @@ OUTPUT FORMAT (JSON):
                     options=options,
                     board_resolution=f_data.get('board_resolution', ''),
                     board_reasoning=f_data.get('board_reasoning', ''),
-                    confidence=float(f_data.get('confidence', 0.5))
+                    confidence=float(f_data.get('confidence', 0.5)),
+                    # Entity grounding
+                    involved_role_uris=involved_role_uris,
+                    involved_obligation_uris=involved_obligation_uris,
+                    involved_constraint_uris=involved_constraint_uris,
+                    involved_action_uris=involved_action_uris
                 )
                 focuses.append(focus)
 
+                # Log with entity grounding info
+                grounded_count = (
+                    len(involved_role_uris) +
+                    len(involved_obligation_uris) +
+                    len(involved_constraint_uris) +
+                    len(involved_action_uris)
+                )
                 logger.debug(
                     f"Decision Focus {focus.focus_id}: {focus.description[:50]}... "
-                    f"({len(focus.options)} options, {len(focus.applicable_provisions)} provisions)"
+                    f"({len(focus.options)} options, {len(focus.applicable_provisions)} provisions, "
+                    f"{grounded_count} entity refs)"
                 )
 
             return focuses
@@ -394,7 +476,7 @@ OUTPUT FORMAT (JSON):
                 # Create Decision Point entity
                 dp_uri = f"{case_ns}DecisionPoint_{focus.focus_id}"
 
-                # Build JSON-LD representation
+                # Build JSON-LD representation with entity grounding
                 rdf_json_ld = {
                     "@id": dp_uri,
                     "@type": [f"{PROETHICA_INT_NS}DecisionPoint"],
@@ -407,6 +489,11 @@ OUTPUT FORMAT (JSON):
                     "board_resolution": focus.board_resolution,
                     "board_reasoning": focus.board_reasoning,
                     "confidence": focus.confidence,
+                    # Entity grounding URIs from Pass 1-3 extraction
+                    "involved_role_uris": focus.involved_role_uris,
+                    "involved_obligation_uris": focus.involved_obligation_uris,
+                    "involved_constraint_uris": focus.involved_constraint_uris,
+                    "involved_action_uris": focus.involved_action_uris,
                     "properties": {
                         "rdfs:label": focus.description,
                         "proeth:decisionQuestion": focus.decision_question,
@@ -416,11 +503,39 @@ OUTPUT FORMAT (JSON):
                     "relationships": []
                 }
 
-                # Add role relationships
+                # Add role relationships (by label for backward compat)
                 for role in focus.involved_roles:
                     rdf_json_ld["relationships"].append({
                         "type": "proeth:involvesRole",
                         "target_label": role
+                    })
+
+                # Add entity-grounded role relationships (by URI)
+                for role_uri in focus.involved_role_uris:
+                    rdf_json_ld["relationships"].append({
+                        "type": "proeth:involvesRole",
+                        "target_uri": role_uri
+                    })
+
+                # Add entity-grounded obligation relationships
+                for obligation_uri in focus.involved_obligation_uris:
+                    rdf_json_ld["relationships"].append({
+                        "type": "proeth:involvesObligation",
+                        "target_uri": obligation_uri
+                    })
+
+                # Add entity-grounded constraint relationships
+                for constraint_uri in focus.involved_constraint_uris:
+                    rdf_json_ld["relationships"].append({
+                        "type": "proeth:involvesConstraint",
+                        "target_uri": constraint_uri
+                    })
+
+                # Add entity-grounded action relationships
+                for action_uri in focus.involved_action_uris:
+                    rdf_json_ld["relationships"].append({
+                        "type": "proeth:involvesAction",
+                        "target_uri": action_uri
                     })
 
                 # Add provision relationships
@@ -465,6 +580,20 @@ OUTPUT FORMAT (JSON):
                 for opt in focus.options:
                     opt_uri = f"{case_ns}DecisionOption_{focus.focus_id}_{opt.option_id}"
 
+                    # Build relationships list starting with parent link
+                    opt_relationships = [{
+                        "type": "proeth:optionOf",
+                        "target_uri": dp_uri,
+                        "target_label": focus.description
+                    }]
+
+                    # Add entity-grounded action relationships for this option
+                    for action_uri in opt.involved_action_uris:
+                        opt_relationships.append({
+                            "type": "proeth:involvesAction",
+                            "target_uri": action_uri
+                        })
+
                     opt_json_ld = {
                         "@id": opt_uri,
                         "@type": [f"{PROETHICA_INT_NS}DecisionOption"],
@@ -472,15 +601,13 @@ OUTPUT FORMAT (JSON):
                         "option_id": opt.option_id,
                         "is_board_choice": opt.is_board_choice,
                         "parent_decision_point": dp_uri,
+                        # Entity grounding URIs
+                        "involved_action_uris": opt.involved_action_uris,
                         "properties": {
                             "rdfs:label": opt.description,
                             "proeth:isBoardChoice": opt.is_board_choice
                         },
-                        "relationships": [{
-                            "type": "proeth:optionOf",
-                            "target_uri": dp_uri,
-                            "target_label": focus.description
-                        }]
+                        "relationships": opt_relationships
                     }
 
                     opt_entity = TemporaryRDFStorage(
@@ -495,13 +622,14 @@ OUTPUT FORMAT (JSON):
                         entity_definition=f"Option for: {focus.description}",
                         rdf_json_ld=opt_json_ld,
                         extraction_model=llm_model or 'claude-sonnet-4-20250514',
-                        triple_count=3,
+                        triple_count=3 + len(opt.involved_action_uris),
                         property_count=2,
-                        relationship_count=1,
+                        relationship_count=1 + len(opt.involved_action_uris),
                         provenance_metadata={
                             'extraction_step': 'step4_part_e',
                             'parent_focus_id': focus.focus_id,
-                            'is_board_choice': opt.is_board_choice
+                            'is_board_choice': opt.is_board_choice,
+                            'action_uri_count': len(opt.involved_action_uris)
                         },
                         is_selected=True,
                         # Pre-link to ontology class for AutoCommitService
@@ -555,13 +683,13 @@ OUTPUT FORMAT (JSON):
 
     def load_from_rdf_storage(self, case_id: int) -> List[DecisionFocus]:
         """
-        Load decision focuses from temporary_rdf_storage.
+        Load decision focuses from temporary_rdf_storage with entity grounding.
 
         Args:
             case_id: Case ID
 
         Returns:
-            List of DecisionFocus objects
+            List of DecisionFocus objects with entity URI references
         """
         try:
             # Load decision points
@@ -576,7 +704,7 @@ OUTPUT FORMAT (JSON):
                 extraction_type='decision_option'
             ).all()
 
-            # Group options by parent decision point
+            # Group options by parent decision point, including entity grounding
             options_by_dp = {}
             for opt in opt_entities:
                 json_ld = opt.rdf_json_ld or {}
@@ -586,7 +714,9 @@ OUTPUT FORMAT (JSON):
                 options_by_dp[parent_uri].append(DecisionOption(
                     option_id=json_ld.get('option_id', ''),
                     description=opt.entity_label,
-                    is_board_choice=json_ld.get('is_board_choice', False)
+                    is_board_choice=json_ld.get('is_board_choice', False),
+                    # Entity grounding
+                    involved_action_uris=json_ld.get('involved_action_uris', [])
                 ))
 
             focuses = []
@@ -607,7 +737,12 @@ OUTPUT FORMAT (JSON):
                     options=options,
                     board_resolution=json_ld.get('board_resolution', ''),
                     board_reasoning=json_ld.get('board_reasoning', ''),
-                    confidence=json_ld.get('confidence', 0.0)
+                    confidence=json_ld.get('confidence', 0.0),
+                    # Entity grounding
+                    involved_role_uris=json_ld.get('involved_role_uris', []),
+                    involved_obligation_uris=json_ld.get('involved_obligation_uris', []),
+                    involved_constraint_uris=json_ld.get('involved_constraint_uris', []),
+                    involved_action_uris=json_ld.get('involved_action_uris', [])
                 )
                 focuses.append(focus)
 
@@ -645,30 +780,52 @@ OUTPUT FORMAT (JSON):
         return "\n\n".join(text_parts)
 
     def _load_entities(self, case_id: int) -> Dict[str, List]:
-        """Load all entity types from database."""
-        entity_types = {
-            'roles': 'role',
-            'states': 'state',
-            'resources': 'resource',
-            'principles': 'principle',
-            'obligations': 'obligation',
-            'constraints': 'constraint',
-            'capabilities': 'capability',
-            'actions': 'action',
-            'events': 'event'
+        """
+        Load all entity types from database with URIs for entity grounding.
+
+        Returns dict with entity lists. Each entity has:
+        - label: Human-readable name
+        - definition: Description of the entity
+        - uri: Ontology URI for entity grounding (may be None for some entities)
+        """
+        # Map from our key names to extraction_type values in the database
+        # Note: extraction_type is capitalized in the database (e.g., 'roles', 'Roles')
+        extraction_type_map = {
+            'roles': 'roles',
+            'states': 'states',
+            'resources': 'resources',
+            'principles': 'principles',
+            'obligations': 'obligations',
+            'constraints': 'constraints',
+            'capabilities': 'capabilities',
+            'actions': 'temporal_dynamics_enhanced',  # Actions are stored under temporal_dynamics_enhanced
+            'events': 'temporal_dynamics_enhanced'    # Events too
+        }
+
+        # Entity type filters for temporal_dynamics_enhanced (which contains multiple types)
+        entity_type_filter = {
+            'actions': 'actions',
+            'events': 'events'
         }
 
         entities = {}
-        for key, entity_type in entity_types.items():
-            records = TemporaryRDFStorage.query.filter_by(
+        for key, extraction_type in extraction_type_map.items():
+            query = TemporaryRDFStorage.query.filter_by(
                 case_id=case_id,
-                entity_type=entity_type
-            ).all()
+                extraction_type=extraction_type
+            )
+
+            # Add entity_type filter for temporal_dynamics_enhanced
+            if key in entity_type_filter:
+                query = query.filter_by(entity_type=entity_type_filter[key])
+
+            records = query.all()
 
             entities[key] = [
                 {
                     'label': r.entity_label,
-                    'definition': r.entity_definition
+                    'definition': r.entity_definition or '',
+                    'uri': r.entity_uri or ''
                 }
                 for r in records
             ]

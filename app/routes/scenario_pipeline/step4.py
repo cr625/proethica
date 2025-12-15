@@ -46,7 +46,7 @@ bp = Blueprint('step4', __name__, url_prefix='/scenario_pipeline')
 def init_step4_csrf_exemption(app):
     """Exempt Step 4 synthesis routes from CSRF protection"""
     if hasattr(app, 'csrf') and app.csrf:
-        from app.routes.scenario_pipeline.step4 import save_streaming_results, generate_synthesis_annotations, extract_decision_points, generate_arguments, commit_step4_entities, publish_all_entities
+        from app.routes.scenario_pipeline.step4 import save_streaming_results, generate_synthesis_annotations, extract_decision_points, generate_arguments, commit_step4_entities, publish_all_entities, synthesize_case, synthesize_complete
         from app.routes.scenario_pipeline.generate_scenario import generate_scenario_from_case
         app.csrf.exempt(save_streaming_results)
         app.csrf.exempt(generate_synthesis_annotations)
@@ -55,6 +55,8 @@ def init_step4_csrf_exemption(app):
         app.csrf.exempt(generate_arguments)
         app.csrf.exempt(commit_step4_entities)
         app.csrf.exempt(publish_all_entities)
+        app.csrf.exempt(synthesize_case)
+        app.csrf.exempt(synthesize_complete)
 
 
 @bp.route('/case/<int:case_id>/step4')
@@ -665,31 +667,12 @@ def step4_decision_points(case_id):
 @bp.route('/case/<int:case_id>/step4/arguments')
 def step4_arguments(case_id):
     """
-    Display Step 4F: Entity-Grounded Arguments page.
+    Redirect to Step 4 Synthesis page (arguments are now inline).
 
-    Shows F1-F3 pipeline for generating Toulmin-structured arguments
-    with three-tier validation.
+    Previously displayed Step 4F: Entity-Grounded Arguments as separate page.
+    Now arguments generation is part of the main Step 4 Synthesis page.
     """
-    try:
-        case = Document.query.get_or_404(case_id)
-
-        # Get pipeline status for navigation
-        pipeline_status = PipelineStatusService.get_step_status(case_id)
-
-        return render_template(
-            'scenarios/step4_arguments.html',
-            case=case,
-            current_step=4,
-            step_title='Step 4F: Arguments',
-            prev_step_url=f"/scenario_pipeline/case/{case_id}/step4/decision_points",
-            next_step_url=f"/scenario_pipeline/case/{case_id}/step4/review",
-            next_step_name='Step 4 Review',
-            pipeline_status=pipeline_status
-        )
-
-    except Exception as e:
-        logger.error(f"Error displaying Step 4F for case {case_id}: {e}")
-        return str(e), 500
+    return redirect(url_for('step4.step4_synthesis', case_id=case_id))
 
 
 @bp.route('/case/<int:case_id>/step4/review')
@@ -2409,7 +2392,7 @@ def get_entity_grounded_arguments(case_id):
             extraction_session_id=session_id,
             prompt_text='E1-F3 algorithmic pipeline (no LLM)',
             llm_model='algorithmic',
-            raw_llm_response=f'Generated {len(arguments.arguments)} arguments, {validation.valid_arguments} valid',
+            raw_response=f'Generated {len(arguments.arguments)} arguments, {validation.valid_arguments} valid',
             created_at=datetime.utcnow()
         )
         db.session.add(pipeline_record)
@@ -2583,7 +2566,7 @@ def get_composed_decision_points(case_id):
             extraction_session_id=session_id,
             prompt_text='E1-E3 algorithmic composition (no LLM)',
             llm_model='algorithmic',
-            raw_llm_response=f'Composed {len(decision_points.decision_points)} decision points',
+            raw_response=f'Composed {len(decision_points.decision_points)} decision points',
             created_at=datetime.utcnow()
         )
         db.session.add(composition_record)
@@ -2740,4 +2723,247 @@ def generate_scenario_route(case_id):
     Streams progress through all 9 stages of scenario generation.
     """
     return generate_scenario_from_case(case_id)
+
+
+# =============================================================================
+# UNIFIED SYNTHESIS PIPELINE
+# =============================================================================
+
+@bp.route('/case/<int:case_id>/synthesize', methods=['POST'])
+@auth_required_for_llm
+def synthesize_case(case_id):
+    """
+    Execute unified case synthesis pipeline.
+
+    Replaces fragmented Part E (LLM) / Part F (algorithmic) approaches
+    with single coherent pipeline producing canonical decision points.
+
+    Pipeline:
+    1. Load ALL extracted entities (Passes 1-3 + Parts A-D)
+    2. Run E1-E3 algorithmic composition for candidates
+    3. Use LLM to refine with Q&C as ground truth
+    4. Produce canonical decision points
+    5. Generate arguments using F1-F3 (optional)
+
+    Reference: docs-internal/UNIFIED_CASE_ANALYSIS_PIPELINE.md
+    """
+    try:
+        from app.services.case_synthesizer import CaseSynthesizer
+
+        case = Document.query.get_or_404(case_id)
+
+        # Check if arguments should be generated
+        generate_args = request.args.get('generate_arguments', 'true').lower() == 'true'
+
+        logger.info(f"Starting unified synthesis for case {case_id} (generate_arguments={generate_args})")
+
+        synthesizer = CaseSynthesizer()
+        result = synthesizer.synthesize(case_id, generate_arguments=generate_args)
+
+        logger.info(
+            f"Synthesis complete: {len(result.canonical_decision_points)} canonical points, "
+            f"{result.qc_aligned_count} Q&C aligned"
+        )
+
+        return jsonify({
+            'success': True,
+            'case_id': case_id,
+            'message': f'Synthesized {len(result.canonical_decision_points)} canonical decision points',
+            'canonical_decision_points': [dp.to_dict() for dp in result.canonical_decision_points],
+            'count': len(result.canonical_decision_points),
+            'algorithmic_candidates_count': result.algorithmic_candidates_count,
+            'qc_aligned_count': result.qc_aligned_count,
+            'has_arguments': result.arguments is not None,
+            'extraction_session_id': result.extraction_session_id
+        })
+
+    except Exception as e:
+        logger.error(f"Error in unified synthesis for case {case_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@bp.route('/case/<int:case_id>/canonical_decision_points')
+def get_canonical_decision_points(case_id):
+    """
+    Load canonical decision points from the unified pipeline.
+
+    Returns decision points that were produced by the synthesize endpoint,
+    which combines algorithmic composition with LLM refinement.
+    """
+    try:
+        from app.services.case_synthesizer import CaseSynthesizer
+
+        synthesizer = CaseSynthesizer()
+        canonical_points = synthesizer.load_canonical_points(case_id)
+
+        if canonical_points:
+            return jsonify({
+                'success': True,
+                'case_id': case_id,
+                'canonical_decision_points': [dp.to_dict() for dp in canonical_points],
+                'count': len(canonical_points),
+                'qc_aligned_count': sum(1 for dp in canonical_points if dp.aligned_question_uri),
+                'source': 'unified_synthesis'
+            })
+        else:
+            return jsonify({
+                'success': True,
+                'case_id': case_id,
+                'canonical_decision_points': [],
+                'count': 0,
+                'message': 'No canonical decision points found. Run "Synthesize" first.'
+            })
+
+    except Exception as e:
+        logger.error(f"Error loading canonical decision points for case {case_id}: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'canonical_decision_points': []
+        }), 500
+
+
+# =============================================================================
+# COMPLETE CASE SYNTHESIS (FOUR PHASES)
+# =============================================================================
+
+@bp.route('/case/<int:case_id>/entity_foundation')
+def get_entity_foundation(case_id):
+    """
+    Get entity foundation (Phase 1) without running full synthesis.
+
+    Returns all entities from Passes 1-3 organized for display.
+    """
+    try:
+        from app.services.case_synthesizer import CaseSynthesizer
+
+        synthesizer = CaseSynthesizer()
+        foundation = synthesizer._build_entity_foundation(case_id)
+
+        return jsonify({
+            'success': True,
+            'case_id': case_id,
+            'entity_foundation': foundation.to_dict()
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting entity foundation for case {case_id}: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@bp.route('/case/<int:case_id>/synthesize_complete', methods=['POST'])
+@auth_required_for_llm
+def synthesize_complete(case_id):
+    """
+    Execute complete four-phase synthesis.
+
+    Phases:
+    1. Entity Foundation - gather all entities from Passes 1-3
+    2. Analytical Extraction - load provisions, Q&C, transformation type
+    3. Decision Point Synthesis - E1-E3 composition + LLM refinement
+    4. Narrative Construction - build timeline and scenario seeds
+
+    Returns complete CaseSynthesisModel.
+    """
+    try:
+        from app.services.case_synthesizer import CaseSynthesizer
+
+        case = Document.query.get_or_404(case_id)
+
+        # Check if LLM synthesis should be skipped (for testing)
+        skip_llm = request.args.get('skip_llm', 'false').lower() == 'true'
+
+        logger.info(f"Starting complete synthesis for case {case_id} (skip_llm={skip_llm})")
+
+        synthesizer = CaseSynthesizer()
+        model = synthesizer.synthesize_complete(case_id, skip_llm_synthesis=skip_llm)
+
+        logger.info(f"Complete synthesis done: {model.summary()}")
+
+        return jsonify({
+            'success': True,
+            'case_id': case_id,
+            'case_title': model.case_title,
+            'synthesis': model.to_dict(),
+            'summary': model.summary()
+        })
+
+    except Exception as e:
+        logger.error(f"Error in complete synthesis for case {case_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@bp.route('/case/<int:case_id>/synthesis_model')
+def get_synthesis_model(case_id):
+    """
+    Load existing synthesis model from database.
+
+    Returns the stored synthesis results without re-running.
+    """
+    try:
+        from app.services.case_synthesizer import (
+            CaseSynthesizer, CaseSynthesisModel, EntityFoundation,
+            CaseNarrative, TimelineEvent, ScenarioSeeds
+        )
+
+        # Get case
+        case = Document.query.get_or_404(case_id)
+
+        synthesizer = CaseSynthesizer()
+
+        # Build model from stored data
+        foundation = synthesizer._build_entity_foundation(case_id)
+        provisions = synthesizer._load_provisions(case_id)
+        questions, conclusions = synthesizer._load_qc(case_id)
+        transformation = synthesizer._get_transformation_type(case_id)
+        canonical_points = synthesizer.load_canonical_points(case_id)
+
+        # Reconstruct narrative if we have canonical points
+        narrative = None
+        if canonical_points:
+            narrative = synthesizer._construct_narrative(case_id, foundation, canonical_points, conclusions)
+
+        model = CaseSynthesisModel(
+            case_id=case_id,
+            case_title=case.title,
+            entity_foundation=foundation,
+            provisions=provisions,
+            questions=questions,
+            conclusions=conclusions,
+            transformation_type=transformation,
+            canonical_decision_points=canonical_points,
+            algorithmic_candidates_count=len(canonical_points),  # Approximation
+            narrative=narrative
+        )
+
+        return jsonify({
+            'success': True,
+            'case_id': case_id,
+            'case_title': model.case_title,
+            'synthesis': model.to_dict(),
+            'summary': model.summary(),
+            'has_synthesis': len(canonical_points) > 0
+        })
+
+    except Exception as e:
+        logger.error(f"Error loading synthesis model for case {case_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 

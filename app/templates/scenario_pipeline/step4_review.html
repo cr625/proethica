@@ -235,13 +235,8 @@
             </button>
         </li>
         <li class="nav-item" role="presentation">
-            <button class="nav-link" id="decision-points-tab" data-bs-toggle="tab" data-bs-target="#decision-points" type="button">
-                <i class="bi bi-signpost-split"></i> Decision Points <span id="decision-point-count" class="badge bg-secondary ms-1" style="display:none;"></span>
-            </button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button class="nav-link" id="arguments-tab" data-bs-toggle="tab" data-bs-target="#arguments" type="button">
-                <i class="bi bi-chat-left-text"></i> Pro/Con Arguments <span id="argument-count" class="badge bg-secondary ms-1" style="display:none;"></span>
+            <button class="nav-link" id="synthesis-tab" data-bs-toggle="tab" data-bs-target="#synthesis" type="button">
+                <i class="bi bi-diagram-3-fill"></i> Case Synthesis <span id="synthesis-count" class="badge bg-secondary ms-1" style="display:none;"></span>
             </button>
         </li>
     </ul>
@@ -998,81 +993,64 @@
             </div>
         </div>
 
-        <!-- Decision Points Tab (Part E) -->
-        <div class="tab-pane fade" id="decision-points" role="tabpanel">
-            <div class="alert alert-info mb-3">
-                <i class="bi bi-info-circle"></i> <strong>Decision Points</strong> identify key points in the case where ethical choices must be made.
-                These become decision points in Step 5 scenarios, enabling what-if exploration and pros/cons analysis.
+        <!-- Case Synthesis Tab (Unified Pipeline) -->
+        <div class="tab-pane fade" id="synthesis" role="tabpanel">
+            <div class="alert alert-primary mb-3">
+                <i class="bi bi-diagram-3-fill"></i> <strong>Unified Case Synthesis</strong> - Combines algorithmic composition (E1-E3) with LLM refinement using Q&C as ground truth, producing canonical decision points.
+                <small class="d-block mt-1 text-muted">Reference: <a href="/docs-internal/UNIFIED_CASE_ANALYSIS_PIPELINE.md" class="text-muted">UNIFIED_CASE_ANALYSIS_PIPELINE.md</a></small>
             </div>
 
-            <!-- View Prompt/Response Accordion -->
+            <!-- Pipeline Steps Info -->
             <div class="card mb-3">
-                <div class="card-header d-flex justify-content-between align-items-center py-2">
-                    <span class="small text-muted">Decision Points Extraction (4e)</span>
-                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#decisionPointsPromptAccordion" aria-expanded="false">
-                        <i class="bi bi-code-slash"></i> View Prompt/Response
-                    </button>
+                <div class="card-header py-2">
+                    <strong>Synthesis Pipeline</strong>
                 </div>
-                <div class="collapse" id="decisionPointsPromptAccordion">
-                    <div class="card-body bg-light">
-                        <div id="decisionPointsPromptContent">
-                            <div class="text-center text-muted py-3">
-                                <span class="spinner-border spinner-border-sm me-2"></span> Loading prompt...
-                            </div>
+                <div class="card-body">
+                    <div class="row text-center small">
+                        <div class="col">
+                            <span class="badge bg-secondary mb-1">S1</span><br>
+                            Entity Relationships
+                        </div>
+                        <div class="col">
+                            <span class="badge bg-secondary mb-1">S2</span><br>
+                            Decision Point Composition (E1-E3)
+                        </div>
+                        <div class="col">
+                            <span class="badge bg-secondary mb-1">S3</span><br>
+                            LLM Refinement + Q&C Alignment
+                        </div>
+                        <div class="col">
+                            <span class="badge bg-secondary mb-1">S4</span><br>
+                            Argument Generation (F1-F3)
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Extract Button -->
+            <!-- Synthesize Button -->
             <div class="mb-4">
                 {% if current_user.is_authenticated %}
-                <button id="extractDecisionPointsBtn" class="btn btn-primary" onclick="extractDecisionPoints()">
-                    <i class="bi bi-lightning-charge"></i> Extract Decision Points
+                <button id="synthesizeCaseBtn" class="btn btn-primary" onclick="synthesizeCase()">
+                    <i class="bi bi-lightning-charge"></i> Synthesize Case
                 </button>
-                <span class="badge bg-light text-dark border ms-2">Draft - Publish at header</span>
+                <button id="refreshSynthesisBtn" class="btn btn-outline-secondary ms-2" onclick="loadCanonicalDecisionPoints()">
+                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                </button>
+                <span class="badge bg-light text-dark border ms-2">Produces canonical decision points</span>
                 {% else %}
                 <button class="btn btn-secondary" disabled title="Login required">
-                    <i class="bi bi-lock-fill"></i> Extract Decision Points (Login Required)
+                    <i class="bi bi-lock-fill"></i> Synthesize Case (Login Required)
                 </button>
                 {% endif %}
-                <span id="extractionStatus" class="ms-2 text-muted"></span>
+                <span id="synthesisStatus" class="ms-2 text-muted"></span>
             </div>
 
-            <!-- Decision Points Container -->
-            <div id="decisionPointsContainer">
+            <!-- Synthesis Results Container -->
+            <div id="synthesisContainer">
                 <div class="text-center text-muted py-5">
-                    <i class="bi bi-signpost-split" style="font-size: 3rem;"></i>
-                    <p class="mt-2">No decision points extracted yet.</p>
-                    <p><small>Click "Extract Decision Points" to analyze this case.</small></p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Pro/Con Arguments Tab (Part F) - Entity-Grounded -->
-        <div class="tab-pane fade" id="arguments" role="tabpanel">
-            <div class="alert alert-info mb-3">
-                <i class="bi bi-info-circle"></i> <strong>Entity-Grounded Arguments</strong> - Toulmin-structured pro/con arguments derived from extracted entities.
-                <small class="text-muted">Generate arguments in Step 4 main page (Part F), then view results here.</small>
-            </div>
-
-            <!-- Refresh Button -->
-            <div class="mb-3">
-                <button id="refreshArgumentsBtn" class="btn btn-outline-primary btn-sm" onclick="loadEntityArguments()">
-                    <i class="bi bi-arrow-clockwise"></i> Refresh Arguments
-                </button>
-                <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}" class="btn btn-outline-secondary btn-sm ms-2">
-                    <i class="bi bi-arrow-left"></i> Back to Step 4 (Generate Arguments)
-                </a>
-                <span id="argumentsStatus" class="ms-2 text-muted"></span>
-            </div>
-
-            <!-- Arguments Container -->
-            <div id="argumentsContainer">
-                <div class="text-center text-muted py-5">
-                    <i class="bi bi-chat-left-text" style="font-size: 3rem;"></i>
-                    <p class="mt-2">No arguments generated yet.</p>
-                    <p><small>Go to Step 4 main page and run Part F: Entity-Grounded Arguments.</small></p>
+                    <i class="bi bi-diagram-3-fill" style="font-size: 3rem;"></i>
+                    <p class="mt-2">No synthesis results yet.</p>
+                    <p><small>Click "Synthesize Case" to run the unified pipeline.</small></p>
                 </div>
             </div>
         </div>
@@ -2426,5 +2404,211 @@ function publishAllEntities() {
         console.error('Publish error:', err);
     });
 }
+
+// =============================================================================
+// UNIFIED CASE SYNTHESIS FUNCTIONS
+// =============================================================================
+
+function synthesizeCase() {
+    const caseId = {{ case.id }};
+    const btn = document.getElementById('synthesizeCaseBtn');
+    const status = document.getElementById('synthesisStatus');
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Synthesizing...';
+    status.textContent = 'Running unified synthesis pipeline (E1-E3 + LLM + F1-F3)...';
+
+    fetch(`/scenario_pipeline/case/${caseId}/synthesize?generate_arguments=false`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-lightning-charge"></i> Synthesize Case';
+
+        if (data.success) {
+            status.textContent = `Synthesized ${data.count} canonical decision points (${data.qc_aligned_count} Q&C aligned)`;
+            status.className = 'ms-2 text-success';
+            renderCanonicalDecisionPoints(data.canonical_decision_points);
+            updateSynthesisCount(data.count);
+            // Refresh page to update entity counts after short delay
+            setTimeout(() => location.reload(), 2000);
+        } else {
+            status.textContent = data.error || 'Synthesis failed';
+            status.className = 'ms-2 text-danger';
+        }
+    })
+    .catch(err => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-lightning-charge"></i> Synthesize Case';
+        status.textContent = 'Error: ' + err.message;
+        status.className = 'ms-2 text-danger';
+        console.error('Synthesis error:', err);
+    });
+}
+
+function loadCanonicalDecisionPoints() {
+    const caseId = {{ case.id }};
+    const status = document.getElementById('synthesisStatus');
+
+    status.textContent = 'Loading...';
+
+    fetch(`/scenario_pipeline/case/${caseId}/canonical_decision_points`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.canonical_decision_points.length > 0) {
+                status.textContent = `${data.count} canonical decision points (${data.qc_aligned_count} Q&C aligned)`;
+                status.className = 'ms-2 text-success';
+                renderCanonicalDecisionPoints(data.canonical_decision_points);
+                updateSynthesisCount(data.count);
+            } else {
+                status.textContent = data.message || 'No canonical decision points found';
+                status.className = 'ms-2 text-muted';
+            }
+        })
+        .catch(err => {
+            status.textContent = 'Error loading: ' + err.message;
+            status.className = 'ms-2 text-danger';
+            console.error('Error loading canonical decision points:', err);
+        });
+}
+
+function updateSynthesisCount(count) {
+    const badge = document.getElementById('synthesis-count');
+    if (count > 0) {
+        badge.textContent = count;
+        badge.style.display = 'inline';
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
+function renderCanonicalDecisionPoints(points) {
+    const container = document.getElementById('synthesisContainer');
+
+    if (!points || points.length === 0) {
+        container.innerHTML = `
+            <div class="text-center text-muted py-5">
+                <i class="bi bi-diagram-3-fill" style="font-size: 3rem;"></i>
+                <p class="mt-2">No synthesis results yet.</p>
+                <p><small>Click "Synthesize Case" to run the unified pipeline.</small></p>
+            </div>
+        `;
+        return;
+    }
+
+    let html = '';
+    points.forEach((point, index) => {
+        // Q&C alignment badge
+        const qcAligned = point.aligned_question_uri || point.aligned_question_text;
+        const alignmentBadge = qcAligned
+            ? '<span class="badge bg-success ms-2">Q&C Aligned</span>'
+            : '<span class="badge bg-warning text-dark ms-2">Not Aligned</span>';
+
+        // Source badge
+        const sourceBadge = point.source === 'unified'
+            ? '<span class="badge bg-info">Unified</span>'
+            : point.source === 'algorithmic'
+                ? '<span class="badge bg-secondary">Algorithmic</span>'
+                : '<span class="badge bg-light text-dark border">' + point.source + '</span>';
+
+        // Build options HTML
+        let optionsHtml = '';
+        if (point.options && point.options.length > 0) {
+            optionsHtml = '<div class="mt-3"><strong>Options:</strong><ul class="mb-0 mt-1">';
+            point.options.forEach(opt => {
+                const isBoardChoice = opt.is_board_choice;
+                optionsHtml += `
+                    <li class="${isBoardChoice ? 'fw-bold text-success' : ''}">
+                        ${opt.description}
+                        ${isBoardChoice ? '<span class="badge bg-success ms-1">Board Choice</span>' : ''}
+                        ${opt.action_uri ? '<span class="badge bg-light text-muted ms-1 small">Entity-Grounded</span>' : ''}
+                    </li>
+                `;
+            });
+            optionsHtml += '</ul></div>';
+        }
+
+        // Build provisions badges
+        let provisionsHtml = '';
+        if (point.provision_labels && point.provision_labels.length > 0) {
+            provisionsHtml = point.provision_labels.map(p =>
+                `<span class="badge bg-secondary me-1">${p}</span>`
+            ).join('');
+        }
+
+        // Entity grounding info
+        let groundingHtml = '';
+        if (point.role_label || point.obligation_label || point.constraint_label) {
+            groundingHtml = '<div class="mt-2 small">';
+            if (point.role_label) groundingHtml += `<span class="badge bg-primary me-1">Role: ${point.role_label}</span>`;
+            if (point.obligation_label) groundingHtml += `<span class="badge bg-warning text-dark me-1">Obl: ${point.obligation_label}</span>`;
+            if (point.constraint_label) groundingHtml += `<span class="badge bg-danger me-1">Con: ${point.constraint_label}</span>`;
+            groundingHtml += '</div>';
+        }
+
+        // Q&C alignment info
+        let qcHtml = '';
+        if (point.aligned_question_text || point.aligned_conclusion_text) {
+            qcHtml = '<div class="alert alert-light mt-3 small">';
+            if (point.aligned_question_text) {
+                qcHtml += `<p class="mb-1"><strong>Aligned Question:</strong> ${point.aligned_question_text}</p>`;
+            }
+            if (point.aligned_conclusion_text) {
+                qcHtml += `<p class="mb-0"><strong>Aligned Conclusion:</strong> ${point.aligned_conclusion_text}</p>`;
+            }
+            qcHtml += '</div>';
+        }
+
+        html += `
+            <div class="card mb-4 border-primary">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">
+                        <i class="bi bi-diagram-3-fill me-2"></i>
+                        Canonical Decision Point ${point.focus_number}: ${point.focus_id}
+                    </h6>
+                    <div>
+                        ${sourceBadge}
+                        ${alignmentBadge}
+                        <span class="badge bg-light text-dark ms-1">Score: ${(point.intensity_score * 100).toFixed(0)}%</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <h5>${point.description}</h5>
+
+                    ${point.decision_question ? `
+                        <div class="alert alert-light mt-3">
+                            <strong>Decision Question:</strong><br>
+                            <em>${point.decision_question}</em>
+                        </div>
+                    ` : ''}
+
+                    ${groundingHtml}
+
+                    <div class="row mt-3">
+                        <div class="col-md-12">
+                            <small class="text-muted">Applicable Provisions:</small><br>
+                            ${provisionsHtml || '<span class="text-muted">--</span>'}
+                        </div>
+                    </div>
+
+                    ${optionsHtml}
+                    ${qcHtml}
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+// Load canonical decision points on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Attempt to load existing canonical decision points
+    setTimeout(loadCanonicalDecisionPoints, 500);
+});
 </script>
 {% endblock %}

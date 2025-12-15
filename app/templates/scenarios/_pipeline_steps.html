@@ -125,35 +125,17 @@ Required context variables:
     {# Step 4: Whole-Case Synthesis - available if step 3 complete #}
     {% set step4_complete = pipeline_status.step4.complete if pipeline_status else false %}
     {% set step4_available = step3_complete or current_step >= 4 %}
-    {% set step4_active = current_step == 4 %}
-    {% set step4_on_main = step4_active and 'Review' not in step_title|default('') %}
-    {% set step4_on_review = step4_active and 'Review' in step_title|default('') %}
-    <div class="pipeline-step-group {% if step4_active %}expanded{% endif %} {% if not step4_available %}disabled{% endif %}">
-        <a href="{% if step4_available %}{{ url_for('step4.step4_synthesis', case_id=case.id) }}{% else %}#{% endif %}"
-           class="pipeline-step {% if step4_active %}active{% endif %} {% if step4_complete %}completed{% endif %} {% if not step4_available %}disabled{% endif %}"
-           {% if not step4_available %}aria-disabled="true" tabindex="-1"{% endif %}>
-            <span class="step-number {% if step4_complete %}complete{% endif %}">4</span>
-            <span class="step-label">Whole-Case Synthesis</span>
-            {% if step4_complete %}
-            <span class="step-check"><i class="bi bi-check-lg"></i></span>
-            {% elif not step4_available %}
-            <span class="step-lock"><i class="bi bi-lock-fill"></i></span>
-            {% endif %}
-        </a>
-        {# Sub-steps for Step 4 #}
-        {% if step4_available %}
-        <div class="pipeline-substeps">
-            <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}"
-               class="pipeline-substep {% if step4_on_main %}active{% endif %}">
-                <span class="substep-label">Synthesis</span>
-            </a>
-            <a href="{{ url_for('step4.step4_review', case_id=case.id) }}"
-               class="pipeline-substep {% if step4_on_review %}active{% endif %}">
-                <span class="substep-label">Review</span>
-            </a>
-        </div>
+    <a href="{% if step4_available %}{{ url_for('step4.step4_synthesis', case_id=case.id) }}{% else %}#{% endif %}"
+       class="pipeline-step {% if current_step == 4 %}active{% endif %} {% if step4_complete %}completed{% endif %} {% if not step4_available %}disabled{% endif %}"
+       {% if not step4_available %}aria-disabled="true" tabindex="-1"{% endif %}>
+        <span class="step-number {% if step4_complete %}complete{% endif %}">4</span>
+        <span class="step-label">Whole-Case Synthesis</span>
+        {% if step4_complete %}
+        <span class="step-check"><i class="bi bi-check-lg"></i></span>
+        {% elif not step4_available %}
+        <span class="step-lock"><i class="bi bi-lock-fill"></i></span>
         {% endif %}
-    </div>
+    </a>
 
     {# Step 5: Scenario Generation - available if step 4 complete #}
     {% set step5_complete = pipeline_status.step5.complete if pipeline_status else false %}
