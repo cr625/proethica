@@ -1299,9 +1299,21 @@ function loadExistingSynthesis() {
     fetch(`/scenario_pipeline/case/${currentCaseId}/synthesis_model`)
         .then(response => response.json())
         .then(data => {
-            if (data.success && data.has_synthesis) {
+            if (data.success && (data.has_synthesis || data.has_rich_analysis)) {
                 updateSynthesisResults(data);
                 document.getElementById('run-complete-synthesis-btn').innerHTML = '<i class="bi bi-arrow-repeat"></i> Re-run Synthesis';
+
+                // Show info about persisted data
+                const progressText = document.getElementById('synthesis-progress-text');
+                if (progressText) {
+                    const summary = data.summary;
+                    const richCount = (summary.rich_analysis?.causal_normative_links || 0) +
+                                     (summary.rich_analysis?.question_emergence || 0) +
+                                     (summary.rich_analysis?.resolution_patterns || 0);
+                    if (richCount > 0) {
+                        progressText.textContent = `Loaded from database: ${summary.decision_points?.canonical_count || 0} decision points, ${richCount} rich analysis items`;
+                    }
+                }
             }
         })
         .catch(err => {

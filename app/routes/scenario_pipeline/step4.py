@@ -2912,11 +2912,12 @@ def get_synthesis_model(case_id):
     Load existing synthesis model from database.
 
     Returns the stored synthesis results without re-running.
+    Includes rich analysis if previously generated.
     """
     try:
         from app.services.case_synthesizer import (
             CaseSynthesizer, CaseSynthesisModel, EntityFoundation,
-            CaseNarrative, TimelineEvent, ScenarioSeeds
+            CaseNarrative, TimelineEvent, ScenarioSeeds, TransformationAnalysis
         )
 
         # Get case
@@ -2931,6 +2932,9 @@ def get_synthesis_model(case_id):
         transformation = synthesizer._get_transformation_type(case_id)
         canonical_points = synthesizer.load_canonical_points(case_id)
 
+        # Load rich analysis from database
+        causal_links, question_emergence, resolution_patterns = synthesizer._load_rich_analysis(case_id)
+
         # Reconstruct narrative if we have canonical points
         narrative = None
         if canonical_points:
@@ -2943,11 +2947,25 @@ def get_synthesis_model(case_id):
             provisions=provisions,
             questions=questions,
             conclusions=conclusions,
-            transformation_type=transformation,
+            transformation=TransformationAnalysis(
+                transformation_type=transformation,
+                confidence=0.8,
+                reasoning="",
+                pattern_description="",
+                evidence=[]
+            ) if transformation else None,
+            # Rich analysis from database
+            causal_normative_links=causal_links,
+            question_emergence=question_emergence,
+            resolution_patterns=resolution_patterns,
+            # Decision points
             canonical_decision_points=canonical_points,
             algorithmic_candidates_count=len(canonical_points),  # Approximation
             narrative=narrative
         )
+
+        # Check if we have any rich analysis
+        has_rich_analysis = len(causal_links) > 0 or len(question_emergence) > 0 or len(resolution_patterns) > 0
 
         return jsonify({
             'success': True,
@@ -2955,7 +2973,8 @@ def get_synthesis_model(case_id):
             'case_title': model.case_title,
             'synthesis': model.to_dict(),
             'summary': model.summary(),
-            'has_synthesis': len(canonical_points) > 0
+            'has_synthesis': len(canonical_points) > 0,
+            'has_rich_analysis': has_rich_analysis
         })
 
     except Exception as e:

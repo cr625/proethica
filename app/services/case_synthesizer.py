@@ -1245,7 +1245,218 @@ class CaseSynthesizer:
         resolution_analysis = self._analyze_resolution_patterns(conclusions, questions, provisions, llm_traces)
         logger.info(f"Phase 2B: Analyzed {len(resolution_analysis)} resolution patterns")
 
+        # Store rich analysis to database
+        self._store_rich_analysis(case_id, causal_links, question_analysis, resolution_analysis)
+
         return causal_links, question_analysis, resolution_analysis, llm_traces
+
+    def _store_rich_analysis(
+        self,
+        case_id: int,
+        causal_links: List[CausalNormativeLink],
+        question_emergence: List[QuestionEmergenceAnalysis],
+        resolution_patterns: List[ResolutionPatternAnalysis]
+    ) -> None:
+        """
+        Store rich analysis results to database.
+
+        Uses TemporaryRDFStorage with specific extraction_types:
+        - causal_normative_link
+        - question_emergence
+        - resolution_pattern
+
+        Clears existing data before storing (replace semantics).
+        """
+        try:
+            # Clear existing rich analysis data
+            TemporaryRDFStorage.query.filter_by(
+                case_id=case_id,
+                extraction_type='causal_normative_link'
+            ).delete(synchronize_session=False)
+            TemporaryRDFStorage.query.filter_by(
+                case_id=case_id,
+                extraction_type='question_emergence'
+            ).delete(synchronize_session=False)
+            TemporaryRDFStorage.query.filter_by(
+                case_id=case_id,
+                extraction_type='resolution_pattern'
+            ).delete(synchronize_session=False)
+
+            session_id = f"rich_analysis_{case_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
+            # Store causal-normative links
+            for i, link in enumerate(causal_links):
+                entity = TemporaryRDFStorage(
+                    case_id=case_id,
+                    extraction_session_id=session_id,
+                    extraction_type='causal_normative_link',
+                    storage_type='individual',
+                    entity_type='analysis',
+                    entity_label=f"CausalLink_{link.action_label[:30]}",
+                    entity_uri=f"case-{case_id}#CausalLink_{i+1}",
+                    entity_definition=link.reasoning,
+                    rdf_json_ld={
+                        '@type': 'proeth-analysis:CausalNormativeLink',
+                        'action_id': link.action_id,
+                        'action_label': link.action_label,
+                        'fulfills_obligations': link.fulfills_obligations,
+                        'violates_obligations': link.violates_obligations,
+                        'guided_by_principles': link.guided_by_principles,
+                        'constrained_by': link.constrained_by,
+                        'agent_role': link.agent_role,
+                        'reasoning': link.reasoning,
+                        'confidence': link.confidence
+                    },
+                    is_selected=True,
+                    extraction_model='claude-sonnet-4-20250514',
+                    ontology_target=f'proethica-case-{case_id}'
+                )
+                db.session.add(entity)
+
+            # Store question emergence analyses
+            for i, qa in enumerate(question_emergence):
+                entity = TemporaryRDFStorage(
+                    case_id=case_id,
+                    extraction_session_id=session_id,
+                    extraction_type='question_emergence',
+                    storage_type='individual',
+                    entity_type='analysis',
+                    entity_label=f"QuestionEmergence_{i+1}",
+                    entity_uri=qa.question_uri or f"case-{case_id}#QuestionEmergence_{i+1}",
+                    entity_definition=qa.emergence_narrative,
+                    rdf_json_ld={
+                        '@type': 'proeth-analysis:QuestionEmergence',
+                        'question_uri': qa.question_uri,
+                        'question_text': qa.question_text,
+                        'triggered_by_events': qa.triggered_by_events,
+                        'triggered_by_actions': qa.triggered_by_actions,
+                        'involves_roles': qa.involves_roles,
+                        'competing_obligations': [list(pair) for pair in qa.competing_obligations],
+                        'emergence_narrative': qa.emergence_narrative,
+                        'confidence': qa.confidence
+                    },
+                    is_selected=True,
+                    extraction_model='claude-sonnet-4-20250514',
+                    ontology_target=f'proethica-case-{case_id}'
+                )
+                db.session.add(entity)
+
+            # Store resolution patterns
+            for i, rp in enumerate(resolution_patterns):
+                entity = TemporaryRDFStorage(
+                    case_id=case_id,
+                    extraction_session_id=session_id,
+                    extraction_type='resolution_pattern',
+                    storage_type='individual',
+                    entity_type='analysis',
+                    entity_label=f"ResolutionPattern_{i+1}",
+                    entity_uri=rp.conclusion_uri or f"case-{case_id}#ResolutionPattern_{i+1}",
+                    entity_definition=rp.resolution_narrative,
+                    rdf_json_ld={
+                        '@type': 'proeth-analysis:ResolutionPattern',
+                        'conclusion_uri': rp.conclusion_uri,
+                        'conclusion_text': rp.conclusion_text,
+                        'answers_questions': rp.answers_questions,
+                        'determinative_principles': rp.determinative_principles,
+                        'determinative_facts': rp.determinative_facts,
+                        'cited_provisions': rp.cited_provisions,
+                        'weighing_process': rp.weighing_process,
+                        'resolution_narrative': rp.resolution_narrative,
+                        'confidence': rp.confidence
+                    },
+                    is_selected=True,
+                    extraction_model='claude-sonnet-4-20250514',
+                    ontology_target=f'proethica-case-{case_id}'
+                )
+                db.session.add(entity)
+
+            db.session.commit()
+            logger.info(f"Stored rich analysis: {len(causal_links)} links, {len(question_emergence)} QE, {len(resolution_patterns)} RP")
+
+        except Exception as e:
+            logger.error(f"Failed to store rich analysis: {e}")
+            db.session.rollback()
+
+    def _load_rich_analysis(
+        self,
+        case_id: int
+    ) -> Tuple[List[CausalNormativeLink], List[QuestionEmergenceAnalysis], List[ResolutionPatternAnalysis]]:
+        """
+        Load rich analysis from database.
+
+        Returns:
+            Tuple of (causal_links, question_emergence, resolution_patterns)
+        """
+        causal_links = []
+        question_emergence = []
+        resolution_patterns = []
+
+        try:
+            # Load causal-normative links
+            causal_records = TemporaryRDFStorage.query.filter_by(
+                case_id=case_id,
+                extraction_type='causal_normative_link'
+            ).all()
+
+            for r in causal_records:
+                data = r.rdf_json_ld or {}
+                causal_links.append(CausalNormativeLink(
+                    action_id=data.get('action_id', ''),
+                    action_label=data.get('action_label', ''),
+                    fulfills_obligations=data.get('fulfills_obligations', []),
+                    violates_obligations=data.get('violates_obligations', []),
+                    guided_by_principles=data.get('guided_by_principles', []),
+                    constrained_by=data.get('constrained_by', []),
+                    agent_role=data.get('agent_role'),
+                    reasoning=data.get('reasoning', ''),
+                    confidence=data.get('confidence', 0.0)
+                ))
+
+            # Load question emergence
+            qe_records = TemporaryRDFStorage.query.filter_by(
+                case_id=case_id,
+                extraction_type='question_emergence'
+            ).all()
+
+            for r in qe_records:
+                data = r.rdf_json_ld or {}
+                question_emergence.append(QuestionEmergenceAnalysis(
+                    question_uri=data.get('question_uri', ''),
+                    question_text=data.get('question_text', ''),
+                    triggered_by_events=data.get('triggered_by_events', []),
+                    triggered_by_actions=data.get('triggered_by_actions', []),
+                    involves_roles=data.get('involves_roles', []),
+                    competing_obligations=[tuple(p) for p in data.get('competing_obligations', [])],
+                    emergence_narrative=data.get('emergence_narrative', ''),
+                    confidence=data.get('confidence', 0.0)
+                ))
+
+            # Load resolution patterns
+            rp_records = TemporaryRDFStorage.query.filter_by(
+                case_id=case_id,
+                extraction_type='resolution_pattern'
+            ).all()
+
+            for r in rp_records:
+                data = r.rdf_json_ld or {}
+                resolution_patterns.append(ResolutionPatternAnalysis(
+                    conclusion_uri=data.get('conclusion_uri', ''),
+                    conclusion_text=data.get('conclusion_text', ''),
+                    answers_questions=data.get('answers_questions', []),
+                    determinative_principles=data.get('determinative_principles', []),
+                    determinative_facts=data.get('determinative_facts', []),
+                    cited_provisions=data.get('cited_provisions', []),
+                    weighing_process=data.get('weighing_process', ''),
+                    resolution_narrative=data.get('resolution_narrative', ''),
+                    confidence=data.get('confidence', 0.0)
+                ))
+
+            logger.info(f"Loaded rich analysis: {len(causal_links)} links, {len(question_emergence)} QE, {len(resolution_patterns)} RP")
+
+        except Exception as e:
+            logger.error(f"Failed to load rich analysis: {e}")
+
+        return causal_links, question_emergence, resolution_patterns
 
     def _analyze_causal_normative_links(
         self,
