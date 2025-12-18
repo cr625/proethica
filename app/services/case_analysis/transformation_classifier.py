@@ -122,7 +122,9 @@ class TransformationClassifier:
         conclusions: List[Dict] = None,
         resolution_patterns: List[Dict] = None,
         use_llm: bool = True,
-        case_title: str = None
+        case_title: str = None,
+        case_facts: str = None,
+        all_entities: Dict[str, List] = None
     ) -> TransformationResult:
         """
         Classify transformation type for a case.
@@ -133,6 +135,9 @@ class TransformationClassifier:
             conclusions: List of conclusion dicts from Step 4
             resolution_patterns: Resolution patterns from synthesis (if available)
             use_llm: Whether to use LLM for classification
+            case_title: Optional case title
+            case_facts: Optional facts section text for context
+            all_entities: Optional dict of entities by type from Passes 1-3
 
         Returns:
             TransformationResult with type, confidence, and reasoning
@@ -146,6 +151,14 @@ class TransformationClassifier:
         if resolution_patterns is None:
             resolution_patterns = self._load_resolution_patterns(case_id)
 
+        # Load case facts if not provided
+        if case_facts is None:
+            case_facts = self._load_case_facts(case_id)
+
+        # Load entities if not provided
+        if all_entities is None:
+            all_entities = self._load_entities(case_id)
+
         # First try rule-based classification
         rule_result = self._rule_based_classification(questions, conclusions)
 
@@ -153,7 +166,8 @@ class TransformationClassifier:
         if use_llm and (rule_result.confidence < 0.7 or True):  # Always use LLM for better results
             try:
                 llm_result = self._llm_classification(
-                    case_id, questions, conclusions, resolution_patterns, case_title
+                    case_id, questions, conclusions, resolution_patterns,
+                    case_title, case_facts, all_entities
                 )
                 # Merge results, preferring LLM if confident
                 if llm_result.confidence > rule_result.confidence:
@@ -248,10 +262,12 @@ class TransformationClassifier:
         questions: List[Dict],
         conclusions: List[Dict],
         resolution_patterns: List[Dict],
-        case_title: str = None
+        case_title: str = None,
+        case_facts: str = None,
+        all_entities: Dict[str, List] = None
     ) -> TransformationResult:
         """
-        LLM-based transformation classification.
+        LLM-based transformation classification with full context.
 
         Args:
             case_id: Case ID
@@ -259,6 +275,8 @@ class TransformationClassifier:
             conclusions: Conclusion data
             resolution_patterns: Resolution patterns from synthesis
             case_title: Optional case title (avoids DB lookup)
+            case_facts: Facts section text
+            all_entities: Entities from Passes 1-3
 
         Returns:
             TransformationResult
@@ -271,57 +289,119 @@ class TransformationClassifier:
             except Exception:
                 case_title = f"Case {case_id}"
 
-        # Format questions
-        questions_text = "\n".join([
-            f"Q{i+1}: {q.get('entity_definition', 'No text')}"
-            for i, q in enumerate(questions)
-        ])
+        # Try to get academic framework context
+        framework_context = ""
+        try:
+            from app.academic_references.frameworks.transformation_classification import (
+                get_prompt_context, CITATION_SHORT
+            )
+            framework_context = get_prompt_context(include_examples=True, include_mapping=False)
+        except ImportError:
+            # Fall back to built-in definitions
+            framework_context = self._get_builtin_framework_context()
 
-        # Format conclusions
-        conclusions_text = "\n".join([
-            f"C{i+1}: {c.get('entity_definition', 'No text')} [Type: {c.get('rdf_json_ld', {}).get('conclusionType', 'unknown')}]"
-            for i, c in enumerate(conclusions)
-        ])
+        # Format questions - handle both data structures
+        questions_text = ""
+        if questions:
+            q_lines = []
+            for i, q in enumerate(questions):
+                # Try multiple possible keys for the text
+                q_text = (q.get('text') or q.get('entity_definition') or
+                         q.get('question_text') or q.get('label') or 'No text')
+                q_type = q.get('type', q.get('question_type', ''))
+                q_lines.append(f"Q{i+1}: {q_text}" + (f" [{q_type}]" if q_type else ""))
+            questions_text = "\n".join(q_lines)
+        else:
+            questions_text = "(No questions extracted)"
+
+        # Format conclusions - handle both data structures
+        conclusions_text = ""
+        if conclusions:
+            c_lines = []
+            for i, c in enumerate(conclusions):
+                # Try multiple possible keys for the text
+                c_text = (c.get('text') or c.get('entity_definition') or
+                         c.get('conclusion_text') or c.get('label') or 'No text')
+                c_type = c.get('rdf_json_ld', {}).get('conclusionType', '') or c.get('type', '')
+                c_lines.append(f"C{i+1}: {c_text}" + (f" [{c_type}]" if c_type else ""))
+            conclusions_text = "\n".join(c_lines)
+        else:
+            conclusions_text = "(No conclusions extracted)"
 
         # Format resolution patterns if available
         patterns_text = ""
         if resolution_patterns:
             patterns_text = "\n".join([
                 f"- {p.get('pattern_type', 'unknown')}: {p.get('resolution_narrative', 'No narrative')}"
-                for p in resolution_patterns[:3]  # Limit to 3
+                for p in resolution_patterns[:3]
             ])
 
-        prompt = f"""Analyze this NSPE ethics case and classify its transformation type.
+        # Format key entities for context
+        entities_context = ""
+        if all_entities:
+            entity_parts = []
 
-CASE: {case_title}
+            # Roles
+            roles = all_entities.get('roles', [])
+            if roles:
+                role_labels = [self._get_entity_label(r) for r in roles[:5]]
+                entity_parts.append(f"ROLES: {', '.join(role_labels)}")
 
-ETHICAL QUESTIONS:
+            # Obligations
+            obligations = all_entities.get('obligations', [])
+            if obligations:
+                obl_labels = [self._get_entity_label(o) for o in obligations[:5]]
+                entity_parts.append(f"OBLIGATIONS: {', '.join(obl_labels)}")
+
+            # Actions
+            actions = all_entities.get('actions', [])
+            if actions:
+                action_labels = [self._get_entity_label(a) for a in actions[:5]]
+                entity_parts.append(f"KEY ACTIONS: {', '.join(action_labels)}")
+
+            # Constraints
+            constraints = all_entities.get('constraints', [])
+            if constraints:
+                const_labels = [self._get_entity_label(c) for c in constraints[:3]]
+                entity_parts.append(f"CONSTRAINTS: {', '.join(const_labels)}")
+
+            if entity_parts:
+                entities_context = "\n".join(entity_parts)
+
+        # Build comprehensive prompt
+        prompt = f"""{framework_context}
+
+CASE ANALYSIS: {case_title}
+
+CASE FACTS:
+{case_facts[:2000] if case_facts else "(Facts not available - analyze based on questions and conclusions)"}
+
+{f"EXTRACTED ENTITIES:{chr(10)}{entities_context}" if entities_context else ""}
+
+ETHICAL QUESTIONS POSED TO THE BOARD:
 {questions_text}
 
-BOARD CONCLUSIONS:
+BOARD'S CONCLUSIONS:
 {conclusions_text}
 
 {f"RESOLUTION PATTERNS:{chr(10)}{patterns_text}" if patterns_text else ""}
 
-TRANSFORMATION TYPES:
-1. transfer - Resolution transfers obligation/responsibility to another party
-   Example: Engineer reports to authorities, shifting responsibility to regulatory body
-2. stalemate - Competing obligations remain in tension without clear resolution
-   Example: Duty to client vs duty to public safety, both valid but incompatible
-3. oscillation - Duties shift back and forth between parties over time
-   Example: Employer/employee responsibility cycles during project phases
-4. phase_lag - Delayed consequences reveal obligations not initially apparent
-   Example: Hidden defect discovered years later creates new duties
-
-Based on HOW the ethical situation was resolved (not what the outcome was), classify this case.
+ANALYSIS TASK:
+Based on the academic framework above and the case details, classify HOW the ethical situation
+was transformed through the Board's resolution. Focus on:
+1. How obligations shifted between parties
+2. Whether tensions were resolved or remain
+3. The temporal pattern of responsibility
 
 Return your analysis as JSON:
 {{
     "transformation_type": "transfer|stalemate|oscillation|phase_lag|unclear",
     "confidence": 0.0-1.0,
-    "reasoning": "2-3 sentence explanation of why this transformation type applies",
-    "pattern_description": "Brief description of the specific pattern in this case",
-    "supporting_evidence": ["evidence 1", "evidence 2"]
+    "reasoning": "2-3 sentence explanation grounded in the case facts and framework definitions",
+    "pattern_description": "Specific description of the transformation pattern in THIS case",
+    "supporting_evidence": ["quote or fact 1", "quote or fact 2", "quote or fact 3"],
+    "involved_roles": ["role1", "role2"],
+    "obligation_shifts": ["description of how obligations moved"]
 }}"""
 
         self.last_prompt = prompt
@@ -454,3 +534,104 @@ Return your analysis as JSON:
                 pass
 
         return []
+
+    def _load_case_facts(self, case_id: int) -> str:
+        """Load case facts section from document."""
+        try:
+            case = Document.query.get(case_id)
+            if case and case.doc_metadata:
+                sections = case.doc_metadata.get('sections_dual', {})
+                facts_data = sections.get('facts', {})
+                if isinstance(facts_data, dict):
+                    return facts_data.get('text', '')
+                return str(facts_data) if facts_data else ''
+        except Exception as e:
+            logger.warning(f"Could not load case facts for {case_id}: {e}")
+        return ''
+
+    def _load_entities(self, case_id: int) -> Dict[str, List]:
+        """Load entities from Passes 1-3."""
+        from app.models import TemporaryRDFStorage
+
+        entities = {
+            'roles': [],
+            'obligations': [],
+            'constraints': [],
+            'actions': [],
+            'principles': [],
+            'states': [],
+            'resources': []
+        }
+
+        # Map extraction types to entity keys
+        type_map = {
+            'role': 'roles',
+            'obligation': 'obligations',
+            'constraint': 'constraints',
+            'action': 'actions',
+            'principle': 'principles',
+            'state': 'states',
+            'resource': 'resources'
+        }
+
+        try:
+            all_entities = TemporaryRDFStorage.query.filter_by(
+                case_id=case_id
+            ).filter(
+                TemporaryRDFStorage.extraction_type.in_(type_map.keys())
+            ).all()
+
+            for entity in all_entities:
+                key = type_map.get(entity.extraction_type)
+                if key:
+                    entities[key].append({
+                        'label': entity.entity_label,
+                        'definition': entity.entity_definition,
+                        'uri': entity.entity_uri
+                    })
+        except Exception as e:
+            logger.warning(f"Could not load entities for case {case_id}: {e}")
+
+        return entities
+
+    def _get_entity_label(self, entity: Any) -> str:
+        """Extract label from entity dict or object."""
+        if isinstance(entity, dict):
+            return entity.get('label') or entity.get('entity_label') or 'Unknown'
+        return getattr(entity, 'entity_label', 'Unknown')
+
+    def _get_builtin_framework_context(self) -> str:
+        """Return built-in transformation framework if academic module unavailable."""
+        return """TRANSFORMATION CLASSIFICATION FRAMEWORK
+Based on: Marchais-Roubelat & Roubelat (2015) Scenario Design Methodology
+
+TRANSFORMATION TYPES:
+
+1. TRANSFER
+Definition: Resolution transfers obligation/responsibility to another party.
+The ethical obligation moves from one stakeholder to another. The original party
+is relieved of the duty, which now falls to a different actor.
+Example: Engineer reports to authorities, transferring responsibility to regulatory body.
+Indicators: "responsibility transferred", "duty passed to", "now falls to", "referred to"
+
+2. STALEMATE
+Definition: Competing obligations remain in tension without clear resolution.
+Multiple valid but incompatible obligations exist. The Board may acknowledge this
+tension without definitively prioritizing one over another.
+Example: Duty to client confidentiality vs. duty to public safety, both valid.
+Indicators: "both obligations valid", "competing duties", "tension between", "conflict persists"
+
+3. OSCILLATION
+Definition: Duties shift back and forth between parties over time.
+Responsibility cycles between parties as circumstances change, often in ongoing
+professional relationships.
+Example: Design responsibility alternates between engineer and contractor by phase.
+Indicators: "responsibility cycles", "alternating obligation", "at different stages"
+
+4. PHASE_LAG
+Definition: Delayed consequences reveal obligations not initially apparent.
+A temporal gap exists between action and revelation of consequences, creating
+retrospective ethical duties.
+Example: Defect discovered years after construction creates new obligations.
+Indicators: "later discovered", "subsequently revealed", "hidden defect", "years after"
+"""

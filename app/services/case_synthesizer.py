@@ -491,6 +491,63 @@ class CaseSynthesizer:
             self._llm_client = get_llm_client()
         return self._llm_client
 
+    def _parse_json_response(self, response_text: str, context: str = "unknown") -> Optional[List]:
+        """
+        Parse JSON array from LLM response, handling various formats.
+
+        Tries multiple patterns:
+        1. ```json ... ``` code block
+        2. ``` ... ``` code block without language marker
+        3. Raw JSON array [ ... ]
+        4. JSON with extra whitespace/newlines
+
+        Args:
+            response_text: Raw LLM response text
+            context: Description for logging (e.g., "question emergence")
+
+        Returns:
+            Parsed list or None if parsing fails
+        """
+        import re
+
+        # Try code block with json marker
+        json_match = re.search(r'```json\s*(.*?)\s*```', response_text, re.DOTALL)
+        if json_match:
+            try:
+                return json.loads(json_match.group(1))
+            except json.JSONDecodeError as e:
+                logger.warning(f"JSON decode error in {context} (json block): {e}")
+
+        # Try code block without json marker
+        json_match = re.search(r'```\s*(.*?)\s*```', response_text, re.DOTALL)
+        if json_match:
+            try:
+                return json.loads(json_match.group(1))
+            except json.JSONDecodeError:
+                pass
+
+        # Try raw JSON array
+        json_match = re.search(r'\[\s*\{.*?\}\s*\]', response_text, re.DOTALL)
+        if json_match:
+            try:
+                return json.loads(json_match.group(0))
+            except json.JSONDecodeError:
+                pass
+
+        # Try to find any array-like structure
+        try:
+            # Find the first [ and last ]
+            start = response_text.find('[')
+            end = response_text.rfind(']')
+            if start != -1 and end != -1 and end > start:
+                potential_json = response_text[start:end+1]
+                return json.loads(potential_json)
+        except json.JSONDecodeError:
+            pass
+
+        logger.warning(f"Could not parse JSON in {context} response. First 500 chars: {response_text[:500]}")
+        return None
+
     def synthesize_complete(
         self,
         case_id: int,
@@ -1570,12 +1627,9 @@ Include ALL actions even if they have empty relationships. Be precise with URI m
                 model="claude-sonnet-4-20250514"
             ))
 
-            # Parse JSON from response
-            import re
-            json_match = re.search(r'```json\n(.*?)\n```', response_text, re.DOTALL)
-            if json_match:
-                links_data = json.loads(json_match.group(1))
-
+            # Parse JSON from response using robust parser
+            links_data = self._parse_json_response(response_text, "causal-normative links")
+            if links_data:
                 return [
                     CausalNormativeLink(
                         action_id=link.get('action_id', ''),
@@ -1590,9 +1644,7 @@ Include ALL actions even if they have empty relationships. Be precise with URI m
                     )
                     for link in links_data
                 ]
-            else:
-                logger.warning("Could not parse causal-normative links JSON")
-                return []
+            return []
 
         except Exception as e:
             logger.error(f"Failed to analyze causal-normative links: {e}")
@@ -1708,12 +1760,9 @@ Be precise with URI matching. Include all questions."""
                 model="claude-sonnet-4-20250514"
             ))
 
-            # Parse JSON from response
-            import re
-            json_match = re.search(r'```json\n(.*?)\n```', response_text, re.DOTALL)
-            if json_match:
-                analyses_data = json.loads(json_match.group(1))
-
+            # Parse JSON from response using robust parser
+            analyses_data = self._parse_json_response(response_text, "question emergence")
+            if analyses_data:
                 return [
                     QuestionEmergenceAnalysis(
                         question_uri=a.get('question_uri', ''),
@@ -1727,9 +1776,7 @@ Be precise with URI matching. Include all questions."""
                     )
                     for a in analyses_data
                 ]
-            else:
-                logger.warning("Could not parse question emergence JSON")
-                return []
+            return []
 
         except Exception as e:
             logger.error(f"Failed to analyze question emergence: {e}")
@@ -1832,12 +1879,9 @@ Be precise with URI matching. Include all conclusions."""
                 model="claude-sonnet-4-20250514"
             ))
 
-            # Parse JSON from response
-            import re
-            json_match = re.search(r'```json\n(.*?)\n```', response_text, re.DOTALL)
-            if json_match:
-                patterns_data = json.loads(json_match.group(1))
-
+            # Parse JSON from response using robust parser
+            patterns_data = self._parse_json_response(response_text, "resolution patterns")
+            if patterns_data:
                 return [
                     ResolutionPatternAnalysis(
                         conclusion_uri=p.get('conclusion_uri', ''),
@@ -1852,9 +1896,7 @@ Be precise with URI matching. Include all conclusions."""
                     )
                     for p in patterns_data
                 ]
-            else:
-                logger.warning("Could not parse resolution patterns JSON")
-                return []
+            return []
 
         except Exception as e:
             logger.error(f"Failed to analyze resolution patterns: {e}")

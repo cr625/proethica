@@ -121,6 +121,24 @@ def create_app(config_name=None):
             # In case CSRF not fully configured, avoid breaking templates
             return {}
 
+    # Expose pipeline state manager in templates
+    @app.context_processor
+    def inject_pipeline_state():
+        """
+        Inject pipeline state manager into all templates.
+
+        Usage in templates:
+            {% set state = get_pipeline_state(case_id) %}
+            {% if state.can_start('step4', 'questions') %}
+                <button>Extract Questions</button>
+            {% endif %}
+        """
+        from app.services.pipeline_state_manager import get_pipeline_state, PipelineStateManager
+        return dict(
+            get_pipeline_state=get_pipeline_state,
+            PipelineStateManager=PipelineStateManager
+        )
+
     # Register blueprints
     from app.routes.index import index_bp
     from app.routes.auth import auth_bp

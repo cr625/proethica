@@ -28,6 +28,7 @@ from app.services.provision_grouper import ProvisionGrouper
 from app.services.provision_group_validator import ProvisionGroupValidator
 from app.services.code_provision_linker import CodeProvisionLinker
 from app.services.question_analyzer import QuestionAnalyzer
+from app.services.entity_grounding_service import EntityGroundingService
 from app.services.conclusion_analyzer import ConclusionAnalyzer
 from app.services.question_conclusion_linker import QuestionConclusionLinker
 from app.services.case_synthesis_service import CaseSynthesisService
@@ -38,6 +39,10 @@ from app.routes.scenario_pipeline.step4_streaming import synthesize_case_streami
 # Import scenario generation
 from app.routes.scenario_pipeline.generate_scenario import generate_scenario_from_case
 
+# Import modular route registrations
+from app.routes.scenario_pipeline.step4_questions import register_question_routes
+from app.routes.scenario_pipeline.step4_conclusions import register_conclusion_routes
+
 logger = logging.getLogger(__name__)
 
 bp = Blueprint('step4', __name__, url_prefix='/scenario_pipeline')
@@ -46,7 +51,18 @@ bp = Blueprint('step4', __name__, url_prefix='/scenario_pipeline')
 def init_step4_csrf_exemption(app):
     """Exempt Step 4 synthesis routes from CSRF protection"""
     if hasattr(app, 'csrf') and app.csrf:
-        from app.routes.scenario_pipeline.step4 import save_streaming_results, generate_synthesis_annotations, extract_decision_points, generate_arguments, commit_step4_entities, publish_all_entities, synthesize_case, synthesize_complete
+        from app.routes.scenario_pipeline.step4 import (
+            save_streaming_results, generate_synthesis_annotations,
+            extract_decision_points, generate_arguments, commit_step4_entities,
+            publish_all_entities, synthesize_case, synthesize_complete,
+            # Individual extraction endpoints (those still in step4.py)
+            extract_provisions_individual, extract_transformation_individual,
+            extract_rich_analysis_individual, extract_decision_synthesis_individual,
+            extract_narrative_individual,
+            # Streaming extraction endpoints
+            extract_provisions_streaming, extract_transformation_streaming,
+            extract_rich_analysis_streaming
+        )
         from app.routes.scenario_pipeline.generate_scenario import generate_scenario_from_case
         app.csrf.exempt(save_streaming_results)
         app.csrf.exempt(generate_synthesis_annotations)
@@ -57,6 +73,21 @@ def init_step4_csrf_exemption(app):
         app.csrf.exempt(publish_all_entities)
         app.csrf.exempt(synthesize_case)
         app.csrf.exempt(synthesize_complete)
+        # Individual extraction endpoints (in step4.py)
+        app.csrf.exempt(extract_provisions_individual)
+        app.csrf.exempt(extract_transformation_individual)
+        app.csrf.exempt(extract_rich_analysis_individual)
+        app.csrf.exempt(extract_decision_synthesis_individual)
+        app.csrf.exempt(extract_narrative_individual)
+        # Streaming extraction endpoints
+        app.csrf.exempt(extract_provisions_streaming)
+        app.csrf.exempt(extract_transformation_streaming)
+        app.csrf.exempt(extract_rich_analysis_streaming)
+        # Modular endpoints - exempt by view name
+        app.csrf.exempt('step4.extract_questions_individual')
+        app.csrf.exempt('step4.extract_questions_streaming')
+        app.csrf.exempt('step4.extract_conclusions_individual')
+        app.csrf.exempt('step4.extract_conclusions_streaming')
 
 
 @bp.route('/case/<int:case_id>/step4')
@@ -1140,33 +1171,47 @@ def get_all_case_entities(case_id: int) -> Dict[str, List]:
     Query ALL extracted entities from Passes 1-3.
 
     Returns:
-        Dict with entities by type:
+        Dict with entities by type (lowercase keys):
         {
             'roles': [...],
             'states': [...],
             ...
         }
+
+    Note: Database stores entity_type with capitalized names (Roles, States, etc.)
+    but we return lowercase keys for consistency with analyzers.
     """
-    entity_types = [
-        'roles', 'states', 'resources',
-        'principles', 'obligations', 'constraints', 'capabilities',
-        'actions', 'events'
-    ]
+    # Map lowercase keys to database capitalization
+    entity_type_map = {
+        'roles': 'Roles',
+        'states': 'States',
+        'resources': 'Resources',
+        'principles': 'Principles',
+        'obligations': 'Obligations',
+        'constraints': 'Constraints',
+        'capabilities': 'Capabilities',
+        'actions': 'actions',  # lowercase in DB
+        'events': 'events'     # lowercase in DB
+    }
 
     entities = {}
-    for entity_type in entity_types:
-        entities[entity_type] = TemporaryRDFStorage.query.filter_by(
+    for key, db_type in entity_type_map.items():
+        entities[key] = TemporaryRDFStorage.query.filter_by(
             case_id=case_id,
-            entity_type=entity_type,
+            entity_type=db_type,
             storage_type='individual'
         ).all()
 
-    logger.info(
-        f"Loaded entities for case {case_id}: "
-        f"{sum(len(entities[t]) for t in entity_types)} total"
-    )
+    total_count = sum(len(v) for v in entities.values())
+    logger.info(f"Loaded entities for case {case_id}: {total_count} total")
 
     return entities
+
+
+# Register modular routes
+# These modules handle question and conclusion extraction with entity grounding
+register_question_routes(bp, get_all_case_entities)
+register_conclusion_routes(bp, get_all_case_entities)
 
 
 # ============================================================================
@@ -2251,6 +2296,47 @@ def get_publish_status(case_id):
         }), 500
 
 
+@bp.route('/case/<int:case_id>/pipeline_state')
+def get_pipeline_state_api(case_id):
+    """
+    Get pipeline state for a case.
+
+    Returns complete state including:
+    - Step completion status
+    - Task completion within each step
+    - Prerequisites met/missing for each task
+    - Artifact counts by type
+
+    NeMo Migration: This endpoint can be replaced with nemo.workflows.get_run_state()
+
+    Usage:
+        fetch('/scenario_pipeline/case/7/pipeline_state')
+            .then(r => r.json())
+            .then(state => {
+                if (state.steps.step4.tasks.questions.can_start) {
+                    enableButton('extractQuestionsBtn');
+                }
+            });
+    """
+    try:
+        from app.services.pipeline_state_manager import get_pipeline_state
+
+        state = get_pipeline_state(case_id)
+        return jsonify({
+            'success': True,
+            **state.to_dict()
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting pipeline state for case {case_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 # ============================================================================
 # ENTITY-GROUNDED ARGUMENTS (F1-F3 Pipeline)
 # ============================================================================
@@ -2986,3 +3072,1108 @@ def get_synthesis_model(case_id):
             'error': str(e)
         }), 500
 
+
+# ============================================================================
+# INDIVIDUAL EXTRACTION ENDPOINTS (for step4.html task-by-task display)
+# ============================================================================
+
+@bp.route('/case/<int:case_id>/extract_provisions_stream', methods=['POST'])
+@auth_required_for_llm
+def extract_provisions_streaming(case_id):
+    """
+    Extract code provisions with SSE streaming for real-time progress.
+    """
+    import json
+    from flask import Response, stream_with_context
+    from app.services.nspe_references_parser import NSPEReferencesParser
+    from app.services.universal_provision_detector import UniversalProvisionDetector
+    from app.services.provision_grouper import ProvisionGrouper
+    from app.services.provision_group_validator import ProvisionGroupValidator
+    from app.services.code_provision_linker import CodeProvisionLinker
+
+    def sse_msg(data):
+        return f"data: {json.dumps(data)}\n\n"
+
+    def generate():
+        try:
+            case = Document.query.get_or_404(case_id)
+            llm_client = get_llm_client()
+
+            # Clear existing provisions
+            TemporaryRDFStorage.query.filter_by(
+                case_id=case_id,
+                extraction_type='code_provision_reference'
+            ).delete(synchronize_session=False)
+            db.session.commit()
+
+            yield sse_msg({'stage': 'START', 'progress': 5, 'messages': ['Starting provisions extraction...']})
+
+            # Get references HTML
+            sections_dual = case.doc_metadata.get('sections_dual', {}) if case.doc_metadata else {}
+            references_html = None
+            for section_key, section_content in sections_dual.items():
+                if 'reference' in section_key.lower():
+                    references_html = section_content.get('html', '') if isinstance(section_content, dict) else ''
+                    break
+
+            if not references_html:
+                yield sse_msg({'stage': 'ERROR', 'progress': 100, 'messages': ['No references section found'], 'error': True})
+                return
+
+            # Parse provisions
+            parser = NSPEReferencesParser()
+            provisions = parser.parse_references_html(references_html)
+            yield sse_msg({'stage': 'PARSED', 'progress': 15, 'messages': [f'Parsed {len(provisions)} NSPE code provisions']})
+
+            # Get case sections for detection
+            case_sections = {}
+            for section_key in ['facts', 'discussion', 'question', 'conclusion']:
+                if section_key in sections_dual:
+                    section_data = sections_dual[section_key]
+                    case_sections[section_key] = section_data.get('text', '') if isinstance(section_data, dict) else str(section_data)
+
+            # Detect mentions
+            detector = UniversalProvisionDetector()
+            all_mentions = detector.detect_all_provisions(case_sections)
+            yield sse_msg({'stage': 'DETECTED', 'progress': 25, 'messages': [f'Detected {len(all_mentions)} provision mentions in case text']})
+
+            # Group mentions
+            grouper = ProvisionGrouper()
+            grouped_mentions = grouper.group_mentions_by_provision(all_mentions, provisions)
+            yield sse_msg({'stage': 'GROUPED', 'progress': 30, 'messages': ['Grouped mentions by provision code']})
+
+            # Validate each provision
+            validator = ProvisionGroupValidator(llm_client)
+            for i, provision in enumerate(provisions):
+                code = provision['code_provision']
+                mentions = grouped_mentions.get(code, [])
+
+                if mentions:
+                    yield sse_msg({'stage': 'VALIDATING', 'progress': 30 + int((i / len(provisions)) * 30),
+                                   'messages': [f'Validating {code}: {len(mentions)} mentions...']})
+
+                    validated = validator.validate_group(code, provision['provision_text'], mentions)
+                    provision['relevant_excerpts'] = [
+                        {
+                            'section': v.section,
+                            'text': v.excerpt,
+                            'matched_citation': v.citation_text,
+                            'mention_type': v.content_type,
+                            'confidence': v.confidence,
+                            'validation_reasoning': v.reasoning
+                        }
+                        for v in validated
+                    ]
+
+                    yield sse_msg({'stage': 'VALIDATED', 'progress': 30 + int(((i + 1) / len(provisions)) * 30),
+                                   'messages': [f'Validation complete for {code}: {len(validated)}/{len(mentions)} mentions relevant']})
+                else:
+                    provision['relevant_excerpts'] = []
+
+            # Link to entities
+            yield sse_msg({'stage': 'LINKING', 'progress': 65, 'messages': ['Linking provisions to extracted entities...']})
+
+            all_entities = get_all_case_entities(case_id)
+            linker = CodeProvisionLinker(llm_client)
+            provisions = linker.link_provisions_to_entities(
+                provisions,
+                roles=_format_entities_for_linking(all_entities.get('roles', [])),
+                states=_format_entities_for_linking(all_entities.get('states', [])),
+                resources=_format_entities_for_linking(all_entities.get('resources', [])),
+                principles=_format_entities_for_linking(all_entities.get('principles', [])),
+                obligations=_format_entities_for_linking(all_entities.get('obligations', [])),
+                constraints=_format_entities_for_linking(all_entities.get('constraints', [])),
+                capabilities=_format_entities_for_linking(all_entities.get('capabilities', [])),
+                actions=_format_entities_for_linking(all_entities.get('actions', [])),
+                events=_format_entities_for_linking(all_entities.get('events', [])),
+                case_text_summary=f"Case {case_id}: {case.title}"
+            )
+
+            # Count links
+            total_links = sum(len(p.get('applies_to', [])) for p in provisions)
+            yield sse_msg({'stage': 'LINKED', 'progress': 85, 'messages': [f'Linked provisions to {total_links} entities']})
+
+            # Store provisions
+            yield sse_msg({'stage': 'STORING', 'progress': 90, 'messages': ['Storing provisions in database...']})
+            session_id = str(uuid.uuid4())
+            store_provisions_to_rdf(case_id, provisions, session_id)
+
+            # Build final status
+            status_messages = []
+            for p in provisions:
+                code = p.get('code_provision', 'Unknown')
+                excerpts = len(p.get('relevant_excerpts', []))
+                applies_to = len(p.get('applies_to', []))
+                status_messages.append(f'Provision {code}: {applies_to} entity links, {excerpts} excerpts')
+
+            # Get the saved prompt/response from ExtractionPrompt for display
+            prompt_record = ExtractionPrompt.query.filter_by(
+                case_id=case_id,
+                concept_type='code_provision_reference'
+            ).order_by(ExtractionPrompt.created_at.desc()).first()
+
+            yield sse_msg({
+                'stage': 'COMPLETE',
+                'progress': 100,
+                'messages': [f'Extraction complete: {len(provisions)} provisions'],
+                'status_messages': status_messages,
+                'prompt': prompt_record.prompt_text if prompt_record else 'Provision extraction pipeline',
+                'raw_llm_response': prompt_record.raw_response if prompt_record else '',
+                'result': {
+                    'count': len(provisions),
+                    'provisions': [
+                        {
+                            'code': p.get('code_provision', ''),
+                            'excerpts': len(p.get('relevant_excerpts', [])),
+                            'applies_to': len(p.get('applies_to', []))
+                        }
+                        for p in provisions
+                    ]
+                }
+            })
+
+        except Exception as e:
+            logger.error(f"Streaming provisions error: {e}")
+            import traceback
+            traceback.print_exc()
+            yield sse_msg({'stage': 'ERROR', 'progress': 100, 'messages': [f'Error: {str(e)}'], 'error': True})
+
+    return Response(stream_with_context(generate()), mimetype='text/event-stream')
+
+
+def _format_entities_for_linking(entities):
+    """Format entities for the provision linker."""
+    return [
+        {
+            'label': e.entity_label,
+            'definition': e.entity_definition or '',
+            'uri': e.rdf_json_ld.get('@id', '') if e.rdf_json_ld else ''
+        }
+        for e in entities
+    ]
+
+
+def store_provisions_to_rdf(case_id, provisions, session_id):
+    """Store provisions to TemporaryRDFStorage."""
+    for provision in provisions:
+        rdf_entity = TemporaryRDFStorage(
+            case_id=case_id,
+            extraction_session_id=session_id,
+            extraction_type='code_provision_reference',
+            storage_type='individual',
+            entity_type='provisions',
+            entity_label=provision.get('code_provision', 'Unknown'),
+            entity_definition=provision.get('provision_text', ''),
+            rdf_json_ld={
+                '@type': 'proeth-case:CodeProvisionReference',
+                'codeProvision': provision.get('code_provision', ''),
+                'provisionText': provision.get('provision_text', ''),
+                'relevantExcerpts': provision.get('relevant_excerpts', []),
+                'appliesTo': provision.get('applies_to', [])
+            },
+            is_selected=True
+        )
+        db.session.add(rdf_entity)
+    db.session.commit()
+
+
+@bp.route('/case/<int:case_id>/extract_provisions', methods=['POST'])
+@auth_required_for_llm
+def extract_provisions_individual(case_id):
+    """
+    Extract code provisions individually (Part A).
+    Returns prompt and response for UI display like step1.html.
+    """
+    try:
+        case = Document.query.get_or_404(case_id)
+
+        # Clear existing provisions first
+        TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            extraction_type='code_provision_reference'
+        ).delete(synchronize_session=False)
+        db.session.commit()
+
+        # Run extraction
+        provisions = extract_and_link_provisions(case_id, case)
+
+        # Get the saved prompt/response from ExtractionPrompt
+        prompt_record = ExtractionPrompt.query.filter_by(
+            case_id=case_id,
+            concept_type='code_provision_reference'
+        ).order_by(ExtractionPrompt.created_at.desc()).first()
+
+        # Build status messages for UI display
+        status_messages = []
+        for p in provisions:
+            code = p.get('code_provision', 'Unknown')
+            excerpts = len(p.get('relevant_excerpts', []))
+            applies_to = len(p.get('applies_to', []))
+            status_messages.append(f"Provision {code}: {applies_to} entity links, {excerpts} excerpts")
+
+        return jsonify({
+            'success': True,
+            'prompt': prompt_record.prompt_text if prompt_record else 'Provision extraction',
+            'raw_llm_response': prompt_record.raw_response if prompt_record else '',
+            'status_messages': status_messages,
+            'result': {
+                'count': len(provisions),
+                'provisions': [
+                    {
+                        'code': p.get('code_provision', ''),
+                        'text': p.get('provision_text', '')[:200] + '...' if len(p.get('provision_text', '')) > 200 else p.get('provision_text', ''),
+                        'excerpts': len(p.get('relevant_excerpts', [])),
+                        'applies_to': len(p.get('applies_to', []))
+                    }
+                    for p in provisions[:10]  # Limit for UI
+                ]
+            },
+            'metadata': {
+                'model': prompt_record.llm_model if prompt_record else 'unknown',
+                'timestamp': prompt_record.created_at.isoformat() if prompt_record else None
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"Error extracting provisions for case {case_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+
+@bp.route('/case/<int:case_id>/extract_transformation', methods=['POST'])
+@auth_required_for_llm
+def extract_transformation_individual(case_id):
+    """
+    Extract transformation classification individually.
+    Returns prompt and response for UI display.
+    """
+    try:
+        from app.services.case_analysis.transformation_classifier import TransformationClassifier
+
+        case = Document.query.get_or_404(case_id)
+
+        # Get conclusions for transformation analysis
+        conclusions_objs = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            extraction_type='ethical_conclusion'
+        ).all()
+
+        if not conclusions_objs:
+            return jsonify({
+                'success': False,
+                'error': 'No conclusions found. Extract conclusions first.'
+            }), 400
+
+        # Get synthesis model data if available
+        from app.services.case_synthesizer import CaseSynthesizer
+        synthesizer = CaseSynthesizer()
+
+        # Load Q&C
+        questions, conclusions = synthesizer._load_qc(case_id)
+
+        # Create classifier and classify
+        classifier = TransformationClassifier(get_llm_client())
+        result = classifier.classify(
+            case_id=case_id,
+            questions=questions,
+            conclusions=conclusions,
+            case_title=case.title
+        )
+
+        # Build status messages for UI display
+        status_messages = [
+            f"Analyzed {len(questions)} questions and {len(conclusions)} conclusions",
+            f"Classification: {result.transformation_type} ({result.confidence * 100:.0f}% confidence)",
+            f"Pattern: {result.pattern_description[:100]}..." if len(result.pattern_description) > 100 else f"Pattern: {result.pattern_description}"
+        ]
+
+        return jsonify({
+            'success': True,
+            'prompt': classifier.last_prompt or 'Transformation classification',
+            'raw_llm_response': classifier.last_response or '',
+            'status_messages': status_messages,
+            'result': {
+                'type': result.transformation_type,
+                'confidence': result.confidence,
+                'pattern': result.pattern_description,
+                'reasoning': result.reasoning
+            },
+            'metadata': {
+                'model': 'claude-opus-4-20250514',
+                'timestamp': datetime.utcnow().isoformat()
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"Error extracting transformation for case {case_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@bp.route('/case/<int:case_id>/extract_transformation_stream', methods=['POST'])
+@auth_required_for_llm
+def extract_transformation_streaming(case_id):
+    """
+    Extract transformation classification with SSE streaming for real-time progress.
+    Uses academic framework from Marchais-Roubelat & Roubelat (2015).
+    """
+    import json as json_module
+    from flask import Response, stream_with_context
+
+    def sse_msg(data):
+        return f"data: {json_module.dumps(data)}\n\n"
+
+    def generate():
+        try:
+            from app.services.case_analysis.transformation_classifier import TransformationClassifier
+            from app.services.case_synthesizer import CaseSynthesizer
+
+            case = Document.query.get_or_404(case_id)
+
+            yield sse_msg({'stage': 'START', 'progress': 5, 'messages': ['Starting transformation analysis...']})
+
+            # Load questions and conclusions
+            yield sse_msg({'stage': 'LOADING_QC', 'progress': 10, 'messages': ['Loading questions and conclusions...']})
+
+            synthesizer = CaseSynthesizer()
+            questions, conclusions = synthesizer._load_qc(case_id)
+
+            if not conclusions:
+                yield sse_msg({'stage': 'ERROR', 'progress': 100, 'messages': ['No conclusions found. Extract conclusions first.'], 'error': True})
+                return
+
+            yield sse_msg({
+                'stage': 'QC_LOADED',
+                'progress': 15,
+                'messages': [f'Loaded {len(questions)} questions, {len(conclusions)} conclusions']
+            })
+
+            # Load case facts
+            yield sse_msg({'stage': 'LOADING_FACTS', 'progress': 20, 'messages': ['Loading case facts...']})
+            case_facts = ""
+            if case.doc_metadata and 'sections_dual' in case.doc_metadata:
+                facts_data = case.doc_metadata['sections_dual'].get('facts', {})
+                if isinstance(facts_data, dict):
+                    case_facts = facts_data.get('text', '')
+                else:
+                    case_facts = str(facts_data) if facts_data else ''
+
+            facts_preview = case_facts[:100] + '...' if len(case_facts) > 100 else case_facts
+            yield sse_msg({
+                'stage': 'FACTS_LOADED',
+                'progress': 25,
+                'messages': [f'Facts loaded: {len(case_facts)} chars' + (f' - "{facts_preview}"' if facts_preview else '')]
+            })
+
+            # Load entities from Passes 1-3
+            yield sse_msg({'stage': 'LOADING_ENTITIES', 'progress': 28, 'messages': ['Loading extracted entities...']})
+            all_entities = get_all_case_entities(case_id)
+            entity_count = sum(len(v) for v in all_entities.values() if isinstance(v, list))
+            yield sse_msg({
+                'stage': 'ENTITIES_LOADED',
+                'progress': 32,
+                'messages': [f'Loaded {entity_count} entities (roles, obligations, actions, etc.)']
+            })
+
+            # Load academic framework context
+            yield sse_msg({'stage': 'LOADING_FRAMEWORK', 'progress': 35, 'messages': ['Loading Marchais-Roubelat transformation framework...']})
+
+            try:
+                from app.academic_references.frameworks.transformation_classification import (
+                    get_prompt_context, CITATION_SHORT
+                )
+                framework_context = get_prompt_context(include_examples=True, include_mapping=False)
+                yield sse_msg({
+                    'stage': 'FRAMEWORK_LOADED',
+                    'progress': 40,
+                    'messages': [f'Framework loaded: {CITATION_SHORT}']
+                })
+            except ImportError:
+                framework_context = None
+                yield sse_msg({
+                    'stage': 'FRAMEWORK_SKIP',
+                    'progress': 40,
+                    'messages': ['Academic framework not available, using built-in definitions']
+                })
+
+            # Create classifier and run classification
+            yield sse_msg({'stage': 'CLASSIFYING', 'progress': 45, 'messages': ['Analyzing transformation pattern with LLM...']})
+
+            classifier = TransformationClassifier(get_llm_client())
+            result = classifier.classify(
+                case_id=case_id,
+                questions=questions,
+                conclusions=conclusions,
+                case_title=case.title,
+                case_facts=case_facts,
+                all_entities=all_entities
+            )
+
+            yield sse_msg({
+                'stage': 'CLASSIFIED',
+                'progress': 70,
+                'messages': [
+                    f'Primary type: {result.transformation_type}',
+                    f'Confidence: {result.confidence * 100:.0f}%'
+                ]
+            })
+
+            # Check for alternative classifications
+            if result.alternative_classifications:
+                alt_msgs = [f'Alternative: {alt["type"]} ({alt.get("confidence", 0) * 100:.0f}%)' for alt in result.alternative_classifications[:2]]
+                yield sse_msg({
+                    'stage': 'ALTERNATIVES',
+                    'progress': 75,
+                    'messages': alt_msgs
+                })
+
+            # Store result
+            yield sse_msg({'stage': 'STORING', 'progress': 85, 'messages': ['Storing classification result...']})
+
+            # Generate session ID for this extraction
+            import uuid
+            session_id = str(uuid.uuid4())
+
+            # Save prompt/response to extraction_prompts for UI display
+            try:
+                saved_prompt = ExtractionPrompt.save_prompt(
+                    case_id=case_id,
+                    concept_type='transformation',
+                    prompt_text=classifier.last_prompt or '',
+                    raw_response=classifier.last_response or '',
+                    step_number=4,
+                    section_type='synthesis',
+                    llm_model='claude-sonnet-4-20250514',
+                    extraction_session_id=session_id
+                )
+                logger.info(f"Saved transformation extraction prompt id={saved_prompt.id}")
+            except Exception as prompt_err:
+                logger.warning(f"Could not save transformation prompt: {prompt_err}")
+
+            # Save to temporary_rdf_storage for pipeline state tracking
+            try:
+                # Clear any existing transformation results
+                TemporaryRDFStorage.query.filter_by(
+                    case_id=case_id,
+                    extraction_type='transformation_result',
+                    is_published=False
+                ).delete(synchronize_session='fetch')
+
+                # Create new transformation result entity
+                rdf_entity = TemporaryRDFStorage(
+                    case_id=case_id,
+                    extraction_session_id=session_id,
+                    extraction_type='transformation_result',
+                    storage_type='individual',
+                    entity_label=f"Transformation: {result.transformation_type}",
+                    entity_uri=f"proethica:transformation_{case_id}_{result.transformation_type}",
+                    entity_type='TransformationClassification',
+                    entity_definition=result.pattern_description,
+                    rdf_json_ld={
+                        'transformation_type': result.transformation_type,
+                        'confidence': result.confidence,
+                        'reasoning': result.reasoning,
+                        'pattern_description': result.pattern_description,
+                        'supporting_evidence': result.supporting_evidence,
+                        'involved_roles': result.involved_roles,
+                        'obligation_shifts': result.obligation_shifts,
+                        'alternative_classifications': result.alternative_classifications
+                    },
+                    is_selected=True,
+                    is_reviewed=False,
+                    is_published=False
+                )
+                db.session.add(rdf_entity)
+                db.session.commit()
+                logger.info(f"Saved transformation result to temporary_rdf_storage")
+            except Exception as rdf_err:
+                logger.warning(f"Could not save transformation to RDF storage: {rdf_err}")
+                db.session.rollback()
+
+            # Also save to case_precedent_features for precedent discovery
+            try:
+                classifier.save_to_features(case_id, result)
+                yield sse_msg({'stage': 'STORED', 'progress': 90, 'messages': ['Classification stored successfully']})
+            except Exception as store_err:
+                logger.warning(f"Could not store transformation features: {store_err}")
+                yield sse_msg({'stage': 'STORE_SKIP', 'progress': 90, 'messages': ['Classification complete (storage skipped)']})
+
+            # Build status messages
+            status_messages = [
+                f"Input: {len(questions)} questions, {len(conclusions)} conclusions",
+                f"Classification: {result.transformation_type} ({result.confidence * 100:.0f}% confidence)",
+                f"Pattern: {result.pattern_description}"
+            ]
+
+            if result.supporting_evidence:
+                status_messages.append(f"Evidence: {len(result.supporting_evidence)} supporting indicators")
+
+            yield sse_msg({
+                'stage': 'COMPLETE',
+                'progress': 100,
+                'messages': [f'Transformation analysis complete: {result.transformation_type}'],
+                'status_messages': status_messages,
+                'prompt': classifier.last_prompt or 'Transformation classification',
+                'raw_llm_response': classifier.last_response or '',
+                'result': {
+                    'type': result.transformation_type,
+                    'confidence': result.confidence,
+                    'pattern': result.pattern_description,
+                    'reasoning': result.reasoning,
+                    'evidence': result.supporting_evidence,
+                    'alternatives': result.alternative_classifications
+                },
+                'input_context': {
+                    'questions': len(questions),
+                    'conclusions': len(conclusions)
+                }
+            })
+
+        except Exception as e:
+            logger.error(f"Streaming transformation error: {e}")
+            import traceback
+            traceback.print_exc()
+            yield sse_msg({'stage': 'ERROR', 'progress': 100, 'messages': [f'Error: {str(e)}'], 'error': True})
+
+    return Response(stream_with_context(generate()), mimetype='text/event-stream')
+
+
+@bp.route('/case/<int:case_id>/extract_rich_analysis_stream', methods=['POST'])
+@auth_required_for_llm
+def extract_rich_analysis_streaming(case_id):
+    """
+    Extract rich analysis with SSE streaming for real-time progress.
+
+    Three analyses with academic framework grounding:
+    1. Causal-Normative Links (Berreby et al. 2017)
+    2. Question Emergence (McLaren 2003)
+    3. Resolution Patterns (Harris et al. 2018)
+    """
+    import json as json_module
+    from flask import Response, stream_with_context
+
+    def sse_msg(data):
+        return f"data: {json_module.dumps(data)}\n\n"
+
+    def generate():
+        try:
+            from app.services.case_synthesizer import CaseSynthesizer
+
+            case = Document.query.get_or_404(case_id)
+
+            yield sse_msg({'stage': 'START', 'progress': 5, 'messages': ['Starting rich analysis...']})
+
+            # Initialize synthesizer
+            synthesizer = CaseSynthesizer()
+
+            # Load foundation (entities from Passes 1-3)
+            yield sse_msg({'stage': 'LOADING_FOUNDATION', 'progress': 10, 'messages': ['Building entity foundation from Passes 1-3...']})
+            foundation = synthesizer._build_entity_foundation(case_id)
+
+            entity_counts = {
+                'roles': len(foundation.roles),
+                'actions': len(foundation.actions),
+                'events': len(foundation.events),
+                'obligations': len(foundation.obligations),
+                'constraints': len(foundation.constraints),
+                'principles': len(foundation.principles)
+            }
+            total_entities = sum(entity_counts.values())
+
+            yield sse_msg({
+                'stage': 'FOUNDATION_LOADED',
+                'progress': 15,
+                'messages': [
+                    f'Entity foundation built: {total_entities} entities',
+                    f'Roles: {entity_counts["roles"]}, Actions: {entity_counts["actions"]}, Obligations: {entity_counts["obligations"]}'
+                ]
+            })
+
+            # Load questions and conclusions
+            yield sse_msg({'stage': 'LOADING_QC', 'progress': 18, 'messages': ['Loading questions and conclusions...']})
+            questions, conclusions = synthesizer._load_qc(case_id)
+
+            if not questions and not conclusions:
+                yield sse_msg({
+                    'stage': 'ERROR',
+                    'progress': 100,
+                    'messages': ['No questions or conclusions found. Run Q&C extraction first.'],
+                    'error': True
+                })
+                return
+
+            # Show sample Q&C for debugging
+            q_sample = questions[0].get('text', '')[:60] + '...' if questions else 'None'
+            c_sample = conclusions[0].get('text', '')[:60] + '...' if conclusions else 'None'
+
+            yield sse_msg({
+                'stage': 'QC_LOADED',
+                'progress': 22,
+                'messages': [
+                    f'Loaded {len(questions)} questions, {len(conclusions)} conclusions',
+                    f'Sample Q: {q_sample}',
+                    f'Sample C: {c_sample}'
+                ]
+            })
+
+            # Load provisions
+            yield sse_msg({'stage': 'LOADING_PROVISIONS', 'progress': 25, 'messages': ['Loading code provisions...']})
+            provisions = synthesizer._load_provisions(case_id)
+            yield sse_msg({
+                'stage': 'PROVISIONS_LOADED',
+                'progress': 28,
+                'messages': [f'Loaded {len(provisions)} code provisions']
+            })
+
+            # Load academic frameworks
+            yield sse_msg({'stage': 'LOADING_FRAMEWORKS', 'progress': 30, 'messages': ['Loading academic frameworks...']})
+
+            frameworks_loaded = []
+            try:
+                from app.academic_references.frameworks.extensional_principles import CITATION_SHORT as MCLAREN_CITATION
+                frameworks_loaded.append(f'McLaren (2003) - extensional principles')
+            except ImportError:
+                pass
+
+            try:
+                from app.academic_references.frameworks.moral_intensity import CITATION_SHORT as JONES_CITATION
+                frameworks_loaded.append(f'Jones (1991) - moral intensity')
+            except ImportError:
+                pass
+
+            try:
+                from app.academic_references.frameworks.role_ethics import CITATION_SHORT as OAKLEY_CITATION
+                frameworks_loaded.append(f'Oakley & Cocking (2001) - role ethics')
+            except ImportError:
+                pass
+
+            if frameworks_loaded:
+                yield sse_msg({
+                    'stage': 'FRAMEWORKS_LOADED',
+                    'progress': 35,
+                    'messages': ['Academic frameworks loaded:'] + frameworks_loaded
+                })
+            else:
+                yield sse_msg({
+                    'stage': 'FRAMEWORKS_SKIP',
+                    'progress': 35,
+                    'messages': ['Using built-in analysis definitions']
+                })
+
+            # Initialize LLM traces collector
+            llm_traces = []
+
+            # ========================================
+            # Analysis 1: Causal-Normative Links
+            # ========================================
+            yield sse_msg({
+                'stage': 'ANALYZING_CAUSAL',
+                'progress': 40,
+                'messages': [
+                    'Analyzing causal-normative links...',
+                    'Mapping actions to obligations they fulfill or violate'
+                ]
+            })
+
+            causal_links = synthesizer._analyze_causal_normative_links(foundation, llm_traces)
+
+            yield sse_msg({
+                'stage': 'CAUSAL_COMPLETE',
+                'progress': 55,
+                'messages': [
+                    f'Causal-normative analysis complete: {len(causal_links)} links',
+                    f'Actions mapped to obligations/principles'
+                ]
+            })
+
+            # ========================================
+            # Analysis 2: Question Emergence (McLaren)
+            # ========================================
+            yield sse_msg({
+                'stage': 'ANALYZING_EMERGENCE',
+                'progress': 60,
+                'messages': [
+                    'Analyzing question emergence (McLaren 2003)...',
+                    'Identifying WHY ethical questions arose'
+                ]
+            })
+
+            question_emergence = synthesizer._analyze_question_emergence(questions, foundation, llm_traces)
+
+            emergence_summary = []
+            for qe in question_emergence[:2]:
+                trigger = qe.triggered_by_events[0] if qe.triggered_by_events else 'Unknown trigger'
+                emergence_summary.append(f'Q: "{qe.question_text[:50]}..." triggered by {trigger}')
+
+            yield sse_msg({
+                'stage': 'EMERGENCE_COMPLETE',
+                'progress': 75,
+                'messages': [
+                    f'Question emergence analysis complete: {len(question_emergence)} patterns',
+                ] + emergence_summary[:2]
+            })
+
+            # ========================================
+            # Analysis 3: Resolution Patterns (Harris)
+            # ========================================
+            yield sse_msg({
+                'stage': 'ANALYZING_RESOLUTION',
+                'progress': 80,
+                'messages': [
+                    'Analyzing resolution patterns...',
+                    'Identifying HOW the board resolved questions'
+                ]
+            })
+
+            resolution_patterns = synthesizer._analyze_resolution_patterns(
+                conclusions, questions, provisions, llm_traces
+            )
+
+            resolution_summary = []
+            for rp in resolution_patterns[:2]:
+                det_factors = len(rp.determinative_facts) if rp.determinative_facts else 0
+                resolution_summary.append(f'C: "{rp.conclusion_text[:40]}..." ({det_factors} determinative factors)')
+
+            yield sse_msg({
+                'stage': 'RESOLUTION_COMPLETE',
+                'progress': 90,
+                'messages': [
+                    f'Resolution pattern analysis complete: {len(resolution_patterns)} patterns',
+                ] + resolution_summary[:2]
+            })
+
+            # ========================================
+            # Store results
+            # ========================================
+            yield sse_msg({'stage': 'STORING', 'progress': 92, 'messages': ['Storing rich analysis results...']})
+
+            synthesizer._store_rich_analysis(case_id, causal_links, question_emergence, resolution_patterns)
+
+            yield sse_msg({'stage': 'STORED', 'progress': 95, 'messages': ['Analysis stored to database']})
+
+            # Build final result
+            status_messages = [
+                f"Causal-normative links: {len(causal_links)}",
+                f"Question emergence patterns: {len(question_emergence)}",
+                f"Resolution patterns: {len(resolution_patterns)}",
+                f"LLM analyses performed: {len(llm_traces)}"
+            ]
+
+            # Combine prompts and responses for display
+            combined_prompt = ""
+            combined_response = ""
+            for i, trace in enumerate(llm_traces):
+                combined_prompt += f"\n--- {trace.stage.upper()} ---\n{trace.prompt}\n"
+                combined_response += f"\n--- {trace.stage.upper()} ---\n{trace.response}\n"
+
+            yield sse_msg({
+                'stage': 'COMPLETE',
+                'progress': 100,
+                'messages': ['Rich analysis complete'],
+                'status_messages': status_messages,
+                'prompt': combined_prompt if combined_prompt else 'Rich analysis prompts',
+                'raw_llm_response': combined_response if combined_response else '',
+                'result': {
+                    'causal_normative_links': len(causal_links),
+                    'question_emergence': len(question_emergence),
+                    'resolution_patterns': len(resolution_patterns),
+                    'llm_traces': len(llm_traces)
+                },
+                'details': {
+                    'causal_links': [
+                        {
+                            'action': cl.action_label,
+                            'fulfills': len(cl.fulfills_obligations),
+                            'violates': len(cl.violates_obligations),
+                            'confidence': cl.confidence
+                        }
+                        for cl in causal_links[:5]
+                    ],
+                    'question_emergence': [
+                        {
+                            'question': qe.question_text[:60] + '...' if len(qe.question_text) > 60 else qe.question_text,
+                            'triggers': len(qe.triggered_by_events) + len(qe.triggered_by_actions),
+                            'competing_obligations': len(qe.competing_obligations)
+                        }
+                        for qe in question_emergence[:5]
+                    ],
+                    'resolution_patterns': [
+                        {
+                            'conclusion': rp.conclusion_text[:60] + '...' if len(rp.conclusion_text) > 60 else rp.conclusion_text,
+                            'determinative_principles': len(rp.determinative_principles),
+                            'determinative_facts': len(rp.determinative_facts)
+                        }
+                        for rp in resolution_patterns[:5]
+                    ]
+                }
+            })
+
+        except Exception as e:
+            logger.error(f"Streaming rich analysis error: {e}")
+            import traceback
+            traceback.print_exc()
+            yield sse_msg({'stage': 'ERROR', 'progress': 100, 'messages': [f'Error: {str(e)}'], 'error': True})
+
+    return Response(stream_with_context(generate()), mimetype='text/event-stream')
+
+
+@bp.route('/case/<int:case_id>/extract_rich_analysis', methods=['POST'])
+@auth_required_for_llm
+def extract_rich_analysis_individual(case_id):
+    """
+    Extract rich analysis (causal-normative links, question emergence, resolution patterns).
+    Returns prompt and response for UI display.
+    """
+    try:
+        from app.services.case_synthesizer import CaseSynthesizer
+
+        case = Document.query.get_or_404(case_id)
+        synthesizer = CaseSynthesizer()
+
+        # Build foundation
+        foundation = synthesizer._build_entity_foundation(case_id)
+
+        # Load Q&C
+        questions, conclusions = synthesizer._load_qc(case_id)
+
+        if not questions and not conclusions:
+            return jsonify({
+                'success': False,
+                'error': 'No questions or conclusions found. Run extraction first.'
+            }), 400
+
+        # Load provisions
+        provisions = synthesizer._load_provisions(case_id)
+
+        # Run rich analysis
+        causal_links, question_emergence, resolution_patterns, llm_traces = synthesizer._run_rich_analysis(
+            case_id, foundation, provisions, questions, conclusions
+        )
+
+        # Store rich analysis
+        synthesizer._store_rich_analysis(case_id, causal_links, question_emergence, resolution_patterns)
+
+        return jsonify({
+            'success': True,
+            'result': {
+                'causal_normative_links': len(causal_links),
+                'question_emergence': len(question_emergence),
+                'resolution_patterns': len(resolution_patterns)
+            },
+            'llm_traces': [
+                {
+                    'stage': t.stage,
+                    'prompt': t.prompt,
+                    'response': t.response,
+                    'model': t.model
+                }
+                for t in llm_traces
+            ],
+            'metadata': {
+                'timestamp': datetime.utcnow().isoformat()
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"Error extracting rich analysis for case {case_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@bp.route('/case/<int:case_id>/extract_decision_synthesis', methods=['POST'])
+@auth_required_for_llm
+def extract_decision_synthesis_individual(case_id):
+    """
+    Run decision point synthesis (E1-E3 + LLM refinement).
+    Returns algorithmic results + LLM prompt/response.
+    """
+    try:
+        from app.services.case_synthesizer import CaseSynthesizer
+
+        case = Document.query.get_or_404(case_id)
+        synthesizer = CaseSynthesizer()
+
+        # Build foundation
+        foundation = synthesizer._build_entity_foundation(case_id)
+
+        # Load Q&C for ground truth
+        questions, conclusions = synthesizer._load_qc(case_id)
+
+        # Run algorithmic composition (E1-E3)
+        e1_result = synthesizer._run_e1_coverage(case_id)
+        e2_result = synthesizer._run_e2_mapping(case_id)
+        candidates = synthesizer._run_e3_composition(e1_result, e2_result, case_id)
+
+        # LLM refinement with Q&C as ground truth
+        canonical_points, llm_trace = synthesizer._llm_synthesize_decision_points(
+            candidates, questions, conclusions, foundation, case_id
+        )
+
+        # Store canonical points
+        synthesizer._store_canonical_points(canonical_points, case_id)
+
+        return jsonify({
+            'success': True,
+            'result': {
+                'e1_decision_relevant': e1_result.get('decision_relevant_count', 0),
+                'e2_action_sets': e2_result.get('action_set_count', 0),
+                'e3_candidates': len(candidates),
+                'canonical_count': len(canonical_points),
+                'qc_aligned': sum(1 for dp in canonical_points if dp.get('qc_aligned', False))
+            },
+            'llm_trace': {
+                'stage': llm_trace.stage if llm_trace else 'decision_synthesis',
+                'prompt': llm_trace.prompt if llm_trace else '',
+                'response': llm_trace.response if llm_trace else '',
+                'model': llm_trace.model if llm_trace else 'unknown'
+            } if llm_trace else None,
+            'metadata': {
+                'timestamp': datetime.utcnow().isoformat()
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"Error in decision synthesis for case {case_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@bp.route('/case/<int:case_id>/extract_narrative', methods=['POST'])
+@auth_required_for_llm
+def extract_narrative_individual(case_id):
+    """
+    Run narrative construction (timeline, summary, scenario seeds).
+    Returns LLM prompt/response.
+    """
+    try:
+        from app.services.case_synthesizer import CaseSynthesizer
+
+        case = Document.query.get_or_404(case_id)
+        synthesizer = CaseSynthesizer()
+
+        # Build foundation
+        foundation = synthesizer._build_entity_foundation(case_id)
+
+        # Load canonical points
+        canonical_points = synthesizer.load_canonical_points(case_id)
+
+        # Load conclusions
+        _, conclusions = synthesizer._load_qc(case_id)
+
+        # Construct narrative with LLM
+        narrative, llm_trace = synthesizer._construct_narrative_with_llm(
+            case_id, foundation, canonical_points, conclusions
+        )
+
+        return jsonify({
+            'success': True,
+            'result': {
+                'has_summary': bool(narrative.case_summary),
+                'timeline_events': len(narrative.timeline),
+                'has_scenario_seeds': bool(narrative.scenario_seeds)
+            },
+            'narrative': {
+                'case_summary': narrative.case_summary,
+                'timeline': [
+                    {
+                        'sequence': e.sequence,
+                        'phase_label': e.phase_label,
+                        'description': e.description[:100] + '...' if len(e.description) > 100 else e.description,
+                        'event_type': e.event_type
+                    }
+                    for e in narrative.timeline
+                ],
+                'scenario_seeds': narrative.scenario_seeds.to_dict() if narrative.scenario_seeds else None
+            },
+            'llm_trace': {
+                'stage': llm_trace.stage if llm_trace else 'narrative',
+                'prompt': llm_trace.prompt if llm_trace else '',
+                'response': llm_trace.response if llm_trace else '',
+                'model': llm_trace.model if llm_trace else 'unknown'
+            } if llm_trace else None,
+            'metadata': {
+                'timestamp': datetime.utcnow().isoformat()
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"Error in narrative construction for case {case_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@bp.route('/case/<int:case_id>/get_saved_step4_prompt')
+def get_saved_step4_prompt(case_id):
+    """
+    Get saved prompt/response for a specific step4 task.
+    Similar to step1's get_saved_prompt endpoint.
+    """
+    try:
+        task_type = request.args.get('task_type', '')
+
+        if not task_type:
+            return jsonify({
+                'success': False,
+                'error': 'task_type parameter required'
+            }), 400
+
+        # Map task types to concept types
+        concept_type_map = {
+            'provisions': 'code_provision_reference',
+            'questions': 'ethical_question',
+            'conclusions': 'ethical_conclusion',
+            'transformation': 'transformation_classification',
+            'rich_analysis': 'rich_analysis',
+            'decision_synthesis': 'decision_point_synthesis',
+            'narrative': 'narrative_construction'
+        }
+
+        concept_type = concept_type_map.get(task_type, task_type)
+
+        prompt_record = ExtractionPrompt.query.filter_by(
+            case_id=case_id,
+            concept_type=concept_type
+        ).order_by(ExtractionPrompt.created_at.desc()).first()
+
+        if not prompt_record:
+            return jsonify({
+                'success': False,
+                'message': f'No saved prompt for {task_type}'
+            })
+
+        return jsonify({
+            'success': True,
+            'prompt_text': prompt_record.prompt_text,
+            'raw_response': prompt_record.raw_response,
+            'results_summary': prompt_record.results_summary,
+            'model': prompt_record.llm_model,
+            'timestamp': prompt_record.created_at.isoformat()
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting saved step4 prompt for case {case_id}: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500

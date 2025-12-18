@@ -16,7 +16,7 @@
     <div class="card-body">
         <div class="row text-center">
             <div class="col-md-3">
-                <div id="phase1-indicator" class="phase-indicator">
+                <div id="phase1-indicator" class="phase-indicator phase-complete">
                     <span class="phase-number">1</span>
                     <div class="phase-label">Entity Foundation</div>
                     <small class="text-muted">Passes 1-3 entities</small>
@@ -26,7 +26,7 @@
                 <div id="phase2-indicator" class="phase-indicator">
                     <span class="phase-number">2</span>
                     <div class="phase-label">Analytical Extraction</div>
-                    <small class="text-muted">Provisions, Q&C</small>
+                    <small class="text-muted">Provisions, Q&C, Rich Analysis</small>
                 </div>
             </div>
             <div class="col-md-3">
@@ -53,7 +53,7 @@
                 <i class="bi bi-play-circle"></i> Run Complete Synthesis
             </button>
             <a href="{{ url_for('step4.step4_review', case_id=case.id) }}" class="btn btn-outline-secondary btn-lg ms-2">
-                <i class="bi bi-eye"></i> View Full Analysis
+                <i class="bi bi-eye"></i> Review Results
             </a>
             {% else %}
             <button type="button" class="btn btn-secondary btn-lg" onclick="window.location.href='{{ url_for('auth.login') }}';">
@@ -65,17 +65,16 @@
     </div>
 </div>
 
-<!-- Phase 1: Entity Foundation -->
+<!-- Phase 1: Entity Foundation (Display only - no extraction) -->
 <div class="card mb-4" id="phase1-card">
     <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">
-            <span class="badge bg-primary me-2">Phase 1</span> Entity Foundation
+            <span class="badge bg-success me-2">Phase 1</span> Entity Foundation
         </h5>
         <span id="phase1-status" class="badge bg-success">{{ entities_summary.total }} entities</span>
     </div>
     <div class="card-body">
         <div class="row">
-            <!-- Pass 1 -->
             <div class="col-md-4">
                 <h6 class="text-muted">Pass 1: Contextual Framework</h6>
                 <ul class="list-unstyled">
@@ -84,8 +83,6 @@
                     <li><span class="badge bg-secondary me-1">{{ entities_summary.resources }}</span> Resources</li>
                 </ul>
             </div>
-
-            <!-- Pass 2 -->
             <div class="col-md-4">
                 <h6 class="text-muted">Pass 2: Normative Requirements</h6>
                 <ul class="list-unstyled">
@@ -95,8 +92,6 @@
                     <li><span class="badge bg-success me-1">{{ entities_summary.capabilities }}</span> Capabilities</li>
                 </ul>
             </div>
-
-            <!-- Pass 3 -->
             <div class="col-md-4">
                 <h6 class="text-muted">Pass 3: Temporal Dynamics</h6>
                 <ul class="list-unstyled">
@@ -108,108 +103,189 @@
     </div>
 </div>
 
-<!-- Phase 2: Analytical Extraction -->
+<!-- Phase 2: Analytical Extraction - Individual Tasks -->
 <div class="card mb-4" id="phase2-card">
-    <div class="card-header d-flex justify-content-between align-items-center">
+    <div class="card-header">
         <h5 class="mb-0">
             <span class="badge bg-secondary me-2">Phase 2</span> Analytical Extraction
         </h5>
-        <span id="phase2-status" class="badge {% if synthesis_status.completed %}bg-success{% else %}bg-warning text-dark{% endif %}">
-            {% if synthesis_status.completed %}
-            {{ synthesis_status.provisions_count + synthesis_status.questions_count + synthesis_status.conclusions_count }} elements
-            {% else %}
-            Not extracted
-            {% endif %}
-        </span>
     </div>
     <div class="card-body">
-        {% if synthesis_status.completed %}
-        <div class="row">
-            <div class="col-md-4">
-                <div class="card bg-light">
-                    <div class="card-body text-center py-3">
-                        <h3 class="mb-0">{{ synthesis_status.provisions_count }}</h3>
-                        <small class="text-muted">Code Provisions</small>
+        <!-- 2A: Code Provisions -->
+        <div class="extractor-section mb-4" id="provisionsSection">
+            <div class="step-card border-secondary">
+                <div class="step-header bg-light">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="bi bi-file-text text-secondary"></i> 2A: Code Provisions Extraction
+                            <span id="provisionsCount" class="badge bg-secondary ms-2">{{ synthesis_status.provisions_count or 0 }}</span>
+                        </h6>
+                        {% if current_user.is_authenticated %}
+                        <button class="btn btn-outline-secondary btn-sm" onclick="extractTask('provisions')" id="extractProvisionsBtn">
+                            <i class="bi bi-play-fill"></i> Extract
+                        </button>
+                        {% endif %}
                     </div>
                 </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card bg-light">
-                    <div class="card-body text-center py-3">
-                        <h3 class="mb-0">{{ synthesis_status.questions_count }}</h3>
-                        <small class="text-muted">Ethical Questions</small>
+                <div class="step-content">
+                    <div class="prompt-preview mb-3" id="provisionsPromptSection" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0"><i class="bi bi-cpu"></i> LLM Prompt</h6>
+                        </div>
+                        <div class="prompt-text" id="provisionsPromptText"></div>
                     </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card bg-light">
-                    <div class="card-body text-center py-3">
-                        <h3 class="mb-0">{{ synthesis_status.conclusions_count }}</h3>
-                        <small class="text-muted">Board Conclusions</small>
+                    <div class="results-preview" id="provisionsResults" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0"><i class="bi bi-chat-left-text text-success"></i> LLM Response</h6>
+                        </div>
+                        <div id="provisionsResultsContent"></div>
                     </div>
                 </div>
             </div>
         </div>
-        {% else %}
-        <div class="text-center py-4 text-muted">
-            <i class="bi bi-hourglass" style="font-size: 2rem;"></i>
-            <p class="mt-2 mb-0">Run synthesis to extract provisions, questions, and conclusions</p>
-        </div>
-        {% endif %}
 
-        <!-- Rich Analysis Section (populated by JavaScript after synthesis) -->
-        <div id="phase2-rich-analysis" class="mt-4" style="display: none;">
-            <hr>
-            <h6 class="text-primary mb-3">
-                <i class="bi bi-diagram-3"></i> Rich Analysis
-                <small class="text-muted">(Phase 2B)</small>
-            </h6>
-
-            <!-- Causal-Normative Links -->
-            <div class="mb-4">
-                <h6 class="text-secondary">
-                    <i class="bi bi-link-45deg"></i> Causal-Normative Links
-                    <span id="causal-links-count" class="badge bg-info ms-1">0</span>
-                </h6>
-                <p class="text-muted small mb-2">How actions relate to obligations, principles, and constraints</p>
-                <div id="causal-links-list" class="small">
-                    <!-- Populated by JavaScript -->
+        <!-- 2B: Questions -->
+        <div class="extractor-section mb-4" id="questionsSection">
+            <div class="step-card border-warning">
+                <div class="step-header bg-warning bg-opacity-10">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="bi bi-question-circle text-warning"></i> 2B: Ethical Questions Extraction
+                            <span id="questionsCount" class="badge bg-warning text-dark ms-2">{{ synthesis_status.questions_count or 0 }}</span>
+                        </h6>
+                        {% if current_user.is_authenticated %}
+                        <button class="btn btn-outline-warning btn-sm" onclick="extractTask('questions')" id="extractQuestionsBtn">
+                            <i class="bi bi-play-fill"></i> Extract
+                        </button>
+                        {% endif %}
+                    </div>
                 </div>
-            </div>
-
-            <!-- Question Emergence -->
-            <div class="mb-4">
-                <h6 class="text-secondary">
-                    <i class="bi bi-question-circle"></i> Question Emergence Analysis
-                    <span id="question-emergence-count" class="badge bg-warning text-dark ms-1">0</span>
-                </h6>
-                <p class="text-muted small mb-2">Why each ethical question emerged from the case</p>
-                <div id="question-emergence-list" class="small">
-                    <!-- Populated by JavaScript -->
-                </div>
-            </div>
-
-            <!-- Resolution Patterns -->
-            <div class="mb-4">
-                <h6 class="text-secondary">
-                    <i class="bi bi-check2-square"></i> Resolution Pattern Analysis
-                    <span id="resolution-patterns-count" class="badge bg-success ms-1">0</span>
-                </h6>
-                <p class="text-muted small mb-2">How the board resolved each question</p>
-                <div id="resolution-patterns-list" class="small">
-                    <!-- Populated by JavaScript -->
+                <div class="step-content">
+                    <div class="prompt-preview mb-3" id="questionsPromptSection" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0"><i class="bi bi-cpu"></i> LLM Prompt</h6>
+                        </div>
+                        <div class="prompt-text" id="questionsPromptText"></div>
+                    </div>
+                    <div class="results-preview" id="questionsResults" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0"><i class="bi bi-chat-left-text text-success"></i> LLM Response</h6>
+                        </div>
+                        <div id="questionsResultsContent"></div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- LLM Traces for Phase 2 (collapsed by default) -->
-        <div id="phase2-traces" class="mt-3" style="display: none;">
-            <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#phase2-traces-content">
-                <i class="bi bi-code-slash"></i> Show LLM Reasoning
-            </button>
-            <div class="collapse mt-2" id="phase2-traces-content">
-                <div class="accordion" id="phase2-traces-accordion">
-                    <!-- Populated by JavaScript -->
+        <!-- 2C: Conclusions -->
+        <div class="extractor-section mb-4" id="conclusionsSection">
+            <div class="step-card border-success">
+                <div class="step-header bg-success bg-opacity-10">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="bi bi-check-circle text-success"></i> 2C: Board Conclusions Extraction
+                            <span id="conclusionsCount" class="badge bg-success ms-2">{{ synthesis_status.conclusions_count or 0 }}</span>
+                        </h6>
+                        {% if current_user.is_authenticated %}
+                        <button class="btn btn-outline-success btn-sm" onclick="extractTask('conclusions')" id="extractConclusionsBtn">
+                            <i class="bi bi-play-fill"></i> Extract
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="step-content">
+                    <div class="prompt-preview mb-3" id="conclusionsPromptSection" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0"><i class="bi bi-cpu"></i> LLM Prompt</h6>
+                        </div>
+                        <div class="prompt-text" id="conclusionsPromptText"></div>
+                    </div>
+                    <div class="results-preview" id="conclusionsResults" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0"><i class="bi bi-chat-left-text text-success"></i> LLM Response</h6>
+                        </div>
+                        <div id="conclusionsResultsContent"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2D: Transformation Classification -->
+        <div class="extractor-section mb-4" id="transformationSection">
+            <div class="step-card border-purple">
+                <div class="step-header bg-purple bg-opacity-10">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="bi bi-shuffle text-purple"></i> 2D: Transformation Classification
+                            <span id="transformationType" class="badge bg-purple ms-2">{{ synthesis_status.transformation_type or 'Not classified' }}</span>
+                        </h6>
+                        {% if current_user.is_authenticated %}
+                        <button class="btn btn-outline-secondary btn-sm" onclick="extractTask('transformation')" id="extractTransformationBtn">
+                            <i class="bi bi-play-fill"></i> Classify
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="step-content">
+                    <div class="prompt-preview mb-3" id="transformationPromptSection" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0"><i class="bi bi-cpu"></i> LLM Prompt</h6>
+                        </div>
+                        <div class="prompt-text" id="transformationPromptText"></div>
+                    </div>
+                    <div class="results-preview" id="transformationResults" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0"><i class="bi bi-chat-left-text text-success"></i> LLM Response</h6>
+                        </div>
+                        <div id="transformationResultsContent"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2E: Rich Analysis -->
+        <div class="extractor-section mb-4" id="rich_analysisSection">
+            <div class="step-card border-info">
+                <div class="step-header bg-info bg-opacity-10">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="bi bi-diagram-3 text-info"></i> 2E: Rich Analysis
+                            <small class="text-muted">(Causal Links, Question Emergence, Resolution Patterns)</small>
+                        </h6>
+                        {% if current_user.is_authenticated %}
+                        <button class="btn btn-outline-info btn-sm" onclick="extractTask('rich_analysis')" id="extractRich_analysisBtn">
+                            <i class="bi bi-play-fill"></i> Analyze
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="step-content">
+                    <div class="prompt-preview mb-3" id="rich_analysisPromptSection" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0"><i class="bi bi-cpu"></i> LLM Prompts (3 analyses)</h6>
+                        </div>
+                        <div class="prompt-text" id="rich_analysisPromptText"></div>
+                    </div>
+                    <div class="results-preview" id="rich_analysisResults" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0"><i class="bi bi-chat-left-text text-success"></i> LLM Responses</h6>
+                        </div>
+                        <div id="rich_analysisResultsContent"></div>
+                        <div class="row mt-3">
+                            <div class="col-md-4">
+                                <strong>Causal-Normative Links:</strong>
+                                <span id="causalLinksCount" class="badge bg-info">0</span>
+                            </div>
+                            <div class="col-md-4">
+                                <strong>Question Emergence:</strong>
+                                <span id="questionEmergenceCount" class="badge bg-warning text-dark">0</span>
+                            </div>
+                            <div class="col-md-4">
+                                <strong>Resolution Patterns:</strong>
+                                <span id="resolutionPatternsCount" class="badge bg-success">0</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -218,56 +294,68 @@
 
 <!-- Phase 3: Decision Point Synthesis -->
 <div class="card mb-4" id="phase3-card">
-    <div class="card-header d-flex justify-content-between align-items-center">
+    <div class="card-header">
         <h5 class="mb-0">
             <span class="badge bg-secondary me-2">Phase 3</span> Decision Point Synthesis
         </h5>
-        <span id="phase3-status" class="badge bg-secondary">Not run</span>
     </div>
     <div class="card-body">
-        <p class="text-muted small mb-3">
-            Combines E1-E3 algorithmic composition with LLM refinement using Q&C as ground truth.
-            Produces canonical decision points aligned with Board's questions and conclusions.
-        </p>
+        <div class="extractor-section" id="decisionSynthesisSection">
+            <div class="step-card border-primary">
+                <div class="step-header bg-primary bg-opacity-10">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="bi bi-bullseye text-primary"></i> Decision Point Synthesis (E1-E3 + LLM)
+                        </h6>
+                        {% if current_user.is_authenticated %}
+                        <button class="btn btn-outline-primary btn-sm" onclick="extractTask('decision_synthesis')" id="extractDecisionSynthesisBtn">
+                            <i class="bi bi-play-fill"></i> Synthesize
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="step-content">
+                    <p class="text-muted small mb-3">
+                        Combines E1-E3 algorithmic composition with LLM refinement using Q&C as ground truth.
+                    </p>
 
-        <!-- Pipeline Steps -->
-        <div class="row text-center small mb-3">
-            <div class="col border-end">
-                <span id="step-s1" class="badge bg-secondary mb-1">S1</span><br>
-                Entity Relations
-            </div>
-            <div class="col border-end">
-                <span id="step-s2" class="badge bg-secondary mb-1">S2</span><br>
-                Decision Points (E1-E3)
-            </div>
-            <div class="col border-end">
-                <span id="step-s3" class="badge bg-secondary mb-1">S3</span><br>
-                LLM + Q&C Alignment
-            </div>
-            <div class="col">
-                <span id="step-s4" class="badge bg-secondary mb-1">S4</span><br>
-                Store Results
-            </div>
-        </div>
+                    <!-- Algorithmic Steps -->
+                    <div class="row text-center small mb-3" id="algorithmicSteps">
+                        <div class="col border-end">
+                            <span id="step-e1" class="badge bg-secondary mb-1">E1</span><br>
+                            Coverage Analysis<br>
+                            <span id="e1Result" class="text-muted">-</span>
+                        </div>
+                        <div class="col border-end">
+                            <span id="step-e2" class="badge bg-secondary mb-1">E2</span><br>
+                            Action Mapping<br>
+                            <span id="e2Result" class="text-muted">-</span>
+                        </div>
+                        <div class="col border-end">
+                            <span id="step-e3" class="badge bg-secondary mb-1">E3</span><br>
+                            Composition<br>
+                            <span id="e3Result" class="text-muted">-</span>
+                        </div>
+                        <div class="col">
+                            <span id="step-llm" class="badge bg-secondary mb-1">LLM</span><br>
+                            Refinement<br>
+                            <span id="llmResult" class="text-muted">-</span>
+                        </div>
+                    </div>
 
-        <!-- Decision Points Display -->
-        <div id="phase3-results" class="mt-3" style="display: none;">
-            <div class="alert alert-success">
-                <strong><i class="bi bi-check-circle"></i> Synthesis Complete</strong>
-                <p class="mb-1 mt-2">
-                    <span id="canonical-count">0</span> canonical decision points created
-                    (<span id="qc-aligned-count">0</span> Q&C aligned)
-                </p>
-                <p class="mb-0 small">
-                    <span id="algorithmic-count">0</span> algorithmic candidates processed
-                </p>
-            </div>
-        </div>
-
-        <!-- LLM Traces for Phase 3 (collapsed by default) -->
-        <div id="phase3-traces" class="mt-3" style="display: none;">
-            <div class="accordion" id="phase3-traces-accordion">
-                <!-- Populated by JavaScript -->
+                    <div class="prompt-preview mb-3" id="decisionSynthesisPromptSection" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0"><i class="bi bi-cpu"></i> LLM Prompt (Refinement)</h6>
+                        </div>
+                        <div class="prompt-text" id="decisionSynthesisPromptText"></div>
+                    </div>
+                    <div class="results-preview" id="decisionSynthesisResults" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0"><i class="bi bi-chat-left-text text-success"></i> LLM Response</h6>
+                        </div>
+                        <div id="decisionSynthesisResultsContent"></div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -275,459 +363,432 @@
 
 <!-- Phase 4: Narrative Construction -->
 <div class="card mb-4" id="phase4-card">
-    <div class="card-header d-flex justify-content-between align-items-center">
+    <div class="card-header">
         <h5 class="mb-0">
             <span class="badge bg-secondary me-2">Phase 4</span> Narrative Construction
         </h5>
-        <span id="phase4-status" class="badge bg-secondary">Pending</span>
     </div>
     <div class="card-body">
-        <p class="text-muted small mb-3">
-            Builds timeline and scenario elements from synthesized entities for case explanation and Step 5 scenario generation.
-        </p>
+        <div class="extractor-section" id="narrativeSection">
+            <div class="step-card border-dark">
+                <div class="step-header bg-dark bg-opacity-10">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="bi bi-clock-history text-dark"></i> Narrative Construction (Timeline + Scenario Seeds)
+                        </h6>
+                        {% if current_user.is_authenticated %}
+                        <button class="btn btn-outline-dark btn-sm" onclick="extractTask('narrative')" id="extractNarrativeBtn">
+                            <i class="bi bi-play-fill"></i> Construct
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="step-content">
+                    <div class="prompt-preview mb-3" id="narrativePromptSection" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0"><i class="bi bi-cpu"></i> LLM Prompt</h6>
+                        </div>
+                        <div class="prompt-text" id="narrativePromptText"></div>
+                    </div>
+                    <div class="results-preview" id="narrativeResults" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0"><i class="bi bi-chat-left-text text-success"></i> LLM Response</h6>
+                        </div>
+                        <div id="narrativeResultsContent"></div>
+                    </div>
 
-        <!-- Case Summary (shown after synthesis) -->
-        <div id="case-summary-area" style="display: none;">
-            <h6>Case Summary</h6>
-            <div id="case-summary-text" class="alert alert-light mb-3"></div>
-        </div>
+                    <!-- Case Summary (shown after extraction) -->
+                    <div id="case-summary-area" style="display: none;">
+                        <hr>
+                        <h6>Case Summary</h6>
+                        <div id="case-summary-text" class="alert alert-light mb-3"></div>
+                    </div>
 
-        <!-- Timeline Preview (shown after synthesis) -->
-        <div id="timeline-preview" style="display: none;">
-            <h6>Timeline</h6>
-            <div id="timeline-events" class="mb-3"></div>
-        </div>
-
-        <!-- Scenario Seeds (shown after synthesis) -->
-        <div id="scenario-seeds-area" style="display: none;">
-            <h6>Scenario Seeds (for Step 5)</h6>
-            <div id="scenario-seeds-content" class="alert alert-info small"></div>
-        </div>
-
-        <!-- LLM Traces for Phase 4 (collapsed by default) -->
-        <div id="phase4-traces" class="mt-3" style="display: none;">
-            <div class="accordion" id="phase4-traces-accordion">
-                <!-- Populated by JavaScript -->
+                    <!-- Timeline Preview (shown after extraction) -->
+                    <div id="timeline-preview" style="display: none;">
+                        <h6>Timeline</h6>
+                        <div id="timeline-events" class="mb-3"></div>
+                    </div>
+                </div>
             </div>
-        </div>
-
-        <div class="text-center py-3" id="phase4-placeholder">
-            <i class="bi bi-hourglass text-muted" style="font-size: 2rem;"></i>
-            <p class="text-muted mt-2 mb-0">Run complete synthesis to generate narrative elements</p>
         </div>
     </div>
 </div>
 
 <!-- Navigation to review page -->
 <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4">
-    <a href="{{ url_for('step4.step4_review', case_id=case.id) }}" class="btn btn-outline-primary">
-        <i class="bi bi-eye"></i> Review Step 4 Synthesis Results
+    <a href="{{ url_for('step4.step4_review', case_id=case.id) }}" class="btn btn-primary btn-lg">
+        <i class="bi bi-eye"></i> Review Step 4 Results
     </a>
 </div>
 
 {% endblock %}
 
+{% block step_styles %}
+<style>
+    .phase-indicator {
+        padding: 1rem;
+        border-radius: 0.5rem;
+        background-color: #f8f9fa;
+        transition: all 0.3s ease;
+    }
+
+    .phase-indicator.phase-complete {
+        background-color: #d4edda;
+        border: 2px solid #28a745;
+    }
+
+    .phase-indicator.phase-active {
+        background-color: #cce5ff;
+        border: 2px solid #007bff;
+        animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.02); }
+    }
+
+    .phase-number {
+        display: inline-block;
+        width: 2rem;
+        height: 2rem;
+        line-height: 2rem;
+        text-align: center;
+        border-radius: 50%;
+        background-color: #6c757d;
+        color: white;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+    }
+
+    .phase-complete .phase-number {
+        background-color: #28a745;
+    }
+
+    .phase-active .phase-number {
+        background-color: #007bff;
+    }
+
+    .extractor-section .step-card {
+        border: 1px solid #dee2e6;
+        border-radius: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .extractor-section .step-header {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .extractor-section .step-content {
+        padding: 1rem;
+    }
+
+    .prompt-preview {
+        background-color: #f8f9fa;
+        border-radius: 0.5rem;
+        padding: 1rem;
+    }
+
+    .prompt-text {
+        font-size: 0.9rem;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+    .prompt-text-content {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.85rem;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        background-color: white;
+        padding: 0.75rem;
+        border-radius: 0.25rem;
+        border: 1px solid #dee2e6;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+    .results-preview {
+        background-color: #f0fff4;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        border: 1px solid #d4edda;
+    }
+
+    .bg-purple {
+        background-color: #6f42c1 !important;
+    }
+
+    .text-purple {
+        color: #6f42c1 !important;
+    }
+
+    .border-purple {
+        border-color: #6f42c1 !important;
+    }
+</style>
+{% endblock %}
+
 {% block step_scripts %}
 <script>
 const currentCaseId = {{ case.id }};
-let messageCount = 0;
-let synthesisData = {
-    stages: [],
-    totalMessages: 0,
-    startTime: null,
-    endTime: null
-};
-
-// Attach clear button handler on page load
-document.addEventListener('DOMContentLoaded', function() {
-    const clearBtn = document.getElementById('clear-pass4-btn');
-    if (clearBtn) {
-        clearBtn.addEventListener('click', clearPass4Data);
-    }
-});
 
 function getCsrfToken() {
     return document.querySelector('meta[name="csrf-token"]')?.content || '';
 }
 
-function clearPass4Data() {
-    if (!confirm('This will clear all whole-case synthesis data (code provisions, questions, conclusions analysis) for this case.\n\nYou can re-run synthesis afterward if needed. Continue?')) {
+// Individual task extraction
+function extractTask(taskType) {
+    const button = document.getElementById(`extract${capitalizeFirst(taskType)}Btn`);
+    const promptSection = document.getElementById(`${taskType}PromptSection`);
+    const resultsSection = document.getElementById(`${taskType}Results`);
+    const promptText = document.getElementById(`${taskType}PromptText`);
+    const resultsContent = document.getElementById(`${taskType}ResultsContent`);
+
+    // Use streaming for provisions, questions, conclusions, transformation, and rich_analysis (shows real-time progress)
+    if (taskType === 'provisions' || taskType === 'questions' || taskType === 'conclusions' || taskType === 'transformation' || taskType === 'rich_analysis') {
+        extractTaskStreaming(taskType, button, promptSection, resultsSection, promptText, resultsContent);
         return;
     }
 
-    const button = document.getElementById('clear-pass4-btn');
-    button.disabled = true;
-    button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Clearing...';
+    // Map task types to endpoints (non-streaming)
+    const endpoints = {
+        'questions': 'extract_questions',
+        'conclusions': 'extract_conclusions',
+        'transformation': 'extract_transformation',
+        'rich_analysis': 'extract_rich_analysis',
+        'decision_synthesis': 'extract_decision_synthesis',
+        'narrative': 'extract_narrative'
+    };
 
-    fetch(`/scenario_pipeline/case/${currentCaseId}/entities/clear_and_rerun/pass4`, {
+    const endpoint = endpoints[taskType];
+    if (!endpoint) {
+        console.error('Unknown task type:', taskType);
+        return;
+    }
+
+    // Disable button and show loading
+    if (button) {
+        button.disabled = true;
+        button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Running...';
+    }
+
+    // Clear previous results and show prompt section with loading
+    if (promptSection) {
+        promptSection.style.display = 'block';
+        if (promptText) {
+            promptText.innerHTML = '<div class="text-center text-muted"><i class="bi bi-hourglass-split"></i> Generating prompt...</div>';
+        }
+    }
+
+    // Clear previous response
+    if (resultsSection) {
+        resultsSection.style.display = 'none';
+    }
+    if (resultsContent) {
+        resultsContent.innerHTML = '';
+    }
+
+    fetch(`/scenario_pipeline/case/${currentCaseId}/${endpoint}`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'X-CSRFToken': getCsrfToken()
-        },
-        body: JSON.stringify({})
+        }
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // Hide warning banner and reload page
-            alert('Step 4 synthesis data cleared successfully.\n\nYou can now run synthesis again.');
-            window.location.reload();
-        } else {
-            alert('Error: ' + (data.error || 'Failed to clear synthesis'));
-            button.disabled = false;
-            button.innerHTML = '<i class="bi bi-trash"></i> Clear Synthesis Data';
-        }
-    })
-    .catch(error => {
-        alert('Error clearing synthesis: ' + error.message);
-        button.disabled = false;
-        button.innerHTML = '<i class="bi bi-trash"></i> Clear Synthesis Data';
-    });
-}
+            // Display status messages + prompt
+            if (promptText) {
+                let promptHtml = '';
 
-function toggleLog() {
-    const messagesDiv = document.getElementById("progress-messages");
-    const toggleIcon = document.getElementById("log-toggle-icon");
-    if (messagesDiv.style.display === "none") {
-        messagesDiv.style.display = "block";
-        toggleIcon.className = "bi bi-chevron-down";
-    } else {
-        messagesDiv.style.display = "none";
-        toggleIcon.className = "bi bi-chevron-right";
-    }
-}
-
-function runSynthesis() {
-    const progressCard = document.getElementById('synthesis-progress');
-    const progressBar = document.getElementById('progress-bar');
-    const progressIcon = document.getElementById('progress-icon');
-    const progressHeader = document.getElementById('progress-header-text');
-    const messagesDiv = document.getElementById('progress-messages');
-    const stageInfo = document.getElementById('stage-info');
-    const currentStageSpan = document.getElementById('current-stage');
-    const summaryCard = document.getElementById('synthesis-summary');
-    const accordionContainer = document.getElementById('synthesis-stages-accordion');
-
-    // Reset state
-    messageCount = 0;
-    synthesisData = {
-        stages: [],
-        totalMessages: 0,
-        startTime: new Date(),
-        endTime: null
-    };
-
-    // Show progress card and reset UI
-    if (progressCard) {
-        progressCard.style.display = 'block';
-    }
-    progressBar.style.width = '0%';
-    progressBar.textContent = '0%';
-    messagesDiv.innerHTML = '<div class="text-muted"><i class="bi bi-hourglass-split"></i> Clearing previous data...</div>';
-    summaryCard.style.display = 'none';
-    stageInfo.style.display = 'block';
-    progressIcon.className = 'bi bi-hourglass-split';
-    currentStageSpan.textContent = 'Clearing previous synthesis data...';
-    document.getElementById('log-count').textContent = '0 messages';
-
-    // Reset accordion
-    if (accordionContainer) {
-        accordionContainer.innerHTML = '<em class="text-muted">Stages will appear here as synthesis progresses...</em>';
-    }
-
-    // Scroll to progress card
-    progressCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-    // Clear existing data first, then run synthesis
-    fetch(`/scenario_pipeline/case/${currentCaseId}/entities/clear_and_rerun/pass4`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCsrfToken()
-        },
-        body: JSON.stringify({})
-    })
-    .then(response => response.json())
-    .then(clearResult => {
-        if (!clearResult.success) {
-            console.warn('Could not clear previous data:', clearResult.error);
-        }
-        messagesDiv.innerHTML = '';
-        currentStageSpan.textContent = 'Initializing...';
-        startSynthesisStream();
-    })
-    .catch(error => {
-        console.warn('Error clearing data (proceeding anyway):', error);
-        messagesDiv.innerHTML = '';
-        currentStageSpan.textContent = 'Initializing...';
-        startSynthesisStream();
-    });
-}
-
-function startSynthesisStream() {
-    // Get DOM elements (re-query since these are needed in this scope)
-    const progressBar = document.getElementById('progress-bar');
-    const progressIcon = document.getElementById('progress-icon');
-    const progressHeader = document.getElementById('progress-header-text');
-    const messagesDiv = document.getElementById('progress-messages');
-    const stageInfo = document.getElementById('stage-info');
-    const currentStageSpan = document.getElementById('current-stage');
-    const summaryCard = document.getElementById('synthesis-summary');
-
-    // Create EventSource for Server-Sent Events
-    const eventSource = new EventSource(
-        `/scenario_pipeline/case/${currentCaseId}/synthesize_streaming`
-    );
-
-    eventSource.onmessage = function(event) {
-        const data = JSON.parse(event.data);
-        console.log('Synthesis event:', data);
-
-        // Check for completion
-        if (data.complete) {
-            eventSource.close();
-            synthesisData.endTime = new Date();
-            const duration = ((synthesisData.endTime - synthesisData.startTime) / 1000).toFixed(1);
-
-            progressBar.style.width = '100%';
-            progressBar.textContent = '100%';
-            progressBar.classList.remove('progress-bar-animated');
-            progressBar.classList.add('bg-success');
-            progressIcon.className = 'bi bi-check-circle text-success';
-            progressHeader.textContent = 'Synthesis Complete';
-            stageInfo.style.display = 'none';
-
-            // Show summary
-            summaryCard.style.display = 'block';
-            const summary = data.summary || {};
-            document.getElementById('synthesis-summary-content').innerHTML = `
-                <div class="row">
-                    <div class="col-md-3">
-                        <strong>Duration:</strong> ${duration} seconds
-                    </div>
-                    <div class="col-md-3">
-                        <strong>Provisions:</strong> ${summary.provisions_count || 0}
-                    </div>
-                    <div class="col-md-3">
-                        <strong>Questions:</strong> ${summary.questions_count || 0}
-                    </div>
-                    <div class="col-md-3">
-                        <strong>Conclusions:</strong> ${summary.conclusions_count || 0}
-                    </div>
-                </div>
-                <div class="row mt-3">
-                    <div class="col-md-4">
-                        <strong>Entity Nodes:</strong> ${summary.total_nodes || 0}
-                    </div>
-                    <div class="col-md-4">
-                        <strong>Causal Links:</strong> ${summary.total_links || 0}
-                    </div>
-                    <div class="col-md-4">
-                        <strong>LLM Interactions:</strong> ${summary.llm_interactions || 0}
-                    </div>
-                </div>
-            `;
-
-            addMessage('success', `✓ Synthesis completed in ${duration} seconds`);
-            addMessage('info', 'Saving results to database...');
-
-            // Save synthesis results to database
-            saveSynthesisResults(data).then(() => {
-                addMessage('success', '✓ Results saved successfully');
-
-                // Update the status message area
-                const statusArea = document.getElementById('synthesis-status-area');
-                if (statusArea) {
-                    statusArea.innerHTML = `
-                        <p class="mb-2">
-                            <strong>${summary.provisions_count || 0}</strong> provisions,
-                            <strong>${summary.questions_count || 0}</strong> questions,
-                            <strong>${summary.conclusions_count || 0}</strong> conclusions extracted.
-                            <small class="text-muted">(Re-running will replace these results)</small>
-                        </p>
-                    `;
+                // Show status messages if available
+                if (data.status_messages && data.status_messages.length > 0) {
+                    promptHtml += '<div class="alert alert-info mb-3 py-2"><strong>Extraction Results:</strong><ul class="mb-0 mt-1 small">';
+                    data.status_messages.forEach(msg => {
+                        promptHtml += `<li>${escapeHtml(msg)}</li>`;
+                    });
+                    promptHtml += '</ul></div>';
                 }
 
-                // Add refresh button
-                const refreshBtn = document.createElement('button');
-                refreshBtn.className = 'btn btn-success btn-sm mt-3';
-                refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Refresh to See Results';
-                refreshBtn.onclick = () => location.reload();
-                messagesDiv.appendChild(refreshBtn);
-            }).catch((error) => {
-                addMessage('warning', `Warning: Failed to save results - ${error.message}`);
-                console.error('Error saving synthesis results:', error);
-            });
+                // Show the prompt
+                if (data.prompt) {
+                    promptHtml += `<div class="prompt-text-content">${escapeHtml(data.prompt)}</div>`;
+                }
 
-            return;
-        }
-
-        // Check for error
-        if (data.error) {
-            eventSource.close();
-            addMessage('danger', `Error: ${data.error}`);
-            progressIcon.className = 'bi bi-exclamation-triangle text-danger';
-            progressHeader.textContent = 'Synthesis Failed';
-            stageInfo.style.display = 'none';
-            return;
-        }
-
-        // Update stage info
-        if (data.stage) {
-            currentStageSpan.textContent = data.stage || 'Processing...';
-            if (data.stage && !synthesisData.stages.includes(data.stage)) {
-                synthesisData.stages.push(data.stage);
+                promptText.innerHTML = promptHtml;
             }
-        }
 
-        // Update progress bar
-        if (data.progress !== undefined) {
-            progressBar.style.width = data.progress + '%';
-            progressBar.textContent = data.progress + '%';
-        }
+            // Display response
+            if (resultsSection && resultsContent) {
+                resultsSection.style.display = 'block';
 
-        // Add messages
-        if (data.messages && data.messages.length > 0) {
-            data.messages.forEach(msg => {
-                addMessage('info', msg);
-            });
-        }
+                if (data.raw_llm_response) {
+                    resultsContent.innerHTML = `<pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; max-height: 500px; overflow-y: auto;">${escapeHtml(data.raw_llm_response)}</pre>`;
+                }
 
-        // Add errors/warnings
-        if (data.errors && data.errors.length > 0) {
-            data.errors.forEach(err => {
-                addMessage('warning', err);
-            });
-        }
+                // Handle task-specific results
+                handleTaskResults(taskType, data);
+            }
 
-        // Handle LLM trace data
-        if (data.llm_trace && data.llm_trace.length > 0) {
-            data.llm_trace.forEach(trace => {
-                displayStagePromptResponse(trace);
-            });
-        }
-    };
+            // Update counts if available
+            updateCountBadges(taskType, data.result);
 
-    eventSource.onerror = function(error) {
-        console.error('Synthesis SSE error:', error);
-        eventSource.close();
-        addMessage('danger', 'Connection error during synthesis');
-        progressIcon.className = 'bi bi-exclamation-triangle text-danger';
-        progressHeader.textContent = 'Synthesis Failed';
-    };
+            // Re-enable button with Re-run label
+            if (button) {
+                button.disabled = false;
+                button.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Re-run';
+                button.classList.remove('btn-outline-' + getButtonColor(taskType));
+                button.classList.add('btn-outline-secondary');
+            }
+        } else {
+            throw new Error(data.error || 'Extraction failed');
+        }
+    })
+    .catch(error => {
+        console.error('Extraction error:', error);
+        if (promptText) {
+            promptText.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+        }
+        if (button) {
+            button.disabled = false;
+            button.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Retry';
+        }
+    });
 }
 
-function addMessage(type, message) {
-    const messagesDiv = document.getElementById('progress-messages');
-
-    // Clear "waiting" message on first real message
-    if (messageCount === 0) {
-        messagesDiv.innerHTML = '';
+function handleTaskResults(taskType, data) {
+    switch(taskType) {
+        case 'rich_analysis':
+            handleRichAnalysisResults(data);
+            break;
+        case 'decision_synthesis':
+            handleDecisionSynthesisResults(data);
+            break;
+        case 'narrative':
+            handleNarrativeResults(data);
+            break;
     }
-
-    messageCount++;
-    document.getElementById('log-count').textContent = `${messageCount} message${messageCount !== 1 ? 's' : ''}`;
-
-    const timestamp = new Date().toLocaleTimeString();
-    const alertDiv = document.createElement('div');
-    alertDiv.className = `alert alert-${type} mb-2 py-2`;
-
-    let icon = 'bi-arrow-right';
-    if (type === 'success') icon = 'bi-check-circle';
-    else if (type === 'danger') icon = 'bi-exclamation-triangle';
-    else if (type === 'warning') icon = 'bi-exclamation-circle';
-    else if (type === 'info') icon = 'bi-info-circle';
-
-    alertDiv.innerHTML = `
-        <div class="d-flex justify-content-between align-items-start">
-            <div><i class="bi ${icon}"></i> ${message}</div>
-            <small class="text-muted ms-2" style="white-space: nowrap;">${timestamp}</small>
-        </div>
-    `;
-    messagesDiv.appendChild(alertDiv);
-
-    // Scroll to bottom
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
 
-function displayStagePromptResponse(trace) {
-    const accordionContainer = document.getElementById('synthesis-stages-accordion');
-
-    // Remove placeholder text on first trace
-    if (accordionContainer.querySelector('em')) {
-        accordionContainer.innerHTML = '';
+function handleRichAnalysisResults(data) {
+    if (data.result) {
+        document.getElementById('causalLinksCount').textContent = data.result.causal_normative_links || 0;
+        document.getElementById('questionEmergenceCount').textContent = data.result.question_emergence || 0;
+        document.getElementById('resolutionPatternsCount').textContent = data.result.resolution_patterns || 0;
     }
 
-    // Create unique ID for this stage
-    const stageName = trace.stage || 'unknown';
-    const stageId = 'stage-' + stageName.replace(/[^a-z0-9]/gi, '-');
+    // Display LLM traces (now handled by streaming, but keep for non-streaming fallback)
+    if (data.llm_traces && data.llm_traces.length > 0) {
+        const promptSection = document.getElementById('rich_analysisPromptSection');
+        const promptText = document.getElementById('rich_analysisPromptText');
+        const resultsSection = document.getElementById('rich_analysisResults');
+        const resultsContent = document.getElementById('rich_analysisResultsContent');
 
-    // Check if this stage already exists (avoid duplicates)
-    if (document.getElementById(stageId)) {
-        return; // Already displayed
+        if (promptSection) promptSection.style.display = 'block';
+        if (resultsSection) resultsSection.style.display = 'block';
+
+        // Combine prompts and responses
+        if (promptText) {
+            promptText.innerHTML = data.llm_traces.map((trace, i) =>
+                `<h6 class="mt-2">${trace.stage}</h6><pre style="max-height: 200px; overflow-y: auto; font-size: 0.8rem;">${escapeHtml(trace.prompt)}</pre>`
+            ).join('');
+        }
+
+        if (resultsContent) {
+            resultsContent.innerHTML = data.llm_traces.map((trace, i) =>
+                `<h6 class="mt-2">${trace.stage}</h6><pre style="max-height: 200px; overflow-y: auto; font-size: 0.8rem;">${escapeHtml(trace.response)}</pre>`
+            ).join('');
+        }
+    }
+}
+
+function handleDecisionSynthesisResults(data) {
+    if (data.result) {
+        document.getElementById('e1Result').textContent = data.result.e1_decision_relevant + ' decision-relevant';
+        document.getElementById('e2Result').textContent = data.result.e2_action_sets + ' action sets';
+        document.getElementById('e3Result').textContent = data.result.e3_candidates + ' candidates';
+        document.getElementById('llmResult').textContent = data.result.canonical_count + ' canonical';
+
+        // Update step badges to success
+        ['step-e1', 'step-e2', 'step-e3', 'step-llm'].forEach(id => {
+            document.getElementById(id).classList.remove('bg-secondary');
+            document.getElementById(id).classList.add('bg-success');
+        });
     }
 
-    // Create accordion item
-    const accordionItem = document.createElement('div');
-    accordionItem.className = 'accordion-item';
-    accordionItem.id = stageId;
+    if (data.llm_trace) {
+        document.getElementById('decisionSynthesisPromptSection').style.display = 'block';
+        document.getElementById('decisionSynthesisPromptText').textContent = data.llm_trace.prompt;
+        document.getElementById('decisionSynthesisResultsContent').innerHTML =
+            `<pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; max-height: 500px; overflow-y: auto;">${escapeHtml(data.llm_trace.response)}</pre>`;
+    }
+}
 
-    // Format token info
-    let tokenBadge = '';
-    if (trace.tokens && trace.tokens.total_tokens) {
-        tokenBadge = '<span class="badge bg-info ms-2">' + trace.tokens.total_tokens + ' tokens</span>';
+function handleNarrativeResults(data) {
+    if (data.narrative) {
+        if (data.narrative.case_summary) {
+            document.getElementById('case-summary-area').style.display = 'block';
+            document.getElementById('case-summary-text').textContent = data.narrative.case_summary;
+        }
+
+        if (data.narrative.timeline && data.narrative.timeline.length > 0) {
+            document.getElementById('timeline-preview').style.display = 'block';
+            document.getElementById('timeline-events').innerHTML = data.narrative.timeline.map(e =>
+                `<div class="d-flex mb-2">
+                    <span class="badge bg-secondary me-2">${e.sequence}</span>
+                    <span><strong>${e.phase_label}:</strong> ${e.description}</span>
+                </div>`
+            ).join('');
+        }
     }
 
-    // Stage header
-    const header = document.createElement('h2');
-    header.className = 'accordion-header';
-    header.innerHTML =
-        '<button class="accordion-button collapsed" type="button" ' +
-        'data-bs-toggle="collapse" data-bs-target="#collapse-' + stageId + '">' +
-        '<i class="bi bi-check-circle text-success me-2"></i>' +
-        '<strong>Stage: ' + (trace.stage || 'Unknown') + '</strong>' +
-        '<span class="badge bg-secondary ms-2">' + (trace.model || 'Unknown') + '</span>' +
-        tokenBadge +
-        '</button>';
-
-    // Stage content
-    const content = document.createElement('div');
-    content.id = 'collapse-' + stageId;
-    content.className = 'accordion-collapse collapse';
-
-    let tokenSection = '';
-    if (trace.tokens) {
-        tokenSection = '<div class="mt-3 p-2 bg-light rounded">' +
-            '<small class="text-muted">' +
-            '<strong>Token Usage:</strong> ' +
-            'Input: ' + trace.tokens.input_tokens + ' | ' +
-            'Output: ' + trace.tokens.output_tokens + ' | ' +
-            'Total: ' + trace.tokens.total_tokens +
-            '</small></div>';
+    if (data.llm_trace) {
+        document.getElementById('narrativePromptSection').style.display = 'block';
+        document.getElementById('narrativePromptText').textContent = data.llm_trace.prompt;
+        document.getElementById('narrativeResultsContent').innerHTML =
+            `<pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; max-height: 500px; overflow-y: auto;">${escapeHtml(data.llm_trace.response)}</pre>`;
     }
+}
 
-    content.innerHTML =
-        '<div class="accordion-body">' +
-        '<div class="mb-4">' +
-        '<h6 class="text-primary">' +
-        '<i class="bi bi-file-text"></i> LLM Prompt ' +
-        '<small class="text-muted ms-2">' + (trace.timestamp || '') + '</small>' +
-        '</h6>' +
-        '<pre class="prompt-display">' + escapeHtml(trace.prompt || 'No prompt available') + '</pre>' +
-        '</div>' +
-        '<div class="mb-3">' +
-        '<h6 class="text-success">' +
-        '<i class="bi bi-code-square"></i> LLM Response' +
-        '</h6>' +
-        '<pre class="response-display">' + escapeHtml(trace.response || 'No response available') + '</pre>' +
-        '</div>' +
-        tokenSection +
-        '</div>';
+function updateCountBadges(taskType, result) {
+    if (!result) return;
 
-    accordionItem.appendChild(header);
-    accordionItem.appendChild(content);
-    accordionContainer.appendChild(accordionItem);
+    switch(taskType) {
+        case 'provisions':
+            document.getElementById('provisionsCount').textContent = result.count || 0;
+            break;
+        case 'questions':
+            document.getElementById('questionsCount').textContent = result.count || 0;
+            break;
+        case 'conclusions':
+            document.getElementById('conclusionsCount').textContent = result.count || 0;
+            break;
+        case 'transformation':
+            document.getElementById('transformationType').textContent = result.type || 'classified';
+            break;
+    }
+}
+
+function getButtonColor(taskType) {
+    const colors = {
+        'provisions': 'secondary',
+        'questions': 'warning',
+        'conclusions': 'success',
+        'transformation': 'secondary',
+        'rich_analysis': 'info',
+        'decision_synthesis': 'primary',
+        'narrative': 'dark'
+    };
+    return colors[taskType] || 'secondary';
+}
+
+function capitalizeFirst(str) {
+    // Handle underscored names like rich_analysis -> RichAnalysis
+    return str.split('_').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join('');
 }
 
 function escapeHtml(text) {
@@ -736,208 +797,208 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-async function saveSynthesisResults(data) {
-    /**
-     * Save Step 4 streaming synthesis results to database for persistence.
-     *
-     * Sends all LLM traces (prompts + responses) and synthesis results
-     * to the backend for storage in ExtractionPrompt table.
-     */
-    console.log('[Save Debug] Received data:', data);
-    console.log('[Save Debug] session_id:', data.session_id);
-    console.log('[Save Debug] llm_traces length:', (data.llm_traces || []).length);
-    console.log('[Save Debug] synthesis_results:', data.synthesis_results);
+// Streaming extraction for provisions (real-time progress)
+function extractTaskStreaming(taskType, button, promptSection, resultsSection, promptText, resultsContent) {
+    // Reset streaming messages for this task
+    streamingMessages[taskType] = [];
 
-    const saveData = {
-        session_id: data.session_id,
-        llm_traces: data.llm_traces || [],
-        synthesis_results: data.synthesis_results || {}
-    };
-
-    console.log('[Save Debug] Sending saveData:', saveData);
-    console.log('[Save Debug] Questions count:', (saveData.synthesis_results.questions || []).length);
-    console.log('[Save Debug] Conclusions count:', (saveData.synthesis_results.conclusions || []).length);
-
-    const response = await fetch(
-        `/scenario_pipeline/case/${currentCaseId}/save_streaming_results`,
-        {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCsrfToken()
-            },
-            body: JSON.stringify(saveData)
-        }
-    );
-
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to save synthesis results');
+    // Disable button and show loading
+    if (button) {
+        button.disabled = true;
+        button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Running...';
     }
 
-    return await response.json();
-}
+    // Show prompt section with initial message
+    if (promptSection) {
+        promptSection.style.display = 'block';
+        if (promptText) {
+            promptText.innerHTML = '<div class="alert alert-info py-2"><i class="bi bi-hourglass-split me-1"></i> <strong>Starting extraction...</strong></div>';
+        }
+    }
 
-// Load saved synthesis results on page load
-{% if saved_synthesis %}
-document.addEventListener('DOMContentLoaded', function() {
-    // Show progress card with saved results
-    const progressCard = document.getElementById('synthesis-progress');
-    const progressBar = document.getElementById('progress-bar');
-    const progressIcon = document.getElementById('progress-icon');
-    const progressHeader = document.getElementById('progress-header-text');
-    const stageInfo = document.getElementById('stage-info');
-    const messagesDiv = document.getElementById('progress-messages');
-    const summaryCard = document.getElementById('synthesis-summary');
-    const accordionContainer = document.getElementById('synthesis-stages-accordion');
+    // Clear previous response
+    if (resultsSection) {
+        resultsSection.style.display = 'none';
+    }
+    if (resultsContent) {
+        resultsContent.innerHTML = '';
+    }
 
-    // Display the saved synthesis
-    progressCard.style.display = 'block';
-    progressBar.style.width = '100%';
-    progressBar.textContent = '100%';
-    progressBar.classList.remove('progress-bar-animated');
-    progressBar.classList.add('bg-success');
-    progressIcon.className = 'bi bi-check-circle text-success';
-    progressHeader.textContent = 'Synthesis Complete (Loaded from Database)';
-    stageInfo.style.display = 'none';
+    // Use streaming endpoint
+    fetch(`/scenario_pipeline/case/${currentCaseId}/extract_${taskType}_stream`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        }
+    })
+    .then(response => {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
 
-    // Show summary
-    const summary = {{ saved_synthesis.results_summary | tojson | safe }};
-    summaryCard.style.display = 'block';
-    document.getElementById('synthesis-summary-content').innerHTML = `
-        <div class="row">
-            <div class="col-md-3">
-                <strong>Provisions:</strong> ${summary.provisions_count || 0}
-            </div>
-            <div class="col-md-3">
-                <strong>Questions:</strong> ${summary.questions_count || 0}
-            </div>
-            <div class="col-md-3">
-                <strong>Conclusions:</strong> ${summary.conclusions_count || 0}
-            </div>
-            <div class="col-md-3">
-                <strong>Entity Nodes:</strong> ${summary.total_nodes || 0}
-            </div>
-        </div>
-        <div class="row mt-3">
-            <div class="col-md-6">
-                <strong>LLM Interactions:</strong> ${summary.llm_interactions || 0}
-            </div>
-            <div class="col-md-6">
-                <strong>Completed:</strong> <span class="local-time" data-utc="{{ saved_synthesis.created_at.strftime('%Y-%m-%dT%H:%M:%SZ') }}" data-format="full">{{ saved_synthesis.created_at.strftime('%Y-%m-%d %H:%M') }} UTC</span>
-            </div>
-        </div>
-    `;
+        function processStream() {
+            reader.read().then(({ done, value }) => {
+                if (done) {
+                    // Re-enable button
+                    if (button) {
+                        button.disabled = false;
+                        button.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Re-run';
+                        button.classList.add('btn-outline-secondary');
+                    }
+                    return;
+                }
 
-    // Convert any local-time spans that were just added to the DOM
-    document.querySelectorAll('.local-time').forEach(function(el) {
-        if (el.dataset.utc && !el.dataset.converted) {
-            const date = new Date(el.dataset.utc);
-            el.textContent = date.toLocaleString();
-            el.dataset.converted = 'true';
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+
+                lines.forEach(line => {
+                    if (line.startsWith('data: ')) {
+                        try {
+                            const data = JSON.parse(line.substring(6));
+                            handleStreamingExtraction(taskType, data, promptText, resultsSection, resultsContent);
+                        } catch (e) {
+                            console.log('Parse error:', line);
+                        }
+                    }
+                });
+
+                processStream();
+            });
+        }
+
+        processStream();
+    })
+    .catch(error => {
+        console.error('Streaming error:', error);
+        if (promptText) {
+            promptText.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+        }
+        if (button) {
+            button.disabled = false;
+            button.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Retry';
         }
     });
+}
 
-    // Parse saved prompts and responses
-    const savedPromptText = {{ saved_synthesis.prompt_text | tojson | safe }};
-    const savedResponseText = {{ saved_synthesis.raw_response | tojson | safe }};
-
-    // Extract stages from the combined prompt/response
-    const stages = (summary.stages || []);
-
-    // Display saved LLM traces
-    if (stages.length > 0) {
-        accordionContainer.innerHTML = ''; // Clear placeholder
-
-        stages.forEach((stageName, index) => {
-            const stageMarker = `=== ${stageName} ===`;
-
-            // Extract prompt for this stage
-            const promptStartIndex = savedPromptText.indexOf(stageMarker);
-            const promptEndIndex = savedPromptText.indexOf('=== ', promptStartIndex + stageMarker.length);
-            const stagePrompt = promptStartIndex >= 0
-                ? savedPromptText.substring(promptStartIndex + stageMarker.length, promptEndIndex >= 0 ? promptEndIndex : undefined).trim()
-                : '';
-
-            // Extract response for this stage
-            const responseStartIndex = savedResponseText.indexOf(stageMarker);
-            const responseEndIndex = savedResponseText.indexOf('=== ', responseStartIndex + stageMarker.length);
-            const stageResponse = responseStartIndex >= 0
-                ? savedResponseText.substring(responseStartIndex + stageMarker.length, responseEndIndex >= 0 ? responseEndIndex : undefined).trim()
-                : '';
-
-            if (stagePrompt || stageResponse) {
-                displayStagePromptResponse({
-                    stage: stageName,
-                    prompt: stagePrompt,
-                    response: stageResponse,
-                    model: '{{ saved_synthesis.llm_model }}',
-                    timestamp: '{{ saved_synthesis.created_at.strftime('%Y-%m-%d %H:%M:%S') }}'
-                });
+// Handle streaming extraction data
+function handleStreamingExtraction(taskType, data, promptText, resultsSection, resultsContent) {
+    // Accumulate messages
+    if (data.messages) {
+        data.messages.forEach(msg => {
+            if (!streamingMessages[taskType].includes(msg)) {
+                streamingMessages[taskType].push(msg);
             }
         });
     }
 
-});
-{% endif %}
+    // Build the display
+    if (promptText) {
+        let html = '<div class="alert alert-info mb-2 py-2">';
+        html += '<strong><i class="bi bi-gear-fill me-1"></i> Processing:</strong>';
+        html += '<div class="streaming-messages mt-2" style="max-height: 200px; overflow-y: auto;">';
 
-// ============================================================================
-// Complete Four-Phase Synthesis
-// ============================================================================
+        streamingMessages[taskType].forEach((msg, idx) => {
+            const isLatest = idx === streamingMessages[taskType].length - 1;
+            html += `<div class="mb-1 ${isLatest ? 'fw-bold' : 'text-muted small'}">
+                <i class="bi bi-${isLatest ? 'arrow-right-circle-fill text-primary' : 'check-circle text-success'} me-1"></i>
+                ${escapeHtml(msg)}
+            </div>`;
+        });
 
-function runCompleteSynthesis() {
-    const btn = document.getElementById('run-complete-synthesis-btn');
+        html += '</div>';
+
+        // Show progress bar
+        if (data.progress) {
+            html += `<div class="progress mt-2" style="height: 6px;">
+                <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: ${data.progress}%"></div>
+            </div>`;
+        }
+
+        html += '</div>';
+        promptText.innerHTML = html;
+
+        // Auto-scroll
+        const messagesDiv = promptText.querySelector('.streaming-messages');
+        if (messagesDiv) {
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+    }
+
+    // Update count badge on completion
+    if (data.stage === 'COMPLETE' && data.result) {
+        // Handle task-specific count updates
+        if (taskType === 'rich_analysis') {
+            // Rich analysis has 3 separate counts
+            const causalEl = document.getElementById('causalLinksCount');
+            const emergenceEl = document.getElementById('questionEmergenceCount');
+            const resolutionEl = document.getElementById('resolutionPatternsCount');
+            if (causalEl) causalEl.textContent = data.result.causal_normative_links || 0;
+            if (emergenceEl) emergenceEl.textContent = data.result.question_emergence || 0;
+            if (resolutionEl) resolutionEl.textContent = data.result.resolution_patterns || 0;
+        } else {
+            const countEl = document.getElementById(`${taskType}Count`);
+            if (countEl) {
+                countEl.textContent = data.result.count || 0;
+            }
+        }
+
+        // Show final status messages + prompt
+        if (promptText) {
+            let html = '<div class="alert alert-success mb-2 py-2">';
+            html += '<strong><i class="bi bi-check-circle-fill me-1"></i> Extraction Complete:</strong>';
+            if (data.status_messages && data.status_messages.length > 0) {
+                html += '<ul class="mb-0 mt-1 small">';
+                data.status_messages.forEach(msg => {
+                    html += `<li>${escapeHtml(msg)}</li>`;
+                });
+                html += '</ul>';
+            }
+            html += '</div>';
+
+            // Show the prompt if available
+            if (data.prompt) {
+                html += `<div class="prompt-text-content">${escapeHtml(data.prompt)}</div>`;
+            }
+
+            promptText.innerHTML = html;
+        }
+
+        // Show the LLM response if available
+        if (data.raw_llm_response && resultsSection && resultsContent) {
+            resultsSection.style.display = 'block';
+            resultsContent.innerHTML = `<pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; max-height: 500px; overflow-y: auto;">${escapeHtml(data.raw_llm_response)}</pre>`;
+        }
+    }
+
+    // Handle errors
+    if (data.error) {
+        if (promptText) {
+            promptText.innerHTML = `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-1"></i> ${data.messages ? data.messages[0] : 'Error occurred'}</div>`;
+        }
+    }
+}
+
+// Run complete synthesis with SSE streaming for real-time progress
+async function runCompleteSynthesis() {
+    const button = document.getElementById('run-complete-synthesis-btn');
     const progressText = document.getElementById('synthesis-progress-text');
 
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Running Synthesis...';
+    button.disabled = true;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Running...';
+    progressText.textContent = 'Starting synthesis...';
 
-    // Update phase indicators to show progress
-    const phases = [
-        { id: 'phase1-indicator', status: 'phase1-status' },
-        { id: 'phase2-indicator', status: 'phase2-status' },
-        { id: 'phase3-indicator', status: 'phase3-status' },
-        { id: 'phase4-indicator', status: 'phase4-status' }
-    ];
+    // Reset streaming message trackers
+    Object.keys(streamingMessages).forEach(key => {
+        streamingMessages[key] = [];
+    });
 
-    function setPhaseActive(phaseIndex) {
-        phases.forEach((p, i) => {
-            const indicator = document.getElementById(p.id);
-            if (indicator) {
-                if (i < phaseIndex) {
-                    indicator.classList.add('phase-complete');
-                    indicator.classList.remove('phase-active');
-                } else if (i === phaseIndex) {
-                    indicator.classList.add('phase-active');
-                    indicator.classList.remove('phase-complete');
-                } else {
-                    indicator.classList.remove('phase-active', 'phase-complete');
-                }
-            }
-        });
-    }
+    // Show prompt sections for streaming updates
+    document.getElementById('provisionsPromptSection').style.display = 'block';
+    document.getElementById('provisionsPromptText').innerHTML = '<div class="alert alert-info py-2"><i class="bi bi-hourglass-split me-1"></i> <strong>Waiting to start...</strong></div>';
 
-    const phaseMessages = [
-        'Phase 1: Building entity foundation...',
-        'Phase 2: Loading analytical extraction...',
-        'Phase 3: Synthesizing decision points...',
-        'Phase 4: Constructing narrative...'
-    ];
-
-    let currentPhase = 0;
-    setPhaseActive(0);
-    progressText.textContent = phaseMessages[0];
-
-    // Animate phases
-    const phaseInterval = setInterval(() => {
-        currentPhase++;
-        if (currentPhase < phases.length) {
-            setPhaseActive(currentPhase);
-            progressText.textContent = phaseMessages[currentPhase];
-        }
-    }, 3000);
-
-    // Run complete synthesis with LLM
+    // Use streaming endpoint
     fetch(`/scenario_pipeline/case/${currentCaseId}/synthesize_complete`, {
         method: 'POST',
         headers: {
@@ -945,712 +1006,314 @@ function runCompleteSynthesis() {
             'X-CSRFToken': getCsrfToken()
         }
     })
-    .then(response => response.json())
-    .then(data => {
-        clearInterval(phaseInterval);
-        btn.disabled = false;
-        btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Re-run Synthesis';
+    .then(response => {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
 
-        if (data.success) {
-            // Mark all phases complete
-            phases.forEach(p => {
-                const indicator = document.getElementById(p.id);
-                if (indicator) {
-                    indicator.classList.add('phase-complete');
-                    indicator.classList.remove('phase-active');
+        function processStream() {
+            reader.read().then(({ done, value }) => {
+                if (done) {
+                    // Streaming complete
+                    progressText.textContent = 'Complete! Review your results below.';
+                    button.disabled = false;
+                    button.innerHTML = '<i class="bi bi-check-circle"></i> Synthesis Complete';
+                    button.classList.remove('btn-primary');
+                    button.classList.add('btn-success');
+                    return;
                 }
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop(); // Keep incomplete line in buffer
+
+                lines.forEach(line => {
+                    if (line.startsWith('data: ')) {
+                        try {
+                            const data = JSON.parse(line.substring(6));
+                            handleStreamingData(data);
+                        } catch (e) {
+                            console.log('Parse error for line:', line);
+                        }
+                    }
+                });
+
+                processStream();
             });
-
-            progressText.innerHTML = '<span class="text-success"><i class="bi bi-check-circle"></i> Synthesis complete!</span>';
-
-            // Update all phase cards with results
-            updateSynthesisResults(data);
-        } else {
-            progressText.innerHTML = `<span class="text-danger"><i class="bi bi-exclamation-triangle"></i> ${data.error || 'Synthesis failed'}</span>`;
         }
+
+        processStream();
     })
-    .catch(err => {
-        clearInterval(phaseInterval);
-        btn.disabled = false;
-        btn.innerHTML = '<i class="bi bi-play-circle"></i> Run Complete Synthesis';
-        progressText.innerHTML = `<span class="text-danger"><i class="bi bi-exclamation-triangle"></i> ${err.message}</span>`;
-        console.error('Synthesis error:', err);
+    .catch(error => {
+        console.error('Streaming error:', error);
+        progressText.textContent = `Error: ${error.message}`;
+        button.disabled = false;
+        button.innerHTML = '<i class="bi bi-play-circle"></i> Run Complete Synthesis';
     });
 }
 
-function updateSynthesisResults(data) {
-    const summary = data.summary;
-    const synthesis = data.synthesis;
+// Handle streaming data updates
+function handleStreamingData(data) {
+    const progressText = document.getElementById('synthesis-progress-text');
 
-    // Update Phase 1 status
-    const phase1Status = document.getElementById('phase1-status');
-    if (phase1Status) {
-        phase1Status.textContent = `${summary.entity_foundation.total} entities`;
-        phase1Status.className = 'badge bg-success';
+    // Update progress text
+    if (data.messages && data.messages.length > 0) {
+        progressText.textContent = data.messages[data.messages.length - 1];
     }
 
-    // Update Phase 2 status
-    const phase2Status = document.getElementById('phase2-status');
-    if (phase2Status) {
-        const ae = summary.analytical_extraction;
-        phase2Status.textContent = `${ae.provisions + ae.questions + ae.conclusions} elements`;
-        phase2Status.className = 'badge bg-success';
-    }
-
-    // Update Phase 3 status and results
-    const phase3Status = document.getElementById('phase3-status');
-    if (phase3Status) {
-        const dp = summary.decision_points;
-        phase3Status.textContent = `${dp.canonical_count} decision points`;
-        phase3Status.className = 'badge bg-success';
-    }
-
-    // Show Phase 3 results
-    const phase3Results = document.getElementById('phase3-results');
-    if (phase3Results) {
-        document.getElementById('canonical-count').textContent = summary.decision_points.canonical_count;
-        document.getElementById('qc-aligned-count').textContent = summary.decision_points.qc_aligned;
-        document.getElementById('algorithmic-count').textContent = summary.decision_points.algorithmic_candidates;
-        phase3Results.style.display = 'block';
-    }
-
-    // Update Phase 4 status and content
-    const phase4Status = document.getElementById('phase4-status');
-    if (phase4Status) {
-        phase4Status.textContent = `${summary.narrative.timeline_events} events`;
-        phase4Status.className = 'badge bg-success';
-    }
-
-    // Hide placeholder, show content
-    const placeholder = document.getElementById('phase4-placeholder');
-    if (placeholder) placeholder.style.display = 'none';
-
-    // Show case summary
-    if (synthesis.narrative && synthesis.narrative.case_summary) {
-        const summaryArea = document.getElementById('case-summary-area');
-        const summaryText = document.getElementById('case-summary-text');
-        if (summaryArea && summaryText) {
-            summaryText.textContent = synthesis.narrative.case_summary;
-            summaryArea.style.display = 'block';
+    // Update phase indicator based on stage
+    if (data.stage) {
+        if (data.stage.startsWith('PART_A')) {
+            updatePhaseIndicator('provisions');
+            updatePromptSection('provisions', data);
+        } else if (data.stage.startsWith('PART_B')) {
+            updatePhaseIndicator('questions');
+            updatePromptSection('questions', data);
+        } else if (data.stage.startsWith('PART_C') || data.stage.includes('TRANSFORMATION')) {
+            updatePhaseIndicator('transformation');
+            updatePromptSection('transformation', data);
+        } else if (data.stage.includes('RICH') || data.stage.includes('ANALYSIS')) {
+            updatePhaseIndicator('rich_analysis');
+        } else if (data.stage.includes('DECISION')) {
+            updatePhaseIndicator('decision_synthesis');
+        } else if (data.stage.includes('NARRATIVE')) {
+            updatePhaseIndicator('narrative');
         }
     }
 
-    // Show timeline
-    if (synthesis.narrative && synthesis.narrative.timeline) {
-        const timelinePreview = document.getElementById('timeline-preview');
-        const timelineEvents = document.getElementById('timeline-events');
-        if (timelinePreview && timelineEvents) {
-            let timelineHtml = '<div class="timeline-container">';
-            synthesis.narrative.timeline.forEach(event => {
-                const typeClass = event.event_type === 'decision' ? 'bg-primary' :
-                                  event.event_type === 'outcome' ? 'bg-success' :
-                                  event.event_type === 'action' ? 'bg-info' : 'bg-secondary';
-                timelineHtml += `
-                    <div class="timeline-item d-flex align-items-start mb-2">
-                        <span class="badge ${typeClass} me-2">${event.sequence}</span>
-                        <div>
-                            <strong>${event.phase_label}</strong>
-                            <div class="small text-muted">${event.description.substring(0, 100)}${event.description.length > 100 ? '...' : ''}</div>
-                        </div>
-                    </div>
-                `;
+    // Update counts when complete
+    if (data.stage === 'PART_A_COMPLETE' && data.result) {
+        document.getElementById('provisionsCount').textContent = data.result.provision_count || 0;
+        markTaskComplete('provisions');
+    } else if (data.stage === 'PART_B_COMPLETE' && data.result) {
+        document.getElementById('questionsCount').textContent = data.result.question_count || 0;
+        document.getElementById('conclusionsCount').textContent = data.result.conclusion_count || 0;
+        markTaskComplete('questions');
+        markTaskComplete('conclusions');
+    } else if (data.stage === 'PART_C_COMPLETE' || data.stage === 'TRANSFORMATION_COMPLETE') {
+        if (data.result && data.result.transformation_type) {
+            document.getElementById('transformationType').textContent = data.result.transformation_type;
+        }
+        markTaskComplete('transformation');
+    } else if (data.stage === 'COMPLETE') {
+        // Final completion
+        markTaskComplete('rich_analysis');
+        markTaskComplete('decision_synthesis');
+        markTaskComplete('narrative');
+    }
+
+    // Show LLM traces
+    if (data.llm_trace) {
+        showLLMTrace(data.stage, data.llm_trace);
+    }
+}
+
+// Track streaming messages per task
+const streamingMessages = {
+    provisions: [],
+    questions: [],
+    conclusions: [],
+    transformation: [],
+    rich_analysis: [],
+    decision_synthesis: [],
+    narrative: []
+};
+
+// Update prompt section with streaming messages (accumulates)
+function updatePromptSection(taskType, data) {
+    const promptSection = document.getElementById(`${taskType}PromptSection`);
+    const promptText = document.getElementById(`${taskType}PromptText`);
+
+    if (promptSection && promptText) {
+        promptSection.style.display = 'block';
+
+        // Accumulate messages
+        if (data.messages) {
+            data.messages.forEach(msg => {
+                if (!streamingMessages[taskType].includes(msg)) {
+                    streamingMessages[taskType].push(msg);
+                }
             });
-            timelineHtml += '</div>';
-            timelineEvents.innerHTML = timelineHtml;
-            timelinePreview.style.display = 'block';
-        }
-    }
-
-    // Show scenario seeds
-    if (synthesis.narrative && synthesis.narrative.scenario_seeds) {
-        const seedsArea = document.getElementById('scenario-seeds-area');
-        const seedsContent = document.getElementById('scenario-seeds-content');
-        if (seedsArea && seedsContent) {
-            const seeds = synthesis.narrative.scenario_seeds;
-            seedsContent.innerHTML = `
-                <p class="mb-1"><strong>Protagonist:</strong> ${seeds.protagonist}</p>
-                <p class="mb-1"><strong>Setting:</strong> ${seeds.setting}</p>
-                <p class="mb-1"><strong>Inciting Incident:</strong> ${seeds.inciting_incident.substring(0, 150)}...</p>
-                ${seeds.key_tensions.length > 0 ? `<p class="mb-0"><strong>Key Tensions:</strong> ${seeds.key_tensions.join(', ')}</p>` : ''}
-            `;
-            seedsArea.style.display = 'block';
-        }
-    }
-
-    // Show LLM traces in their respective phase cards
-    if (synthesis.llm_traces && synthesis.llm_traces.length > 0) {
-        // Group traces by phase
-        const phase2Traces = synthesis.llm_traces.filter(t => t.phase === 2);
-        const phase3Traces = synthesis.llm_traces.filter(t => t.phase === 3);
-        const phase4Traces = synthesis.llm_traces.filter(t => t.phase === 4);
-
-        // Populate Phase 2 traces
-        if (phase2Traces.length > 0) {
-            const phase2Container = document.getElementById('phase2-traces');
-            const phase2Accordion = document.getElementById('phase2-traces-accordion');
-            if (phase2Container && phase2Accordion) {
-                phase2Accordion.innerHTML = `
-                    <div class="small text-muted mb-2">
-                        <i class="bi bi-file-text"></i> ${phase2Traces.length} LLM interaction(s) - click to expand
-                    </div>
-                `;
-                phase2Traces.forEach((trace, idx) => {
-                    phase2Accordion.innerHTML += createTraceAccordionItem(trace, `p2-${idx}`, 'phase2-traces-accordion');
-                });
-                phase2Container.style.display = 'block';
-            }
         }
 
-        // Populate Phase 3 traces
-        if (phase3Traces.length > 0) {
-            const phase3Container = document.getElementById('phase3-traces');
-            const phase3Accordion = document.getElementById('phase3-traces-accordion');
-            if (phase3Container && phase3Accordion) {
-                phase3Accordion.innerHTML = `
-                    <div class="small text-muted mb-2">
-                        <i class="bi bi-file-text"></i> ${phase3Traces.length} LLM interaction(s) - click to expand
-                    </div>
-                `;
-                phase3Traces.forEach((trace, idx) => {
-                    phase3Accordion.innerHTML += createTraceAccordionItem(trace, `p3-${idx}`, 'phase3-traces-accordion');
-                });
-                phase3Container.style.display = 'block';
-            }
-        }
+        // Build the display with all accumulated messages
+        let html = '<div class="alert alert-info mb-2 py-2">';
+        html += '<strong><i class="bi bi-gear-fill me-1"></i> Processing:</strong>';
+        html += '<div class="streaming-messages mt-2" style="max-height: 200px; overflow-y: auto;">';
 
-        // Populate Phase 4 traces
-        if (phase4Traces.length > 0) {
-            const phase4Container = document.getElementById('phase4-traces');
-            const phase4Accordion = document.getElementById('phase4-traces-accordion');
-            if (phase4Container && phase4Accordion) {
-                phase4Accordion.innerHTML = `
-                    <div class="small text-muted mb-2">
-                        <i class="bi bi-file-text"></i> ${phase4Traces.length} LLM interaction(s) - click to expand
-                    </div>
-                `;
-                phase4Traces.forEach((trace, idx) => {
-                    phase4Accordion.innerHTML += createTraceAccordionItem(trace, `p4-${idx}`, 'phase4-traces-accordion');
-                });
-                phase4Container.style.display = 'block';
-            }
-        }
-    }
-
-    // Populate Phase 2 Rich Analysis
-    populateRichAnalysis(synthesis);
-}
-
-function populateRichAnalysis(synthesis) {
-    const richAnalysisDiv = document.getElementById('phase2-rich-analysis');
-    if (!richAnalysisDiv) return;
-
-    // Check if we have rich analysis data
-    const hasCausalLinks = synthesis.causal_normative_links && synthesis.causal_normative_links.length > 0;
-    const hasQuestionEmergence = synthesis.question_emergence && synthesis.question_emergence.length > 0;
-    const hasResolutionPatterns = synthesis.resolution_patterns && synthesis.resolution_patterns.length > 0;
-
-    if (!hasCausalLinks && !hasQuestionEmergence && !hasResolutionPatterns) {
-        return;  // No rich analysis data
-    }
-
-    // Show the rich analysis section
-    richAnalysisDiv.style.display = 'block';
-
-    // Populate Causal-Normative Links
-    if (hasCausalLinks) {
-        document.getElementById('causal-links-count').textContent = synthesis.causal_normative_links.length;
-        const linksContainer = document.getElementById('causal-links-list');
-        let linksHtml = '<div class="list-group list-group-flush">';
-
-        synthesis.causal_normative_links.forEach(link => {
-            const fulfillsBadges = link.fulfills_obligations.map(o =>
-                `<span class="badge bg-success me-1" title="Fulfills">${getUriLabel(o)}</span>`
-            ).join('');
-            const violatesBadges = link.violates_obligations.map(o =>
-                `<span class="badge bg-danger me-1" title="Violates">${getUriLabel(o)}</span>`
-            ).join('');
-            const principlesBadges = link.guided_by_principles.map(p =>
-                `<span class="badge bg-primary me-1" title="Guided by">${getUriLabel(p)}</span>`
-            ).join('');
-
-            linksHtml += `
-                <div class="list-group-item py-2 px-0">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div>
-                            <strong class="text-info">${link.action_label}</strong>
-                            <span class="text-muted small ms-2">(${Math.round(link.confidence * 100)}% confidence)</span>
-                        </div>
-                    </div>
-                    <div class="mt-1">
-                        ${fulfillsBadges ? '<span class="text-muted small">Fulfills:</span> ' + fulfillsBadges : ''}
-                        ${violatesBadges ? '<span class="text-muted small ms-2">Violates:</span> ' + violatesBadges : ''}
-                        ${principlesBadges ? '<span class="text-muted small ms-2">Guided by:</span> ' + principlesBadges : ''}
-                    </div>
-                    ${link.reasoning ? `<div class="text-muted small mt-1 fst-italic">${link.reasoning}</div>` : ''}
-                </div>
-            `;
+        streamingMessages[taskType].forEach((msg, idx) => {
+            const isLatest = idx === streamingMessages[taskType].length - 1;
+            html += `<div class="mb-1 ${isLatest ? 'fw-bold' : 'text-muted small'}">
+                <i class="bi bi-${isLatest ? 'arrow-right-circle-fill text-primary' : 'check-circle text-success'} me-1"></i>
+                ${escapeHtml(msg)}
+            </div>`;
         });
 
-        linksHtml += '</div>';
-        linksContainer.innerHTML = linksHtml;
-    }
+        html += '</div>';
 
-    // Populate Question Emergence
-    if (hasQuestionEmergence) {
-        document.getElementById('question-emergence-count').textContent = synthesis.question_emergence.length;
-        const emergenceContainer = document.getElementById('question-emergence-list');
-        let emergenceHtml = '<div class="list-group list-group-flush">';
+        // Show progress bar if available
+        if (data.progress) {
+            html += `<div class="progress mt-2" style="height: 6px;">
+                <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: ${data.progress}%"></div>
+            </div>`;
+        }
 
-        synthesis.question_emergence.forEach(qa => {
-            const rolesBadges = qa.involves_roles.map(r =>
-                `<span class="badge bg-primary me-1">${getUriLabel(r)}</span>`
-            ).join('');
-            const conflictBadges = qa.competing_obligations.map(pair =>
-                `<span class="badge bg-warning text-dark me-1">${getUriLabel(pair[0])} vs ${getUriLabel(pair[1])}</span>`
-            ).join('');
+        html += '</div>';
 
-            emergenceHtml += `
-                <div class="list-group-item py-2 px-0">
-                    <div class="fw-bold text-dark">${qa.question_text.substring(0, 150)}${qa.question_text.length > 150 ? '...' : ''}</div>
-                    <div class="mt-1">
-                        ${rolesBadges ? '<span class="text-muted small">Involves:</span> ' + rolesBadges : ''}
-                        ${conflictBadges ? '<span class="text-muted small ms-2">Conflicts:</span> ' + conflictBadges : ''}
-                    </div>
-                    <div class="text-muted small mt-1 fst-italic">${qa.emergence_narrative}</div>
-                </div>
-            `;
-        });
+        promptText.innerHTML = html;
 
-        emergenceHtml += '</div>';
-        emergenceContainer.innerHTML = emergenceHtml;
-    }
-
-    // Populate Resolution Patterns
-    if (hasResolutionPatterns) {
-        document.getElementById('resolution-patterns-count').textContent = synthesis.resolution_patterns.length;
-        const patternsContainer = document.getElementById('resolution-patterns-list');
-        let patternsHtml = '<div class="list-group list-group-flush">';
-
-        synthesis.resolution_patterns.forEach(rp => {
-            const principlesList = rp.determinative_principles.map(p =>
-                `<span class="badge bg-purple me-1">${p}</span>`
-            ).join('');
-            const factsList = rp.determinative_facts.map(f =>
-                `<li class="small">${f}</li>`
-            ).join('');
-
-            patternsHtml += `
-                <div class="list-group-item py-2 px-0">
-                    <div class="fw-bold text-success">${rp.conclusion_text.substring(0, 150)}${rp.conclusion_text.length > 150 ? '...' : ''}</div>
-                    ${principlesList ? `<div class="mt-1"><span class="text-muted small">Determinative Principles:</span> ${principlesList}</div>` : ''}
-                    ${factsList ? `<div class="mt-1"><span class="text-muted small">Key Facts:</span><ul class="mb-0 ps-3">${factsList}</ul></div>` : ''}
-                    ${rp.weighing_process ? `<div class="text-muted small mt-1"><strong>Weighing:</strong> ${rp.weighing_process}</div>` : ''}
-                    <div class="text-muted small mt-1 fst-italic">${rp.resolution_narrative}</div>
-                </div>
-            `;
-        });
-
-        patternsHtml += '</div>';
-        patternsContainer.innerHTML = patternsHtml;
+        // Auto-scroll to show latest message
+        const messagesDiv = promptText.querySelector('.streaming-messages');
+        if (messagesDiv) {
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
     }
 }
 
-function getUriLabel(uri) {
-    // Extract label from URI (e.g., "case-7#Obligation_1" -> "Obligation_1")
-    if (!uri) return 'Unknown';
-    const parts = uri.split('#');
-    if (parts.length > 1) {
-        return parts[1].replace(/_/g, ' ');
+// Show LLM trace in prompt/response sections
+function showLLMTrace(stage, trace) {
+    // Determine which section to update based on stage
+    let taskType = 'provisions';
+    if (stage.includes('QUESTION')) taskType = 'questions';
+    else if (stage.includes('CONCLUSION')) taskType = 'conclusions';
+    else if (stage.includes('TRANSFORMATION')) taskType = 'transformation';
+
+    const promptSection = document.getElementById(`${taskType}PromptSection`);
+    const promptText = document.getElementById(`${taskType}PromptText`);
+    const resultsSection = document.getElementById(`${taskType}Results`);
+    const resultsContent = document.getElementById(`${taskType}ResultsContent`);
+
+    if (promptSection && promptText && trace.prompt) {
+        promptSection.style.display = 'block';
+        // Add the actual prompt
+        const promptHtml = `<div class="alert alert-success mb-2 py-1 small">LLM call: ${stage}</div>
+            <div class="prompt-text-content">${escapeHtml(trace.prompt)}</div>`;
+        promptText.innerHTML = promptHtml;
     }
-    return uri.split('/').pop().replace(/_/g, ' ');
+
+    if (resultsSection && resultsContent && trace.response) {
+        resultsSection.style.display = 'block';
+        resultsContent.innerHTML = `<pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; max-height: 300px; overflow-y: auto;">${escapeHtml(trace.response)}</pre>`;
+    }
 }
 
-function createTraceAccordionItem(trace, id, parentId) {
-    return `
-        <div class="accordion-item">
-            <h2 class="accordion-header" id="trace-heading-${id}">
-                <button class="accordion-button collapsed py-2" type="button"
-                        data-bs-toggle="collapse" data-bs-target="#trace-collapse-${id}">
-                    <strong class="small">${trace.stage}</strong>
-                    <small class="text-muted ms-2">${trace.model}</small>
-                </button>
-            </h2>
-            <div id="trace-collapse-${id}" class="accordion-collapse collapse"
-                 data-bs-parent="#${parentId}">
-                <div class="accordion-body small">
-                    <h6 class="small fw-bold">Prompt:</h6>
-                    <pre class="bg-light p-2 small" style="max-height: 200px; overflow-y: auto; white-space: pre-wrap; font-size: 0.75rem;">${escapeHtml(trace.prompt)}</pre>
-                    <h6 class="small fw-bold mt-2">Response:</h6>
-                    <pre class="bg-light p-2 small" style="max-height: 200px; overflow-y: auto; white-space: pre-wrap; font-size: 0.75rem;">${escapeHtml(trace.response)}</pre>
-                </div>
-            </div>
-        </div>
-    `;
+// Mark a task button as complete (shows Re-run)
+function markTaskComplete(taskType) {
+    const button = document.getElementById(`extract${capitalizeFirst(taskType)}Btn`);
+    if (button) {
+        button.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Re-run';
+        button.classList.add('btn-outline-secondary');
+        button.classList.remove('btn-outline-warning', 'btn-outline-success', 'btn-outline-info', 'btn-outline-primary', 'btn-outline-dark');
+    }
 }
 
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
+async function runSingleTask(taskType) {
+    return new Promise((resolve, reject) => {
+        const endpoints = {
+            'provisions': 'extract_provisions',
+            'questions': 'extract_questions',
+            'conclusions': 'extract_conclusions',
+            'transformation': 'extract_transformation',
+            'rich_analysis': 'extract_rich_analysis',
+            'decision_synthesis': 'extract_decision_synthesis',
+            'narrative': 'extract_narrative'
+        };
 
-// Load existing synthesis on page load
-function loadExistingSynthesis() {
-    fetch(`/scenario_pipeline/case/${currentCaseId}/synthesis_model`)
+        fetch(`/scenario_pipeline/case/${currentCaseId}/${endpoints[taskType]}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            }
+        })
         .then(response => response.json())
         .then(data => {
-            if (data.success && (data.has_synthesis || data.has_rich_analysis)) {
-                updateSynthesisResults(data);
-                document.getElementById('run-complete-synthesis-btn').innerHTML = '<i class="bi bi-arrow-repeat"></i> Re-run Synthesis';
+            if (data.success) {
+                // Update UI with results
+                handleTaskResults(taskType, data);
+                updateCountBadges(taskType, data.result);
 
-                // Show info about persisted data
-                const progressText = document.getElementById('synthesis-progress-text');
-                if (progressText) {
-                    const summary = data.summary;
-                    const richCount = (summary.rich_analysis?.causal_normative_links || 0) +
-                                     (summary.rich_analysis?.question_emergence || 0) +
-                                     (summary.rich_analysis?.resolution_patterns || 0);
-                    if (richCount > 0) {
-                        progressText.textContent = `Loaded from database: ${summary.decision_points?.canonical_count || 0} decision points, ${richCount} rich analysis items`;
+                // Mark button as done
+                const button = document.getElementById(`extract${capitalizeFirst(taskType)}Btn`);
+                if (button) {
+                    button.innerHTML = '<i class="bi bi-check-circle"></i> Done';
+                    button.classList.add('btn-success');
+                }
+
+                resolve(data);
+            } else {
+                reject(new Error(data.error || 'Task failed'));
+            }
+        })
+        .catch(reject);
+    });
+}
+
+function updatePhaseIndicator(currentTask) {
+    const phaseMap = {
+        'provisions': 'phase2',
+        'questions': 'phase2',
+        'conclusions': 'phase2',
+        'transformation': 'phase2',
+        'rich_analysis': 'phase2',
+        'decision_synthesis': 'phase3',
+        'narrative': 'phase4'
+    };
+
+    const phase = phaseMap[currentTask];
+
+    // Remove active from all except phase 1 (always complete)
+    ['phase2', 'phase3', 'phase4'].forEach(p => {
+        const indicator = document.getElementById(`${p}-indicator`);
+        if (indicator) {
+            indicator.classList.remove('phase-active');
+        }
+    });
+
+    // Set current phase as active
+    const currentIndicator = document.getElementById(`${phase}-indicator`);
+    if (currentIndicator) {
+        currentIndicator.classList.add('phase-active');
+    }
+}
+
+// Load saved prompts on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadSavedPrompts();
+});
+
+function loadSavedPrompts() {
+    const tasks = ['provisions', 'questions', 'conclusions', 'transformation'];
+
+    tasks.forEach(task => {
+        fetch(`/scenario_pipeline/case/${currentCaseId}/get_saved_step4_prompt?task_type=${task}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.prompt_text) {
+                    const promptSection = document.getElementById(`${task}PromptSection`);
+                    const promptText = document.getElementById(`${task}PromptText`);
+                    const resultsSection = document.getElementById(`${task}Results`);
+                    const resultsContent = document.getElementById(`${task}ResultsContent`);
+
+                    if (promptSection && promptText) {
+                        promptSection.style.display = 'block';
+                        promptText.textContent = data.prompt_text;
+                    }
+
+                    if (resultsSection && resultsContent && data.raw_response) {
+                        resultsSection.style.display = 'block';
+                        resultsContent.innerHTML = `<pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; max-height: 500px; overflow-y: auto;">${escapeHtml(data.raw_response)}</pre>`;
+                    }
+
+                    // Mark button as done
+                    const button = document.getElementById(`extract${capitalizeFirst(task)}Btn`);
+                    if (button && data.prompt_text) {
+                        button.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Re-run';
                     }
                 }
-            }
-        })
-        .catch(err => {
-            console.log('No existing synthesis found:', err.message);
-        });
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    loadExistingSynthesis();
-});
-
-// ============================================================================
-// Unified Case Synthesis Functions (Legacy - kept for compatibility)
-// ============================================================================
-
-function runUnifiedSynthesis() {
-    const btn = document.getElementById('run-unified-synthesis-btn');
-    const statusBadge = document.getElementById('synthesis-pipeline-status-badge');
-    const statusArea = document.getElementById('unified-synthesis-status-area');
-    const resultsArea = document.getElementById('unified-synthesis-results');
-
-    // Update pipeline step indicators
-    const steps = ['step-s1', 'step-s2', 'step-s3', 'step-s4'];
-
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Synthesizing...';
-    statusBadge.className = 'badge bg-warning text-dark';
-    statusBadge.textContent = 'Running...';
-    resultsArea.style.display = 'none';
-
-    // Animate steps
-    let currentStep = 0;
-    const stepMessages = [
-        'Loading entities...',
-        'Composing decision points (E1-E3)...',
-        'LLM refinement with Q&C alignment...',
-        'Storing canonical decision points...'
-    ];
-
-    function updateStep(step) {
-        if (step < steps.length) {
-            steps.forEach((s, i) => {
-                const badge = document.getElementById(s);
-                if (i < step) {
-                    badge.className = 'badge bg-success mb-1';
-                } else if (i === step) {
-                    badge.className = 'badge bg-primary mb-1';
-                } else {
-                    badge.className = 'badge bg-secondary mb-1';
-                }
-            });
-            statusArea.innerHTML = `<p class="text-primary mb-0"><i class="bi bi-hourglass-split"></i> ${stepMessages[step]}</p>`;
-        }
-    }
-
-    updateStep(0);
-    const stepInterval = setInterval(() => {
-        currentStep++;
-        if (currentStep < steps.length) {
-            updateStep(currentStep);
-        }
-    }, 2000);
-
-    fetch(`/scenario_pipeline/case/${currentCaseId}/synthesize?generate_arguments=false`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCsrfToken()
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        clearInterval(stepInterval);
-        btn.disabled = false;
-        btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Re-run Synthesis';
-
-        if (data.success) {
-            // Mark all steps complete
-            steps.forEach(s => {
-                document.getElementById(s).className = 'badge bg-success mb-1';
-            });
-
-            statusBadge.className = 'badge bg-success';
-            statusBadge.textContent = 'Complete';
-            statusArea.innerHTML = '<p class="text-success mb-0"><i class="bi bi-check-circle"></i> Synthesis complete!</p>';
-
-            // Show results
-            resultsArea.style.display = 'block';
-            document.getElementById('canonical-count').textContent = data.count;
-            document.getElementById('qc-aligned-count').textContent = data.qc_aligned_count;
-            document.getElementById('algorithmic-count').textContent = data.algorithmic_candidates_count;
-        } else {
-            statusBadge.className = 'badge bg-danger';
-            statusBadge.textContent = 'Error';
-            statusArea.innerHTML = `<p class="text-danger mb-0"><i class="bi bi-exclamation-triangle"></i> ${data.error || 'Synthesis failed'}</p>`;
-        }
-    })
-    .catch(err => {
-        clearInterval(stepInterval);
-        btn.disabled = false;
-        btn.innerHTML = '<i class="bi bi-lightning-charge"></i> Synthesize Case';
-        statusBadge.className = 'badge bg-danger';
-        statusBadge.textContent = 'Error';
-        statusArea.innerHTML = `<p class="text-danger mb-0"><i class="bi bi-exclamation-triangle"></i> ${err.message}</p>`;
-        console.error('Synthesis error:', err);
+            })
+            .catch(error => console.log(`No saved prompt for ${task}`));
     });
 }
-
-// Check for existing canonical decision points on page load
-function checkExistingSynthesis() {
-    fetch(`/scenario_pipeline/case/${currentCaseId}/canonical_decision_points`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success && data.count > 0) {
-                const statusBadge = document.getElementById('synthesis-pipeline-status-badge');
-                const statusArea = document.getElementById('unified-synthesis-status-area');
-                const resultsArea = document.getElementById('unified-synthesis-results');
-                const btn = document.getElementById('run-unified-synthesis-btn');
-                const steps = ['step-s1', 'step-s2', 'step-s3', 'step-s4'];
-
-                // Mark all steps complete
-                steps.forEach(s => {
-                    document.getElementById(s).className = 'badge bg-success mb-1';
-                });
-
-                statusBadge.className = 'badge bg-success';
-                statusBadge.textContent = 'Complete';
-                statusArea.innerHTML = '<p class="text-success mb-0"><i class="bi bi-check-circle"></i> Synthesis results loaded from database.</p>';
-                btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Re-run Synthesis';
-
-                // Show results
-                resultsArea.style.display = 'block';
-                document.getElementById('canonical-count').textContent = data.count;
-                document.getElementById('qc-aligned-count').textContent = data.qc_aligned_count;
-                document.getElementById('algorithmic-count').textContent = data.count; // approximation
-            }
-        })
-        .catch(err => {
-            console.log('No existing synthesis found:', err.message);
-        });
-}
-
-// Load existing synthesis on page ready
-document.addEventListener('DOMContentLoaded', function() {
-    checkExistingSynthesis();
-});
-
-// ============================================================================
-// Argument Pipeline Functions (F1-F3) - Legacy, use Unified Synthesis instead
-// ============================================================================
-
-function runArgumentPipeline() {
-    const btn = document.getElementById('run-args-pipeline-btn');
-    const statusBadge = document.getElementById('args-pipeline-status-badge');
-    const statusArea = document.getElementById('args-pipeline-status-area');
-
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Running...';
-    statusBadge.className = 'badge bg-warning';
-    statusBadge.textContent = 'Running...';
-    statusArea.innerHTML = '<p class="text-muted mb-0"><i class="bi bi-hourglass-split"></i> Running F1-F3 pipeline...</p>';
-
-    fetch(`/scenario_pipeline/case/${currentCaseId}/entity_arguments`)
-        .then(response => response.json())
-        .then(data => {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Re-run';
-
-            if (data.success) {
-                statusBadge.className = 'badge bg-success';
-                statusBadge.textContent = 'Complete';
-
-                const summary = data.pipeline_summary;
-                statusArea.innerHTML = `
-                    <p class="text-success mb-2">
-                        <i class="bi bi-check-circle"></i> Generated <strong>${summary.total_arguments}</strong> arguments
-                        (${summary.pro_arguments} pro, ${summary.con_arguments} con),
-                        <strong>${summary.valid_arguments}</strong> valid.
-                    </p>
-                    <a href="/scenario_pipeline/case/${currentCaseId}/step4/review#arguments" class="btn btn-outline-primary btn-sm">
-                        <i class="bi bi-eye"></i> View Arguments on Review Page
-                    </a>
-                `;
-            } else {
-                statusBadge.className = 'badge bg-danger';
-                statusBadge.textContent = 'Error';
-                statusArea.innerHTML = `<p class="text-danger mb-0"><i class="bi bi-exclamation-triangle"></i> ${data.error || 'Pipeline failed'}</p>`;
-            }
-        })
-        .catch(err => {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="bi bi-lightning-charge"></i> Generate Arguments';
-            statusBadge.className = 'badge bg-danger';
-            statusBadge.textContent = 'Error';
-            statusArea.innerHTML = `<p class="text-danger mb-0"><i class="bi bi-exclamation-triangle"></i> ${err.message}</p>`;
-            console.error('Pipeline error:', err);
-        });
-}
-
 </script>
-{% endblock %}
-
-{% block step_styles %}
-<style>
-    .card {
-        box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
-    }
-
-    .card-header h5 {
-        margin-bottom: 0;
-    }
-
-    .list-unstyled li {
-        padding: 0.25rem 0;
-    }
-
-    #progress-messages {
-        max-height: 400px;
-        overflow-y: auto;
-    }
-
-    /* Phase Indicator Styles */
-    .phase-indicator {
-        padding: 1rem;
-        border-radius: 0.5rem;
-        transition: all 0.3s ease;
-    }
-
-    .phase-indicator .phase-number {
-        display: inline-block;
-        width: 40px;
-        height: 40px;
-        line-height: 40px;
-        border-radius: 50%;
-        background-color: #6c757d;
-        color: white;
-        font-weight: bold;
-        font-size: 1.2rem;
-        margin-bottom: 0.5rem;
-    }
-
-    .phase-indicator .phase-label {
-        font-weight: 600;
-        color: #333;
-    }
-
-    .phase-indicator.phase-active {
-        background-color: #e7f1ff;
-    }
-
-    .phase-indicator.phase-active .phase-number {
-        background-color: #0d6efd;
-        animation: pulse 1.5s infinite;
-    }
-
-    .phase-indicator.phase-complete .phase-number {
-        background-color: #198754;
-    }
-
-    .phase-indicator.phase-complete .phase-label {
-        color: #198754;
-    }
-
-    @keyframes pulse {
-        0% { box-shadow: 0 0 0 0 rgba(13, 110, 253, 0.4); }
-        70% { box-shadow: 0 0 0 10px rgba(13, 110, 253, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(13, 110, 253, 0); }
-    }
-
-    /* Timeline Styles */
-    .timeline-container {
-        border-left: 2px solid #dee2e6;
-        padding-left: 1rem;
-        margin-left: 0.5rem;
-    }
-
-    .timeline-item {
-        position: relative;
-    }
-
-    .timeline-item::before {
-        content: '';
-        position: absolute;
-        left: -1.35rem;
-        top: 0.5rem;
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background-color: #6c757d;
-    }
-
-    /* Purple badge for principles */
-    .bg-purple {
-        background-color: #6f42c1 !important;
-        color: white;
-    }
-
-    /* Prompt and Response Display Styles */
-    .prompt-display, .response-display {
-        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
-        font-size: 0.85rem;
-        background-color: #f8f9fa;
-        border: 1px solid #dee2e6;
-        border-radius: 0.375rem;
-        padding: 1rem;
-        max-height: 600px;
-        min-height: 200px;
-        overflow-y: auto;
-        white-space: pre-wrap;
-        word-wrap: break-word;
-        line-height: 1.5;
-        margin: 0;
-    }
-
-    .response-display {
-        background-color: #e8f4fd;
-        border-color: #0d6efd;
-    }
-
-    #synthesis-stages-accordion .accordion-item {
-        margin-bottom: 1rem;
-        border: 1px solid #dee2e6;
-    }
-
-    #synthesis-stages-accordion .accordion-button {
-        font-size: 1rem;
-        padding: 1rem;
-    }
-
-    #synthesis-stages-accordion .accordion-button:not(.collapsed) {
-        background-color: #e7f1ff;
-        color: #004085;
-    }
-
-    #synthesis-stages-accordion .accordion-body {
-        max-height: none;
-        padding: 1.5rem;
-    }
-</style>
 {% endblock %}

@@ -224,17 +224,34 @@ class TemporaryRDFStorage(db.Model):
         # Get section type from provenance data
         section_type = provenance_data.get('section_type', 'unknown') if provenance_data else 'unknown'
 
-        # Clear ALL uncommitted entities of this extraction_type for this case
-        # This ensures clean re-extraction without duplicates from previous runs
-        # Note: This replaces the previous session-based clearing which caused duplicates
-        # when users committed entities then re-ran extraction
-        deleted_count = cls.query.filter_by(
-            case_id=case_id,
-            extraction_type=extraction_type,
-            is_published=False
-        ).delete()
+        # Clear uncommitted entities of this extraction_type for this case AND section
+        # IMPORTANT: Only delete entities from the SAME section_type to preserve entities
+        # from other sections (e.g., don't delete facts entities when running discussion)
+        #
+        # We find session_ids for this section_type from extraction_prompts, then
+        # delete only entities with those session_ids
+        from app.models import ExtractionPrompt
+        same_section_sessions = [
+            p.extraction_session_id
+            for p in ExtractionPrompt.query.filter_by(
+                case_id=case_id,
+                concept_type=extraction_type,
+                section_type=section_type
+            ).all()
+            if p.extraction_session_id
+        ]
+
+        deleted_count = 0
+        if same_section_sessions:
+            deleted_count = cls.query.filter(
+                cls.case_id == case_id,
+                cls.extraction_type == extraction_type,
+                cls.is_published == False,
+                cls.extraction_session_id.in_(same_section_sessions)
+            ).delete(synchronize_session='fetch')
+
         if deleted_count > 0:
-            logger.info(f"Cleared {deleted_count} uncommitted {extraction_type} entities for case {case_id}")
+            logger.info(f"Cleared {deleted_count} uncommitted {extraction_type} entities for case {case_id} section_type={section_type}")
 
         # Store new classes with merge detection
         for class_info in rdf_data.get('new_classes', []):

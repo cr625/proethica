@@ -180,12 +180,12 @@ def entities_pass_execute_discussion(case_id):
     from .step1 import entities_pass_execute_discussion as execute_handler
     return execute_handler(case_id)
 
-@interactive_scenario_bp.route('/case/<int:case_id>/extract_questions', methods=['POST'])
-@auth_required_for_llm
-def extract_questions_route(case_id):
-    """API endpoint to extract ethical questions using McLaren framework"""
-    from .step1 import extract_questions
-    return extract_questions(case_id)
+# NOTE: extract_questions route removed - now handled by step4.py with streaming support
+# The step4.py version auto-loads question text from case metadata
+# @interactive_scenario_bp.route('/case/<int:case_id>/extract_questions', methods=['POST'])
+# def extract_questions_route(case_id):
+#     from .step1 import extract_questions
+#     return extract_questions(case_id)
 
 @interactive_scenario_bp.route('/case/<int:case_id>/tag_entities_in_questions', methods=['POST'])
 @auth_required_for_llm
