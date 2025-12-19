@@ -233,15 +233,30 @@ class ScenarioSeedGenerator:
         for i, decision in enumerate(decision_moments):
             # Build context from decision
             context = decision.description if hasattr(decision, 'description') else ""
+            question = decision.question if hasattr(decision, 'question') else ""
+            competing_obls = decision.competing_obligations if hasattr(decision, 'competing_obligations') else []
 
             # Build options
             options = []
             if hasattr(decision, 'options') and decision.options:
                 for j, opt in enumerate(decision.options):
+                    # Get label, using empty string check (not just None)
+                    label = opt.get('label') or ''
+                    description = opt.get('description') or ''
+
+                    # If label is empty, generate a meaningful one
+                    if not label.strip():
+                        label, description = self._generate_option_label(
+                            question=question,
+                            option_index=j,
+                            is_board_choice=opt.get('is_board_choice', False),
+                            competing_obligations=competing_obls
+                        )
+
                     options.append(ScenarioOption(
                         option_id=f"opt_{i}_{j}",
-                        label=opt.get('label', f"Option {j+1}"),
-                        description=opt.get('description', ''),
+                        label=label,
+                        description=description,
                         action_uris=opt.get('action_uris', []),
                         is_board_choice=opt.get('is_board_choice', False),
                         leads_to=f"branch_{i+1}" if i < len(decision_moments) - 1 else None
@@ -249,33 +264,232 @@ class ScenarioSeedGenerator:
 
             # Add default options if none exist
             if not options:
-                options = [
-                    ScenarioOption(
-                        option_id=f"opt_{i}_0",
-                        label="Follow obligation",
-                        description="Prioritize professional duty",
-                        leads_to=f"branch_{i+1}" if i < len(decision_moments) - 1 else None
-                    ),
-                    ScenarioOption(
-                        option_id=f"opt_{i}_1",
-                        label="Consider alternatives",
-                        description="Explore other approaches",
-                        leads_to=f"branch_{i+1}" if i < len(decision_moments) - 1 else None
-                    )
-                ]
+                # Generate options based on the question and obligations
+                options = self._generate_default_options(
+                    question=question,
+                    competing_obligations=competing_obls,
+                    branch_index=i,
+                    total_branches=len(decision_moments)
+                )
 
             branches.append(ScenarioBranch(
                 branch_id=f"branch_{i}",
                 context=context,
-                question=decision.question if hasattr(decision, 'question') else "",
+                question=question,
                 decision_point_uri=decision.uri if hasattr(decision, 'uri') else "",
                 decision_maker_uri=decision.decision_maker_uri if hasattr(decision, 'decision_maker_uri') else "",
                 decision_maker_label=decision.decision_maker_label if hasattr(decision, 'decision_maker_label') else "",
-                involved_obligation_uris=decision.competing_obligations if hasattr(decision, 'competing_obligations') else [],
+                involved_obligation_uris=competing_obls,
                 options=options
             ))
 
         return branches
+
+    def _generate_option_label(
+        self,
+        question: str,
+        option_index: int,
+        is_board_choice: bool,
+        competing_obligations: List[str]
+    ) -> tuple:
+        """Generate a meaningful option label based on context."""
+        # If LLM available, use it for richer labels
+        if self.use_llm and self.llm_client:
+            return self._generate_option_label_llm(
+                question, option_index, is_board_choice, competing_obligations
+            )
+
+        # Fallback: Generate based on pattern
+        if option_index == 0:
+            if is_board_choice:
+                label = "Fulfill the professional obligation"
+                desc = "Follow the established ethical duty as the board would recommend"
+            else:
+                label = "Prioritize professional obligation"
+                desc = "Focus on meeting the primary ethical duty"
+        else:
+            if is_board_choice:
+                label = "Consider alternative approach"
+                desc = "The board determined this was the appropriate path"
+            else:
+                label = "Explore alternative approach"
+                desc = "Consider other factors that may apply"
+
+        # Enhance with obligation context if available
+        if competing_obligations:
+            obl = competing_obligations[min(option_index, len(competing_obligations) - 1)]
+            if obl:
+                label = f"Address {obl[:50]}..." if len(obl) > 50 else f"Address {obl}"
+
+        return label, desc
+
+    def _generate_option_label_llm(
+        self,
+        question: str,
+        option_index: int,
+        is_board_choice: bool,
+        competing_obligations: List[str]
+    ) -> tuple:
+        """Use LLM to generate meaningful option labels."""
+        obligations_text = ", ".join([o for o in competing_obligations if o][:3])
+
+        prompt = f"""Generate a concise option label for an ethical decision scenario.
+
+DECISION QUESTION: {question}
+
+RELEVANT OBLIGATIONS: {obligations_text or 'Professional engineering ethics'}
+
+OPTION NUMBER: {option_index + 1} of 2
+IS BOARD'S RECOMMENDED CHOICE: {is_board_choice}
+
+Generate:
+1. A short action-oriented label (5-10 words)
+2. A brief description (1 sentence)
+
+The label should describe what the person would DO, not just "Option 1".
+For example: "Report concerns to regulatory authority" or "Maintain confidentiality with employer"
+
+Output format (exactly two lines):
+LABEL: [your label]
+DESCRIPTION: [your description]"""
+
+        try:
+            response = self.llm_client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=100,
+                temperature=0.3,
+                messages=[{"role": "user", "content": prompt}]
+            )
+
+            text = response.content[0].text.strip()
+            lines = text.split('\n')
+
+            label = "Choose this option"
+            desc = ""
+
+            for line in lines:
+                if line.startswith('LABEL:'):
+                    label = line.replace('LABEL:', '').strip()
+                elif line.startswith('DESCRIPTION:'):
+                    desc = line.replace('DESCRIPTION:', '').strip()
+
+            logger.debug(f"Generated option label: {label}")
+            return label, desc
+
+        except Exception as e:
+            logger.warning(f"LLM option label generation failed: {e}")
+            # Fallback to simple labels
+            if is_board_choice:
+                return "Follow board recommendation", "The ethically recommended approach"
+            else:
+                return "Consider alternative", "An alternative course of action"
+
+    def _generate_default_options(
+        self,
+        question: str,
+        competing_obligations: List[str],
+        branch_index: int,
+        total_branches: int
+    ) -> List[ScenarioOption]:
+        """Generate default options when none exist."""
+        leads_to = f"branch_{branch_index+1}" if branch_index < total_branches - 1 else None
+
+        # Try LLM generation
+        if self.use_llm and self.llm_client:
+            options = self._generate_options_llm(question, competing_obligations, branch_index, leads_to)
+            if options:
+                return options
+
+        # Fallback defaults based on common ethical patterns
+        return [
+            ScenarioOption(
+                option_id=f"opt_{branch_index}_0",
+                label="Fulfill the primary obligation",
+                description="Prioritize the main professional duty at stake",
+                is_board_choice=True,
+                leads_to=leads_to
+            ),
+            ScenarioOption(
+                option_id=f"opt_{branch_index}_1",
+                label="Seek alternative resolution",
+                description="Look for ways to balance competing concerns",
+                is_board_choice=False,
+                leads_to=leads_to
+            )
+        ]
+
+    def _generate_options_llm(
+        self,
+        question: str,
+        competing_obligations: List[str],
+        branch_index: int,
+        leads_to: str
+    ) -> List[ScenarioOption]:
+        """Use LLM to generate complete option set."""
+        obligations_text = ", ".join([o for o in competing_obligations if o][:3])
+
+        prompt = f"""Generate two ethical decision options for this scenario.
+
+DECISION QUESTION: {question}
+
+RELEVANT OBLIGATIONS: {obligations_text or 'Professional engineering ethics'}
+
+Generate exactly 2 options that represent meaningful choices.
+Option 1 should typically align with professional duty (mark as board choice).
+Option 2 should represent an alternative approach.
+
+Output format:
+OPTION1_LABEL: [action-oriented label, 5-10 words]
+OPTION1_DESC: [1 sentence description]
+OPTION2_LABEL: [action-oriented label, 5-10 words]
+OPTION2_DESC: [1 sentence description]"""
+
+        try:
+            response = self.llm_client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=200,
+                temperature=0.3,
+                messages=[{"role": "user", "content": prompt}]
+            )
+
+            text = response.content[0].text.strip()
+            lines = text.split('\n')
+
+            opt1_label = opt1_desc = opt2_label = opt2_desc = ""
+
+            for line in lines:
+                if line.startswith('OPTION1_LABEL:'):
+                    opt1_label = line.replace('OPTION1_LABEL:', '').strip()
+                elif line.startswith('OPTION1_DESC:'):
+                    opt1_desc = line.replace('OPTION1_DESC:', '').strip()
+                elif line.startswith('OPTION2_LABEL:'):
+                    opt2_label = line.replace('OPTION2_LABEL:', '').strip()
+                elif line.startswith('OPTION2_DESC:'):
+                    opt2_desc = line.replace('OPTION2_DESC:', '').strip()
+
+            if opt1_label and opt2_label:
+                logger.info(f"Generated options via LLM: {opt1_label} / {opt2_label}")
+                return [
+                    ScenarioOption(
+                        option_id=f"opt_{branch_index}_0",
+                        label=opt1_label,
+                        description=opt1_desc,
+                        is_board_choice=True,
+                        leads_to=leads_to
+                    ),
+                    ScenarioOption(
+                        option_id=f"opt_{branch_index}_1",
+                        label=opt2_label,
+                        description=opt2_desc,
+                        is_board_choice=False,
+                        leads_to=leads_to
+                    )
+                ]
+
+        except Exception as e:
+            logger.warning(f"LLM options generation failed: {e}")
+
+        return None  # Signal to use fallback
 
     def _extract_canonical_path(self, decision_moments: List) -> List[str]:
         """Extract canonical path (board's choices) from decision moments."""

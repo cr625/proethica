@@ -440,13 +440,20 @@ Be constructive and educational. Neither path is inherently "wrong" - explore th
                 if 'scenario_seeds' in data and 'branches' in data['scenario_seeds']:
                     branches = data['scenario_seeds']['branches']
                     decision_points = []
-                    for branch in branches:
+                    for i, branch in enumerate(branches):
+                        question = branch.get('question', branch.get('decision_question', ''))
+                        context = branch.get('context', branch.get('description', ''))
+                        options = branch.get('options', [])
+
+                        # Fix empty option labels on-the-fly
+                        options = self._ensure_option_labels(options, question, context, i)
+
                         decision_points.append({
                             'uri': branch.get('decision_point_uri', ''),
-                            'label': branch.get('decision_point_label', ''),
-                            'question': branch.get('decision_question', ''),
-                            'description': branch.get('description', ''),
-                            'options': branch.get('options', [])
+                            'label': branch.get('decision_point_label', branch.get('decision_maker_label', '')),
+                            'question': question,
+                            'description': context,
+                            'options': options
                         })
                     if decision_points:
                         return decision_points
@@ -464,17 +471,121 @@ Be constructive and educational. Neither path is inherently "wrong" - explore th
         results = db.session.execute(query, {"case_id": case_id}).fetchall()
 
         decision_points = []
-        for r in results:
+        for i, r in enumerate(results):
             rdf_data = r.rdf_json_ld if r.rdf_json_ld else {}
+            question = rdf_data.get('decision_question', r.entity_definition or '')
+            options = rdf_data.get('options', [])
+
+            # Fix empty option labels on-the-fly
+            options = self._ensure_option_labels(options, question, '', i)
+
             decision_points.append({
                 'uri': r.entity_uri or '',
                 'label': r.entity_label or '',
-                'question': rdf_data.get('decision_question', r.entity_definition or ''),
+                'question': question,
                 'description': r.entity_definition or '',
-                'options': rdf_data.get('options', [])
+                'options': options
             })
 
         return decision_points
+
+    def _ensure_option_labels(self, options: List[Dict], question: str, context: str, branch_idx: int) -> List[Dict]:
+        """Ensure all options have meaningful labels, generating if needed."""
+        if not options:
+            # Generate default options
+            return self._generate_default_options(question, context, branch_idx)
+
+        fixed_options = []
+        for j, opt in enumerate(options):
+            label = opt.get('label', '') or ''
+            description = opt.get('description', '') or ''
+
+            # If label is empty, generate one
+            if not label.strip():
+                label, description = self._generate_option_label(
+                    question=question,
+                    option_index=j,
+                    is_board_choice=opt.get('is_board_choice', False),
+                    context=context
+                )
+
+            fixed_options.append({
+                **opt,
+                'label': label,
+                'description': description
+            })
+
+        return fixed_options
+
+    def _generate_option_label(self, question: str, option_index: int, is_board_choice: bool, context: str) -> tuple:
+        """Generate a meaningful option label based on context."""
+        # Try LLM if available
+        client = self._get_llm_client()
+        if client:
+            try:
+                prompt = f"""Generate a concise option label for an ethical decision.
+
+QUESTION: {question}
+CONTEXT: {context[:200] if context else 'Professional ethics scenario'}
+OPTION: {option_index + 1} of 2
+BOARD RECOMMENDED: {is_board_choice}
+
+Generate:
+1. Action-oriented label (5-10 words)
+2. Brief description (1 sentence)
+
+Format:
+LABEL: [label]
+DESCRIPTION: [description]"""
+
+                response = client.messages.create(
+                    model="claude-sonnet-4-20250514",
+                    max_tokens=100,
+                    temperature=0.3,
+                    messages=[{"role": "user", "content": prompt}]
+                )
+
+                text = response.content[0].text.strip()
+                label = desc = ""
+                for line in text.split('\n'):
+                    if line.startswith('LABEL:'):
+                        label = line.replace('LABEL:', '').strip()
+                    elif line.startswith('DESCRIPTION:'):
+                        desc = line.replace('DESCRIPTION:', '').strip()
+
+                if label:
+                    return label, desc
+
+            except Exception as e:
+                logger.warning(f"LLM label generation failed: {e}")
+
+        # Fallback labels
+        if is_board_choice:
+            return "Follow professional obligation", "Prioritize ethical duty as recommended"
+        else:
+            return "Consider alternative approach", "Explore other options and trade-offs"
+
+    def _generate_default_options(self, question: str, context: str, branch_idx: int) -> List[Dict]:
+        """Generate default options when none exist."""
+        label1, desc1 = self._generate_option_label(question, 0, True, context)
+        label2, desc2 = self._generate_option_label(question, 1, False, context)
+
+        return [
+            {
+                'option_id': f'opt_{branch_idx}_0',
+                'label': label1,
+                'description': desc1,
+                'is_board_choice': True,
+                'action_uris': []
+            },
+            {
+                'option_id': f'opt_{branch_idx}_1',
+                'label': label2,
+                'description': desc2,
+                'is_board_choice': False,
+                'action_uris': []
+            }
+        ]
 
     def _load_initial_fluents(self, case_id: int) -> List[str]:
         """Load initial fluents from event calculus data."""

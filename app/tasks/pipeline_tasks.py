@@ -611,17 +611,25 @@ def run_full_pipeline_task(self, case_id: int, config: dict = None, user_id: int
     3. Step 2 facts (P, O, Cs, Ca)
     4. Step 2 discussion (P, O, Cs, Ca)
     5. Step 3 (A, E)
+    6. Commit to OntServe (optional, controlled by config)
+    7. Step 4 (Case Synthesis) - optional, controlled by config
 
     Args:
         case_id: Document ID of the case to process
-        config: Optional configuration dict
+        config: Optional configuration dict with keys:
+            - include_step4: bool (default: True) - run Step 4 synthesis
+            - skip_step4: bool (default: False) - skip Step 4 (legacy)
+            - commit_to_ontserve: bool (default: True) - commit entities to OntServe after Step 3
         user_id: Optional user who initiated
 
     Returns:
         dict with overall results
     """
     config = config or {}
-    logger.info(f"[Task {self.request.id}] Starting full pipeline for case {case_id}")
+    include_step4 = config.get('include_step4', True) and not config.get('skip_step4', False)
+    commit_to_ontserve = config.get('commit_to_ontserve', True)
+
+    logger.info(f"[Task {self.request.id}] Starting full pipeline for case {case_id} (commit={commit_to_ontserve}, step4={include_step4})")
 
     # Verify case exists
     case = Document.query.get(case_id)
@@ -661,6 +669,16 @@ def run_full_pipeline_task(self, case_id: int, config: dict = None, user_id: int
         logger.info(f"[Task {self.request.id}] Running Step 3...")
         run_step3_task.apply(args=[run_id])
 
+        # Commit to OntServe (optional) - after extraction, before synthesis
+        if commit_to_ontserve:
+            logger.info(f"[Task {self.request.id}] Committing entities to OntServe...")
+            run_commit_task.apply(args=[run_id])
+
+        # Step 4: Case Synthesis (optional)
+        if include_step4:
+            logger.info(f"[Task {self.request.id}] Running Step 4 (Case Synthesis)...")
+            run_step4_task.apply(args=[run_id])
+
         # Mark as completed
         run = PipelineRun.query.get(run_id)
         run.set_status(PIPELINE_STATUS['COMPLETED'])
@@ -673,7 +691,8 @@ def run_full_pipeline_task(self, case_id: int, config: dict = None, user_id: int
             'run_id': run_id,
             'case_id': case_id,
             'steps_completed': run.steps_completed,
-            'duration_seconds': run.duration_seconds
+            'duration_seconds': run.duration_seconds,
+            'included_step4': include_step4
         }
 
     except Exception as e:
@@ -733,6 +752,9 @@ def resume_pipeline_task(self, run_id: int):
     try:
         # Determine which steps to run based on what failed
         completed = set(run.steps_completed or [])
+        config = run.config or {}
+        include_step4 = config.get('include_step4', True) and not config.get('skip_step4', False)
+        commit_to_ontserve = config.get('commit_to_ontserve', True)
 
         # Step 1 facts
         if 'step1_facts' not in completed:
@@ -758,6 +780,16 @@ def resume_pipeline_task(self, run_id: int):
         if 'step3' not in completed:
             logger.info(f"[Task {self.request.id}] Running Step 3...")
             run_step3_task.apply(args=[run_id])
+
+        # Commit to OntServe (if configured)
+        if commit_to_ontserve and 'commit' not in completed:
+            logger.info(f"[Task {self.request.id}] Committing to OntServe...")
+            run_commit_task.apply(args=[run_id])
+
+        # Step 4 (if configured)
+        if include_step4 and 'step4' not in completed:
+            logger.info(f"[Task {self.request.id}] Running Step 4 (Case Synthesis)...")
+            run_step4_task.apply(args=[run_id])
 
         # Mark as completed
         run = PipelineRun.query.get(run_id)
@@ -793,6 +825,137 @@ def resume_pipeline_task(self, run_id: int):
         }
 
 
+@celery.task(bind=True, name='proethica.tasks.run_step4')
+def run_step4_task(self, run_id: int):
+    """
+    Execute Step 4 (Case Synthesis) for a case.
+
+    Runs the complete four-phase synthesis:
+    - Phase 1: Entity Foundation (verification)
+    - Phase 2: Analytical Extraction (provisions, Q&C, transformation, rich analysis)
+    - Phase 3: Decision Point Synthesis (E1-E3 + LLM)
+    - Phase 4: Narrative Construction (timeline, scenario seeds)
+
+    Args:
+        run_id: PipelineRun ID
+
+    Returns:
+        dict with synthesis results
+    """
+    logger.info(f"[Task {self.request.id}] Starting Step 4 (Case Synthesis) for run {run_id}")
+
+    run = PipelineRun.query.get(run_id)
+    if not run:
+        raise ValueError(f"Run {run_id} not found")
+
+    step_name = "step4"
+    run.current_step = step_name
+    run.set_status(PIPELINE_STATUS['STEP4'])
+    db.session.commit()
+
+    try:
+        from app.services.case_synthesizer import CaseSynthesizer
+
+        # Update status
+        run.current_step = "Building entity foundation"
+        db.session.commit()
+
+        synthesizer = CaseSynthesizer()
+
+        # Run complete synthesis (this handles all 4 phases internally)
+        logger.info(f"[Task {self.request.id}] Running complete synthesis for case {run.case_id}")
+
+        run.current_step = "Running complete synthesis"
+        db.session.commit()
+
+        model = synthesizer.synthesize_complete(
+            case_id=run.case_id,
+            skip_llm_synthesis=False,
+            run_extraction_if_needed=True
+        )
+
+        # Extract results summary
+        results = {
+            'entity_count': model.entity_foundation.summary()['total'] if model.entity_foundation else 0,
+            'provisions_count': len(model.provisions) if model.provisions else 0,
+            'questions_count': len(model.questions) if hasattr(model, 'questions') and model.questions else 0,
+            'conclusions_count': len(model.conclusions) if hasattr(model, 'conclusions') and model.conclusions else 0,
+            'transformation_type': model.transformation_type if hasattr(model, 'transformation_type') else 'unknown',
+            'decision_points_count': len(model.canonical_points) if hasattr(model, 'canonical_points') and model.canonical_points else 0,
+            'narrative_characters': len(model.narrative.characters) if model.narrative and hasattr(model.narrative, 'characters') else 0,
+            'timeline_events': len(model.narrative.timeline.events) if model.narrative and hasattr(model.narrative, 'timeline') else 0
+        }
+
+        run.mark_step_complete(step_name, results)
+        db.session.commit()
+
+        logger.info(f"[Task {self.request.id}] Step 4 completed: {results}")
+        return {'success': True, 'step': step_name, 'results': results}
+
+    except Exception as e:
+        logger.error(f"[Task {self.request.id}] Step 4 failed: {e}", exc_info=True)
+        run.set_error(str(e), step_name)
+        db.session.commit()
+        raise
+
+
+@celery.task(bind=True, name='proethica.tasks.run_commit')
+def run_commit_task(self, run_id: int):
+    """
+    Commit extracted entities to OntServe.
+
+    Uses AutoCommitService to:
+    - Link entities to existing OntServe classes based on LLM match decisions
+    - Generate case-specific TTL files
+    - Update precedent features for Jaccard calculation
+
+    Args:
+        run_id: PipelineRun ID
+
+    Returns:
+        dict with commit results
+    """
+    logger.info(f"[Task {self.request.id}] Starting OntServe commit for run {run_id}")
+
+    run = PipelineRun.query.get(run_id)
+    if not run:
+        raise ValueError(f"Run {run_id} not found")
+
+    step_name = "commit"
+    run.current_step = "Committing to OntServe"
+    db.session.commit()
+
+    try:
+        from app.services.auto_commit_service import AutoCommitService
+
+        commit_service = AutoCommitService()
+        result = commit_service.commit_case_entities(run.case_id)
+
+        # Extract results summary
+        results = {
+            'total_entities': result.total_entities,
+            'linked_count': result.linked_count,
+            'new_class_count': result.new_class_count,
+            'skipped_count': result.skipped_count,
+            'error_count': result.error_count,
+            'ttl_file': result.ttl_file
+        }
+
+        run.mark_step_complete(step_name, results)
+        db.session.commit()
+
+        logger.info(f"[Task {self.request.id}] OntServe commit completed: {results}")
+        return {'success': True, 'step': step_name, 'results': results}
+
+    except Exception as e:
+        logger.error(f"[Task {self.request.id}] OntServe commit failed: {e}", exc_info=True)
+        # Don't fail the whole pipeline for commit errors - log and continue
+        run.mark_step_complete(step_name, {'error': str(e), 'skipped': True})
+        db.session.commit()
+        logger.warning(f"[Task {self.request.id}] Commit failed but pipeline will continue")
+        return {'success': False, 'step': step_name, 'error': str(e)}
+
+
 @celery.task(bind=True, name='proethica.tasks.process_queue')
 def process_queue_task(self, limit: int = 10):
     """
@@ -826,8 +989,9 @@ def process_queue_task(self, limit: int = 10):
         db.session.commit()
 
         try:
-            # Start pipeline for this case
-            result = run_full_pipeline_task.apply(args=[item.case_id])
+            # Start pipeline for this case with config from queue item
+            config = item.config or {}
+            result = run_full_pipeline_task.apply(args=[item.case_id], kwargs={'config': config})
 
             # Update queue status
             item.status = 'completed' if result.get('success') else 'failed'

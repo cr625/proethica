@@ -220,6 +220,7 @@ def api_add_to_queue():
 
     priority = data.get('priority', 0)
     group_name = data.get('group_name')
+    config = data.get('config', {})  # Pipeline config (include_step4, etc.)
 
     added = []
     skipped = []
@@ -244,7 +245,8 @@ def api_add_to_queue():
         queue_item = PipelineQueue(
             case_id=case_id,
             priority=priority,
-            group_name=group_name
+            group_name=group_name,
+            config=config
         )
         db.session.add(queue_item)
         added.append(case_id)

@@ -172,6 +172,7 @@ class PipelineQueue(db.Model):
     priority = db.Column(db.Integer, default=0)  # Higher = more urgent
     status = db.Column(db.String(50), nullable=False, default='queued')
     group_name = db.Column(db.String(100))
+    config = db.Column(JSONB, default=dict)  # Pipeline configuration (include_step4, etc.)
     added_at = db.Column(db.DateTime, default=datetime.utcnow)
     started_at = db.Column(db.DateTime)
 
@@ -193,6 +194,7 @@ class PipelineQueue(db.Model):
             'priority': self.priority,
             'status': self.status,
             'group_name': self.group_name,
+            'config': self.config or {},
             'added_at': self.added_at.isoformat() if self.added_at else None,
             'started_at': self.started_at.isoformat() if self.started_at else None
         }

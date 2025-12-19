@@ -1222,7 +1222,7 @@ async function runCompleteSynthesis() {
     document.getElementById('provisionsPromptText').innerHTML = '<div class="alert alert-info py-2"><i class="bi bi-hourglass-split me-1"></i> <strong>Waiting to start...</strong></div>';
 
     // Use streaming endpoint
-    fetch(`/scenario_pipeline/case/${currentCaseId}/synthesize_complete`, {
+    fetch(`/scenario_pipeline/case/${currentCaseId}/synthesize_complete_stream`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -1744,7 +1744,23 @@ function handleStreamingData(data) {
         progressText.textContent = data.messages[data.messages.length - 1];
     }
 
-    // Update phase indicator based on stage
+    // Update top-level phase indicators (the 1-2-3-4 boxes)
+    if (data.stage) {
+        if (data.stage === 'PHASE_2_INDICATOR' || data.stage.startsWith('PART_A') || data.stage.startsWith('PART_B') ||
+            data.stage.startsWith('PART_C') || data.stage.includes('TRANSFORMATION') || data.stage.includes('RICH')) {
+            setPhaseActive('phase2-indicator');
+        } else if (data.stage === 'PHASE_3_INDICATOR' || data.stage.includes('DECISION')) {
+            setPhaseActive('phase3-indicator');
+            setPhaseComplete('phase2-indicator');
+        } else if (data.stage === 'PHASE_4_INDICATOR' || data.stage.includes('NARRATIVE')) {
+            setPhaseActive('phase4-indicator');
+            setPhaseComplete('phase3-indicator');
+        } else if (data.stage === 'COMPLETE') {
+            setPhaseComplete('phase4-indicator');
+        }
+    }
+
+    // Update individual task indicators based on stage
     if (data.stage) {
         if (data.stage.startsWith('PART_A')) {
             updatePhaseIndicator('provisions');
@@ -1930,6 +1946,26 @@ async function runSingleTask(taskType) {
         })
         .catch(reject);
     });
+}
+
+// Set a phase indicator to active (with animation)
+function setPhaseActive(phaseId) {
+    const indicator = document.getElementById(phaseId);
+    if (indicator) {
+        // Remove complete state, add active state
+        indicator.classList.remove('phase-complete');
+        indicator.classList.add('phase-active');
+    }
+}
+
+// Set a phase indicator to complete
+function setPhaseComplete(phaseId) {
+    const indicator = document.getElementById(phaseId);
+    if (indicator) {
+        // Remove active state, add complete state
+        indicator.classList.remove('phase-active');
+        indicator.classList.add('phase-complete');
+    }
 }
 
 function updatePhaseIndicator(currentTask) {

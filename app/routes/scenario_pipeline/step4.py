@@ -46,6 +46,7 @@ from app.routes.scenario_pipeline.step4_transformation import register_transform
 from app.routes.scenario_pipeline.step4_rich_analysis import register_rich_analysis_routes
 from app.routes.scenario_pipeline.step4_phase3 import register_phase3_routes
 from app.routes.scenario_pipeline.step4_phase4 import register_phase4_routes
+from app.routes.scenario_pipeline.step4_complete_synthesis import register_complete_synthesis_routes
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +98,8 @@ def init_step4_csrf_exemption(app):
         app.csrf.exempt('step4.construct_phase4_individual')
         app.csrf.exempt('step4.construct_phase4_streaming')
         app.csrf.exempt('step4.get_phase4_data')
+        # Complete synthesis streaming
+        app.csrf.exempt('step4.synthesize_complete_streaming')
         # Utility endpoints
         app.csrf.exempt('step4.clear_step4_data')
 
@@ -1534,6 +1537,16 @@ def load_causal_links_for_phase4(case_id: int) -> List[Dict]:
 
 # Register Phase 4 routes
 register_phase4_routes(
+    bp,
+    build_entity_foundation_for_phase4,
+    load_canonical_points_for_phase4,
+    load_conclusions_for_phase4,
+    get_transformation_type_for_phase4,
+    load_causal_links_for_phase4
+)
+
+# Register Complete Synthesis streaming routes
+register_complete_synthesis_routes(
     bp,
     build_entity_foundation_for_phase4,
     load_canonical_points_for_phase4,
