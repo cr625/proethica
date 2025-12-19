@@ -223,7 +223,9 @@ class PipelineStatusService:
             db.session.rollback()
 
         return {
-            'complete': phase2_complete and phase3_complete,  # Step 4 complete when Phase 2+3 done
+            # Step 4 complete when Phase 4 done (narrative construction ready for Step 5)
+            # OR when Phase 2+3 both done (legacy completeness check)
+            'complete': phase4_complete or (phase2_complete and phase3_complete),
             'phase2_complete': phase2_complete,
             'phase2_tasks_done': phase2_tasks_done,
             'phase3_complete': phase3_complete,

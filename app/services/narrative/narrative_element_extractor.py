@@ -269,7 +269,13 @@ class NarrativeElementExtractor:
         )
 
     def _extract_characters(self, foundation) -> List[NarrativeCharacter]:
-        """Extract characters from Roles with their bound obligations and principles."""
+        """
+        Extract characters from Roles with their bound obligations and principles.
+
+        Filters out:
+        - Ontology classes (from intermediate/core ontology) - these are role types, not individuals
+        - Meta-authority (Board of Ethical Review) - this reviews all cases, not a case character
+        """
         characters = []
 
         # Build role -> obligation bindings
@@ -277,6 +283,16 @@ class NarrativeElementExtractor:
         principle_map = self._build_principle_map(foundation)
 
         for role in foundation.roles:
+            # Filter out ontology classes (not case-specific individuals)
+            if self._is_ontology_class(role.uri):
+                logger.debug(f"Skipping ontology class: {role.label} ({role.uri})")
+                continue
+
+            # Filter out meta-authority (Board of Ethical Review)
+            if self._is_meta_authority(role.label):
+                logger.debug(f"Skipping meta-authority: {role.label}")
+                continue
+
             # Determine role type based on position in case
             role_type = self._classify_role_type(role.label)
 
@@ -309,6 +325,35 @@ class NarrativeElementExtractor:
             ))
 
         return characters
+
+    def _is_ontology_class(self, uri: str) -> bool:
+        """
+        Check if a URI represents an ontology class rather than a case-specific individual.
+
+        Classes are defined in the intermediate or core ontology (role types),
+        while case-specific individuals have case-numbered URIs.
+        """
+        if not uri:
+            return False
+        class_markers = ['intermediate#', 'core#', '/ontology#']
+        return any(marker in uri for marker in class_markers)
+
+    def _is_meta_authority(self, label: str) -> bool:
+        """
+        Check if a role label represents the meta-authority (Board of Ethical Review).
+
+        The NSPE Board of Ethical Review reviews all cases and should not be shown
+        as a character in the case narrative. Case-specific authorities (like local
+        compliance boards, state licensing boards, etc.) should still be shown.
+        """
+        if not label:
+            return False
+        label_lower = label.lower()
+        meta_authority_terms = [
+            'board of ethical review',
+            'nspe board',
+        ]
+        return any(term in label_lower for term in meta_authority_terms)
 
     def _classify_role_type(self, role_label: str) -> str:
         """Classify a role into narrative role type."""

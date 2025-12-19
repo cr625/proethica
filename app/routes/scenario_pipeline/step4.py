@@ -109,6 +109,8 @@ def step4_synthesis(case_id):
     Shows entity summary from Passes 1-3 and synthesis status.
     If synthesis has been run, displays saved results.
     """
+    import json
+
     try:
         case = Document.query.get_or_404(case_id)
 
@@ -124,6 +126,19 @@ def step4_synthesis(case_id):
             concept_type='whole_case_synthesis'
         ).order_by(ExtractionPrompt.created_at.desc()).first()
 
+        # Load saved Phase 4 narrative construction results
+        phase4_prompt = ExtractionPrompt.query.filter_by(
+            case_id=case_id,
+            concept_type='phase4_narrative'
+        ).order_by(ExtractionPrompt.created_at.desc()).first()
+
+        phase4_data = None
+        if phase4_prompt and phase4_prompt.raw_response:
+            try:
+                phase4_data = json.loads(phase4_prompt.raw_response)
+            except (json.JSONDecodeError, TypeError):
+                pass
+
         # Get pipeline status for navigation
         pipeline_status = PipelineStatusService.get_step_status(case_id)
 
@@ -133,6 +148,7 @@ def step4_synthesis(case_id):
             entities_summary=entities_summary,
             synthesis_status=synthesis_status,
             saved_synthesis=saved_synthesis,
+            phase4_data=phase4_data,
             current_step=4,
             prev_step_url=f"/scenario_pipeline/case/{case_id}/step3",
             next_step_url=f"/scenario_pipeline/case/{case_id}/step5",

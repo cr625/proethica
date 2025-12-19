@@ -30,6 +30,9 @@ def init_step5_csrf_exemption(app):
     if hasattr(app, 'csrf') and app.csrf:
         from app.routes.scenario_pipeline.generate_scenario import generate_scenario_from_case
         app.csrf.exempt(generate_scenario_from_case)
+        # Interactive exploration routes
+        app.csrf.exempt('step5.start_interactive_exploration')
+        app.csrf.exempt('step5.make_choice')
 
 
 @bp.route('/case/<int:case_id>/step5')
@@ -38,7 +41,10 @@ def step5_scenario_generation(case_id):
     """
     Display Step 5 scenario generation page.
 
-    Shows eligibility status and scenario generation controls.
+    Shows integrated tabbed interface with:
+    - Narrative Overview
+    - Event Timeline
+    - Decision Wizard
     """
     try:
         case = Document.query.get_or_404(case_id)
@@ -50,6 +56,13 @@ def step5_scenario_generation(case_id):
         # Get entity counts for display
         entity_counts = eligibility.entity_counts
 
+        # Load Phase 4 data for all views
+        phase4_data = _load_phase4_data(case_id)
+        narrative = _load_narrative_elements(case_id)
+        timeline = _load_timeline_data(case_id)
+        seeds = _load_scenario_seeds(case_id)
+        insights = _load_insights(case_id)
+
         # Get pipeline status for navigation
         pipeline_status = PipelineStatusService.get_step_status(case_id)
 
@@ -58,6 +71,12 @@ def step5_scenario_generation(case_id):
             case=case,
             eligibility=eligibility,
             entity_counts=entity_counts,
+            has_phase4=phase4_data is not None,
+            phase4_data=phase4_data,
+            narrative=narrative,
+            timeline=timeline,
+            seeds=seeds,
+            insights=insights,
             current_step=5,
             prev_step_url=f"/scenario_pipeline/case/{case_id}/step4",
             next_step_url="#",  # No step 6 yet
@@ -203,15 +222,34 @@ def _load_narrative_elements(case_id: int):
             data = json.loads(prompt.raw_response)
             if 'narrative_elements' in data:
                 ne = data['narrative_elements']
-                result['characters'] = ne.get('characters', ne.get('characters_count', 0))
-                result['events'] = ne.get('events', ne.get('events_count', 0))
-                result['conflicts'] = ne.get('conflicts', ne.get('conflicts_count', 0))
-                result['decision_moments'] = ne.get('decision_moments', ne.get('decision_moments_count', 0))
+                # Check if we have full data (list) or just counts (int)
+                chars = ne.get('characters', [])
+                if isinstance(chars, list) and len(chars) > 0:
+                    # Filter Phase 4 characters: exclude classes and meta-authority
+                    result['characters'] = _filter_characters(chars)
+                events = ne.get('events', [])
+                if isinstance(events, list) and len(events) > 0:
+                    result['events'] = events
+                conflicts = ne.get('conflicts', [])
+                if isinstance(conflicts, list) and len(conflicts) > 0:
+                    result['conflicts'] = conflicts
+                dms = ne.get('decision_moments', [])
+                if isinstance(dms, list) and len(dms) > 0:
+                    result['decision_moments'] = dms
+                # Setting and resolution
+                if ne.get('setting'):
+                    result['setting'] = ne['setting']
+                if ne.get('resolution'):
+                    result['resolution'] = ne['resolution']
         except (json.JSONDecodeError, TypeError):
             pass
 
+    # If we got full data from Phase 4, return it
+    if isinstance(result['characters'], list) and len(result['characters']) > 0:
+        return result
+
     # Try to load from temporary_rdf_storage for richer data
-    # Characters from Roles
+    # Characters from Roles - filter to only case-specific individuals
     roles_query = text("""
         SELECT entity_uri, entity_label, entity_type, entity_definition, rdf_json_ld
         FROM temporary_rdf_storage
@@ -223,12 +261,22 @@ def _load_narrative_elements(case_id: int):
     if roles:
         result['characters'] = []
         for r in roles:
+            # Filter out role classes (from intermediate/core ontology)
+            uri = r.entity_uri or ''
+            if _is_ontology_class(uri):
+                continue  # Skip ontology classes like "Engineering Mentor Role"
+
+            # Filter out meta-authority (Board of Ethical Review)
+            label = r.entity_label or ''
+            if _is_meta_authority(label):
+                continue  # Skip the NSPE Board - it's the meta-authority for all cases
+
             rdf_data = r.rdf_json_ld if r.rdf_json_ld else {}
             result['characters'].append({
-                'uri': r.entity_uri or '',
-                'label': r.entity_label or '',
+                'uri': uri,
+                'label': label,
                 'definition': r.entity_definition or rdf_data.get('definition', ''),
-                'role_type': _classify_role_type(r.entity_label or '')
+                'role_type': _classify_role_type(label)
             })
 
     # Events from actions and events
@@ -295,6 +343,66 @@ def _load_narrative_elements(case_id: int):
     return result
 
 
+def _filter_characters(characters: list) -> list:
+    """
+    Filter character list to exclude ontology classes and meta-authority.
+
+    Args:
+        characters: List of character dicts from Phase 4
+
+    Returns:
+        Filtered list with only case-specific individuals
+    """
+    filtered = []
+    for char in characters:
+        uri = char.get('uri', '')
+        label = char.get('label', '')
+
+        # Skip ontology classes
+        if _is_ontology_class(uri):
+            continue
+
+        # Skip meta-authority
+        if _is_meta_authority(label):
+            continue
+
+        filtered.append(char)
+
+    return filtered
+
+
+def _is_ontology_class(uri: str) -> bool:
+    """
+    Check if a URI represents an ontology class rather than a case-specific individual.
+
+    Classes are defined in the intermediate or core ontology and have URIs like:
+    - http://proethica.org/ontology/intermediate#EngineeringMentorRole
+    - http://proethica.org/ontology/core#SomeClass
+
+    Case-specific individuals have URIs like:
+    - http://proethica.org/ontology/case/7#Engineer_A
+    """
+    class_markers = ['intermediate#', 'core#', '/ontology#']
+    return any(marker in uri for marker in class_markers)
+
+
+def _is_meta_authority(label: str) -> bool:
+    """
+    Check if a role label represents the meta-authority (Board of Ethical Review).
+
+    The NSPE Board of Ethical Review reviews all cases and should not be shown
+    as a character in the case narrative. Case-specific authorities (like local
+    compliance boards) should still be shown.
+    """
+    label_lower = label.lower()
+    meta_authority_terms = [
+        'board of ethical review',
+        'nspe board',
+        'ber',  # Board of Ethical Review abbreviation
+    ]
+    return any(term in label_lower for term in meta_authority_terms)
+
+
 def _classify_role_type(role_label: str) -> str:
     """Classify a role into narrative role type."""
     label_lower = role_label.lower()
@@ -303,6 +411,8 @@ def _classify_role_type(role_label: str) -> str:
         return 'protagonist'
     if any(term in label_lower for term in ['manager', 'director', 'supervisor', 'boss']):
         return 'decision-maker'
+    # Note: We check for authority but exclude meta-authority (Board of Ethical Review)
+    # which is filtered out by _is_meta_authority() before reaching this point
     if any(term in label_lower for term in ['board', 'commission', 'committee', 'authority']):
         return 'authority'
     return 'stakeholder'
@@ -581,3 +691,11 @@ def step5_data_api(case_id):
             'success': False,
             'error': str(e)
         }), 500
+
+
+# =============================================================================
+# REGISTER INTERACTIVE EXPLORATION ROUTES
+# =============================================================================
+
+from app.routes.scenario_pipeline.step5_interactive import register_interactive_routes
+register_interactive_routes(bp)

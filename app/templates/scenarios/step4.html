@@ -1964,7 +1964,93 @@ function updatePhaseIndicator(currentTask) {
 document.addEventListener('DOMContentLoaded', function() {
     loadSavedPrompts();
     loadPhase3Results();
+    loadPhase4Results();
 });
+
+// Load persisted Phase 4 narrative construction results
+function loadPhase4Results() {
+    {% if phase4_data %}
+    const phase4Data = {{ phase4_data | tojson | safe }};
+
+    if (phase4Data && phase4Data.narrative_elements) {
+        // Show the results section
+        const resultsDiv = document.getElementById('phase4Results');
+        if (resultsDiv) resultsDiv.style.display = 'block';
+
+        // Update narrative elements summary
+        const ne = phase4Data.narrative_elements;
+        if (ne.characters) {
+            const charCount = Array.isArray(ne.characters) ? ne.characters.length : ne.characters;
+            document.getElementById('phase4Characters').textContent = charCount;
+        }
+        if (ne.events) {
+            const eventCount = Array.isArray(ne.events) ? ne.events.length : ne.events;
+            document.getElementById('phase4Events').textContent = eventCount;
+        }
+        if (ne.conflicts) {
+            const conflictCount = Array.isArray(ne.conflicts) ? ne.conflicts.length : ne.conflicts;
+            document.getElementById('phase4Conflicts').textContent = conflictCount;
+        }
+        if (ne.decision_moments) {
+            const dmCount = Array.isArray(ne.decision_moments) ? ne.decision_moments.length : ne.decision_moments;
+            document.getElementById('phase4Decisions').textContent = dmCount;
+        }
+
+        // Update timeline preview
+        if (phase4Data.timeline && phase4Data.timeline.event_trace) {
+            document.getElementById('phase4TimelinePreview').textContent = phase4Data.timeline.event_trace.substring(0, 1000);
+        }
+
+        // Update scenario opening
+        if (phase4Data.scenario_seeds && phase4Data.scenario_seeds.opening_context) {
+            document.getElementById('phase4OpeningContext').textContent = phase4Data.scenario_seeds.opening_context;
+        }
+
+        // Update key takeaways
+        if (phase4Data.insights && phase4Data.insights.key_takeaways && phase4Data.insights.key_takeaways.length > 0) {
+            const takeawaysUl = document.getElementById('phase4Takeaways');
+            takeawaysUl.innerHTML = phase4Data.insights.key_takeaways.map(t => `<li>${escapeHtml(t)}</li>`).join('');
+        }
+
+        // Mark Phase 4 stage badges as complete
+        ['step-4-1', 'step-4-2', 'step-4-3', 'step-4-4'].forEach(id => {
+            const badge = document.getElementById(id);
+            if (badge) badge.className = 'badge bg-success mb-1';
+        });
+
+        // Update stage result placeholders
+        if (ne.characters) {
+            const charCount = Array.isArray(ne.characters) ? ne.characters.length : ne.characters;
+            document.getElementById('stage41Result').textContent = `${charCount} chars`;
+        }
+        if (phase4Data.timeline && phase4Data.timeline.events) {
+            const eventCount = Array.isArray(phase4Data.timeline.events) ? phase4Data.timeline.events.length : 0;
+            document.getElementById('stage42Result').textContent = `${eventCount} events`;
+        }
+        if (phase4Data.scenario_seeds && phase4Data.scenario_seeds.branches) {
+            const branchCount = Array.isArray(phase4Data.scenario_seeds.branches) ? phase4Data.scenario_seeds.branches.length : 0;
+            document.getElementById('stage43Result').textContent = `${branchCount} branches`;
+        }
+        if (phase4Data.insights && phase4Data.insights.key_takeaways) {
+            const takeawayCount = phase4Data.insights.key_takeaways.length;
+            document.getElementById('stage44Result').textContent = `${takeawayCount} insights`;
+        }
+
+        // Update phase indicator
+        const phase4Indicator = document.getElementById('phase4-indicator');
+        if (phase4Indicator) phase4Indicator.classList.add('phase-complete');
+
+        // Change button to Re-run
+        const button = document.getElementById('extractNarrativeBtn');
+        if (button) {
+            button.disabled = false;
+            button.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Re-run';
+            button.classList.remove('btn-outline-dark');
+            button.classList.add('btn-outline-success');
+        }
+    }
+    {% endif %}
+}
 
 function loadPhase3Results() {
     fetch(`/scenario_pipeline/case/${currentCaseId}/phase3_results`)

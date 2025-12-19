@@ -81,6 +81,7 @@ def register_phase4_routes(bp, build_entity_foundation, load_canonical_points, l
             )
 
             # Save extraction prompt for provenance
+            # raw_response gets full data for Step 5, results_summary gets counts for display
             session_id = str(uuid.uuid4())
             extraction_prompt = ExtractionPrompt(
                 case_id=case_id,
@@ -90,7 +91,7 @@ def register_phase4_routes(bp, build_entity_foundation, load_canonical_points, l
                 prompt_text=f"Phase 4 Narrative Construction - {len(result.stages_completed)} stages",
                 llm_model='claude-sonnet-4-20250514',
                 extraction_session_id=session_id,
-                raw_response=json.dumps(result.summary()),
+                raw_response=json.dumps(result.to_dict()),
                 results_summary=json.dumps(result.summary())
             )
             db.session.add(extraction_prompt)
@@ -304,6 +305,7 @@ def register_phase4_routes(bp, build_entity_foundation, load_canonical_points, l
                 )
 
                 # Save provenance
+                # raw_response gets full data for Step 5, results_summary gets counts for display
                 try:
                     extraction_prompt = ExtractionPrompt(
                         case_id=case_id,
@@ -313,7 +315,7 @@ def register_phase4_routes(bp, build_entity_foundation, load_canonical_points, l
                         prompt_text=f"Phase 4 Narrative Construction - streaming",
                         llm_model='claude-sonnet-4-20250514',
                         extraction_session_id=session_id,
-                        raw_response=json.dumps(result.summary()),
+                        raw_response=json.dumps(result.to_dict()),
                         results_summary=json.dumps(result.summary())
                     )
                     db.session.add(extraction_prompt)

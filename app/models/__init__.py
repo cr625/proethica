@@ -89,3 +89,6 @@ from app.models.document_section import DocumentSection
 
 # Precedent discovery features (added 2025-12-18)
 from app.models.case_precedent_features import CasePrecedentFeatures
+
+# Interactive scenario exploration (added 2025-12-19)
+from app.models.scenario_exploration import ScenarioExplorationSession, ScenarioExplorationChoice

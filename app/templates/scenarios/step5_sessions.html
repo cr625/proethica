@@ -1,0 +1,125 @@
+{% extends "scenarios/base_step.html" %}
+
+{% block step_title %}Exploration Sessions{% endblock %}
+{% block step_header %}Exploration Sessions{% endblock %}
+{% block step_subtitle %}Your interactive explorations of this case{% endblock %}
+
+{% block step_content %}
+
+<!-- Back to Case Review -->
+<div class="mb-4">
+    <a href="{{ url_for('step5.step5_scenario_generation', case_id=case.id) }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Scenario Exploration
+    </a>
+</div>
+
+{% if sessions and sessions|length > 0 %}
+<!-- Sessions List -->
+<div class="card mb-4">
+    <div class="card-header bg-light">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-collection"></i> Your Explorations</h5>
+            <span class="badge bg-secondary">{{ sessions|length }} session{% if sessions|length != 1 %}s{% endif %}</span>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="list-group list-group-flush">
+            {% for session in sessions %}
+            <div class="list-group-item">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <h6 class="mb-1">
+                            {% if session.status == 'completed' %}
+                            <i class="bi bi-check-circle-fill text-success"></i>
+                            {% elif session.status == 'in_progress' %}
+                            <i class="bi bi-hourglass-split text-warning"></i>
+                            {% else %}
+                            <i class="bi bi-x-circle text-secondary"></i>
+                            {% endif %}
+                            Session {{ session.session_uuid[:8] }}...
+                        </h6>
+                        <small class="text-muted">
+                            Started: {{ session.started_at.strftime('%Y-%m-%d %H:%M') }}
+                            {% if session.completed_at %}
+                            | Completed: {{ session.completed_at.strftime('%Y-%m-%d %H:%M') }}
+                            {% endif %}
+                        </small>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <span class="badge {% if session.status == 'completed' %}bg-success{% elif session.status == 'in_progress' %}bg-warning{% else %}bg-secondary{% endif %}">
+                            {{ session.status|title }}
+                        </span>
+                        <div class="small text-muted mt-1">
+                            {{ session.choices|length }} choice{% if session.choices|length != 1 %}s{% endif %} made
+                        </div>
+                    </div>
+                    <div class="col-md-3 text-end">
+                        {% if session.status == 'completed' %}
+                        <a href="{{ url_for('step5.interactive_analysis', case_id=case.id, session_uuid=session.session_uuid) }}"
+                           class="btn btn-sm btn-outline-success">
+                            <i class="bi bi-bar-chart"></i> View Analysis
+                        </a>
+                        {% elif session.status == 'in_progress' %}
+                        <a href="{{ url_for('step5.interactive_exploration', case_id=case.id, session_uuid=session.session_uuid) }}"
+                           class="btn btn-sm btn-warning">
+                            <i class="bi bi-play-fill"></i> Continue
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if session.status == 'completed' and session.final_analysis %}
+                <div class="mt-2 pt-2 border-top">
+                    <small>
+                        <strong>Result:</strong>
+                        {{ session.final_analysis.matches_with_board }}/{{ session.final_analysis.total_decisions }} matched board
+                        ({{ session.final_analysis.match_percentage|round|int }}%)
+                    </small>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+{% else %}
+<!-- No Sessions -->
+<div class="card mb-4">
+    <div class="card-body text-center py-5">
+        <i class="bi bi-inbox text-muted" style="font-size: 3rem;"></i>
+        <h5 class="mt-3 text-muted">No Explorations Yet</h5>
+        <p class="text-muted">Start your first interactive exploration to see how your ethical choices compare to the Board's decisions.</p>
+        <form action="{{ url_for('step5.start_interactive_exploration', case_id=case.id) }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-danger btn-lg">
+                <i class="bi bi-play-circle"></i> Start First Exploration
+            </button>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<!-- Start New Session -->
+{% if sessions and sessions|length > 0 %}
+<div class="card bg-light">
+    <div class="card-body">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h6 class="mb-1">Start a New Exploration</h6>
+                <p class="small text-muted mb-0">Try different choices and see how the outcomes compare.</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <form action="{{ url_for('step5.start_interactive_exploration', case_id=case.id) }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-plus-circle"></i> New Exploration
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

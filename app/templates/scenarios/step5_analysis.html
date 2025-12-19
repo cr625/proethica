@@ -1,0 +1,170 @@
+{% extends "scenarios/base_step.html" %}
+
+{% block step_title %}Exploration Analysis{% endblock %}
+{% block step_header %}Exploration Analysis{% endblock %}
+{% block step_subtitle %}How your choices compared to the Board of Ethical Review{% endblock %}
+
+{% block step_content %}
+
+<!-- Summary Banner -->
+<div class="card mb-4 {% if analysis.match_percentage >= 80 %}border-success{% elif analysis.match_percentage >= 50 %}border-warning{% else %}border-info{% endif %}">
+    <div class="card-body {% if analysis.match_percentage >= 80 %}bg-success{% elif analysis.match_percentage >= 50 %}bg-warning{% else %}bg-info{% endif %} bg-opacity-10">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h4 class="mb-2">
+                    {% if analysis.match_percentage >= 80 %}
+                    <i class="bi bi-trophy text-success"></i> High Alignment with Board
+                    {% elif analysis.match_percentage >= 50 %}
+                    <i class="bi bi-shuffle text-warning"></i> Partial Alignment
+                    {% else %}
+                    <i class="bi bi-lightbulb text-info"></i> Different Perspective
+                    {% endif %}
+                </h4>
+                <p class="mb-0 text-muted">
+                    You matched the Board's decisions on {{ analysis.matches_with_board }} of {{ analysis.total_decisions }} decision points.
+                </p>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="display-4 fw-bold {% if analysis.match_percentage >= 80 %}text-success{% elif analysis.match_percentage >= 50 %}text-warning{% else %}text-info{% endif %}">
+                    {{ analysis.match_percentage|round|int }}%
+                </div>
+                <small class="text-muted">Match Rate</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Decision Comparison Table -->
+<div class="card mb-4">
+    <div class="card-header bg-light">
+        <h5 class="mb-0"><i class="bi bi-table"></i> Decision-by-Decision Comparison</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 5%;">#</th>
+                        <th style="width: 30%;">Decision Point</th>
+                        <th style="width: 25%;">Your Choice</th>
+                        <th style="width: 25%;">Board's Choice</th>
+                        <th style="width: 15%;">Match</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for choice in analysis.choices_summary %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td>{{ choice.decision }}</td>
+                        <td>
+                            <span class="badge bg-danger">{{ choice.user_choice }}</span>
+                        </td>
+                        <td>
+                            <span class="badge bg-secondary">{{ choice.board_choice }}</span>
+                        </td>
+                        <td>
+                            {% if choice.matched %}
+                            <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                            {% else %}
+                            <i class="bi bi-x-circle text-warning fs-5"></i>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Analysis Narrative -->
+<div class="card mb-4 border-primary">
+    <div class="card-header bg-primary bg-opacity-10">
+        <h5 class="mb-0"><i class="bi bi-chat-quote"></i> Analysis</h5>
+    </div>
+    <div class="card-body">
+        <div class="analysis-narrative" style="line-height: 1.8;">
+            {{ analysis.analysis_narrative|safe|replace('\n\n', '</p><p class="mb-3">')|replace('\n', '<br>') }}
+        </div>
+    </div>
+</div>
+
+<!-- Session Stats -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card text-center h-100">
+            <div class="card-body">
+                <div class="fs-2 fw-bold text-primary">{{ analysis.total_decisions }}</div>
+                <small class="text-muted">Decisions Made</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center h-100">
+            <div class="card-body">
+                <div class="fs-2 fw-bold text-success">{{ analysis.matches_with_board }}</div>
+                <small class="text-muted">Matched Board</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center h-100">
+            <div class="card-body">
+                {% if analysis.exploration_duration_seconds %}
+                <div class="fs-2 fw-bold text-info">{{ (analysis.exploration_duration_seconds / 60)|round|int }}</div>
+                <small class="text-muted">Minutes Spent</small>
+                {% else %}
+                <div class="fs-2 fw-bold text-info">-</div>
+                <small class="text-muted">Duration</small>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Actions -->
+<div class="card bg-light">
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6 mb-3 mb-md-0">
+                <h6>Try Again?</h6>
+                <p class="small text-muted mb-2">Start a new exploration with different choices.</p>
+                <form action="{{ url_for('step5.start_interactive_exploration', case_id=case.id) }}" method="POST" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-arrow-repeat"></i> New Exploration
+                    </button>
+                </form>
+            </div>
+            <div class="col-md-6">
+                <h6>Review the Case</h6>
+                <p class="small text-muted mb-2">Go back to case review to understand the board's reasoning.</p>
+                <a href="{{ url_for('step5.step5_scenario_generation', case_id=case.id) }}" class="btn btn-outline-primary">
+                    <i class="bi bi-arrow-left"></i> Back to Case Review
+                </a>
+                <a href="{{ url_for('step5.decision_wizard', case_id=case.id) }}" class="btn btn-outline-warning">
+                    <i class="bi bi-signpost-split"></i> View Board's Decisions
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block step_styles %}
+<style>
+    .analysis-narrative {
+        font-size: 1.05rem;
+    }
+
+    .analysis-narrative p {
+        margin-bottom: 1rem;
+    }
+
+    .table th {
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+</style>
+{% endblock %}

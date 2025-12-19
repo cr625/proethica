@@ -1,0 +1,231 @@
+{% extends "scenarios/base_step.html" %}
+
+{% block step_title %}Interactive Exploration{% endblock %}
+{% block step_header %}Interactive Exploration{% endblock %}
+{% block step_subtitle %}Make your own ethical choices and see the consequences{% endblock %}
+
+{% block step_content %}
+
+<!-- Progress Header -->
+<div class="card mb-4 border-danger">
+    <div class="card-body bg-danger bg-opacity-10">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <h5 class="mb-1">
+                    <i class="bi bi-signpost-split"></i>
+                    Decision {{ current_decision.decision_index + 1 }} of {{ current_decision.total_decisions }}
+                </h5>
+                <p class="mb-0 text-muted small">
+                    Session: {{ session.session_uuid[:8] }}...
+                </p>
+            </div>
+            <div class="col-md-6">
+                <div class="progress" style="height: 25px;">
+                    {% set progress = ((current_decision.decision_index) / current_decision.total_decisions * 100)|int %}
+                    <div class="progress-bar bg-danger" role="progressbar"
+                         style="width: {{ progress }}%"
+                         aria-valuenow="{{ progress }}" aria-valuemin="0" aria-valuemax="100">
+                        {{ progress }}% Complete
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Previous Choices Summary (if any) -->
+{% if previous_choices and previous_choices|length > 0 %}
+<div class="card mb-4">
+    <div class="card-header bg-light">
+        <h6 class="mb-0">
+            <i class="bi bi-clock-history"></i> Your Previous Choices
+            <button class="btn btn-sm btn-link float-end" type="button" data-bs-toggle="collapse" data-bs-target="#previousChoices">
+                Show/Hide
+            </button>
+        </h6>
+    </div>
+    <div class="collapse" id="previousChoices">
+        <div class="card-body">
+            {% for choice in previous_choices %}
+            <div class="mb-3 pb-3 {% if not loop.last %}border-bottom{% endif %}">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <strong>Decision {{ choice.decision_point_index + 1 }}:</strong> {{ choice.decision_point_label }}
+                    </div>
+                    {% if choice.matches_board_choice %}
+                    <span class="badge bg-success">Matched Board</span>
+                    {% else %}
+                    <span class="badge bg-warning text-dark">Different from Board</span>
+                    {% endif %}
+                </div>
+                <p class="mb-1 mt-2">
+                    <i class="bi bi-arrow-right-circle text-danger"></i>
+                    You chose: <strong>{{ choice.chosen_option_label }}</strong>
+                </p>
+                {% if choice.consequences_narrative %}
+                <p class="text-muted small fst-italic mb-0">{{ choice.consequences_narrative }}</p>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Current Decision Point -->
+<div class="card mb-4 border-warning">
+    <div class="card-header bg-warning bg-opacity-10">
+        <h5 class="mb-0">
+            <i class="bi bi-question-circle"></i>
+            {{ current_decision.decision_point.label }}
+        </h5>
+    </div>
+    <div class="card-body">
+        <!-- Context -->
+        {% if current_decision.context %}
+        <div class="alert alert-secondary mb-4">
+            <h6 class="alert-heading"><i class="bi bi-info-circle"></i> Situation</h6>
+            <p class="mb-0">{{ current_decision.context }}</p>
+        </div>
+        {% endif %}
+
+        <!-- The Question -->
+        <div class="mb-4 p-3 bg-light rounded">
+            <h5 class="text-warning mb-3">
+                <i class="bi bi-patch-question"></i> The Question
+            </h5>
+            <p class="lead mb-0">
+                {{ current_decision.decision_point.question or current_decision.decision_point.description }}
+            </p>
+        </div>
+
+        <!-- Options -->
+        <h6 class="mb-3"><i class="bi bi-list-ul"></i> What would you do?</h6>
+
+        <form id="choiceForm" action="{{ url_for('step5.make_choice', case_id=case.id, session_uuid=session.session_uuid) }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="time_spent_seconds" id="timeSpent" value="0">
+
+            <div class="row">
+                {% for option in current_decision.options %}
+                <div class="col-md-6 mb-3">
+                    <div class="card h-100 option-card" data-index="{{ loop.index0 }}">
+                        <div class="card-body">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="option_index"
+                                       id="option{{ loop.index0 }}" value="{{ loop.index0 }}"
+                                       {% if loop.first %}checked{% endif %}>
+                                <label class="form-check-label w-100" for="option{{ loop.index0 }}">
+                                    <strong>Option {{ loop.index }}</strong>: {{ option.label }}
+                                </label>
+                            </div>
+                            {% if option.description %}
+                            <p class="text-muted small mt-2 mb-0">{{ option.description }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="col-12">
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        No options available for this decision point. This may indicate missing data.
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            {% if current_decision.options %}
+            <div class="mt-4 d-flex justify-content-between align-items-center">
+                <a href="{{ url_for('step5.step5_scenario_generation', case_id=case.id) }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x-circle"></i> Abandon Exploration
+                </a>
+                <button type="submit" class="btn btn-danger btn-lg" id="submitChoice">
+                    <i class="bi bi-check-circle"></i> Make This Choice
+                    <i class="bi bi-arrow-right ms-1"></i>
+                </button>
+            </div>
+            {% endif %}
+        </form>
+    </div>
+</div>
+
+<!-- Current State (Active Fluents) -->
+{% if current_decision.active_fluents and current_decision.active_fluents|length > 0 %}
+<div class="card mb-4">
+    <div class="card-header bg-light">
+        <h6 class="mb-0">
+            <i class="bi bi-diagram-3"></i> Current State
+            <small class="text-muted">(Event Calculus Fluents)</small>
+        </h6>
+    </div>
+    <div class="card-body">
+        <div class="d-flex flex-wrap gap-2">
+            {% for fluent in current_decision.active_fluents %}
+            <span class="badge bg-secondary">{{ fluent }}</span>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block step_styles %}
+<style>
+    .option-card {
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: 2px solid #dee2e6;
+    }
+
+    .option-card:hover {
+        border-color: #dc3545;
+        transform: translateY(-2px);
+        box-shadow: 0 0.25rem 0.5rem rgba(220, 53, 69, 0.15);
+    }
+
+    .option-card.selected {
+        border-color: #dc3545;
+        background-color: rgba(220, 53, 69, 0.05);
+    }
+
+    .form-check-input:checked + .form-check-label {
+        color: #dc3545;
+        font-weight: 600;
+    }
+
+    .progress-bar {
+        transition: width 0.3s ease;
+    }
+</style>
+{% endblock %}
+
+{% block step_scripts %}
+<script>
+// Track time spent on decision
+let startTime = Date.now();
+
+// Update time spent before form submission
+document.getElementById('choiceForm').addEventListener('submit', function() {
+    const timeSpent = Math.floor((Date.now() - startTime) / 1000);
+    document.getElementById('timeSpent').value = timeSpent;
+});
+
+// Make option cards clickable
+document.querySelectorAll('.option-card').forEach(card => {
+    card.addEventListener('click', function() {
+        const index = this.dataset.index;
+        const radio = document.getElementById('option' + index);
+        radio.checked = true;
+
+        // Update visual selection
+        document.querySelectorAll('.option-card').forEach(c => c.classList.remove('selected'));
+        this.classList.add('selected');
+    });
+});
+
+// Initialize first option as selected
+document.querySelector('.option-card')?.classList.add('selected');
+</script>
+{% endblock %}

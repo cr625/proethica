@@ -137,14 +137,14 @@ Required context variables:
         {% endif %}
     </a>
 
-    {# Step 5: Scenario Generation - available if step 4 complete #}
+    {# Step 5: Scenario Exploration - available if step 4 complete #}
     {% set step5_complete = pipeline_status.step5.complete if pipeline_status else false %}
     {% set step5_available = step4_complete or current_step >= 5 %}
     <a href="{% if step5_available %}{{ url_for('step5.step5_scenario_generation', case_id=case.id) }}{% else %}#{% endif %}"
        class="pipeline-step {% if current_step == 5 %}active{% endif %} {% if step5_complete %}completed{% endif %} {% if not step5_available %}disabled{% endif %}"
        {% if not step5_available %}aria-disabled="true" tabindex="-1"{% endif %}>
         <span class="step-number {% if step5_complete %}complete{% endif %}">5</span>
-        <span class="step-label">Scenario Generation</span>
+        <span class="step-label">Scenario Exploration</span>
         {% if step5_complete %}
         <span class="step-check"><i class="bi bi-check-lg"></i></span>
         {% elif not step5_available %}
