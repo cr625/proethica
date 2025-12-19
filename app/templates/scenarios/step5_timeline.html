@@ -1,0 +1,320 @@
+{% extends "scenarios/base_step.html" %}
+
+{% block step_title %}Step 5: Event Timeline{% endblock %}
+{% block step_header %}Step 5: Interactive Scenario{% endblock %}
+{% block step_subtitle %}Entity-Grounded Timeline - Chronological event sequence{% endblock %}
+
+{% block step_content %}
+
+<!-- Step 5 View Tabs -->
+<ul class="nav nav-tabs mb-4" id="step5Tabs" role="tablist">
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('step5.narrative_overview', case_id=case.id) }}">
+            <i class="bi bi-book"></i> Narrative
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link active" href="{{ url_for('step5.enhanced_timeline', case_id=case.id) }}">
+            <i class="bi bi-clock-history"></i> Timeline
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('step5.decision_wizard', case_id=case.id) }}">
+            <i class="bi bi-signpost-split"></i> Decisions
+        </a>
+    </li>
+</ul>
+
+{% if not has_phase4 %}
+<!-- No Phase 4 Data Alert -->
+<div class="alert alert-warning">
+    <h5><i class="bi bi-exclamation-triangle"></i> Phase 4 Data Required</h5>
+    <p>No timeline data found for this case.</p>
+    <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}" class="btn btn-primary">
+        <i class="bi bi-arrow-left"></i> Go to Step 4 and Run Narrative Construction
+    </a>
+</div>
+{% else %}
+
+<!-- Timeline Overview Card -->
+<div class="card mb-4">
+    <div class="card-header bg-light">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="bi bi-clock-history"></i> Case Timeline
+            </h5>
+            {% if timeline and timeline.events %}
+            <span class="badge bg-primary">{{ timeline.events|length }} events</span>
+            {% endif %}
+        </div>
+    </div>
+    <div class="card-body p-0">
+        {% if timeline and timeline.events and timeline.events|length > 0 %}
+        <div class="timeline-container p-4">
+            {% for event in timeline.events %}
+            <div class="timeline-item {% if event.event_type == 'decision' %}timeline-decision{% elif event.event_type == 'action' %}timeline-action{% elif event.event_type == 'outcome' %}timeline-outcome{% else %}timeline-event{% endif %}">
+                <div class="timeline-marker">
+                    {% if event.event_type == 'decision' %}
+                    <i class="bi bi-signpost-split"></i>
+                    {% elif event.event_type == 'action' %}
+                    <i class="bi bi-person-walking"></i>
+                    {% elif event.event_type == 'outcome' or event.event_type == 'resolution' %}
+                    <i class="bi bi-check-circle"></i>
+                    {% else %}
+                    <i class="bi bi-circle"></i>
+                    {% endif %}
+                </div>
+                <div class="timeline-content">
+                    <div class="timeline-header">
+                        <span class="timeline-sequence">{{ event.sequence }}</span>
+                        <span class="timeline-phase badge
+                            {% if event.phase_label == 'Initial Situation' %}bg-secondary
+                            {% elif 'Action' in event.phase_label %}bg-info
+                            {% elif 'Decision' in event.phase_label %}bg-warning text-dark
+                            {% elif 'Resolution' in event.phase_label %}bg-success
+                            {% elif 'Conflict' in event.phase_label %}bg-danger
+                            {% else %}bg-light text-dark{% endif %}">
+                            {{ event.phase_label }}
+                        </span>
+                    </div>
+                    <div class="timeline-label">
+                        <strong>{{ event.event_label }}</strong>
+                    </div>
+                    {% if event.description %}
+                    <div class="timeline-description">
+                        {{ event.description }}
+                    </div>
+                    {% endif %}
+                    {% if event.entity_labels and event.entity_labels|length > 0 %}
+                    <div class="timeline-entities mt-2">
+                        {% for label in event.entity_labels[:3] %}
+                        <span class="badge bg-light text-dark me-1">{{ label }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="p-4 text-center text-muted">
+            <i class="bi bi-clock-history" style="font-size: 3rem;"></i>
+            <p class="mt-3"><em>Timeline events will appear here after Phase 4 narrative construction.</em></p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Event Trace (Berreby Format) -->
+{% if timeline and timeline.event_trace %}
+<div class="card mb-4">
+    <div class="card-header bg-light">
+        <h5 class="mb-0">
+            <i class="bi bi-code-slash"></i> Event Calculus Trace
+            <small class="text-muted ms-2">(Berreby et al. 2017)</small>
+        </h5>
+    </div>
+    <div class="card-body">
+        <pre class="bg-dark text-light p-3 rounded" style="max-height: 300px; overflow-y: auto; font-size: 0.85rem;"><code>{{ timeline.event_trace }}</code></pre>
+    </div>
+</div>
+{% endif %}
+
+<!-- Timeline Legend -->
+<div class="card bg-light">
+    <div class="card-body">
+        <h6 class="mb-3">Timeline Legend</h6>
+        <div class="row">
+            <div class="col-md-3 mb-2">
+                <span class="timeline-legend-item">
+                    <span class="legend-marker legend-action"><i class="bi bi-person-walking"></i></span>
+                    Action
+                </span>
+            </div>
+            <div class="col-md-3 mb-2">
+                <span class="timeline-legend-item">
+                    <span class="legend-marker legend-event"><i class="bi bi-circle"></i></span>
+                    Event
+                </span>
+            </div>
+            <div class="col-md-3 mb-2">
+                <span class="timeline-legend-item">
+                    <span class="legend-marker legend-decision"><i class="bi bi-signpost-split"></i></span>
+                    Decision Point
+                </span>
+            </div>
+            <div class="col-md-3 mb-2">
+                <span class="timeline-legend-item">
+                    <span class="legend-marker legend-outcome"><i class="bi bi-check-circle"></i></span>
+                    Resolution
+                </span>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endif %}
+
+{% endblock %}
+
+{% block step_styles %}
+<style>
+    .nav-tabs .nav-link {
+        color: #5a5c69;
+    }
+
+    .nav-tabs .nav-link.active {
+        font-weight: 600;
+        border-bottom: 2px solid #4e73df;
+    }
+
+    .nav-tabs .nav-link:hover:not(.active) {
+        border-color: transparent;
+        background-color: #f8f9fc;
+    }
+
+    /* Timeline Styles */
+    .timeline-container {
+        position: relative;
+        padding-left: 40px;
+    }
+
+    .timeline-container::before {
+        content: '';
+        position: absolute;
+        left: 19px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: linear-gradient(to bottom, #dee2e6 0%, #4e73df 50%, #1cc88a 100%);
+    }
+
+    .timeline-item {
+        position: relative;
+        margin-bottom: 25px;
+        padding-left: 30px;
+    }
+
+    .timeline-marker {
+        position: absolute;
+        left: -30px;
+        top: 0;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: white;
+        border: 2px solid #dee2e6;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        color: #858796;
+        z-index: 1;
+    }
+
+    .timeline-action .timeline-marker {
+        border-color: #36b9cc;
+        color: #36b9cc;
+    }
+
+    .timeline-decision .timeline-marker {
+        border-color: #f6c23e;
+        color: #f6c23e;
+        background: #fff8e1;
+    }
+
+    .timeline-outcome .timeline-marker {
+        border-color: #1cc88a;
+        color: #1cc88a;
+        background: #e8f8f5;
+    }
+
+    .timeline-content {
+        background: white;
+        border: 1px solid #e3e6f0;
+        border-radius: 0.5rem;
+        padding: 15px;
+        box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
+    }
+
+    .timeline-decision .timeline-content {
+        border-left: 4px solid #f6c23e;
+    }
+
+    .timeline-outcome .timeline-content {
+        border-left: 4px solid #1cc88a;
+    }
+
+    .timeline-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 8px;
+    }
+
+    .timeline-sequence {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: #4e73df;
+        color: white;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .timeline-label {
+        font-size: 1rem;
+        margin-bottom: 5px;
+    }
+
+    .timeline-description {
+        color: #5a5c69;
+        font-size: 0.9rem;
+        line-height: 1.5;
+    }
+
+    .timeline-entities {
+        margin-top: 8px;
+    }
+
+    /* Legend Styles */
+    .timeline-legend-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .legend-marker {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        border: 2px solid;
+    }
+
+    .legend-action {
+        border-color: #36b9cc;
+        color: #36b9cc;
+    }
+
+    .legend-event {
+        border-color: #858796;
+        color: #858796;
+    }
+
+    .legend-decision {
+        border-color: #f6c23e;
+        color: #f6c23e;
+    }
+
+    .legend-outcome {
+        border-color: #1cc88a;
+        color: #1cc88a;
+    }
+</style>
+{% endblock %}

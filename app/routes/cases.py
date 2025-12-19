@@ -742,7 +742,8 @@ def process_url_pipeline():
             'questions_list': questions_list,
             'conclusion_items': conclusion_items,
             'extraction_method': 'direct_process',
-            'display_format': 'extraction_style'  # Flag to indicate special display format
+            'display_format': 'extraction_style',  # Flag to indicate special display format
+            'case_source': 'primary'  # Mark as primary case (not auto-ingested precedent)
         }
         
         # Add dual format sections if available
@@ -843,6 +844,25 @@ def process_url_pipeline():
             logger.warning(f"Error extracting precedent features: {str(e)}")
             # Continue anyway - features can be extracted later
 
+        # Extract and ingest cited cases (one level depth only)
+        # This finds URLs in the case content and ingests them as precedent cases
+        cited_cases_result = None
+        try:
+            from app.services.precedent.cited_case_ingestor import CitedCaseIngestor
+            ingestor = CitedCaseIngestor()
+            cited_cases_result = ingestor.ingest_cited_cases_for_primary(
+                case_id=document.id,
+                world_id=world_id,
+                max_cases=20  # Limit auto-ingestion to 20 cases
+            )
+            if cited_cases_result:
+                ingested_count = len(cited_cases_result.get('ingested', []))
+                pending_count = len(cited_cases_result.get('pending', []))
+                logger.info(f"Cited case ingestion: {ingested_count} ingested, {pending_count} pending")
+        except Exception as e:
+            logger.warning(f"Error ingesting cited cases: {str(e)}")
+            # Continue anyway - cited cases can be ingested later
+
         # Log success with document ID and structure information
         logger.info(f"Case saved successfully with ID: {document.id}, includes document structure: {'document_structure' in metadata}")
         
@@ -850,6 +870,13 @@ def process_url_pipeline():
         success_msg = 'Case extracted and saved successfully'
         if 'document_structure' in metadata:
             success_msg += ' with document structure annotation'
+        if cited_cases_result:
+            ingested = cited_cases_result.get('ingested', [])
+            pending = cited_cases_result.get('pending', [])
+            if ingested:
+                success_msg += f'. Ingested {len(ingested)} cited precedent case(s)'
+            if pending:
+                success_msg += f'. {len(pending)} more cited cases pending'
         flash(success_msg, 'success')
         return redirect(url_for('cases.view_case', id=document.id))
     

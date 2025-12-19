@@ -207,8 +207,8 @@
     <!-- Legend -->
     <div class="card mb-3">
         <div class="card-body py-2">
-            <div class="d-flex flex-wrap align-items-center">
-                <span class="me-3 text-muted small"><strong>Outcome:</strong></span>
+            <div class="d-flex flex-wrap align-items-center mb-2">
+                <span class="me-3 text-muted small"><strong>Node Color (Outcome):</strong></span>
                 <span class="legend-item">
                     <span class="legend-dot" style="background-color: #4CAF50;"></span>Ethical
                 </span>
@@ -222,7 +222,7 @@
                     <span class="legend-dot" style="background-color: #9E9E9E;"></span>Unclear
                 </span>
                 <span class="mx-3 text-muted">|</span>
-                <span class="me-3 text-muted small"><strong>Edge Color:</strong></span>
+                <span class="me-3 text-muted small"><strong>Edge Color (Similarity):</strong></span>
                 <span class="legend-item">
                     <span class="legend-dot" style="background-color: #4CAF50;"></span>&gt;0.5
                 </span>
@@ -232,6 +232,22 @@
                 <span class="legend-item">
                     <span class="legend-dot" style="background-color: #F44336;"></span>&lt;0.3
                 </span>
+            </div>
+            <div class="d-flex flex-wrap align-items-center">
+                <span class="me-3 text-muted small"><strong>Transformation Type:</strong></span>
+                <span class="legend-item">
+                    <span class="badge" style="background-color: #0d6efd; font-size: 0.65rem;">Transfer</span>
+                </span>
+                <span class="legend-item">
+                    <span class="badge" style="background-color: #dc3545; font-size: 0.65rem;">Stalemate</span>
+                </span>
+                <span class="legend-item">
+                    <span class="badge" style="background-color: #fd7e14; font-size: 0.65rem;">Oscillation</span>
+                </span>
+                <span class="legend-item">
+                    <span class="badge" style="background-color: #6f42c1; font-size: 0.65rem;">Phase Lag</span>
+                </span>
+                <small class="text-muted ms-2">(shown in details panel)</small>
             </div>
         </div>
     </div>

@@ -86,3 +86,6 @@ from app.models.pipeline_run import PipelineRun, PipelineQueue, PIPELINE_STATUS
 
 # Document sections with embeddings
 from app.models.document_section import DocumentSection
+
+# Precedent discovery features (added 2025-12-18)
+from app.models.case_precedent_features import CasePrecedentFeatures

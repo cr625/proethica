@@ -1,1 +1,401 @@
-{}
+{
+  "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/failure-include-information-engineering": {
+    "result": {
+      "url": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/failure-include-information-engineering",
+      "title": "Failure To Include Information In Engineering Report",
+      "content": "Content extraction failed. Please visit the original URL: https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/failure-include-information-engineering",
+      "metadata": {
+        "url": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/failure-include-information-engineering",
+        "related_cases": []
+      },
+      "pattern_metadata": {
+        "url": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/failure-include-information-engineering",
+        "title": "Failure Include Information Engineering",
+        "related_cases": [],
+        "outcome": null,
+        "board_analysis": null
+      },
+      "triples": [
+        {
+          "subject": "http://proethica.org/case/unnamed_case",
+          "predicate": "rdf:type",
+          "object": "proethica:EngineeringEthicsCase",
+          "is_literal": false
+        },
+        {
+          "subject": "http://proethica.org/case/unnamed_case",
+          "predicate": "dc:source",
+          "object": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/failure-include-information-engineering",
+          "is_literal": true
+        }
+      ],
+      "processing_time": 1766102954.0020936,
+      "processing_method": "automatic",
+      "world_id": null,
+      "cached": false
+    },
+    "timestamp": 1766102954.0021238,
+    "last_accessed": 1766102954.0021238,
+    "user_id": null
+  },
+  "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/public-welfare-knowledge-information": {
+    "result": {
+      "url": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/public-welfare-knowledge-information",
+      "title": "Public Welfare - Knowledge of Information Damaging to Client's Interest",
+      "content": "Content extraction failed. Please visit the original URL: https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/public-welfare-knowledge-information",
+      "metadata": {
+        "url": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/public-welfare-knowledge-information",
+        "related_cases": []
+      },
+      "pattern_metadata": {
+        "url": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/public-welfare-knowledge-information",
+        "title": "Public Welfare Knowledge Information",
+        "related_cases": [],
+        "outcome": null,
+        "board_analysis": null
+      },
+      "triples": [
+        {
+          "subject": "http://proethica.org/case/unnamed_case",
+          "predicate": "rdf:type",
+          "object": "proethica:EngineeringEthicsCase",
+          "is_literal": false
+        },
+        {
+          "subject": "http://proethica.org/case/unnamed_case",
+          "predicate": "dc:source",
+          "object": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/public-welfare-knowledge-information",
+          "is_literal": true
+        }
+      ],
+      "processing_time": 1766102960.1498275,
+      "processing_method": "automatic",
+      "world_id": null,
+      "cached": false
+    },
+    "timestamp": 1766102960.1498508,
+    "last_accessed": 1766102960.1498508,
+    "user_id": null
+  },
+  "https://www.nspe.org/career-growth/ethics/board-ethical-review-cases/public-safety-health-welfare-avoiding-rolling": {
+    "result": {
+      "url": "https://www.nspe.org/career-growth/ethics/board-ethical-review-cases/public-safety-health-welfare-avoiding-rolling",
+      "title": "Public Safety, Health, and Welfare: Avoiding Rolling Blackouts",
+      "content": "Content extraction failed. Please visit the original URL: https://www.nspe.org/career-growth/ethics/board-ethical-review-cases/public-safety-health-welfare-avoiding-rolling",
+      "metadata": {
+        "url": "https://www.nspe.org/career-growth/ethics/board-ethical-review-cases/public-safety-health-welfare-avoiding-rolling",
+        "related_cases": []
+      },
+      "pattern_metadata": {
+        "url": "https://www.nspe.org/career-growth/ethics/board-ethical-review-cases/public-safety-health-welfare-avoiding-rolling",
+        "title": "Public Safety Health Welfare Avoiding Rolling",
+        "related_cases": [],
+        "outcome": null,
+        "board_analysis": null
+      },
+      "triples": [
+        {
+          "subject": "http://proethica.org/case/unnamed_case",
+          "predicate": "rdf:type",
+          "object": "proethica:EngineeringEthicsCase",
+          "is_literal": false
+        },
+        {
+          "subject": "http://proethica.org/case/unnamed_case",
+          "predicate": "dc:source",
+          "object": "https://www.nspe.org/career-growth/ethics/board-ethical-review-cases/public-safety-health-welfare-avoiding-rolling",
+          "is_literal": true
+        }
+      ],
+      "processing_time": 1766102964.6519341,
+      "processing_method": "automatic",
+      "world_id": null,
+      "cached": false
+    },
+    "timestamp": 1766102964.6519578,
+    "last_accessed": 1766102964.6519578,
+    "user_id": null
+  },
+  "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/professional-competence-current": {
+    "result": {
+      "url": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/professional-competence-current",
+      "title": "Professional Competence In Current Structural Design",
+      "content": "Content extraction failed. Please visit the original URL: https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/professional-competence-current",
+      "metadata": {
+        "url": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/professional-competence-current",
+        "related_cases": []
+      },
+      "pattern_metadata": {
+        "url": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/professional-competence-current",
+        "title": "Professional Competence Current",
+        "related_cases": [],
+        "outcome": null,
+        "board_analysis": null
+      },
+      "triples": [
+        {
+          "subject": "http://proethica.org/case/unnamed_case",
+          "predicate": "rdf:type",
+          "object": "proethica:EngineeringEthicsCase",
+          "is_literal": false
+        },
+        {
+          "subject": "http://proethica.org/case/unnamed_case",
+          "predicate": "dc:source",
+          "object": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/professional-competence-current",
+          "is_literal": true
+        }
+      ],
+      "processing_time": 1766102969.976642,
+      "processing_method": "automatic",
+      "world_id": null,
+      "cached": false
+    },
+    "timestamp": 1766102969.976664,
+    "last_accessed": 1766102969.976664,
+    "user_id": null
+  },
+  "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/obligation-former-employer-and-former": {
+    "result": {
+      "url": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/obligation-former-employer-and-former",
+      "title": "Obligation to Former Employer and Former Client Following Acceptance of Position with State",
+      "content": "Content extraction failed. Please visit the original URL: https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/obligation-former-employer-and-former",
+      "metadata": {
+        "url": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/obligation-former-employer-and-former",
+        "related_cases": []
+      },
+      "pattern_metadata": {
+        "url": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/obligation-former-employer-and-former",
+        "title": "Obligation Former Employer And Former",
+        "related_cases": [],
+        "outcome": null,
+        "board_analysis": null
+      },
+      "triples": [
+        {
+          "subject": "http://proethica.org/case/unnamed_case",
+          "predicate": "rdf:type",
+          "object": "proethica:EngineeringEthicsCase",
+          "is_literal": false
+        },
+        {
+          "subject": "http://proethica.org/case/unnamed_case",
+          "predicate": "dc:source",
+          "object": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/obligation-former-employer-and-former",
+          "is_literal": true
+        }
+      ],
+      "processing_time": 1766102975.3183408,
+      "processing_method": "automatic",
+      "world_id": null,
+      "cached": false
+    },
+    "timestamp": 1766102975.318362,
+    "last_accessed": 1766102975.318362,
+    "user_id": null
+  },
+  "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/public-health-safety-and-welfare-3": {
+    "result": {
+      "url": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/public-health-safety-and-welfare-3",
+      "title": "Public Health, Safety, and Welfare\u2014Drinking Water Quality",
+      "content": "Content extraction failed. Please visit the original URL: https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/public-health-safety-and-welfare-3",
+      "metadata": {
+        "title": null,
+        "ethical_questions": [],
+        "ethical_principles": [],
+        "involved_parties": [],
+        "summary": null,
+        "engineering_disciplines": [],
+        "year": null,
+        "potential_triples": [],
+        "case_number": null,
+        "url": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/public-health-safety-and-welfare-3",
+        "related_cases": []
+      },
+      "pattern_metadata": {
+        "url": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/public-health-safety-and-welfare-3",
+        "title": "Public Health Safety And Welfare 3",
+        "related_cases": [],
+        "outcome": null,
+        "board_analysis": null
+      },
+      "triples": [
+        {
+          "subject": "http://proethica.org/case/unnamed_case",
+          "predicate": "rdf:type",
+          "object": "proethica:EngineeringEthicsCase",
+          "is_literal": false
+        },
+        {
+          "subject": "http://proethica.org/case/unnamed_case",
+          "predicate": "dc:source",
+          "object": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/public-health-safety-and-welfare-3",
+          "is_literal": true
+        }
+      ],
+      "processing_time": 1766102980.0070612,
+      "processing_method": "automatic",
+      "world_id": null,
+      "cached": false
+    },
+    "timestamp": 1766102980.0070825,
+    "last_accessed": 1766102980.0070827,
+    "user_id": null
+  },
+  "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/engineering-titles-use-engineering": {
+    "result": {
+      "url": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/engineering-titles-use-engineering",
+      "title": "Engineering Titles - Use Of Engineering Title By Nonengineers",
+      "content": "Content extraction failed. Please visit the original URL: https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/engineering-titles-use-engineering",
+      "metadata": {
+        "url": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/engineering-titles-use-engineering",
+        "related_cases": []
+      },
+      "pattern_metadata": {
+        "url": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/engineering-titles-use-engineering",
+        "title": "Engineering Titles Use Engineering",
+        "related_cases": [],
+        "outcome": null,
+        "board_analysis": null
+      },
+      "triples": [
+        {
+          "subject": "http://proethica.org/case/unnamed_case",
+          "predicate": "rdf:type",
+          "object": "proethica:EngineeringEthicsCase",
+          "is_literal": false
+        },
+        {
+          "subject": "http://proethica.org/case/unnamed_case",
+          "predicate": "dc:source",
+          "object": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/engineering-titles-use-engineering",
+          "is_literal": true
+        }
+      ],
+      "processing_time": 1766102985.6527703,
+      "processing_method": "automatic",
+      "world_id": null,
+      "cached": false
+    },
+    "timestamp": 1766102985.652791,
+    "last_accessed": 1766102985.6527913,
+    "user_id": null
+  },
+  "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/public-health-safety-and-welfare-1": {
+    "result": {
+      "url": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/public-health-safety-and-welfare-1",
+      "title": "Public Health, Safety and Welfare\u2014Discovery of Structural Defect Affecting Subdivision",
+      "content": "Content extraction failed. Please visit the original URL: https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/public-health-safety-and-welfare-1",
+      "metadata": {
+        "url": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/public-health-safety-and-welfare-1",
+        "related_cases": []
+      },
+      "pattern_metadata": {
+        "url": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/public-health-safety-and-welfare-1",
+        "title": "Public Health Safety And Welfare 1",
+        "related_cases": [],
+        "outcome": null,
+        "board_analysis": null
+      },
+      "triples": [
+        {
+          "subject": "http://proethica.org/case/unnamed_case",
+          "predicate": "rdf:type",
+          "object": "proethica:EngineeringEthicsCase",
+          "is_literal": false
+        },
+        {
+          "subject": "http://proethica.org/case/unnamed_case",
+          "predicate": "dc:source",
+          "object": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/public-health-safety-and-welfare-1",
+          "is_literal": true
+        }
+      ],
+      "processing_time": 1766102991.2867095,
+      "processing_method": "automatic",
+      "world_id": null,
+      "cached": false
+    },
+    "timestamp": 1766102991.2867334,
+    "last_accessed": 1766102991.2867334,
+    "user_id": null
+  },
+  "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/public-health-and-safety-code": {
+    "result": {
+      "url": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/public-health-and-safety-code",
+      "title": "Public Health And Safety - Code Enforcement",
+      "content": "Content extraction failed. Please visit the original URL: https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/public-health-and-safety-code",
+      "metadata": {
+        "url": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/public-health-and-safety-code",
+        "related_cases": []
+      },
+      "pattern_metadata": {
+        "url": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/public-health-and-safety-code",
+        "title": "Public Health And Safety Code",
+        "related_cases": [],
+        "outcome": null,
+        "board_analysis": null
+      },
+      "triples": [
+        {
+          "subject": "http://proethica.org/case/unnamed_case",
+          "predicate": "rdf:type",
+          "object": "proethica:EngineeringEthicsCase",
+          "is_literal": false
+        },
+        {
+          "subject": "http://proethica.org/case/unnamed_case",
+          "predicate": "dc:source",
+          "object": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/public-health-and-safety-code",
+          "is_literal": true
+        }
+      ],
+      "processing_time": 1766102996.0561767,
+      "processing_method": "automatic",
+      "world_id": null,
+      "cached": false
+    },
+    "timestamp": 1766102996.0562012,
+    "last_accessed": 1766102996.0562012,
+    "user_id": null
+  },
+  "https://www.nspe.org/career-growth/ethics/board-ethical-review-cases/public-health-safety-welfare-drinking-water-quality": {
+    "result": {
+      "url": "https://www.nspe.org/career-growth/ethics/board-ethical-review-cases/public-health-safety-welfare-drinking-water-quality",
+      "title": "Public Health, Safety, and Welfare\u2014Drinking Water Quality",
+      "content": "Content extraction failed. Please visit the original URL: https://www.nspe.org/career-growth/ethics/board-ethical-review-cases/public-health-safety-welfare-drinking-water-quality",
+      "metadata": {
+        "url": "https://www.nspe.org/career-growth/ethics/board-ethical-review-cases/public-health-safety-welfare-drinking-water-quality",
+        "related_cases": []
+      },
+      "pattern_metadata": {
+        "url": "https://www.nspe.org/career-growth/ethics/board-ethical-review-cases/public-health-safety-welfare-drinking-water-quality",
+        "title": "Public Health Safety Welfare Drinking Water Quality",
+        "related_cases": [],
+        "outcome": null,
+        "board_analysis": null
+      },
+      "triples": [
+        {
+          "subject": "http://proethica.org/case/unnamed_case",
+          "predicate": "rdf:type",
+          "object": "proethica:EngineeringEthicsCase",
+          "is_literal": false
+        },
+        {
+          "subject": "http://proethica.org/case/unnamed_case",
+          "predicate": "dc:source",
+          "object": "https://www.nspe.org/career-growth/ethics/board-ethical-review-cases/public-health-safety-welfare-drinking-water-quality",
+          "is_literal": true
+        }
+      ],
+      "processing_time": 1766102999.5424387,
+      "processing_method": "automatic",
+      "world_id": null,
+      "cached": false
+    },
+    "timestamp": 1766102999.54246,
+    "last_accessed": 1766102999.54246,
+    "user_id": null
+  }
+}

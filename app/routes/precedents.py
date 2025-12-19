@@ -160,6 +160,14 @@ def _find_precedents_for_case(case_id, limit=10, min_score=0.1):
             # Determine primary matching method based on highest component score
             primary_method = _get_primary_method(match.component_scores)
 
+            # Get additional features from database
+            principle_tensions = []
+            cited_case_numbers = []
+            features = _get_case_features(match.target_case_id)
+            if features:
+                principle_tensions = features.get('principle_tensions', []) or []
+                cited_case_numbers = features.get('cited_case_numbers', []) or []
+
             results.append({
                 'case_id': match.target_case_id,
                 'title': match.target_case_title,
@@ -172,6 +180,8 @@ def _find_precedents_for_case(case_id, limit=10, min_score=0.1):
                 'outcome_match': match.outcome_match,
                 'target_outcome': match.target_outcome,
                 'target_transformation': match.target_transformation,
+                'principle_tensions': principle_tensions,
+                'cited_case_numbers': cited_case_numbers,
                 'primary_method': primary_method,
                 'method_info': MATCHING_METHODS.get(primary_method, {})
             })
@@ -491,3 +501,107 @@ def _count_outcomes(nodes):
         outcome = node.get('outcome', 'unknown')
         counts[outcome] = counts.get(outcome, 0) + 1
     return counts
+
+
+def _get_case_features(case_id):
+    """Get case precedent features from database."""
+    try:
+        query = text("""
+            SELECT principle_tensions, obligation_conflicts,
+                   transformation_type, cited_case_numbers
+            FROM case_precedent_features
+            WHERE case_id = :case_id
+        """)
+        result = db.session.execute(query, {'case_id': case_id}).fetchone()
+        if result:
+            return {
+                'principle_tensions': result[0],
+                'obligation_conflicts': result[1],
+                'transformation_type': result[2],
+                'cited_case_numbers': result[3]
+            }
+    except Exception as e:
+        logger.warning(f"Error getting case features for {case_id}: {e}")
+    return None
+
+
+@precedents_bp.route('/pending', methods=['GET'])
+@auth_optional
+def pending_precedents():
+    """View pending precedent URLs that could be ingested."""
+    from app.services.precedent.cited_case_ingestor import CitedCaseIngestor, get_ingestion_summary
+
+    ingestor = CitedCaseIngestor()
+
+    # Get pending URLs from case metadata
+    pending_summary = ingestor.get_all_pending_url_summary()
+
+    # Get missing URLs from current case content (real-time scan)
+    missing_urls = ingestor.find_missing_case_urls()
+
+    # Get ingestion summary
+    summary = get_ingestion_summary()
+
+    # Get case source distribution
+    source_query = text("""
+        SELECT
+            COALESCE(doc_metadata->>'case_source', 'unknown') as source,
+            COUNT(*) as count
+        FROM documents
+        WHERE document_type IN ('case', 'case_study')
+        GROUP BY doc_metadata->>'case_source'
+    """)
+    source_results = db.session.execute(source_query).fetchall()
+    case_sources = {row[0]: row[1] for row in source_results}
+
+    return render_template(
+        'pending_precedents.html',
+        pending_summary=pending_summary,
+        missing_urls=missing_urls[:50],  # Limit display
+        total_missing=len(missing_urls),
+        summary=summary,
+        case_sources=case_sources
+    )
+
+
+@precedents_bp.route('/api/pending', methods=['GET'])
+@auth_optional
+def api_pending_precedents():
+    """API endpoint for pending precedent URLs."""
+    from app.services.precedent.cited_case_ingestor import CitedCaseIngestor, get_ingestion_summary
+
+    ingestor = CitedCaseIngestor()
+    missing_urls = ingestor.find_missing_case_urls()
+    summary = get_ingestion_summary()
+    pending_summary = ingestor.get_all_pending_url_summary()
+
+    return jsonify({
+        'success': True,
+        'summary': summary,
+        'pending_from_metadata': pending_summary,
+        'missing_urls': missing_urls,
+        'total_missing': len(missing_urls)
+    })
+
+
+@precedents_bp.route('/api/ingest', methods=['POST'])
+@auth_optional
+def api_ingest_pending():
+    """API endpoint to ingest pending precedent URLs."""
+    from app.services.precedent.cited_case_ingestor import CitedCaseIngestor
+
+    data = request.get_json() or {}
+    url = data.get('url')
+    max_cases = data.get('max_cases', 10)
+    world_id = data.get('world_id', 1)
+
+    ingestor = CitedCaseIngestor()
+
+    if url:
+        # Ingest single URL
+        result = ingestor.ingest_from_url(url, world_id=world_id)
+        return jsonify(result)
+    else:
+        # Ingest batch of missing URLs
+        result = ingestor.ingest_missing_urls(max_cases=max_cases, world_id=world_id)
+        return jsonify(result)

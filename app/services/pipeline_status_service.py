@@ -33,6 +33,9 @@ class PipelineStatusService:
     # Step 3 entity types (Temporal Dynamics)
     STEP3_TYPES = ('actions', 'events', 'actions_events', 'temporal_dynamics_enhanced')
 
+    # Step 4 Phase 2 concept types (Analytical Extraction)
+    STEP4_PHASE2_TYPES = ('provisions', 'questions', 'conclusions', 'transformation', 'rich_analysis')
+
     @classmethod
     def get_step_status(cls, case_id: int) -> Dict[str, Any]:
         """
@@ -63,7 +66,7 @@ class PipelineStatusService:
                 'step1': {'complete': False, 'facts_complete': False, 'discussion_complete': False, 'questions_complete': False, 'conclusions_complete': False},
                 'step2': {'complete': False, 'facts_complete': False, 'discussion_complete': False, 'questions_complete': False, 'conclusions_complete': False},
                 'step3': {'complete': False},
-                'step4': {'complete': False, 'has_provisions': False, 'has_qa': False},
+                'step4': {'complete': False, 'phase2_complete': False, 'phase2_tasks_done': 0, 'phase3_complete': False, 'phase4_complete': False},
                 'step5': {'complete': False, 'has_scenario': False},
             }
 
@@ -157,44 +160,74 @@ class PipelineStatusService:
 
     @classmethod
     def _check_step4(cls, case_id: int) -> Dict[str, Any]:
-        """Check if Step 4 (Whole-Case Synthesis) has been run."""
-        has_provisions = False
-        has_qa = False
+        """Check if Step 4 (Whole-Case Synthesis) phases have been run.
 
-        # Check for provisions (table may not exist yet)
+        Checks:
+        - Phase 2: Analytical Extraction (provisions, questions, conclusions, transformation, rich_analysis)
+        - Phase 3: Decision Point Synthesis (canonical_decision_point entities)
+        - Phase 4: Narrative Construction (phase4 prompts)
+        """
+        phase2_complete = False
+        phase3_complete = False
+        phase4_complete = False
+        phase2_tasks_done = 0
+
+        # Check Phase 2: extraction_prompts for each concept_type
         try:
-            provisions_query = text("""
-                SELECT COUNT(*) as count
-                FROM case_provisions
+            phase2_query = text("""
+                SELECT COUNT(DISTINCT concept_type) as count
+                FROM extraction_prompts
                 WHERE case_id = :case_id
+                AND concept_type IN :types
+                AND prompt_text IS NOT NULL
             """)
-            provisions_result = db.session.execute(
-                provisions_query,
+            phase2_result = db.session.execute(
+                phase2_query,
+                {'case_id': case_id, 'types': cls.STEP4_PHASE2_TYPES}
+            ).fetchone()
+            phase2_tasks_done = phase2_result.count if phase2_result else 0
+            phase2_complete = phase2_tasks_done == len(cls.STEP4_PHASE2_TYPES)
+        except Exception:
+            db.session.rollback()
+
+        # Check Phase 3: canonical_decision_point entities
+        try:
+            phase3_query = text("""
+                SELECT COUNT(*) as count
+                FROM temporary_rdf_storage
+                WHERE case_id = :case_id
+                AND extraction_type = 'canonical_decision_point'
+            """)
+            phase3_result = db.session.execute(
+                phase3_query,
                 {'case_id': case_id}
             ).fetchone()
-            has_provisions = (provisions_result.count if provisions_result else 0) > 0
+            phase3_complete = (phase3_result.count if phase3_result else 0) > 0
         except Exception:
-            db.session.rollback()  # Clear invalid session state
+            db.session.rollback()
 
-        # Check for Q&A analysis (table may not exist yet)
+        # Check Phase 4: narrative elements (check extraction_prompts for phase4 types)
         try:
-            qa_query = text("""
+            phase4_query = text("""
                 SELECT COUNT(*) as count
-                FROM case_question_answer
+                FROM extraction_prompts
                 WHERE case_id = :case_id
+                AND concept_type LIKE 'phase4%%'
             """)
-            qa_result = db.session.execute(
-                qa_query,
+            phase4_result = db.session.execute(
+                phase4_query,
                 {'case_id': case_id}
             ).fetchone()
-            has_qa = (qa_result.count if qa_result else 0) > 0
+            phase4_complete = (phase4_result.count if phase4_result else 0) > 0
         except Exception:
-            db.session.rollback()  # Clear invalid session state
+            db.session.rollback()
 
         return {
-            'complete': has_provisions or has_qa,
-            'has_provisions': has_provisions,
-            'has_qa': has_qa
+            'complete': phase2_complete and phase3_complete,  # Step 4 complete when Phase 2+3 done
+            'phase2_complete': phase2_complete,
+            'phase2_tasks_done': phase2_tasks_done,
+            'phase3_complete': phase3_complete,
+            'phase4_complete': phase4_complete
         }
 
     @classmethod

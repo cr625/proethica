@@ -2,9 +2,13 @@
 Step 5: Interactive Scenario Generation
 
 Transforms fully-analyzed cases (Passes 1-3 + Step 4) into interactive teaching scenarios
-with real-time SSE progress streaming.
+with three views:
+- View 1: Narrative Overview - case story with characters
+- View 2: Entity Timeline - chronological visualization
+- View 3: Decision Wizard - step through ethical choices
 """
 
+import json
 import logging
 from flask import Blueprint, render_template, request, jsonify
 
@@ -133,3 +137,447 @@ def get_entities_summary(case_id):
 
         'total': sum(counts.values())
     }
+
+
+# =============================================================================
+# PHASE 4 DATA LOADING
+# =============================================================================
+
+def _load_phase4_data(case_id: int):
+    """
+    Load Phase 4 narrative construction data from database.
+
+    Returns dict with narrative_elements, timeline, scenario_seeds, insights
+    """
+    # Get the latest Phase 4 extraction prompt
+    prompt = ExtractionPrompt.query.filter_by(
+        case_id=case_id,
+        concept_type='phase4_narrative'
+    ).order_by(ExtractionPrompt.created_at.desc()).first()
+
+    if not prompt or not prompt.results_summary:
+        return None
+
+    try:
+        summary = json.loads(prompt.results_summary)
+    except (json.JSONDecodeError, TypeError):
+        return None
+
+    # Load the full narrative elements from raw_response if available
+    full_data = None
+    if prompt.raw_response:
+        try:
+            full_data = json.loads(prompt.raw_response)
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    return {
+        'has_phase4': True,
+        'timestamp': prompt.created_at.isoformat() if prompt.created_at else None,
+        'summary': summary,
+        'full_data': full_data
+    }
+
+
+def _load_narrative_elements(case_id: int):
+    """Load narrative elements (characters, events, conflicts) from Phase 4."""
+    from sqlalchemy import text
+
+    result = {
+        'characters': [],
+        'events': [],
+        'conflicts': [],
+        'decision_moments': [],
+        'setting': None,
+        'resolution': None
+    }
+
+    # Load from extraction prompts with detailed data
+    prompt = ExtractionPrompt.query.filter_by(
+        case_id=case_id,
+        concept_type='phase4_narrative'
+    ).order_by(ExtractionPrompt.created_at.desc()).first()
+
+    if prompt and prompt.raw_response:
+        try:
+            data = json.loads(prompt.raw_response)
+            if 'narrative_elements' in data:
+                ne = data['narrative_elements']
+                result['characters'] = ne.get('characters', ne.get('characters_count', 0))
+                result['events'] = ne.get('events', ne.get('events_count', 0))
+                result['conflicts'] = ne.get('conflicts', ne.get('conflicts_count', 0))
+                result['decision_moments'] = ne.get('decision_moments', ne.get('decision_moments_count', 0))
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    # Try to load from temporary_rdf_storage for richer data
+    # Characters from Roles
+    roles_query = text("""
+        SELECT entity_uri, entity_label, entity_type, entity_definition, rdf_json_ld
+        FROM temporary_rdf_storage
+        WHERE case_id = :case_id AND entity_type = 'Roles'
+        ORDER BY entity_label
+    """)
+    roles = db.session.execute(roles_query, {"case_id": case_id}).fetchall()
+
+    if roles:
+        result['characters'] = []
+        for r in roles:
+            rdf_data = r.rdf_json_ld if r.rdf_json_ld else {}
+            result['characters'].append({
+                'uri': r.entity_uri or '',
+                'label': r.entity_label or '',
+                'definition': r.entity_definition or rdf_data.get('definition', ''),
+                'role_type': _classify_role_type(r.entity_label or '')
+            })
+
+    # Events from actions and events
+    events_query = text("""
+        SELECT entity_uri, entity_label, entity_type, entity_definition, rdf_json_ld
+        FROM temporary_rdf_storage
+        WHERE case_id = :case_id AND entity_type IN ('actions', 'events')
+        ORDER BY entity_type, entity_label
+    """)
+    events = db.session.execute(events_query, {"case_id": case_id}).fetchall()
+
+    if events:
+        result['events'] = []
+        for e in events:
+            rdf_data = e.rdf_json_ld if e.rdf_json_ld else {}
+            result['events'].append({
+                'uri': e.entity_uri or '',
+                'label': e.entity_label or '',
+                'event_type': e.entity_type,
+                'description': e.entity_definition or rdf_data.get('definition', '')
+            })
+
+    # Decision points
+    dp_query = text("""
+        SELECT entity_uri, entity_label, entity_type, entity_definition, rdf_json_ld
+        FROM temporary_rdf_storage
+        WHERE case_id = :case_id AND entity_type = 'decision_point'
+        ORDER BY entity_label
+    """)
+    dps = db.session.execute(dp_query, {"case_id": case_id}).fetchall()
+
+    if dps:
+        result['decision_moments'] = []
+        for dp in dps:
+            rdf_data = dp.rdf_json_ld if dp.rdf_json_ld else {}
+            result['decision_moments'].append({
+                'uri': dp.entity_uri or '',
+                'label': dp.entity_label or '',
+                'question': rdf_data.get('decision_question', dp.entity_definition or ''),
+                'description': rdf_data.get('description', '')
+            })
+
+    # Conclusions
+    conc_query = text("""
+        SELECT entity_uri, entity_label, entity_type, entity_definition, rdf_json_ld
+        FROM temporary_rdf_storage
+        WHERE case_id = :case_id AND entity_type = 'conclusions'
+        ORDER BY entity_label
+    """)
+    conclusions = db.session.execute(conc_query, {"case_id": case_id}).fetchall()
+
+    if conclusions:
+        result['resolution'] = {
+            'conclusions': [
+                {
+                    'uri': c.entity_uri or '',
+                    'label': c.entity_label or '',
+                    'text': c.entity_definition or (c.rdf_json_ld.get('definition', '') if c.rdf_json_ld else '')
+                }
+                for c in conclusions
+            ]
+        }
+
+    return result
+
+
+def _classify_role_type(role_label: str) -> str:
+    """Classify a role into narrative role type."""
+    label_lower = role_label.lower()
+
+    if any(term in label_lower for term in ['engineer a', 'primary', 'main']):
+        return 'protagonist'
+    if any(term in label_lower for term in ['manager', 'director', 'supervisor', 'boss']):
+        return 'decision-maker'
+    if any(term in label_lower for term in ['board', 'commission', 'committee', 'authority']):
+        return 'authority'
+    return 'stakeholder'
+
+
+def _load_scenario_seeds(case_id: int):
+    """Load scenario seeds data."""
+    prompt = ExtractionPrompt.query.filter_by(
+        case_id=case_id,
+        concept_type='phase4_narrative'
+    ).order_by(ExtractionPrompt.created_at.desc()).first()
+
+    if prompt and prompt.raw_response:
+        try:
+            data = json.loads(prompt.raw_response)
+            if 'scenario_seeds' in data:
+                return data['scenario_seeds']
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    return {
+        'opening_context': '',
+        'branches': [],
+        'protagonist_label': '',
+        'supporting_characters': []
+    }
+
+
+def _load_timeline_data(case_id: int):
+    """Load timeline data for the case."""
+    prompt = ExtractionPrompt.query.filter_by(
+        case_id=case_id,
+        concept_type='phase4_narrative'
+    ).order_by(ExtractionPrompt.created_at.desc()).first()
+
+    if prompt and prompt.raw_response:
+        try:
+            data = json.loads(prompt.raw_response)
+            # Only use Phase 4 timeline if it has actual events
+            if 'timeline' in data and data['timeline'].get('events'):
+                return data['timeline']
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    # Fallback: build timeline from entities
+    from sqlalchemy import text
+
+    timeline = {'events': [], 'event_trace': ''}
+
+    # Load actions and events
+    query = text("""
+        SELECT entity_uri, entity_label, entity_type, entity_definition, rdf_json_ld
+        FROM temporary_rdf_storage
+        WHERE case_id = :case_id AND entity_type IN ('actions', 'events')
+        ORDER BY entity_type, entity_label
+    """)
+    results = db.session.execute(query, {"case_id": case_id}).fetchall()
+
+    sequence = 1
+    for r in results:
+        rdf_data = r.rdf_json_ld if r.rdf_json_ld else {}
+        timeline['events'].append({
+            'sequence': sequence,
+            'event_uri': r.entity_uri or '',
+            'event_label': r.entity_label or '',
+            'event_type': 'action' if r.entity_type == 'actions' else 'automatic',
+            'description': r.entity_definition or rdf_data.get('definition', r.entity_label or ''),
+            'phase_label': 'Action' if r.entity_type == 'actions' else 'Event'
+        })
+        sequence += 1
+
+    return timeline
+
+
+def _load_insights(case_id: int):
+    """Load case insights data."""
+    prompt = ExtractionPrompt.query.filter_by(
+        case_id=case_id,
+        concept_type='phase4_narrative'
+    ).order_by(ExtractionPrompt.created_at.desc()).first()
+
+    if prompt and prompt.raw_response:
+        try:
+            data = json.loads(prompt.raw_response)
+            if 'insights' in data:
+                return data['insights']
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    return {
+        'key_takeaways': [],
+        'patterns': [],
+        'principles_applied': []
+    }
+
+
+# =============================================================================
+# STEP 5 VIEW ROUTES
+# =============================================================================
+
+@bp.route('/case/<int:case_id>/step5/narrative')
+@auth_optional
+def narrative_overview(case_id):
+    """
+    View 1: Narrative Overview
+
+    Shows the case story with:
+    - Opening context (protagonist perspective)
+    - Character profiles from Roles
+    - Key ethical conflicts
+    - Resolution summary
+    """
+    try:
+        case = Document.query.get_or_404(case_id)
+
+        # Load Phase 4 data
+        phase4_data = _load_phase4_data(case_id)
+        narrative = _load_narrative_elements(case_id)
+        seeds = _load_scenario_seeds(case_id)
+        insights = _load_insights(case_id)
+
+        # Get pipeline status for navigation
+        pipeline_status = PipelineStatusService.get_step_status(case_id)
+
+        return render_template(
+            'scenarios/step5_narrative.html',
+            case=case,
+            has_phase4=phase4_data is not None,
+            phase4_data=phase4_data,
+            narrative=narrative,
+            seeds=seeds,
+            insights=insights,
+            current_step=5,
+            prev_step_url=f"/scenario_pipeline/case/{case_id}/step5",
+            next_step_url=f"/scenario_pipeline/case/{case_id}/step5/timeline",
+            pipeline_status=pipeline_status,
+            current_view='narrative'
+        )
+
+    except Exception as e:
+        logger.error(f"Error loading narrative overview for case {case_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return str(e), 500
+
+
+@bp.route('/case/<int:case_id>/step5/timeline')
+@auth_optional
+def enhanced_timeline(case_id):
+    """
+    View 2: Entity Timeline
+
+    Shows chronological visualization with:
+    - Timeline events from Phase 4
+    - Entity-grounded descriptions
+    - Phase labels (Initial, Rising, Conflict, Decision, Resolution)
+    - Causal links between events
+    """
+    try:
+        case = Document.query.get_or_404(case_id)
+
+        # Load Phase 4 timeline data
+        phase4_data = _load_phase4_data(case_id)
+        timeline = _load_timeline_data(case_id)
+        narrative = _load_narrative_elements(case_id)
+
+        # Get pipeline status for navigation
+        pipeline_status = PipelineStatusService.get_step_status(case_id)
+
+        return render_template(
+            'scenarios/step5_timeline.html',
+            case=case,
+            has_phase4=phase4_data is not None,
+            timeline=timeline,
+            narrative=narrative,
+            current_step=5,
+            prev_step_url=f"/scenario_pipeline/case/{case_id}/step5/narrative",
+            next_step_url=f"/scenario_pipeline/case/{case_id}/step5/decisions",
+            pipeline_status=pipeline_status,
+            current_view='timeline'
+        )
+
+    except Exception as e:
+        logger.error(f"Error loading timeline for case {case_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return str(e), 500
+
+
+@bp.route('/case/<int:case_id>/step5/decisions')
+@auth_optional
+def decision_wizard(case_id):
+    """
+    View 3: Decision Wizard
+
+    Interactive step-through of ethical decisions:
+    - One decision point at a time
+    - Options with descriptions
+    - Board's actual choice highlighted
+    - Navigation between decision points
+    """
+    try:
+        case = Document.query.get_or_404(case_id)
+
+        # Load Phase 4 data
+        phase4_data = _load_phase4_data(case_id)
+        seeds = _load_scenario_seeds(case_id)
+        narrative = _load_narrative_elements(case_id)
+        insights = _load_insights(case_id)
+
+        # Get pipeline status for navigation
+        pipeline_status = PipelineStatusService.get_step_status(case_id)
+
+        return render_template(
+            'scenarios/step5_decisions.html',
+            case=case,
+            has_phase4=phase4_data is not None,
+            seeds=seeds,
+            narrative=narrative,
+            decision_points=narrative.get('decision_moments', []),
+            insights=insights,
+            current_step=5,
+            prev_step_url=f"/scenario_pipeline/case/{case_id}/step5/timeline",
+            next_step_url=f"/scenario_pipeline/case/{case_id}/step5",
+            pipeline_status=pipeline_status,
+            current_view='decisions'
+        )
+
+    except Exception as e:
+        logger.error(f"Error loading decision wizard for case {case_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return str(e), 500
+
+
+# =============================================================================
+# STEP 5 API ENDPOINTS
+# =============================================================================
+
+@bp.route('/case/<int:case_id>/step5/data')
+def step5_data_api(case_id):
+    """
+    API endpoint to get all Step 5 data.
+
+    Returns Phase 4 narrative construction results for frontend use.
+    """
+    try:
+        phase4_data = _load_phase4_data(case_id)
+
+        if not phase4_data:
+            return jsonify({
+                'success': False,
+                'has_phase4': False,
+                'message': 'No Phase 4 data found. Run narrative construction from Step 4 first.'
+            })
+
+        narrative = _load_narrative_elements(case_id)
+        timeline = _load_timeline_data(case_id)
+        seeds = _load_scenario_seeds(case_id)
+        insights = _load_insights(case_id)
+
+        return jsonify({
+            'success': True,
+            'has_phase4': True,
+            'timestamp': phase4_data.get('timestamp'),
+            'summary': phase4_data.get('summary', {}),
+            'narrative': narrative,
+            'timeline': timeline,
+            'seeds': seeds,
+            'insights': insights
+        })
+
+    except Exception as e:
+        logger.error(f"Error loading Step 5 data for case {case_id}: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500

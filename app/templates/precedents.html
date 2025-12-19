@@ -51,6 +51,20 @@
     .outcome-badge {
         font-size: 0.75rem;
     }
+    .transformation-badge {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.4rem;
+    }
+    .transformation-transfer { background-color: #0d6efd; color: white; }
+    .transformation-stalemate { background-color: #dc3545; color: white; }
+    .transformation-oscillation { background-color: #fd7e14; color: white; }
+    .transformation-phase_lag { background-color: #6f42c1; color: white; }
+    .transformation-unclear { background-color: #6c757d; color: white; }
+    .cited-cases-badge {
+        font-size: 0.65rem;
+        background-color: #e9ecef;
+        color: #495057;
+    }
 </style>
 {% endblock %}
 
@@ -63,9 +77,14 @@
                 Multi-factor similarity search using provision overlap, semantic similarity, and outcome alignment.
             </p>
         </div>
-        <a href="{{ url_for('precedents.similarity_network_view') }}" class="btn btn-outline-primary">
-            <i class="bi bi-diagram-3"></i> View Similarity Network
-        </a>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('precedents.pending_precedents') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-hourglass-split"></i> Pending Cases
+            </a>
+            <a href="{{ url_for('precedents.similarity_network_view') }}" class="btn btn-outline-primary">
+                <i class="bi bi-diagram-3"></i> View Similarity Network
+            </a>
+        </div>
     </div>
 
     <!-- Case Selector -->
@@ -167,9 +186,14 @@
                         </a>
                     </h5>
                 </div>
-                <div class="d-flex align-items-center">
+                <div class="d-flex align-items-center gap-2">
+                    {% if precedent.target_transformation %}
+                    <span class="badge transformation-badge transformation-{{ precedent.target_transformation }}" title="Transformation Pattern">
+                        {{ precedent.target_transformation|replace('_', ' ')|title }}
+                    </span>
+                    {% endif %}
                     {% if precedent.target_outcome %}
-                    <span class="badge outcome-badge me-2
+                    <span class="badge outcome-badge
                           {% if precedent.target_outcome == 'ethical' %}bg-success
                           {% elif precedent.target_outcome == 'unethical' %}bg-danger
                           {% elif precedent.target_outcome == 'mixed' %}bg-warning text-dark
@@ -242,11 +266,30 @@
                             {% endif %}
                         </p>
 
-                        {% if precedent.target_transformation %}
+                        {% if precedent.cited_case_numbers and precedent.cited_case_numbers|length > 0 %}
                         <p class="mb-2">
-                            <strong>Transformation:</strong>
-                            <span class="badge bg-light text-dark">{{ precedent.target_transformation }}</span>
+                            <strong>Cites Cases:</strong>
+                            <span class="badge cited-cases-badge">{{ precedent.cited_case_numbers|length }} case(s)</span>
+                            <small class="text-muted ms-1">{{ precedent.cited_case_numbers[:3]|join(', ') }}{% if precedent.cited_case_numbers|length > 3 %}...{% endif %}</small>
                         </p>
+                        {% endif %}
+
+                        {% if precedent.principle_tensions and precedent.principle_tensions|length > 0 %}
+                        <p class="mb-2">
+                            <strong>Tensions:</strong>
+                            <span class="badge bg-warning text-dark" style="font-size: 0.65rem;">{{ precedent.principle_tensions|length }}</span>
+                        </p>
+                        <ul class="small mb-2" style="margin-left: 1rem; padding-left: 0;">
+                            {% for tension in precedent.principle_tensions[:2] %}
+                            <li class="text-muted">
+                                {{ tension.entity1 or tension.principle1 or 'Entity 1' }} vs
+                                {{ tension.entity2 or tension.principle2 or 'Entity 2' }}
+                            </li>
+                            {% endfor %}
+                            {% if precedent.principle_tensions|length > 2 %}
+                            <li class="text-muted">+ {{ precedent.principle_tensions|length - 2 }} more...</li>
+                            {% endif %}
+                        </ul>
                         {% endif %}
 
                         <!-- Primary Method Citation -->

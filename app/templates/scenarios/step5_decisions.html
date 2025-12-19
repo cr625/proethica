@@ -1,0 +1,298 @@
+{% extends "scenarios/base_step.html" %}
+
+{% block step_title %}Step 5: Decision Wizard{% endblock %}
+{% block step_header %}Step 5: Interactive Scenario{% endblock %}
+{% block step_subtitle %}Decision Wizard - Explore ethical choices{% endblock %}
+
+{% block step_content %}
+
+<!-- Step 5 View Tabs -->
+<ul class="nav nav-tabs mb-4" id="step5Tabs" role="tablist">
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('step5.narrative_overview', case_id=case.id) }}">
+            <i class="bi bi-book"></i> Narrative
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('step5.enhanced_timeline', case_id=case.id) }}">
+            <i class="bi bi-clock-history"></i> Timeline
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link active" href="{{ url_for('step5.decision_wizard', case_id=case.id) }}">
+            <i class="bi bi-signpost-split"></i> Decisions
+        </a>
+    </li>
+</ul>
+
+{% if not has_phase4 %}
+<!-- No Phase 4 Data Alert -->
+<div class="alert alert-warning">
+    <h5><i class="bi bi-exclamation-triangle"></i> Phase 4 Data Required</h5>
+    <p>No decision point data found for this case.</p>
+    <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}" class="btn btn-primary">
+        <i class="bi bi-arrow-left"></i> Go to Step 4 and Run Narrative Construction
+    </a>
+</div>
+{% else %}
+
+<!-- Decision Points Overview -->
+<div class="card mb-4">
+    <div class="card-header bg-warning bg-opacity-10">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="bi bi-signpost-split"></i> Decision Points
+            </h5>
+            {% if decision_points %}
+            <span class="badge bg-warning text-dark">{{ decision_points|length }} decisions</span>
+            {% endif %}
+        </div>
+    </div>
+    <div class="card-body p-0">
+        {% if decision_points and decision_points|length > 0 %}
+        <div id="decision-wizard">
+            <!-- Decision Point Navigator -->
+            <div class="decision-nav p-3 bg-light border-bottom">
+                <div class="d-flex justify-content-center gap-2" id="decision-nav-pills">
+                    {% for dp in decision_points %}
+                    <button class="btn btn-outline-warning decision-nav-btn {% if loop.first %}active{% endif %}"
+                            onclick="showDecision({{ loop.index0 }})"
+                            data-index="{{ loop.index0 }}">
+                        {{ loop.index }}
+                    </button>
+                    {% endfor %}
+                </div>
+                <div class="text-center mt-2 text-muted small">
+                    <span id="decision-progress">Decision 1 of {{ decision_points|length }}</span>
+                </div>
+            </div>
+
+            <!-- Decision Content Area -->
+            <div id="decision-content" class="p-4">
+                {% for dp in decision_points %}
+                <div class="decision-panel {% if not loop.first %}d-none{% endif %}" id="decision-{{ loop.index0 }}">
+                    <!-- Decision Header -->
+                    <div class="decision-header mb-4">
+                        <span class="badge bg-warning text-dark mb-2">Decision Point {{ loop.index }}</span>
+                        <h4 class="decision-label">{{ dp.label }}</h4>
+                    </div>
+
+                    <!-- Decision Question -->
+                    <div class="decision-question p-4 bg-light rounded mb-4">
+                        <h5 class="mb-3"><i class="bi bi-question-circle text-warning"></i> The Question</h5>
+                        {% if dp.question %}
+                        <p class="lead mb-0">{{ dp.question }}</p>
+                        {% else %}
+                        <p class="lead mb-0 text-muted"><em>What should be done in this situation?</em></p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Decision Description / Context -->
+                    {% if dp.description %}
+                    <div class="decision-context mb-4">
+                        <h6><i class="bi bi-info-circle"></i> Context</h6>
+                        <p class="text-muted">{{ dp.description }}</p>
+                    </div>
+                    {% endif %}
+
+                    <!-- Options (if available from seeds) -->
+                    {% if seeds and seeds.branches and loop.index0 < seeds.branches|length %}
+                    {% set branch = seeds.branches[loop.index0] %}
+                    {% if branch.options and branch.options|length > 0 %}
+                    <div class="decision-options mb-4">
+                        <h6><i class="bi bi-list-ul"></i> Available Options</h6>
+                        <div class="row">
+                            {% for opt in branch.options %}
+                            <div class="col-md-6 mb-3">
+                                <div class="card h-100 {% if opt.is_board_choice %}border-success{% else %}border-secondary{% endif %} option-card">
+                                    <div class="card-body">
+                                        {% if opt.is_board_choice %}
+                                        <span class="badge bg-success mb-2">Board's Choice</span>
+                                        {% endif %}
+                                        <h6 class="card-title">{{ opt.label }}</h6>
+                                        {% if opt.description %}
+                                        <p class="card-text small text-muted">{{ opt.description }}</p>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endif %}
+
+                    <!-- Navigation -->
+                    <div class="decision-navigation d-flex justify-content-between mt-4 pt-4 border-top">
+                        <button class="btn btn-outline-secondary {% if loop.first %}invisible{% endif %}"
+                                onclick="showDecision({{ loop.index0 - 1 }})">
+                            <i class="bi bi-arrow-left"></i> Previous
+                        </button>
+                        <button class="btn btn-warning {% if loop.last %}invisible{% endif %}"
+                                onclick="showDecision({{ loop.index0 + 1 }})">
+                            Next <i class="bi bi-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% else %}
+        <div class="p-4 text-center text-muted">
+            <i class="bi bi-signpost-split" style="font-size: 3rem;"></i>
+            <p class="mt-3"><em>Decision points will appear here after Phase 4 decision point extraction.</em></p>
+            <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}" class="btn btn-primary">
+                Go to Step 4 to extract decision points
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Key Takeaways (at end) -->
+{% if insights and insights.key_takeaways and insights.key_takeaways|length > 0 %}
+<div class="card border-info">
+    <div class="card-header bg-info bg-opacity-10">
+        <h5 class="mb-0">
+            <i class="bi bi-lightbulb"></i> Key Takeaways
+        </h5>
+    </div>
+    <div class="card-body">
+        <ul class="mb-0">
+            {% for takeaway in insights.key_takeaways %}
+            <li class="mb-2">{{ takeaway }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endif %}
+
+{% endif %}
+
+{% endblock %}
+
+{% block step_styles %}
+<style>
+    .nav-tabs .nav-link {
+        color: #5a5c69;
+    }
+
+    .nav-tabs .nav-link.active {
+        font-weight: 600;
+        border-bottom: 2px solid #4e73df;
+    }
+
+    .nav-tabs .nav-link:hover:not(.active) {
+        border-color: transparent;
+        background-color: #f8f9fc;
+    }
+
+    /* Decision Wizard Styles */
+    .decision-nav-btn {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        padding: 0;
+        font-weight: 600;
+    }
+
+    .decision-nav-btn.active {
+        background-color: #f6c23e;
+        border-color: #f6c23e;
+        color: #212529;
+    }
+
+    .decision-nav-btn.completed {
+        background-color: #1cc88a;
+        border-color: #1cc88a;
+        color: white;
+    }
+
+    .decision-header {
+        border-bottom: 2px solid #f6c23e;
+        padding-bottom: 1rem;
+    }
+
+    .decision-label {
+        color: #5a5c69;
+    }
+
+    .decision-question {
+        border-left: 4px solid #f6c23e;
+    }
+
+    .decision-question .lead {
+        font-size: 1.1rem;
+        line-height: 1.7;
+    }
+
+    .option-card {
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .option-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15);
+    }
+
+    .option-card.border-success {
+        background-color: #e8f8f5;
+    }
+
+    /* Smooth transitions for decision panels */
+    .decision-panel {
+        animation: fadeIn 0.3s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateX(20px); }
+        to { opacity: 1; transform: translateX(0); }
+    }
+</style>
+{% endblock %}
+
+{% block step_scripts %}
+<script>
+    const totalDecisions = {{ decision_points|length if decision_points else 0 }};
+    let currentDecision = 0;
+
+    function showDecision(index) {
+        if (index < 0 || index >= totalDecisions) return;
+
+        // Hide all panels
+        document.querySelectorAll('.decision-panel').forEach(panel => {
+            panel.classList.add('d-none');
+        });
+
+        // Show selected panel
+        const targetPanel = document.getElementById('decision-' + index);
+        if (targetPanel) {
+            targetPanel.classList.remove('d-none');
+        }
+
+        // Update nav buttons
+        document.querySelectorAll('.decision-nav-btn').forEach((btn, i) => {
+            btn.classList.remove('active');
+            if (i === index) {
+                btn.classList.add('active');
+            }
+        });
+
+        // Update progress text
+        document.getElementById('decision-progress').textContent =
+            'Decision ' + (index + 1) + ' of ' + totalDecisions;
+
+        currentDecision = index;
+    }
+
+    // Keyboard navigation
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+            showDecision(currentDecision + 1);
+        } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+            showDecision(currentDecision - 1);
+        }
+    });
+</script>
+{% endblock %}

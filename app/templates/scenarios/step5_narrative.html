@@ -1,0 +1,238 @@
+{% extends "scenarios/base_step.html" %}
+
+{% block step_title %}Step 5: Narrative Overview{% endblock %}
+{% block step_header %}Step 5: Interactive Scenario{% endblock %}
+{% block step_subtitle %}Narrative Overview - The ethical situation at a glance{% endblock %}
+
+{% block step_content %}
+
+<!-- Step 5 View Tabs -->
+<ul class="nav nav-tabs mb-4" id="step5Tabs" role="tablist">
+    <li class="nav-item">
+        <a class="nav-link active" href="{{ url_for('step5.narrative_overview', case_id=case.id) }}">
+            <i class="bi bi-book"></i> Narrative
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('step5.enhanced_timeline', case_id=case.id) }}">
+            <i class="bi bi-clock-history"></i> Timeline
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('step5.decision_wizard', case_id=case.id) }}">
+            <i class="bi bi-signpost-split"></i> Decisions
+        </a>
+    </li>
+</ul>
+
+{% if not has_phase4 %}
+<!-- No Phase 4 Data Alert -->
+<div class="alert alert-warning">
+    <h5><i class="bi bi-exclamation-triangle"></i> Phase 4 Data Required</h5>
+    <p>No narrative construction data found for this case.</p>
+    <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}" class="btn btn-primary">
+        <i class="bi bi-arrow-left"></i> Go to Step 4 and Run Narrative Construction
+    </a>
+</div>
+{% else %}
+
+<!-- Opening Context Card -->
+<div class="card mb-4 border-primary">
+    <div class="card-header bg-primary bg-opacity-10">
+        <h5 class="mb-0">
+            <i class="bi bi-play-circle"></i> Opening Context
+        </h5>
+    </div>
+    <div class="card-body">
+        {% if seeds and seeds.opening_context %}
+        <p class="lead" style="font-style: italic; line-height: 1.8;">
+            {{ seeds.opening_context }}
+        </p>
+        {% else %}
+        <p class="text-muted">
+            <em>An ethics case involving professional engineering practice and competing obligations.</em>
+        </p>
+        {% endif %}
+
+        {% if seeds and seeds.protagonist_label %}
+        <div class="mt-3">
+            <span class="badge bg-primary fs-6">
+                <i class="bi bi-person-fill"></i> Protagonist: {{ seeds.protagonist_label }}
+            </span>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Characters Card -->
+<div class="card mb-4">
+    <div class="card-header bg-light">
+        <h5 class="mb-0">
+            <i class="bi bi-people-fill"></i> Key Characters
+            {% if narrative.characters %}
+            <span class="badge bg-secondary float-end">{{ narrative.characters|length }}</span>
+            {% endif %}
+        </h5>
+    </div>
+    <div class="card-body">
+        {% if narrative.characters and narrative.characters|length > 0 %}
+        <div class="row">
+            {% for char in narrative.characters %}
+            <div class="col-md-6 mb-3">
+                <div class="card h-100 {% if char.role_type == 'protagonist' %}border-primary{% endif %}">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-2">
+                            {% if char.role_type == 'protagonist' %}
+                            <span class="badge bg-primary me-2">Protagonist</span>
+                            {% elif char.role_type == 'decision-maker' %}
+                            <span class="badge bg-info me-2">Decision-maker</span>
+                            {% elif char.role_type == 'authority' %}
+                            <span class="badge bg-secondary me-2">Authority</span>
+                            {% else %}
+                            <span class="badge bg-light text-dark me-2">Stakeholder</span>
+                            {% endif %}
+                        </div>
+                        <h6 class="card-title">{{ char.label }}</h6>
+                        {% if char.definition %}
+                        <p class="card-text small text-muted">{{ char.definition[:150] }}{% if char.definition|length > 150 %}...{% endif %}</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-muted mb-0"><em>Character data will be populated from extracted Roles.</em></p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Ethical Tensions / Decision Points Preview -->
+<div class="card mb-4 border-warning">
+    <div class="card-header bg-warning bg-opacity-10">
+        <h5 class="mb-0">
+            <i class="bi bi-exclamation-diamond"></i> Ethical Tensions
+            {% if narrative.decision_moments %}
+            <span class="badge bg-warning text-dark float-end">{{ narrative.decision_moments|length }} decision points</span>
+            {% endif %}
+        </h5>
+    </div>
+    <div class="card-body">
+        {% if narrative.decision_moments and narrative.decision_moments|length > 0 %}
+        <ul class="list-group list-group-flush">
+            {% for dp in narrative.decision_moments[:3] %}
+            <li class="list-group-item px-0">
+                <strong class="text-warning">{{ dp.label }}</strong>
+                {% if dp.question %}
+                <p class="mb-0 mt-1">{{ dp.question }}</p>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        {% if narrative.decision_moments|length > 3 %}
+        <div class="mt-2">
+            <a href="{{ url_for('step5.decision_wizard', case_id=case.id) }}" class="btn btn-outline-warning btn-sm">
+                View all {{ narrative.decision_moments|length }} decision points <i class="bi bi-arrow-right"></i>
+            </a>
+        </div>
+        {% endif %}
+        {% else %}
+        <p class="text-muted mb-0"><em>Decision points will be populated from Phase 4 synthesis.</em></p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Resolution / Conclusions Card -->
+<div class="card mb-4 border-success">
+    <div class="card-header bg-success bg-opacity-10">
+        <h5 class="mb-0">
+            <i class="bi bi-check-circle"></i> Board Resolution
+        </h5>
+    </div>
+    <div class="card-body">
+        {% if narrative.resolution and narrative.resolution.conclusions %}
+        <ul class="list-group list-group-flush">
+            {% for conc in narrative.resolution.conclusions[:3] %}
+            <li class="list-group-item px-0">
+                <strong>{{ conc.label }}</strong>
+                {% if conc.text %}
+                <p class="mb-0 mt-1 small text-muted">{{ conc.text[:200] }}{% if conc.text|length > 200 %}...{% endif %}</p>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-muted mb-0"><em>Board conclusions will be shown here after extraction.</em></p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Key Takeaways Card -->
+{% if insights and insights.key_takeaways and insights.key_takeaways|length > 0 %}
+<div class="card mb-4 border-info">
+    <div class="card-header bg-info bg-opacity-10">
+        <h5 class="mb-0">
+            <i class="bi bi-lightbulb"></i> Key Takeaways
+        </h5>
+    </div>
+    <div class="card-body">
+        <ul class="mb-0">
+            {% for takeaway in insights.key_takeaways %}
+            <li class="mb-2">{{ takeaway }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endif %}
+
+<!-- Navigation to Other Views -->
+<div class="card bg-light">
+    <div class="card-body">
+        <div class="row text-center">
+            <div class="col-md-6 mb-3 mb-md-0">
+                <a href="{{ url_for('step5.enhanced_timeline', case_id=case.id) }}" class="btn btn-outline-primary btn-lg w-100">
+                    <i class="bi bi-clock-history"></i><br>
+                    <span class="mt-2 d-block">View Timeline</span>
+                    <small class="text-muted d-block">Chronological event sequence</small>
+                </a>
+            </div>
+            <div class="col-md-6">
+                <a href="{{ url_for('step5.decision_wizard', case_id=case.id) }}" class="btn btn-outline-warning btn-lg w-100">
+                    <i class="bi bi-signpost-split"></i><br>
+                    <span class="mt-2 d-block">Explore Decisions</span>
+                    <small class="text-muted d-block">Step through ethical choices</small>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endif %}
+
+{% endblock %}
+
+{% block step_styles %}
+<style>
+    .lead {
+        font-size: 1.1rem;
+    }
+
+    .card {
+        box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
+    }
+
+    .nav-tabs .nav-link {
+        color: #5a5c69;
+    }
+
+    .nav-tabs .nav-link.active {
+        font-weight: 600;
+        border-bottom: 2px solid #4e73df;
+    }
+
+    .nav-tabs .nav-link:hover:not(.active) {
+        border-color: transparent;
+        background-color: #f8f9fc;
+    }
+</style>
+{% endblock %}

@@ -55,6 +55,9 @@
             <a href="{{ url_for('step4.step4_review', case_id=case.id) }}" class="btn btn-outline-secondary btn-lg ms-2">
                 <i class="bi bi-eye"></i> Review Results
             </a>
+            <button type="button" id="clear-step4-btn" class="btn btn-outline-danger btn-lg ms-2" onclick="clearStep4Data()">
+                <i class="bi bi-trash"></i> Clear Step 4
+            </button>
             {% else %}
             <button type="button" class="btn btn-secondary btn-lg" onclick="window.location.href='{{ url_for('auth.login') }}';">
                 <i class="bi bi-lock-fill"></i> Login to Run Synthesis
@@ -271,20 +274,6 @@
                             <h6 class="mb-0"><i class="bi bi-chat-left-text text-success"></i> LLM Responses</h6>
                         </div>
                         <div id="rich_analysisResultsContent"></div>
-                        <div class="row mt-3">
-                            <div class="col-md-4">
-                                <strong>Causal-Normative Links:</strong>
-                                <span id="causalLinksCount" class="badge bg-info">0</span>
-                            </div>
-                            <div class="col-md-4">
-                                <strong>Question Emergence:</strong>
-                                <span id="questionEmergenceCount" class="badge bg-warning text-dark">0</span>
-                            </div>
-                            <div class="col-md-4">
-                                <strong>Resolution Patterns:</strong>
-                                <span id="resolutionPatternsCount" class="badge bg-success">0</span>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -297,6 +286,9 @@
     <div class="card-header">
         <h5 class="mb-0">
             <span class="badge bg-secondary me-2">Phase 3</span> Decision Point Synthesis
+            <a href="{{ url_for('tools.references') }}#phase3" class="text-muted ms-2" title="Reference: Toulmin (1958), Harris et al. (2018)">
+                <i class="bi bi-info-circle"></i>
+            </a>
         </h5>
     </div>
     <div class="card-body">
@@ -305,10 +297,10 @@
                 <div class="step-header bg-primary bg-opacity-10">
                     <div class="d-flex justify-content-between align-items-center">
                         <h6 class="mb-0">
-                            <i class="bi bi-bullseye text-primary"></i> Decision Point Synthesis (E1-E3 + LLM)
+                            <i class="bi bi-bullseye text-primary"></i> Decision Point Synthesis (E1-E3 + Q&C Alignment + LLM)
                         </h6>
                         {% if current_user.is_authenticated %}
-                        <button class="btn btn-outline-primary btn-sm" onclick="extractTask('decision_synthesis')" id="extractDecisionSynthesisBtn">
+                        <button class="btn btn-outline-primary btn-sm" onclick="runPhase3Synthesis()" id="extractDecisionSynthesisBtn">
                             <i class="bi bi-play-fill"></i> Synthesize
                         </button>
                         {% endif %}
@@ -316,44 +308,75 @@
                 </div>
                 <div class="step-content">
                     <p class="text-muted small mb-3">
-                        Combines E1-E3 algorithmic composition with LLM refinement using Q&C as ground truth.
+                        Composes decision points algorithmically (E1-E3), scores against Q&C using Toulmin analysis, then refines via LLM.
                     </p>
 
-                    <!-- Algorithmic Steps -->
+                    <!-- Synthesis Pipeline Stages -->
                     <div class="row text-center small mb-3" id="algorithmicSteps">
                         <div class="col border-end">
                             <span id="step-e1" class="badge bg-secondary mb-1">E1</span><br>
-                            Coverage Analysis<br>
+                            <small>Obligation Coverage</small><br>
                             <span id="e1Result" class="text-muted">-</span>
                         </div>
                         <div class="col border-end">
                             <span id="step-e2" class="badge bg-secondary mb-1">E2</span><br>
-                            Action Mapping<br>
+                            <small>Action Mapping</small><br>
                             <span id="e2Result" class="text-muted">-</span>
                         </div>
                         <div class="col border-end">
                             <span id="step-e3" class="badge bg-secondary mb-1">E3</span><br>
-                            Composition<br>
+                            <small>Composition</small><br>
                             <span id="e3Result" class="text-muted">-</span>
+                        </div>
+                        <div class="col border-end">
+                            <span id="step-align" class="badge bg-secondary mb-1">Q&C</span><br>
+                            <small>Alignment</small><br>
+                            <span id="alignResult" class="text-muted">-</span>
                         </div>
                         <div class="col">
                             <span id="step-llm" class="badge bg-secondary mb-1">LLM</span><br>
-                            Refinement<br>
+                            <small>Refinement</small><br>
                             <span id="llmResult" class="text-muted">-</span>
                         </div>
                     </div>
 
+                    <!-- Streaming Progress (blue box like other phases) -->
                     <div class="prompt-preview mb-3" id="decisionSynthesisPromptSection" style="display: none;">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="mb-0"><i class="bi bi-cpu"></i> LLM Prompt (Refinement)</h6>
-                        </div>
                         <div class="prompt-text" id="decisionSynthesisPromptText"></div>
                     </div>
-                    <div class="results-preview" id="decisionSynthesisResults" style="display: none;">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="mb-0"><i class="bi bi-chat-left-text text-success"></i> LLM Response</h6>
+
+                    <!-- Decision Points Results -->
+                    <div id="decisionPointsResults" style="display: none;">
+                        <h6 class="mt-3"><i class="bi bi-diagram-3 text-success"></i> Decision Points</h6>
+                        <div id="decisionPointsList" class="mb-3"></div>
+                    </div>
+
+                    <!-- LLM Prompt (collapsible) -->
+                    <div class="accordion mb-3" id="phase3LLMAccordion" style="display: none;">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse" data-bs-target="#phase3PromptCollapse">
+                                    <i class="bi bi-cpu me-2"></i> LLM Prompt (Refinement)
+                                </button>
+                            </h2>
+                            <div id="phase3PromptCollapse" class="accordion-collapse collapse" data-bs-parent="#phase3LLMAccordion">
+                                <div class="accordion-body p-2">
+                                    <pre id="phase3PromptContent" class="small mb-0" style="white-space: pre-wrap; max-height: 300px; overflow-y: auto; background: #f8f9fa; padding: 0.5rem; border-radius: 0.25rem;"></pre>
+                                </div>
+                            </div>
                         </div>
-                        <div id="decisionSynthesisResultsContent"></div>
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse" data-bs-target="#phase3ResponseCollapse">
+                                    <i class="bi bi-chat-left-text text-success me-2"></i> LLM Response
+                                </button>
+                            </h2>
+                            <div id="phase3ResponseCollapse" class="accordion-collapse collapse" data-bs-parent="#phase3LLMAccordion">
+                                <div class="accordion-body p-2">
+                                    <pre id="phase3ResponseContent" class="small mb-0" style="white-space: pre-wrap; max-height: 300px; overflow-y: auto; background: #f8f9fa; padding: 0.5rem; border-radius: 0.25rem;"></pre>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -366,6 +389,9 @@
     <div class="card-header">
         <h5 class="mb-0">
             <span class="badge bg-secondary me-2">Phase 4</span> Narrative Construction
+            <a href="{{ url_for('tools.references') }}#phase4" class="text-muted ms-2" title="Reference: Berreby et al. (2017)">
+                <i class="bi bi-info-circle"></i>
+            </a>
         </h5>
     </div>
     <div class="card-body">
@@ -374,40 +400,99 @@
                 <div class="step-header bg-dark bg-opacity-10">
                     <div class="d-flex justify-content-between align-items-center">
                         <h6 class="mb-0">
-                            <i class="bi bi-clock-history text-dark"></i> Narrative Construction (Timeline + Scenario Seeds)
+                            <i class="bi bi-book text-dark"></i> Narrative Construction (Event Calculus + Scenario Seeds)
                         </h6>
                         {% if current_user.is_authenticated %}
-                        <button class="btn btn-outline-dark btn-sm" onclick="extractTask('narrative')" id="extractNarrativeBtn">
+                        <button class="btn btn-outline-dark btn-sm" onclick="runPhase4Narrative()" id="extractNarrativeBtn">
                             <i class="bi bi-play-fill"></i> Construct
                         </button>
                         {% endif %}
                     </div>
                 </div>
                 <div class="step-content">
-                    <div class="prompt-preview mb-3" id="narrativePromptSection" style="display: none;">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="mb-0"><i class="bi bi-cpu"></i> LLM Prompt</h6>
+                    <p class="text-muted small mb-3">
+                        Transforms entities into narrative elements using Berreby's Event Calculus framework, then generates scenario seeds for Step 5.
+                    </p>
+
+                    <!-- Phase 4 Pipeline Stages -->
+                    <div class="row text-center small mb-3" id="phase4Steps">
+                        <div class="col border-end">
+                            <span id="step-4-1" class="badge bg-secondary mb-1">4.1</span><br>
+                            <small>Narrative Elements</small><br>
+                            <span id="stage41Result" class="text-muted">-</span>
                         </div>
+                        <div class="col border-end">
+                            <span id="step-4-2" class="badge bg-secondary mb-1">4.2</span><br>
+                            <small>Timeline</small><br>
+                            <span id="stage42Result" class="text-muted">-</span>
+                        </div>
+                        <div class="col border-end">
+                            <span id="step-4-3" class="badge bg-secondary mb-1">4.3</span><br>
+                            <small>Scenario Seeds</small><br>
+                            <span id="stage43Result" class="text-muted">-</span>
+                        </div>
+                        <div class="col">
+                            <span id="step-4-4" class="badge bg-secondary mb-1">4.4</span><br>
+                            <small>Insights</small><br>
+                            <span id="stage44Result" class="text-muted">-</span>
+                        </div>
+                    </div>
+
+                    <!-- Streaming Progress -->
+                    <div class="prompt-preview mb-3" id="narrativePromptSection" style="display: none;">
                         <div class="prompt-text" id="narrativePromptText"></div>
                     </div>
-                    <div class="results-preview" id="narrativeResults" style="display: none;">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="mb-0"><i class="bi bi-chat-left-text text-success"></i> LLM Response</h6>
+
+                    <!-- Phase 4 Results -->
+                    <div id="phase4Results" style="display: none;">
+                        <!-- Narrative Elements Summary -->
+                        <div class="card mb-3">
+                            <div class="card-header py-2 bg-light">
+                                <h6 class="mb-0"><i class="bi bi-people text-primary me-1"></i> Narrative Elements</h6>
+                            </div>
+                            <div class="card-body py-2">
+                                <div class="row small">
+                                    <div class="col-md-6">
+                                        <strong>Characters:</strong> <span id="phase4Characters">-</span><br>
+                                        <strong>Events:</strong> <span id="phase4Events">-</span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <strong>Conflicts:</strong> <span id="phase4Conflicts">-</span><br>
+                                        <strong>Decision Moments:</strong> <span id="phase4Decisions">-</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div id="narrativeResultsContent"></div>
-                    </div>
 
-                    <!-- Case Summary (shown after extraction) -->
-                    <div id="case-summary-area" style="display: none;">
-                        <hr>
-                        <h6>Case Summary</h6>
-                        <div id="case-summary-text" class="alert alert-light mb-3"></div>
-                    </div>
+                        <!-- Timeline Preview -->
+                        <div class="card mb-3">
+                            <div class="card-header py-2 bg-light">
+                                <h6 class="mb-0"><i class="bi bi-clock-history text-success me-1"></i> Event Calculus Timeline</h6>
+                            </div>
+                            <div class="card-body py-2">
+                                <pre id="phase4TimelinePreview" class="small mb-0" style="white-space: pre-wrap; max-height: 200px; overflow-y: auto; background: #f8f9fa; padding: 0.5rem; border-radius: 0.25rem;"></pre>
+                            </div>
+                        </div>
 
-                    <!-- Timeline Preview (shown after extraction) -->
-                    <div id="timeline-preview" style="display: none;">
-                        <h6>Timeline</h6>
-                        <div id="timeline-events" class="mb-3"></div>
+                        <!-- Scenario Opening -->
+                        <div class="card mb-3">
+                            <div class="card-header py-2 bg-light">
+                                <h6 class="mb-0"><i class="bi bi-play-circle text-warning me-1"></i> Scenario Opening</h6>
+                            </div>
+                            <div class="card-body py-2">
+                                <p id="phase4OpeningContext" class="mb-0 fst-italic"></p>
+                            </div>
+                        </div>
+
+                        <!-- Key Takeaways -->
+                        <div class="card mb-3">
+                            <div class="card-header py-2 bg-light">
+                                <h6 class="mb-0"><i class="bi bi-lightbulb text-info me-1"></i> Key Takeaways</h6>
+                            </div>
+                            <div class="card-body py-2">
+                                <ul id="phase4Takeaways" class="mb-0 small"></ul>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -537,6 +622,158 @@ const currentCaseId = {{ case.id }};
 
 function getCsrfToken() {
     return document.querySelector('meta[name="csrf-token"]')?.content || '';
+}
+
+// Clear Step 4 data (Phase 2-4 extractions)
+function clearStep4Data() {
+    if (!confirm('Clear all Step 4 extractions (provisions, questions, conclusions, decision points)? Phase 1 entities will be preserved.')) {
+        return;
+    }
+
+    const button = document.getElementById('clear-step4-btn');
+    button.disabled = true;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Clearing...';
+
+    fetch(`/scenario_pipeline/case/${currentCaseId}/clear_step4`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Reset all UI elements
+            resetStep4UI();
+            document.getElementById('synthesis-progress-text').textContent = data.message || 'Step 4 cleared successfully';
+        } else {
+            alert('Error: ' + (data.error || 'Failed to clear'));
+        }
+        button.disabled = false;
+        button.innerHTML = '<i class="bi bi-trash"></i> Clear Step 4';
+    })
+    .catch(error => {
+        console.error('Clear error:', error);
+        alert('Error clearing Step 4 data');
+        button.disabled = false;
+        button.innerHTML = '<i class="bi bi-trash"></i> Clear Step 4';
+    });
+}
+
+// Reset Step 4 UI to initial state
+function resetStep4UI() {
+    // Reset phase indicators
+    ['phase2-indicator', 'phase3-indicator', 'phase4-indicator'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.classList.remove('phase-complete', 'phase-active');
+        }
+    });
+
+    // Reset counts
+    ['provisionsCount', 'questionsCount', 'conclusionsCount'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = '0';
+    });
+
+    // Reset Phase 3 stage badges
+    ['step-e1', 'step-e2', 'step-e3', 'step-align', 'step-llm'].forEach(id => {
+        const badge = document.getElementById(id);
+        if (badge) badge.className = 'badge bg-secondary mb-1';
+    });
+    ['e1Result', 'e2Result', 'e3Result', 'alignResult', 'llmResult'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = '-';
+    });
+
+    // Hide prompt/result sections
+    document.querySelectorAll('.prompt-preview, .results-preview').forEach(el => {
+        el.style.display = 'none';
+    });
+
+    // Hide Phase 3 specific elements
+    const decisionResults = document.getElementById('decisionPointsResults');
+    if (decisionResults) decisionResults.style.display = 'none';
+    const phase3Accordion = document.getElementById('phase3LLMAccordion');
+    if (phase3Accordion) phase3Accordion.style.display = 'none';
+
+    // Reset Phase 3 streaming messages
+    if (typeof phase3StreamingMessages !== 'undefined') {
+        phase3StreamingMessages = [];
+    }
+
+    // Reset Phase 4 stage badges
+    ['step-4-1', 'step-4-2', 'step-4-3', 'step-4-4'].forEach(id => {
+        const badge = document.getElementById(id);
+        if (badge) badge.className = 'badge bg-secondary mb-1';
+    });
+    ['stage41Result', 'stage42Result', 'stage43Result', 'stage44Result'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = '-';
+    });
+
+    // Hide Phase 4 results
+    const phase4Results = document.getElementById('phase4Results');
+    if (phase4Results) phase4Results.style.display = 'none';
+
+    // Reset Phase 4 streaming messages
+    if (typeof phase4StreamingMessages !== 'undefined') {
+        phase4StreamingMessages = [];
+    }
+
+    // Reset synthesis button
+    const synthBtn = document.getElementById('run-complete-synthesis-btn');
+    if (synthBtn) {
+        synthBtn.classList.remove('btn-success');
+        synthBtn.classList.add('btn-primary');
+        synthBtn.innerHTML = '<i class="bi bi-play-circle"></i> Run Complete Synthesis';
+    }
+
+    // Reset all Phase 2 buttons to their original state
+    const phase2Buttons = [
+        { id: 'extractProvisionsBtn', color: 'secondary', label: 'Extract' },
+        { id: 'extractQuestionsBtn', color: 'warning', label: 'Extract' },
+        { id: 'extractConclusionsBtn', color: 'success', label: 'Extract' },
+        { id: 'extractTransformationBtn', color: 'secondary', label: 'Classify' },
+        { id: 'extractRich_analysisBtn', color: 'info', label: 'Analyze' }
+    ];
+    phase2Buttons.forEach(({ id, color, label }) => {
+        const btn = document.getElementById(id);
+        if (btn) {
+            btn.disabled = false;
+            btn.classList.remove('btn-outline-secondary', 'btn-success', 'btn-outline-success');
+            btn.classList.add(`btn-outline-${color}`);
+            btn.innerHTML = `<i class="bi bi-play-fill"></i> ${label}`;
+        }
+    });
+
+    // Reset Phase 3 button
+    const phase3Btn = document.getElementById('extractDecisionSynthesisBtn');
+    if (phase3Btn) {
+        phase3Btn.disabled = false;
+        phase3Btn.classList.remove('btn-success', 'btn-outline-success', 'btn-outline-secondary');
+        phase3Btn.classList.add('btn-outline-primary');
+        phase3Btn.innerHTML = '<i class="bi bi-play-fill"></i> Synthesize';
+    }
+
+    // Reset Phase 4 button
+    const phase4Btn = document.getElementById('extractNarrativeBtn');
+    if (phase4Btn) {
+        phase4Btn.disabled = false;
+        phase4Btn.classList.remove('btn-outline-secondary', 'btn-success', 'btn-outline-success');
+        phase4Btn.classList.add('btn-outline-dark');
+        phase4Btn.innerHTML = '<i class="bi bi-play-fill"></i> Construct';
+    }
+
+    // Reset transformation type badge
+    const transformType = document.getElementById('transformationType');
+    if (transformType) transformType.textContent = 'Not classified';
+
+    // Reset streaming message trackers
+    Object.keys(streamingMessages).forEach(key => {
+        streamingMessages[key] = [];
+    });
 }
 
 // Individual task extraction
@@ -675,12 +912,6 @@ function handleTaskResults(taskType, data) {
 }
 
 function handleRichAnalysisResults(data) {
-    if (data.result) {
-        document.getElementById('causalLinksCount').textContent = data.result.causal_normative_links || 0;
-        document.getElementById('questionEmergenceCount').textContent = data.result.question_emergence || 0;
-        document.getElementById('resolutionPatternsCount').textContent = data.result.resolution_patterns || 0;
-    }
-
     // Display LLM traces (now handled by streaming, but keep for non-streaming fallback)
     if (data.llm_traces && data.llm_traces.length > 0) {
         const promptSection = document.getElementById('rich_analysisPromptSection');
@@ -711,7 +942,7 @@ function handleDecisionSynthesisResults(data) {
         document.getElementById('e1Result').textContent = data.result.e1_decision_relevant + ' decision-relevant';
         document.getElementById('e2Result').textContent = data.result.e2_action_sets + ' action sets';
         document.getElementById('e3Result').textContent = data.result.e3_candidates + ' candidates';
-        document.getElementById('llmResult').textContent = data.result.canonical_count + ' canonical';
+        document.getElementById('llmResult').textContent = data.result.canonical_count + ' decision pts';
 
         // Update step badges to success
         ['step-e1', 'step-e2', 'step-e3', 'step-llm'].forEach(id => {
@@ -928,16 +1159,8 @@ function handleStreamingExtraction(taskType, data, promptText, resultsSection, r
 
     // Update count badge on completion
     if (data.stage === 'COMPLETE' && data.result) {
-        // Handle task-specific count updates
-        if (taskType === 'rich_analysis') {
-            // Rich analysis has 3 separate counts
-            const causalEl = document.getElementById('causalLinksCount');
-            const emergenceEl = document.getElementById('questionEmergenceCount');
-            const resolutionEl = document.getElementById('resolutionPatternsCount');
-            if (causalEl) causalEl.textContent = data.result.causal_normative_links || 0;
-            if (emergenceEl) emergenceEl.textContent = data.result.question_emergence || 0;
-            if (resolutionEl) resolutionEl.textContent = data.result.resolution_patterns || 0;
-        } else {
+        // Handle task-specific count updates (rich_analysis doesn't have count badges)
+        if (taskType !== 'rich_analysis') {
             const countEl = document.getElementById(`${taskType}Count`);
             if (countEl) {
                 countEl.textContent = data.result.count || 0;
@@ -1050,6 +1273,466 @@ async function runCompleteSynthesis() {
         button.disabled = false;
         button.innerHTML = '<i class="bi bi-play-circle"></i> Run Complete Synthesis';
     });
+}
+
+// Phase 3 streaming messages accumulator
+let phase3StreamingMessages = [];
+
+// Run Phase 3 Decision Point Synthesis with SSE streaming
+async function runPhase3Synthesis() {
+    const button = document.getElementById('extractDecisionSynthesisBtn');
+    const promptSection = document.getElementById('decisionSynthesisPromptSection');
+    const promptText = document.getElementById('decisionSynthesisPromptText');
+
+    // Disable button and show loading
+    button.disabled = true;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Synthesizing...';
+
+    // Reset streaming messages
+    phase3StreamingMessages = [];
+
+    // Show prompt section with initial state
+    promptSection.style.display = 'block';
+    promptText.innerHTML = '<div class="alert alert-info py-2"><i class="bi bi-hourglass-split me-1"></i> <strong>Starting Phase 3 synthesis...</strong></div>';
+
+    // Reset stage badges
+    ['step-e1', 'step-e2', 'step-e3', 'step-align', 'step-llm'].forEach(id => {
+        const badge = document.getElementById(id);
+        if (badge) badge.className = 'badge bg-secondary mb-1';
+    });
+    ['e1Result', 'e2Result', 'e3Result', 'alignResult', 'llmResult'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = '-';
+    });
+
+    // Hide previous results
+    document.getElementById('decisionPointsResults').style.display = 'none';
+    document.getElementById('phase3LLMAccordion').style.display = 'none';
+
+    // Use streaming endpoint
+    fetch(`/scenario_pipeline/case/${currentCaseId}/synthesize_phase3_stream`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        }
+    })
+    .then(response => {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        function processStream() {
+            reader.read().then(({ done, value }) => {
+                if (done) {
+                    button.disabled = false;
+                    button.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Re-run';
+                    button.classList.remove('btn-outline-primary');
+                    button.classList.add('btn-outline-success');
+                    return;
+                }
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+
+                lines.forEach(line => {
+                    if (line.startsWith('data: ')) {
+                        try {
+                            const data = JSON.parse(line.substring(6));
+                            handlePhase3StreamingData(data);
+                        } catch (e) {
+                            console.log('Parse error:', line);
+                        }
+                    }
+                });
+
+                processStream();
+            });
+        }
+
+        processStream();
+    })
+    .catch(error => {
+        console.error('Phase 3 streaming error:', error);
+        promptText.innerHTML = `<div class="alert alert-danger py-2"><i class="bi bi-exclamation-triangle me-1"></i> Error: ${error.message}</div>`;
+        button.disabled = false;
+        button.innerHTML = '<i class="bi bi-play-fill"></i> Synthesize';
+    });
+}
+
+// Handle Phase 3 streaming data with blue box pattern
+function handlePhase3StreamingData(data) {
+    const promptSection = document.getElementById('decisionSynthesisPromptSection');
+    const promptText = document.getElementById('decisionSynthesisPromptText');
+
+    // Accumulate messages
+    if (data.messages) {
+        data.messages.forEach(msg => {
+            if (!phase3StreamingMessages.includes(msg)) {
+                phase3StreamingMessages.push(msg);
+            }
+        });
+    }
+
+    // Build streaming messages display (blue box)
+    let html = '<div class="alert alert-info mb-2 py-2">';
+    html += '<strong><i class="bi bi-gear-fill me-1"></i> Phase 3: Decision Point Synthesis</strong>';
+    html += '<div class="streaming-messages mt-2" style="max-height: 200px; overflow-y: auto;">';
+
+    phase3StreamingMessages.forEach((msg, idx) => {
+        const isLatest = idx === phase3StreamingMessages.length - 1;
+        html += `<div class="mb-1 ${isLatest ? 'fw-bold' : 'text-muted small'}">
+            <i class="bi bi-${isLatest ? 'arrow-right-circle-fill text-primary' : 'check-circle text-success'} me-1"></i>
+            ${escapeHtml(msg)}
+        </div>`;
+    });
+
+    html += '</div>';
+
+    // Add progress bar
+    if (data.progress) {
+        html += `<div class="progress mt-2" style="height: 6px;">
+            <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: ${data.progress}%"></div>
+        </div>`;
+    }
+
+    html += '</div>';
+    promptText.innerHTML = html;
+
+    // Auto-scroll
+    const messagesDiv = promptText.querySelector('.streaming-messages');
+    if (messagesDiv) messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+    // Update stage badges
+    if (data.stage) {
+        if (data.stage.includes('E1')) {
+            document.getElementById('step-e1').className = 'badge bg-primary mb-1';
+            if (data.e1_result) document.getElementById('e1Result').textContent = data.e1_result;
+        }
+        if (data.stage.includes('E1_DONE')) {
+            document.getElementById('step-e1').className = 'badge bg-success mb-1';
+        }
+        if (data.stage.includes('E2')) {
+            document.getElementById('step-e2').className = 'badge bg-primary mb-1';
+            if (data.e2_result) document.getElementById('e2Result').textContent = data.e2_result;
+        }
+        if (data.stage.includes('E2_DONE')) {
+            document.getElementById('step-e2').className = 'badge bg-success mb-1';
+        }
+        if (data.stage.includes('E3')) {
+            document.getElementById('step-e3').className = 'badge bg-primary mb-1';
+            if (data.e3_result) document.getElementById('e3Result').textContent = data.e3_result;
+        }
+        if (data.stage.includes('3_1_DONE')) {
+            document.getElementById('step-e3').className = 'badge bg-success mb-1';
+            // e3_result is sent with this stage
+            if (data.e3_result) document.getElementById('e3Result').textContent = data.e3_result;
+        }
+        if (data.stage.includes('3_2')) {
+            document.getElementById('step-align').className = 'badge bg-primary mb-1';
+            if (data.alignment_result) document.getElementById('alignResult').textContent = data.alignment_result;
+        }
+        if (data.stage.includes('3_2_DONE')) {
+            document.getElementById('step-align').className = 'badge bg-success mb-1';
+        }
+        if (data.stage.includes('3_3')) {
+            document.getElementById('step-llm').className = 'badge bg-primary mb-1';
+            if (data.llm_result) document.getElementById('llmResult').textContent = data.llm_result;
+        }
+        if (data.stage.includes('3_3_DONE')) {
+            document.getElementById('step-llm').className = 'badge bg-success mb-1';
+        }
+    }
+
+    // Handle completion
+    if (data.stage === 'COMPLETE') {
+        // Show decision points
+        if (data.canonical_decision_points && data.canonical_decision_points.length > 0) {
+            const resultsDiv = document.getElementById('decisionPointsResults');
+            const listDiv = document.getElementById('decisionPointsList');
+            resultsDiv.style.display = 'block';
+
+            let dpHtml = '<div class="list-group">';
+            data.canonical_decision_points.forEach((dp, i) => {
+                const alignScore = (dp.qc_alignment_score * 100).toFixed(0);
+                const alignBadge = dp.qc_alignment_score > 0.5 ? 'bg-success' : 'bg-secondary';
+                dpHtml += `
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong>${dp.focus_id}: ${escapeHtml(dp.description || '')}</strong>
+                                <br><small class="text-muted">${escapeHtml(dp.decision_question || '')}</small>
+                            </div>
+                            <span class="badge ${alignBadge}">${alignScore}% aligned</span>
+                        </div>
+                        ${dp.toulmin ? `
+                            <div class="mt-2 small">
+                                <strong>Toulmin:</strong>
+                                <span class="text-muted">DATA: ${escapeHtml(dp.toulmin.data_summary || '-')}</span>
+                            </div>
+                        ` : ''}
+                        ${dp.addresses_questions && dp.addresses_questions.length > 0 ? `
+                            <div class="mt-1 small text-primary">
+                                Addresses: ${dp.addresses_questions.join(', ')}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            });
+            dpHtml += '</div>';
+            listDiv.innerHTML = dpHtml;
+        }
+
+        // Show LLM accordion with prompt and response
+        if (data.llm_trace) {
+            const accordion = document.getElementById('phase3LLMAccordion');
+            accordion.style.display = 'block';
+
+            if (data.llm_trace.prompt) {
+                document.getElementById('phase3PromptContent').textContent = data.llm_trace.prompt;
+            }
+            if (data.llm_trace.response) {
+                document.getElementById('phase3ResponseContent').textContent = data.llm_trace.response;
+            }
+        }
+
+        // Update phase indicator
+        const phase3Indicator = document.getElementById('phase3-indicator');
+        if (phase3Indicator) phase3Indicator.classList.add('phase-complete');
+
+        // Change button to Re-run (in case stream done event doesn't fire)
+        const button = document.getElementById('extractDecisionSynthesisBtn');
+        if (button) {
+            button.disabled = false;
+            button.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Re-run';
+            button.classList.remove('btn-outline-primary');
+            button.classList.add('btn-outline-success');
+        }
+    }
+
+    // Handle errors
+    if (data.error) {
+        promptText.innerHTML = `<div class="alert alert-danger py-2"><i class="bi bi-exclamation-triangle me-1"></i> ${data.messages ? data.messages[0] : 'Error'}</div>`;
+    }
+}
+
+// =============================================================================
+// PHASE 4: NARRATIVE CONSTRUCTION
+// =============================================================================
+
+// Phase 4 streaming messages accumulator
+let phase4StreamingMessages = [];
+
+// Run Phase 4 Narrative Construction with SSE streaming
+async function runPhase4Narrative() {
+    const button = document.getElementById('extractNarrativeBtn');
+    const promptSection = document.getElementById('narrativePromptSection');
+    const promptText = document.getElementById('narrativePromptText');
+
+    // Disable button and show loading
+    button.disabled = true;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Constructing...';
+
+    // Reset streaming messages
+    phase4StreamingMessages = [];
+
+    // Show prompt section with initial state
+    promptSection.style.display = 'block';
+    promptText.innerHTML = '<div class="alert alert-secondary py-2"><i class="bi bi-hourglass-split me-1"></i> <strong>Starting Phase 4: Narrative Construction...</strong></div>';
+
+    // Reset stage badges
+    ['step-4-1', 'step-4-2', 'step-4-3', 'step-4-4'].forEach(id => {
+        const badge = document.getElementById(id);
+        if (badge) badge.className = 'badge bg-secondary mb-1';
+    });
+    ['stage41Result', 'stage42Result', 'stage43Result', 'stage44Result'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = '-';
+    });
+
+    // Hide previous results
+    document.getElementById('phase4Results').style.display = 'none';
+
+    // Use streaming endpoint
+    fetch(`/scenario_pipeline/case/${currentCaseId}/construct_phase4_stream`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        }
+    })
+    .then(response => {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        function processStream() {
+            reader.read().then(({ done, value }) => {
+                if (done) {
+                    button.disabled = false;
+                    button.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Re-run';
+                    button.classList.remove('btn-outline-dark');
+                    button.classList.add('btn-outline-success');
+                    return;
+                }
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+
+                lines.forEach(line => {
+                    if (line.startsWith('data: ')) {
+                        try {
+                            const data = JSON.parse(line.substring(6));
+                            handlePhase4StreamingData(data);
+                        } catch (e) {
+                            console.log('Parse error:', line);
+                        }
+                    }
+                });
+
+                processStream();
+            });
+        }
+
+        processStream();
+    })
+    .catch(error => {
+        console.error('Phase 4 streaming error:', error);
+        promptText.innerHTML = `<div class="alert alert-danger py-2"><i class="bi bi-exclamation-triangle me-1"></i> Error: ${error.message}</div>`;
+        button.disabled = false;
+        button.innerHTML = '<i class="bi bi-play-fill"></i> Construct';
+    });
+}
+
+// Handle Phase 4 streaming data
+function handlePhase4StreamingData(data) {
+    const promptSection = document.getElementById('narrativePromptSection');
+    const promptText = document.getElementById('narrativePromptText');
+
+    // Accumulate messages
+    if (data.messages) {
+        data.messages.forEach(msg => {
+            if (!phase4StreamingMessages.includes(msg)) {
+                phase4StreamingMessages.push(msg);
+            }
+        });
+    }
+
+    // Build streaming messages display (dark/gray box for Phase 4)
+    let html = '<div class="alert alert-secondary mb-2 py-2">';
+    html += '<strong><i class="bi bi-book me-1"></i> Phase 4: Narrative Construction</strong>';
+    html += '<div class="streaming-messages mt-2" style="max-height: 200px; overflow-y: auto;">';
+
+    phase4StreamingMessages.forEach((msg, idx) => {
+        const isLatest = idx === phase4StreamingMessages.length - 1;
+        html += `<div class="mb-1 ${isLatest ? 'fw-bold' : 'text-muted small'}">
+            <i class="bi bi-${isLatest ? 'arrow-right-circle-fill text-dark' : 'check-circle text-success'} me-1"></i>
+            ${escapeHtml(msg)}
+        </div>`;
+    });
+
+    html += '</div>';
+
+    // Add progress bar
+    if (data.progress) {
+        html += `<div class="progress mt-2" style="height: 6px;">
+            <div class="progress-bar bg-dark progress-bar-striped progress-bar-animated" style="width: ${data.progress}%"></div>
+        </div>`;
+    }
+
+    html += '</div>';
+    promptText.innerHTML = html;
+
+    // Auto-scroll
+    const messagesDiv = promptText.querySelector('.streaming-messages');
+    if (messagesDiv) messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+    // Update stage badges based on stage
+    if (data.stage) {
+        if (data.stage.includes('4_1')) {
+            document.getElementById('step-4-1').className = 'badge bg-dark mb-1';
+        }
+        if (data.stage.includes('4_1_DONE') && data.stage_4_1_result) {
+            document.getElementById('step-4-1').className = 'badge bg-success mb-1';
+            const r = data.stage_4_1_result;
+            document.getElementById('stage41Result').textContent = `${r.characters || 0} chars`;
+        }
+        if (data.stage.includes('4_2')) {
+            document.getElementById('step-4-2').className = 'badge bg-dark mb-1';
+        }
+        if (data.stage.includes('4_2_DONE') && data.stage_4_2_result) {
+            document.getElementById('step-4-2').className = 'badge bg-success mb-1';
+            const r = data.stage_4_2_result;
+            document.getElementById('stage42Result').textContent = `${r.events_count || 0} events`;
+        }
+        if (data.stage.includes('4_3')) {
+            document.getElementById('step-4-3').className = 'badge bg-dark mb-1';
+        }
+        if (data.stage.includes('4_3_DONE') && data.stage_4_3_result) {
+            document.getElementById('step-4-3').className = 'badge bg-success mb-1';
+            const r = data.stage_4_3_result;
+            document.getElementById('stage43Result').textContent = `${r.branches_count || 0} branches`;
+        }
+        if (data.stage.includes('4_4')) {
+            document.getElementById('step-4-4').className = 'badge bg-dark mb-1';
+        }
+        if (data.stage.includes('4_4_DONE') && data.stage_4_4_result) {
+            document.getElementById('step-4-4').className = 'badge bg-success mb-1';
+            const r = data.stage_4_4_result;
+            document.getElementById('stage44Result').textContent = `${r.key_takeaways_count || 0} takeaways`;
+        }
+    }
+
+    // Handle completion
+    if (data.stage === 'COMPLETE' && data.result) {
+        const resultsDiv = document.getElementById('phase4Results');
+        resultsDiv.style.display = 'block';
+
+        // Update narrative elements summary
+        if (data.result.summary && data.result.summary.narrative_elements) {
+            const ne = data.result.summary.narrative_elements;
+            document.getElementById('phase4Characters').textContent = ne.characters || 0;
+            document.getElementById('phase4Events').textContent = ne.events || 0;
+            document.getElementById('phase4Conflicts').textContent = ne.conflicts || 0;
+            document.getElementById('phase4Decisions').textContent = ne.decision_moments || 0;
+        }
+
+        // Update timeline preview
+        if (data.result.timeline_preview) {
+            document.getElementById('phase4TimelinePreview').textContent = data.result.timeline_preview;
+        }
+
+        // Update scenario opening
+        if (data.result.opening_context) {
+            document.getElementById('phase4OpeningContext').textContent = data.result.opening_context;
+        }
+
+        // Update key takeaways
+        if (data.result.key_takeaways && data.result.key_takeaways.length > 0) {
+            const takeawaysUl = document.getElementById('phase4Takeaways');
+            takeawaysUl.innerHTML = data.result.key_takeaways.map(t => `<li>${escapeHtml(t)}</li>`).join('');
+        }
+
+        // Update phase indicator
+        const phase4Indicator = document.getElementById('phase4-indicator');
+        if (phase4Indicator) phase4Indicator.classList.add('phase-complete');
+
+        // Change button to Re-run
+        const button = document.getElementById('extractNarrativeBtn');
+        if (button) {
+            button.disabled = false;
+            button.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Re-run';
+            button.classList.remove('btn-outline-dark');
+            button.classList.add('btn-outline-success');
+        }
+    }
+
+    // Handle errors
+    if (data.error) {
+        promptText.innerHTML = `<div class="alert alert-danger py-2"><i class="bi bi-exclamation-triangle me-1"></i> ${data.messages ? data.messages[0] : 'Error'}</div>`;
+    }
 }
 
 // Handle streaming data updates
@@ -1280,10 +1963,114 @@ function updatePhaseIndicator(currentTask) {
 // Load saved prompts on page load
 document.addEventListener('DOMContentLoaded', function() {
     loadSavedPrompts();
+    loadPhase3Results();
 });
 
+function loadPhase3Results() {
+    fetch(`/scenario_pipeline/case/${currentCaseId}/phase3_results`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.canonical_decision_points && data.canonical_decision_points.length > 0) {
+                // Display decision points
+                const resultsDiv = document.getElementById('decisionPointsResults');
+                const listDiv = document.getElementById('decisionPointsList');
+                resultsDiv.style.display = 'block';
+
+                let dpHtml = '<div class="list-group">';
+                data.canonical_decision_points.forEach((dp, i) => {
+                    const alignScore = ((dp.qc_alignment_score || 0) * 100).toFixed(0);
+                    const alignBadge = (dp.qc_alignment_score || 0) > 0.5 ? 'bg-success' : 'bg-secondary';
+                    dpHtml += `
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <strong>${dp.focus_id || 'DP' + (i+1)}: ${escapeHtml(dp.description || '')}</strong>
+                                    <br><small class="text-muted">${escapeHtml(dp.decision_question || '')}</small>
+                                </div>
+                                <span class="badge ${alignBadge}">${alignScore}% aligned</span>
+                            </div>
+                            ${dp.toulmin ? `
+                                <div class="mt-2 small">
+                                    <strong>Toulmin:</strong>
+                                    <span class="text-muted">DATA: ${escapeHtml(dp.toulmin.data_summary || '-')}</span>
+                                </div>
+                            ` : ''}
+                            ${dp.addresses_questions && dp.addresses_questions.length > 0 ? `
+                                <div class="mt-1 small text-primary">
+                                    Addresses: ${dp.addresses_questions.join(', ')}
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                });
+                dpHtml += '</div>';
+                listDiv.innerHTML = dpHtml;
+
+                // Update button to Re-run
+                const button = document.getElementById('extractDecisionSynthesisBtn');
+                if (button) {
+                    button.disabled = false;
+                    button.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Re-run';
+                    button.classList.remove('btn-outline-primary');
+                    button.classList.add('btn-outline-success');
+                }
+
+                // Populate E1-E3 and LLM badges if data available
+                if (data.e1_obligations > 0 || data.e1_decision_relevant > 0) {
+                    document.getElementById('step-e1').className = 'badge bg-success mb-1';
+                    document.getElementById('e1Result').textContent = `${data.e1_obligations} obligations`;
+                }
+                if (data.e2_action_sets > 0) {
+                    document.getElementById('step-e2').className = 'badge bg-success mb-1';
+                    document.getElementById('e2Result').textContent = `${data.e2_action_sets} action sets`;
+                }
+                if (data.e3_candidates > 0) {
+                    document.getElementById('step-e3').className = 'badge bg-success mb-1';
+                    document.getElementById('e3Result').textContent = `${data.e3_candidates} candidates`;
+                }
+                if (data.canonical_count > 0) {
+                    document.getElementById('step-llm').className = 'badge bg-success mb-1';
+                    document.getElementById('llmResult').textContent = `${data.canonical_count} decision pts`;
+                }
+
+                // Show LLM trace if available
+                if (data.llm_trace) {
+                    const accordion = document.getElementById('phase3LLMAccordion');
+                    if (accordion) {
+                        accordion.style.display = 'block';
+                        if (data.llm_trace.prompt) {
+                            document.getElementById('phase3PromptContent').textContent = data.llm_trace.prompt;
+                        }
+                        if (data.llm_trace.response) {
+                            document.getElementById('phase3ResponseContent').textContent = data.llm_trace.response;
+                        }
+                    }
+                }
+
+                // Mark phase indicator as complete
+                const phase3Indicator = document.getElementById('phase3-indicator');
+                if (phase3Indicator) phase3Indicator.classList.add('phase-complete');
+
+                console.log(`Loaded ${data.canonical_decision_points.length} Phase 3 decision points`);
+            }
+        })
+        .catch(error => console.log('No saved Phase 3 results:', error));
+}
+
 function loadSavedPrompts() {
-    const tasks = ['provisions', 'questions', 'conclusions', 'transformation'];
+    const tasks = ['provisions', 'questions', 'conclusions', 'transformation', 'rich_analysis'];
+    const completedTasks = new Set();
+
+    // Track completed tasks and update phase2 indicator when all complete
+    function checkPhase2Complete() {
+        if (completedTasks.size === tasks.length) {
+            const phase2Indicator = document.getElementById('phase2-indicator');
+            if (phase2Indicator) {
+                phase2Indicator.classList.add('phase-complete');
+            }
+            console.log('Phase 2 (Analytical Extraction) complete - all 5 tasks loaded');
+        }
+    }
 
     tasks.forEach(task => {
         fetch(`/scenario_pipeline/case/${currentCaseId}/get_saved_step4_prompt?task_type=${task}`)
@@ -1305,11 +2092,17 @@ function loadSavedPrompts() {
                         resultsContent.innerHTML = `<pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; max-height: 500px; overflow-y: auto;">${escapeHtml(data.raw_response)}</pre>`;
                     }
 
-                    // Mark button as done
+                    // Mark button as done with Re-run styling
                     const button = document.getElementById(`extract${capitalizeFirst(task)}Btn`);
                     if (button && data.prompt_text) {
                         button.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Re-run';
+                        button.classList.remove('btn-secondary', 'btn-warning', 'btn-success', 'btn-info');
+                        button.classList.add('btn-outline-success');
                     }
+
+                    // Track this task as complete
+                    completedTasks.add(task);
+                    checkPhase2Complete();
                 }
             })
             .catch(error => console.log(`No saved prompt for ${task}`));

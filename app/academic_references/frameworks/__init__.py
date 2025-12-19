@@ -12,10 +12,14 @@ from app.academic_references.frameworks import transformation_classification
 from app.academic_references.frameworks import role_ethics
 from app.academic_references.frameworks import moral_intensity
 from app.academic_references.frameworks import extensional_principles
+from app.academic_references.frameworks import toulmin_argumentation
+from app.academic_references.frameworks import declarative_ethics
 
 __all__ = [
     'transformation_classification',
     'role_ethics',
     'moral_intensity',
     'extensional_principles',
+    'toulmin_argumentation',
+    'declarative_ethics',
 ]

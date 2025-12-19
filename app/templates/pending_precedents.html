@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+
+{% block title %}Pending Precedents - ProEthica{% endblock %}
+
+{% block styles %}
+<style>
+    .url-card {
+        font-size: 0.9rem;
+    }
+    .url-text {
+        font-family: monospace;
+        font-size: 0.8rem;
+        word-break: break-all;
+    }
+    .stat-card {
+        text-align: center;
+    }
+    .stat-number {
+        font-size: 2rem;
+        font-weight: bold;
+    }
+    .source-badge {
+        font-size: 0.75rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-start mb-4">
+        <div>
+            <h1 class="mb-2">Pending Precedents</h1>
+            <p class="text-muted">
+                Cases cited in existing documents that could be ingested from NSPE website.
+            </p>
+        </div>
+        <a href="{{ url_for('precedents.find_precedents') }}" class="btn btn-outline-secondary">
+            Back to Precedent Search
+        </a>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card stat-card">
+                <div class="card-body">
+                    <div class="stat-number text-primary">{{ summary.total_cases or 0 }}</div>
+                    <div class="text-muted">Total Cases</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card">
+                <div class="card-body">
+                    <div class="stat-number text-info">{{ summary.total_citations or 0 }}</div>
+                    <div class="text-muted">Total Citations</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card">
+                <div class="card-body">
+                    <div class="stat-number text-success">{{ summary.resolved_citations or 0 }}</div>
+                    <div class="text-muted">Resolved</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card">
+                <div class="card-body">
+                    <div class="stat-number text-warning">{{ total_missing or 0 }}</div>
+                    <div class="text-muted">Available to Ingest</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Case Source Distribution -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Case Sources</h5>
+        </div>
+        <div class="card-body">
+            <div class="d-flex gap-3">
+                {% for source, count in case_sources.items() %}
+                <div>
+                    <span class="badge source-badge
+                        {% if source == 'primary' %}bg-primary
+                        {% elif source == 'precedent' %}bg-secondary
+                        {% else %}bg-light text-dark{% endif %}">
+                        {{ source|title }}
+                    </span>
+                    <span class="ms-1">{{ count }} case(s)</span>
+                </div>
+                {% endfor %}
+            </div>
+            <p class="small text-muted mt-2 mb-0">
+                <strong>Primary:</strong> Cases ingested via /cases/new interface.
+                <strong>Precedent:</strong> Cases auto-ingested from citations.
+            </p>
+        </div>
+    </div>
+
+    <!-- Pending URLs from Metadata -->
+    {% if pending_summary.total_pending > 0 %}
+    <div class="card mb-4">
+        <div class="card-header bg-warning">
+            <h5 class="mb-0">Deferred Precedents ({{ pending_summary.total_pending }})</h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small">
+                These URLs were found during primary case ingestion but deferred due to the max_cases limit.
+            </p>
+            <ul class="list-group list-group-flush">
+                {% for item in pending_summary.urls[:20] %}
+                <li class="list-group-item url-card">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <a href="{{ item.url }}" target="_blank" class="url-text">{{ item.url }}</a>
+                            <div class="text-muted small">
+                                Cited by case(s): {{ item.from_cases|join(', ') }}
+                            </div>
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary ingest-btn" data-url="{{ item.url }}">
+                            Ingest
+                        </button>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% if pending_summary.total_pending > 20 %}
+            <p class="text-muted mt-2 mb-0">Showing 20 of {{ pending_summary.total_pending }}</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Missing URLs from Content Scan -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Available to Ingest ({{ total_missing }})</h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small">
+                NSPE case URLs found in existing case content that are not yet in the database.
+            </p>
+            {% if missing_urls %}
+            <div class="mb-3">
+                <button class="btn btn-primary" id="ingestBatchBtn">
+                    Ingest Next 10 Cases
+                </button>
+            </div>
+            <ul class="list-group list-group-flush">
+                {% for item in missing_urls %}
+                <li class="list-group-item url-card">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <a href="{{ item.url }}" target="_blank" class="url-text">{{ item.url }}</a>
+                            <div class="text-muted small">
+                                Cited {{ item.citation_count }} time(s) by case(s): {{ item.citing_cases[:5]|join(', ') }}{% if item.citing_cases|length > 5 %}...{% endif %}
+                            </div>
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary ingest-btn" data-url="{{ item.url }}">
+                            Ingest
+                        </button>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% if total_missing > 50 %}
+            <p class="text-muted mt-2 mb-0">Showing 50 of {{ total_missing }}</p>
+            {% endif %}
+            {% else %}
+            <div class="alert alert-success mb-0">
+                All cited cases have been ingested.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- How It Works -->
+    <div class="card">
+        <div class="card-header">
+            <h6 class="mb-0">How Precedent Ingestion Works</h6>
+        </div>
+        <div class="card-body">
+            <ol class="mb-0">
+                <li><strong>Primary case ingestion:</strong> When you add a case via /cases/new, it's marked as a "primary" case.</li>
+                <li><strong>URL extraction:</strong> The system scans the case content for links to other NSPE BER cases.</li>
+                <li><strong>One-level ingestion:</strong> Up to 20 cited cases are automatically ingested as "precedent" cases.</li>
+                <li><strong>Backlog tracking:</strong> Additional cited URLs are stored for later manual ingestion.</li>
+                <li><strong>No recursion:</strong> Precedent cases don't trigger further auto-ingestion (prevents explosion).</li>
+            </ol>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Single URL ingest buttons
+    document.querySelectorAll('.ingest-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const url = this.dataset.url;
+            const button = this;
+            button.disabled = true;
+            button.textContent = 'Ingesting...';
+
+            fetch('{{ url_for("precedents.api_ingest_pending") }}', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({url: url, world_id: 1})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    button.textContent = 'Done';
+                    button.classList.remove('btn-outline-primary');
+                    button.classList.add('btn-success');
+                    // Refresh after short delay
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    button.textContent = 'Failed';
+                    button.classList.remove('btn-outline-primary');
+                    button.classList.add('btn-danger');
+                }
+            })
+            .catch(error => {
+                button.textContent = 'Error';
+                button.classList.add('btn-danger');
+            });
+        });
+    });
+
+    // Batch ingest button
+    const batchBtn = document.getElementById('ingestBatchBtn');
+    if (batchBtn) {
+        batchBtn.addEventListener('click', function() {
+            batchBtn.disabled = true;
+            batchBtn.textContent = 'Ingesting...';
+
+            fetch('{{ url_for("precedents.api_ingest_pending") }}', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({max_cases: 10, world_id: 1})
+            })
+            .then(response => response.json())
+            .then(data => {
+                const ingested = data.ingested ? data.ingested.length : 0;
+                batchBtn.textContent = `Ingested ${ingested} cases`;
+                // Refresh after short delay
+                setTimeout(() => location.reload(), 1500);
+            })
+            .catch(error => {
+                batchBtn.textContent = 'Error';
+                batchBtn.classList.add('btn-danger');
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

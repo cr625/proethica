@@ -49,6 +49,14 @@ from app.services.entity_analysis import (
     ValidatedArguments
 )
 
+# Phase 3: Decision Point Synthesis
+from app.services.decision_point_synthesizer import (
+    DecisionPointSynthesizer,
+    CanonicalDecisionPoint,
+    Phase3SynthesisResult,
+    synthesize_decision_points
+)
+
 logger = logging.getLogger(__name__)
 
 PROETHICA_INT_NS = "http://proethica.org/ontology/intermediate#"
@@ -230,13 +238,25 @@ class CausalNormativeLink:
 
 @dataclass
 class QuestionEmergenceAnalysis:
-    """Analysis of WHY an ethical question emerged from the case."""
+    """Analysis of WHY an ethical question emerged from the case.
+
+    Based on Toulmin's (1958/2003) argumentation model:
+    - Data-Warrant Tension: How facts could trigger multiple warrants
+    - Competing Claims: What different conclusions warrants support
+    - Rebuttal Conditions: What circumstances create uncertainty
+    """
     question_uri: str
     question_text: str
-    triggered_by_events: List[str] = field(default_factory=list)
-    triggered_by_actions: List[str] = field(default_factory=list)
+    # Toulmin DATA: facts that created the ethical situation
+    data_events: List[str] = field(default_factory=list)
+    data_actions: List[str] = field(default_factory=list)
     involves_roles: List[str] = field(default_factory=list)
-    competing_obligations: List[Tuple[str, str]] = field(default_factory=list)  # (obl1, obl2)
+    # Toulmin WARRANTS: obligations that could apply (competing pairs)
+    competing_warrants: List[Tuple[str, str]] = field(default_factory=list)
+    # Toulmin analysis
+    data_warrant_tension: str = ""   # How DATA could trigger multiple WARRANTs
+    competing_claims: str = ""        # What different CLAIMs the warrants support
+    rebuttal_conditions: str = ""     # What REBUTTAL conditions create uncertainty
     emergence_narrative: str = ""
     confidence: float = 0.0
 
@@ -244,10 +264,13 @@ class QuestionEmergenceAnalysis:
         return {
             'question_uri': self.question_uri,
             'question_text': self.question_text,
-            'triggered_by_events': self.triggered_by_events,
-            'triggered_by_actions': self.triggered_by_actions,
+            'data_events': self.data_events,
+            'data_actions': self.data_actions,
             'involves_roles': self.involves_roles,
-            'competing_obligations': [list(t) for t in self.competing_obligations],
+            'competing_warrants': [list(t) for t in self.competing_warrants],
+            'data_warrant_tension': self.data_warrant_tension,
+            'competing_claims': self.competing_claims,
+            'rebuttal_conditions': self.rebuttal_conditions,
             'emergence_narrative': self.emergence_narrative,
             'confidence': self.confidence
         }
@@ -381,58 +404,9 @@ class CaseSynthesisModel:
 
 
 # =============================================================================
-# CANONICAL DECISION POINT (Phase 3 output)
+# SYNTHESIS RESULT (kept for F1-F3 arguments)
 # =============================================================================
-
-@dataclass
-class CanonicalDecisionPoint:
-    """
-    A canonical decision point produced by the unified pipeline.
-
-    Combines algorithmic composition with LLM refinement.
-    """
-    focus_id: str
-    focus_number: int
-    description: str
-    decision_question: str
-
-    # Entity grounding (from E3)
-    role_uri: str
-    role_label: str
-    obligation_uri: Optional[str] = None
-    obligation_label: Optional[str] = None
-    constraint_uri: Optional[str] = None
-    constraint_label: Optional[str] = None
-
-    # Related entities
-    involved_action_uris: List[str] = field(default_factory=list)
-    provision_uris: List[str] = field(default_factory=list)
-    provision_labels: List[str] = field(default_factory=list)
-
-    # Q&C alignment (ground truth from Step 4B)
-    aligned_question_uri: Optional[str] = None
-    aligned_question_text: Optional[str] = None
-    aligned_conclusion_uri: Optional[str] = None
-    aligned_conclusion_text: Optional[str] = None
-
-    # Options with action grounding
-    options: List[Dict] = field(default_factory=list)
-
-    # Scores
-    intensity_score: float = 0.0
-    qc_alignment_score: float = 0.0
-
-    # Source tracking
-    source: str = "unified"  # 'algorithmic', 'llm', 'unified'
-    algorithmic_focus_id: Optional[str] = None  # Original ID from E3
-
-    # LLM refinement
-    llm_refined_description: Optional[str] = None
-    llm_refined_question: Optional[str] = None
-
-    def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
-
+# Note: CanonicalDecisionPoint is now imported from decision_point_synthesizer
 
 @dataclass
 class SynthesisResult:
@@ -604,29 +578,39 @@ class CaseSynthesizer:
         llm_traces.extend(phase2b_traces)
         logger.info(f"Rich analysis: {len(causal_links)} causal links, {len(question_emergence)} Q emergence, {len(resolution_patterns)} resolution patterns")
 
-        # PHASE 3: Decision Point Synthesis
+        # PHASE 3: Decision Point Synthesis (using modular DecisionPointSynthesizer)
         logger.info("Phase 3: Synthesizing decision points")
-        candidates = self._run_algorithmic_composition(case_id)
-        logger.info(f"E1-E3: {len(candidates.decision_points)} candidates")
 
-        if skip_llm_synthesis:
-            canonical_points = self._convert_algorithmic_to_canonical(candidates, questions, conclusions)
-        else:
-            entities_dict = self._load_all_entities(case_id)
-            canonical_points = self._llm_synthesize(case_id, candidates, questions, conclusions, entities_dict)
+        # Convert dataclass lists to dicts for the synthesizer
+        qe_dicts = [qe.to_dict() for qe in question_emergence]
+        rp_dicts = [rp.to_dict() for rp in resolution_patterns]
 
-            # Track Phase 3 LLM trace
-            if self.last_prompt and self.last_response:
-                llm_traces.append(LLMTrace(
-                    phase=3,
-                    phase_name="Decision Point Synthesis",
-                    stage="LLM Refinement",
-                    prompt=self.last_prompt,
-                    response=self.last_response,
-                    model="claude-sonnet-4-20250514"
-                ))
+        # Run the unified Phase 3 pipeline
+        phase3_result = synthesize_decision_points(
+            case_id=case_id,
+            questions=questions,
+            conclusions=conclusions,
+            question_emergence=qe_dicts,
+            resolution_patterns=rp_dicts,
+            domain=self.domain.name,
+            skip_llm=skip_llm_synthesis
+        )
 
-        logger.info(f"Canonical: {len(canonical_points)} decision points")
+        canonical_points = phase3_result.canonical_decision_points
+        algorithmic_candidates_count = phase3_result.candidates_count
+
+        # Track Phase 3 LLM trace
+        if phase3_result.llm_prompt and phase3_result.llm_response:
+            llm_traces.append(LLMTrace(
+                phase=3,
+                phase_name="Decision Point Synthesis",
+                stage="LLM Refinement",
+                prompt=phase3_result.llm_prompt,
+                response=phase3_result.llm_response,
+                model="claude-sonnet-4-20250514"
+            ))
+
+        logger.info(f"Phase 3: {len(canonical_points)} canonical decision points (from {algorithmic_candidates_count} candidates)")
 
         # PHASE 4: Narrative Construction (with LLM enhancement)
         logger.info("Phase 4: Constructing narrative")
@@ -640,8 +624,7 @@ class CaseSynthesizer:
 
         logger.info(f"Narrative: {len(narrative.timeline)} timeline events")
 
-        # Save canonical points
-        self._save_canonical_points(case_id, canonical_points, extraction_session_id)
+        # Note: Canonical points are already stored by DecisionPointSynthesizer
 
         model = CaseSynthesisModel(
             case_id=case_id,
@@ -664,7 +647,7 @@ class CaseSynthesizer:
             resolution_patterns=resolution_patterns,
             # Phase 3
             canonical_decision_points=canonical_points,
-            algorithmic_candidates_count=len(candidates.decision_points),
+            algorithmic_candidates_count=algorithmic_candidates_count,
             narrative=narrative,
             llm_traces=llm_traces,
             synthesis_timestamp=datetime.now(),
@@ -1370,7 +1353,7 @@ class CaseSynthesizer:
                 )
                 db.session.add(entity)
 
-            # Store question emergence analyses
+            # Store question emergence analyses (Toulmin structure)
             for i, qa in enumerate(question_emergence):
                 entity = TemporaryRDFStorage(
                     case_id=case_id,
@@ -1385,10 +1368,16 @@ class CaseSynthesizer:
                         '@type': 'proeth-analysis:QuestionEmergence',
                         'question_uri': qa.question_uri,
                         'question_text': qa.question_text,
-                        'triggered_by_events': qa.triggered_by_events,
-                        'triggered_by_actions': qa.triggered_by_actions,
+                        # Toulmin DATA
+                        'data_events': qa.data_events,
+                        'data_actions': qa.data_actions,
                         'involves_roles': qa.involves_roles,
-                        'competing_obligations': [list(pair) for pair in qa.competing_obligations],
+                        # Toulmin WARRANTS
+                        'competing_warrants': [list(pair) for pair in qa.competing_warrants],
+                        # Toulmin analysis
+                        'data_warrant_tension': qa.data_warrant_tension,
+                        'competing_claims': qa.competing_claims,
+                        'rebuttal_conditions': qa.rebuttal_conditions,
                         'emergence_narrative': qa.emergence_narrative,
                         'confidence': qa.confidence
                     },
@@ -1480,10 +1469,16 @@ class CaseSynthesizer:
                 question_emergence.append(QuestionEmergenceAnalysis(
                     question_uri=data.get('question_uri', ''),
                     question_text=data.get('question_text', ''),
-                    triggered_by_events=data.get('triggered_by_events', []),
-                    triggered_by_actions=data.get('triggered_by_actions', []),
+                    # Toulmin DATA
+                    data_events=data.get('data_events', []),
+                    data_actions=data.get('data_actions', []),
                     involves_roles=data.get('involves_roles', []),
-                    competing_obligations=[tuple(p) for p in data.get('competing_obligations', [])],
+                    # Toulmin WARRANTS
+                    competing_warrants=[tuple(p) for p in data.get('competing_warrants', [])],
+                    # Toulmin analysis
+                    data_warrant_tension=data.get('data_warrant_tension', ''),
+                    competing_claims=data.get('competing_claims', ''),
+                    rebuttal_conditions=data.get('rebuttal_conditions', ''),
                     emergence_narrative=data.get('emergence_narrative', ''),
                     confidence=data.get('confidence', 0.0)
                 ))
@@ -1611,7 +1606,7 @@ Include ALL actions even if they have empty relationships. Be precise with URI m
         try:
             response = self.llm_client.messages.create(
                 model="claude-sonnet-4-20250514",
-                max_tokens=2000,
+                max_tokens=4000,  # Increased from 2000 - responses include long URIs
                 temperature=0.2,
                 messages=[{"role": "user", "content": prompt}]
             )
@@ -1659,16 +1654,41 @@ Include ALL actions even if they have empty relationships. Be precise with URI m
         """
         Analyze WHY each ethical question emerged from the case.
 
-        For each question, determines:
-        - What events/actions triggered it
-        - Which roles are involved
-        - What competing obligations create tension
-        - A narrative explaining the emergence
+        Uses Toulmin's argumentation model to explain emergence:
+        - DATA: What events/actions created the situation
+        - WARRANTS: What competing obligations could apply
+        - REBUTTALS: What conditions create uncertainty
+
+        Processes in batches of 5 to avoid timeout.
         """
         if not questions:
             return []
 
-        # Format questions
+        BATCH_SIZE = 5
+        all_results = []
+
+        # Process questions in batches
+        for batch_start in range(0, len(questions), BATCH_SIZE):
+            batch_questions = questions[batch_start:batch_start + BATCH_SIZE]
+            batch_results = self._analyze_question_batch(
+                batch_questions, foundation, llm_traces, batch_start
+            )
+            all_results.extend(batch_results)
+
+        return all_results
+
+    def _analyze_question_batch(
+        self,
+        questions: List[Dict],
+        foundation: EntityFoundation,
+        llm_traces: List[LLMTrace],
+        batch_offset: int = 0
+    ) -> List[QuestionEmergenceAnalysis]:
+        """Analyze a batch of questions for emergence patterns."""
+        if not questions:
+            return []
+
+        # Format questions for this batch
         questions_text = "\n".join([
             f"- {q.get('label', 'Q')}: {q.get('text', '')} (URI: {q.get('uri', '')})"
             for q in questions
@@ -1698,63 +1718,73 @@ Include ALL actions even if they have empty relationships. Be precise with URI m
             for o in foundation.obligations
         ])
 
-        prompt = f"""Analyze WHY each ethical question emerged in this case.
+        # Get concise Toulmin context (shorter for batch processing)
+        try:
+            from app.academic_references.frameworks.toulmin_argumentation import get_concise_emergence_context
+            toulmin_context = get_concise_emergence_context()
+        except ImportError:
+            toulmin_context = ""
 
-## ETHICAL QUESTIONS (posed to the board)
+        prompt = f"""Analyze WHY each ethical question emerged using Toulmin's model.
+
+{toulmin_context}
+
+## QUESTIONS TO ANALYZE
 {questions_text}
 
-## EVENTS (things that happened)
+## AVAILABLE DATA (Events/Actions)
 {events_text}
-
-## ACTIONS (things done by agents)
 {actions_text}
 
-## ROLES (agents involved)
-{roles_text}
-
-## OBLIGATIONS (duties that apply)
+## POTENTIAL WARRANTS (Obligations)
 {obligations_text}
 
-For EACH question, analyze:
-1. What EVENTS triggered this question? (URI list)
-2. What ACTIONS triggered this question? (URI list)
-3. Which ROLES are involved? (URI list)
-4. What COMPETING OBLIGATIONS create the tension? (pairs of obligation URIs that conflict)
-5. A 1-2 sentence NARRATIVE explaining why this question emerged
+## ROLES
+{roles_text}
 
-Output as JSON array:
+For EACH question, output JSON with:
+- data_events/data_actions: URIs of events/actions that created the situation
+- competing_warrants: Pairs of obligation URIs that could apply
+- data_warrant_tension: 1 sentence on how data triggers multiple warrants
+- competing_claims: 1 sentence on what different warrants conclude
+- rebuttal_conditions: 1 sentence on what creates uncertainty
+- emergence_narrative: 1-2 sentences explaining why this question arose
+
 ```json
 [
   {{
-    "question_uri": "<question_uri>",
-    "question_text": "<question text>",
-    "triggered_by_events": ["<event_uri>", ...],
-    "triggered_by_actions": ["<action_uri>", ...],
-    "involves_roles": ["<role_uri>", ...],
-    "competing_obligations": [["<obl1_uri>", "<obl2_uri>"], ...],
-    "emergence_narrative": "This question emerged because...",
-    "confidence": 0.0-1.0
-  }},
-  ...
+    "question_uri": "...",
+    "question_text": "...",
+    "data_events": ["..."],
+    "data_actions": ["..."],
+    "involves_roles": ["..."],
+    "competing_warrants": [["obl1", "obl2"]],
+    "data_warrant_tension": "...",
+    "competing_claims": "...",
+    "rebuttal_conditions": "...",
+    "emergence_narrative": "...",
+    "confidence": 0.8
+  }}
 ]
 ```
 
-Be precise with URI matching. Include all questions."""
+Be precise with URI matching. Include all questions in this batch."""
 
         try:
             response = self.llm_client.messages.create(
                 model="claude-sonnet-4-20250514",
-                max_tokens=2000,
+                max_tokens=3000,  # ~5 questions per batch, ~500 tokens each
                 temperature=0.2,
                 messages=[{"role": "user", "content": prompt}]
             )
 
             response_text = response.content[0].text
 
+            batch_num = (batch_offset // 5) + 1
             llm_traces.append(LLMTrace(
                 phase=2,
                 phase_name="Analytical Extraction",
-                stage="Question Emergence Analysis",
+                stage=f"Question Emergence (batch {batch_num})",
                 prompt=prompt,
                 response=response_text,
                 model="claude-sonnet-4-20250514"
@@ -1767,10 +1797,16 @@ Be precise with URI matching. Include all questions."""
                     QuestionEmergenceAnalysis(
                         question_uri=a.get('question_uri', ''),
                         question_text=a.get('question_text', ''),
-                        triggered_by_events=a.get('triggered_by_events', []),
-                        triggered_by_actions=a.get('triggered_by_actions', []),
+                        # Toulmin DATA
+                        data_events=a.get('data_events', []),
+                        data_actions=a.get('data_actions', []),
                         involves_roles=a.get('involves_roles', []),
-                        competing_obligations=[tuple(pair) for pair in a.get('competing_obligations', [])],
+                        # Toulmin competing WARRANTS
+                        competing_warrants=[tuple(pair) for pair in a.get('competing_warrants', [])],
+                        # Toulmin analysis
+                        data_warrant_tension=a.get('data_warrant_tension', ''),
+                        competing_claims=a.get('competing_claims', ''),
+                        rebuttal_conditions=a.get('rebuttal_conditions', ''),
                         emergence_narrative=a.get('emergence_narrative', ''),
                         confidence=a.get('confidence', 0.5)
                     )
@@ -1863,7 +1899,7 @@ Be precise with URI matching. Include all conclusions."""
         try:
             response = self.llm_client.messages.create(
                 model="claude-sonnet-4-20250514",
-                max_tokens=2000,
+                max_tokens=4000,  # Increased from 2000 - responses include long URIs
                 temperature=0.2,
                 messages=[{"role": "user", "content": prompt}]
             )
@@ -2330,9 +2366,7 @@ Output as JSON array:
 
         return entities
 
-    def _run_algorithmic_composition(self, case_id: int) -> ComposedDecisionPoints:
-        """Run E1-E3 algorithmic composition."""
-        return compose_decision_points(case_id, self.domain.name)
+    # Note: _run_algorithmic_composition moved to decision_point_synthesizer.py
 
     def _load_qc(self, case_id: int) -> Tuple[List[Dict], List[Dict]]:
         """Load questions and conclusions from Step 4B."""
@@ -2366,308 +2400,8 @@ Output as JSON array:
 
         return questions, conclusions
 
-    def _llm_synthesize(
-        self,
-        case_id: int,
-        candidates: ComposedDecisionPoints,
-        questions: List[Dict],
-        conclusions: List[Dict],
-        entities: Dict[str, List[Dict]]
-    ) -> List[CanonicalDecisionPoint]:
-        """
-        Use LLM to synthesize canonical decision points.
-
-        Takes algorithmic candidates and refines them using Q&C as ground truth.
-        """
-        if not candidates.decision_points:
-            logger.warning("No algorithmic candidates to synthesize")
-            return []
-
-        # Format candidates for prompt
-        candidates_text = self._format_candidates(candidates)
-
-        # Format Q&C
-        qc_text = self._format_qc(questions, conclusions)
-
-        # Format available entities for context
-        entities_text = self._format_entities_summary(entities)
-
-        prompt = f"""You are synthesizing canonical decision points for an NSPE ethics case.
-
-## ALGORITHMIC CANDIDATES (from E1-E3 pipeline)
-
-These decision points were composed algorithmically from extracted entities:
-
-{candidates_text}
-
-## BOARD'S QUESTIONS AND CONCLUSIONS (Ground Truth)
-
-These are the actual ethical questions and Board determinations:
-
-{qc_text}
-
-## AVAILABLE ENTITIES
-
-The following entities were extracted from the case and are available for grounding:
-
-{entities_text}
-
-## TASK
-
-Synthesize CANONICAL decision points that:
-
-1. **Align with Board's actual concerns** - Each canonical point should address a real Q&C
-2. **Preserve entity grounding** - Keep the URI references from algorithmic candidates
-3. **Merge similar candidates** - Combine candidates that address the same ethical issue
-4. **Refine descriptions** - Write clear, natural language descriptions
-
-For each canonical decision point, output:
-- Whether it maps to an algorithmic candidate (and which one)
-- The Q&C it aligns with
-- A refined description and decision question
-- The entity URIs to preserve
-
-## OUTPUT FORMAT (JSON)
-
-```json
-[
-  {{
-    "focus_id": "CDP1",
-    "source_algorithmic_id": "DP1",  // or null if new
-    "description": "Clear description of the decision point",
-    "decision_question": "The key ethical question to be resolved",
-    "aligned_question_index": 0,  // index into questions list, or null
-    "aligned_conclusion_index": 0,  // index into conclusions list, or null
-    "qc_alignment_reasoning": "Why this maps to that Q&C",
-    "role_label": "Engineer A",
-    "role_uri": "URI from candidate",
-    "obligation_label": "From candidate or null",
-    "obligation_uri": "URI or null",
-    "constraint_label": "From candidate or null",
-    "constraint_uri": "URI or null",
-    "provision_labels": ["II.1.c", "II.3.a"],
-    "provision_uris": ["URIs from candidate"],
-    "involved_action_uris": ["Action URIs from options"],
-    "intensity_score": 0.8,
-    "options": [
-      {{
-        "option_id": "O1",
-        "description": "Option description",
-        "action_uri": "URI if from extracted action",
-        "is_board_choice": true
-      }}
-    ]
-  }}
-]
-```
-
-Produce 3-6 canonical decision points that capture the key ethical issues in this case.
-"""
-
-        self.last_prompt = prompt
-
-        try:
-            response = self.llm_client.messages.create(
-                model="claude-sonnet-4-20250514",
-                max_tokens=4000,
-                temperature=0.2,
-                messages=[{"role": "user", "content": prompt}]
-            )
-
-            response_text = response.content[0].text
-            self.last_response = response_text
-
-            # Parse response
-            canonical = self._parse_synthesis_response(
-                response_text, questions, conclusions, candidates
-            )
-
-            return canonical
-
-        except Exception as e:
-            logger.error(f"LLM synthesis failed: {e}")
-            # Fall back to algorithmic candidates converted to canonical format
-            return self._convert_algorithmic_to_canonical(candidates, questions, conclusions)
-
-    def _format_candidates(self, candidates: ComposedDecisionPoints) -> str:
-        """Format algorithmic candidates for prompt."""
-        lines = []
-        for dp in candidates.decision_points:
-            lines.append(f"""
-### {dp.focus_id}: {dp.description}
-- Question: {dp.decision_question}
-- Role: {dp.grounding.role_label} [{dp.grounding.role_uri}]
-- Obligation: {dp.grounding.obligation_label or 'N/A'} [{dp.grounding.obligation_uri or 'N/A'}]
-- Constraint: {dp.grounding.constraint_label or 'N/A'} [{dp.grounding.constraint_uri or 'N/A'}]
-- Provisions: {', '.join(dp.provision_labels) or 'None'}
-- Intensity Score: {dp.intensity_score:.2f}
-- Options: {len(dp.options)}
-""")
-            for opt in dp.options[:3]:  # Limit options shown
-                board_mark = " [BOARD CHOICE]" if opt.is_board_choice else ""
-                lines.append(f"  - {opt.option_id}: {opt.description}{board_mark}")
-
-        return "\n".join(lines)
-
-    def _format_qc(self, questions: List[Dict], conclusions: List[Dict]) -> str:
-        """Format Q&C for prompt."""
-        lines = ["### Questions:"]
-        for i, q in enumerate(questions):
-            lines.append(f"Q{i}: {q['text']}")
-
-        lines.append("\n### Conclusions:")
-        for i, c in enumerate(conclusions):
-            lines.append(f"C{i}: {c['text']}")
-
-        return "\n".join(lines)
-
-    def _format_entities_summary(self, entities: Dict[str, List[Dict]]) -> str:
-        """Format entity summary for context."""
-        lines = []
-        for etype, elist in entities.items():
-            if elist:
-                count = len(elist)
-                examples = [e['label'] for e in elist[:3]]
-                lines.append(f"- {etype}: {count} ({', '.join(examples)}{'...' if count > 3 else ''})")
-        return "\n".join(lines)
-
-    def _parse_synthesis_response(
-        self,
-        response_text: str,
-        questions: List[Dict],
-        conclusions: List[Dict],
-        candidates: ComposedDecisionPoints
-    ) -> List[CanonicalDecisionPoint]:
-        """Parse LLM synthesis response."""
-        import re
-
-        # Extract JSON
-        json_match = re.search(r'```json\n(.*?)\n```', response_text, re.DOTALL)
-        if not json_match:
-            json_match = re.search(r'\[\s*\{.*?\}\s*\]', response_text, re.DOTALL)
-            if not json_match:
-                logger.warning("Could not find JSON in synthesis response")
-                return []
-
-        try:
-            json_text = json_match.group(1) if '```json' in response_text else json_match.group(0)
-            synthesis_data = json.loads(json_text)
-
-            canonical_points = []
-            for i, data in enumerate(synthesis_data, 1):
-                # Get aligned Q&C
-                q_idx = data.get('aligned_question_index')
-                c_idx = data.get('aligned_conclusion_index')
-
-                aligned_q = questions[q_idx] if q_idx is not None and q_idx < len(questions) else None
-                aligned_c = conclusions[c_idx] if c_idx is not None and c_idx < len(conclusions) else None
-
-                # Parse options
-                options = []
-                for opt in data.get('options', []):
-                    options.append({
-                        'option_id': opt.get('option_id', f'O{len(options)+1}'),
-                        'description': opt.get('description', ''),
-                        'action_uri': opt.get('action_uri', ''),
-                        'is_board_choice': opt.get('is_board_choice', False)
-                    })
-
-                canonical = CanonicalDecisionPoint(
-                    focus_id=data.get('focus_id', f'CDP{i}'),
-                    focus_number=i,
-                    description=data.get('description', ''),
-                    decision_question=data.get('decision_question', ''),
-                    role_uri=data.get('role_uri', ''),
-                    role_label=data.get('role_label', ''),
-                    obligation_uri=data.get('obligation_uri'),
-                    obligation_label=data.get('obligation_label'),
-                    constraint_uri=data.get('constraint_uri'),
-                    constraint_label=data.get('constraint_label'),
-                    involved_action_uris=data.get('involved_action_uris', []),
-                    provision_uris=data.get('provision_uris', []),
-                    provision_labels=data.get('provision_labels', []),
-                    aligned_question_uri=aligned_q['uri'] if aligned_q else None,
-                    aligned_question_text=aligned_q['text'] if aligned_q else None,
-                    aligned_conclusion_uri=aligned_c['uri'] if aligned_c else None,
-                    aligned_conclusion_text=aligned_c['text'] if aligned_c else None,
-                    options=options,
-                    intensity_score=data.get('intensity_score', 0.0),
-                    qc_alignment_score=1.0 if aligned_q else 0.0,
-                    source='unified',
-                    algorithmic_focus_id=data.get('source_algorithmic_id'),
-                    llm_refined_description=data.get('description'),
-                    llm_refined_question=data.get('decision_question')
-                )
-                canonical_points.append(canonical)
-
-            return canonical_points
-
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse synthesis JSON: {e}")
-            return []
-
-    def _convert_algorithmic_to_canonical(
-        self,
-        candidates: ComposedDecisionPoints,
-        questions: List[Dict],
-        conclusions: List[Dict]
-    ) -> List[CanonicalDecisionPoint]:
-        """Convert algorithmic candidates to canonical format (fallback)."""
-        canonical_points = []
-
-        for i, dp in enumerate(candidates.decision_points, 1):
-            # Try to find matching Q&C
-            aligned_q = None
-            aligned_c = None
-
-            if dp.board_question_uri:
-                for q in questions:
-                    if q['uri'] == dp.board_question_uri:
-                        aligned_q = q
-                        break
-
-            if dp.board_conclusion_uri:
-                for c in conclusions:
-                    if c['uri'] == dp.board_conclusion_uri:
-                        aligned_c = c
-                        break
-
-            options = []
-            for opt in dp.options:
-                options.append({
-                    'option_id': opt.option_id,
-                    'description': opt.description,
-                    'action_uri': opt.action_uri,
-                    'is_board_choice': opt.is_board_choice
-                })
-
-            canonical = CanonicalDecisionPoint(
-                focus_id=f'CDP{i}',
-                focus_number=i,
-                description=dp.description,
-                decision_question=dp.decision_question,
-                role_uri=dp.grounding.role_uri,
-                role_label=dp.grounding.role_label,
-                obligation_uri=dp.grounding.obligation_uri,
-                obligation_label=dp.grounding.obligation_label,
-                constraint_uri=dp.grounding.constraint_uri,
-                constraint_label=dp.grounding.constraint_label,
-                involved_action_uris=[opt.action_uri for opt in dp.options if opt.action_uri],
-                provision_uris=dp.provision_uris,
-                provision_labels=dp.provision_labels,
-                aligned_question_uri=aligned_q['uri'] if aligned_q else None,
-                aligned_question_text=aligned_q['text'] if aligned_q else None,
-                aligned_conclusion_uri=aligned_c['uri'] if aligned_c else None,
-                aligned_conclusion_text=aligned_c['text'] if aligned_c else None,
-                options=options,
-                intensity_score=dp.intensity_score,
-                qc_alignment_score=1.0 if aligned_q else 0.0,
-                source='algorithmic',
-                algorithmic_focus_id=dp.focus_id
-            )
-            canonical_points.append(canonical)
-
-        return canonical_points
+    # Note: _llm_synthesize, _format_candidates, _format_qc, _format_entities_summary,
+    # _parse_synthesis_response, _convert_algorithmic_to_canonical moved to decision_point_synthesizer.py
 
     def _generate_arguments(
         self,
@@ -2692,150 +2426,7 @@ Produce 3-6 canonical decision points that capture the key ethical issues in thi
             logger.error(f"Argument generation failed: {e}")
             return None
 
-    def _save_canonical_points(
-        self,
-        case_id: int,
-        canonical_points: List[CanonicalDecisionPoint],
-        extraction_session_id: str
-    ) -> int:
-        """Save canonical decision points to temporary_rdf_storage."""
-        case_ns = PROETHICA_CASE_NS.format(case_id=case_id)
-        stored_count = 0
-
-        try:
-            # Clear existing canonical decision points
-            TemporaryRDFStorage.query.filter_by(
-                case_id=case_id,
-                extraction_type='canonical_decision_point',
-                is_published=False
-            ).delete()
-
-            for dp in canonical_points:
-                dp_uri = f"{case_ns}CanonicalDecisionPoint_{dp.focus_id}"
-
-                # Build relationships list
-                relationships = []
-
-                # Role relationship
-                if dp.role_uri:
-                    relationships.append({
-                        "type": "proeth:involvesRole",
-                        "target_uri": dp.role_uri,
-                        "target_label": dp.role_label
-                    })
-
-                # Obligation relationship
-                if dp.obligation_uri:
-                    relationships.append({
-                        "type": "proeth:involvesObligation",
-                        "target_uri": dp.obligation_uri,
-                        "target_label": dp.obligation_label
-                    })
-
-                # Constraint relationship
-                if dp.constraint_uri:
-                    relationships.append({
-                        "type": "proeth:involvesConstraint",
-                        "target_uri": dp.constraint_uri,
-                        "target_label": dp.constraint_label
-                    })
-
-                # Q&C alignment relationships
-                if dp.aligned_question_uri:
-                    relationships.append({
-                        "type": "proeth:alignsWithQuestion",
-                        "target_uri": dp.aligned_question_uri,
-                        "target_label": dp.aligned_question_text[:50] if dp.aligned_question_text else ""
-                    })
-
-                if dp.aligned_conclusion_uri:
-                    relationships.append({
-                        "type": "proeth:alignsWithConclusion",
-                        "target_uri": dp.aligned_conclusion_uri,
-                        "target_label": dp.aligned_conclusion_text[:50] if dp.aligned_conclusion_text else ""
-                    })
-
-                # Provision relationships
-                for prov_uri, prov_label in zip(dp.provision_uris, dp.provision_labels):
-                    relationships.append({
-                        "type": "proeth:appliesProvision",
-                        "target_uri": prov_uri,
-                        "target_label": prov_label
-                    })
-
-                rdf_json_ld = {
-                    "@id": dp_uri,
-                    "@type": [f"{PROETHICA_INT_NS}CanonicalDecisionPoint"],
-                    "label": dp.description,
-                    "focus_id": dp.focus_id,
-                    "focus_number": dp.focus_number,
-                    "decision_question": dp.decision_question,
-                    "role_uri": dp.role_uri,
-                    "role_label": dp.role_label,
-                    "obligation_uri": dp.obligation_uri,
-                    "obligation_label": dp.obligation_label,
-                    "constraint_uri": dp.constraint_uri,
-                    "constraint_label": dp.constraint_label,
-                    "aligned_question_uri": dp.aligned_question_uri,
-                    "aligned_question_text": dp.aligned_question_text,
-                    "aligned_conclusion_uri": dp.aligned_conclusion_uri,
-                    "aligned_conclusion_text": dp.aligned_conclusion_text,
-                    "provision_uris": dp.provision_uris,
-                    "provision_labels": dp.provision_labels,
-                    "involved_action_uris": dp.involved_action_uris,
-                    "options": dp.options,
-                    "intensity_score": dp.intensity_score,
-                    "qc_alignment_score": dp.qc_alignment_score,
-                    "source": dp.source,
-                    "algorithmic_focus_id": dp.algorithmic_focus_id,
-                    "properties": {
-                        "rdfs:label": dp.description,
-                        "proeth:decisionQuestion": dp.decision_question,
-                        "proeth:intensityScore": dp.intensity_score,
-                        "proeth:qcAlignmentScore": dp.qc_alignment_score
-                    },
-                    "relationships": relationships
-                }
-
-                entity = TemporaryRDFStorage(
-                    case_id=case_id,
-                    extraction_session_id=extraction_session_id,
-                    extraction_type='canonical_decision_point',
-                    storage_type='individual',
-                    ontology_target=f'proethica-case-{case_id}',
-                    entity_label=dp.description,
-                    entity_uri=dp_uri,
-                    entity_type='CanonicalDecisionPoint',
-                    entity_definition=dp.decision_question,
-                    rdf_json_ld=rdf_json_ld,
-                    extraction_model='claude-sonnet-4-20250514',
-                    triple_count=len(rdf_json_ld["properties"]) + len(relationships) + 2,
-                    property_count=len(rdf_json_ld["properties"]),
-                    relationship_count=len(relationships),
-                    provenance_metadata={
-                        'extraction_step': 'unified_synthesis',
-                        'focus_id': dp.focus_id,
-                        'source': dp.source,
-                        'algorithmic_focus_id': dp.algorithmic_focus_id,
-                        'qc_aligned': dp.aligned_question_uri is not None
-                    },
-                    is_selected=True,
-                    matched_ontology_uri=f"{PROETHICA_INT_NS}CanonicalDecisionPoint",
-                    matched_ontology_label="Canonical Decision Point",
-                    match_confidence=1.0,
-                    match_method='exact_class'
-                )
-                db.session.add(entity)
-                stored_count += 1
-
-            db.session.commit()
-            logger.info(f"Stored {stored_count} canonical decision points for case {case_id}")
-            return stored_count
-
-        except Exception as e:
-            logger.error(f"Failed to store canonical decision points: {e}")
-            db.session.rollback()
-            return 0
+    # Note: _save_canonical_points moved to decision_point_synthesizer.py
 
     def _save_provenance(self, case_id: int, extraction_session_id: str) -> Optional[int]:
         """Save synthesis provenance."""

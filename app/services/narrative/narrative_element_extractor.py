@@ -1,0 +1,687 @@
+"""
+Narrative Element Extractor (Stage 4.1)
+
+Extracts narrative elements from extracted entities for case storytelling.
+Uses entity URIs to maintain full traceability.
+
+Based on: Berreby et al. (2017) - Action Model and Character Analysis
+
+Components extracted:
+- Characters (from Roles)
+- Setting (from States, Resources)
+- Events (from Actions, Events)
+- Conflicts (from Obligation tensions)
+- Decision Moments (from Phase 3 decision points)
+- Resolution (from Conclusions)
+"""
+
+import logging
+from typing import List, Dict, Optional, Any, Tuple
+from dataclasses import dataclass, field, asdict
+
+from app import db
+from app.models import TemporaryRDFStorage
+from app.utils.llm_utils import get_llm_client
+
+logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# DATA CLASSES
+# =============================================================================
+
+@dataclass
+class NarrativeCharacter:
+    """A character in the case narrative (derived from Roles)."""
+    uri: str
+    label: str
+    role_type: str = ""  # 'protagonist', 'decision-maker', 'stakeholder', 'authority'
+    professional_position: str = ""
+    motivations: List[str] = field(default_factory=list)  # From bound obligations
+    ethical_stance: str = ""  # From associated principles
+    relationships: List[Tuple[str, str]] = field(default_factory=list)  # (relation, target_uri)
+
+    # Entity grounding
+    obligation_uris: List[str] = field(default_factory=list)
+    principle_uris: List[str] = field(default_factory=list)
+
+    def to_dict(self) -> Dict:
+        return {
+            **asdict(self),
+            'relationships': [list(r) for r in self.relationships]
+        }
+
+
+@dataclass
+class NarrativeSetting:
+    """The setting/context of the narrative (from States, Resources)."""
+    description: str
+    professional_context: str = ""  # Engineering domain context
+    temporal_context: str = ""  # When events occur
+
+    # State fluents (from Berreby's Event Calculus)
+    initial_states: List[Dict] = field(default_factory=list)  # {uri, label, fluent_expr}
+    resources_involved: List[Dict] = field(default_factory=list)  # {uri, label}
+
+    def to_dict(self) -> Dict:
+        return asdict(self)
+
+
+@dataclass
+class NarrativeEvent:
+    """An event in the narrative (from Actions, Events)."""
+    uri: str
+    label: str
+    event_type: str  # 'action', 'automatic', 'decision', 'outcome'
+
+    # Berreby Event Calculus attributes
+    agent_uri: Optional[str] = None  # Who performed (for actions)
+    agent_label: Optional[str] = None
+    time_point: int = 0  # Relative temporal ordering
+
+    # Fluent effects (from Berreby)
+    preconditions: List[str] = field(default_factory=list)  # Fluents that must hold
+    initiates: List[str] = field(default_factory=list)  # Fluents initiated
+    terminates: List[str] = field(default_factory=list)  # Fluents terminated
+
+    description: str = ""
+
+    def to_dict(self) -> Dict:
+        return asdict(self)
+
+
+@dataclass
+class NarrativeConflict:
+    """An ethical conflict/tension in the narrative."""
+    conflict_id: str
+    description: str
+    conflict_type: str  # 'obligation_vs_obligation', 'obligation_vs_constraint', 'role_conflict'
+
+    # Entities in tension
+    entity1_uri: str
+    entity1_label: str
+    entity1_type: str  # 'obligation', 'constraint', 'role'
+
+    entity2_uri: str
+    entity2_label: str
+    entity2_type: str
+
+    # Affected parties
+    affected_role_uris: List[str] = field(default_factory=list)
+
+    # Resolution (if known)
+    resolution_type: Optional[str] = None  # 'prioritized', 'balanced', 'unresolved'
+    resolution_rationale: str = ""
+
+    def to_dict(self) -> Dict:
+        return asdict(self)
+
+
+@dataclass
+class DecisionMoment:
+    """A decision point as a narrative moment."""
+    uri: str
+    decision_id: str
+    question: str
+    description: str
+
+    # The decision-maker
+    decision_maker_uri: str
+    decision_maker_label: str
+
+    # Available options
+    options: List[Dict] = field(default_factory=list)  # {label, action_uris, consequences}
+
+    # What's at stake
+    competing_obligations: List[str] = field(default_factory=list)
+    board_choice: Optional[str] = None
+
+    def to_dict(self) -> Dict:
+        return asdict(self)
+
+
+@dataclass
+class NarrativeResolution:
+    """How the case was resolved."""
+    resolution_type: str  # 'transfer', 'stalemate', 'oscillation', 'phase_lag'
+    summary: str
+
+    # Board conclusions
+    conclusions: List[Dict] = field(default_factory=list)  # {uri, label, text}
+
+    # Key determinations
+    key_findings: List[str] = field(default_factory=list)
+    ethical_principles_applied: List[str] = field(default_factory=list)
+
+    def to_dict(self) -> Dict:
+        return asdict(self)
+
+
+@dataclass
+class NarrativeElements:
+    """Complete set of narrative elements extracted from a case."""
+    case_id: int
+
+    # Core narrative components
+    characters: List[NarrativeCharacter] = field(default_factory=list)
+    setting: Optional[NarrativeSetting] = None
+    events: List[NarrativeEvent] = field(default_factory=list)
+    conflicts: List[NarrativeConflict] = field(default_factory=list)
+    decision_moments: List[DecisionMoment] = field(default_factory=list)
+    resolution: Optional[NarrativeResolution] = None
+
+    # Summary statistics
+    extraction_metadata: Dict = field(default_factory=dict)
+
+    def to_dict(self) -> Dict:
+        return {
+            'case_id': self.case_id,
+            'characters': [c.to_dict() for c in self.characters],
+            'setting': self.setting.to_dict() if self.setting else None,
+            'events': [e.to_dict() for e in self.events],
+            'conflicts': [c.to_dict() for c in self.conflicts],
+            'decision_moments': [d.to_dict() for d in self.decision_moments],
+            'resolution': self.resolution.to_dict() if self.resolution else None,
+            'extraction_metadata': self.extraction_metadata
+        }
+
+    def summary(self) -> Dict:
+        """Summary counts for display."""
+        return {
+            'characters': len(self.characters),
+            'events': len(self.events),
+            'conflicts': len(self.conflicts),
+            'decision_moments': len(self.decision_moments),
+            'has_setting': self.setting is not None,
+            'has_resolution': self.resolution is not None
+        }
+
+
+# =============================================================================
+# NARRATIVE ELEMENT EXTRACTOR SERVICE
+# =============================================================================
+
+class NarrativeElementExtractor:
+    """
+    Extracts narrative elements from Pass 1-3 entities and Phase 3 decision points.
+
+    Produces entity-grounded narrative components that maintain full traceability
+    to source entities via URIs.
+    """
+
+    def __init__(self, use_llm: bool = True):
+        self.use_llm = use_llm
+        self.llm_client = get_llm_client() if use_llm else None
+
+    def extract(
+        self,
+        case_id: int,
+        foundation: Any,  # EntityFoundation from case_synthesizer
+        canonical_points: List[Any] = None,  # CanonicalDecisionPoint list
+        conclusions: List[Dict] = None,
+        transformation_type: str = None
+    ) -> NarrativeElements:
+        """
+        Extract narrative elements from case entities.
+
+        Args:
+            case_id: Case ID
+            foundation: EntityFoundation with all Pass 1-3 entities
+            canonical_points: Decision points from Phase 3
+            conclusions: Board conclusions
+            transformation_type: Case transformation type
+
+        Returns:
+            NarrativeElements with full entity grounding
+        """
+        canonical_points = canonical_points or []
+        conclusions = conclusions or []
+
+        # Extract each component
+        characters = self._extract_characters(foundation)
+        setting = self._extract_setting(foundation)
+        events = self._extract_events(foundation)
+        conflicts = self._extract_conflicts(foundation, canonical_points)
+        decision_moments = self._extract_decision_moments(canonical_points)
+        resolution = self._extract_resolution(conclusions, transformation_type)
+
+        # Enhance with LLM if enabled
+        if self.use_llm and self.llm_client:
+            characters = self._enhance_characters_with_llm(
+                characters, foundation, case_id
+            )
+
+        return NarrativeElements(
+            case_id=case_id,
+            characters=characters,
+            setting=setting,
+            events=events,
+            conflicts=conflicts,
+            decision_moments=decision_moments,
+            resolution=resolution,
+            extraction_metadata={
+                'source_entities': foundation.summary() if hasattr(foundation, 'summary') else {},
+                'decision_points_count': len(canonical_points),
+                'conclusions_count': len(conclusions),
+                'transformation_type': transformation_type,
+                'llm_enhanced': self.use_llm
+            }
+        )
+
+    def _extract_characters(self, foundation) -> List[NarrativeCharacter]:
+        """Extract characters from Roles with their bound obligations and principles."""
+        characters = []
+
+        # Build role -> obligation bindings
+        obligation_map = self._build_obligation_map(foundation)
+        principle_map = self._build_principle_map(foundation)
+
+        for role in foundation.roles:
+            # Determine role type based on position in case
+            role_type = self._classify_role_type(role.label)
+
+            # Get bound obligations as motivations
+            motivations = []
+            obligation_uris = obligation_map.get(role.uri, [])
+            for obl in foundation.obligations:
+                if obl.uri in obligation_uris:
+                    motivations.append(obl.label)
+
+            # Get associated principles
+            principle_uris = principle_map.get(role.uri, [])
+            ethical_stance = ""
+            if principle_uris and foundation.principles:
+                relevant_principles = [p.label for p in foundation.principles
+                                      if p.uri in principle_uris]
+                if relevant_principles:
+                    ethical_stance = f"Guided by: {', '.join(relevant_principles[:3])}"
+
+            characters.append(NarrativeCharacter(
+                uri=role.uri,
+                label=role.label,
+                role_type=role_type,
+                professional_position=role.definition or "",
+                motivations=motivations[:5],
+                ethical_stance=ethical_stance,
+                relationships=[],  # To be enriched
+                obligation_uris=obligation_uris[:5],
+                principle_uris=principle_uris[:3]
+            ))
+
+        return characters
+
+    def _classify_role_type(self, role_label: str) -> str:
+        """Classify a role into narrative role type."""
+        label_lower = role_label.lower()
+
+        # Check for protagonist markers
+        if any(term in label_lower for term in ['engineer a', 'primary', 'main']):
+            return 'protagonist'
+
+        # Check for decision-maker markers
+        if any(term in label_lower for term in ['manager', 'director', 'supervisor', 'boss']):
+            return 'decision-maker'
+
+        # Check for authority markers
+        if any(term in label_lower for term in ['board', 'commission', 'committee', 'authority']):
+            return 'authority'
+
+        # Default to stakeholder
+        return 'stakeholder'
+
+    def _build_obligation_map(self, foundation) -> Dict[str, List[str]]:
+        """Build mapping of role URIs to their bound obligation URIs."""
+        obligation_map = {}
+
+        # Use role_obligation_bindings if available
+        if hasattr(foundation, 'role_obligation_bindings') and foundation.role_obligation_bindings:
+            for binding in foundation.role_obligation_bindings:
+                role_uri = binding.get('role_uri', '')
+                obl_uri = binding.get('obligation_uri', '')
+                if role_uri and obl_uri:
+                    if role_uri not in obligation_map:
+                        obligation_map[role_uri] = []
+                    obligation_map[role_uri].append(obl_uri)
+
+        return obligation_map
+
+    def _build_principle_map(self, foundation) -> Dict[str, List[str]]:
+        """Build mapping of role URIs to associated principle URIs."""
+        # For now, associate all principles with protagonist role
+        principle_map = {}
+        if foundation.roles and foundation.principles:
+            protagonist_uri = foundation.roles[0].uri
+            principle_map[protagonist_uri] = [p.uri for p in foundation.principles[:5]]
+        return principle_map
+
+    def _extract_setting(self, foundation) -> NarrativeSetting:
+        """Extract setting from States and Resources."""
+        # Build initial states as fluents
+        initial_states = []
+        for state in foundation.states[:10]:
+            fluent_expr = f"holds(case, {state.label.replace(' ', '_')}, 0)"
+            initial_states.append({
+                'uri': state.uri,
+                'label': state.label,
+                'fluent_expr': fluent_expr,
+                'definition': state.definition or ''
+            })
+
+        # Extract resources
+        resources = [
+            {'uri': r.uri, 'label': r.label}
+            for r in foundation.resources[:5]
+        ]
+
+        # Build setting description
+        state_summary = ', '.join([s.label for s in foundation.states[:3]]) if foundation.states else 'professional context'
+        description = f"Case unfolds in a setting characterized by: {state_summary}"
+
+        return NarrativeSetting(
+            description=description,
+            professional_context="Professional engineering practice",
+            temporal_context="During professional engagement",
+            initial_states=initial_states,
+            resources_involved=resources
+        )
+
+    def _extract_events(self, foundation) -> List[NarrativeEvent]:
+        """Extract events from Actions and Events with Event Calculus attributes."""
+        narrative_events = []
+        time_point = 1
+
+        # First, add actions
+        for action in foundation.actions:
+            # Parse agent from action if available
+            agent_uri = None
+            agent_label = None
+
+            # Try to extract agent from RDF or definition
+            if hasattr(action, 'entity_type') and action.entity_type:
+                # Check if we have agent info
+                pass
+
+            narrative_events.append(NarrativeEvent(
+                uri=action.uri,
+                label=action.label,
+                event_type='action',
+                agent_uri=agent_uri,
+                agent_label=agent_label,
+                time_point=time_point,
+                preconditions=[],  # To be enriched from causal analysis
+                initiates=[],
+                terminates=[],
+                description=action.definition or action.label
+            ))
+            time_point += 1
+
+        # Then add events (automatic occurrences)
+        for event in foundation.events:
+            narrative_events.append(NarrativeEvent(
+                uri=event.uri,
+                label=event.label,
+                event_type='automatic',
+                time_point=time_point,
+                description=event.definition or event.label
+            ))
+            time_point += 1
+
+        return narrative_events
+
+    def _extract_conflicts(
+        self,
+        foundation,
+        canonical_points: List
+    ) -> List[NarrativeConflict]:
+        """Extract ethical conflicts from obligation tensions."""
+        conflicts = []
+        conflict_id = 1
+
+        # Extract conflicts from canonical decision points
+        for dp in canonical_points:
+            if hasattr(dp, 'obligation_label') and hasattr(dp, 'constraint_label'):
+                if dp.obligation_label and dp.constraint_label:
+                    conflicts.append(NarrativeConflict(
+                        conflict_id=f"conflict_{conflict_id}",
+                        description=f"Tension between {dp.obligation_label} and {dp.constraint_label}",
+                        conflict_type='obligation_vs_constraint',
+                        entity1_uri=getattr(dp, 'obligation_uri', '') or '',
+                        entity1_label=dp.obligation_label,
+                        entity1_type='obligation',
+                        entity2_uri=getattr(dp, 'constraint_uri', '') or '',
+                        entity2_label=dp.constraint_label,
+                        entity2_type='constraint',
+                        affected_role_uris=[getattr(dp, 'role_uri', '')] if hasattr(dp, 'role_uri') else []
+                    ))
+                    conflict_id += 1
+
+        # Look for obligation-obligation conflicts in the foundation
+        obligations = foundation.obligations
+        if len(obligations) >= 2:
+            # Check for potentially conflicting obligations
+            for i, obl1 in enumerate(obligations[:-1]):
+                for obl2 in obligations[i+1:]:
+                    # Simple heuristic: obligations with opposite-sounding terms
+                    if self._potentially_conflicting(obl1.label, obl2.label):
+                        conflicts.append(NarrativeConflict(
+                            conflict_id=f"conflict_{conflict_id}",
+                            description=f"Potential tension between {obl1.label} and {obl2.label}",
+                            conflict_type='obligation_vs_obligation',
+                            entity1_uri=obl1.uri,
+                            entity1_label=obl1.label,
+                            entity1_type='obligation',
+                            entity2_uri=obl2.uri,
+                            entity2_label=obl2.label,
+                            entity2_type='obligation'
+                        ))
+                        conflict_id += 1
+                        if conflict_id > 5:  # Limit conflicts
+                            break
+                if conflict_id > 5:
+                    break
+
+        return conflicts
+
+    def _potentially_conflicting(self, label1: str, label2: str) -> bool:
+        """Heuristic check for potentially conflicting obligations."""
+        # Simple keyword-based conflict detection
+        conflict_pairs = [
+            ('confidential', 'disclose'),
+            ('loyalty', 'public'),
+            ('employer', 'client'),
+            ('protect', 'inform'),
+            ('private', 'safety')
+        ]
+
+        l1_lower = label1.lower()
+        l2_lower = label2.lower()
+
+        for term1, term2 in conflict_pairs:
+            if (term1 in l1_lower and term2 in l2_lower) or \
+               (term2 in l1_lower and term1 in l2_lower):
+                return True
+
+        return False
+
+    def _extract_decision_moments(
+        self,
+        canonical_points: List
+    ) -> List[DecisionMoment]:
+        """Convert canonical decision points to narrative decision moments."""
+        moments = []
+
+        for i, dp in enumerate(canonical_points, 1):
+            # Extract options
+            options = []
+            if hasattr(dp, 'options') and dp.options:
+                for opt in dp.options:
+                    options.append({
+                        'label': opt.get('label', ''),
+                        'action_uris': opt.get('action_uris', []),
+                        'is_board_choice': opt.get('is_board_choice', False)
+                    })
+
+            # Find board's choice
+            board_choice = None
+            for opt in options:
+                if opt.get('is_board_choice'):
+                    board_choice = opt['label']
+                    break
+
+            moments.append(DecisionMoment(
+                uri=getattr(dp, 'uri', f"decision_{i}"),
+                decision_id=getattr(dp, 'focus_id', f"DP{i}"),
+                question=getattr(dp, 'decision_question', ''),
+                description=getattr(dp, 'description', ''),
+                decision_maker_uri=getattr(dp, 'role_uri', ''),
+                decision_maker_label=getattr(dp, 'role_label', ''),
+                options=options,
+                competing_obligations=[
+                    getattr(dp, 'obligation_label', ''),
+                    getattr(dp, 'constraint_label', '')
+                ],
+                board_choice=board_choice
+            ))
+
+        return moments
+
+    def _extract_resolution(
+        self,
+        conclusions: List[Dict],
+        transformation_type: str = None
+    ) -> NarrativeResolution:
+        """Extract resolution from conclusions and transformation type."""
+        # Build conclusions list
+        conclusion_data = []
+        key_findings = []
+
+        for c in conclusions:
+            conclusion_data.append({
+                'uri': c.get('uri', ''),
+                'label': c.get('label', ''),
+                'text': c.get('text', c.get('definition', ''))[:300]
+            })
+            key_findings.append(c.get('label', '')[:100])
+
+        # Generate summary
+        if conclusions:
+            summary = conclusions[0].get('text', conclusions[0].get('label', 'Board provided guidance'))[:200]
+        else:
+            summary = "Case resolution pending analysis"
+
+        return NarrativeResolution(
+            resolution_type=transformation_type or 'unknown',
+            summary=summary,
+            conclusions=conclusion_data,
+            key_findings=key_findings[:5],
+            ethical_principles_applied=[]  # To be enriched
+        )
+
+    def _enhance_characters_with_llm(
+        self,
+        characters: List[NarrativeCharacter],
+        foundation,
+        case_id: int
+    ) -> List[NarrativeCharacter]:
+        """Use LLM to enhance character descriptions."""
+        if not characters or not self.llm_client:
+            return characters
+
+        # Build context for LLM
+        character_list = "\n".join([
+            f"- {c.label}: {c.professional_position or 'Role'}"
+            for c in characters[:5]
+        ])
+
+        obligations_list = "\n".join([
+            f"- {o.label}"
+            for o in foundation.obligations[:5]
+        ])
+
+        prompt = f"""Analyze these roles from an NSPE ethics case and provide brief character insights.
+
+ROLES:
+{character_list}
+
+OBLIGATIONS IN THE CASE:
+{obligations_list}
+
+For each role, provide a 1-sentence professional description and likely motivation.
+Output as JSON array:
+```json
+[
+  {{"role": "Role label", "description": "...", "motivation": "..."}}
+]
+```"""
+
+        try:
+            response = self.llm_client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=500,
+                temperature=0.3,
+                messages=[{"role": "user", "content": prompt}]
+            )
+
+            import json
+            import re
+
+            response_text = response.content[0].text
+            json_match = re.search(r'```json\n(.*?)\n```', response_text, re.DOTALL)
+
+            if json_match:
+                enhancements = json.loads(json_match.group(1))
+
+                # Apply enhancements
+                for enhancement in enhancements:
+                    role_label = enhancement.get('role', '')
+                    for char in characters:
+                        if char.label.lower() == role_label.lower() or \
+                           role_label.lower() in char.label.lower():
+                            if enhancement.get('description'):
+                                char.professional_position = enhancement['description']
+                            if enhancement.get('motivation'):
+                                char.motivations.insert(0, enhancement['motivation'])
+                            break
+
+            logger.info(f"Enhanced {len(characters)} characters with LLM")
+
+        except Exception as e:
+            logger.warning(f"LLM character enhancement failed: {e}")
+
+        return characters
+
+
+# =============================================================================
+# CONVENIENCE FUNCTION
+# =============================================================================
+
+def extract_narrative_elements(
+    case_id: int,
+    foundation,
+    canonical_points: List = None,
+    conclusions: List[Dict] = None,
+    transformation_type: str = None,
+    use_llm: bool = True
+) -> NarrativeElements:
+    """
+    Convenience function to extract narrative elements.
+
+    Args:
+        case_id: Case ID
+        foundation: EntityFoundation from case_synthesizer
+        canonical_points: Decision points from Phase 3
+        conclusions: Board conclusions
+        transformation_type: Case transformation type
+        use_llm: Whether to use LLM for enhancement
+
+    Returns:
+        NarrativeElements with full entity grounding
+    """
+    extractor = NarrativeElementExtractor(use_llm=use_llm)
+    return extractor.extract(
+        case_id=case_id,
+        foundation=foundation,
+        canonical_points=canonical_points,
+        conclusions=conclusions,
+        transformation_type=transformation_type
+    )
