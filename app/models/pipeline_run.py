@@ -21,7 +21,8 @@ PIPELINE_STATUS = {
     'STEP3': 'step3',
     'STEP4': 'step4',
     'STEP5': 'step5',
-    'COMPLETED': 'completed',
+    'EXTRACTED': 'extracted',  # Steps 1-3 complete, no commit/synthesis
+    'COMPLETED': 'completed',  # Full pipeline including commit and/or step4
     'FAILED': 'failed',
     'PAUSED': 'paused'
 }

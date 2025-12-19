@@ -679,12 +679,17 @@ def run_full_pipeline_task(self, case_id: int, config: dict = None, user_id: int
             logger.info(f"[Task {self.request.id}] Running Step 4 (Case Synthesis)...")
             run_step4_task.apply(args=[run_id])
 
-        # Mark as completed
+        # Mark as completed or extracted based on what was run
         run = PipelineRun.query.get(run_id)
-        run.set_status(PIPELINE_STATUS['COMPLETED'])
+        if commit_to_ontserve or include_step4:
+            # Full pipeline - mark as completed
+            run.set_status(PIPELINE_STATUS['COMPLETED'])
+            logger.info(f"[Task {self.request.id}] Full pipeline completed for case {case_id}")
+        else:
+            # Only extraction (steps 1-3) - mark as extracted
+            run.set_status(PIPELINE_STATUS['EXTRACTED'])
+            logger.info(f"[Task {self.request.id}] Extraction completed for case {case_id} (no commit/synthesis)")
         db.session.commit()
-
-        logger.info(f"[Task {self.request.id}] Full pipeline completed for case {case_id}")
 
         return {
             'success': True,
@@ -991,7 +996,12 @@ def process_queue_task(self, limit: int = 10):
         try:
             # Start pipeline for this case with config from queue item
             config = item.config or {}
-            result = run_full_pipeline_task.apply(args=[item.case_id], kwargs={'config': config})
+            eager_result = run_full_pipeline_task.apply(args=[item.case_id], kwargs={'config': config})
+
+            # Extract the actual result dict from EagerResult
+            # Note: Don't call eager_result.get() - that triggers Celery's
+            # "Never call result.get() within a task!" error
+            result = eager_result.result
 
             # Update queue status
             item.status = 'completed' if result.get('success') else 'failed'

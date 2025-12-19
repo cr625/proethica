@@ -196,7 +196,8 @@
                                 <th>Run ID</th>
                                 <th>Case</th>
                                 <th>Status</th>
-                                <th>Steps Completed</th>
+                                <th>Steps</th>
+                                <th>Committed</th>
                                 <th>Started</th>
                                 <th>Duration</th>
                                 <th>Actions</th>
@@ -214,15 +215,28 @@
                                 <td>
                                     {% if run.status == 'completed' %}
                                     <span class="badge bg-success">{{ run.status }}</span>
+                                    {% elif run.status == 'extracted' %}
+                                    <span class="badge bg-warning text-dark">extracted</span>
+                                    {% elif run.status == 'partial' %}
+                                    <span class="badge bg-warning text-dark">partial</span>
                                     {% elif run.status == 'failed' %}
                                     <span class="badge bg-danger">{{ run.status }}</span>
                                     {% elif run.status == 'pending' %}
                                     <span class="badge bg-secondary">{{ run.status }}</span>
                                     {% else %}
-                                    <span class="badge bg-warning">{{ run.status }}</span>
+                                    <span class="badge bg-info">{{ run.status }}</span>
                                     {% endif %}
                                 </td>
                                 <td>{{ (run.steps_completed or [])|length }}</td>
+                                <td>
+                                    {% if 'commit' in (run.steps_completed or []) %}
+                                    <span class="badge bg-success">Yes</span>
+                                    {% elif run.config and run.config.get('commit_to_ontserve') == false %}
+                                    <span class="badge bg-secondary">Skipped</span>
+                                    {% else %}
+                                    <span class="badge bg-light text-dark">No</span>
+                                    {% endif %}
+                                </td>
                                 <td>{{ run.started_at.strftime('%Y-%m-%d %H:%M') if run.started_at else '-' }}</td>
                                 <td>{{ "%.1f"|format(run.duration_seconds) }}s</td>
                                 <td>
@@ -234,7 +248,15 @@
                                         Resume
                                     </button>
                                     {% endif %}
-                                    {% if run.status in ['completed', 'failed', 'cancelled', 'superseded'] %}
+                                    {% if run.status in ['extracted', 'partial'] %}
+                                    <button class="btn btn-sm btn-primary synthesize-btn"
+                                            data-case-id="{{ run.case_id }}"
+                                            data-run-id="{{ run.id }}"
+                                            title="Commit to OntServe and run Step 4 Case Synthesis">
+                                        Synthesize
+                                    </button>
+                                    {% endif %}
+                                    {% if run.status in ['completed', 'extracted', 'partial', 'failed', 'cancelled', 'superseded'] %}
                                     <button class="btn btn-sm btn-outline-primary reprocess-btn"
                                             data-case-id="{{ run.case_id }}"
                                             data-run-status="{{ run.status }}"
@@ -249,7 +271,7 @@
                             </tr>
                             {% if run.error_message %}
                             <tr class="table-danger">
-                                <td colspan="7">
+                                <td colspan="8">
                                     <small><strong>Error ({{ run.error_step or 'unknown step' }}):</strong> {{ run.error_message[:200] }}...</small>
                                 </td>
                             </tr>
@@ -512,6 +534,64 @@ document.addEventListener('DOMContentLoaded', function() {
                 alert('Error: ' + e.message);
                 this.disabled = false;
                 this.textContent = 'Reprocess';
+            }
+        });
+    });
+
+    // Synthesize button (for extracted/partial runs - commits to OntServe and runs Step 4)
+    document.querySelectorAll('.synthesize-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const caseId = this.dataset.caseId;
+            const runId = this.dataset.runId;
+
+            const msg = `Synthesize Case ${caseId}?\n\n` +
+                        `This will:\n` +
+                        `1. Commit extracted entities to OntServe\n` +
+                        `2. Run Step 4 (Case Synthesis)\n\n` +
+                        `Steps 1-3 (extraction) are already complete.`;
+
+            if (!confirm(msg)) return;
+
+            this.disabled = true;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+            try {
+                // Add to queue with commit and step4 enabled, then start
+                const addResponse = await fetch('/pipeline/api/queue', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        case_id: parseInt(caseId),
+                        config: {commit_to_ontserve: true, include_step4: true}
+                    })
+                });
+                const addData = await addResponse.json();
+
+                if (addData.added && addData.added.length > 0) {
+                    // Start processing
+                    const startResponse = await fetch('/pipeline/api/queue/start', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({limit: 1})
+                    });
+                    const startData = await startResponse.json();
+                    if (startData.success) {
+                        alert(`Synthesizing Case ${caseId}...`);
+                        location.reload();
+                    } else {
+                        alert('Error starting: ' + (startData.error || 'Unknown'));
+                        this.disabled = false;
+                        this.textContent = 'Synthesize';
+                    }
+                } else {
+                    alert('Could not add to queue: ' + JSON.stringify(addData.skipped || addData));
+                    this.disabled = false;
+                    this.textContent = 'Synthesize';
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+                this.disabled = false;
+                this.textContent = 'Synthesize';
             }
         });
     });
