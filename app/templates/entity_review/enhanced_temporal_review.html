@@ -39,16 +39,16 @@
                 <p class="mb-0 lead">Review extracted temporal entities with OWL-Time integration and Allen algebra</p>
             </div>
             <div class="col-md-4 text-md-end">
+                <a href="{{ url_for('scenario_pipeline.overview', case_id=case.id) }}" class="btn btn-light me-2">
+                    <i class="bi bi-arrow-left"></i> Overview
+                </a>
                 <a href="{{ url_for('entity_review.extraction_history', case_id=case.id, step_number=3) }}"
                    class="btn btn-outline-light me-2" title="View extraction history">
                     <i class="bi bi-clock-history"></i> History
                 </a>
                 <a href="{{ url_for('scenario_pipeline.step3', case_id=case.id) }}"
-                   class="btn btn-outline-light me-2" title="Re-run extraction">
+                   class="btn btn-outline-light" title="Re-run extraction">
                     <i class="bi bi-arrow-repeat"></i> Re-run
-                </a>
-                <a href="{{ url_for('scenario_pipeline.step3', case_id=case.id) }}" class="btn btn-light">
-                    <i class="bi bi-arrow-left"></i> Back to Step 3
                 </a>
             </div>
         </div>

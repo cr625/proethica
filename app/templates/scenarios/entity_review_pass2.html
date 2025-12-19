@@ -196,47 +196,59 @@
             <!-- Top Menu Bar -->
             <div class="bg-light border rounded p-3 mb-4">
                 <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        {% if section_type == 'discussion' %}
-                            <a href="{{ url_for('scenario_pipeline.step2b', case_id=case.id) }}" class="btn btn-sm btn-secondary">
-                                <i class="bi bi-arrow-left"></i> Back to Step 2b (Discussion)
+                    <div class="d-flex gap-2 align-items-center">
+                        <!-- Back to Overview -->
+                        <a href="{{ url_for('scenario_pipeline.overview', case_id=case.id) }}" class="btn btn-sm btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Overview
+                        </a>
+
+                        <!-- Facts/Discussion Toggle (for facts and discussion sections only) -->
+                        {% if section_type in ['facts', 'discussion', none] %}
+                        <div class="btn-group" role="group" aria-label="Section toggle">
+                            {# Smart URLs: complete -> review, incomplete -> extraction #}
+                            {% set facts_complete = pipeline_status.step2.facts_complete if pipeline_status else false %}
+                            {% set discussion_complete = pipeline_status.step2.discussion_complete if pipeline_status else false %}
+                            {% set facts_url = url_for('entity_review.review_case_entities_pass2', case_id=case.id, section_type='facts') if facts_complete else url_for('scenario_pipeline.step2', case_id=case.id) %}
+                            {% set discussion_url = url_for('entity_review.review_case_entities_pass2', case_id=case.id, section_type='discussion') if discussion_complete else url_for('scenario_pipeline.step2b', case_id=case.id) %}
+
+                            <a href="{{ facts_url }}"
+                               class="btn btn-sm {% if section_type == 'facts' or section_type == none %}btn-success{% else %}btn-outline-success{% endif %}">
+                                Facts
+                                {% if facts_complete %}<i class="bi bi-check-sm"></i>{% endif %}
                             </a>
-                        {% elif section_type == 'questions' %}
-                            <a href="{{ url_for('scenario_pipeline.step2c', case_id=case.id) }}" class="btn btn-sm btn-secondary">
-                                <i class="bi bi-arrow-left"></i> Back to Step 2c (Questions)
+                            {% if facts_complete %}
+                            <a href="{{ discussion_url }}"
+                               class="btn btn-sm {% if section_type == 'discussion' %}btn-success{% else %}btn-outline-success{% endif %}">
+                                Discussion
+                                {% if discussion_complete %}<i class="bi bi-check-sm"></i>{% endif %}
                             </a>
-                        {% elif section_type == 'conclusions' %}
-                            <a href="{{ url_for('scenario_pipeline.step2d', case_id=case.id) }}" class="btn btn-sm btn-secondary">
-                                <i class="bi bi-arrow-left"></i> Back to Step 2d (Conclusions)
-                            </a>
-                        {% elif section_type == 'references' %}
-                            <a href="{{ url_for('scenario_pipeline.step2e', case_id=case.id) }}" class="btn btn-sm btn-secondary">
-                                <i class="bi bi-arrow-left"></i> Back to Step 2e (References)
-                            </a>
-                        {% else %}
-                            <a href="{{ url_for('scenario_pipeline.step2', case_id=case.id) }}" class="btn btn-sm btn-secondary">
-                                <i class="bi bi-arrow-left"></i> Back to Step 2 (Facts)
-                            </a>
+                            {% else %}
+                            <span class="btn btn-sm btn-outline-secondary disabled" title="Complete Facts first">
+                                Discussion <i class="bi bi-lock-fill"></i>
+                            </span>
+                            {% endif %}
+                        </div>
                         {% endif %}
                     </div>
                     <div class="d-flex gap-2 align-items-center">
-                        <!-- History and Re-run buttons -->
+                        <!-- History button -->
                         <a href="{{ url_for('entity_review.extraction_history', case_id=case.id, step_number=2, section_type=section_type) }}"
                            class="btn btn-sm btn-outline-info" title="View extraction history">
                             <i class="bi bi-clock-history"></i> History
                         </a>
+                        <!-- Re-run button (goes to extraction page) -->
                         {% if section_type == 'discussion' %}
                         <a href="{{ url_for('scenario_pipeline.step2b', case_id=case.id) }}"
-                           class="btn btn-sm btn-outline-primary" title="Re-run extraction">
+                           class="btn btn-sm btn-outline-success" title="Re-run extraction">
                             <i class="bi bi-arrow-repeat"></i> Re-run
                         </a>
                         {% else %}
                         <a href="{{ url_for('scenario_pipeline.step2', case_id=case.id) }}"
-                           class="btn btn-sm btn-outline-primary" title="Re-run extraction">
+                           class="btn btn-sm btn-outline-success" title="Re-run extraction">
                             <i class="bi bi-arrow-repeat"></i> Re-run
                         </a>
                         {% endif %}
-                        <!-- Draft/Publish workflow: Publishing moved to Step 4 Review -->
+                        <!-- Draft status -->
                         <span class="badge bg-info" title="Entities will be published to OntServe from Step 4 Review">
                             <i class="bi bi-info-circle"></i> Draft - Publish at Step 4
                         </span>

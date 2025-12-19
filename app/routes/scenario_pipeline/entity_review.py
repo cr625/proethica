@@ -478,6 +478,10 @@ def review_case_entities(case_id, section_type='facts'):
         except Exception as e:
             logger.warning(f"Could not fetch OntServe classes: {e}")
 
+        # Get pipeline status for navigation
+        from app.services.pipeline_status_service import PipelineStatusService
+        pipeline_status = PipelineStatusService.get_step_status(case_id)
+
         return render_template(
             'scenarios/entity_review.html',
             case=case_doc,
@@ -488,7 +492,8 @@ def review_case_entities(case_id, section_type='facts'):
             section_type=section_type,  # Pass section_type to template
             section_label=section_type.replace('_', ' ').title(),  # 'facts' -> 'Facts', 'discussion' -> 'Discussion'
             question_conclusion_links=question_conclusion_links,  # Pass Q→C links for Conclusions section
-            ontserve_classes=ontserve_classes  # Pass OntServe classes for reference
+            ontserve_classes=ontserve_classes,  # Pass OntServe classes for reference
+            pipeline_status=pipeline_status  # For navigation toggle
         )
 
     except Exception as e:
@@ -638,6 +643,10 @@ def review_case_entities_pass2(case_id, section_type=None):
         except Exception as e:
             logger.warning(f"Could not fetch OntServe Pass 2 classes: {e}")
 
+        # Get pipeline status for navigation
+        from app.services.pipeline_status_service import PipelineStatusService
+        pipeline_status = PipelineStatusService.get_step_status(case_id)
+
         # Return the entity review page for Pass 2
         return render_template('scenarios/entity_review_pass2.html',
                              case=case_doc,
@@ -648,7 +657,8 @@ def review_case_entities_pass2(case_id, section_type=None):
                              pass_name="Normative Requirements",
                              section_type=section_type,
                              section_display=section_display,
-                             ontserve_classes=ontserve_classes)
+                             ontserve_classes=ontserve_classes,
+                             pipeline_status=pipeline_status)
 
     except Exception as e:
         logger.error(f"Error displaying Pass 2 entity review for case {case_id}: {e}")
