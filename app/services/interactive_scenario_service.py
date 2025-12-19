@@ -184,6 +184,27 @@ class InteractiveScenarioService:
 
         chosen_option = options[chosen_option_index]
 
+        # Check if choice already exists (e.g., page refresh)
+        existing_choice = ScenarioExplorationChoice.query.filter_by(
+            session_id=session.id,
+            decision_point_index=session.current_decision_index
+        ).first()
+
+        if existing_choice:
+            # Choice already recorded - return existing data and move to next
+            logger.info(f"Choice already exists for session {session.id} decision {session.current_decision_index}")
+            is_complete = (session.current_decision_index + 1) >= len(decision_points)
+            return {
+                'choice_recorded': True,
+                'consequences_narrative': existing_choice.consequences_narrative or '',
+                'matched_board': existing_choice.matches_board_choice,
+                'board_choice': existing_choice.board_choice_label,
+                'is_complete': is_complete,
+                'next_decision_index': session.current_decision_index + 1 if not is_complete else None,
+                'active_fluents': session.active_fluents,
+                'already_existed': True
+            }
+
         # Find board's actual choice
         board_choice_index = None
         board_choice_label = None
@@ -303,13 +324,13 @@ Respond in JSON format:
 
         try:
             client = self._get_llm_client()
-            response = client.chat.completions.create(
+            response = client.messages.create(
                 model="claude-sonnet-4-20250514",
                 max_tokens=500,
                 messages=[{"role": "user", "content": prompt}]
             )
 
-            response_text = response.choices[0].message.content
+            response_text = response.content[0].text
 
             # Parse JSON from response
             import re
@@ -412,12 +433,12 @@ Be constructive and educational. Neither path is inherently "wrong" - explore th
 
         try:
             client = self._get_llm_client()
-            response = client.chat.completions.create(
+            response = client.messages.create(
                 model="claude-sonnet-4-20250514",
                 max_tokens=800,
                 messages=[{"role": "user", "content": prompt}]
             )
-            return response.choices[0].message.content
+            return response.content[0].text
         except Exception as e:
             logger.error(f"Error generating analysis narrative: {e}")
             return f"Your choices aligned with the board {sum(1 for c in choices_summary if c['matched'])} out of {len(choices_summary)} times."

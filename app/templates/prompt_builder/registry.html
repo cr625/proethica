@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+
+{% block title %}Prompt Registry - Phase Inventory{% endblock %}
+
+{% block head %}
+<style>
+    .phase-card {
+        transition: transform 0.2s ease-in-out;
+        border-left: 4px solid #007bff;
+        margin-bottom: 1.5rem;
+    }
+    .phase-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    .phase-card.pass1 { border-left-color: #28a745; }
+    .phase-card.pass2 { border-left-color: #fd7e14; }
+    .phase-card.pass3 { border-left-color: #dc3545; }
+    .phase-card.step4 { border-left-color: #6f42c1; }
+    .phase-card.step5 { border-left-color: #17a2b8; }
+
+    .prompt-row {
+        border-bottom: 1px solid #eee;
+        padding: 0.75rem 0;
+    }
+    .prompt-row:last-child {
+        border-bottom: none;
+    }
+
+    .concept-badge {
+        font-size: 0.75em;
+        text-transform: uppercase;
+    }
+
+    .source-link {
+        font-family: monospace;
+        font-size: 0.85em;
+        color: #6c757d;
+    }
+    .source-link:hover {
+        color: #007bff;
+    }
+
+    .reference-tag {
+        font-size: 0.7em;
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        padding: 0.15rem 0.4rem;
+        margin-right: 0.25rem;
+        border-radius: 0.25rem;
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+        gap: 1rem;
+    }
+
+    .stat-item {
+        text-align: center;
+        padding: 0.5rem;
+        background: #f8f9fa;
+        border-radius: 0.5rem;
+    }
+
+    .future-badge {
+        opacity: 0.5;
+        font-style: italic;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2><i class="bi bi-list-check"></i> Prompt Registry</h2>
+                    <p class="text-muted">Inventory of all LLM prompts used in the extraction pipeline</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('prompt_builder.index') }}" class="btn btn-outline-secondary me-2">
+                        <i class="bi bi-arrow-left"></i> Back to Prompt Builder
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="bi bi-bar-chart"></i> Registry Statistics</h5>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <h4>{{ stats.total_prompts }}</h4>
+                            <small class="text-muted">Total Prompts</small>
+                        </div>
+                        {% for phase, count in stats.by_phase.items() %}
+                        <div class="stat-item">
+                            <h4>{{ count }}</h4>
+                            <small class="text-muted">{{ phase | replace('pass', 'Pass ') | replace('step', 'Step ') }}</small>
+                        </div>
+                        {% endfor %}
+                        <div class="stat-item">
+                            <h4 class="future-badge">{{ stats.nemo_ready }}</h4>
+                            <small class="text-muted future-badge">NeMo Ready</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Phase Cards -->
+    {% for phase_key, phase_data in phases.items() %}
+    {% if phase_data.prompts %}
+    <div class="card phase-card {{ phase_key }}">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="bi bi-collection"></i> {{ phase_data.name }}
+                <span class="badge bg-secondary ms-2">{{ phase_data.prompts | length }}</span>
+            </h5>
+            <small class="text-muted">{{ phase_data.description }}</small>
+        </div>
+        <div class="card-body">
+            {% for prompt in phase_data.prompts %}
+            <div class="prompt-row">
+                <div class="row">
+                    <div class="col-md-3">
+                        <strong>{{ prompt.prompt_key }}</strong>
+                        <br>
+                        <span class="badge concept-badge bg-light text-dark">{{ prompt.concept_type }}</span>
+                        {% if prompt.section_type != 'all' %}
+                        <span class="badge concept-badge bg-info text-dark">{{ prompt.section_type }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-5">
+                        <p class="mb-1">{{ prompt.description | truncate(120) }}</p>
+                        {% if prompt.academic_references %}
+                        <div>
+                            {% for ref in prompt.academic_references %}
+                            <span class="reference-tag">{{ ref }}</span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        <div class="source-link">
+                            <i class="bi bi-file-code"></i>
+                            {{ prompt.source_file | replace('app/services/', '') }}
+                        </div>
+                        <small class="text-muted">
+                            <i class="bi bi-code-slash"></i> {{ prompt.source_function }}
+                        </small>
+                        {% if prompt.nemo_compatible %}
+                        <br><span class="badge bg-success">NeMo Ready</span>
+                        {% endif %}
+                        {% if prompt.dspy_module %}
+                        <br><span class="badge bg-info">DSPy: {{ prompt.dspy_module }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+
+    <!-- Future Integration Section -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card border-secondary">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0 text-muted">
+                        <i class="bi bi-lightning"></i> Future Integration (Post-AAAI)
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <h6><i class="bi bi-gpu-card"></i> NVIDIA NeMo</h6>
+                            <p class="small text-muted">MIPROv2 Bayesian optimization for automatic prompt tuning with evaluation scores.</p>
+                            <a href="https://docs.nvidia.com/nemo/microservices/latest/evaluate/flows/prompt-optimization.html"
+                               target="_blank" class="btn btn-sm btn-outline-secondary disabled">
+                                Learn More
+                            </a>
+                        </div>
+                        <div class="col-md-4">
+                            <h6><i class="bi bi-diagram-3"></i> DSPy</h6>
+                            <p class="small text-muted">Declarative prompt programming with typed modules and automatic optimization.</p>
+                            <a href="https://dspy-docs.vercel.app/"
+                               target="_blank" class="btn btn-sm btn-outline-secondary disabled">
+                                Learn More
+                            </a>
+                        </div>
+                        <div class="col-md-4">
+                            <h6><i class="bi bi-cloud-upload"></i> LangSmith Hub</h6>
+                            <p class="small text-muted">Git-like version control for prompts with tagging and webhooks.</p>
+                            <a href="https://docs.langchain.com/langsmith/manage-prompts"
+                               target="_blank" class="btn btn-sm btn-outline-secondary disabled">
+                                Learn More
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -53,6 +53,41 @@ def register_interactive_routes(bp):
             flash('Failed to start interactive exploration', 'error')
             return redirect(url_for('step5.step5_scenario_generation', case_id=case_id))
 
+    @bp.route('/case/<int:case_id>/step5/interactive/start_ajax', methods=['POST'])
+    @auth_required_for_llm
+    def start_interactive_exploration_ajax(case_id):
+        """Start a new interactive exploration session (AJAX version with JSON response)."""
+        try:
+            case = Document.query.get_or_404(case_id)
+
+            # Get user_id if authenticated
+            from flask_login import current_user
+            user_id = current_user.id if current_user.is_authenticated else None
+
+            # Start session - this may call LLM for option label generation
+            session = interactive_scenario_service.start_session(case_id, user_id)
+
+            return jsonify({
+                'success': True,
+                'session_uuid': session.session_uuid,
+                'redirect_url': url_for('step5.interactive_exploration',
+                                        case_id=case_id,
+                                        session_uuid=session.session_uuid)
+            })
+
+        except ValueError as e:
+            logger.warning(f"Cannot start exploration for case {case_id}: {e}")
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 400
+        except Exception as e:
+            logger.error(f"Error starting interactive exploration for case {case_id}: {e}", exc_info=True)
+            return jsonify({
+                'success': False,
+                'error': 'Failed to start interactive exploration'
+            }), 500
+
     @bp.route('/case/<int:case_id>/step5/interactive/<session_uuid>')
     @auth_optional
     def interactive_exploration(case_id, session_uuid):
@@ -120,8 +155,8 @@ def register_interactive_routes(bp):
             if session.status != 'in_progress':
                 return jsonify({'success': False, 'error': 'Session already completed'}), 400
 
-            # Get choice from request
-            data = request.get_json() or request.form
+            # Get choice from request (form data or JSON)
+            data = request.get_json(silent=True) or request.form
             chosen_option_index = int(data.get('option_index', 0))
             time_spent = data.get('time_spent_seconds')
             time_spent = int(time_spent) if time_spent else None

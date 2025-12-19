@@ -4,6 +4,10 @@
 {% block step_header %}Step 5: Scenario Exploration{% endblock %}
 {% block step_subtitle %}Review the case or make your own ethical choices{% endblock %}
 
+{% block step_navigation_bottom %}
+<!-- Step 5 has its own action buttons (Start Interactive Exploration / View Past) -->
+{% endblock %}
+
 {% block step_content %}
 
 {% if has_phase4 %}
@@ -185,12 +189,18 @@
             <div class="col-md-4">
                 <div class="d-grid gap-2">
                     {% if current_user.is_authenticated %}
-                    <form action="{{ url_for('step5.start_interactive_exploration', case_id=case.id) }}" method="POST">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="btn btn-danger btn-lg w-100">
-                            <i class="bi bi-play-circle"></i> Start Interactive Exploration
-                        </button>
-                    </form>
+                    <button type="button" class="btn btn-danger btn-lg w-100" id="startExplorationBtn" onclick="startExploration()">
+                        <i class="bi bi-play-circle"></i> Start Interactive Exploration
+                    </button>
+                    <!-- Loading state (hidden by default) -->
+                    <div id="explorationLoading" class="d-none">
+                        <div class="text-center p-3">
+                            <div class="spinner-border text-danger mb-2" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="text-muted mb-0" id="loadingStatus">Preparing scenario...</p>
+                        </div>
+                    </div>
                     {% else %}
                     <a href="{{ url_for('auth.login') }}" class="btn btn-outline-danger btn-lg">
                         <i class="bi bi-lock"></i> Login to Start
@@ -198,6 +208,9 @@
                     {% endif %}
                     <a href="{{ url_for('step5.list_sessions', case_id=case.id) }}" class="btn btn-outline-secondary">
                         <i class="bi bi-list"></i> View Past Explorations
+                        {% if completed_sessions_count and completed_sessions_count > 0 %}
+                        <span class="badge bg-success ms-1">{{ completed_sessions_count }}</span>
+                        {% endif %}
                     </a>
                 </div>
             </div>
@@ -314,5 +327,59 @@ document.querySelectorAll('.exploration-card').forEach(card => {
         this.style.cursor = 'pointer';
     });
 });
+
+// Start interactive exploration with loading feedback
+async function startExploration() {
+    const btn = document.getElementById('startExplorationBtn');
+    const loading = document.getElementById('explorationLoading');
+    const status = document.getElementById('loadingStatus');
+
+    // Hide button, show loading
+    btn.classList.add('d-none');
+    loading.classList.remove('d-none');
+
+    // Update status messages
+    const messages = [
+        'Preparing scenario...',
+        'Loading decision points...',
+        'Generating option descriptions...',
+        'Almost ready...'
+    ];
+    let msgIndex = 0;
+
+    const statusInterval = setInterval(() => {
+        msgIndex = (msgIndex + 1) % messages.length;
+        status.textContent = messages[msgIndex];
+    }, 2000);
+
+    try {
+        const response = await fetch('{{ url_for("step5.start_interactive_exploration_ajax", case_id=case.id) }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            }
+        });
+
+        const data = await response.json();
+        clearInterval(statusInterval);
+
+        if (data.success && data.redirect_url) {
+            status.textContent = 'Starting exploration...';
+            window.location.href = data.redirect_url;
+        } else {
+            // Show error and restore button
+            alert(data.error || 'Failed to start exploration');
+            btn.classList.remove('d-none');
+            loading.classList.add('d-none');
+        }
+    } catch (error) {
+        clearInterval(statusInterval);
+        console.error('Error starting exploration:', error);
+        alert('Failed to start exploration: ' + error.message);
+        btn.classList.remove('d-none');
+        loading.classList.add('d-none');
+    }
+}
 </script>
 {% endblock %}

@@ -4,6 +4,10 @@
 {% block step_header %}Interactive Exploration{% endblock %}
 {% block step_subtitle %}Make your own ethical choices and see the consequences{% endblock %}
 
+{% block step_navigation_bottom %}
+<!-- Interactive exploration has its own navigation (Make This Choice / Abandon) -->
+{% endblock %}
+
 {% block step_content %}
 
 <!-- Progress Header -->
@@ -137,13 +141,20 @@
 
             {% if current_decision.options %}
             <div class="mt-4 d-flex justify-content-between align-items-center">
-                <a href="{{ url_for('step5.step5_scenario_generation', case_id=case.id) }}" class="btn btn-outline-secondary">
+                <a href="{{ url_for('step5.step5_scenario_generation', case_id=case.id) }}" class="btn btn-outline-secondary" id="abandonBtn">
                     <i class="bi bi-x-circle"></i> Abandon Exploration
                 </a>
-                <button type="submit" class="btn btn-danger btn-lg" id="submitChoice">
-                    <i class="bi bi-check-circle"></i> Make This Choice
-                    <i class="bi bi-arrow-right ms-1"></i>
-                </button>
+                <div>
+                    <!-- Loading indicator (hidden by default) -->
+                    <div id="choiceLoading" class="d-none">
+                        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                        Analyzing your choice...
+                    </div>
+                    <button type="submit" class="btn btn-danger btn-lg" id="submitChoice">
+                        <i class="bi bi-check-circle"></i> Make This Choice
+                        <i class="bi bi-arrow-right ms-1"></i>
+                    </button>
+                </div>
             </div>
             {% endif %}
         </form>
@@ -206,10 +217,25 @@
 // Track time spent on decision
 let startTime = Date.now();
 
-// Update time spent before form submission
-document.getElementById('choiceForm').addEventListener('submit', function() {
+// Update time spent before form submission and show loading
+document.getElementById('choiceForm').addEventListener('submit', function(e) {
     const timeSpent = Math.floor((Date.now() - startTime) / 1000);
     document.getElementById('timeSpent').value = timeSpent;
+
+    // Show loading indicator
+    const submitBtn = document.getElementById('submitChoice');
+    const loadingDiv = document.getElementById('choiceLoading');
+    const abandonBtn = document.getElementById('abandonBtn');
+
+    submitBtn.classList.add('d-none');
+    loadingDiv.classList.remove('d-none');
+    abandonBtn.classList.add('disabled');
+
+    // Disable all option cards
+    document.querySelectorAll('.option-card').forEach(c => {
+        c.style.pointerEvents = 'none';
+        c.style.opacity = '0.6';
+    });
 });
 
 // Make option cards clickable

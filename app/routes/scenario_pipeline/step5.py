@@ -13,6 +13,7 @@ import logging
 from flask import Blueprint, render_template, request, jsonify
 
 from app.models import Document, TemporaryRDFStorage, ExtractionPrompt, db
+from app.models.scenario_exploration import ScenarioExplorationSession
 from app.utils.environment_auth import auth_required_for_llm, auth_optional
 from app.services.pipeline_status_service import PipelineStatusService
 
@@ -66,6 +67,12 @@ def step5_scenario_generation(case_id):
         # Get pipeline status for navigation
         pipeline_status = PipelineStatusService.get_step_status(case_id)
 
+        # Count completed exploration sessions
+        completed_sessions_count = ScenarioExplorationSession.query.filter_by(
+            case_id=case_id,
+            status='completed'
+        ).count()
+
         return render_template(
             'scenarios/step5.html',
             case=case,
@@ -80,7 +87,8 @@ def step5_scenario_generation(case_id):
             current_step=5,
             prev_step_url=f"/scenario_pipeline/case/{case_id}/step4",
             next_step_url="#",  # No step 6 yet
-            pipeline_status=pipeline_status
+            pipeline_status=pipeline_status,
+            completed_sessions_count=completed_sessions_count
         )
 
     except Exception as e:
@@ -602,17 +610,87 @@ def enhanced_timeline(case_id):
         return str(e), 500
 
 
+def _load_canonical_decision_points(case_id: int) -> list:
+    """Load canonical decision points with arguments and resolution patterns."""
+    decision_points = []
+
+    # Load canonical decision points from Phase 3
+    dp_records = TemporaryRDFStorage.query.filter_by(
+        case_id=case_id,
+        extraction_type='canonical_decision_point'
+    ).order_by(TemporaryRDFStorage.id).all()
+
+    # Load all arguments for this case
+    arg_records = TemporaryRDFStorage.query.filter_by(
+        case_id=case_id,
+        extraction_type='argument_generated'
+    ).all()
+
+    # Group arguments by decision point
+    args_by_dp = {}
+    for arg in arg_records:
+        data = arg.rdf_json_ld or {}
+        dp_id = data.get('decision_point_id', '')
+        if dp_id not in args_by_dp:
+            args_by_dp[dp_id] = {'pro': [], 'con': []}
+        arg_type = data.get('argument_type', 'pro')
+        args_by_dp[dp_id][arg_type].append(data)
+
+    # Load resolution patterns
+    resolution_records = TemporaryRDFStorage.query.filter_by(
+        case_id=case_id,
+        extraction_type='resolution_pattern'
+    ).all()
+    resolutions = {r.rdf_json_ld.get('conclusion_uri', ''): r.rdf_json_ld for r in resolution_records if r.rdf_json_ld}
+
+    for record in dp_records:
+        data = record.rdf_json_ld or {}
+        dp_id = data.get('focus_id', '')
+
+        # Get arguments for this decision point
+        dp_args = args_by_dp.get(dp_id, {'pro': [], 'con': []})
+
+        # Find matching resolution pattern
+        conclusion_uri = data.get('aligned_conclusion_uri', '')
+        resolution = resolutions.get(conclusion_uri, {})
+
+        decision_points.append({
+            'focus_id': dp_id,
+            'focus_number': data.get('focus_number', 0),
+            'label': data.get('description', ''),
+            'question': data.get('decision_question', ''),
+            'role_label': data.get('role_label', ''),
+            'obligation_label': data.get('obligation_label', ''),
+            'options': data.get('options', []),
+            'toulmin': data.get('toulmin', {}),
+            'board_resolution': data.get('board_resolution', ''),
+            'provisions': data.get('provision_labels', []),
+            'qc_alignment_score': data.get('qc_alignment_score', 0),
+            'addresses_questions': data.get('addresses_questions', []),
+            'pro_arguments': dp_args['pro'][:3],  # Top 3 pro arguments
+            'con_arguments': dp_args['con'][:3],  # Top 3 con arguments
+            'resolution_pattern': {
+                'determinative_principles': resolution.get('determinative_principles', []),
+                'determinative_facts': resolution.get('determinative_facts', []),
+                'weighing_process': resolution.get('weighing_process', ''),
+                'resolution_narrative': resolution.get('resolution_narrative', '')
+            }
+        })
+
+    return decision_points
+
+
 @bp.route('/case/<int:case_id>/step5/decisions')
 @auth_optional
 def decision_wizard(case_id):
     """
-    View 3: Decision Wizard
+    View 3: Decision Analysis
 
-    Interactive step-through of ethical decisions:
-    - One decision point at a time
-    - Options with descriptions
-    - Board's actual choice highlighted
-    - Navigation between decision points
+    Analytical view of ethical decisions showing:
+    - Board's conclusions with rationale
+    - Pros and cons for each option
+    - Toulmin argument structure
+    - Resolution patterns
     """
     try:
         case = Document.query.get_or_404(case_id)
@@ -623,6 +701,13 @@ def decision_wizard(case_id):
         narrative = _load_narrative_elements(case_id)
         insights = _load_insights(case_id)
 
+        # Load canonical decision points with rich analysis
+        canonical_dps = _load_canonical_decision_points(case_id)
+
+        # Fall back to narrative decision moments if no canonical DPs
+        if not canonical_dps:
+            canonical_dps = narrative.get('decision_moments', [])
+
         # Get pipeline status for navigation
         pipeline_status = PipelineStatusService.get_step_status(case_id)
 
@@ -632,7 +717,7 @@ def decision_wizard(case_id):
             has_phase4=phase4_data is not None,
             seeds=seeds,
             narrative=narrative,
-            decision_points=narrative.get('decision_moments', []),
+            decision_points=canonical_dps,
             insights=insights,
             current_step=5,
             prev_step_url=f"/scenario_pipeline/case/{case_id}/step5/timeline",

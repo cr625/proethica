@@ -1,8 +1,12 @@
 {% extends "scenarios/base_step.html" %}
 
-{% block step_title %}Step 5: Decision Wizard{% endblock %}
-{% block step_header %}Step 5: Interactive Scenario{% endblock %}
-{% block step_subtitle %}Decision Wizard - Explore ethical choices{% endblock %}
+{% block step_title %}Step 5: Decision Analysis{% endblock %}
+{% block step_header %}Step 5: Decision Analysis{% endblock %}
+{% block step_subtitle %}Board conclusions, reasoning, and alternatives{% endblock %}
+
+{% block step_navigation_bottom %}
+<!-- Decision analysis has its own navigation -->
+{% endblock %}
 
 {% block step_content %}
 
@@ -31,125 +35,265 @@
     <h5><i class="bi bi-exclamation-triangle"></i> Phase 4 Data Required</h5>
     <p>No decision point data found for this case.</p>
     <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}" class="btn btn-primary">
-        <i class="bi bi-arrow-left"></i> Go to Step 4 and Run Narrative Construction
+        <i class="bi bi-arrow-left"></i> Go to Step 4 and Run Synthesis
+    </a>
+</div>
+{% elif not decision_points or decision_points|length == 0 %}
+<!-- No Decision Points -->
+<div class="alert alert-info">
+    <h5><i class="bi bi-info-circle"></i> No Decision Points Synthesized</h5>
+    <p>Decision points have not been synthesized for this case yet.</p>
+    <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}" class="btn btn-primary">
+        <i class="bi bi-arrow-left"></i> Go to Step 4 to Run Phase 3 Synthesis
     </a>
 </div>
 {% else %}
 
-<!-- Decision Points Overview -->
+<!-- Decision Points Summary -->
 <div class="card mb-4">
     <div class="card-header bg-warning bg-opacity-10">
         <div class="d-flex justify-content-between align-items-center">
             <h5 class="mb-0">
-                <i class="bi bi-signpost-split"></i> Decision Points
+                <i class="bi bi-signpost-split"></i> Board Decision Analysis
             </h5>
-            {% if decision_points %}
-            <span class="badge bg-warning text-dark">{{ decision_points|length }} decisions</span>
-            {% endif %}
+            <span class="badge bg-warning text-dark">{{ decision_points|length }} decisions analyzed</span>
         </div>
     </div>
     <div class="card-body p-0">
-        {% if decision_points and decision_points|length > 0 %}
-        <div id="decision-wizard">
-            <!-- Decision Point Navigator -->
-            <div class="decision-nav p-3 bg-light border-bottom">
-                <div class="d-flex justify-content-center gap-2" id="decision-nav-pills">
-                    {% for dp in decision_points %}
-                    <button class="btn btn-outline-warning decision-nav-btn {% if loop.first %}active{% endif %}"
-                            onclick="showDecision({{ loop.index0 }})"
-                            data-index="{{ loop.index0 }}">
-                        {{ loop.index }}
-                    </button>
-                    {% endfor %}
-                </div>
-                <div class="text-center mt-2 text-muted small">
-                    <span id="decision-progress">Decision 1 of {{ decision_points|length }}</span>
-                </div>
-            </div>
-
-            <!-- Decision Content Area -->
-            <div id="decision-content" class="p-4">
+        <!-- Decision Point Navigator -->
+        <div class="decision-nav p-3 bg-light border-bottom">
+            <div class="d-flex justify-content-center gap-2" id="decision-nav-pills">
                 {% for dp in decision_points %}
-                <div class="decision-panel {% if not loop.first %}d-none{% endif %}" id="decision-{{ loop.index0 }}">
-                    <!-- Decision Header -->
-                    <div class="decision-header mb-4">
-                        <span class="badge bg-warning text-dark mb-2">Decision Point {{ loop.index }}</span>
-                        <h4 class="decision-label">{{ dp.label }}</h4>
-                    </div>
-
-                    <!-- Decision Question -->
-                    <div class="decision-question p-4 bg-light rounded mb-4">
-                        <h5 class="mb-3"><i class="bi bi-question-circle text-warning"></i> The Question</h5>
-                        {% if dp.question %}
-                        <p class="lead mb-0">{{ dp.question }}</p>
-                        {% else %}
-                        <p class="lead mb-0 text-muted"><em>What should be done in this situation?</em></p>
-                        {% endif %}
-                    </div>
-
-                    <!-- Decision Description / Context -->
-                    {% if dp.description %}
-                    <div class="decision-context mb-4">
-                        <h6><i class="bi bi-info-circle"></i> Context</h6>
-                        <p class="text-muted">{{ dp.description }}</p>
-                    </div>
-                    {% endif %}
-
-                    <!-- Options (if available from seeds) -->
-                    {% if seeds and seeds.branches and loop.index0 < seeds.branches|length %}
-                    {% set branch = seeds.branches[loop.index0] %}
-                    {% if branch.options and branch.options|length > 0 %}
-                    <div class="decision-options mb-4">
-                        <h6><i class="bi bi-list-ul"></i> Available Options</h6>
-                        <div class="row">
-                            {% for opt in branch.options %}
-                            <div class="col-md-6 mb-3">
-                                <div class="card h-100 {% if opt.is_board_choice %}border-success{% else %}border-secondary{% endif %} option-card">
-                                    <div class="card-body">
-                                        {% if opt.is_board_choice %}
-                                        <span class="badge bg-success mb-2">Board's Choice</span>
-                                        {% endif %}
-                                        <h6 class="card-title">{{ opt.label }}</h6>
-                                        {% if opt.description %}
-                                        <p class="card-text small text-muted">{{ opt.description }}</p>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                    {% endif %}
-                    {% endif %}
-
-                    <!-- Navigation -->
-                    <div class="decision-navigation d-flex justify-content-between mt-4 pt-4 border-top">
-                        <button class="btn btn-outline-secondary {% if loop.first %}invisible{% endif %}"
-                                onclick="showDecision({{ loop.index0 - 1 }})">
-                            <i class="bi bi-arrow-left"></i> Previous
-                        </button>
-                        <button class="btn btn-warning {% if loop.last %}invisible{% endif %}"
-                                onclick="showDecision({{ loop.index0 + 1 }})">
-                            Next <i class="bi bi-arrow-right"></i>
-                        </button>
-                    </div>
-                </div>
+                <button class="btn btn-outline-warning decision-nav-btn {% if loop.first %}active{% endif %}"
+                        onclick="showDecision({{ loop.index0 }})"
+                        data-index="{{ loop.index0 }}">
+                    {{ loop.index }}
+                </button>
                 {% endfor %}
             </div>
+            <div class="text-center mt-2 text-muted small">
+                <span id="decision-progress">Decision 1 of {{ decision_points|length }}</span>
+            </div>
         </div>
-        {% else %}
-        <div class="p-4 text-center text-muted">
-            <i class="bi bi-signpost-split" style="font-size: 3rem;"></i>
-            <p class="mt-3"><em>Decision points will appear here after Phase 4 decision point extraction.</em></p>
-            <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}" class="btn btn-primary">
-                Go to Step 4 to extract decision points
-            </a>
+
+        <!-- Decision Content Area -->
+        <div id="decision-content">
+            {% for dp in decision_points %}
+            <div class="decision-panel p-4 {% if not loop.first %}d-none{% endif %}" id="decision-{{ loop.index0 }}">
+
+                <!-- Decision Header -->
+                <div class="decision-header mb-4 pb-3 border-bottom">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <span class="badge bg-warning text-dark mb-2">Decision {{ loop.index }}</span>
+                            <h4 class="mb-1">{{ dp.label }}</h4>
+                            {% if dp.role_label %}
+                            <small class="text-muted"><i class="bi bi-person"></i> {{ dp.role_label }}</small>
+                            {% endif %}
+                        </div>
+                        {% if dp.qc_alignment_score %}
+                        <span class="badge bg-{% if dp.qc_alignment_score > 0.7 %}success{% elif dp.qc_alignment_score > 0.4 %}warning{% else %}secondary{% endif %}"
+                              title="Q&C Alignment Score">
+                            {{ "%.0f"|format(dp.qc_alignment_score * 100) }}% aligned
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- The Question -->
+                <div class="decision-question p-4 bg-light rounded mb-4">
+                    <h5 class="mb-3"><i class="bi bi-patch-question text-warning"></i> The Ethical Question</h5>
+                    <p class="lead mb-0">{{ dp.question or dp.label }}</p>
+                </div>
+
+                <!-- Toulmin Analysis (if available) -->
+                {% if dp.toulmin and (dp.toulmin.data_summary or dp.toulmin.warrants_summary) %}
+                <div class="card mb-4 border-info">
+                    <div class="card-header bg-info bg-opacity-10">
+                        <h6 class="mb-0"><i class="bi bi-diagram-3"></i> Argument Structure</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            {% if dp.toulmin.data_summary %}
+                            <div class="col-md-6 mb-3">
+                                <strong class="text-info">DATA (What Happened):</strong>
+                                <p class="small mb-0">{{ dp.toulmin.data_summary }}</p>
+                            </div>
+                            {% endif %}
+                            {% if dp.toulmin.warrants_summary %}
+                            <div class="col-md-6 mb-3">
+                                <strong class="text-info">WARRANTS (Competing Duties):</strong>
+                                <p class="small mb-0">{{ dp.toulmin.warrants_summary }}</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% if dp.toulmin.rebuttals_summary %}
+                        <div class="mt-2">
+                            <strong class="text-muted">UNCERTAINTY:</strong>
+                            <p class="small mb-0 text-muted">{{ dp.toulmin.rebuttals_summary }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Options with Pros/Cons -->
+                {% if dp.options and dp.options|length > 0 %}
+                <h6 class="mb-3"><i class="bi bi-list-check"></i> Available Options</h6>
+                <div class="row mb-4">
+                    {% for opt in dp.options %}
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100 {% if opt.is_board_choice %}border-success{% else %}border-secondary{% endif %} option-card">
+                            <div class="card-header {% if opt.is_board_choice %}bg-success bg-opacity-10{% else %}bg-light{% endif %}">
+                                {% if opt.is_board_choice %}
+                                <span class="badge bg-success float-end">Board's Choice</span>
+                                {% endif %}
+                                <strong>{{ opt.description or opt.option_id }}</strong>
+                            </div>
+                            <div class="card-body">
+                                <!-- Arguments for this option would go here -->
+                                <small class="text-muted">
+                                    {% if opt.action_uri %}
+                                    <i class="bi bi-link-45deg"></i> {{ opt.action_uri.split('#')[-1] if '#' in opt.action_uri else opt.action_uri }}
+                                    {% endif %}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- Pro/Con Arguments -->
+                {% if dp.pro_arguments or dp.con_arguments %}
+                <div class="row mb-4">
+                    <!-- Pro Arguments -->
+                    <div class="col-md-6">
+                        <div class="card h-100 border-success">
+                            <div class="card-header bg-success bg-opacity-10">
+                                <h6 class="mb-0 text-success"><i class="bi bi-hand-thumbs-up"></i> Arguments For Board's Choice</h6>
+                            </div>
+                            <div class="card-body">
+                                {% if dp.pro_arguments and dp.pro_arguments|length > 0 %}
+                                <ul class="list-unstyled mb-0">
+                                    {% for arg in dp.pro_arguments %}
+                                    <li class="mb-2">
+                                        <i class="bi bi-plus-circle text-success"></i>
+                                        {% if arg.claim %}{{ arg.claim.text }}{% else %}{{ arg.get('text', '') }}{% endif %}
+                                        {% if arg.warrant %}
+                                        <br><small class="text-muted ms-4">{{ arg.warrant.text }}</small>
+                                        {% endif %}
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                                {% else %}
+                                <p class="text-muted mb-0"><em>No pro arguments available</em></p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Con Arguments -->
+                    <div class="col-md-6">
+                        <div class="card h-100 border-danger">
+                            <div class="card-header bg-danger bg-opacity-10">
+                                <h6 class="mb-0 text-danger"><i class="bi bi-hand-thumbs-down"></i> Arguments Against / For Alternatives</h6>
+                            </div>
+                            <div class="card-body">
+                                {% if dp.con_arguments and dp.con_arguments|length > 0 %}
+                                <ul class="list-unstyled mb-0">
+                                    {% for arg in dp.con_arguments %}
+                                    <li class="mb-2">
+                                        <i class="bi bi-dash-circle text-danger"></i>
+                                        {% if arg.claim %}{{ arg.claim.text }}{% else %}{{ arg.get('text', '') }}{% endif %}
+                                        {% if arg.warrant %}
+                                        <br><small class="text-muted ms-4">{{ arg.warrant.text }}</small>
+                                        {% endif %}
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                                {% else %}
+                                <p class="text-muted mb-0"><em>No con arguments available</em></p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Board's Resolution -->
+                {% if dp.board_resolution or dp.resolution_pattern.resolution_narrative %}
+                <div class="card mb-4 border-primary">
+                    <div class="card-header bg-primary bg-opacity-10">
+                        <h6 class="mb-0"><i class="bi bi-gavel"></i> Board's Resolution</h6>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-3">{{ dp.board_resolution or dp.resolution_pattern.resolution_narrative }}</p>
+
+                        {% if dp.resolution_pattern.weighing_process %}
+                        <div class="mt-3 pt-3 border-top">
+                            <strong class="text-primary">Weighing Process:</strong>
+                            <p class="small mb-0">{{ dp.resolution_pattern.weighing_process }}</p>
+                        </div>
+                        {% endif %}
+
+                        {% if dp.resolution_pattern.determinative_principles and dp.resolution_pattern.determinative_principles|length > 0 %}
+                        <div class="mt-3">
+                            <strong class="text-primary">Determinative Principles:</strong>
+                            <ul class="small mb-0">
+                                {% for principle in dp.resolution_pattern.determinative_principles %}
+                                <li>{{ principle }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+
+                        {% if dp.resolution_pattern.determinative_facts and dp.resolution_pattern.determinative_facts|length > 0 %}
+                        <div class="mt-3">
+                            <strong class="text-primary">Key Facts:</strong>
+                            <ul class="small mb-0">
+                                {% for fact in dp.resolution_pattern.determinative_facts %}
+                                <li>{{ fact }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Provisions Cited -->
+                {% if dp.provisions and dp.provisions|length > 0 %}
+                <div class="mb-4">
+                    <h6><i class="bi bi-book"></i> Code Provisions Cited</h6>
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for prov in dp.provisions %}
+                        <span class="badge bg-secondary">{{ prov }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Navigation -->
+                <div class="decision-navigation d-flex justify-content-between mt-4 pt-4 border-top">
+                    <button class="btn btn-outline-secondary {% if loop.first %}invisible{% endif %}"
+                            onclick="showDecision({{ loop.index0 - 1 }})">
+                        <i class="bi bi-arrow-left"></i> Previous Decision
+                    </button>
+                    <a href="{{ url_for('step5.step5_scenario_generation', case_id=case.id) }}" class="btn btn-outline-danger">
+                        <i class="bi bi-play-circle"></i> Try Interactive Exploration
+                    </a>
+                    <button class="btn btn-warning {% if loop.last %}invisible{% endif %}"
+                            onclick="showDecision({{ loop.index0 + 1 }})">
+                        Next Decision <i class="bi bi-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
         </div>
-        {% endif %}
     </div>
 </div>
 
-<!-- Key Takeaways (at end) -->
+<!-- Key Takeaways -->
 {% if insights and insights.key_takeaways and insights.key_takeaways|length > 0 %}
 <div class="card border-info">
     <div class="card-header bg-info bg-opacity-10">
@@ -179,7 +323,7 @@
 
     .nav-tabs .nav-link.active {
         font-weight: 600;
-        border-bottom: 2px solid #4e73df;
+        border-bottom: 2px solid #f6c23e;
     }
 
     .nav-tabs .nav-link:hover:not(.active) {
@@ -202,19 +346,8 @@
         color: #212529;
     }
 
-    .decision-nav-btn.completed {
-        background-color: #1cc88a;
-        border-color: #1cc88a;
-        color: white;
-    }
-
     .decision-header {
         border-bottom: 2px solid #f6c23e;
-        padding-bottom: 1rem;
-    }
-
-    .decision-label {
-        color: #5a5c69;
     }
 
     .decision-question {
@@ -227,17 +360,12 @@
     }
 
     .option-card {
-        cursor: pointer;
         transition: all 0.2s ease;
     }
 
     .option-card:hover {
         transform: translateY(-2px);
-        box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15);
-    }
-
-    .option-card.border-success {
-        background-color: #e8f8f5;
+        box-shadow: 0 0.25rem 0.5rem rgba(0,0,0,0.1);
     }
 
     /* Smooth transitions for decision panels */
@@ -284,6 +412,9 @@
             'Decision ' + (index + 1) + ' of ' + totalDecisions;
 
         currentDecision = index;
+
+        // Scroll to top of content
+        document.getElementById('decision-content').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     // Keyboard navigation
