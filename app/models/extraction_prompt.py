@@ -112,3 +112,42 @@ class ExtractionPrompt(db.Model):
             self.results_summary = results_summary
 
         db.session.commit()
+
+    @classmethod
+    def get_prompt_history(cls, case_id: int, step_number: int = None,
+                           section_type: str = None, concept_type: str = None) -> list:
+        """Get all extraction prompts for a case, ordered by created_at DESC.
+
+        Args:
+            case_id: The case ID
+            step_number: Filter by step (1, 2, or 3)
+            section_type: Filter by section ('facts', 'discussion', etc.)
+            concept_type: Filter by concept ('roles', 'states', etc.)
+
+        Returns:
+            List of ExtractionPrompt objects ordered by created_at DESC
+        """
+        query = cls.query.filter_by(case_id=case_id)
+        if step_number is not None:
+            query = query.filter_by(step_number=step_number)
+        if section_type is not None:
+            query = query.filter_by(section_type=section_type)
+        if concept_type is not None:
+            query = query.filter_by(concept_type=concept_type)
+        return query.order_by(cls.created_at.desc()).all()
+
+    def to_history_dict(self) -> dict:
+        """Convert to dictionary for history display."""
+        return {
+            'id': self.id,
+            'step_number': self.step_number,
+            'section_type': self.section_type,
+            'concept_type': self.concept_type,
+            'is_active': self.is_active,
+            'llm_model': self.llm_model,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'prompt_text': self.prompt_text,
+            'raw_response': self.raw_response,
+            'results_summary': self.results_summary,
+            'extraction_session_id': self.extraction_session_id
+        }

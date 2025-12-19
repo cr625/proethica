@@ -7,6 +7,7 @@ before commitment to OntServe permanent storage.
 
 import json
 import logging
+from collections import defaultdict
 from datetime import datetime
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
 from app.models import Document, db, TemporaryRDFStorage
@@ -133,6 +134,73 @@ def review_all_case_entities(case_id):
     except Exception as e:
         logger.error(f"Error displaying all entity review for case {case_id}: {e}")
         flash(f'Error loading entity review: {str(e)}', 'error')
+        return redirect(url_for('index.index'))
+
+
+@bp.route('/case/<int:case_id>/extraction_history')
+@bp.route('/case/<int:case_id>/extraction_history/<int:step_number>')
+@bp.route('/case/<int:case_id>/extraction_history/<int:step_number>/<section_type>')
+@auth_optional
+def extraction_history(case_id, step_number=None, section_type=None):
+    """Display extraction prompt/response history with filters.
+
+    Shows a timeline of all extractions for a case, grouped by date.
+    Can be filtered by step, section, and concept type.
+    """
+    try:
+        from app.models.extraction_prompt import ExtractionPrompt
+
+        case_doc = Document.query.get(case_id)
+        if not case_doc:
+            flash(f'Case {case_id} not found', 'error')
+            return redirect(url_for('index.index'))
+
+        # Get concept_type from query param if provided
+        concept_type = request.args.get('concept_type')
+
+        # Get history with filters
+        prompts = ExtractionPrompt.get_prompt_history(
+            case_id=case_id,
+            step_number=step_number,
+            section_type=section_type,
+            concept_type=concept_type
+        )
+
+        # Group by date for timeline display
+        history_by_date = defaultdict(list)
+        for prompt in prompts:
+            date_key = prompt.created_at.strftime('%Y-%m-%d') if prompt.created_at else 'Unknown'
+            history_by_date[date_key].append(prompt.to_history_dict())
+
+        # Build filter options from available data
+        available_steps = db.session.query(ExtractionPrompt.step_number).filter_by(
+            case_id=case_id
+        ).distinct().order_by(ExtractionPrompt.step_number).all()
+
+        available_sections = db.session.query(ExtractionPrompt.section_type).filter_by(
+            case_id=case_id
+        ).distinct().all()
+
+        available_concepts = db.session.query(ExtractionPrompt.concept_type).filter_by(
+            case_id=case_id
+        ).distinct().all()
+
+        return render_template(
+            'scenarios/extraction_history.html',
+            case=case_doc,
+            history_by_date=dict(history_by_date),
+            total_prompts=len(prompts),
+            current_step=step_number,
+            current_section=section_type,
+            current_concept=concept_type,
+            available_steps=[s[0] for s in available_steps if s[0] is not None],
+            available_sections=[s[0] for s in available_sections if s[0] is not None],
+            available_concepts=[c[0] for c in available_concepts if c[0] is not None]
+        )
+
+    except Exception as e:
+        logger.error(f"Error loading extraction history for case {case_id}: {e}")
+        flash(f'Error loading extraction history: {str(e)}', 'error')
         return redirect(url_for('index.index'))
 
 

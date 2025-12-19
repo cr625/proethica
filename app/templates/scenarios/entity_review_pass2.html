@@ -219,7 +219,23 @@
                             </a>
                         {% endif %}
                     </div>
-                    <div>
+                    <div class="d-flex gap-2 align-items-center">
+                        <!-- History and Re-run buttons -->
+                        <a href="{{ url_for('entity_review.extraction_history', case_id=case.id, step_number=2, section_type=section_type) }}"
+                           class="btn btn-sm btn-outline-info" title="View extraction history">
+                            <i class="bi bi-clock-history"></i> History
+                        </a>
+                        {% if section_type == 'discussion' %}
+                        <a href="{{ url_for('scenario_pipeline.step2b', case_id=case.id) }}"
+                           class="btn btn-sm btn-outline-primary" title="Re-run extraction">
+                            <i class="bi bi-arrow-repeat"></i> Re-run
+                        </a>
+                        {% else %}
+                        <a href="{{ url_for('scenario_pipeline.step2', case_id=case.id) }}"
+                           class="btn btn-sm btn-outline-primary" title="Re-run extraction">
+                            <i class="bi bi-arrow-repeat"></i> Re-run
+                        </a>
+                        {% endif %}
                         <!-- Draft/Publish workflow: Publishing moved to Step 4 Review -->
                         <span class="badge bg-info" title="Entities will be published to OntServe from Step 4 Review">
                             <i class="bi bi-info-circle"></i> Draft - Publish at Step 4
