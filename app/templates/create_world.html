@@ -1,43 +1,44 @@
 {% extends "base.html" %}
 
-{% block title %}Create New World - AI Ethical Decision-Making Simulator{% endblock %}
+{% block title %}Create New Domain - ProEthica{% endblock %}
 
 {% block content %}
 <div class="container">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>Create New World</h1>
-        <a href="/worlds" class="btn btn-secondary">Back to Worlds</a>
+        <h1>Create New Domain</h1>
+        <a href="/worlds" class="btn btn-secondary">Back to Domains</a>
     </div>
 
     <div class="card mb-4">
         <div class="card-header">
-            <h3>World Details</h3>
+            <h3>Domain Details</h3>
         </div>
         <div class="card-body">
             <form action="/worlds/" method="POST" enctype="multipart/form-data">
-                {{ csrf_token() }}
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="mb-3">
-                    <label for="name" class="form-label">World Name</label>
-                    <input type="text" class="form-control" id="name" name="name" required>
+                    <label for="name" class="form-label">Domain Name</label>
+                    <input type="text" class="form-control" id="name" name="name" required
+                           placeholder="e.g., Engineering Ethics, Education Ethics">
                 </div>
 
                 <div class="mb-3">
                     <label for="description" class="form-label">Description</label>
-                    <textarea class="form-control" id="description" name="description" rows="4"></textarea>
-                    <div class="form-text">Describe the world, including its context, entities, and key characteristics.
-                    </div>
+                    <textarea class="form-control" id="description" name="description" rows="4"
+                              placeholder="Describe the professional domain and its ethical context..."></textarea>
+                    <div class="form-text">Describe the professional domain, its ethical context, and key considerations.</div>
                 </div>
 
                 <div class="mb-3">
-                    <label for="ontology_id" class="form-label">Ontology</label>
+                    <label for="ontology_id" class="form-label">Ontology (Optional)</label>
                     <select class="form-select" id="ontology_id" name="ontology_id">
-                        <option value="">Select an ontology</option>
+                        <option value="">None - Use default ProEthica ontology</option>
                         {% for ontology in ontologies %}
                         <option value="{{ ontology.id }}">{{ ontology.name }}</option>
                         {% endfor %}
                         <option value="new">+ Create New Ontology</option>
                     </select>
-                    <div class="form-text">Select an existing ontology or create a new one for this world.</div>
+                    <div class="form-text">Select a domain-specific ontology or use the default ProEthica framework.</div>
                 </div>
                 
                 <!-- Keep original field hidden for backward compatibility -->
@@ -66,25 +67,9 @@
                 </div>
 
                 <div class="d-grid gap-2 mt-4">
-                    <button type="submit" class="btn btn-primary">Create World</button>
+                    <button type="submit" class="btn btn-primary">Create Domain</button>
                 </div>
             </form>
-        </div>
-    </div>
-
-    <div class="card mb-4">
-        <div class="card-header bg-info text-white">
-            <h3 class="mb-0">Next Steps</h3>
-        </div>
-        <div class="card-body">
-            <p>After creating your world, you'll be able to:</p>
-            <ol>
-                <li>View the world's entities (characters, conditions, resources)</li>
-                <li>Create scenarios based on this world</li>
-                <li>Explore ethical decision-making in the context of this world</li>
-            </ol>
-            <p>The world's ontology defines the types of entities and their relationships, providing a foundation for
-                ethical reasoning.</p>
         </div>
     </div>
 </div>

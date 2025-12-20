@@ -153,16 +153,16 @@ def create_world():
 def view_world(id):
     """Display a specific world."""
     world = World.query.get_or_404(id)
-    
-    # Get ontology details if available
+
+    # Initialize defaults
+    entities = {"entities": {}}  # Initialize with empty entities structure
+    ontology_status = 'current'  # Default status
     ontology = None
+
+    # Get ontology details if available
     if world.ontology_id:
         ontology = Ontology.query.get(world.ontology_id)
-    
-        # Get world entities directly from the database
-        entities = {"entities": {}}  # Initialize with empty entities structure
-        ontology_status = 'current'  # Default status
-        
+
         try:
             # Get entities using our direct service
             entities = ontology_entity_service.get_entities_for_world(world)

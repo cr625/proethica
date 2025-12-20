@@ -127,7 +127,7 @@
                             </h6>
                             <p class="mb-0 text-muted small">{{ world.description|truncate(80) }}</p>
                         </div>
-                        <div class="text-end">
+                        <div class="d-flex flex-nowrap align-items-center ms-2">
                             {% if not selected_domain or world.id != selected_domain.id %}
                             <a href="{{ url_for('index.set_domain', domain_id=world.id) }}"
                                class="btn btn-sm btn-outline-success me-1" title="Set as active domain">

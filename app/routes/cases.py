@@ -59,8 +59,9 @@ def list_cases():
     # Get search query from request parameters
     query = request.args.get('query', '')
 
-    # Get analysis filter from query parameters (default: False - show all cases)
-    show_analyzed_only = request.args.get('analyzed_only', 'false').lower() == 'true'
+    # Get status filter from query parameters
+    # Values: 'all' (default), 'extracted', 'analyzed'
+    status_filter = request.args.get('status', 'all')
 
     # Get subject tag filter from query parameters
     selected_tag = request.args.get('tag', '')
@@ -135,6 +136,21 @@ def list_cases():
                 )
                 for row in result:
                     synthesis_status[row[0]] = True
+
+        # Bulk check for extraction status (cases with RDF entities = extracted)
+        extraction_status = {}
+        if case_ids:
+            with db.engine.connect() as conn:
+                result = conn.execute(
+                    text("""
+                        SELECT DISTINCT case_id
+                        FROM temporary_rdf_storage
+                        WHERE case_id = ANY(:case_ids)
+                    """),
+                    {"case_ids": case_ids}
+                )
+                for row in result:
+                    extraction_status[row[0]] = True
         
         # Convert documents to case format
         for doc in document_cases:
@@ -172,6 +188,14 @@ def list_cases():
                 # Simple extraction - just use the HTML content as a single conclusion
                 conclusion_items = [metadata['sections']['conclusion']]
             
+            # Determine pipeline status: 'analyzed' > 'extracted' > 'not_started'
+            if synthesis_status.get(doc.id, False):
+                pipeline_status = 'analyzed'
+            elif extraction_status.get(doc.id, False):
+                pipeline_status = 'extracted'
+            else:
+                pipeline_status = 'not_started'
+
             # Create case object
             case = {
                 'id': doc.id,
@@ -190,10 +214,10 @@ def list_cases():
                 'full_date': metadata.get('full_date', ''),
                 'has_enhanced_associations': enhanced_associations_status.get(doc.id, False),
                 'has_term_links': term_links_status.get(doc.id, False),
-                'is_analyzed': synthesis_status.get(doc.id, False),
+                'pipeline_status': pipeline_status,  # 'not_started', 'extracted', or 'analyzed'
                 'doc_metadata': metadata  # Include full metadata for subject tags
             }
-            
+
             cases.append(case)
 
     except Exception as e:
@@ -207,9 +231,11 @@ def list_cases():
             all_tags.update(tags)
     all_tags = sorted(all_tags)
 
-    # Apply analysis filter if enabled
-    if show_analyzed_only:
-        cases = [case for case in cases if case.get('is_analyzed', False)]
+    # Apply status filter if not 'all'
+    if status_filter == 'analyzed':
+        cases = [case for case in cases if case.get('pipeline_status') == 'analyzed']
+    elif status_filter == 'extracted':
+        cases = [case for case in cases if case.get('pipeline_status') in ('extracted', 'analyzed')]
 
     # Apply tag filter if specified
     if selected_tag:
@@ -248,7 +274,7 @@ def list_cases():
         worlds=worlds,
         selected_world_id=world_id,
         query=query,
-        show_analyzed_only=show_analyzed_only,
+        status_filter=status_filter,
         selected_tag=selected_tag,
         all_tags=all_tags,
         error=error

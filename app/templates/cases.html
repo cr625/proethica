@@ -25,12 +25,12 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="analyzedOnlyFilter"
-                           {% if show_analyzed_only %}checked{% endif %}>
-                    <label class="form-check-label small" for="analyzedOnlyFilter">
-                        Analyzed only
-                    </label>
+                <div class="input-group" style="max-width: 160px;">
+                    <select class="form-select form-select-sm" name="status" id="statusFilter" aria-label="Filter by Status">
+                        <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Cases</option>
+                        <option value="extracted" {% if status_filter == 'extracted' %}selected{% endif %}>Extracted+</option>
+                        <option value="analyzed" {% if status_filter == 'analyzed' %}selected{% endif %}>Analyzed</option>
+                    </select>
                 </div>
             </form>
         </div>
@@ -44,7 +44,7 @@
     <div class="mb-3">
         <div class="d-flex align-items-center gap-2 flex-wrap">
             <span class="text-muted small">Filtering by:</span>
-            <a href="{{ url_for('cases.list_cases', world_id=selected_world_id, analyzed_only='true' if show_analyzed_only else 'false') }}"
+            <a href="{{ url_for('cases.list_cases', world_id=selected_world_id, status=status_filter if status_filter != 'all' else none) }}"
                class="badge bg-warning text-dark text-decoration-none tag-filter-link"
                title="Click to clear filter">
                 <i class="bi bi-tag-fill"></i> {{ selected_tag }} <i class="bi bi-x"></i>
@@ -59,7 +59,7 @@
         <div class="d-flex align-items-center gap-2 flex-wrap" id="tagFilterContainer">
             <span class="text-muted small">Filter by tag:</span>
             {% for tag in all_tags[:12] %}
-            <a href="{{ url_for('cases.list_cases', world_id=selected_world_id, analyzed_only='true' if show_analyzed_only else 'false', tag=tag) }}"
+            <a href="{{ url_for('cases.list_cases', world_id=selected_world_id, status=status_filter if status_filter != 'all' else none, tag=tag) }}"
                class="badge bg-light text-dark text-decoration-none tag-filter-link"
                title="Show cases with this tag">
                 <i class="bi bi-tag"></i> {{ tag }}
@@ -73,7 +73,7 @@
             <!-- Hidden tags shown when expanded -->
             <div id="moreTags" class="d-none d-flex flex-wrap gap-2">
                 {% for tag in all_tags[12:] %}
-                <a href="{{ url_for('cases.list_cases', world_id=selected_world_id, analyzed_only='true' if show_analyzed_only else 'false', tag=tag) }}"
+                <a href="{{ url_for('cases.list_cases', world_id=selected_world_id, status=status_filter if status_filter != 'all' else none, tag=tag) }}"
                    class="badge bg-light text-dark text-decoration-none tag-filter-link"
                    title="Show cases with this tag">
                     <i class="bi bi-tag"></i> {{ tag }}
@@ -111,13 +111,17 @@
                                 {% if case.case_number %}
                                 <span class="badge bg-secondary me-2">Case #{{ case.case_number }}</span>
                                 {% endif %}
-                                {% if case.is_analyzed %}
+                                {% if case.pipeline_status == 'analyzed' %}
                                 <span class="badge bg-success" title="Step 4 Whole-Case Synthesis completed">
                                     <i class="bi bi-check-circle"></i> Analyzed
                                 </span>
+                                {% elif case.pipeline_status == 'extracted' %}
+                                <span class="badge bg-info" title="Extraction completed (Passes 1-3)">
+                                    <i class="bi bi-layers"></i> Extracted
+                                </span>
                                 {% else %}
-                                <span class="badge bg-light text-muted" title="Analysis not yet completed">
-                                    Not Analyzed
+                                <span class="badge bg-light text-muted" title="Extraction not yet started">
+                                    Not Started
                                 </span>
                                 {% endif %}
                             </div>
@@ -129,13 +133,13 @@
                             <div class="d-flex flex-wrap align-items-center gap-2">
                                 {% for tag in case.doc_metadata.subject_tags %}
                                 {% if tag == selected_tag %}
-                                <a href="{{ url_for('cases.list_cases', world_id=selected_world_id, analyzed_only='true' if show_analyzed_only else 'false') }}"
+                                <a href="{{ url_for('cases.list_cases', world_id=selected_world_id, status=status_filter if status_filter != 'all' else none) }}"
                                    class="badge text-decoration-none bg-warning text-dark tag-filter-link"
                                    title="Click to clear filter">
                                     <i class="bi bi-tag-fill"></i> {{ tag }} <i class="bi bi-x"></i>
                                 </a>
                                 {% else %}
-                                <a href="{{ url_for('cases.list_cases', world_id=selected_world_id, analyzed_only='true' if show_analyzed_only else 'false', tag=tag) }}"
+                                <a href="{{ url_for('cases.list_cases', world_id=selected_world_id, status=status_filter if status_filter != 'all' else none, tag=tag) }}"
                                    class="badge text-decoration-none bg-light text-dark tag-filter-link"
                                    title="Filter by this tag">
                                     <i class="bi bi-tag"></i> {{ tag }}
@@ -212,7 +216,7 @@
     <div class="alert alert-info" role="alert">
         {% if selected_tag %}
         No cases found with tag "{{ selected_tag }}".
-        <a href="{{ url_for('cases.list_cases', world_id=selected_world_id, analyzed_only='true' if show_analyzed_only else 'false') }}">Clear filter</a>
+        <a href="{{ url_for('cases.list_cases', world_id=selected_world_id, status=status_filter if status_filter != 'all' else none) }}">Clear filter</a>
         {% else %}
         No cases available. Please check the MCP server connection or add new cases.
         {% endif %}
@@ -238,15 +242,15 @@
         updateCaseFilters();
     });
 
-    document.getElementById('analyzedOnlyFilter').addEventListener('change', function() {
+    document.getElementById('statusFilter').addEventListener('change', function() {
         updateCaseFilters();
     });
 
     function updateCaseFilters() {
         const worldId = document.getElementById('worldFilter').value;
-        const analyzedOnly = document.getElementById('analyzedOnlyFilter').checked;
+        const status = document.getElementById('statusFilter').value;
 
-        // Build URL parameters
+        // Build URL parameters - only include non-default values for clean URLs
         const params = new URLSearchParams();
 
         // Only add world_id if it has a value
@@ -254,8 +258,10 @@
             params.append('world_id', worldId);
         }
 
-        // Add analyzed_only parameter (true or false)
-        params.append('analyzed_only', analyzedOnly ? 'true' : 'false');
+        // Only add status if not 'all' (default)
+        if (status && status !== 'all') {
+            params.append('status', status);
+        }
 
         // Preserve tag filter if present
         const currentParams = new URLSearchParams(window.location.search);
@@ -263,8 +269,9 @@
             params.append('tag', currentParams.get('tag'));
         }
 
-        // Navigate to the filtered URL
-        window.location.href = '/cases/?' + params.toString();
+        // Navigate to the filtered URL (clean URL if no params)
+        const queryString = params.toString();
+        window.location.href = '/cases/' + (queryString ? '?' + queryString : '');
     }
 
     // Expandable tag filter
