@@ -367,25 +367,98 @@ Displays similarity breakdown panel showing:
   - Tag Overlap (Jaccard)
   - Principle Overlap (Jaccard)
 - Matching NSPE Code provisions
-
-#### Filtering
-
-Use the **Min Score** dropdown to filter edges:
-
-| Threshold | Typical Result |
-|-----------|----------------|
-| 0.1 | Show all relationships |
-| 0.2 | Default - balanced view |
-| 0.3 | Moderate+ similarity only |
-| 0.4 | Higher similarity only |
-| 0.5 | Strong relationships only |
+- Shared entities (when using entity filters)
 
 #### Navigation Controls
 
 - **Drag nodes** to reposition
 - **Scroll** to zoom in/out
 - **Click background** to pan
-- **Zoom buttons** for precise control
+- **Zoom buttons** (bottom-left) for precise control
+- **Full Screen button** to expand visualization
+
+### Filtering Options
+
+#### Minimum Score Threshold
+
+Use the **Min** dropdown to filter edges by overall similarity:
+
+| Threshold | Typical Result |
+|-----------|----------------|
+| 0.2 | Show most relationships |
+| 0.3 | Default - balanced view |
+| 0.4 | Higher similarity only |
+| 0.5 | Strong relationships only |
+
+#### Similarity Component Filters
+
+Filter by specific similarity types using the button row:
+
+| Filter | Description |
+|--------|-------------|
+| **All** | Default weighted combination of all factors |
+| **Provisions** | Cases sharing NSPE Code sections |
+| **Discussion** | Semantic similarity in ethical analysis |
+| **Facts** | Semantic similarity in case situations |
+| **Outcome** | Same ethical/unethical verdict |
+| **Tag Similarity** | Shared subject tags |
+| **Principle Tensions** | Similar ethical principle conflicts |
+
+#### Entity Overlap Filters
+
+Filter by shared entities from the ProEthica 9-concept formalism:
+
+| Button | Entity Type | Description |
+|--------|-------------|-------------|
+| **R** | Roles | Shared actors and stakeholders |
+| **P** | Principles | Common ethical principles |
+| **O** | Obligations | Similar duties and requirements |
+| **S** | States | Comparable conditions |
+| **Rs** | Resources | Shared assets and materials |
+| **A** | Actions | Similar agent actions |
+| **E** | Events | Common occurrences |
+| **Ca** | Capabilities | Shared abilities and skills |
+| **Cs** | Constraints | Similar limitations |
+
+Entity edges show Jaccard similarity based on shared entity labels. Click an edge to see the specific matching entities.
+
+#### Subject Tag Filtering
+
+Click the **Tags** button to expand the subject tag filter:
+
+1. Click **Tags** to show available tags (32 total)
+2. Click any tag to filter network to cases with that tag
+3. Active tag appears as a yellow badge
+4. Click the X on the badge to clear the filter
+
+#### Hide Unconnected Toggle
+
+Enable **Hide unconnected** (default: on) to:
+- Remove nodes with no edges at current threshold
+- Reduce visual clutter
+- Focus on connected clusters
+
+### Layout Options
+
+Select different graph layouts from the **Layout** dropdown:
+
+| Layout | Description | Best For |
+|--------|-------------|----------|
+| **Force** | Physics-based simulation | Discovering clusters |
+| **Circular** | All cases in a circle | Seeing all connections |
+| **Grid** | Regular grid pattern | Dense networks |
+| **Radial** | Grouped by outcome | Comparing outcomes |
+
+### Full Screen Mode
+
+For detailed analysis:
+
+1. Click the **blue fullscreen button** in zoom controls
+2. Network expands to fill the viewport
+3. Header, legend, and help sections hidden
+4. Exit via **yellow button** or press **ESC**
+
+The graph re-renders to fit the new dimensions.
 
 ### Similarity Components
 
@@ -427,10 +500,31 @@ The info panel shows:
 For programmatic access:
 
 ```
-GET /cases/precedents/api/similarity_network?min_score=0.2
+GET /cases/precedents/api/similarity_network?min_score=0.3
 ```
 
 Returns JSON with nodes and edges for custom visualization.
+
+#### API Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `min_score` | float | Minimum similarity threshold (default: 0.3) |
+| `case_id` | int | Focus on specific case |
+| `component` | string | Filter by component (provision_overlap, discussion_similarity, facts_similarity, outcome_alignment, tag_overlap, principle_overlap) |
+| `component_min` | float | Minimum threshold for component filter |
+| `entity_type` | string | Filter by entity type (Roles, Principles, Obligations, States, Resources, actions, events, Capabilities, Constraints) |
+| `tag` | string | Filter by subject tag |
+
+Example - filter by provisions:
+```
+GET /cases/precedents/api/similarity_network?component=provision_overlap&component_min=0.3
+```
+
+Example - filter by entity type:
+```
+GET /cases/precedents/api/similarity_network?entity_type=Roles
+```
 
 Matrix format available:
 
@@ -439,6 +533,16 @@ GET /cases/precedents/api/similarity_matrix?component=overall
 ```
 
 Returns NxN similarity matrix for heatmap visualization.
+
+### References
+
+The similarity network implementation draws on:
+
+- **CBR-RAG** (Wiratunga et al., 2024) - Case-based reasoning for retrieval-augmented generation
+- **NS-LCR** (Sun et al., 2024) - Logic rules for legal case retrieval
+- **Richter & Weber** (2013) - Case-based reasoning foundations
+
+See [Citations](../reference/citations.md) for full references.
 
 ## Related Guides
 

@@ -182,12 +182,141 @@
         border-radius: 4px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
+
+    .filter-btn {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+
+    .filter-btn.active {
+        background-color: #0d6efd !important;
+        border-color: #0d6efd !important;
+        color: white !important;
+    }
+
+    .filter-btn:not(.active):hover {
+        opacity: 0.8;
+    }
+
+    .entity-filter-btn {
+        font-size: 0.7rem;
+        padding: 0.15rem 0.4rem;
+        font-weight: 600;
+        min-width: 28px;
+    }
+
+    .entity-filter-btn.active {
+        background-color: #6c757d !important;
+        border-color: #6c757d !important;
+        color: white !important;
+    }
+
+    .tag-badge {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.4rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .tag-badge:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    }
+
+    .tag-badge.active-tag {
+        font-size: 0.75rem;
+    }
+
+    #tag-expand-btn.expanded {
+        background-color: #212529 !important;
+        color: white !important;
+    }
+
+    .loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.9);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+    }
+
+    .loading-overlay.hidden {
+        display: none;
+    }
+
+    .loading-content {
+        text-align: center;
+    }
+
+    .loading-text {
+        font-size: 0.9rem;
+        color: #6c757d;
+    }
+
+    /* Fullscreen mode */
+    body.fullscreen-mode {
+        overflow: hidden;
+    }
+
+    body.fullscreen-mode .navbar,
+    body.fullscreen-mode .page-header,
+    body.fullscreen-mode footer,
+    body.fullscreen-mode .fullscreen-hide {
+        display: none !important;
+    }
+
+    body.fullscreen-mode .container-fluid {
+        max-width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    body.fullscreen-mode #network-card {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 9999;
+        border-radius: 0;
+        margin: 0;
+    }
+
+    body.fullscreen-mode #network-container {
+        height: calc(100vh - 140px) !important;
+        border-radius: 0;
+    }
+
+    body.fullscreen-mode .card-header {
+        border-radius: 0;
+    }
+
+    #fullscreen-btn {
+        margin-left: 8px;
+    }
+
+    #exit-fullscreen-btn {
+        display: none;
+    }
+
+    body.fullscreen-mode #exit-fullscreen-btn {
+        display: inline-block;
+    }
+
+    body.fullscreen-mode #fullscreen-btn {
+        display: none;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container-fluid">
-    <div class="row mb-3">
+    <div class="row mb-3 fullscreen-hide">
         <div class="col">
             <h1 class="mb-2">Case Similarity Network</h1>
             <p class="text-muted">
@@ -204,11 +333,11 @@
         </div>
     </div>
 
-    <!-- Legend -->
-    <div class="card mb-3">
+    <!-- Compact Legend -->
+    <div class="card mb-3 fullscreen-hide">
         <div class="card-body py-2">
-            <div class="d-flex flex-wrap align-items-center mb-2">
-                <span class="me-3 text-muted small"><strong>Node Color (Outcome):</strong></span>
+            <div class="d-flex flex-wrap align-items-center">
+                <span class="me-3 text-muted small"><strong>Nodes:</strong></span>
                 <span class="legend-item">
                     <span class="legend-dot" style="background-color: #4CAF50;"></span>Ethical
                 </span>
@@ -222,64 +351,151 @@
                     <span class="legend-dot" style="background-color: #9E9E9E;"></span>Unclear
                 </span>
                 <span class="mx-3 text-muted">|</span>
-                <span class="me-3 text-muted small"><strong>Edge Color (Similarity):</strong></span>
+                <span class="me-3 text-muted small"><strong>Edges:</strong></span>
                 <span class="legend-item">
-                    <span class="legend-dot" style="background-color: #4CAF50;"></span>&gt;0.5
+                    <span class="legend-dot" style="background-color: #4CAF50;"></span>Strong (&gt;0.5)
                 </span>
                 <span class="legend-item">
-                    <span class="legend-dot" style="background-color: #FFC107;"></span>0.3-0.5
+                    <span class="legend-dot" style="background-color: #FFC107;"></span>Medium
                 </span>
                 <span class="legend-item">
-                    <span class="legend-dot" style="background-color: #F44336;"></span>&lt;0.3
+                    <span class="legend-dot" style="background-color: #F44336;"></span>Weak
                 </span>
-            </div>
-            <div class="d-flex flex-wrap align-items-center">
-                <span class="me-3 text-muted small"><strong>Transformation Type:</strong></span>
-                <span class="legend-item">
-                    <span class="badge" style="background-color: #0d6efd; font-size: 0.65rem;">Transfer</span>
-                </span>
-                <span class="legend-item">
-                    <span class="badge" style="background-color: #dc3545; font-size: 0.65rem;">Stalemate</span>
-                </span>
-                <span class="legend-item">
-                    <span class="badge" style="background-color: #fd7e14; font-size: 0.65rem;">Oscillation</span>
-                </span>
-                <span class="legend-item">
-                    <span class="badge" style="background-color: #6f42c1; font-size: 0.65rem;">Phase Lag</span>
-                </span>
-                <small class="text-muted ms-2">(shown in details panel)</small>
             </div>
         </div>
     </div>
 
     <!-- Network Container -->
-    <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <div>
-                <h5 class="mb-0"><i class="bi bi-diagram-3"></i> Similarity Network</h5>
-                <small class="text-muted">
-                    <span id="node-count">0</span> cases, <span id="edge-count">0</span> connections
-                </small>
-            </div>
-            <div class="d-flex align-items-center gap-3">
-                <div class="d-flex align-items-center">
-                    <label class="form-label mb-0 me-2 small">Min Score:</label>
-                    <select class="form-select form-select-sm" id="min-score-select" style="width: 80px;">
-                        <option value="0.1">0.1</option>
-                        <option value="0.2" selected>0.2</option>
-                        <option value="0.3">0.3</option>
-                        <option value="0.4">0.4</option>
-                        <option value="0.5">0.5</option>
-                    </select>
+    <div class="card" id="network-card">
+        <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div>
+                    <h5 class="mb-0"><i class="bi bi-diagram-3"></i> Similarity Network</h5>
+                    <small class="text-muted">
+                        <span id="node-count">0</span> cases, <span id="edge-count">0</span> connections
+                        <span id="filter-indicator" class="ms-2 badge bg-info" style="display: none;"></span>
+                    </small>
                 </div>
-                <button class="btn btn-sm btn-outline-primary" id="refresh-btn">
-                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                <div class="d-flex align-items-center gap-3">
+                    <div class="d-flex align-items-center">
+                        <label class="form-label mb-0 me-2 small">Min:</label>
+                        <select class="form-select form-select-sm" id="min-score-select" style="width: 70px;">
+                            <option value="0.2">0.2</option>
+                            <option value="0.3" selected>0.3</option>
+                            <option value="0.4">0.4</option>
+                            <option value="0.5">0.5</option>
+                        </select>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <label class="form-label mb-0 me-2 small">Layout:</label>
+                        <select class="form-select form-select-sm" id="layout-select" style="width: 95px;">
+                            <option value="force" selected>Force</option>
+                            <option value="circular">Circular</option>
+                            <option value="grid">Grid</option>
+                            <option value="radial">Radial</option>
+                        </select>
+                    </div>
+                    <div class="form-check form-check-inline mb-0">
+                        <input class="form-check-input" type="checkbox" id="hide-unconnected" checked>
+                        <label class="form-check-label small" for="hide-unconnected">Hide unconnected</label>
+                    </div>
+                    <button class="btn btn-sm btn-outline-primary" id="refresh-btn">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh
+                    </button>
+                </div>
+            </div>
+            <!-- Connection Type Filters -->
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                <span class="text-muted small me-1">Similarity:</span>
+                <button class="btn btn-sm filter-btn active" data-filter="" title="All connection types (weighted)">
+                    All
                 </button>
+                <button class="btn btn-sm btn-outline-success filter-btn" data-filter="provision_overlap" title="Cases sharing NSPE Code provisions">
+                    Provisions
+                </button>
+                <button class="btn btn-sm btn-outline-info filter-btn" data-filter="discussion_similarity" title="Similar ethical analysis (semantic)">
+                    Discussion
+                </button>
+                <button class="btn btn-sm btn-outline-primary filter-btn" data-filter="facts_similarity" title="Similar factual situations">
+                    Facts
+                </button>
+                <button class="btn btn-sm btn-outline-secondary filter-btn" data-filter="outcome_alignment" title="Same ethical/unethical outcome">
+                    Outcome
+                </button>
+                <button class="btn btn-sm btn-outline-dark filter-btn" data-filter="tag_overlap" title="Similar subject tags">
+                    Tag Similarity
+                </button>
+                <button class="btn btn-sm btn-outline-dark" id="tag-expand-btn" title="Filter by specific subject tag">
+                    <i class="bi bi-tags"></i> Tags <i class="bi bi-chevron-down" id="tag-chevron"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-warning filter-btn" data-filter="principle_overlap" title="Similar principle tensions">
+                    Principle Tensions
+                </button>
+                <button class="btn btn-sm btn-outline-danger" id="clear-filter-btn" title="Clear all filters" style="display: none;">
+                    <i class="bi bi-x-lg"></i> Clear
+                </button>
+            </div>
+            <!-- Entity Type Filters (ProEthica 9-concept formalism) -->
+            <div class="d-flex flex-wrap align-items-center gap-1">
+                <span class="text-muted small me-1">Entity overlap:</span>
+                <button class="btn btn-sm btn-outline-secondary entity-filter-btn" data-entity="Roles" title="Roles - Actors and stakeholders">
+                    R
+                </button>
+                <button class="btn btn-sm btn-outline-secondary entity-filter-btn" data-entity="Principles" title="Principles - Ethical principles">
+                    P
+                </button>
+                <button class="btn btn-sm btn-outline-secondary entity-filter-btn" data-entity="Obligations" title="Obligations - Duties and requirements">
+                    O
+                </button>
+                <button class="btn btn-sm btn-outline-secondary entity-filter-btn" data-entity="States" title="States - Conditions and situations">
+                    S
+                </button>
+                <button class="btn btn-sm btn-outline-secondary entity-filter-btn" data-entity="Resources" title="Resources - Assets and materials">
+                    Rs
+                </button>
+                <button class="btn btn-sm btn-outline-secondary entity-filter-btn" data-entity="actions" title="Actions - Things agents do">
+                    A
+                </button>
+                <button class="btn btn-sm btn-outline-secondary entity-filter-btn" data-entity="events" title="Events - Things that happen">
+                    E
+                </button>
+                <button class="btn btn-sm btn-outline-secondary entity-filter-btn" data-entity="Capabilities" title="Capabilities - Abilities and skills">
+                    Ca
+                </button>
+                <button class="btn btn-sm btn-outline-secondary entity-filter-btn" data-entity="Constraints" title="Constraints - Limitations and restrictions">
+                    Cs
+                </button>
+                <span class="text-muted small ms-2">(click to filter by shared entities)</span>
+            </div>
+            <!-- Expandable Tag Filter Section -->
+            <div id="tag-filter-section" class="mt-2" style="display: none;">
+                <div class="d-flex flex-wrap align-items-center gap-1 p-2 bg-light rounded">
+                    <span class="text-muted small me-1">Filter by tag:</span>
+                    <span id="tag-list">
+                        <!-- Tags will be populated by JavaScript -->
+                    </span>
+                    <span id="active-tag-display" style="display: none;">
+                        <span class="badge bg-warning text-dark tag-badge active-tag">
+                            <i class="bi bi-tag-fill"></i> <span id="active-tag-name"></span>
+                            <i class="bi bi-x ms-1" style="cursor: pointer;" id="clear-tag-filter"></i>
+                        </span>
+                    </span>
+                </div>
             </div>
         </div>
         <div class="card-body p-0">
             <div id="network-container">
                 <svg id="network-svg"></svg>
+
+                <!-- Loading Overlay -->
+                <div id="loading-overlay" class="loading-overlay">
+                    <div class="loading-content">
+                        <div class="spinner-border text-primary mb-2" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <div class="loading-text">Building graph...</div>
+                    </div>
+                </div>
 
                 <!-- Details Panel -->
                 <div id="details-panel">
@@ -320,6 +536,10 @@
                             <strong class="small">Matching Provisions:</strong>
                             <div id="edge-provisions"></div>
                         </div>
+                        <div class="mt-2" id="edge-entities-section" style="display: none;">
+                            <strong class="small">Shared Entities:</strong>
+                            <div id="edge-entities"></div>
+                        </div>
                     </div>
                 </div>
 
@@ -334,28 +554,72 @@
                     <button class="btn btn-sm btn-light" id="zoom-reset" title="Reset View">
                         <i class="bi bi-arrows-fullscreen"></i>
                     </button>
+                    <button class="btn btn-sm btn-primary" id="fullscreen-btn" title="Full Screen">
+                        <i class="bi bi-fullscreen"></i>
+                    </button>
+                    <button class="btn btn-sm btn-warning" id="exit-fullscreen-btn" title="Exit Full Screen">
+                        <i class="bi bi-fullscreen-exit"></i>
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Method Reference -->
-    <div class="card mt-3">
-        <div class="card-header">
-            <h5 class="mb-0"><i class="bi bi-info-circle"></i> Similarity Methods</h5>
+    <!-- Information Reference -->
+    <div class="card mt-3 fullscreen-hide">
+        <div class="card-header py-2">
+            <h6 class="mb-0">
+                <i class="bi bi-info-circle me-1"></i> How to Use This Network
+            </h6>
         </div>
-        <div class="card-body">
-            <div class="row">
-                {% for key, method in matching_methods.items() %}
-                <div class="col-md-4 mb-2">
-                    <strong>{{ method.name }}</strong>
-                    <span class="badge bg-secondary ms-1">{{ method.method }}</span>
-                    <p class="small text-muted mb-0">{{ method.description }}</p>
-                    {% if method.citation %}
-                    <small class="text-muted fst-italic">{{ method.citation }}</small>
-                    {% endif %}
+        <div id="methodReference">
+            <div class="card-body py-2">
+                <!-- Interaction Instructions -->
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <strong class="small">Interacting with the Network</strong>
+                        <ul class="small text-muted mb-0 ps-3" style="font-size: 0.8rem;">
+                            <li><strong>Click a case (node)</strong> to see its details, outcome, and connections</li>
+                            <li><strong>Click a connection (edge)</strong> to see similarity breakdown</li>
+                            <li><strong>Drag nodes</strong> to reposition; use zoom controls to navigate</li>
+                            <li><strong>Hover</strong> over a node to highlight its connections</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-4">
+                        <strong class="small">Layout Options</strong>
+                        <ul class="small text-muted mb-0 ps-3" style="font-size: 0.8rem;">
+                            <li><strong>Force</strong> - Physics-based, similar cases cluster together</li>
+                            <li><strong>Circular</strong> - All cases arranged in a circle</li>
+                            <li><strong>Grid</strong> - Cases in a regular grid pattern</li>
+                            <li><strong>Radial</strong> - Grouped by outcome (ethical/unethical)</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-4">
+                        <strong class="small">Entity Overlap Filters (R, P, O, S, Rs, A, E, Ca, Cs)</strong>
+                        <p class="small text-muted mb-0" style="font-size: 0.8rem;">
+                            Show cases sharing extracted entities from the ProEthica 9-concept formalism.
+                            For example, <strong>R</strong> shows cases sharing Role entities.
+                            Edge darkness indicates shared entity count.
+                        </p>
+                    </div>
                 </div>
-                {% endfor %}
+                <!-- Similarity Methods -->
+                <strong class="small">Similarity Methods</strong>
+                <div class="row mt-1">
+                    {% for key, method in matching_methods.items() %}
+                    <div class="col-md-4 col-lg-2 mb-2">
+                        <strong class="small">{{ method.name }}</strong>
+                        <span class="badge bg-secondary" style="font-size: 0.6rem;">{{ method.method }}</span>
+                        <p class="small text-muted mb-0" style="font-size: 0.75rem;">{{ method.description }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+                <hr class="my-2">
+                <p class="small text-muted mb-0">
+                    <strong>References:</strong>
+                    CBR-RAG (Wiratunga et al., 2024); NS-LCR (Sun et al., 2024); Richter &amp; Weber (2013)
+                    <a href="/tools/references#precedents" class="ms-2">View all</a>
+                </p>
             </div>
         </div>
     </div>
@@ -372,6 +636,25 @@ document.addEventListener('DOMContentLoaded', function() {
 
     let graphData = null;
     let simulation = null;
+    let currentFilter = '';  // Current component filter
+    let currentEntityFilter = '';  // Current entity type filter
+    let currentTagFilter = '';  // Current subject tag filter
+    let availableTags = [];  // All available tags from API
+    let currentLayout = 'force';  // Layout type
+    let hideUnconnected = true;  // Hide nodes with no connections
+
+    // Loading overlay helpers
+    const loadingOverlay = document.getElementById('loading-overlay');
+    const loadingText = loadingOverlay.querySelector('.loading-text');
+
+    function showLoading(message = 'Building graph...') {
+        loadingText.textContent = message;
+        loadingOverlay.classList.remove('hidden');
+    }
+
+    function hideLoading() {
+        loadingOverlay.classList.add('hidden');
+    }
 
     // Color scales
     const outcomeColors = {
@@ -382,17 +665,53 @@ document.addEventListener('DOMContentLoaded', function() {
         'unknown': '#9E9E9E'
     };
 
-    function getEdgeColor(similarity) {
-        if (similarity >= 0.5) return '#4CAF50';
-        if (similarity >= 0.3) return '#FFC107';
+    // Component-specific edge colors
+    const componentColors = {
+        'provision_overlap': '#198754',      // green
+        'discussion_similarity': '#0dcaf0',  // cyan
+        'facts_similarity': '#0d6efd',       // blue
+        'outcome_alignment': '#6c757d',      // gray
+        'tag_overlap': '#fd7e14',            // orange
+        'principle_overlap': '#ffc107'       // yellow
+    };
+
+    function getEdgeColor(edge) {
+        // If entity filtering, use gray scale based on shared count
+        if (currentEntityFilter || edge.components.entity_type) {
+            const count = edge.components.shared_count || 1;
+            if (count >= 3) return '#343a40';  // dark gray
+            if (count >= 2) return '#6c757d';  // medium gray
+            return '#adb5bd';  // light gray
+        }
+        // If filtering by component, use component color
+        if (currentFilter && componentColors[currentFilter]) {
+            const score = edge.components[currentFilter] || 0;
+            if (score >= 0.5) return componentColors[currentFilter];
+            if (score >= 0.3) return d3.color(componentColors[currentFilter]).darker(0.5);
+            return d3.color(componentColors[currentFilter]).darker(1);
+        }
+        // Default: color by overall similarity
+        if (edge.similarity >= 0.5) return '#4CAF50';
+        if (edge.similarity >= 0.3) return '#FFC107';
         return '#F44336';
     }
 
     function loadNetwork() {
+        showLoading('Fetching case data...');
+
         const minScore = document.getElementById('min-score-select').value;
         let url = `/cases/precedents/api/similarity_network?min_score=${minScore}`;
         if (focusCaseId) {
             url += `&case_id=${focusCaseId}`;
+        }
+        if (currentFilter) {
+            url += `&component=${currentFilter}&component_min=${minScore}`;
+        }
+        if (currentEntityFilter) {
+            url += `&entity_type=${currentEntityFilter}`;
+        }
+        if (currentTagFilter) {
+            url += `&tag=${encodeURIComponent(currentTagFilter)}`;
         }
 
         fetch(url)
@@ -400,14 +719,26 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 if (data.success) {
                     graphData = data;
-                    renderNetwork(data);
-                    updateStats(data.metadata);
+                    showLoading('Rendering ' + data.nodes.length + ' cases...');
+                    // Use setTimeout to allow the loading message to render
+                    setTimeout(() => {
+                        renderNetwork(data);
+                        updateStats(data.metadata);
+                        // Populate available tags
+                        if (data.all_tags) {
+                            availableTags = data.all_tags;
+                            populateTagList(data.all_tags);
+                        }
+                        hideLoading();
+                    }, 50);
                 } else {
+                    hideLoading();
                     console.error('Failed to load network:', data.error);
                     alert('Failed to load network: ' + data.error);
                 }
             })
             .catch(error => {
+                hideLoading();
                 console.error('Error fetching network:', error);
             });
     }
@@ -417,6 +748,24 @@ document.addEventListener('DOMContentLoaded', function() {
         const height = container.clientHeight;
 
         svg.selectAll('*').remove();
+
+        // Filter out unconnected nodes if option is enabled
+        let nodes = data.nodes;
+        let edges = data.edges;
+
+        if (hideUnconnected && edges.length > 0) {
+            // Find connected node IDs
+            const connectedIds = new Set();
+            edges.forEach(e => {
+                connectedIds.add(e.source.id || e.source);
+                connectedIds.add(e.target.id || e.target);
+            });
+            nodes = nodes.filter(n => connectedIds.has(n.id));
+        }
+
+        // Update node/edge counts display
+        document.getElementById('node-count').textContent = nodes.length;
+        document.getElementById('edge-count').textContent = edges.length;
 
         // Create zoom behavior
         const zoom = d3.zoom()
@@ -430,25 +779,94 @@ document.addEventListener('DOMContentLoaded', function() {
         // Create container group for zoom
         const g = svg.append('g');
 
-        // Create simulation
-        simulation = d3.forceSimulation(data.nodes)
-            .force('link', d3.forceLink(data.edges)
+        // Apply layout-specific positioning
+        currentLayout = document.getElementById('layout-select').value;
+
+        if (currentLayout === 'circular') {
+            // Circular layout
+            const radius = Math.min(width, height) * 0.35;
+            nodes.forEach((node, i) => {
+                const angle = (2 * Math.PI * i) / nodes.length;
+                node.x = width / 2 + radius * Math.cos(angle);
+                node.y = height / 2 + radius * Math.sin(angle);
+                node.fx = node.x;
+                node.fy = node.y;
+            });
+        } else if (currentLayout === 'grid') {
+            // Grid layout
+            const cols = Math.ceil(Math.sqrt(nodes.length));
+            const cellWidth = width / (cols + 1);
+            const cellHeight = height / (Math.ceil(nodes.length / cols) + 1);
+            nodes.forEach((node, i) => {
+                node.x = cellWidth * ((i % cols) + 1);
+                node.y = cellHeight * (Math.floor(i / cols) + 1);
+                node.fx = node.x;
+                node.fy = node.y;
+            });
+        } else if (currentLayout === 'radial') {
+            // Radial layout - group by outcome
+            const outcomeGroups = {};
+            nodes.forEach(n => {
+                const outcome = n.outcome || 'unknown';
+                if (!outcomeGroups[outcome]) outcomeGroups[outcome] = [];
+                outcomeGroups[outcome].push(n);
+            });
+
+            const groupKeys = Object.keys(outcomeGroups);
+            const groupAngle = (2 * Math.PI) / groupKeys.length;
+
+            groupKeys.forEach((outcome, gi) => {
+                const groupNodes = outcomeGroups[outcome];
+                const baseAngle = gi * groupAngle;
+                const groupRadius = Math.min(width, height) * 0.3;
+                const spreadRadius = Math.min(width, height) * 0.12;
+
+                groupNodes.forEach((node, ni) => {
+                    const spreadAngle = baseAngle + (ni / groupNodes.length - 0.5) * 0.8;
+                    node.x = width / 2 + groupRadius * Math.cos(baseAngle) + spreadRadius * Math.cos(spreadAngle) * (ni % 3);
+                    node.y = height / 2 + groupRadius * Math.sin(baseAngle) + spreadRadius * Math.sin(spreadAngle) * (ni % 3);
+                    node.fx = node.x;
+                    node.fy = node.y;
+                });
+            });
+        } else {
+            // Force layout - clear fixed positions
+            nodes.forEach(node => {
+                node.fx = null;
+                node.fy = null;
+            });
+        }
+
+        // Adjust simulation parameters based on edge count
+        const edgeCount = edges.length;
+        const chargeStrength = edgeCount < 50 ? -400 : (edgeCount < 100 ? -300 : -200);
+        const linkDistance = edgeCount < 50 ? 120 : (edgeCount < 100 ? 100 : 80);
+
+        // Create simulation (only active for force layout)
+        simulation = d3.forceSimulation(nodes)
+            .force('link', d3.forceLink(edges)
                 .id(d => d.id)
-                .distance(d => 150 - d.similarity * 100)
-                .strength(d => d.similarity * 0.5))
-            .force('charge', d3.forceManyBody().strength(-300))
+                .distance(d => linkDistance + (1 - d.similarity) * 50)
+                .strength(d => currentLayout === 'force' ? 0.3 + d.similarity * 0.3 : 0))
+            .force('charge', d3.forceManyBody().strength(currentLayout === 'force' ? chargeStrength : 0))
             .force('center', d3.forceCenter(width / 2, height / 2))
-            .force('collision', d3.forceCollide().radius(40));
+            .force('collision', d3.forceCollide().radius(45))
+            .force('x', d3.forceX(width / 2).strength(0.05))
+            .force('y', d3.forceY(height / 2).strength(0.05));
 
         // Create edges
         const link = g.append('g')
             .attr('class', 'links')
             .selectAll('line')
-            .data(data.edges)
+            .data(edges)
             .enter().append('line')
             .attr('class', 'link')
-            .attr('stroke', d => getEdgeColor(d.similarity))
-            .attr('stroke-width', d => 1 + d.similarity * 4)
+            .attr('stroke', d => getEdgeColor(d))
+            .attr('stroke-width', d => {
+                // Width based on filtered component or overall
+                const score = currentFilter ? (d.components[currentFilter] || 0) : d.similarity;
+                return 1 + score * 5;
+            })
             .on('click', showEdgeDetails)
             .on('mouseover', function(event, d) {
                 d3.select(this).classed('highlighted', true);
@@ -461,7 +879,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const node = g.append('g')
             .attr('class', 'nodes')
             .selectAll('g')
-            .data(data.nodes)
+            .data(nodes)
             .enter().append('g')
             .attr('class', d => 'node' + (d.is_focus ? ' focus' : ''))
             .call(d3.drag()
@@ -586,30 +1004,57 @@ document.addEventListener('DOMContentLoaded', function() {
         const compDiv = document.getElementById('edge-components');
         compDiv.innerHTML = '';
 
-        const componentLabels = {
-            'facts_similarity': 'Facts',
-            'discussion_similarity': 'Discussion',
-            'provision_overlap': 'Provisions',
-            'outcome_alignment': 'Outcome',
-            'tag_overlap': 'Tags',
-            'principle_overlap': 'Principles'
-        };
-
-        for (const [key, label] of Object.entries(componentLabels)) {
-            const score = d.components[key] || 0;
-            const color = score >= 0.5 ? '#4CAF50' : (score >= 0.3 ? '#FFC107' : '#F44336');
-
-            compDiv.innerHTML += `
+        // Check if this is an entity-based edge
+        if (d.components.entity_type) {
+            // Entity overlap edge
+            const sharedCount = d.components.shared_count || 0;
+            const entityType = d.components.entity_type;
+            compDiv.innerHTML = `
                 <div class="component-row-mini">
-                    <span class="component-label-mini">${label}</span>
+                    <span class="component-label-mini">Entity Type</span>
+                    <span class="component-value-mini" style="width: auto;">${entityType}</span>
+                </div>
+                <div class="component-row-mini">
+                    <span class="component-label-mini">Shared Count</span>
+                    <span class="component-value-mini" style="width: auto;">${sharedCount}</span>
+                </div>
+                <div class="component-row-mini">
+                    <span class="component-label-mini">Jaccard</span>
                     <div class="component-bar-mini">
                         <div class="score-bar-mini">
-                            <div class="score-fill-mini" style="width: ${score * 100}%; background: ${color};"></div>
+                            <div class="score-fill-mini" style="width: ${d.similarity * 100}%; background: #6c757d;"></div>
                         </div>
                     </div>
-                    <span class="component-value-mini">${score.toFixed(2)}</span>
+                    <span class="component-value-mini">${d.similarity.toFixed(2)}</span>
                 </div>
             `;
+        } else {
+            // Similarity-based edge
+            const componentLabels = {
+                'facts_similarity': 'Facts',
+                'discussion_similarity': 'Discussion',
+                'provision_overlap': 'Provisions',
+                'outcome_alignment': 'Outcome',
+                'tag_overlap': 'Tags',
+                'principle_overlap': 'Principles'
+            };
+
+            for (const [key, label] of Object.entries(componentLabels)) {
+                const score = d.components[key] || 0;
+                const color = score >= 0.5 ? '#4CAF50' : (score >= 0.3 ? '#FFC107' : '#F44336');
+
+                compDiv.innerHTML += `
+                    <div class="component-row-mini">
+                        <span class="component-label-mini">${label}</span>
+                        <div class="component-bar-mini">
+                            <div class="score-bar-mini">
+                                <div class="score-fill-mini" style="width: ${score * 100}%; background: ${color};"></div>
+                            </div>
+                        </div>
+                        <span class="component-value-mini">${score.toFixed(2)}</span>
+                    </div>
+                `;
+            }
         }
 
         // Matching provisions
@@ -618,8 +1063,24 @@ document.addEventListener('DOMContentLoaded', function() {
             provDiv.innerHTML = d.matching_provisions.map(p =>
                 `<span class="provision-tag">${p}</span>`
             ).join('');
+            provDiv.parentElement.style.display = 'block';
         } else {
             provDiv.innerHTML = '<span class="text-muted small">None</span>';
+            if (d.components.entity_type) {
+                provDiv.parentElement.style.display = 'none';
+            }
+        }
+
+        // Matching entities (for entity edges)
+        const entitiesSection = document.getElementById('edge-entities-section');
+        const entitiesDiv = document.getElementById('edge-entities');
+        if (d.matching_entities && d.matching_entities.length > 0) {
+            entitiesDiv.innerHTML = d.matching_entities.map(e =>
+                `<span class="badge bg-secondary me-1 mb-1" style="font-size: 0.7rem;">${e}</span>`
+            ).join('');
+            entitiesSection.style.display = 'block';
+        } else {
+            entitiesSection.style.display = 'none';
         }
 
         panel.classList.add('visible');
@@ -665,6 +1126,236 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('min-score-select').addEventListener('change', loadNetwork);
     document.getElementById('refresh-btn').addEventListener('click', loadNetwork);
+
+    // Layout and display options
+    document.getElementById('layout-select').addEventListener('change', function() {
+        if (graphData) {
+            showLoading('Applying ' + this.value + ' layout...');
+            setTimeout(() => {
+                renderNetwork(graphData);
+                hideLoading();
+            }, 50);
+        }
+    });
+
+    document.getElementById('hide-unconnected').addEventListener('change', function() {
+        hideUnconnected = this.checked;
+        if (graphData) {
+            showLoading('Updating display...');
+            setTimeout(() => {
+                renderNetwork(graphData);
+                hideLoading();
+            }, 50);
+        }
+    });
+
+    // Fullscreen toggle
+    let isFullscreen = false;
+
+    function toggleFullscreen(enter) {
+        isFullscreen = enter;
+        if (enter) {
+            document.body.classList.add('fullscreen-mode');
+        } else {
+            document.body.classList.remove('fullscreen-mode');
+        }
+        // Re-render after a brief delay to get new dimensions
+        if (graphData) {
+            setTimeout(() => {
+                renderNetwork(graphData);
+            }, 100);
+        }
+    }
+
+    document.getElementById('fullscreen-btn').addEventListener('click', function() {
+        toggleFullscreen(true);
+    });
+
+    document.getElementById('exit-fullscreen-btn').addEventListener('click', function() {
+        toggleFullscreen(false);
+    });
+
+    // ESC key to exit fullscreen
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && isFullscreen) {
+            toggleFullscreen(false);
+        }
+    });
+
+    // Helper to update clear button visibility
+    function updateClearButton() {
+        const clearBtn = document.getElementById('clear-filter-btn');
+        if (currentFilter || currentEntityFilter || currentTagFilter) {
+            clearBtn.style.display = 'inline-block';
+        } else {
+            clearBtn.style.display = 'none';
+        }
+    }
+
+    // Helper to update filter indicator
+    function updateFilterIndicator() {
+        const indicator = document.getElementById('filter-indicator');
+        const filterLabels = {
+            'provision_overlap': 'Provisions',
+            'discussion_similarity': 'Discussion',
+            'facts_similarity': 'Facts',
+            'outcome_alignment': 'Outcome',
+            'tag_overlap': 'Tag Similarity',
+            'principle_overlap': 'Principle Tensions'
+        };
+        const entityLabels = {
+            'Roles': 'Roles',
+            'Principles': 'Principles',
+            'Obligations': 'Obligations',
+            'States': 'States',
+            'Resources': 'Resources',
+            'actions': 'Actions',
+            'events': 'Events',
+            'Capabilities': 'Capabilities',
+            'Constraints': 'Constraints'
+        };
+
+        let parts = [];
+        if (currentFilter) {
+            parts.push(filterLabels[currentFilter] || currentFilter);
+        }
+        if (currentEntityFilter) {
+            parts.push((entityLabels[currentEntityFilter] || currentEntityFilter) + ' entities');
+        }
+        if (currentTagFilter) {
+            parts.push('Tag: ' + currentTagFilter);
+        }
+
+        if (parts.length > 0) {
+            indicator.textContent = 'Filtered: ' + parts.join(' + ');
+            indicator.style.display = 'inline';
+        } else {
+            indicator.style.display = 'none';
+        }
+    }
+
+    // Populate tag list in the expandable section
+    function populateTagList(tags) {
+        const tagList = document.getElementById('tag-list');
+        const activeDisplay = document.getElementById('active-tag-display');
+
+        if (currentTagFilter) {
+            // Show active tag filter
+            tagList.style.display = 'none';
+            activeDisplay.style.display = 'inline';
+            document.getElementById('active-tag-name').textContent = currentTagFilter;
+        } else {
+            // Show available tags
+            activeDisplay.style.display = 'none';
+            tagList.style.display = 'inline';
+            tagList.innerHTML = tags.slice(0, 15).map(tag =>
+                `<span class="badge bg-light text-dark tag-badge me-1 mb-1" data-tag="${tag}" title="Filter by ${tag}">
+                    <i class="bi bi-tag"></i> ${tag}
+                </span>`
+            ).join('');
+
+            if (tags.length > 15) {
+                tagList.innerHTML += `<span class="badge bg-secondary text-white tag-badge">+${tags.length - 15} more</span>`;
+            }
+
+            // Add click handlers to tags
+            tagList.querySelectorAll('.tag-badge[data-tag]').forEach(badge => {
+                badge.addEventListener('click', function() {
+                    currentTagFilter = this.dataset.tag;
+                    updateFilterIndicator();
+                    updateClearButton();
+                    loadNetwork();
+                });
+            });
+        }
+    }
+
+    // Similarity filter button handlers
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            // Update active state
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+
+            // Update current filter
+            currentFilter = this.dataset.filter;
+
+            // Update UI
+            updateFilterIndicator();
+            updateClearButton();
+
+            // Reload network with new filter
+            loadNetwork();
+        });
+    });
+
+    // Entity filter button handlers
+    document.querySelectorAll('.entity-filter-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            // Toggle active state
+            if (this.classList.contains('active')) {
+                this.classList.remove('active');
+                currentEntityFilter = '';
+            } else {
+                document.querySelectorAll('.entity-filter-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                currentEntityFilter = this.dataset.entity;
+            }
+
+            // Update UI
+            updateFilterIndicator();
+            updateClearButton();
+
+            // Reload network with new filter
+            loadNetwork();
+        });
+    });
+
+    // Clear filter button handler
+    document.getElementById('clear-filter-btn').addEventListener('click', function() {
+        // Reset all filters
+        currentFilter = '';
+        currentEntityFilter = '';
+        currentTagFilter = '';
+
+        // Reset button states
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        document.querySelector('.filter-btn[data-filter=""]').classList.add('active');
+        document.querySelectorAll('.entity-filter-btn').forEach(b => b.classList.remove('active'));
+
+        // Update UI
+        updateFilterIndicator();
+        updateClearButton();
+
+        // Reload network
+        loadNetwork();
+    });
+
+    // Tag expand button handler
+    document.getElementById('tag-expand-btn').addEventListener('click', function() {
+        const section = document.getElementById('tag-filter-section');
+        const chevron = document.getElementById('tag-chevron');
+
+        if (section.style.display === 'none') {
+            section.style.display = 'block';
+            this.classList.add('expanded');
+            chevron.classList.remove('bi-chevron-down');
+            chevron.classList.add('bi-chevron-up');
+        } else {
+            section.style.display = 'none';
+            this.classList.remove('expanded');
+            chevron.classList.remove('bi-chevron-up');
+            chevron.classList.add('bi-chevron-down');
+        }
+    });
+
+    // Clear tag filter handler
+    document.getElementById('clear-tag-filter').addEventListener('click', function() {
+        currentTagFilter = '';
+        updateFilterIndicator();
+        updateClearButton();
+        loadNetwork();
+    });
 
     // Initial load
     loadNetwork();
