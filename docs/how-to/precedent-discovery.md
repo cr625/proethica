@@ -12,9 +12,12 @@ Precedent discovery identifies cases with similar ethical situations through emb
 
 ## Accessing Precedent Discovery
 
-Navigate to: **Precedents** in the navigation bar
+Navigate to: **Cases** > **Find Precedents** in the navigation bar
 
 Or direct URL: `/cases/precedents/`
+
+![Precedent Discovery](../assets/images/screenshots/precedent-discovery-content.png)
+*Precedent discovery page showing similar cases ranked by combined similarity score*
 
 ## How It Works
 
@@ -287,6 +290,9 @@ WHERE facts_embedding IS NULL;
 
 The Similarity Network provides a visual overview of all cases and their relationships based on computed similarity scores.
 
+![Similarity Network](../assets/images/screenshots/similarity-network-content.png)
+*Force-directed graph showing case relationships with color-coded outcomes and similarity edges*
+
 ### Accessing the Network
 
 Navigate to: **Cases** > **Similarity Network** in the navigation bar
@@ -384,6 +390,9 @@ To highlight a specific case:
 3. Click **View Similarity Network**
 
 The focused case appears larger with a highlight ring.
+
+![Focused Network](../assets/images/screenshots/similarity-network-focused-content.png)
+*Network with Case 7 focused, showing its connections highlighted*
 
 Or use URL parameter: `/cases/precedents/network?case_id=7`
 

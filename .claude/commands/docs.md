@@ -108,6 +108,15 @@ with sync_playwright() as p:
 | `upload-case-content.png` | `/cases/new` | Add New Case with 4 import methods |
 | `pipeline-dashboard-content.png` | `/pipeline/dashboard` | Pipeline automation dashboard |
 | `similarity-network-content.png` | `/cases/precedents/network` | Case similarity network visualization |
+| `pipeline-overview-new-content.png` | `/scenario_pipeline/case/<id>/overview` | Pipeline with no extraction (steps locked) |
+| `pipeline-overview-complete-content.png` | `/scenario_pipeline/case/<id>/overview` | Pipeline with completed extraction (checkmarks) |
+| `entity-review-pass1-content.png` | `/scenario_pipeline/case/<id>/entities/review` | Pass 1 entity review with Facts/Discussion toggle |
+| `extraction-history-content.png` | `/scenario_pipeline/case/<id>/extraction_history` | Extraction history timeline with filters |
+| `step4-synthesis-content.png` | `/scenario_pipeline/case/<id>/step4` | Step 4 case synthesis page |
+| `step5-scenario-content.png` | `/scenario_pipeline/case/<id>/step5` | Step 5 scenario exploration page |
+| `precedent-discovery-content.png` | `/cases/precedents/` | Precedent discovery with similarity scores |
+| `similarity-network-content.png` | `/cases/precedents/network` | Case similarity network visualization |
+| `similarity-network-focused-content.png` | `/cases/precedents/network?case_id=7` | Network with specific case highlighted |
 
 ## New Features (2025-12-09)
 
