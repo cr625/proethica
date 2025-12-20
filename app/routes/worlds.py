@@ -195,8 +195,11 @@ def view_world(id):
     from app.models.guideline import Guideline
     guidelines = Guideline.query.filter_by(world_id=world.id).all()
     
-    # Get all case studies for this world
-    case_studies = Document.query.filter_by(world_id=world.id, document_type="case_study").all()
+    # Get all cases for this world (both case_study and case types)
+    case_studies = Document.query.filter(
+        Document.world_id == world.id,
+        Document.document_type.in_(['case_study', 'case'])
+    ).all()
     
     # Fetch all ontologies for the dropdown
     all_ontologies = Ontology.query.all()

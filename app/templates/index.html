@@ -20,63 +20,125 @@
     .ontology-item .btn {
         transition: all 0.2s;
     }
+
+    .quick-start-card {
+        border-left: 4px solid #0d6efd;
+        transition: all 0.2s;
+    }
+
+    .quick-start-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        transform: translateY(-2px);
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container mt-4">
     <!-- Header with Description -->
-    <div class="text-center mb-5">
+    <div class="text-center mb-4">
         <h1 class="display-5 fw-normal">ProEthica</h1>
-        <p class="lead text-muted mb-4">Ethical Decision Analysis Platform</p>
+        <p class="lead text-muted mb-3">Ethical Decision Analysis Platform</p>
         <div class="row justify-content-center">
             <div class="col-md-8">
-                <p class="text-muted">
+                <p class="text-muted small">
                     ProEthica uses large language models as semantic parsers to extract structured
-                    knowledge from professional ethics cases. The system combines ontology-based
-                    knowledge representation with case-based reasoning to analyze decisions according
-                    to professional standards and ethical guidelines.
-                </p>
-                <p class="text-muted">
-                    To explore the system, visit the <a href="/cases" class="text-decoration-none fw-semibold">cases
-                        list</a>, click "View Details" on any case, then click "Overview" to see the three-pass extraction process demonstrated.
+                    knowledge from professional ethics cases, combining ontology-based representation
+                    with case-based reasoning for systematic analysis.
                 </p>
             </div>
         </div>
     </div>
 
+    <!-- Quick Start Cards - uses selected domain from session -->
+    <div class="row mb-4">
+        <div class="col-md-4 mb-3">
+            <a href="/cases{% if selected_domain_id %}?world_id={{ selected_domain_id }}{% endif %}" class="text-decoration-none">
+                <div class="card h-100 quick-start-card">
+                    <div class="card-body text-center py-4">
+                        <i class="bi bi-folder2-open display-4 text-primary mb-3"></i>
+                        <h5 class="card-title">Browse Cases</h5>
+                        <p class="card-text text-muted small">
+                            Explore {{ total_cases or 'available' }} ethics cases
+                            {% if selected_domain %}in {{ selected_domain.name }}{% endif %}
+                        </p>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-4 mb-3">
+            <a href="/cases/precedents{% if selected_domain_id %}?world_id={{ selected_domain_id }}{% endif %}" class="text-decoration-none">
+                <div class="card h-100 quick-start-card">
+                    <div class="card-body text-center py-4">
+                        <i class="bi bi-diagram-2 display-4 text-primary mb-3"></i>
+                        <h5 class="card-title">Find Precedents</h5>
+                        <p class="card-text text-muted small">
+                            Discover similar cases using semantic similarity matching
+                        </p>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-4 mb-3">
+            <a href="/docs/" target="_blank" class="text-decoration-none">
+                <div class="card h-100 quick-start-card">
+                    <div class="card-body text-center py-4">
+                        <i class="bi bi-book display-4 text-primary mb-3"></i>
+                        <h5 class="card-title">Documentation</h5>
+                        <p class="card-text text-muted small">
+                            Learn about the extraction pipeline and nine-concept framework
+                        </p>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+
     <!-- Main Content -->
     <div class="row">
-        <!-- Available Worlds -->
+        <!-- Available Domains -->
         <div class="col-md-6 mb-4">
             <div class="card h-100">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0"><i class="bi bi-globe2 me-2"></i>Available Professional Domains</h5>
+                    <h5 class="mb-0"><i class="bi bi-globe2 me-2"></i>Professional Domains</h5>
                     {% if environment == 'production' %}
                     <a href="/worlds/new" class="btn btn-sm btn-outline-primary"
                         title="Login required to create new domains">
-                        <i class="bi bi-plus-circle me-1"></i>Create New
+                        <i class="bi bi-plus-circle me-1"></i>New
                         <i class="bi bi-lock ms-1" style="font-size: 0.75em; opacity: 0.7;"></i>
                     </a>
                     {% else %}
                     <a href="/worlds/new" class="btn btn-sm btn-outline-primary">
-                        <i class="bi bi-plus-circle me-1"></i>Create New
+                        <i class="bi bi-plus-circle me-1"></i>New
                     </a>
                     {% endif %}
                 </div>
                 <div class="card-body">
                     {% if worlds %}
                     {% for world in worlds %}
-                    <div class="d-flex justify-content-between align-items-center mb-3 p-3 border rounded world-item">
+                    <div class="d-flex justify-content-between align-items-center mb-3 p-3 border rounded world-item
+                         {% if selected_domain and world.id == selected_domain.id %}border-primary{% endif %}">
                         <div>
                             <h6 class="mb-1">
+                                {% if selected_domain and world.id == selected_domain.id %}
+                                <i class="bi bi-check-circle-fill text-primary me-1" title="Currently active"></i>
+                                {% endif %}
                                 <a href="/worlds/{{ world.id }}" class="text-decoration-none">{{ world.name }}</a>
                             </h6>
                             <p class="mb-0 text-muted small">{{ world.description|truncate(80) }}</p>
                         </div>
                         <div class="text-end">
-                            <a href="/worlds/{{ world.id }}" class="btn btn-sm btn-primary">
-                                <i class="bi bi-arrow-right me-1"></i>Enter
+                            {% if not selected_domain or world.id != selected_domain.id %}
+                            <a href="{{ url_for('index.set_domain', domain_id=world.id) }}"
+                               class="btn btn-sm btn-outline-success me-1" title="Set as active domain">
+                                <i class="bi bi-check2-circle"></i>
+                            </a>
+                            {% endif %}
+                            <a href="/cases?world_id={{ world.id }}" class="btn btn-sm btn-outline-primary me-1" title="View cases in this domain">
+                                <i class="bi bi-folder2-open"></i>
+                            </a>
+                            <a href="/worlds/{{ world.id }}" class="btn btn-sm btn-primary" title="Domain details">
+                                <i class="bi bi-arrow-right"></i>
                             </a>
                         </div>
                     </div>
@@ -84,22 +146,21 @@
                     {% else %}
                     <div class="text-center py-4">
                         <i class="bi bi-globe2 display-4 text-muted"></i>
-                        <p class="text-muted mt-2">No worlds available</p>
+                        <p class="text-muted mt-2">No domains configured</p>
                         {% if environment == 'production' %}
                         <a href="/worlds/new" class="btn btn-primary" title="Login required to create domains">
-                            Create Your First World
+                            Create Domain
                             <i class="bi bi-lock ms-1" style="font-size: 0.85em; opacity: 0.7;"></i>
                         </a>
                         {% else %}
-                        <a href="/worlds/new" class="btn btn-primary">Create Your First World</a>
+                        <a href="/worlds/new" class="btn btn-primary">Create Domain</a>
                         {% endif %}
                     </div>
                     {% endif %}
                 </div>
                 <div class="card-footer bg-transparent">
                     <small class="text-muted">
-                        Each domain contains cases, scenarios, guidelines, and agents for specific professional
-                        contexts.
+                        Domains organize cases and guidelines by professional context (e.g., Engineering Ethics).
                     </small>
                 </div>
             </div>
@@ -109,7 +170,7 @@
         <div class="col-md-6 mb-4">
             <div class="card h-100">
                 <div class="card-header">
-                    <h5 class="mb-0"><i class="bi bi-diagram-3 me-2"></i>Manage Linked Data</h5>
+                    <h5 class="mb-0"><i class="bi bi-diagram-3 me-2"></i>Linked Data</h5>
                 </div>
                 <div class="card-body">
                     <!-- Static ontology links -->
@@ -121,8 +182,8 @@
                         </div>
                         <div class="text-end">
                             <a href="{{ config.ONTSERVE_WEB_URL }}/ontology/proethica-core" target="_blank"
-                                class="btn btn-sm btn-info">
-                                <i class="bi bi-pencil me-1"></i>Manage
+                                class="btn btn-sm btn-outline-info">
+                                <i class="bi bi-box-arrow-up-right"></i>
                             </a>
                         </div>
                     </div>
@@ -134,8 +195,8 @@
                         </div>
                         <div class="text-end">
                             <a href="{{ config.ONTSERVE_WEB_URL }}/ontology/proethica-intermediate" target="_blank"
-                                class="btn btn-sm btn-info">
-                                <i class="bi bi-pencil me-1"></i>Manage
+                                class="btn btn-sm btn-outline-info">
+                                <i class="bi bi-box-arrow-up-right"></i>
                             </a>
                         </div>
                     </div>
@@ -147,12 +208,17 @@
                         </div>
                         <div class="text-end">
                             <a href="{{ config.ONTSERVE_WEB_URL }}/ontology/engineering-ethics" target="_blank"
-                                class="btn btn-sm btn-info">
-                                <i class="bi bi-pencil me-1"></i>Manage
+                                class="btn btn-sm btn-outline-info">
+                                <i class="bi bi-box-arrow-up-right"></i>
                             </a>
                         </div>
                     </div>
 
+                </div>
+                <div class="card-footer bg-transparent">
+                    <small class="text-muted">
+                        Ontologies are managed via <a href="{{ config.ONTSERVE_WEB_URL }}" target="_blank">OntServe</a>.
+                    </small>
                 </div>
             </div>
         </div>

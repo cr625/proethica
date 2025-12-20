@@ -88,49 +88,70 @@
                                     <i class="bi bi-house"></i> Home
                                 </a>
                             </li>
+                            <!-- Domain Selector -->
                             <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" id="worldsDropdown" role="button"
+                                <a class="nav-link dropdown-toggle" href="#" id="domainSelector" role="button"
                                     data-bs-toggle="dropdown" aria-expanded="false">
-                                    <i class="bi bi-globe2"></i> Domain
+                                    <i class="bi bi-globe2"></i>
+                                    {% if selected_domain %}{{ selected_domain.name }}{% else %}Select Domain{% endif %}
                                 </a>
-                                <ul class="dropdown-menu" aria-labelledby="worldsDropdown">
+                                <ul class="dropdown-menu" aria-labelledby="domainSelector">
+                                    {% if all_domains %}
+                                    <li><h6 class="dropdown-header">Switch Domain</h6></li>
+                                    {% for domain in all_domains %}
+                                    <li>
+                                        <a class="dropdown-item{% if selected_domain and domain.id == selected_domain.id %} active{% endif %}"
+                                           href="{{ url_for('index.set_domain', domain_id=domain.id) }}">
+                                            {% if selected_domain and domain.id == selected_domain.id %}
+                                            <i class="bi bi-check2 me-2"></i>
+                                            {% else %}
+                                            <i class="bi bi-globe2 me-2"></i>
+                                            {% endif %}
+                                            {{ domain.name }}
+                                        </a>
+                                    </li>
+                                    {% endfor %}
+                                    <li><hr class="dropdown-divider"></li>
+                                    {% endif %}
                                     <li><a class="dropdown-item" href="/worlds">
-                                            <i class="bi bi-list-ul me-2"></i>View All Domains
+                                            <i class="bi bi-gear me-2"></i>Manage Domains
                                         </a></li>
                                     <li>
                                         <a class="dropdown-item" href="/worlds/new">
-                                            <i class="bi bi-plus-circle me-2"></i>Create New Domain{% if environment ==
+                                            <i class="bi bi-plus-circle me-2"></i>Create New{% if environment ==
                                             'production' %} <small><i class="bi bi-lock-fill"></i></small>{% endif %}
                                         </a>
                                     </li>
+                                </ul>
+                            </li>
+                            <!-- Domain-scoped navigation -->
+                            <li class="nav-item">
+                                <a class="nav-link" href="/cases{% if selected_domain_id %}?world_id={{ selected_domain_id }}{% endif %}">
+                                    <i class="bi bi-folder2-open"></i> Cases
+                                </a>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="precedentsDropdown" role="button"
+                                    data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bi bi-diagram-2"></i> Precedents
+                                </a>
+                                <ul class="dropdown-menu" aria-labelledby="precedentsDropdown">
                                     <li>
-                                        <hr class="dropdown-divider">
-                                    </li>
-                                    <li>
-                                        <h6 class="dropdown-header">Quick Access</h6>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" href="/cases">
-                                            <i class="bi bi-folder2-open me-2"></i>All Cases
+                                        <a class="dropdown-item" href="/cases/precedents{% if selected_domain_id %}?world_id={{ selected_domain_id }}{% endif %}">
+                                            <i class="bi bi-search me-2"></i>Find Precedents
                                         </a>
                                     </li>
                                     <li>
-                                        <a class="dropdown-item" href="/cases/precedents">
-                                            <i class="bi bi-link-45deg me-2"></i>Find Precedents
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" href="/cases/precedents/network">
+                                        <a class="dropdown-item" href="/cases/precedents/network{% if selected_domain_id %}?world_id={{ selected_domain_id }}{% endif %}">
                                             <i class="bi bi-diagram-3 me-2"></i>Similarity Network
                                         </a>
                                     </li>
-                                    <!-- Scenarios route archived - see templates/archive/scenarios/ -->
-                                    <li>
-                                        <a class="dropdown-item" href="/guidelines">
-                                            <i class="bi bi-book me-2"></i>All Guidelines
-                                        </a>
-                                    </li>
                                 </ul>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="/guidelines{% if selected_domain_id %}?world_id={{ selected_domain_id }}{% endif %}">
+                                    <i class="bi bi-book-half"></i> Guidelines
+                                </a>
                             </li>
                             <li class="nav-item dropdown">
                                 <a class="nav-link dropdown-toggle" href="#" id="ontologyDropdown" role="button"
@@ -151,28 +172,22 @@
                                         </a></li>
                                 </ul>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="/docs/" target="_blank">
+                                    <i class="bi bi-book"></i> Docs
+                                </a>
+                            </li>
                             <li class="nav-item dropdown">
                                 <a class="nav-link dropdown-toggle" href="#" id="toolsDropdown" role="button"
                                     data-bs-toggle="dropdown" aria-expanded="false">
                                     <i class="bi bi-tools"></i> Tools
                                 </a>
                                 <ul class="dropdown-menu" aria-labelledby="toolsDropdown">
-                                    <li><a class="dropdown-item disabled-tool" href="#" title="Coming Soon">
-                                            <i class="bi bi-chat-dots me-2"></i>Ethics Oracle
-                                            <i class="bi bi-lock-fill ms-1"></i>
-                                        </a></li>
-                                    <li><a class="dropdown-item disabled-tool" href="#" title="Coming Soon">
-                                            <i class="bi bi-flask me-2"></i>Experiments
-                                            <i class="bi bi-lock-fill ms-1"></i>
-                                        </a></li>
                                     <li><a class="dropdown-item" href="/tools/provenance">
                                             <i class="bi bi-diagram-3 me-2"></i>Provenance Viewer
                                         </a></li>
                                     <li><a class="dropdown-item" href="/tools/references">
-                                            <i class="bi bi-journal-bookmark me-2"></i>References
-                                        </a></li>
-                                    <li><a class="dropdown-item" href="/docs/" target="_blank">
-                                            <i class="bi bi-book me-2"></i>Documentation
+                                            <i class="bi bi-journal-bookmark me-2"></i>Academic References
                                         </a></li>
                                     {% if current_user and current_user.is_authenticated and current_user.is_admin %}
                                     <li><hr class="dropdown-divider"></li>

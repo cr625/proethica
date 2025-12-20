@@ -2,13 +2,30 @@
 Index route for the application.
 """
 
-from flask import Blueprint, render_template, current_app, redirect, url_for, Response
+from flask import Blueprint, render_template, current_app, redirect, url_for, Response, session, request
 from app.models.world import World
 from app.models.scenario import Scenario
 from app.models.guideline import Guideline
+from app.models.document import Document
 
 # Create a blueprint for the index routes
 index_bp = Blueprint('index', __name__)
+
+
+@index_bp.route('/set-domain/<int:domain_id>')
+def set_domain(domain_id):
+    """
+    Set the currently selected domain in the session.
+    Redirects back to the referring page or home.
+    """
+    # Verify domain exists
+    domain = World.query.get(domain_id)
+    if domain:
+        session['selected_domain_id'] = domain_id
+
+    # Redirect back to referring page or home
+    next_url = request.referrer or url_for('index.index')
+    return redirect(next_url)
 
 @index_bp.route('/')
 def index():
@@ -47,16 +64,35 @@ def index():
         except:
             pass
         
+        # Get case count for the quick start card - filtered by selected domain if set
+        total_cases = 0
+        try:
+            # Get selected domain from session (also set by context processor)
+            selected_domain_id = session.get('selected_domain_id')
+
+            query = Document.query.filter(
+                Document.document_type.in_(['case_study', 'case'])
+            )
+
+            # Filter by domain if one is selected
+            if selected_domain_id:
+                query = query.filter(Document.world_id == selected_domain_id)
+
+            total_cases = query.count()
+        except:
+            pass
+
         # System status checks (mock for now)
         mcp_status = True  # Could check actual MCP server
         embedding_status = True  # Could check embedding service
         last_backup_time = "2024-06-07"  # Could check actual backup
-        
+
         return render_template('index.html',
             worlds=worlds,
             ontologies=ontologies,
             pending_reviews=pending_reviews,
             concept_count=concept_count,
+            total_cases=total_cases,
             mcp_status=mcp_status,
             embedding_status=embedding_status,
             last_backup_time=last_backup_time

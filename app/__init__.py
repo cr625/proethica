@@ -293,6 +293,43 @@ def create_app(config_name=None):
         }
 
     @app.context_processor
+    def inject_domain_context():
+        """
+        Inject domain selection context for navigation.
+        Provides all domains and the currently selected domain from session.
+        """
+        from flask import session
+        from app.models.world import World
+
+        try:
+            # Get all available domains
+            all_domains = World.query.order_by(World.name).all()
+
+            # Get selected domain from session, default to first domain if exists
+            selected_domain_id = session.get('selected_domain_id')
+            selected_domain = None
+
+            if selected_domain_id:
+                selected_domain = World.query.get(selected_domain_id)
+
+            # If no valid selection and domains exist, default to first
+            if not selected_domain and all_domains:
+                selected_domain = all_domains[0]
+                session['selected_domain_id'] = selected_domain.id
+
+            return {
+                'all_domains': all_domains,
+                'selected_domain': selected_domain,
+                'selected_domain_id': selected_domain.id if selected_domain else None
+            }
+        except Exception:
+            return {
+                'all_domains': [],
+                'selected_domain': None,
+                'selected_domain_id': None
+            }
+
+    @app.context_processor
     def inject_pipeline_status():
         """
         Inject pipeline_status for scenario pipeline pages.
