@@ -36,21 +36,21 @@
                 </button>
                 {% endif %}
             </div>
-            <a href="{{ url_for('scenario_pipeline.overview', case_id=case.id) }}" class="btn btn-outline-success">
-                <i class="bi bi-1-circle"></i> Overview
-            </a>
             {% endif %}
         </div>
     </div>
 
     <!-- Title on its own line below the actions -->
-    <h1 class="mb-4">
+    <h1 class="mb-3">
         {% if case.doc_metadata and case.doc_metadata.get('source') == 'agent_generated' or case.doc_metadata and
         case.doc_metadata.get('source') == 'agent_generated_sample' %}
         <i class="bi bi-robot text-primary me-2" title="Generated with Language Model assistance"></i>
         {% endif %}
         {{ case.title }}
     </h1>
+
+    <!-- Analysis Pipeline Status Bar -->
+    {% include 'cases/_case_pipeline_status.html' %}
 
     <div id="case-details" class="card mb-4">
         <div class="card-header d-flex justify-content-between align-items-center">
@@ -350,90 +350,7 @@
     {% endif %}
 
     <!-- Knowledge Graph Connections section has been replaced by interactive Triple Labels -->
-
-    <!-- Scenario Generation - At bottom of page -->
-    {% set latest_scenario = case.doc_metadata.latest_scenario if case.doc_metadata else None %}
-    <div id="scenario-section" class="card mb-4">
-        <div class="card-header">
-            <h3><i class="bi bi-diagram-3"></i> Scenario</h3>
-        </div>
-        <div class="card-body">
-            <div class="text-center py-5">
-                <h4 class="text-muted mb-3"><i class="bi bi-hourglass-split"></i> Coming Soon</h4>
-                <p class="text-muted">Interactive ethical decision scenarios will be available in a future release.</p>
-            </div>
-            {% if false and latest_scenario %}
-            <div class="text-center">
-                <div class="mb-3">
-                    <h5 class="mb-2">Scenario Generated</h5>
-                    <p class="mb-3">Generated {{ latest_scenario.stats.event_count }} events and {{
-                        latest_scenario.stats.decision_count }} decisions with analysis of the 9 ProEthica categories.
-                    </p>
-
-                    {% if latest_scenario.participants %}
-                    <div class="mb-3">
-                        <strong>Participants:</strong>
-                        {% for p in latest_scenario.participants %}
-                        <span class="badge bg-info me-1">{{ p }}</span>
-                        {% endfor %}
-                    </div>
-                    {% endif %}
-
-                    {% if latest_scenario.ontology_enrichment_status == 'failed' %}
-                    <div class="alert alert-warning py-2 px-3 mb-3 small">
-                        <i class="bi bi-exclamation-triangle"></i> MCP server unavailable - generated without ontology
-                        enrichment
-                    </div>
-                    {% elif latest_scenario.ontology_enrichment_status == 'success' %}
-                    <div class="alert alert-success py-2 px-3 mb-3 small">
-                        <i class="bi bi-check-circle"></i> Generated with full ontology enrichment and validation
-                    </div>
-                    {% endif %}
-                </div>
-
-                <div class="d-flex justify-content-center gap-3 flex-wrap">
-                    <a href="{{ url_for('cases.view_case_scenario', case_id=case.id) }}" class="btn btn-primary">
-                        <i class="bi bi-eye"></i> View Scenario Timeline
-                    </a>
-                    {% if latest_scenario.reasoning_trace_id %}
-                    <a href="{{ url_for('reasoning.inspect_trace', trace_id=latest_scenario.reasoning_trace_id) }}"
-                        class="btn btn-info">
-                        <i class="bi bi-search"></i> 🔍 Inspect Reasoning Chain
-                    </a>
-                    {% endif %}
-                    <button id="regenerate-scenario" class="btn btn-outline-secondary">
-                        <i class="bi bi-arrow-clockwise"></i> Regenerate
-                    </button>
-                    <button id="clear-scenario" class="btn btn-outline-danger"
-                        title="Clear current scenario and force fresh generation">
-                        <i class="bi bi-trash"></i> Clear Scenario
-                    </button>
-                </div>
-
-                {% if latest_scenario.scenario_id %}
-                <div class="mt-3">
-                    <a href="/scenarios/{{ latest_scenario.scenario_id }}" class="btn btn-outline-primary">
-                        <i class="bi bi-play-circle"></i> Interactive Scenario
-                    </a>
-                </div>
-                {% endif %}
-            </div>
-            {% elif false %}
-            <div class="text-center">
-                <p class="text-muted">Generate an interactive ethical decision scenario from this case.</p>
-                <div class="d-flex justify-content-center gap-3 flex-wrap">
-                    <button id="generate-scenario" class="btn btn-success">
-                        <i class="bi bi-magic"></i> Generate Scenario
-                    </button>
-                    <a href="{{ url_for('scenario_pipeline.scenario_pipeline_builder', case_id=case.id) }}"
-                        class="btn btn-outline-primary">
-                        <i class="bi bi-gear"></i> Scenario Pipeline
-                    </a>
-                </div>
-            </div>
-            {% endif %}
-        </div>
-    </div>
+    <!-- Scenario section removed - use Analysis Pipeline status bar above for navigation -->
 
 </div>
 
@@ -465,100 +382,6 @@
 {{ super() }}
 <!-- Include the external case detail JS file -->
 <script src="{{ url_for('static', filename='js/case_detail.js') }}"></script>
-
-<!-- Scenario Generation JavaScript (Simplified) -->
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const caseId = JSON.parse('{{ case.id | tojson | safe }}');
-
-        // Event delegation for scenario generation buttons
-        document.addEventListener('click', function (e) {
-            // Clear scenario button
-            if (e.target.id === 'clear-scenario') {
-                e.preventDefault();
-
-                if (!confirm('This will permanently clear the current scenario. Continue?')) {
-                    return;
-                }
-
-                const btn = e.target;
-                const originalHtml = btn.innerHTML;
-                btn.disabled = true;
-                btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Clearing...';
-
-                fetch(`/cases/${caseId}/clear_scenario`, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': '{{ csrf_token() }}'
-                    }
-                })
-                    .then(r => r.json())
-                    .then(data => {
-                        if (data.success) {
-                            // Show success and reload page to show empty scenario state
-                            btn.innerHTML = '<i class="bi bi-check-circle"></i> Cleared!';
-                            btn.className = 'btn btn-success';
-
-                            setTimeout(() => {
-                                location.reload();
-                            }, 1000);
-                        } else {
-                            alert('Failed to clear scenario: ' + (data.error || 'Unknown error'));
-                        }
-                    })
-                    .catch(err => {
-                        alert('Error: ' + err.message);
-                    })
-                    .finally(() => {
-                        if (!btn.className.includes('btn-success')) {
-                            btn.disabled = false;
-                            btn.innerHTML = originalHtml;
-                        }
-                    });
-            }
-
-            // Scenario generation buttons
-            if (e.target.id === 'generate-scenario' || e.target.id === 'regenerate-scenario') {
-                e.preventDefault();
-                const btn = e.target;
-                const originalHtml = btn.innerHTML;
-                btn.disabled = true;
-                btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generating...';
-                fetch(`/cases/${caseId}/direct_scenario`, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': '{{ csrf_token() }}'
-                    }
-                })
-                    .then(r => r.json())
-                    .then(data => {
-                        if (data.success) {
-                            // Show success message briefly then redirect to scenario timeline
-                            btn.innerHTML = '<i class="bi bi-check-circle"></i> Generated! Redirecting...';
-                            btn.className = 'btn btn-success';
-
-                            setTimeout(() => {
-                                // Redirect to scenario timeline to show results immediately
-                                window.location.href = `/cases/${caseId}/scenario`;
-                            }, 1500);
-                        } else {
-                            alert('Failed to generate scenario: ' + (data.error || 'Unknown error'));
-                        }
-                    })
-                    .catch(err => {
-                        alert('Error: ' + err.message);
-                    })
-                    .finally(() => {
-                        // Only restore button if there was an error
-                        if (!btn.className.includes('btn-success')) {
-                            btn.disabled = false;
-                            btn.innerHTML = originalHtml;
-                        }
-                    });
-            }
-        });
-    });
-</script>
 
 <!-- Pass case ID to JS -->
 <script>

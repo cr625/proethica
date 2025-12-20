@@ -30,6 +30,7 @@ from app.services.scenario_pipeline.scenario_generation_phase_a import DirectSce
 from app.services.agents.case_creation_agent import CaseCreationAgent
 from app.services.conversation_to_case_service import ConversationToCaseService
 from app.models.agent_conversation import AgentConversation
+from app.services.pipeline_status_service import PipelineStatusService
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -468,12 +469,16 @@ def view_case(id):
         ).count()
     except Exception as e:
         logger.warning(f"Could not get annotation count for case {document.id}: {str(e)}")
-    
-    return render_template('case_detail.html', case=case, world=world, 
-                          entity_triples=entity_triples, 
+
+    # Get pipeline status for the analysis pipeline status bar
+    pipeline_status = PipelineStatusService.get_step_status(document.id)
+
+    return render_template('case_detail.html', case=case, world=world,
+                          entity_triples=entity_triples,
                           knowledge_graph_connections=knowledge_graph_connections,
                           term_links_by_section=term_links_by_section,
-                          annotation_count=annotation_count)
+                          annotation_count=annotation_count,
+                          pipeline_status=pipeline_status)
 
 @cases_bp.route('/new', methods=['GET'])
 @auth_required_for_create  # Require login to see case creation options

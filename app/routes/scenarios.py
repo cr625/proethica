@@ -1,3 +1,23 @@
+"""
+DEPRECATED: Standalone Scenarios Route (December 2025)
+
+This route handles standalone scenarios created within a world/domain.
+It has been removed from main navigation but routes are preserved for:
+- Existing deep links
+- Future per-domain scenario authoring capability
+
+Current focus: Case-derived scenarios via /scenario_pipeline/case/<id>/step5
+
+Templates archived to: app/templates/archive/scenarios/
+
+To restore:
+1. Move templates back from archive/scenarios/ to templates/
+2. Uncomment nav link in base.html (search for "Scenarios route archived")
+3. Remove this deprecation notice
+
+Database: 2 existing scenarios remain in `scenarios` table (harmless)
+"""
+
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash
 from flask_login import login_required
 from app.utils.environment_auth import auth_required_for_write

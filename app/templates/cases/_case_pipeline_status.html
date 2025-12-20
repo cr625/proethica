@@ -1,0 +1,168 @@
+{#
+Case Pipeline Status Bar - Horizontal progress indicator for case detail page
+
+Usage:
+    {% include 'cases/_case_pipeline_status.html' %}
+
+Required context variables:
+    - case: The case object
+    - pipeline_status: Dict from PipelineStatusService.get_step_status()
+#}
+
+{% set step1_complete = pipeline_status.step1.complete if pipeline_status else false %}
+{% set step2_complete = pipeline_status.step2.complete if pipeline_status else false %}
+{% set step3_complete = pipeline_status.step3.complete if pipeline_status else false %}
+{% set step4_complete = pipeline_status.step4.complete if pipeline_status else false %}
+{% set step5_complete = pipeline_status.step5.complete if pipeline_status else false %}
+
+{% set step2_available = step1_complete %}
+{% set step3_available = step2_complete %}
+{% set step4_available = step3_complete %}
+{% set step5_available = step4_complete %}
+
+{# Smart URLs: go to review when complete, extraction when not #}
+{% set step1_url = url_for('entity_review.review_case_entities', case_id=case.id, section_type='facts') if pipeline_status.step1.facts_complete else url_for('scenario_pipeline.step1', case_id=case.id) %}
+{% set step2_url = url_for('entity_review.review_case_entities_pass2', case_id=case.id, section_type='facts') if pipeline_status.step2.facts_complete else url_for('scenario_pipeline.step2', case_id=case.id) %}
+{% set step3_url = url_for('entity_review.review_enhanced_temporal', case_id=case.id) if step3_complete else url_for('scenario_pipeline.step3', case_id=case.id) %}
+{% set step4_url = url_for('step4.step4_synthesis', case_id=case.id) %}
+{% set step5_url = url_for('step5.step5_scenario_generation', case_id=case.id) %}
+
+<div class="card mb-4 pipeline-status-card">
+    <div class="card-body py-2">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div class="d-flex align-items-center">
+                <span class="text-muted me-3 small fw-bold">
+                    <i class="bi bi-diagram-3"></i> Analysis Pipeline
+                </span>
+            </div>
+            <div class="d-flex align-items-center gap-2 flex-wrap pipeline-steps-row">
+                {# Step 1: Contextual Framework #}
+                <a href="{{ step1_url }}"
+                   class="btn btn-sm pipeline-step-btn {% if step1_complete %}btn-success{% else %}btn-outline-primary{% endif %}"
+                   title="Roles, States, Resources">
+                    <span class="step-num">1</span>
+                    <span class="step-name d-none d-md-inline">Contextual</span>
+                    {% if step1_complete %}<i class="bi bi-check-lg ms-1"></i>{% endif %}
+                </a>
+
+                {# Step 2: Normative Requirements #}
+                {% if step2_available %}
+                <a href="{{ step2_url }}"
+                   class="btn btn-sm pipeline-step-btn {% if step2_complete %}btn-success{% elif step2_available %}btn-outline-primary{% endif %}"
+                   title="Principles, Obligations, Constraints, Capabilities">
+                    <span class="step-num">2</span>
+                    <span class="step-name d-none d-md-inline">Normative</span>
+                    {% if step2_complete %}<i class="bi bi-check-lg ms-1"></i>{% endif %}
+                </a>
+                {% else %}
+                <span class="btn btn-sm btn-outline-secondary pipeline-step-btn disabled" title="Complete Step 1 first">
+                    <span class="step-num">2</span>
+                    <span class="step-name d-none d-md-inline">Normative</span>
+                    <i class="bi bi-lock-fill ms-1"></i>
+                </span>
+                {% endif %}
+
+                {# Step 3: Temporal Dynamics #}
+                {% if step3_available %}
+                <a href="{{ step3_url }}"
+                   class="btn btn-sm pipeline-step-btn {% if step3_complete %}btn-success{% elif step3_available %}btn-outline-primary{% endif %}"
+                   title="Actions, Events">
+                    <span class="step-num">3</span>
+                    <span class="step-name d-none d-md-inline">Temporal</span>
+                    {% if step3_complete %}<i class="bi bi-check-lg ms-1"></i>{% endif %}
+                </a>
+                {% else %}
+                <span class="btn btn-sm btn-outline-secondary pipeline-step-btn disabled" title="Complete Step 2 first">
+                    <span class="step-num">3</span>
+                    <span class="step-name d-none d-md-inline">Temporal</span>
+                    <i class="bi bi-lock-fill ms-1"></i>
+                </span>
+                {% endif %}
+
+                {# Step 4: Whole-Case Synthesis #}
+                {% if step4_available %}
+                <a href="{{ step4_url }}"
+                   class="btn btn-sm pipeline-step-btn {% if step4_complete %}btn-success{% elif step4_available %}btn-outline-primary{% endif %}"
+                   title="Code Provisions, Questions, Conclusions, Transformation">
+                    <span class="step-num">4</span>
+                    <span class="step-name d-none d-md-inline">Synthesis</span>
+                    {% if step4_complete %}<i class="bi bi-check-lg ms-1"></i>{% endif %}
+                </a>
+                {% else %}
+                <span class="btn btn-sm btn-outline-secondary pipeline-step-btn disabled" title="Complete Step 3 first">
+                    <span class="step-num">4</span>
+                    <span class="step-name d-none d-md-inline">Synthesis</span>
+                    <i class="bi bi-lock-fill ms-1"></i>
+                </span>
+                {% endif %}
+
+                {# Step 5: Scenario Exploration #}
+                {% if step5_available %}
+                <a href="{{ step5_url }}"
+                   class="btn btn-sm pipeline-step-btn {% if step5_complete %}btn-success{% elif step5_available %}btn-outline-primary{% endif %}"
+                   title="Interactive Scenario, Decision Analysis">
+                    <span class="step-num">5</span>
+                    <span class="step-name d-none d-md-inline">Scenario</span>
+                    {% if step5_complete %}<i class="bi bi-check-lg ms-1"></i>{% endif %}
+                </a>
+                {% else %}
+                <span class="btn btn-sm btn-outline-secondary pipeline-step-btn disabled" title="Complete Step 4 first">
+                    <span class="step-num">5</span>
+                    <span class="step-name d-none d-md-inline">Scenario</span>
+                    <i class="bi bi-lock-fill ms-1"></i>
+                </span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.pipeline-status-card {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: 1px solid #dee2e6;
+}
+
+.pipeline-step-btn {
+    min-width: 40px;
+    font-size: 0.8rem;
+    padding: 0.25rem 0.5rem;
+    transition: all 0.2s ease;
+}
+
+.pipeline-step-btn .step-num {
+    font-weight: bold;
+}
+
+.pipeline-step-btn.btn-success {
+    background-color: #198754;
+    border-color: #198754;
+}
+
+.pipeline-step-btn.btn-success:hover {
+    background-color: #157347;
+    border-color: #146c43;
+}
+
+.pipeline-step-btn.btn-outline-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.pipeline-step-btn.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+@media (max-width: 576px) {
+    .pipeline-steps-row {
+        justify-content: center;
+        width: 100%;
+    }
+    .pipeline-step-btn {
+        min-width: 36px;
+        padding: 0.2rem 0.4rem;
+    }
+}
+</style>
