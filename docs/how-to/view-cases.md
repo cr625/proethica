@@ -9,7 +9,7 @@ Navigate to: **Cases** in the navigation bar
 Or direct URL: `/cases/`
 
 ![Cases List](../assets/images/screenshots/cases-list-content.png)
-*Case repository showing cases grouped by year with subject tags and analysis status*
+*Case repository showing cases grouped by year with clickable subject tags and similarity search*
 
 ### List Layout
 
@@ -20,9 +20,43 @@ Cases are organized by year with expandable cards showing:
 | **Title** | Case name with robot icon if agent-generated |
 | **Case Number** | Badge showing case identifier (e.g., "Case #24-02") |
 | **Analyzed Badge** | Green "Analyzed" or gray "Not Analyzed" |
-| **Subject Tags** | Yellow badges from source classification |
+| **Subject Tags** | Clickable tags for filtering (yellow badges) |
+| **Find Similar** | Link to precedent discovery for this case |
 | **Questions** | Up to 3 ethical questions posed to the board |
 | **Conclusions** | Board determinations |
+
+### Filtering Cases
+
+The filter bar provides multiple options:
+
+| Filter | Description |
+|--------|-------------|
+| **World Filter** | Dropdown to filter by domain/world (e.g., Engineering Ethics) |
+| **Analyzed Only** | Checkbox to show only cases with Step 4 synthesis complete |
+| **Tag Filter** | Clickable tags to filter by subject category |
+
+#### Tag Filtering
+
+Subject tags are clickable throughout the interface. Click any tag to filter the case list:
+
+1. **Filter bar tags** - Click any tag in the "Filter by tag:" row at the top
+2. **Case card tags** - Click a tag on any case card to filter by that category
+3. **Expand for more** - Click "+X more" to reveal all available tags
+4. **Clear filter** - Click the active (highlighted) tag again to remove the filter
+
+When a tag filter is active:
+- A "Filtering by:" indicator appears at the top
+- The active tag is highlighted in yellow with an "x" indicator
+- Click the active tag anywhere to clear the filter
+
+#### Find Similar
+
+Each case card includes a **Find Similar** link that navigates to [Precedent Discovery](precedent-discovery.md) with that case pre-selected:
+
+- Located in the tags row (separated by a vertical bar)
+- Styled as a blue badge for distinction
+- Shows cases with similar facts, discussion, and provisions
+- See [Precedent Discovery](precedent-discovery.md) for full documentation
 
 ### Subject Tags
 
@@ -37,18 +71,7 @@ Common engineering ethics subject tags include:
 | Practice Areas | Design, Construction, Consulting |
 | Relationships | Client Relations, Employer Relations |
 
-Tags appear on both the list view and individual case pages.
-
-### Filtering Cases
-
-The filter bar provides two options:
-
-| Filter | Description |
-|--------|-------------|
-| **World Filter** | Filter by domain/world (e.g., Engineering Ethics) |
-| **Show Analyzed Only** | Show only cases with Step 4 synthesis complete |
-
-The "Analyzed" status indicates whether Step 4 whole-case synthesis has been completed for a case.
+Tags are clickable on both the list view and individual case pages.
 
 ## Case Detail Page
 
@@ -57,7 +80,26 @@ Click **View Details** on any case card to access the full case page.
 Direct URL: `/cases/<id>`
 
 ![Case Detail](../assets/images/screenshots/case-detail-content.png)
-*Individual case page showing sections, tags, and action buttons*
+*Individual case page showing the analysis pipeline status bar and case sections*
+
+### Analysis Pipeline Status Bar
+
+Below the case title, a horizontal status bar shows extraction progress:
+
+| Step | Name | Status Indicators |
+|------|------|-------------------|
+| **1** | Contextual | Roles, States, Resources |
+| **2** | Normative | Principles, Obligations, Constraints, Capabilities |
+| **3** | Temporal | Actions, Events |
+| **4** | Synthesis | Code Provisions, Questions, Conclusions |
+| **5** | Scenario | Interactive Exploration |
+
+Status colors:
+- **Green with checkmark** - Step complete
+- **Blue outline** - Step available (click to start)
+- **Gray with lock** - Step locked (complete prerequisites first)
+
+Click any available step to navigate directly to its extraction or review page.
 
 ### Action Buttons
 
@@ -70,7 +112,6 @@ The header provides quick access to case functions:
 | **Structure** | View document sections and embeddings |
 | **Source** | Link to original source (if available) |
 | **Delete** | Remove case (authenticated users only) |
-| **Overview** | Go to scenario pipeline for analysis |
 
 ### Case Sections
 
@@ -199,4 +240,4 @@ Examples of potential domains:
 
 - [Upload Cases](upload-cases.md) - Adding new cases
 - [Phase 1 Extraction](phase1-extraction.md) - Beginning analysis
-- [Precedent Discovery](precedent-discovery.md) - Finding similar cases
+- [Precedent Discovery](precedent-discovery.md) - Finding similar cases with semantic matching

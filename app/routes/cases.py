@@ -61,6 +61,9 @@ def list_cases():
 
     # Get analysis filter from query parameters (default: False - show all cases)
     show_analyzed_only = request.args.get('analyzed_only', 'false').lower() == 'true'
+
+    # Get subject tag filter from query parameters
+    selected_tag = request.args.get('tag', '')
     
     # Initialize variables
     cases = []
@@ -196,9 +199,25 @@ def list_cases():
     except Exception as e:
         error = str(e)
 
+    # Collect all unique tags BEFORE filtering (so we can show all options)
+    all_tags = set()
+    for case in cases:
+        tags = case.get('doc_metadata', {}).get('subject_tags', [])
+        if tags:
+            all_tags.update(tags)
+    all_tags = sorted(all_tags)
+
     # Apply analysis filter if enabled
     if show_analyzed_only:
         cases = [case for case in cases if case.get('is_analyzed', False)]
+
+    # Apply tag filter if specified
+    if selected_tag:
+        cases = [
+            case for case in cases
+            if case.get('doc_metadata', {}).get('subject_tags')
+            and selected_tag in case['doc_metadata']['subject_tags']
+        ]
 
     # Group cases by year
     from collections import defaultdict
@@ -230,6 +249,8 @@ def list_cases():
         selected_world_id=world_id,
         query=query,
         show_analyzed_only=show_analyzed_only,
+        selected_tag=selected_tag,
+        all_tags=all_tags,
         error=error
     )
 

@@ -12,9 +12,28 @@ Precedent discovery identifies cases with similar ethical situations through emb
 
 ## Accessing Precedent Discovery
 
+There are multiple ways to access precedent discovery:
+
+### From Navigation
+
 Navigate to: **Cases** > **Find Precedents** in the navigation bar
 
 Or direct URL: `/cases/precedents/`
+
+### From Cases List
+
+On the [Cases List](view-cases.md) page, each case card includes a **Find Similar** link:
+
+- Located in the tags row alongside subject tags
+- Styled as a blue badge for visual distinction
+- Click to open precedent discovery with that case pre-selected
+
+### From Case Structure
+
+On any case's Structure page:
+
+1. Scroll to the Similar Cases sidebar
+2. Click **Find More Precedents**
 
 ![Precedent Discovery](../assets/images/screenshots/precedent-discovery-content.png)
 *Precedent discovery page showing similar cases ranked by combined similarity score*

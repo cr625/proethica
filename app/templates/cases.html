@@ -12,11 +12,11 @@
     </div>
     {% endif %}
 
-    <div class="row mb-4">
+    <div class="row mb-3">
         <div class="col-md-8">
-            <form id="caseFilterForm" class="d-flex align-items-center" action="/cases/" method="get">
-                <div class="input-group me-2" style="max-width: 300px;">
-                    <select class="form-select" name="world_id" id="worldFilter" aria-label="Filter by World">
+            <form id="caseFilterForm" class="d-flex align-items-center flex-wrap gap-2" action="/cases/" method="get">
+                <div class="input-group" style="max-width: 200px;">
+                    <select class="form-select form-select-sm" name="world_id" id="worldFilter" aria-label="Filter by World">
                         <option value="">All Worlds</option>
                         {% for world in worlds %}
                         <option value="{{ world.id }}" {% if selected_world_id == world.id %}selected{% endif %}>
@@ -25,58 +25,69 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div class="form-check ms-3">
+                <div class="form-check">
                     <input class="form-check-input" type="checkbox" id="analyzedOnlyFilter"
                            {% if show_analyzed_only %}checked{% endif %}>
-                    <label class="form-check-label" for="analyzedOnlyFilter">
-                        Show analyzed cases only
+                    <label class="form-check-label small" for="analyzedOnlyFilter">
+                        Analyzed only
                     </label>
                 </div>
-                <!-- Search bar hidden until new search is implemented
-                <input class="form-control" type="search" placeholder="Search cases..." name="query" value="{{ query }}"
-                    aria-label="Search">
-                <button class="btn btn-outline-primary" type="submit">Search</button>
-                -->
             </form>
-
-            <script>
-                // Handle filter changes properly
-                document.getElementById('worldFilter').addEventListener('change', function() {
-                    updateCaseFilters();
-                });
-
-                document.getElementById('analyzedOnlyFilter').addEventListener('change', function() {
-                    updateCaseFilters();
-                });
-
-                function updateCaseFilters() {
-                    const worldId = document.getElementById('worldFilter').value;
-                    const analyzedOnly = document.getElementById('analyzedOnlyFilter').checked;
-
-                    // Build URL parameters
-                    const params = new URLSearchParams();
-
-                    // Only add world_id if it has a value
-                    if (worldId) {
-                        params.append('world_id', worldId);
-                    }
-
-                    // Add analyzed_only parameter (true or false)
-                    params.append('analyzed_only', analyzedOnly ? 'true' : 'false');
-
-                    // Navigate to the filtered URL
-                    window.location.href = '/cases/?' + params.toString();
-                }
-            </script>
         </div>
         <div class="col-md-4 text-end">
-            <a href="{{ url_for('cases.case_options') }}" class="btn btn-success">Add New Case</a>
+            <a href="{{ url_for('cases.case_options') }}" class="btn btn-success btn-sm">Add New Case</a>
         </div>
     </div>
-    
-    <!-- Processing Status Legend -->
-    <div class="row mb-3">
+
+    <!-- Active Filters Display -->
+    {% if selected_tag %}
+    <div class="mb-3">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <span class="text-muted small">Filtering by:</span>
+            <a href="{{ url_for('cases.list_cases', world_id=selected_world_id, analyzed_only='true' if show_analyzed_only else 'false') }}"
+               class="badge bg-warning text-dark text-decoration-none tag-filter-link"
+               title="Click to clear filter">
+                <i class="bi bi-tag-fill"></i> {{ selected_tag }} <i class="bi bi-x"></i>
+            </a>
+        </div>
     </div>
+    {% endif %}
+
+    <!-- Available Tags Filter (expandable) -->
+    {% if all_tags and not selected_tag %}
+    <div class="mb-3">
+        <div class="d-flex align-items-center gap-2 flex-wrap" id="tagFilterContainer">
+            <span class="text-muted small">Filter by tag:</span>
+            {% for tag in all_tags[:12] %}
+            <a href="{{ url_for('cases.list_cases', world_id=selected_world_id, analyzed_only='true' if show_analyzed_only else 'false', tag=tag) }}"
+               class="badge bg-light text-dark text-decoration-none tag-filter-link"
+               title="Show cases with this tag">
+                <i class="bi bi-tag"></i> {{ tag }}
+            </a>
+            {% endfor %}
+            {% if all_tags|length > 12 %}
+            <a href="#" class="badge bg-secondary text-white text-decoration-none" id="showMoreTags"
+               title="Show all tags">
+                +{{ all_tags|length - 12 }} more <i class="bi bi-chevron-down"></i>
+            </a>
+            <!-- Hidden tags shown when expanded -->
+            <div id="moreTags" class="d-none d-flex flex-wrap gap-2">
+                {% for tag in all_tags[12:] %}
+                <a href="{{ url_for('cases.list_cases', world_id=selected_world_id, analyzed_only='true' if show_analyzed_only else 'false', tag=tag) }}"
+                   class="badge bg-light text-dark text-decoration-none tag-filter-link"
+                   title="Show cases with this tag">
+                    <i class="bi bi-tag"></i> {{ tag }}
+                </a>
+                {% endfor %}
+            </div>
+            <a href="#" class="badge bg-secondary text-white text-decoration-none d-none" id="showLessTags"
+               title="Show fewer tags">
+                Show less <i class="bi bi-chevron-up"></i>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
 
     {% if grouped_cases %}
     {% for year, year_cases in grouped_cases.items() %}
@@ -111,20 +122,47 @@
                                 {% endif %}
                             </div>
                         </div>
-                        
-                        <!-- Subject Tags on separate line -->
+
+                        <!-- Subject Tags (clickable) and Find Similar -->
                         {% if case.doc_metadata and case.doc_metadata.subject_tags %}
-                        <div class="card-header border-top">
+                        <div class="card-header border-top py-2">
                             <div class="d-flex flex-wrap align-items-center gap-2">
-                                <strong class="text-muted me-2">Subject Tags:</strong>
                                 {% for tag in case.doc_metadata.subject_tags %}
-                                <span class="badge bg-warning text-dark me-1" title="NSPE Subject Classification">
+                                {% if tag == selected_tag %}
+                                <a href="{{ url_for('cases.list_cases', world_id=selected_world_id, analyzed_only='true' if show_analyzed_only else 'false') }}"
+                                   class="badge text-decoration-none bg-warning text-dark tag-filter-link"
+                                   title="Click to clear filter">
+                                    <i class="bi bi-tag-fill"></i> {{ tag }} <i class="bi bi-x"></i>
+                                </a>
+                                {% else %}
+                                <a href="{{ url_for('cases.list_cases', world_id=selected_world_id, analyzed_only='true' if show_analyzed_only else 'false', tag=tag) }}"
+                                   class="badge text-decoration-none bg-light text-dark tag-filter-link"
+                                   title="Filter by this tag">
                                     <i class="bi bi-tag"></i> {{ tag }}
-                                </span>
+                                </a>
+                                {% endif %}
                                 {% endfor %}
+                                <span class="mx-1 text-muted">|</span>
+                                <a href="{{ url_for('precedents.find_precedents', case_id=case.id) }}"
+                                   class="badge bg-info bg-opacity-25 text-info text-decoration-none"
+                                   title="Find cases similar to this one">
+                                    <i class="bi bi-diagram-2"></i> Find Similar
+                                </a>
+                            </div>
+                        </div>
+                        {% else %}
+                        <!-- No tags, but still show Find Similar -->
+                        <div class="card-header border-top py-2">
+                            <div class="d-flex flex-wrap align-items-center gap-2">
+                                <a href="{{ url_for('precedents.find_precedents', case_id=case.id) }}"
+                                   class="badge bg-info bg-opacity-25 text-info text-decoration-none"
+                                   title="Find cases similar to this one">
+                                    <i class="bi bi-diagram-2"></i> Find Similar
+                                </a>
                             </div>
                         </div>
                         {% endif %}
+
                         <div class="card-body">
                             {% if case.questions_list %}
                             <div class="mb-3">
@@ -143,7 +181,7 @@
                                 {% endif %}
                             </div>
                             {% endif %}
-                            
+
                             {% if case.conclusion_items %}
                             <div class="mb-3">
                                 <h6 class="text-success">Conclusions:</h6>
@@ -158,12 +196,8 @@
                                 {% endif %}
                             </div>
                             {% endif %}
-                            
+
                             <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                                <a href="{{ url_for('precedents.precedent_search', case_id=case.id) }}"
-                                   class="btn btn-sm btn-outline-info" title="Find similar cases">
-                                    <i class="bi bi-diagram-2"></i> Precedents
-                                </a>
                                 <a href="/cases/{{ case.id }}" class="btn btn-sm btn-primary">View Details</a>
                             </div>
                         </div>
@@ -176,9 +210,84 @@
     {% endfor %}
     {% else %}
     <div class="alert alert-info" role="alert">
+        {% if selected_tag %}
+        No cases found with tag "{{ selected_tag }}".
+        <a href="{{ url_for('cases.list_cases', world_id=selected_world_id, analyzed_only='true' if show_analyzed_only else 'false') }}">Clear filter</a>
+        {% else %}
         No cases available. Please check the MCP server connection or add new cases.
+        {% endif %}
     </div>
     {% endif %}
 
 </div>
+
+<style>
+.tag-filter-link {
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+.tag-filter-link:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+}
+</style>
+
+<script>
+    // Handle filter changes properly
+    document.getElementById('worldFilter').addEventListener('change', function() {
+        updateCaseFilters();
+    });
+
+    document.getElementById('analyzedOnlyFilter').addEventListener('change', function() {
+        updateCaseFilters();
+    });
+
+    function updateCaseFilters() {
+        const worldId = document.getElementById('worldFilter').value;
+        const analyzedOnly = document.getElementById('analyzedOnlyFilter').checked;
+
+        // Build URL parameters
+        const params = new URLSearchParams();
+
+        // Only add world_id if it has a value
+        if (worldId) {
+            params.append('world_id', worldId);
+        }
+
+        // Add analyzed_only parameter (true or false)
+        params.append('analyzed_only', analyzedOnly ? 'true' : 'false');
+
+        // Preserve tag filter if present
+        const currentParams = new URLSearchParams(window.location.search);
+        if (currentParams.has('tag')) {
+            params.append('tag', currentParams.get('tag'));
+        }
+
+        // Navigate to the filtered URL
+        window.location.href = '/cases/?' + params.toString();
+    }
+
+    // Expandable tag filter
+    const showMoreBtn = document.getElementById('showMoreTags');
+    const showLessBtn = document.getElementById('showLessTags');
+    const moreTags = document.getElementById('moreTags');
+
+    if (showMoreBtn) {
+        showMoreBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            moreTags.classList.remove('d-none');
+            showMoreBtn.classList.add('d-none');
+            showLessBtn.classList.remove('d-none');
+        });
+    }
+
+    if (showLessBtn) {
+        showLessBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            moreTags.classList.add('d-none');
+            showLessBtn.classList.add('d-none');
+            showMoreBtn.classList.remove('d-none');
+        });
+    }
+</script>
 {% endblock %}
