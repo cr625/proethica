@@ -189,7 +189,8 @@ The system allows duplicate uploads. Check existing cases before adding:
 1. Use Cases search
 2. Check Precedents page for similar titles
 
-## Next Steps
+## Related Guides
 
+- [View Cases](view-cases.md) - Browsing and viewing cases
 - [Phase 1 Extraction](phase1-extraction.md) - Begin concept extraction
 - [Precedent Discovery](precedent-discovery.md) - Find similar cases

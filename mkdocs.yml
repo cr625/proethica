@@ -70,6 +70,7 @@ nav:
       - Nine-Concept Framework: concepts/nine-concepts.md
   - How-To Guides:
       - Upload Cases: how-to/upload-cases.md
+      - View Cases: how-to/view-cases.md
       - "Phase 1: Extraction": how-to/phase1-extraction.md
       - "Phase 2: Analysis": how-to/phase2-analysis.md
       - "Phase 3: Scenario": how-to/phase3-scenario.md

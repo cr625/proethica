@@ -7,31 +7,34 @@ This document describes the ProEthica system architecture.
 ProEthica follows a three-tier architecture with specialized components:
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         Processing                              │
-│  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐       │
-│  │     LLM       │  │   LangGraph   │  │    Celery     │       │
-│  │  (Claude)     │  │ Orchestration │  │    Tasks      │       │
-│  └───────┬───────┘  └───────┬───────┘  └───────┬───────┘       │
-└──────────┼──────────────────┼──────────────────┼───────────────┘
-           │                  │                  │
-           ▼                  ▼                  ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                         Knowledge                               │
-│  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐       │
-│  │   Ontology    │  │   Case Base   │  │   Embeddings  │       │
-│  │  (OntServe)   │  │  (PostgreSQL) │  │   (pgvector)  │       │
-│  └───────┬───────┘  └───────┬───────┘  └───────┬───────┘       │
-└──────────┼──────────────────┼──────────────────┼───────────────┘
-           │                  │                  │
-           ▼                  ▼                  ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                       Infrastructure                            │
-│  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐       │
-│  │     MCP       │  │   Database    │  │    Redis      │       │
-│  │  (JSON-RPC)   │  │  (PostgreSQL) │  │   (Queue)     │       │
-│  └───────────────┘  └───────────────┘  └───────────────┘       │
-└─────────────────────────────────────────────────────────────────┘
++---------------------------------------------------------------+
+|                        Processing                             |
+|                                                               |
+|  +--------------+  +--------------+  +--------------+         |
+|  |     LLM      |  |  LangGraph   |  |   Celery     |         |
+|  |   (Claude)   |  | Orchestration|  |   Tasks      |         |
+|  +------+-------+  +------+-------+  +------+-------+         |
++---------|-----------------|-----------------|------------------+
+          |                 |                 |
+          v                 v                 v
++---------------------------------------------------------------+
+|                        Knowledge                              |
+|                                                               |
+|  +--------------+  +--------------+  +--------------+         |
+|  |   Ontology   |  |  Case Base   |  |  Embeddings  |         |
+|  |  (OntServe)  |  | (PostgreSQL) |  |  (pgvector)  |         |
+|  +------+-------+  +------+-------+  +------+-------+         |
++---------|-----------------|-----------------|------------------+
+          |                 |                 |
+          v                 v                 v
++---------------------------------------------------------------+
+|                      Infrastructure                           |
+|                                                               |
+|  +--------------+  +--------------+  +--------------+         |
+|  |     MCP      |  |   Database   |  |    Redis     |         |
+|  |  (JSON-RPC)  |  | (PostgreSQL) |  |   (Queue)    |         |
+|  +--------------+  +--------------+  +--------------+         |
++---------------------------------------------------------------+
 ```
 
 ## Component Overview
@@ -68,13 +71,13 @@ ProEthica follows a three-tier architecture with specialized components:
 proethica/
 ├── app/
 │   ├── __init__.py          # App factory
-│   ├── routes/              # HTTP endpoints (48+ files)
+│   ├── routes/              # HTTP endpoints (70+ files)
 │   │   ├── scenario_pipeline/  # Pipeline steps
 │   │   └── ...
-│   ├── services/            # Business logic (120+ files)
-│   │   ├── extraction/      # 9-concept extractors
+│   ├── services/            # Business logic (260+ files)
+│   │   ├── extraction/      # Concept extractors
 │   │   └── ...
-│   ├── models/              # Database models (62+ files)
+│   ├── models/              # Database models (60+ files)
 │   └── templates/           # Jinja2 templates
 ├── config.py                # Configuration
 ├── run.py                   # Entry point
@@ -88,7 +91,7 @@ Services encapsulate business logic:
 | Category | Services | Purpose |
 |----------|----------|---------|
 | LLM | claude_service, llm_service | AI integration |
-| Extraction | dual_*_extractor (9) | Concept extraction |
+| Extraction | dual_*_extractor | Concept extraction (10 extractors) |
 | Analysis | guideline_analysis, case_synthesis | Case processing |
 | Decision | decision_focus_extractor | Decision point extraction |
 | Storage | case_entity_storage, entity_service | Data management |
@@ -110,75 +113,75 @@ Services encapsulate business logic:
 
 ```
 Case Document
-       │
-       ▼
-┌──────────────────┐
-│   Section Parser │
-└────────┬─────────┘
-         │
-         ▼
-┌──────────────────┐     ┌──────────────────┐
-│  Pass 1 Extract  │────▶│  Entity Review   │
-│  (R, S, Rs)      │     │  + OntServe      │
-└────────┬─────────┘     └────────┬─────────┘
-         │                        │
-         ▼                        ▼
-┌──────────────────┐     ┌──────────────────┐
-│  Pass 2 Extract  │────▶│  Entity Review   │
-│  (P, O, Cs, Ca)  │     │  + OntServe      │
-└────────┬─────────┘     └────────┬─────────┘
-         │                        │
-         ▼                        ▼
-┌──────────────────┐     ┌──────────────────┐
-│  Pass 3 Extract  │────▶│  Entity Review   │
-│  (A, E)          │     │  + OntServe      │
-└────────┬─────────┘     └────────┬─────────┘
-         │                        │
-         ▼                        ▼
-┌──────────────────┐     ┌──────────────────┐
-│  Case Analysis   │────▶│  Transformation  │
-│  (Q&C, Provs)    │     │  Classification  │
-└────────┬─────────┘     └────────┬─────────┘
-         │                        │
-         ▼                        ▼
-┌──────────────────┐     ┌──────────────────┐
-│ Decision Points  │────▶│  Commit to       │
-│   Extraction     │     │  OntServe        │
-└────────┬─────────┘     └────────┬─────────┘
-         │                        │
-         ▼                        ▼
-┌──────────────────┐     ┌──────────────────┐
-│    Scenario      │────▶│   Interactive    │
-│   Generation     │     │  Visualization   │
-└──────────────────┘     └──────────────────┘
+      |
+      v
++------------------+
+|  Section Parser  |
++--------+---------+
+         |
+         v
++------------------+     +------------------+
+| Pass 1 Extract   |---->|  Entity Review   |
+| (R, S, Rs)       |     |  + OntServe      |
++--------+---------+     +--------+---------+
+         |                        |
+         v                        v
++------------------+     +------------------+
+| Pass 2 Extract   |---->|  Entity Review   |
+| (P, O, Cs, Ca)   |     |  + OntServe      |
++--------+---------+     +--------+---------+
+         |                        |
+         v                        v
++------------------+     +------------------+
+| Pass 3 Extract   |---->|  Entity Review   |
+| (A, E)           |     |  + OntServe      |
++--------+---------+     +--------+---------+
+         |                        |
+         v                        v
++------------------+     +------------------+
+| Case Analysis    |---->| Transformation   |
+| (Q&C, Provs)     |     | Classification   |
++--------+---------+     +--------+---------+
+         |                        |
+         v                        v
++------------------+     +------------------+
+| Decision Points  |---->| Commit to        |
+| Extraction       |     | OntServe         |
++--------+---------+     +--------+---------+
+         |                        |
+         v                        v
++------------------+     +------------------+
+| Scenario         |---->| Interactive      |
+| Generation       |     | Visualization    |
++------------------+     +------------------+
 ```
 
 ### Entity Storage Flow
 
 ```
 LLM Response
-      │
-      ▼
-┌─────────────────────┐
-│ ExtractionPrompt    │◀─────┐
-│ (prompt + response) │      │
-└──────────┬──────────┘      │
-           │                 │
-           │ extraction_     │
-           │ session_id      │
-           │                 │
-           ▼                 │
-┌─────────────────────┐      │
-│TemporaryRDFStorage  │──────┘
-│ (classes + individ) │
-└──────────┬──────────┘
-           │
-           │ on commit
-           ▼
-┌─────────────────────┐
-│    OntServe         │
-│ (permanent ontology)│
-└─────────────────────┘
+      |
+      v
++---------------------+
+| ExtractionPrompt    |<-----+
+| (prompt + response) |      |
++----------+----------+      |
+           |                 |
+           | extraction_     |
+           | session_id      |
+           |                 |
+           v                 |
++---------------------+      |
+| TemporaryRDFStorage |------+
+| (classes + individ) |
++----------+----------+
+           |
+           | on commit
+           v
++---------------------+
+|    OntServe         |
+| (permanent ontology)|
++---------------------+
 ```
 
 ## Database Schema
@@ -217,7 +220,8 @@ Transformation classification stored in:
 |-------|---------|
 | `scenario_participants` | Character profiles |
 | `scenario_relationship_map` | Relationships |
-| `scenario_timeline` | Decision points |
+| `scenario_exploration_sessions` | Interactive exploration sessions |
+| `scenario_exploration_choices` | User choices in explorations |
 
 ### Provenance Tables
 
@@ -235,13 +239,13 @@ Transformation classification stored in:
 Communication via Model Context Protocol:
 
 ```
-ProEthica ──JSON-RPC──▶ OntServe MCP (8082)
-                              │
-                              ▼
-                       ┌─────────────┐
-                       │  PostgreSQL │
-                       │ (ontologies)│
-                       └─────────────┘
+ProEthica ---JSON-RPC---> OntServe MCP (8082)
+                                |
+                                v
+                         +-------------+
+                         | PostgreSQL  |
+                         | (ontologies)|
+                         +-------------+
 ```
 
 Methods:
@@ -252,13 +256,13 @@ Methods:
 ### LLM Integration
 
 ```
-ProEthica ──HTTP──▶ Anthropic API
-                         │
-                         ▼
-              ┌─────────────────┐
-              │   Claude Model  │
-              │ (sonnet/opus)   │
-              └─────────────────┘
+ProEthica ---HTTP---> Anthropic API
+                           |
+                           v
+                +-----------------+
+                |  Claude Model   |
+                |  (sonnet/opus)  |
+                +-----------------+
 ```
 
 Features:
@@ -272,46 +276,46 @@ Features:
 ### Local Development
 
 ```
-┌─────────────────────────────────────────┐
-│            Developer Machine            │
-│                                         │
-│  ┌─────────┐  ┌─────────┐  ┌─────────┐ │
-│  │ProEthica│  │OntServe │  │PostgreSQL│ │
-│  │ :5000   │  │ :8082   │  │ :5432   │ │
-│  └─────────┘  └─────────┘  └─────────┘ │
-│                    │                    │
-│              ┌─────┴─────┐             │
-│              │   Redis   │             │
-│              │   :6379   │             │
-│              └───────────┘             │
-└─────────────────────────────────────────┘
++-----------------------------------------+
+|           Developer Machine             |
+|                                         |
+|  +-----------+  +-----------+  +------+ |
+|  | ProEthica |  | OntServe  |  |Postgr| |
+|  |   :5000   |  |   :8082   |  | :5432| |
+|  +-----------+  +-----------+  +------+ |
+|                      |                  |
+|                +-----------+            |
+|                |   Redis   |            |
+|                |   :6379   |            |
+|                +-----------+            |
++-----------------------------------------+
 ```
 
 ### Production (DigitalOcean)
 
 ```
-┌─────────────────────────────────────────┐
-│         DigitalOcean Droplet            │
-│                                         │
-│  ┌─────────┐      ┌─────────┐          │
-│  │  nginx  │──────│gunicorn │          │
-│  │ (proxy) │      │ProEthica│          │
-│  └─────────┘      └─────────┘          │
-│       │                │                │
-│       │          ┌─────┴─────┐         │
-│       │          │  OntServe │         │
-│       │          │   MCP     │         │
-│       │          └───────────┘         │
-│       │                │                │
-│       ▼                ▼                │
-│  ┌──────────────────────────┐          │
-│  │       PostgreSQL         │          │
-│  └──────────────────────────┘          │
-└─────────────────────────────────────────┘
-           │
-           │ HTTPS
-           ▼
-    proethica.org
++-----------------------------------------+
+|         DigitalOcean Droplet            |
+|                                         |
+|  +-----------+      +-----------+       |
+|  |   nginx   |------|  gunicorn |       |
+|  |  (proxy)  |      | ProEthica |       |
+|  +-----------+      +-----------+       |
+|       |                  |              |
+|       |            +-----------+        |
+|       |            | OntServe  |        |
+|       |            |    MCP    |        |
+|       |            +-----------+        |
+|       |                  |              |
+|       v                  v              |
+|  +-----------------------------+        |
+|  |        PostgreSQL           |        |
+|  +-----------------------------+        |
++-----------------------------------------+
+              |
+              | HTTPS
+              v
+       proethica.org
 ```
 
 ## Security Architecture

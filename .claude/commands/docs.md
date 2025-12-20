@@ -117,6 +117,10 @@ with sync_playwright() as p:
 | `precedent-discovery-content.png` | `/cases/precedents/` | Precedent discovery with similarity scores |
 | `similarity-network-content.png` | `/cases/precedents/network` | Case similarity network visualization |
 | `similarity-network-focused-content.png` | `/cases/precedents/network?case_id=7` | Network with specific case highlighted |
+| `pipeline-queue-content.png` | `/pipeline/queue` | Queue management with case selection |
+| `cases-list-content.png` | `/cases/` | Case repository with year grouping and subject tags |
+| `case-detail-content.png` | `/cases/<id>` | Individual case with sections and action buttons |
+| `case-structure-content.png` | `/cases/<id>/structure` | Document sections, embeddings, similar cases |
 
 ## New Features (2025-12-09)
 
@@ -208,7 +212,8 @@ docs/
 ├── concepts/
 │   └── nine-concepts.md         # Framework reference
 ├── how-to/
-│   ├── upload-cases.md          # Case management (has screenshot)
+│   ├── upload-cases.md          # Adding cases (has screenshot)
+│   ├── view-cases.md            # Viewing cases (has screenshots)
 │   ├── phase1-extraction.md     # Extraction guide
 │   ├── phase2-analysis.md       # Analysis guide
 │   ├── phase3-scenario.md       # Scenario guide

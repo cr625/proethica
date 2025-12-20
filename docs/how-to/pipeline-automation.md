@@ -123,17 +123,37 @@ curl http://localhost:5000/pipeline/api/service-status
 
 ## Queue Management
 
-### Queue Tab
+### Accessing the Queue
 
-The Queue tab shows:
+Navigate to: **Pipeline Dashboard** > **Manage Queue** button
 
-| Column | Description |
+Or direct URL: `/pipeline/queue`
+
+![Pipeline Queue](../assets/images/screenshots/pipeline-queue-content.png)
+*Queue management page showing pending cases and queue controls*
+
+### Queue Page Features
+
+| Section | Description |
+|---------|-------------|
+| **Available Cases** | Cases not yet processed, ready to add to queue |
+| **Current Queue** | Cases waiting to be processed |
+| **Queue Controls** | Add selected cases, clear queue, process next |
+
+### Adding Cases to Queue
+
+1. Check cases in the **Available Cases** list
+2. Click **Add Selected to Queue**
+3. Cases move to **Current Queue** section
+
+### Queue Actions
+
+| Action | Description |
 |--------|-------------|
-| **Case** | Case being processed |
-| **Status** | Queued, running, completed, failed |
-| **Progress** | Completion percentage |
-| **Started** | Start timestamp |
-| **Completed** | End timestamp |
+| **Add Selected** | Add checked cases to queue |
+| **Clear Queue** | Remove all pending cases from queue |
+| **Process Next** | Start processing the next queued case |
+| **Remove** | Remove individual case from queue |
 
 ### Queue Statuses
 
