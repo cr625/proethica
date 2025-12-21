@@ -9,7 +9,8 @@ This agent handles:
 2. Database backup and restoration with demo cases
 3. Service management (nginx, gunicorn, systemd)
 4. Environment-specific configuration differences
-5. Verification and rollback procedures
+5. Documentation deployment (MkDocs site)
+6. Verification and rollback procedures
 
 ## Production Server Details
 
@@ -106,6 +107,29 @@ This agent handles:
    # Restart service to pick up changes
    sudo systemctl restart proethica
    ```
+
+### Phase 3.5: Documentation Deployment
+
+1. **Build Documentation Locally** (if docs changed)
+   ```bash
+   cd /home/chris/onto/proethica
+   source venv-proethica/bin/activate
+   mkdocs build
+   # Creates/updates site/ directory
+   ```
+
+2. **Sync Documentation to Production**
+   ```bash
+   rsync -avz --delete /home/chris/onto/proethica/site/ digitalocean:/opt/proethica/site/
+   ```
+
+3. **Verify Documentation**
+   ```bash
+   curl -s -o /dev/null -w '%{http_code}' https://proethica.org/docs/
+   # Should return 200
+   ```
+
+Note: Documentation is served by Flask from the `site/` directory via the `/docs` route. No service restart required after syncing - static files are served directly.
 
 ### Phase 4: Verification
 
@@ -280,6 +304,20 @@ ssh digitalocean "cd /opt/proethica && ./scripts/deploy_production.sh"
 ssh digitalocean "cd /opt/proethica && ./scripts/restore_demo_database.sh /tmp/proethica_demo_*.sql"
 ```
 
+### Deploy Documentation Only
+```bash
+# Build docs locally
+cd /home/chris/onto/proethica
+source venv-proethica/bin/activate
+mkdocs build
+
+# Sync to production
+rsync -avz --delete site/ digitalocean:/opt/proethica/site/
+
+# Verify
+curl -s -o /dev/null -w '%{http_code}' https://proethica.org/docs/
+```
+
 ### Check Service Logs
 ```bash
 ssh digitalocean "sudo journalctl -u proethica -n 100 --follow"
@@ -296,6 +334,7 @@ ssh digitalocean "sudo systemctl restart proethica && sudo systemctl status proe
 - [ ] Tests passing locally
 - [ ] Demo cases fully analyzed (if deploying database)
 - [ ] Database backup created (if deploying database)
+- [ ] Documentation built: `mkdocs build` (if docs changed)
 - [ ] Requirements.txt updated (if new dependencies)
 - [ ] Migration files created (if database schema changed)
 - [ ] Environment variables documented (if new variables added)
@@ -306,6 +345,7 @@ ssh digitalocean "sudo systemctl restart proethica && sudo systemctl status proe
 - [ ] ProEthica service running: `sudo systemctl status proethica`
 - [ ] Nginx service running: `sudo systemctl status nginx`
 - [ ] Application responds: `curl https://proethica.org`
+- [ ] Documentation serves: `curl https://proethica.org/docs/`
 - [ ] Demo cases accessible and display correctly
 - [ ] No errors in logs: `sudo journalctl -u proethica -n 50`
 - [ ] Database queries working (test a case extraction)
@@ -369,6 +409,12 @@ When you need to deploy ProEthica to production, invoke this agent with:
 
 **Code + database deployment:**
 "Deploy ProEthica to production with demo cases 8, 10, and 13"
+
+**Full deployment (code + database + docs):**
+"Sync ProEthica to production including database and documentation"
+
+**Documentation only:**
+"Deploy ProEthica documentation to production"
 
 **Rollback:**
 "Rollback ProEthica production to the previous version"
