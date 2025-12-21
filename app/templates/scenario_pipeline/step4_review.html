@@ -229,6 +229,11 @@
                 <i class="bi bi-question-circle"></i> Questions & Conclusions
             </button>
         </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="richanalysis-tab" data-bs-toggle="tab" data-bs-target="#richanalysis" type="button">
+                <i class="bi bi-diagram-3"></i> Rich Analysis
+            </button>
+        </li>
         <!-- Data Inventory and Case Synthesis tabs moved to step4.html -->
     </ul>
 
@@ -365,19 +370,9 @@
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="bi bi-file-text"></i> NSPE Code Provisions Referenced</h5>
-                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#provisionsPromptAccordion" aria-expanded="false">
-                        <i class="bi bi-code-slash"></i> View Prompt/Response
-                    </button>
-                </div>
-                <!-- Provisions Prompt/Response Accordion -->
-                <div class="collapse" id="provisionsPromptAccordion">
-                    <div class="card-body bg-light border-bottom">
-                        <div id="provisionsPromptContent">
-                            <div class="text-center text-muted py-3">
-                                <span class="spinner-border spinner-border-sm me-2"></span> Loading prompt...
-                            </div>
-                        </div>
-                    </div>
+                    <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}#provisionsSection" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> View Extraction
+                    </a>
                 </div>
                 <div class="card-body">
                     {% if provisions %}
@@ -444,45 +439,13 @@
 
         <!-- Questions & Conclusions Tab -->
         <div class="tab-pane fade" id="questions" role="tabpanel">
-            <!-- View Prompt/Response Accordion -->
+            <!-- Header with link back to extraction -->
             <div class="card mb-3">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h6 class="mb-0"><i class="bi bi-question-circle"></i> Questions & Conclusions Extraction</h6>
-                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#qcPromptAccordion" aria-expanded="false">
-                        <i class="bi bi-code-slash"></i> View Prompt/Response
-                    </button>
-                </div>
-                <div class="collapse" id="qcPromptAccordion">
-                    <div class="card-body bg-light">
-                        <ul class="nav nav-tabs nav-tabs-sm mb-3" id="qcPromptTabs">
-                            <li class="nav-item">
-                                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#questionsPrompt" type="button">
-                                    Questions (4b)
-                                </button>
-                            </li>
-                            <li class="nav-item">
-                                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#conclusionsPrompt" type="button">
-                                    Conclusions (4c)
-                                </button>
-                            </li>
-                        </ul>
-                        <div class="tab-content">
-                            <div class="tab-pane fade show active" id="questionsPrompt">
-                                <div id="questionsPromptContent">
-                                    <div class="text-center text-muted py-3">
-                                        <span class="spinner-border spinner-border-sm me-2"></span> Loading prompt...
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="tab-pane fade" id="conclusionsPrompt">
-                                <div id="conclusionsPromptContent">
-                                    <div class="text-center text-muted py-3">
-                                        <span class="spinner-border spinner-border-sm me-2"></span> Loading prompt...
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <h6 class="mb-0"><i class="bi bi-question-circle"></i> Questions & Conclusions</h6>
+                    <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}#questionsSection" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> View Extraction
+                    </a>
                 </div>
             </div>
 
@@ -504,13 +467,26 @@
 
                 {% if questions %}
                     {% for question in questions %}
+                    {% set q_num = (question.rdf_json_ld.questionNumber|string) if (question.rdf_json_ld and question.rdf_json_ld.questionNumber) else '' %}
+                    {% set q_type = question.rdf_json_ld.questionType if (question.rdf_json_ld and question.rdf_json_ld.questionType) else 'unknown' %}
                     <div class="card mb-4 qc-link-card" id="qc-pair-{{ loop.index }}">
                         <!-- Question Header -->
-                        <div class="card-header bg-warning text-dark">
+                        <div class="card-header {% if q_type == 'board_explicit' %}bg-warning text-dark{% else %}bg-light{% endif %}">
                             <div class="d-flex justify-content-between align-items-center">
                                 <h6 class="mb-0">
                                     <i class="bi bi-question-circle me-2"></i>
-                                    {{ question.entity_label }}
+                                    Question {{ loop.index }}
+                                    {% if q_type == 'board_explicit' %}
+                                    <span class="badge bg-primary ms-2">Board Question</span>
+                                    {% elif q_type == 'implicit' %}
+                                    <span class="badge bg-secondary ms-2">Implicit</span>
+                                    {% elif q_type == 'principle_tension' %}
+                                    <span class="badge bg-info ms-2">Principle Tension</span>
+                                    {% elif q_type == 'theoretical' %}
+                                    <span class="badge bg-dark ms-2">Theoretical</span>
+                                    {% elif q_type == 'counterfactual' %}
+                                    <span class="badge bg-light text-dark ms-2">Counterfactual</span>
+                                    {% endif %}
                                 </h6>
                                 {% if question.rdf_json_ld and question.rdf_json_ld.relatedProvisions %}
                                 <div>
@@ -537,7 +513,11 @@
                             <!-- Arrow to Conclusions -->
                             <div class="text-center my-2">
                                 <span class="qc-arrow"><i class="bi bi-arrow-down-circle-fill"></i></span>
-                                <small class="text-muted d-block">Board's Answer</small>
+                                {% if q_type == 'board_explicit' %}
+                                <small class="text-muted d-block">Board's Conclusion</small>
+                                {% else %}
+                                <small class="text-muted d-block">Analysis</small>
+                                {% endif %}
                             </div>
 
                             <!-- Linked Conclusions -->
@@ -556,19 +536,33 @@
                             {% endfor %}
 
                             {% for conclusion in matched_conclusions %}
-                            <div class="card linked-conclusion mb-2">
+                            {% set c_type = conclusion.rdf_json_ld.conclusionType if conclusion.rdf_json_ld else 'unknown' %}
+                            {# Find conclusion's display index by looking it up in the full conclusions list #}
+                            {% set ns_idx = namespace(val='') %}
+                            {% for c in conclusions %}
+                                {% if c.id == conclusion.id %}
+                                    {% set ns_idx.val = loop.index %}
+                                {% endif %}
+                            {% endfor %}
+                            <div class="card linked-conclusion mb-2 {% if c_type == 'board_explicit' %}border-success{% endif %}">
                                 <div class="card-body py-2">
                                     <div class="d-flex justify-content-between align-items-start">
                                         <div>
-                                            <strong class="text-success">
+                                            <strong class="{% if c_type == 'board_explicit' %}text-success{% else %}text-secondary{% endif %}">
                                                 <i class="bi bi-check-circle me-1"></i>
-                                                {{ conclusion.entity_label }}
+                                                Conclusion {{ ns_idx.val }}
                                             </strong>
+                                            {% if c_type == 'board_explicit' %}
+                                            <span class="badge bg-success ms-2">Board Conclusion</span>
+                                            {% elif c_type == 'analytical_extension' %}
+                                            <span class="badge bg-secondary ms-2">Analytical</span>
+                                            {% elif c_type == 'question_response' %}
+                                            <span class="badge bg-info ms-2">Response</span>
+                                            {% elif c_type == 'principle_synthesis' %}
+                                            <span class="badge bg-dark ms-2">Synthesis</span>
+                                            {% endif %}
                                             <p class="mb-1 mt-1">{{ conclusion.entity_definition }}</p>
                                         </div>
-                                        {% if conclusion.rdf_json_ld.conclusionType %}
-                                        <span class="badge bg-dark">{{ conclusion.rdf_json_ld.conclusionType }}</span>
-                                        {% endif %}
                                     </div>
                                     {% if conclusion.rdf_json_ld.citedProvisions %}
                                     <div class="mt-2">
@@ -584,7 +578,11 @@
 
                             {% if matched_conclusions|length == 0 %}
                             <div class="alert alert-secondary mb-0">
-                                <small><i class="bi bi-dash-circle"></i> No linked conclusion found for this question.</small>
+                                {% if q_type == 'board_explicit' %}
+                                <small><i class="bi bi-exclamation-triangle"></i> Board's conclusion not yet extracted. Run conclusion extraction.</small>
+                                {% else %}
+                                <small><i class="bi bi-info-circle"></i> Analysis pending - insufficient information in case to address this question.</small>
+                                {% endif %}
                             </div>
                             {% endif %}
                         </div>
@@ -626,96 +624,183 @@
                 {% endif %}
             </div>
 
-            <!-- SPLIT VIEW: Original side-by-side layout -->
+            <!-- SPLIT VIEW: Matched Q-C pairs in table format -->
             <div id="splitViewContent" style="display: none;">
-                <div class="row">
-                    <!-- Questions Column -->
-                    <div class="col-md-6">
-                        <div class="card">
-                            <div class="card-header bg-warning text-dark">
-                                <h5 class="mb-0"><i class="bi bi-question-circle"></i> Ethical Questions</h5>
-                            </div>
-                            <div class="card-body">
-                                {% if questions %}
-                                    {% for question in questions %}
-                                    <div class="card mb-3" id="question-{{ loop.index }}">
-                                        <div class="card-header bg-warning text-dark py-2">
-                                            <strong>{{ question.entity_label }}</strong>
-                                        </div>
-                                        <div class="card-body">
-                                            <p>{{ question.entity_definition }}</p>
-                                            {% if question.rdf_json_ld and question.rdf_json_ld.mentionedEntities %}
-                                            <div class="mb-2">
-                                                <small class="text-muted"><strong>Mentioned:</strong></small>
-                                                {% for entity in question.rdf_json_ld.mentionedEntities %}
-                                                <span class="badge bg-info me-1">{{ entity }}</span>
-                                                {% endfor %}
-                                            </div>
-                                            {% endif %}
-                                            {% if question.rdf_json_ld and question.rdf_json_ld.relatedProvisions %}
-                                            <div>
-                                                <small class="text-muted"><strong>Provisions:</strong></small>
-                                                {% for prov in question.rdf_json_ld.relatedProvisions %}
-                                                <span class="badge bg-secondary me-1">{{ prov }}</span>
-                                                {% endfor %}
-                                            </div>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                    {% endfor %}
-                                {% else %}
-                                    <p class="text-muted">No questions extracted yet.</p>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
+                {% if questions %}
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 50%"><i class="bi bi-question-circle text-warning"></i> Question</th>
+                                <th style="width: 50%"><i class="bi bi-check-circle text-success"></i> Conclusion</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for question in questions %}
+                            {% set q_num = (question.rdf_json_ld.questionNumber|string) if (question.rdf_json_ld and question.rdf_json_ld.questionNumber) else '' %}
+                            {% set q_type = question.rdf_json_ld.questionType if (question.rdf_json_ld and question.rdf_json_ld.questionType) else 'unknown' %}
 
-                    <!-- Conclusions Column -->
-                    <div class="col-md-6">
-                        <div class="card">
-                            <div class="card-header bg-success text-white">
-                                <h5 class="mb-0"><i class="bi bi-check-circle"></i> Board Conclusions</h5>
-                            </div>
-                            <div class="card-body">
-                                {% if conclusions %}
-                                    {% for conclusion in conclusions %}
-                                    <div class="card mb-3" id="conclusion-{{ loop.index }}">
-                                        <div class="card-header bg-success text-white py-2">
-                                            <strong>{{ conclusion.entity_label }}</strong>
-                                        </div>
-                                        <div class="card-body">
-                                            <p>{{ conclusion.entity_definition }}</p>
-                                            {% if conclusion.rdf_json_ld and conclusion.rdf_json_ld.answersQuestions %}
-                                            <div class="mb-2">
-                                                <small class="text-muted"><strong>Answers:</strong></small>
-                                                {% for q in conclusion.rdf_json_ld.answersQuestions %}
-                                                <span class="badge bg-warning text-dark me-1">{{ q }}</span>
-                                                {% endfor %}
-                                            </div>
-                                            {% endif %}
-                                            {% if conclusion.rdf_json_ld and conclusion.rdf_json_ld.citedProvisions %}
-                                            <div class="mb-2">
-                                                <small class="text-muted"><strong>Cites:</strong></small>
-                                                {% for prov in conclusion.rdf_json_ld.citedProvisions %}
-                                                <span class="badge bg-secondary me-1">{{ prov }}</span>
-                                                {% endfor %}
-                                            </div>
-                                            {% endif %}
-                                            {% if conclusion.rdf_json_ld and conclusion.rdf_json_ld.conclusionType %}
-                                            <div>
-                                                <small class="text-muted"><strong>Type:</strong></small>
-                                                <span class="badge bg-dark">{{ conclusion.rdf_json_ld.conclusionType }}</span>
-                                            </div>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                    {% endfor %}
-                                {% else %}
-                                    <p class="text-muted">No conclusions extracted yet.</p>
+                            {# Find matching conclusions for this question #}
+                            {% set matched_conclusions = [] %}
+                            {% for conclusion in conclusions %}
+                                {% if conclusion.rdf_json_ld and conclusion.rdf_json_ld.answersQuestions %}
+                                    {% if q_num|int in conclusion.rdf_json_ld.answersQuestions %}
+                                        {% set _ = matched_conclusions.append(conclusion) %}
+                                    {% endif %}
                                 {% endif %}
+                            {% endfor %}
+
+                            <tr>
+                                <!-- Question Cell -->
+                                <td class="{% if q_type == 'board_explicit' %}table-warning{% endif %}">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <strong>Question {{ loop.index }}</strong>
+                                        {% if q_type == 'board_explicit' %}
+                                        <span class="badge bg-primary">Board Question</span>
+                                        {% elif q_type == 'implicit' %}
+                                        <span class="badge bg-secondary">Implicit</span>
+                                        {% elif q_type == 'principle_tension' %}
+                                        <span class="badge bg-info">Principle Tension</span>
+                                        {% elif q_type == 'theoretical' %}
+                                        <span class="badge bg-dark">Theoretical</span>
+                                        {% elif q_type == 'counterfactual' %}
+                                        <span class="badge bg-light text-dark">Counterfactual</span>
+                                        {% endif %}
+                                    </div>
+                                    <p class="mb-0">{{ question.entity_definition }}</p>
+                                </td>
+
+                                <!-- Conclusion Cell -->
+                                <td class="{% if matched_conclusions and matched_conclusions[0].rdf_json_ld.conclusionType == 'board_explicit' %}table-success{% endif %}">
+                                    {% if matched_conclusions %}
+                                        {% for conclusion in matched_conclusions %}
+                                        {% set c_type = conclusion.rdf_json_ld.conclusionType if conclusion.rdf_json_ld else 'unknown' %}
+                                        {# Find conclusion's display index #}
+                                        {% set ns_c_idx = namespace(val='') %}
+                                        {% for c in conclusions %}
+                                            {% if c.id == conclusion.id %}
+                                                {% set ns_c_idx.val = loop.index %}
+                                            {% endif %}
+                                        {% endfor %}
+                                        <div class="{% if not loop.last %}mb-3 pb-3 border-bottom{% endif %}">
+                                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                                <strong>Conclusion {{ ns_c_idx.val }}</strong>
+                                                {% if c_type == 'board_explicit' %}
+                                                <span class="badge bg-success">Board Conclusion</span>
+                                                {% elif c_type == 'analytical_extension' %}
+                                                <span class="badge bg-secondary">Analytical</span>
+                                                {% elif c_type == 'question_response' %}
+                                                <span class="badge bg-info">Response</span>
+                                                {% elif c_type == 'principle_synthesis' %}
+                                                <span class="badge bg-dark">Synthesis</span>
+                                                {% endif %}
+                                            </div>
+                                            <p class="mb-0">{{ conclusion.entity_definition }}</p>
+                                        </div>
+                                        {% endfor %}
+                                    {% else %}
+                                        {% if q_type == 'board_explicit' %}
+                                        <span class="text-warning fst-italic"><i class="bi bi-exclamation-triangle"></i> Not yet extracted</span>
+                                        {% else %}
+                                        <span class="text-muted fst-italic"><i class="bi bi-info-circle"></i> Insufficient information</span>
+                                        {% endif %}
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                    <div class="alert alert-warning">No questions extracted yet. Run Step 4 synthesis first.</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Rich Analysis Tab -->
+        <div class="tab-pane fade" id="richanalysis" role="tabpanel">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-diagram-3"></i> Rich Analysis Results</h5>
+                    <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}#rich_analysisSection" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> View Extraction
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if rich_analysis %}
+                    <div class="row">
+                        <!-- Causal-Normative Links -->
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100">
+                                <div class="card-header bg-warning bg-opacity-25 py-2">
+                                    <strong><i class="bi bi-link-45deg me-1"></i> Causal-Normative Links</strong>
+                                    <span class="badge bg-warning text-dark float-end">{{ rich_analysis.causal_links|length }}</span>
+                                </div>
+                                <ul class="list-group list-group-flush small">
+                                    {% for cl in rich_analysis.causal_links[:5] %}
+                                    <li class="list-group-item py-2">
+                                        <strong>{{ cl.action_label }}</strong><br>
+                                        <span class="text-success">Fulfills: {{ cl.fulfills_obligations|length }}</span> |
+                                        <span class="text-danger">Violates: {{ cl.violates_obligations|length }}</span>
+                                    </li>
+                                    {% endfor %}
+                                    {% if rich_analysis.causal_links|length > 5 %}
+                                    <li class="list-group-item text-muted small">+ {{ rich_analysis.causal_links|length - 5 }} more</li>
+                                    {% endif %}
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- Question Emergence -->
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100">
+                                <div class="card-header bg-info bg-opacity-25 py-2">
+                                    <strong><i class="bi bi-question-circle me-1"></i> Question Emergence</strong>
+                                    <span class="badge bg-info float-end">{{ rich_analysis.question_emergence|length }}</span>
+                                </div>
+                                <ul class="list-group list-group-flush small">
+                                    {% for qe in rich_analysis.question_emergence[:5] %}
+                                    <li class="list-group-item py-2">
+                                        <em>"{{ qe.question_text[:60] }}{% if qe.question_text|length > 60 %}...{% endif %}"</em><br>
+                                        <span class="badge bg-secondary">{{ (qe.data_events|length) + (qe.data_actions|length) }} triggers</span>
+                                        <span class="badge bg-warning text-dark">{{ qe.competing_warrants|length }} competing warrants</span>
+                                    </li>
+                                    {% endfor %}
+                                    {% if rich_analysis.question_emergence|length > 5 %}
+                                    <li class="list-group-item text-muted small">+ {{ rich_analysis.question_emergence|length - 5 }} more</li>
+                                    {% endif %}
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- Resolution Patterns -->
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100">
+                                <div class="card-header bg-success bg-opacity-25 py-2">
+                                    <strong><i class="bi bi-check-circle me-1"></i> Resolution Patterns</strong>
+                                    <span class="badge bg-success float-end">{{ rich_analysis.resolution_patterns|length }}</span>
+                                </div>
+                                <ul class="list-group list-group-flush small">
+                                    {% for rp in rich_analysis.resolution_patterns[:5] %}
+                                    <li class="list-group-item py-2">
+                                        <em>"{{ rp.conclusion_text[:60] }}{% if rp.conclusion_text|length > 60 %}...{% endif %}"</em><br>
+                                        <span class="badge bg-primary">{{ rp.determinative_principles|length }} principles</span>
+                                        <span class="badge bg-dark">{{ rp.determinative_facts|length }} facts</span>
+                                    </li>
+                                    {% endfor %}
+                                    {% if rich_analysis.resolution_patterns|length > 5 %}
+                                    <li class="list-group-item text-muted small">+ {{ rich_analysis.resolution_patterns|length - 5 }} more</li>
+                                    {% endif %}
+                                </ul>
                             </div>
                         </div>
                     </div>
+                    {% else %}
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle me-1"></i> No rich analysis found.
+                        <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}#rich_analysisSection">Run Rich Analysis</a> on the Step 4 page first.
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -732,6 +817,17 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Activate tab from URL hash (e.g., #provisions, #questions)
+    const hash = window.location.hash;
+    if (hash) {
+        const tabId = hash.substring(1) + '-tab'; // e.g., 'provisions-tab'
+        const tabElement = document.getElementById(tabId);
+        if (tabElement) {
+            const tab = new bootstrap.Tab(tabElement);
+            tab.show();
+        }
+    }
+
     // Load synthesis data (provisions, questions, conclusions)
     const provisions = {{ provisions_json | tojson | safe }};
     const questions = {{ questions_json | tojson | safe }};

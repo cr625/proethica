@@ -131,15 +131,27 @@
                     </div>
                 </div>
                 <div class="step-content">
+                    {% if synthesis_status.provisions_count > 0 %}
+                    <div class="alert alert-success py-2 mb-2" id="provisionsExistingStatus">
+                        <i class="bi bi-check-circle-fill me-1"></i>
+                        <strong>{{ synthesis_status.provisions_count }} provisions</strong> extracted from References section.
+                        <a href="{{ url_for('step4.step4_review', case_id=case.id) }}#provisions" class="alert-link">View details</a>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-secondary py-2 mb-2" id="provisionsExistingStatus">
+                        <i class="bi bi-info-circle me-1"></i>
+                        No provisions extracted yet. Click <strong>Extract</strong> to parse NSPE code references.
+                    </div>
+                    {% endif %}
                     <div class="prompt-preview mb-3" id="provisionsPromptSection" style="display: none;">
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="mb-0"><i class="bi bi-cpu"></i> LLM Prompt</h6>
+                            <h6 class="mb-0"><i class="bi bi-gear"></i> Extraction Progress</h6>
                         </div>
                         <div class="prompt-text" id="provisionsPromptText"></div>
                     </div>
                     <div class="results-preview" id="provisionsResults" style="display: none;">
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="mb-0"><i class="bi bi-chat-left-text text-success"></i> LLM Response</h6>
+                            <h6 class="mb-0"><i class="bi bi-list-check text-success"></i> Extracted Provisions</h6>
                         </div>
                         <div id="provisionsResultsContent"></div>
                     </div>
@@ -147,32 +159,46 @@
             </div>
         </div>
 
-        <!-- 2B: Questions -->
+        <!-- 2B: Questions & Conclusions (Unified) -->
         <div class="extractor-section mb-4" id="questionsSection">
             <div class="step-card border-warning">
                 <div class="step-header bg-warning bg-opacity-10">
                     <div class="d-flex justify-content-between align-items-center">
                         <h6 class="mb-0">
-                            <i class="bi bi-question-circle text-warning"></i> 2B: Ethical Questions Extraction
+                            <i class="bi bi-question-circle text-warning"></i> 2B: Questions & Conclusions
                             <span id="questionsCount" class="badge bg-warning text-dark ms-2">{{ synthesis_status.questions_count or 0 }}</span>
+                            <span id="conclusionsCount" class="badge bg-success ms-1">{{ synthesis_status.conclusions_count or 0 }}</span>
                         </h6>
                         {% if current_user.is_authenticated %}
-                        <button class="btn btn-outline-warning btn-sm" onclick="extractTask('questions')" id="extractQuestionsBtn">
-                            <i class="bi bi-play-fill"></i> Extract
+                        <button class="btn btn-outline-warning btn-sm" onclick="extractTask('qc_unified')" id="extractQuestionsBtn" title="Extract questions, conclusions, and link them atomically">
+                            <i class="bi bi-play-fill"></i> Extract Q&C
                         </button>
                         {% endif %}
                     </div>
                 </div>
                 <div class="step-content">
+                    {% if synthesis_status.questions_count > 0 or synthesis_status.conclusions_count > 0 %}
+                    <div class="alert alert-success py-2 mb-2" id="qcExistingStatus">
+                        <i class="bi bi-check-circle-fill me-1"></i>
+                        <strong>{{ synthesis_status.questions_count }} questions</strong> and
+                        <strong>{{ synthesis_status.conclusions_count }} conclusions</strong> extracted.
+                        <a href="{{ url_for('step4.step4_review', case_id=case.id) }}#questions" class="alert-link">View details</a>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-secondary py-2 mb-2" id="qcExistingStatus">
+                        <i class="bi bi-info-circle me-1"></i>
+                        No Q&C extracted yet. Click <strong>Extract Q&C</strong> to analyze Questions and Conclusions sections.
+                    </div>
+                    {% endif %}
                     <div class="prompt-preview mb-3" id="questionsPromptSection" style="display: none;">
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="mb-0"><i class="bi bi-cpu"></i> LLM Prompt</h6>
+                            <h6 class="mb-0"><i class="bi bi-gear"></i> Extraction Progress</h6>
                         </div>
                         <div class="prompt-text" id="questionsPromptText"></div>
                     </div>
                     <div class="results-preview" id="questionsResults" style="display: none;">
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="mb-0"><i class="bi bi-chat-left-text text-success"></i> LLM Response</h6>
+                            <h6 class="mb-0"><i class="bi bi-list-check text-success"></i> Extraction Results</h6>
                         </div>
                         <div id="questionsResultsContent"></div>
                     </div>
@@ -180,20 +206,15 @@
             </div>
         </div>
 
-        <!-- 2C: Conclusions -->
-        <div class="extractor-section mb-4" id="conclusionsSection">
+        <!-- Note: Conclusions are now extracted with Questions in 2B unified -->
+        <div class="extractor-section mb-4" id="conclusionsSection" style="display: none;">
             <div class="step-card border-success">
                 <div class="step-header bg-success bg-opacity-10">
                     <div class="d-flex justify-content-between align-items-center">
                         <h6 class="mb-0">
-                            <i class="bi bi-check-circle text-success"></i> 2C: Board Conclusions Extraction
+                            <i class="bi bi-check-circle text-success"></i> Conclusions (see 2B)
                             <span id="conclusionsCount" class="badge bg-success ms-2">{{ synthesis_status.conclusions_count or 0 }}</span>
                         </h6>
-                        {% if current_user.is_authenticated %}
-                        <button class="btn btn-outline-success btn-sm" onclick="extractTask('conclusions')" id="extractConclusionsBtn">
-                            <i class="bi bi-play-fill"></i> Extract
-                        </button>
-                        {% endif %}
                     </div>
                 </div>
                 <div class="step-content">
@@ -213,13 +234,14 @@
             </div>
         </div>
 
-        <!-- 2D: Transformation Classification -->
+        <!-- 2C: Transformation Classification -->
         <div class="extractor-section mb-4" id="transformationSection">
             <div class="step-card border-purple">
-                <div class="step-header bg-purple bg-opacity-10">
+                <div class="step-header bg-purple-light">
                     <div class="d-flex justify-content-between align-items-center">
                         <h6 class="mb-0">
-                            <i class="bi bi-shuffle text-purple"></i> 2D: Transformation Classification
+                            <i class="bi bi-shuffle text-purple"></i> 2C: Transformation Classification
+                            <a href="{{ url_for('tools.references') }}#transformation" class="ms-1" title="Marchais-Roubelat & Roubelat (2015)" target="_blank"><i class="bi bi-info-circle text-muted"></i></a>
                             <span id="transformationType" class="badge bg-purple ms-2">{{ synthesis_status.transformation_type or 'Not classified' }}</span>
                         </h6>
                         {% if current_user.is_authenticated %}
@@ -246,13 +268,14 @@
             </div>
         </div>
 
-        <!-- 2E: Rich Analysis -->
+        <!-- 2D: Rich Analysis -->
         <div class="extractor-section mb-4" id="rich_analysisSection">
             <div class="step-card border-info">
                 <div class="step-header bg-info bg-opacity-10">
                     <div class="d-flex justify-content-between align-items-center">
                         <h6 class="mb-0">
-                            <i class="bi bi-diagram-3 text-info"></i> 2E: Rich Analysis
+                            <i class="bi bi-diagram-3 text-info"></i> 2D: Rich Analysis
+                            <a href="{{ url_for('tools.references') }}#nine-concept" class="ms-1" title="Berreby et al. (2017), McLaren (2003), Harris et al. (2018)" target="_blank"><i class="bi bi-info-circle text-muted"></i></a>
                             <small class="text-muted">(Causal Links, Question Emergence, Resolution Patterns)</small>
                         </h6>
                         {% if current_user.is_authenticated %}
@@ -286,7 +309,7 @@
     <div class="card-header">
         <h5 class="mb-0">
             <span class="badge bg-secondary me-2">Phase 3</span> Decision Point Synthesis
-            <a href="{{ url_for('tools.references') }}#phase3" class="text-muted ms-2" title="Reference: Toulmin (1958), Harris et al. (2018)">
+            <a href="{{ url_for('tools.references') }}#argument-mining" class="text-muted ms-2" title="Toulmin (1958), Jones (1991), Harris et al. (2018)" target="_blank">
                 <i class="bi bi-info-circle"></i>
             </a>
         </h5>
@@ -389,7 +412,7 @@
     <div class="card-header">
         <h5 class="mb-0">
             <span class="badge bg-secondary me-2">Phase 4</span> Narrative Construction
-            <a href="{{ url_for('tools.references') }}#phase4" class="text-muted ms-2" title="Reference: Berreby et al. (2017)">
+            <a href="{{ url_for('tools.references') }}#nine-concept" class="text-muted ms-2" title="Berreby et al. (2017) - Event Calculus" target="_blank">
                 <i class="bi bi-info-circle"></i>
             </a>
         </h5>
@@ -613,6 +636,10 @@
     .border-purple {
         border-color: #6f42c1 !important;
     }
+
+    .bg-purple-light {
+        background-color: #e9ddff !important;
+    }
 </style>
 {% endblock %}
 
@@ -778,14 +805,18 @@ function resetStep4UI() {
 
 // Individual task extraction
 function extractTask(taskType) {
-    const button = document.getElementById(`extract${capitalizeFirst(taskType)}Btn`);
-    const promptSection = document.getElementById(`${taskType}PromptSection`);
-    const resultsSection = document.getElementById(`${taskType}Results`);
-    const promptText = document.getElementById(`${taskType}PromptText`);
-    const resultsContent = document.getElementById(`${taskType}ResultsContent`);
+    // Map qc_unified to questions DOM elements (since they share the section)
+    const domTaskType = taskType === 'qc_unified' ? 'questions' : taskType;
 
-    // Use streaming for provisions, questions, conclusions, transformation, and rich_analysis (shows real-time progress)
-    if (taskType === 'provisions' || taskType === 'questions' || taskType === 'conclusions' || taskType === 'transformation' || taskType === 'rich_analysis') {
+    const button = document.getElementById(`extract${capitalizeFirst(domTaskType)}Btn`);
+    const promptSection = document.getElementById(`${domTaskType}PromptSection`);
+    const resultsSection = document.getElementById(`${domTaskType}Results`);
+    const promptText = document.getElementById(`${domTaskType}PromptText`);
+    const resultsContent = document.getElementById(`${domTaskType}ResultsContent`);
+
+    // Use streaming for provisions, qc_unified, questions, conclusions, transformation, and rich_analysis (shows real-time progress)
+    const useStreaming = ['provisions', 'qc_unified', 'questions', 'conclusions', 'transformation', 'rich_analysis'];
+    if (useStreaming.includes(taskType)) {
         extractTaskStreaming(taskType, button, promptSection, resultsSection, promptText, resultsContent);
         return;
     }
@@ -794,6 +825,7 @@ function extractTask(taskType) {
     const endpoints = {
         'questions': 'extract_questions',
         'conclusions': 'extract_conclusions',
+        'qc_unified': 'extract_qc_unified',  // Q + C + Link atomically
         'transformation': 'extract_transformation',
         'rich_analysis': 'extract_rich_analysis',
         'decision_synthesis': 'extract_decision_synthesis',
@@ -1039,6 +1071,19 @@ function extractTaskStreaming(taskType, button, promptSection, resultsSection, p
         button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Running...';
     }
 
+    // Hide existing status alerts (provisions or Q&C)
+    const statusAlerts = {
+        'provisions': 'provisionsExistingStatus',
+        'qc_unified': 'qcExistingStatus',
+        'questions': 'qcExistingStatus',
+        'conclusions': 'qcExistingStatus'
+    };
+    const statusAlertId = statusAlerts[taskType];
+    if (statusAlertId) {
+        const statusAlert = document.getElementById(statusAlertId);
+        if (statusAlert) statusAlert.style.display = 'none';
+    }
+
     // Show prompt section with initial message
     if (promptSection) {
         promptSection.style.display = 'block';
@@ -1159,8 +1204,18 @@ function handleStreamingExtraction(taskType, data, promptText, resultsSection, r
 
     // Update count badge on completion
     if (data.stage === 'COMPLETE' && data.result) {
-        // Handle task-specific count updates (rich_analysis doesn't have count badges)
-        if (taskType !== 'rich_analysis') {
+        // Handle task-specific count updates
+        if (taskType === 'qc_unified') {
+            // Update both questions and conclusions badges
+            const questionsCountEl = document.getElementById('questionsCount');
+            const conclusionsCountEl = document.getElementById('conclusionsCount');
+            if (questionsCountEl) {
+                questionsCountEl.textContent = data.result.questions || 0;
+            }
+            if (conclusionsCountEl) {
+                conclusionsCountEl.textContent = data.result.conclusions || 0;
+            }
+        } else if (taskType !== 'rich_analysis') {
             const countEl = document.getElementById(`${taskType}Count`);
             if (countEl) {
                 countEl.textContent = data.result.count || 0;
@@ -1191,7 +1246,72 @@ function handleStreamingExtraction(taskType, data, promptText, resultsSection, r
         // Show the LLM response if available
         if (data.raw_llm_response && resultsSection && resultsContent) {
             resultsSection.style.display = 'block';
-            resultsContent.innerHTML = `<pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; max-height: 500px; overflow-y: auto;">${escapeHtml(data.raw_llm_response)}</pre>`;
+
+            // Special handling for rich_analysis - show structured results
+            if (taskType === 'rich_analysis' && data.details) {
+                let detailsHtml = '<div class="row">';
+
+                // Causal-Normative Links
+                if (data.details.causal_links && data.details.causal_links.length > 0) {
+                    detailsHtml += '<div class="col-md-4 mb-3">';
+                    detailsHtml += '<div class="card h-100"><div class="card-header bg-warning bg-opacity-25 py-2"><strong>Causal-Normative Links</strong></div>';
+                    detailsHtml += '<ul class="list-group list-group-flush small">';
+                    data.details.causal_links.forEach(cl => {
+                        detailsHtml += `<li class="list-group-item py-2">
+                            <strong>${escapeHtml(cl.action)}</strong><br>
+                            <span class="text-success">Fulfills: ${cl.fulfills}</span> |
+                            <span class="text-danger">Violates: ${cl.violates}</span>
+                        </li>`;
+                    });
+                    detailsHtml += '</ul></div></div>';
+                }
+
+                // Question Emergence
+                if (data.details.question_emergence && data.details.question_emergence.length > 0) {
+                    detailsHtml += '<div class="col-md-4 mb-3">';
+                    detailsHtml += '<div class="card h-100"><div class="card-header bg-info bg-opacity-25 py-2"><strong>Question Emergence</strong></div>';
+                    detailsHtml += '<ul class="list-group list-group-flush small">';
+                    data.details.question_emergence.forEach(qe => {
+                        detailsHtml += `<li class="list-group-item py-2">
+                            <em>"${escapeHtml(qe.question)}"</em><br>
+                            <span class="badge bg-secondary">${qe.data_triggers} triggers</span>
+                            <span class="badge bg-warning text-dark">${qe.competing_warrants} competing warrants</span>
+                        </li>`;
+                    });
+                    detailsHtml += '</ul></div></div>';
+                }
+
+                // Resolution Patterns
+                if (data.details.resolution_patterns && data.details.resolution_patterns.length > 0) {
+                    detailsHtml += '<div class="col-md-4 mb-3">';
+                    detailsHtml += '<div class="card h-100"><div class="card-header bg-success bg-opacity-25 py-2"><strong>Resolution Patterns</strong></div>';
+                    detailsHtml += '<ul class="list-group list-group-flush small">';
+                    data.details.resolution_patterns.forEach(rp => {
+                        detailsHtml += `<li class="list-group-item py-2">
+                            <em>"${escapeHtml(rp.conclusion)}"</em><br>
+                            <span class="badge bg-primary">${rp.determinative_principles} principles</span>
+                            <span class="badge bg-dark">${rp.determinative_facts} facts</span>
+                        </li>`;
+                    });
+                    detailsHtml += '</ul></div></div>';
+                }
+
+                detailsHtml += '</div>';
+
+                // Add collapsible raw response
+                detailsHtml += `<div class="mt-3">
+                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#richAnalysisRaw">
+                        <i class="bi bi-code-slash"></i> View Raw LLM Response
+                    </button>
+                    <div class="collapse mt-2" id="richAnalysisRaw">
+                        <pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; max-height: 300px; overflow-y: auto; font-size: 0.8rem;">${escapeHtml(data.raw_llm_response)}</pre>
+                    </div>
+                </div>`;
+
+                resultsContent.innerHTML = detailsHtml;
+            } else {
+                resultsContent.innerHTML = `<pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; max-height: 500px; overflow-y: auto;">${escapeHtml(data.raw_llm_response)}</pre>`;
+            }
         }
     }
 
@@ -1429,6 +1549,21 @@ function handlePhase3StreamingData(data) {
             // e3_result is sent with this stage
             if (data.e3_result) document.getElementById('e3Result').textContent = data.e3_result;
         }
+        // Handle LLM fallback when E3 produces 0 candidates
+        if (data.stage === 'E3_LLM_FALLBACK') {
+            document.getElementById('step-e3').className = 'badge bg-warning mb-1';
+            document.getElementById('e3Result').textContent = '0 candidates';
+            // Mark align as skipped
+            document.getElementById('step-align').className = 'badge bg-secondary mb-1';
+            document.getElementById('alignResult').textContent = 'skipped';
+            // Mark LLM as active (fallback mode)
+            document.getElementById('step-llm').className = 'badge bg-primary mb-1';
+            document.getElementById('llmResult').textContent = 'fallback...';
+        }
+        if (data.stage === 'E3_LLM_FALLBACK_DONE') {
+            document.getElementById('step-llm').className = 'badge bg-success mb-1';
+            document.getElementById('llmResult').textContent = 'fallback complete';
+        }
         if (data.stage.includes('3_2')) {
             document.getElementById('step-align').className = 'badge bg-primary mb-1';
             if (data.alignment_result) document.getElementById('alignResult').textContent = data.alignment_result;
@@ -1447,6 +1582,11 @@ function handlePhase3StreamingData(data) {
 
     // Handle completion
     if (data.stage === 'COMPLETE') {
+        // Update LLM result with final count if using fallback
+        if (data.used_llm_fallback && data.canonical_count) {
+            document.getElementById('llmResult').textContent = `${data.canonical_count} decision points`;
+        }
+
         // Show decision points
         if (data.canonical_decision_points && data.canonical_decision_points.length > 0) {
             const resultsDiv = document.getElementById('decisionPointsResults');
@@ -1488,6 +1628,12 @@ function handlePhase3StreamingData(data) {
         if (data.llm_trace) {
             const accordion = document.getElementById('phase3LLMAccordion');
             accordion.style.display = 'block';
+
+            // Add fallback indicator if LLM fallback was used
+            const accordionHeader = accordion.querySelector('.accordion-button');
+            if (data.used_llm_fallback && accordionHeader) {
+                accordionHeader.innerHTML = '<i class="bi bi-robot me-1"></i> LLM Analysis (Fallback Mode)';
+            }
 
             if (data.llm_trace.prompt) {
                 document.getElementById('phase3PromptContent').textContent = data.llm_trace.prompt;
@@ -1912,6 +2058,7 @@ async function runSingleTask(taskType) {
             'provisions': 'extract_provisions',
             'questions': 'extract_questions',
             'conclusions': 'extract_conclusions',
+            'qc_unified': 'extract_qc_unified',  // Q + C + Link atomically
             'transformation': 'extract_transformation',
             'rich_analysis': 'extract_rich_analysis',
             'decision_synthesis': 'extract_decision_synthesis',

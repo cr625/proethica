@@ -136,6 +136,7 @@ class QuestionAnalyzer:
 
         # Stage 2: Generate analytical questions (always LLM)
         if self.llm_client:
+            logger.info(f"Stage 2: Generating analytical questions (LLM client present)")
             analytical = self._generate_analytical_questions(
                 board_questions,
                 all_entities,
@@ -148,6 +149,13 @@ class QuestionAnalyzer:
             result[QuestionType.PRINCIPLE_TENSION.value] = analytical.get('principle_tension', [])
             result[QuestionType.THEORETICAL.value] = analytical.get('theoretical', [])
             result[QuestionType.COUNTERFACTUAL.value] = analytical.get('counterfactual', [])
+
+            logger.info(f"Stage 2 complete: implicit={len(result[QuestionType.IMPLICIT.value])}, "
+                       f"principle_tension={len(result[QuestionType.PRINCIPLE_TENSION.value])}, "
+                       f"theoretical={len(result[QuestionType.THEORETICAL.value])}, "
+                       f"counterfactual={len(result[QuestionType.COUNTERFACTUAL.value])}")
+        else:
+            logger.warning("Stage 2 skipped: No LLM client available for analytical generation")
 
         return result
 
@@ -386,6 +394,8 @@ class QuestionAnalyzer:
 
         except Exception as e:
             logger.error(f"Error generating analytical questions: {e}")
+            import traceback
+            traceback.print_exc()
             return {}
 
     def _create_board_extraction_prompt(

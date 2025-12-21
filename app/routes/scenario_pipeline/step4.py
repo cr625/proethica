@@ -763,10 +763,10 @@ def _count_conclusion_types(conclusions: list) -> dict:
 
 
 def _count_conclusion_types_from_list(conclusions: list) -> dict:
-    """Count conclusions by type (from EthicalConclusion objects)."""
+    """Count conclusions by type (handles both dicts and dataclass objects)."""
     counts = {}
     for c in conclusions:
-        t = getattr(c, 'conclusion_type', 'unclear')
+        t = c.get('conclusion_type', 'unclear') if isinstance(c, dict) else getattr(c, 'conclusion_type', 'unclear')
         counts[t] = counts.get(t, 0) + 1
     return counts
 
@@ -1051,6 +1051,51 @@ def step4_review(case_id):
             is_published=True
         ).count()
 
+        # Load rich analysis data
+        rich_analysis = None
+        causal_links_objs = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            extraction_type='causal_normative_link'
+        ).all()
+        question_emergence_objs = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            extraction_type='question_emergence'
+        ).all()
+        resolution_pattern_objs = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            extraction_type='resolution_pattern'
+        ).all()
+
+        if causal_links_objs or question_emergence_objs or resolution_pattern_objs:
+            rich_analysis = {
+                'causal_links': [
+                    {
+                        'action_label': obj.rdf_json_ld.get('action_label', obj.entity_label),
+                        'fulfills_obligations': obj.rdf_json_ld.get('fulfills_obligations', []),
+                        'violates_obligations': obj.rdf_json_ld.get('violates_obligations', []),
+                        'reasoning': obj.entity_definition
+                    }
+                    for obj in causal_links_objs
+                ],
+                'question_emergence': [
+                    {
+                        'question_text': obj.rdf_json_ld.get('question_text', obj.entity_label),
+                        'data_events': obj.rdf_json_ld.get('data_events', []),
+                        'data_actions': obj.rdf_json_ld.get('data_actions', []),
+                        'competing_warrants': obj.rdf_json_ld.get('competing_warrants', [])
+                    }
+                    for obj in question_emergence_objs
+                ],
+                'resolution_patterns': [
+                    {
+                        'conclusion_text': obj.rdf_json_ld.get('conclusion_text', obj.entity_label),
+                        'determinative_principles': obj.rdf_json_ld.get('determinative_principles', []),
+                        'determinative_facts': obj.rdf_json_ld.get('determinative_facts', [])
+                    }
+                    for obj in resolution_pattern_objs
+                ]
+            }
+
         # Get pipeline status for publish validation
         pipeline_status = PipelineStatusService.get_step_status(case_id)
         can_publish = pipeline_status.get('step1', {}).get('complete', False) and unpublished_count > 0
@@ -1080,7 +1125,8 @@ def step4_review(case_id):
             'unpublished_count': unpublished_count,
             'published_count': published_count,
             'can_publish': can_publish,
-            'pipeline_status': pipeline_status
+            'pipeline_status': pipeline_status,
+            'rich_analysis': rich_analysis
         }
 
         return render_template('scenario_pipeline/step4_review.html', **context)
@@ -1297,11 +1343,19 @@ def get_synthesis_status(case_id: int) -> Dict:
 
     completed = provisions > 0 or questions > 0 or conclusions > 0
 
+    # Get transformation type from case_precedent_features
+    from app.models import CasePrecedentFeatures
+    transformation_type = None
+    features = CasePrecedentFeatures.query.filter_by(case_id=case_id).first()
+    if features and features.transformation_type:
+        transformation_type = features.transformation_type
+
     return {
         'completed': completed,
         'provisions_count': provisions,
         'questions_count': questions,
-        'conclusions_count': conclusions
+        'conclusions_count': conclusions,
+        'transformation_type': transformation_type
     }
 
 
@@ -1868,7 +1922,7 @@ def extract_questions_conclusions(
         )
         db.session.add(question_extraction_prompt)
 
-    # Store questions
+    # Store questions (questions is List[Dict] from QuestionAnalyzer)
     for question in questions:
         rdf_entity = TemporaryRDFStorage(
             case_id=case_id,
@@ -1876,15 +1930,16 @@ def extract_questions_conclusions(
             extraction_type='ethical_question',
             storage_type='individual',
             entity_type='questions',
-            entity_label=f"Question_{question.question_number}",
-            entity_definition=question.question_text,
+            entity_label=f"Question_{question['question_number']}",
+            entity_definition=question['question_text'],
             rdf_json_ld={
                 '@type': 'proeth-case:EthicalQuestion',
-                'questionNumber': question.question_number,
-                'questionText': question.question_text,
-                'mentionedEntities': question.mentioned_entities,
-                'relatedProvisions': question.related_provisions,
-                'extractionReasoning': question.extraction_reasoning
+                'questionNumber': question['question_number'],
+                'questionText': question['question_text'],
+                'questionType': question.get('question_type', 'unknown'),
+                'mentionedEntities': question.get('mentioned_entities', {}),
+                'relatedProvisions': question.get('related_provisions', []),
+                'extractionReasoning': question.get('extraction_reasoning', '')
             },
             is_selected=True
         )
@@ -1913,7 +1968,7 @@ def extract_questions_conclusions(
         )
         db.session.add(conclusion_extraction_prompt)
 
-    # Store conclusions
+    # Store conclusions (conclusions is List[Dict] from ConclusionAnalyzer)
     for conclusion in conclusions:
         rdf_entity = TemporaryRDFStorage(
             case_id=case_id,
@@ -1921,17 +1976,17 @@ def extract_questions_conclusions(
             extraction_type='ethical_conclusion',
             storage_type='individual',
             entity_type='conclusions',
-            entity_label=f"Conclusion_{conclusion.conclusion_number}",
-            entity_definition=conclusion.conclusion_text,
+            entity_label=f"Conclusion_{conclusion['conclusion_number']}",
+            entity_definition=conclusion['conclusion_text'],
             rdf_json_ld={
                 '@type': 'proeth-case:EthicalConclusion',
-                'conclusionNumber': conclusion.conclusion_number,
-                'conclusionText': conclusion.conclusion_text,
-                'mentionedEntities': conclusion.mentioned_entities,
-                'citedProvisions': conclusion.cited_provisions,
-                'conclusionType': conclusion.conclusion_type,
-                'answersQuestions': getattr(conclusion, 'answers_questions', []),
-                'extractionReasoning': conclusion.extraction_reasoning
+                'conclusionNumber': conclusion['conclusion_number'],
+                'conclusionText': conclusion['conclusion_text'],
+                'conclusionType': conclusion.get('conclusion_type', 'unknown'),
+                'mentionedEntities': conclusion.get('mentioned_entities', {}),
+                'citedProvisions': conclusion.get('cited_provisions', []),
+                'answersQuestions': conclusion.get('answers_questions', []),
+                'extractionReasoning': conclusion.get('extraction_reasoning', '')
             },
             is_selected=True
         )
@@ -3572,19 +3627,26 @@ def extract_provisions_streaming(case_id):
                 applies_to = len(p.get('applies_to', []))
                 status_messages.append(f'Provision {code}: {applies_to} entity links, {excerpts} excerpts')
 
-            # Get the saved prompt/response from ExtractionPrompt for display
-            prompt_record = ExtractionPrompt.query.filter_by(
-                case_id=case_id,
-                concept_type='code_provision_reference'
-            ).order_by(ExtractionPrompt.created_at.desc()).first()
+            # Build formatted results for display
+            results_text = f"Extracted {len(provisions)} NSPE Code Provisions\n"
+            results_text += "=" * 40 + "\n\n"
+            for p in provisions:
+                code = p.get('code_provision', 'Unknown')
+                text = p.get('provision_text', '')[:100]
+                excerpts = len(p.get('relevant_excerpts', []))
+                applies_to = len(p.get('applies_to', []))
+                results_text += f"{code}\n"
+                results_text += f"  Text: {text}...\n" if len(p.get('provision_text', '')) > 100 else f"  Text: {text}\n"
+                results_text += f"  Excerpts found: {excerpts}\n"
+                results_text += f"  Entity links: {applies_to}\n\n"
 
             yield sse_msg({
                 'stage': 'COMPLETE',
                 'progress': 100,
                 'messages': [f'Extraction complete: {len(provisions)} provisions'],
                 'status_messages': status_messages,
-                'prompt': prompt_record.prompt_text if prompt_record else 'Provision extraction pipeline',
-                'raw_llm_response': prompt_record.raw_response if prompt_record else '',
+                'prompt': 'Algorithmic extraction from References section (HTML parsing + pattern matching)',
+                'raw_llm_response': results_text,
                 'result': {
                     'count': len(provisions),
                     'provisions': [
@@ -3710,6 +3772,344 @@ def extract_provisions_individual(case_id):
         }), 500
 
 
+@bp.route('/case/<int:case_id>/extract_qc_unified', methods=['POST'])
+@auth_required_for_llm
+def extract_qc_unified(case_id):
+    """
+    Part B UNIFIED: Extract Questions, Conclusions, and Link them atomically.
+
+    This endpoint ensures Q-C consistency by:
+    1. Clearing old Q&C data
+    2. Extracting questions with entity tagging
+    3. Extracting conclusions with entity tagging
+    4. Linking Q to C
+    5. Storing links on conclusions
+    6. Committing all in one transaction
+
+    Use this instead of separate extract_questions + extract_conclusions + link endpoints.
+    """
+    try:
+        case = Document.query.get_or_404(case_id)
+
+        # Get provisions for context (load existing, don't re-extract)
+        provisions_records = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            extraction_type='code_provision_reference'
+        ).all()
+        provisions = [r.rdf_json_ld for r in provisions_records if r.rdf_json_ld]
+
+        # Run unified extraction (clears old, extracts both, links, stores)
+        questions, conclusions = extract_questions_conclusions(case_id, case, provisions)
+
+        # Get prompts for display
+        q_prompt = ExtractionPrompt.query.filter_by(
+            case_id=case_id,
+            concept_type='ethical_question'
+        ).order_by(ExtractionPrompt.created_at.desc()).first()
+
+        c_prompt = ExtractionPrompt.query.filter_by(
+            case_id=case_id,
+            concept_type='ethical_conclusion'
+        ).order_by(ExtractionPrompt.created_at.desc()).first()
+
+        # Count Q-C links (conclusions is List[Dict])
+        linked_conclusions = [c for c in conclusions if c.get('answers_questions', [])]
+
+        return jsonify({
+            'success': True,
+            'prompt': f"Questions extraction:\n{q_prompt.prompt_text[:500] if q_prompt else 'N/A'}...\n\nConclusions extraction:\n{c_prompt.prompt_text[:500] if c_prompt else 'N/A'}...",
+            'raw_llm_response': f"Questions: {len(questions)} extracted\nConclusions: {len(conclusions)} extracted\nLinks: {len(linked_conclusions)} conclusions linked to questions",
+            'status_messages': [
+                f"Extracted {len(questions)} questions (board_explicit + analytical)",
+                f"Extracted {len(conclusions)} conclusions (board_explicit + analytical)",
+                f"Linked {len(linked_conclusions)} conclusions to questions"
+            ],
+            'result': {
+                'questions': len(questions),
+                'conclusions': len(conclusions),
+                'links': len(linked_conclusions),
+                'question_types': _count_question_types(questions),
+                'conclusion_types': _count_conclusion_types_from_list(conclusions)
+            },
+            'metadata': {
+                'q_model': q_prompt.llm_model if q_prompt else 'unknown',
+                'c_model': c_prompt.llm_model if c_prompt else 'unknown',
+                'timestamp': q_prompt.created_at.isoformat() if q_prompt else None
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"Error in unified Q+C extraction for case {case_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+def _count_question_types(questions: list) -> dict:
+    """Count questions by type (questions is List[Dict])."""
+    counts = {}
+    for q in questions:
+        q_type = q.get('question_type', 'unknown') if isinstance(q, dict) else getattr(q, 'question_type', 'unknown')
+        counts[q_type] = counts.get(q_type, 0) + 1
+    return counts
+
+
+@bp.route('/case/<int:case_id>/extract_qc_unified_stream', methods=['POST'])
+@auth_required_for_llm
+def extract_qc_unified_streaming(case_id):
+    """
+    Part B UNIFIED with SSE streaming: Extract Questions, Conclusions, and Link them.
+
+    Provides real-time progress updates via Server-Sent Events.
+    """
+    import json as json_mod
+    from flask import Response, stream_with_context
+
+    def sse_msg(data):
+        return f"data: {json_mod.dumps(data)}\n\n"
+
+    def generate():
+        try:
+            case = Document.query.get_or_404(case_id)
+
+            yield sse_msg({'stage': 'START', 'progress': 0, 'messages': ['Starting Q&C extraction...']})
+
+            # Load provisions (don't clear them!)
+            yield sse_msg({'stage': 'LOADING_PROVISIONS', 'progress': 5, 'messages': ['Loading code provisions...']})
+            provisions_records = TemporaryRDFStorage.query.filter_by(
+                case_id=case_id,
+                extraction_type='code_provision_reference'
+            ).all()
+            provisions = [r.rdf_json_ld for r in provisions_records if r.rdf_json_ld]
+            yield sse_msg({'stage': 'PROVISIONS_LOADED', 'progress': 8, 'messages': [f'Loaded {len(provisions)} provisions']})
+
+            # Get all entities for context
+            yield sse_msg({'stage': 'LOADING_ENTITIES', 'progress': 10, 'messages': ['Loading extracted entities...']})
+            all_entities = get_all_case_entities(case_id)
+            entity_count = sum(len(v) for v in all_entities.values() if isinstance(v, list))
+            yield sse_msg({'stage': 'ENTITIES_LOADED', 'progress': 15, 'messages': [f'Loaded {entity_count} entities']})
+
+            # Get section text
+            questions_text = ""
+            conclusions_text = ""
+            if case.doc_metadata and 'sections_dual' in case.doc_metadata:
+                sections = case.doc_metadata['sections_dual']
+                if 'question' in sections:
+                    q_data = sections['question']
+                    questions_text = q_data.get('text', '') if isinstance(q_data, dict) else str(q_data)
+                if 'conclusion' in sections:
+                    c_data = sections['conclusion']
+                    conclusions_text = c_data.get('text', '') if isinstance(c_data, dict) else str(c_data)
+
+            # Clear old Q&C
+            yield sse_msg({'stage': 'CLEARING', 'progress': 18, 'messages': ['Clearing previous Q&C extractions...']})
+            TemporaryRDFStorage.query.filter_by(
+                case_id=case_id,
+                extraction_type='ethical_question'
+            ).delete(synchronize_session=False)
+            TemporaryRDFStorage.query.filter_by(
+                case_id=case_id,
+                extraction_type='ethical_conclusion'
+            ).delete(synchronize_session=False)
+            db.session.commit()
+
+            llm_client = get_llm_client()
+
+            # Get facts section for context
+            facts_text = ""
+            if case.doc_metadata and 'sections_dual' in case.doc_metadata:
+                sections = case.doc_metadata['sections_dual']
+                if 'facts' in sections:
+                    f_data = sections['facts']
+                    facts_text = f_data.get('text', '') if isinstance(f_data, dict) else str(f_data)
+
+            # Extract questions (with analytical generation)
+            yield sse_msg({'stage': 'EXTRACTING_QUESTIONS', 'progress': 25, 'messages': ['Stage 1: Extracting Board questions...']})
+            question_analyzer = QuestionAnalyzer(llm_client)
+
+            # Log what we're passing to the analyzer
+            logger.info(f"Calling extract_questions_with_analysis with {len(all_entities)} entity types")
+
+            questions_result = question_analyzer.extract_questions_with_analysis(
+                questions_text=questions_text,
+                all_entities=all_entities,
+                code_provisions=provisions,
+                case_facts=facts_text,
+                case_conclusion=conclusions_text
+            )
+
+            # Log what we got back
+            for q_type in ['board_explicit', 'implicit', 'principle_tension', 'theoretical', 'counterfactual']:
+                count = len(questions_result.get(q_type, []))
+                logger.info(f"  {q_type}: {count} questions")
+
+            yield sse_msg({'stage': 'QUESTIONS_STAGE1', 'progress': 35, 'messages': [f'Stage 1 complete: {len(questions_result.get("board_explicit", []))} Board questions']})
+            yield sse_msg({'stage': 'QUESTIONS_STAGE2', 'progress': 40, 'messages': [f'Stage 2: Generated {len(questions_result.get("implicit", []))} implicit, {len(questions_result.get("principle_tension", []))} principle_tension, {len(questions_result.get("theoretical", []))} theoretical, {len(questions_result.get("counterfactual", []))} counterfactual']})
+
+            # Flatten all question types into single list
+            questions = []
+            for q_type in ['board_explicit', 'implicit', 'principle_tension', 'theoretical', 'counterfactual']:
+                for q in questions_result.get(q_type, []):
+                    q_dict = question_analyzer._question_to_dict(q) if hasattr(q, 'question_number') else q
+                    questions.append(q_dict)
+
+            board_count = len(questions_result.get('board_explicit', []))
+            analytical_count = len(questions) - board_count
+            yield sse_msg({'stage': 'QUESTIONS_DONE', 'progress': 45, 'messages': [f'Total: {board_count} Board + {analytical_count} analytical = {len(questions)} questions']})
+
+            # Get board questions for conclusion context
+            board_questions = [question_analyzer._question_to_dict(q) if hasattr(q, 'question_number') else q
+                              for q in questions_result.get('board_explicit', [])]
+            analytical_questions = [q for q in questions if q.get('question_type') != 'board_explicit']
+
+            # Extract conclusions (with analytical generation)
+            yield sse_msg({'stage': 'EXTRACTING_CONCLUSIONS', 'progress': 50, 'messages': ['Extracting Board conclusions + generating analytical conclusions...']})
+            conclusion_analyzer = ConclusionAnalyzer(llm_client)
+            conclusions_result = conclusion_analyzer.extract_conclusions_with_analysis(
+                conclusions_text=conclusions_text,
+                all_entities=all_entities,
+                code_provisions=provisions,
+                board_questions=board_questions,
+                analytical_questions=analytical_questions,
+                case_facts=facts_text
+            )
+
+            # Flatten all conclusion types into single list
+            conclusions = []
+            for c_type in ['board_explicit', 'analytical_extension', 'question_response', 'principle_synthesis']:
+                for c in conclusions_result.get(c_type, []):
+                    c_dict = conclusion_analyzer._conclusion_to_dict(c) if hasattr(c, 'conclusion_number') else c
+                    conclusions.append(c_dict)
+
+            board_c_count = len(conclusions_result.get('board_explicit', []))
+            analytical_c_count = len(conclusions) - board_c_count
+            yield sse_msg({'stage': 'CONCLUSIONS_DONE', 'progress': 70, 'messages': [f'Extracted {board_c_count} Board + {analytical_c_count} analytical = {len(conclusions)} total conclusions']})
+
+            # Link Q to C
+            yield sse_msg({'stage': 'LINKING', 'progress': 75, 'messages': ['Linking questions to conclusions...']})
+            linker = QuestionConclusionLinker(llm_client)
+            qc_links = linker.link_questions_to_conclusions(questions, conclusions)
+            conclusions = linker.apply_links_to_conclusions(conclusions, qc_links)
+            yield sse_msg({'stage': 'LINKING_DONE', 'progress': 85, 'messages': [f'Created {len(qc_links)} Q-C links']})
+
+            # Store everything
+            yield sse_msg({'stage': 'STORING', 'progress': 88, 'messages': ['Storing extractions...']})
+            session_id = str(uuid.uuid4())
+
+            # Store questions
+            for question in questions:
+                rdf_entity = TemporaryRDFStorage(
+                    case_id=case_id,
+                    extraction_session_id=session_id,
+                    extraction_type='ethical_question',
+                    storage_type='individual',
+                    entity_type='questions',
+                    entity_label=f"Question_{question['question_number']}",
+                    entity_definition=question['question_text'],
+                    rdf_json_ld={
+                        '@type': 'proeth-case:EthicalQuestion',
+                        'questionNumber': question['question_number'],
+                        'questionText': question['question_text'],
+                        'questionType': question.get('question_type', 'unknown'),
+                        'mentionedEntities': question.get('mentioned_entities', {}),
+                        'relatedProvisions': question.get('related_provisions', []),
+                        'extractionReasoning': question.get('extraction_reasoning', '')
+                    },
+                    is_selected=True
+                )
+                db.session.add(rdf_entity)
+
+            # Store conclusions
+            for conclusion in conclusions:
+                rdf_entity = TemporaryRDFStorage(
+                    case_id=case_id,
+                    extraction_session_id=session_id,
+                    extraction_type='ethical_conclusion',
+                    storage_type='individual',
+                    entity_type='conclusions',
+                    entity_label=f"Conclusion_{conclusion['conclusion_number']}",
+                    entity_definition=conclusion['conclusion_text'],
+                    rdf_json_ld={
+                        '@type': 'proeth-case:EthicalConclusion',
+                        'conclusionNumber': conclusion['conclusion_number'],
+                        'conclusionText': conclusion['conclusion_text'],
+                        'conclusionType': conclusion.get('conclusion_type', 'unknown'),
+                        'mentionedEntities': conclusion.get('mentioned_entities', {}),
+                        'citedProvisions': conclusion.get('cited_provisions', []),
+                        'answersQuestions': conclusion.get('answers_questions', []),
+                        'extractionReasoning': conclusion.get('extraction_reasoning', '')
+                    },
+                    is_selected=True
+                )
+                db.session.add(rdf_entity)
+
+            db.session.commit()
+
+            # Build formatted results for display
+            results_text = f"Questions & Conclusions Extraction\n"
+            results_text += "=" * 40 + "\n\n"
+            results_text += f"QUESTIONS ({len(questions)}):\n"
+            for q in questions:
+                q_num = q.get('question_number', '?')
+                q_type = q.get('question_type', 'unknown')
+                q_text = q.get('question_text', '')[:80]
+                results_text += f"  Q{q_num} [{q_type}]: {q_text}...\n" if len(q.get('question_text', '')) > 80 else f"  Q{q_num} [{q_type}]: {q_text}\n"
+            results_text += f"\nCONCLUSIONS ({len(conclusions)}):\n"
+            for c in conclusions:
+                c_num = c.get('conclusion_number', '?')
+                c_type = c.get('conclusion_type', 'unknown')
+                c_text = c.get('conclusion_text', '')[:80]
+                answers = c.get('answers_questions', [])
+                answers_str = f" -> answers Q{answers}" if answers else ""
+                results_text += f"  C{c_num} [{c_type}]{answers_str}: {c_text}...\n" if len(c.get('conclusion_text', '')) > 80 else f"  C{c_num} [{c_type}]{answers_str}: {c_text}\n"
+
+            status_messages = [
+                f"Extracted {len(questions)} questions (board_explicit + analytical)",
+                f"Extracted {len(conclusions)} conclusions (board_explicit + analytical)",
+                f"Linked {len(qc_links)} Q-C pairs"
+            ]
+
+            yield sse_msg({
+                'stage': 'COMPLETE',
+                'progress': 100,
+                'messages': [
+                    f'Extraction complete!',
+                    f'Questions: {len(questions)}',
+                    f'Conclusions: {len(conclusions)}',
+                    f'Links: {len(qc_links)}'
+                ],
+                'status_messages': status_messages,
+                'prompt': 'LLM extraction from Questions and Conclusions sections with entity grounding',
+                'raw_llm_response': results_text,
+                'result': {
+                    'questions': len(questions),
+                    'conclusions': len(conclusions),
+                    'links': len(qc_links)
+                }
+            })
+
+        except Exception as e:
+            logger.error(f"Error in streaming Q+C extraction for case {case_id}: {e}")
+            import traceback
+            traceback.print_exc()
+            yield sse_msg({
+                'stage': 'ERROR',
+                'progress': 100,
+                'messages': [f'Error: {str(e)}'],
+                'error': True
+            })
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no'
+        }
+    )
 
 
 @bp.route('/case/<int:case_id>/extract_decision_synthesis', methods=['POST'])

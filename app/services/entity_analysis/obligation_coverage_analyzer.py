@@ -59,6 +59,23 @@ class ConstraintAnalysis:
 
 
 @dataclass
+class LLMTraceE1:
+    """Record of an LLM interaction during E1 analysis."""
+    stage: str
+    prompt: str
+    response: str
+    model: str = 'claude-sonnet-4-20250514'
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'stage': self.stage,
+            'prompt': self.prompt,
+            'response': self.response,
+            'model': self.model
+        }
+
+
+@dataclass
 class CoverageMatrix:
     """Complete coverage analysis for a case."""
     case_id: int
@@ -67,6 +84,8 @@ class CoverageMatrix:
     role_obligation_map: Dict[str, List[str]] = field(default_factory=dict)  # role -> obligation URIs
     conflict_pairs: List[Tuple[str, str]] = field(default_factory=list)  # pairs of conflicting URIs
     decision_relevant_count: int = 0
+    llm_traces: List[LLMTraceE1] = field(default_factory=list)  # LLM interactions if fallback used
+    used_llm_fallback: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -75,7 +94,9 @@ class CoverageMatrix:
             'constraints': [c.to_dict() for c in self.constraints],
             'role_obligation_map': self.role_obligation_map,
             'conflict_pairs': self.conflict_pairs,
-            'decision_relevant_count': self.decision_relevant_count
+            'decision_relevant_count': self.decision_relevant_count,
+            'llm_traces': [t.to_dict() for t in self.llm_traces],
+            'used_llm_fallback': self.used_llm_fallback
         }
 
 
@@ -116,7 +137,12 @@ class ObligationCoverageAnalyzer:
         self.domain = domain_config or get_domain_config('engineering')
         self.role_vocabulary = [r.lower() for r in self.domain.role_vocabulary]
 
-    def analyze_coverage(self, case_id: int) -> CoverageMatrix:
+    def analyze_coverage(
+        self,
+        case_id: int,
+        questions: List[Dict] = None,
+        conclusions: List[Dict] = None
+    ) -> CoverageMatrix:
         """
         Analyze obligation and constraint coverage for a case.
 
@@ -128,6 +154,8 @@ class ObligationCoverageAnalyzer:
 
         Args:
             case_id: The case to analyze
+            questions: Optional Q&C questions for LLM fallback
+            conclusions: Optional Q&C conclusions for LLM fallback
 
         Returns:
             CoverageMatrix with analyzed obligations and constraints
@@ -174,18 +202,51 @@ class ObligationCoverageAnalyzer:
             1 for c in constraints if c.decision_relevant
         )
 
+        llm_traces = []
+        used_llm_fallback = False
+
+        # LLM fallback if no decision-relevant obligations found
+        if decision_relevant_count == 0 and (questions or conclusions):
+            logger.info("No decision-relevant obligations found algorithmically, using LLM fallback")
+            relevant_uris, trace = self._llm_identify_decision_relevant(
+                obligations, constraints, questions or [], conclusions or []
+            )
+            if trace:
+                llm_traces.append(trace)
+                used_llm_fallback = True
+
+            # Mark the LLM-identified items as decision-relevant
+            for obl in obligations:
+                if obl.entity_uri in relevant_uris:
+                    obl.decision_relevant = True
+            for con in constraints:
+                if con.entity_uri in relevant_uris:
+                    con.decision_relevant = True
+
+            # Recount
+            decision_relevant_count = sum(
+                1 for o in obligations if o.decision_relevant
+            ) + sum(
+                1 for c in constraints if c.decision_relevant
+            )
+
+            logger.info(f"LLM fallback identified {decision_relevant_count} decision-relevant items")
+
         matrix = CoverageMatrix(
             case_id=case_id,
             obligations=obligations,
             constraints=constraints,
             role_obligation_map=role_obligation_map,
             conflict_pairs=conflict_pairs,
-            decision_relevant_count=decision_relevant_count
+            decision_relevant_count=decision_relevant_count,
+            llm_traces=llm_traces,
+            used_llm_fallback=used_llm_fallback
         )
 
         logger.info(
             f"Coverage analysis complete: {len(obligations)} obligations, "
             f"{len(constraints)} constraints, {decision_relevant_count} decision-relevant"
+            f"{' (LLM fallback)' if used_llm_fallback else ''}"
         )
 
         return matrix
@@ -485,18 +546,149 @@ class ObligationCoverageAnalyzer:
                 con.is_instantiated
             )
 
+    def _llm_identify_decision_relevant(
+        self,
+        obligations: List[ObligationAnalysis],
+        constraints: List[ConstraintAnalysis],
+        questions: List[Dict],
+        conclusions: List[Dict]
+    ) -> Tuple[List[str], LLMTraceE1]:
+        """
+        Use LLM to identify decision-relevant obligations when algorithmic approach fails.
 
-def get_obligation_coverage(case_id: int, domain: str = 'engineering') -> CoverageMatrix:
+        Args:
+            obligations: List of analyzed obligations
+            constraints: List of analyzed constraints
+            questions: Questions from Phase 2B
+            conclusions: Conclusions from Phase 2B
+
+        Returns:
+            Tuple of (list of decision-relevant URIs, LLM trace)
+        """
+        from app.utils.llm_utils import get_llm_client
+
+        llm_client = get_llm_client()
+        if not llm_client:
+            logger.warning("No LLM client available for decision relevance fallback")
+            return [], None
+
+        # Build prompt
+        obligations_text = "\n".join([
+            f"- [{i+1}] {o.entity_label}: {o.entity_definition[:200]}"
+            for i, o in enumerate(obligations)
+        ])
+
+        constraints_text = "\n".join([
+            f"- [{len(obligations)+i+1}] {c.entity_label}: {c.entity_definition[:200]}"
+            for i, c in enumerate(constraints)
+        ])
+
+        questions_text = "\n".join([
+            f"Q{i+1}: {q.get('text', q.get('question_text', ''))[:150]}"
+            for i, q in enumerate(questions[:5])  # Limit to first 5
+        ])
+
+        conclusions_text = "\n".join([
+            f"C{i+1}: {c.get('text', c.get('conclusion_text', ''))[:150]}"
+            for i, c in enumerate(conclusions[:5])  # Limit to first 5
+        ])
+
+        prompt = f"""Analyze these ethical obligations and constraints from an NSPE ethics case.
+
+OBLIGATIONS:
+{obligations_text}
+
+CONSTRAINTS:
+{constraints_text}
+
+QUESTIONS THE BOARD CONSIDERED:
+{questions_text}
+
+BOARD'S CONCLUSIONS:
+{conclusions_text}
+
+TASK: Identify which obligations/constraints are DECISION-RELEVANT - meaning they are central to the ethical dilemma and the board's analysis.
+
+Return a JSON object with this structure:
+{{
+  "decision_relevant_indices": [1, 3, 5],  // Indices from the lists above
+  "reasoning": "Brief explanation of why these are central to the case"
+}}
+
+Focus on obligations that:
+1. Are directly referenced in the questions or conclusions
+2. Create ethical tension or conflict
+3. Require the engineer to make a difficult choice
+
+Return ONLY the JSON object, no other text."""
+
+        try:
+            response = llm_client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=1000,
+                messages=[{"role": "user", "content": prompt}]
+            )
+
+            response_text = response.content[0].text.strip()
+
+            # Parse response
+            import json
+            # Try to extract JSON from response
+            if response_text.startswith('{'):
+                result = json.loads(response_text)
+            else:
+                # Try to find JSON in response
+                import re
+                json_match = re.search(r'\{[^{}]*\}', response_text, re.DOTALL)
+                if json_match:
+                    result = json.loads(json_match.group())
+                else:
+                    logger.warning(f"Could not parse LLM response: {response_text[:200]}")
+                    result = {"decision_relevant_indices": list(range(1, min(6, len(obligations) + 1)))}
+
+            indices = result.get('decision_relevant_indices', [])
+
+            # Map indices to URIs
+            all_items = obligations + constraints
+            relevant_uris = []
+            for idx in indices:
+                if 1 <= idx <= len(all_items):
+                    item = all_items[idx - 1]
+                    relevant_uris.append(item.entity_uri)
+
+            trace = LLMTraceE1(
+                stage='E1_decision_relevance_fallback',
+                prompt=prompt,
+                response=response_text,
+                model='claude-sonnet-4-20250514'
+            )
+
+            logger.info(f"LLM identified {len(relevant_uris)} decision-relevant items")
+            return relevant_uris, trace
+
+        except Exception as e:
+            logger.error(f"LLM fallback failed: {e}")
+            return [], None
+
+
+def get_obligation_coverage(
+    case_id: int,
+    domain: str = 'engineering',
+    questions: List[Dict] = None,
+    conclusions: List[Dict] = None
+) -> CoverageMatrix:
     """
     Convenience function to get obligation coverage analysis.
 
     Args:
         case_id: Case to analyze
         domain: Domain code (default: engineering)
+        questions: Optional Q&C questions for LLM fallback
+        conclusions: Optional Q&C conclusions for LLM fallback
 
     Returns:
         CoverageMatrix with analysis results
     """
     domain_config = get_domain_config(domain)
     analyzer = ObligationCoverageAnalyzer(domain_config)
-    return analyzer.analyze_coverage(case_id)
+    return analyzer.analyze_coverage(case_id, questions=questions, conclusions=conclusions)

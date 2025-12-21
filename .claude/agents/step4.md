@@ -396,6 +396,24 @@ conclusion_type_order = ['board_explicit', 'analytical_extension', 'question_res
 
 Sorting is applied in `step4.py` `step4_review()` route before passing to template.
 
+### Unified Q+C+Link Endpoint
+
+**IMPORTANT**: Always use the unified endpoint for Q&C extraction to ensure consistency.
+
+```bash
+# Unified endpoint (recommended)
+POST /scenario_pipeline/case/<id>/extract_qc_unified
+
+# This atomically:
+# 1. Clears old Q&C
+# 2. Extracts questions
+# 3. Extracts conclusions
+# 4. Links Q to C
+# 5. Stores links on conclusions
+```
+
+The separate `extract_questions` and `extract_conclusions` endpoints still exist for backwards compatibility but should not be used for new workflows.
+
 ### Using Playwright for UI Testing
 
 Playwright is available for checking UI state:

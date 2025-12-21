@@ -682,7 +682,9 @@ class DecisionPointComposer:
 
 def compose_decision_points(
     case_id: int,
-    domain: str = 'engineering'
+    domain: str = 'engineering',
+    coverage_matrix: Optional['CoverageMatrix'] = None,
+    action_map: Optional['ActionOptionMap'] = None
 ) -> ComposedDecisionPoints:
     """
     Convenience function to compose decision points.
@@ -690,10 +692,12 @@ def compose_decision_points(
     Args:
         case_id: Case to analyze
         domain: Domain code (default: engineering)
+        coverage_matrix: Optional pre-computed coverage matrix (avoids re-running E1)
+        action_map: Optional pre-computed action map (avoids re-running E2)
 
     Returns:
         ComposedDecisionPoints with entity-grounded decision points
     """
     domain_config = get_domain_config(domain)
     composer = DecisionPointComposer(domain_config)
-    return composer.compose_decision_points(case_id)
+    return composer.compose_decision_points(case_id, coverage_matrix, action_map)

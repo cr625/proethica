@@ -105,18 +105,23 @@ class QuestionConclusionLinker:
     ) -> str:
         """Create LLM prompt for Q→C linking."""
 
-        # Format questions
+        # Format questions (handle both dicts and dataclass objects)
         questions_text = ""
         for q in questions:
-            questions_text += f"\n**Question {q.question_number}:**\n"
-            questions_text += f"\"{q.question_text}\"\n"
+            q_num = q['question_number'] if isinstance(q, dict) else q.question_number
+            q_text = q['question_text'] if isinstance(q, dict) else q.question_text
+            questions_text += f"\n**Question {q_num}:**\n"
+            questions_text += f"\"{q_text}\"\n"
 
-        # Format conclusions
+        # Format conclusions (handle both dicts and dataclass objects)
         conclusions_text = ""
         for c in conclusions:
-            conclusions_text += f"\n**Conclusion {c.conclusion_number}:**\n"
-            conclusions_text += f"\"{c.conclusion_text}\"\n"
-            conclusions_text += f"Type: {c.conclusion_type}\n"
+            c_num = c['conclusion_number'] if isinstance(c, dict) else c.conclusion_number
+            c_text = c['conclusion_text'] if isinstance(c, dict) else c.conclusion_text
+            c_type = c.get('conclusion_type', 'unknown') if isinstance(c, dict) else getattr(c, 'conclusion_type', 'unknown')
+            conclusions_text += f"\n**Conclusion {c_num}:**\n"
+            conclusions_text += f"\"{c_text}\"\n"
+            conclusions_text += f"Type: {c_type}\n"
 
         prompt = f"""You are analyzing NSPE Board of Ethical Review questions and conclusions to determine which conclusion answers which question.
 
@@ -213,7 +218,7 @@ Consider:
         Add answersQuestion information to conclusion objects.
 
         Args:
-            conclusions: List of EthicalConclusion objects
+            conclusions: List of EthicalConclusion objects or dicts
             links: List of QuestionConclusionLink objects
 
         Returns:
@@ -226,16 +231,20 @@ Consider:
                 links_by_conclusion[link.conclusion_number] = []
             links_by_conclusion[link.conclusion_number].append(link)
 
-        # Add to conclusions
+        # Add to conclusions (handle both dicts and dataclass objects)
         for conclusion in conclusions:
-            conclusion_links = links_by_conclusion.get(conclusion.conclusion_number, [])
-            conclusion.answers_questions = [
-                link.question_number for link in conclusion_links
-            ]
-            conclusion.link_confidences = {
-                link.question_number: link.confidence
-                for link in conclusion_links
-            }
+            c_num = conclusion['conclusion_number'] if isinstance(conclusion, dict) else conclusion.conclusion_number
+            conclusion_links = links_by_conclusion.get(c_num, [])
+
+            answers_questions = [link.question_number for link in conclusion_links]
+            link_confidences = {link.question_number: link.confidence for link in conclusion_links}
+
+            if isinstance(conclusion, dict):
+                conclusion['answers_questions'] = answers_questions
+                conclusion['link_confidences'] = link_confidences
+            else:
+                conclusion.answers_questions = answers_questions
+                conclusion.link_confidences = link_confidences
 
         return conclusions
 
