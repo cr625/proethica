@@ -541,44 +541,48 @@
                             </div>
 
                             <!-- Linked Conclusions -->
-                            {% set question_num = question.entity_label|replace('Question_', '')|replace('Question ', '') %}
-                            {% set found_conclusion = false %}
+                            {% set question_num = (question.rdf_json_ld.questionNumber|string) if (question.rdf_json_ld and question.rdf_json_ld.questionNumber) else question.entity_label|replace('Question_', '')|replace('Question ', '')|replace('Q', '') %}
+                            {% set matched_conclusions = [] %}
                             {% for conclusion in conclusions %}
                                 {% if conclusion.rdf_json_ld and conclusion.rdf_json_ld.answersQuestions %}
                                     {% for answered_q in conclusion.rdf_json_ld.answersQuestions %}
-                                        {% set answered_q_str = answered_q|string %}
-                                        {% if question_num in answered_q_str or question.entity_label in answered_q_str %}
-                                            {% set found_conclusion = true %}
-                                            <div class="card linked-conclusion mb-2">
-                                                <div class="card-body py-2">
-                                                    <div class="d-flex justify-content-between align-items-start">
-                                                        <div>
-                                                            <strong class="text-success">
-                                                                <i class="bi bi-check-circle me-1"></i>
-                                                                {{ conclusion.entity_label }}
-                                                            </strong>
-                                                            <p class="mb-1 mt-1">{{ conclusion.entity_definition }}</p>
-                                                        </div>
-                                                        {% if conclusion.rdf_json_ld.conclusionType %}
-                                                        <span class="badge bg-dark">{{ conclusion.rdf_json_ld.conclusionType }}</span>
-                                                        {% endif %}
-                                                    </div>
-                                                    {% if conclusion.rdf_json_ld.citedProvisions %}
-                                                    <div class="mt-2">
-                                                        <small class="text-muted">Cites:</small>
-                                                        {% for prov in conclusion.rdf_json_ld.citedProvisions %}
-                                                        <span class="badge bg-secondary badge-sm">{{ prov }}</span>
-                                                        {% endfor %}
-                                                    </div>
-                                                    {% endif %}
-                                                </div>
-                                            </div>
+                                        {% if answered_q|string == question_num %}
+                                            {% if conclusion not in matched_conclusions %}
+                                                {% set _ = matched_conclusions.append(conclusion) %}
+                                            {% endif %}
                                         {% endif %}
                                     {% endfor %}
                                 {% endif %}
                             {% endfor %}
 
-                            {% if not found_conclusion %}
+                            {% for conclusion in matched_conclusions %}
+                            <div class="card linked-conclusion mb-2">
+                                <div class="card-body py-2">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <strong class="text-success">
+                                                <i class="bi bi-check-circle me-1"></i>
+                                                {{ conclusion.entity_label }}
+                                            </strong>
+                                            <p class="mb-1 mt-1">{{ conclusion.entity_definition }}</p>
+                                        </div>
+                                        {% if conclusion.rdf_json_ld.conclusionType %}
+                                        <span class="badge bg-dark">{{ conclusion.rdf_json_ld.conclusionType }}</span>
+                                        {% endif %}
+                                    </div>
+                                    {% if conclusion.rdf_json_ld.citedProvisions %}
+                                    <div class="mt-2">
+                                        <small class="text-muted">Cites:</small>
+                                        {% for prov in conclusion.rdf_json_ld.citedProvisions %}
+                                        <span class="badge bg-secondary badge-sm">{{ prov }}</span>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+
+                            {% if matched_conclusions|length == 0 %}
                             <div class="alert alert-secondary mb-0">
                                 <small><i class="bi bi-dash-circle"></i> No linked conclusion found for this question.</small>
                             </div>

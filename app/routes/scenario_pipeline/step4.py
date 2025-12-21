@@ -906,6 +906,30 @@ def step4_review(case_id):
                 'rdf_json_ld': c.rdf_json_ld or {}
             })
 
+        # Sort questions and conclusions by type priority (board_explicit first)
+        question_type_order = ['board_explicit', 'implicit', 'principle_tension', 'theoretical', 'counterfactual']
+        conclusion_type_order = ['board_explicit', 'analytical_extension', 'question_response', 'principle_synthesis']
+
+        def get_type_priority_dict(item, type_field, type_order):
+            item_type = (item.get('rdf_json_ld') or {}).get(type_field, 'unknown')
+            try:
+                return type_order.index(item_type)
+            except ValueError:
+                return len(type_order)  # Unknown types go last
+
+        def get_type_priority_obj(obj, type_field, type_order):
+            item_type = (obj.rdf_json_ld or {}).get(type_field, 'unknown')
+            try:
+                return type_order.index(item_type)
+            except ValueError:
+                return len(type_order)  # Unknown types go last
+
+        # Sort both dict lists and SQLAlchemy object lists
+        questions = sorted(questions, key=lambda q: get_type_priority_dict(q, 'questionType', question_type_order))
+        conclusions = sorted(conclusions, key=lambda c: get_type_priority_dict(c, 'conclusionType', conclusion_type_order))
+        questions_objs = sorted(questions_objs, key=lambda q: get_type_priority_obj(q, 'questionType', question_type_order))
+        conclusions_objs = sorted(conclusions_objs, key=lambda c: get_type_priority_obj(c, 'conclusionType', conclusion_type_order))
+
         # Check if synthesis annotations already exist
         from app.models.document_concept_annotation import DocumentConceptAnnotation
         from sqlalchemy import func

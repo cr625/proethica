@@ -1,153 +1,216 @@
 # Nine-Concept Framework
 
-ProEthica employs a nine-component formal framework to capture the essential components of professional ethical analysis. This framework, defined as **D = (R, P, O, S, Rs, A, E, Ca, Cs)**, synthesizes concepts from computational ethics literature into a unified structure.
+ProEthica employs a nine-component formal framework to capture the essential elements of professional ethical evaluation. This framework, defined as **D = (R, P, O, S, Rs, A, E, Ca, Cs)**, synthesizes concepts from computational ethics literature into a unified structure.
 
 ## Framework Overview
 
-The nine concepts organize according to logical dependencies in profession-based ethical decision analysis:
+The nine elements organize into three functional dimensions:
+
+| Dimension | Elements | Function |
+|-----------|----------|----------|
+| **Contextual Grounding** | Roles (R), States (S), Resources (Rs) | Determines which ethical considerations apply |
+| **Normative Structure** | Principles (P), Obligations (O), Constraints (Cs), Capabilities (Ca) | Provides the evaluation framework |
+| **Temporal Dynamics** | Actions (A), Events (E) | Tracks how situations evolve |
 
 ```
 Roles (R)
-    ↓ generate
+    | generate
 Principles (P)
-    ↓ specify
+    | specify
 Obligations (O)
-    ↓ apply within
+    | apply within
 States (S) + Resources (Rs)
-    ↓ precipitate
-Events (E) → Actions (A)
-    ↓ bounded by
+    | precipitate
+Events (E) --> Actions (A)
+    | bounded by
 Capabilities (Ca) + Constraints (Cs)
 ```
 
-## The Nine Concepts
+---
+
+## Contextual Grounding Elements
+
+These elements determine which ethical considerations apply based on professional position, situational circumstances, and accumulated precedents.
 
 ### Roles (R)
 
-**Definition**: Professional positions that generate abstract principles.
+**Definition**: Professional positions with associated duties, responsibilities, and decision-making authority.
 
-Roles define the professional identity of individuals in an ethical scenario. Each role carries inherent responsibilities and generates specific obligations.
+Roles filter which principles and obligations apply based on professional identity. Each profession serves distinctive human goods and maintains unique normative commitments, requiring domain-specific customization. An engineer's obligation to protect public safety differs fundamentally from a lawyer's duty of zealous advocacy or a physician's commitment to patient welfare.
 
 **Examples**:
+
 - Engineer
 - Client
 - Employer
 - Public Official
 - Consulting Engineer
 
-**Ontology Source**: Builds on Oakley and Cocking's (2001) role-generated obligations.
+**Ontology Source**: Defined in [proethica-core.ttl](https://ontserve.ontorealm.net/ontology/proethica-core) as `proeth-core:Role`, subclass of BFO:role. Subclasses in [proethica-intermediate.ttl](https://ontserve.ontorealm.net/ontology/proethica-intermediate) include `ProfessionalRole`, `InstitutionalRole`, `StakeholderRole`.
 
-### Principles (P)
+**Key Literature**: Oakley & Cocking (2001) on role-generated obligations; Kong et al. (2020) on identity virtues; Doernberg & Truog (2023) on sphere-based roles. [Full references](/tools/references#nine-concept)
 
-**Definition**: Abstract ethical standards derived from professional roles.
-
-Principles are general ethical guidelines that apply across specific situations. They form the foundational layer of professional ethics codes.
-
-**Examples**:
-- Hold paramount the safety, health, and welfare of the public
-- Perform services only in areas of competence
-- Act as faithful agents or trustees
-- Avoid deceptive acts
-
-**Relation to Obligations**: Principles specify concrete Obligations that professionals must follow.
-
-### Obligations (O)
-
-**Definition**: Concrete duties derived from principles.
-
-Obligations are specific, actionable requirements that professionals must fulfill. They form the deontic foundation of professional conduct.
-
-**Examples**:
-- Verify AI-generated designs before certification
-- Disclose conflicts of interest to clients
-- Maintain confidentiality of client information
-- Report safety violations to appropriate authorities
-
-**Deontic Status**: Obligations express what professionals *must* do (mandatory requirements).
+---
 
 ### States (S)
 
-**Definition**: Situational context and conditions within which obligations apply.
+**Definition**: Situational context including facts, environmental conditions, and system status.
 
-States describe the circumstances, conditions, and facts that characterize the ethical scenario. They establish the context for decision-making.
+States capture the specific circumstances that affect ethical evaluation. Identical professional actions carry different ethical weight depending on the state. Context extends beyond technical parameters to include social and cultural factors that shape ethical acceptability.
 
 **Examples**:
+
 - Engineer lacks AI competence
 - Client has limited budget
 - Project deadline is imminent
 - Public safety is at risk
 
-**Role in Analysis**: States help determine which obligations apply and how they should be prioritized.
+**Ontology Source**: Defined in [proethica-core.ttl](https://ontserve.ontorealm.net/ontology/proethica-core) as `proeth-core:State`, subclass of BFO:quality. Represents time-varying properties (fluents) that affect ethical assessment.
+
+**Key Literature**: Almpani et al. (2023) on Event Calculus for state representation; Berreby et al. (2017) on fluents; Sarmiento et al. (2023) on causal chains. [Full references](/tools/references#nine-concept)
+
+---
 
 ### Resources (Rs)
 
-**Definition**: Available knowledge, references, and informational assets.
+**Definition**: Accumulated professional knowledge including codes, precedents, and practices.
 
-Resources include codes of ethics, technical standards, regulatory requirements, and other materials that inform ethical decision-making.
+Resources supply the established wisdom and standards of the profession. McLaren (2003) argues that professional ethical knowledge exists primarily in precedents rather than abstract rules. The meaning of fundamental ethical standards emerges through accumulated cases, not through philosophical analysis alone.
 
 **Examples**:
+
 - NSPE Code of Ethics II.1.a (competence requirement)
 - State licensing regulations
 - Industry technical standards
 - Prior board decisions
 
-**Function**: Resources provide authoritative guidance for resolving ethical questions.
+**Ontology Source**: Defined in [proethica-core.ttl](https://ontserve.ontorealm.net/ontology/proethica-core) as `proeth-core:Resource`, subclass of BFO:independent continuant. Linked to IAO documents via `refersToDocument` property.
 
-### Events (E)
+**Key Literature**: McLaren (2003) on precedents; Davis (1991) and Frankel (1989) on code structure; Anderson & Anderson (2018) on learning from expert examples. [Full references](/tools/references#nine-concept)
 
-**Definition**: Precipitating occurrences that require ethical response.
+---
 
-Events are specific happenings that trigger the need for ethical deliberation and action. They mark transitions in the scenario timeline.
+## Normative Structure Elements
 
-**Examples**:
-- Client requests AI-assisted design
-- Engineer discovers safety flaw
-- Competitor makes job offer
-- Deadline arrives
+These elements transform high-level ethical ideals into concrete professional requirements.
 
-**Temporal Nature**: Events have specific occurrence times and create before/after relationships.
+### Principles (P)
 
-### Actions (A)
+**Definition**: High-level ethical guidelines that establish professional ideals.
 
-**Definition**: What professionals do or could do in response to events.
-
-Actions are deliberate behaviors taken (or not taken) by professionals. Analysis considers both actions actually taken and alternatives not pursued.
+Principles provide abstract guidance that must be interpreted through precedents. McLaren (2003) notes that principles contain open-textured terms that resist precise definition, making them subject to interpretation in different contexts. Without precedent-based grounding, principles remain too abstract for operational guidance.
 
 **Examples**:
-- Uses AI without verification (action taken)
-- Hire specialist consultant (alternative)
-- Decline project (alternative)
-- Request deadline extension (alternative)
 
-**Ethical Significance**: Actions are evaluated against obligations, capabilities, and constraints.
+- Hold paramount the safety, health, and welfare of the public
+- Perform services only in areas of competence
+- Act as faithful agents or trustees
+- Avoid deceptive acts
+
+**Ontology Source**: Defined in [proethica-core.ttl](https://ontserve.ontorealm.net/ontology/proethica-core) as `proeth-core:Principle`, subclass of IAO:information content entity. Subclasses in [proethica-intermediate.ttl](https://ontserve.ontorealm.net/ontology/proethica-intermediate) include `FundamentalEthicalPrinciple`, `ProfessionalVirtuePrinciple`, `RelationalPrinciple`, `DomainSpecificPrinciple`.
+
+**Key Literature**: McLaren (2003) on extensional definition; Hallamaa & Kalliokoski (2022) on context-sensitivity; Taddeo et al. (2024) on operationalization. [Full references](/tools/references#nine-concept)
+
+---
+
+### Obligations (O)
+
+**Definition**: Specific requirements for action or restraint.
+
+Obligations transform principles into concrete, evaluable professional requirements. Unlike principles that provide general guidance, obligations establish the specific requirements necessary for evaluation. Dennis et al. (2016) emphasize that obligations require complete specification to be computationally verifiable.
+
+**Examples**:
+
+- Verify AI-generated designs before certification
+- Disclose conflicts of interest to clients
+- Maintain confidentiality of client information
+- Report safety violations to appropriate authorities
+
+**Ontology Source**: Defined in [proethica-core.ttl](https://ontserve.ontorealm.net/ontology/proethica-core) as `proeth-core:Obligation`, subclass of IAO:information content entity. Extracted from NSPE Code provisions and case narratives.
+
+**Key Literature**: Dennis et al. (2016) on specification requirements; Anderson & Anderson (2006, 2007, 2011) on duty quantification; Almpani et al. (2023) on dynamic priorities. [Full references](/tools/references#nine-concept)
+
+---
+
+### Constraints (Cs)
+
+**Definition**: Inviolable boundaries that cannot be crossed regardless of benefits.
+
+Constraints establish hard limits on professional behavior, defining what must never be done. Systems must verify constraints before evaluating trade-offs among competing obligations. Professional ethical evaluation cannot occur without first establishing which actions fall outside acceptable boundaries.
+
+**Examples**:
+
+- Cannot certify work beyond competence
+- Cannot misrepresent qualifications
+- Cannot prioritize profit over safety
+- Cannot disclose confidential information improperly
+
+**Ontology Source**: Defined in [proethica-core.ttl](https://ontserve.ontorealm.net/ontology/proethica-core) as `proeth-core:Constraint`, subclass of IAO:information content entity. Distinguished from Obligations by expressing prohibitions rather than requirements.
+
+**Key Literature**: Ganascia (2007) on defeasible logic; Dennis et al. (2016) on hierarchical management; Arkin (2008) on ethical governors. [Full references](/tools/references#nine-concept)
+
+---
 
 ### Capabilities (Ca)
 
-**Definition**: What professionals can do within their competence and authority.
+**Definition**: Competencies spanning norm competence, situational awareness, learning, and explanation abilities.
 
-Capabilities describe the range of permissible and possible actions available to professionals. They establish what is within professional scope.
+Capabilities ensure sufficient expertise for professional practice. Tolmeijer et al. (2021) identify four essential capability types: norm competence, situational awareness, learning and adaptation, and explanation and justification. These capabilities define prescriptive requirements for systems that support professional judgment.
 
 **Examples**:
+
 - Can hire specialists for areas outside competence
 - Can request additional time for proper review
 - Can consult with ethics board
 - Can decline work outside expertise
 
-**Deontic Status**: Capabilities express what professionals *may* do (permissions).
+**Ontology Source**: Defined in [proethica-core.ttl](https://ontserve.ontorealm.net/ontology/proethica-core) as `proeth-core:Capability`, subclass of BFO:realizable entity. Represents what professionals *may* do (permissions).
 
-### Constraints (Cs)
+**Key Literature**: Tolmeijer et al. (2021) on four essential types; Berreby et al. (2017) on Action Model; Epstein & Hundert (2002) on domain-specific judgment. [Full references](/tools/references#nine-concept)
 
-**Definition**: Limitations on professional conduct.
+---
 
-Constraints define boundaries that professionals cannot cross. They may arise from competence limits, ethical prohibitions, or situational factors.
+## Temporal Dynamics Elements
+
+These elements track how professional scenarios evolve over time through actions and events.
+
+### Actions (A)
+
+**Definition**: Volitional professional interventions that carry ethical weight.
+
+Actions represent deliberate choices with professional responsibility. Systems must separate Actions from Events through attribution of responsibility, as professional accountability attaches only to volitional interventions. Action evaluation must account for complexity in professional judgment, including cases where omission carries liability.
 
 **Examples**:
-- Cannot certify work beyond competence
-- Cannot misrepresent qualifications
-- Cannot prioritize profit over safety
-- Cannot disclose confidential information
 
-**Deontic Status**: Constraints express what professionals *must not* do (prohibitions).
+- Uses AI without verification (action taken)
+- Hire specialist consultant (alternative)
+- Decline project (alternative)
+- Request deadline extension (alternative)
+
+**Ontology Source**: Defined in [proethica-core.ttl](https://ontserve.ontorealm.net/ontology/proethica-core) as `proeth-core:Action`, subclass of BFO:process. Distinguished from Events by volitional nature.
+
+**Key Literature**: Sarmiento et al. (2023) on volitional nature; Bonnemains et al. (2018) on multi-framework evaluation; Govindarajulu & Bringsjord (2017) on intentional status. [Full references](/tools/references#nine-concept)
+
+---
+
+### Events (E)
+
+**Definition**: Occurrences originating outside agent control that affect evaluation.
+
+Events capture temporal dynamics and external triggers. The Event Calculus framework formally distinguishes between agent-caused outcomes (Actions) and exogenous occurrences. Events modify fluents and trigger new obligations to generate state transitions that create the temporal context for professional evaluation.
+
+**Examples**:
+
+- Client requests AI-assisted design
+- Engineer discovers safety flaw
+- Competitor makes job offer
+- Deadline arrives
+
+**Ontology Source**: Defined in [proethica-core.ttl](https://ontserve.ontorealm.net/ontology/proethica-core) as `proeth-core:Event`, subclass of BFO:process. Represents external occurrences distinct from volitional Actions.
+
+**Key Literature**: Berreby et al. (2017) on exogenous occurrences; Event Calculus formalism; Arkin (2008) on emergency overrides. [Full references](/tools/references#nine-concept)
+
+---
 
 ## Extraction Process
 
@@ -184,29 +247,25 @@ Extracts action and event sequences:
 | Actions | 5-12 | Professional responses |
 | Relations | 10-20 | Temporal and causal links |
 
-## Concept Relationships
-
-The nine concepts form a coherent structure:
-
-**Generation Chain**: Roles → Principles → Obligations
-
-**Context Dependencies**: States and Resources determine which Obligations apply
-
-**Action Framework**: Events precipitate Actions bounded by Capabilities and Constraints
-
-**Causal Chains**: Conditions (States) can lead to Obligation violations
+---
 
 ## Theoretical Foundations
 
-The framework builds on established computational ethics research:
+The framework synthesizes three foundational works:
 
-- **Modular Architecture**: Berreby, Bourgne, and Ganascia (2017) - declarative ethical reasoning
-- **Role Ethics**: Oakley and Cocking (2001) - virtue ethics and professional roles
-- **Case-Based Ethics**: McLaren (2003) - extensionally defining principles through cases
-- **Role-Based Alignment**: Rauch et al. (2025) - decision-maker alignment through roles
+| Work | Contribution | Elements |
+|------|--------------|----------|
+| **McLaren (2003)** | Extensional definition of principles through precedents | R, Rs, P |
+| **Berreby et al. (2017)** | Modular architecture for temporal ethical reasoning | S, A, E, O |
+| **Tolmeijer et al. (2021)** | Essential capabilities for ethical agents | Ca, Cs |
+
+For complete academic references with DOIs and citations, see [References](/tools/references#nine-concept).
+
+---
 
 ## Related Guides
 
 - [Phase 1 Extraction](../how-to/phase1-extraction.md) - Extracting concepts
 - [Entity Review](../how-to/entity-review.md) - Validating extracted concepts
 - [Ontology Integration](../reference/ontology-integration.md) - Concept definitions
+- [Academic References](/tools/references) - Full citations and sources

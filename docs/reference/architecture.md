@@ -357,4 +357,4 @@ Features:
 
 - [Nine-Concept Framework](../concepts/nine-concepts.md)
 - [Ontology Integration](ontology-integration.md)
-- [Installation Guide](../getting-started/installation.md)
+- [Installation & Deployment](installation.md)

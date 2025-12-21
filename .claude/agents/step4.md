@@ -301,8 +301,114 @@ http://localhost:5000/scenario_pipeline/case/7/step4/review
 
 1. **Two disconnected synthesis paths** - LLM-extracted vs algorithmic decision points need unification (see UNIFIED_CASE_ANALYSIS_PIPELINE.md)
 2. **Auto-reload on step4_review** - Results flash after "Synthesize Case" button
-3. **Q-C linking** - Sometimes misses connections
-4. **Causal-normative linking** - Uses heuristics, not full LLM analysis
+3. **Causal-normative linking** - Uses heuristics, not full LLM analysis
+
+---
+
+## Development Notes
+
+### Flask Auto-Reload is OFF
+
+Flask auto-reload is disabled in development. After making Python code changes:
+
+```bash
+# Option 1: Use the reload script
+./scripts/reload_flask.sh
+
+# Option 2: Restart manually
+pkill -f 'python run.py' && python run.py
+```
+
+Template changes (.html) take effect immediately without restart.
+
+### Q-C Linking Architecture (Fixed 2025-12-21)
+
+**Critical**: Q-C links must be stored on **conclusions**, not questions.
+
+The template (`step4_review.html`) reads from conclusions:
+```jinja2
+{% if conclusion.rdf_json_ld.answersQuestions %}
+    {% for answered_q in conclusion.rdf_json_ld.answersQuestions %}
+```
+
+**Correct storage structure on conclusions:**
+```json
+{
+  "answersQuestions": [1, 2],
+  "answerDetails": [
+    {"questionNumber": 1, "confidence": 1.0, "reasoning": "..."}
+  ]
+}
+```
+
+**Do NOT store on questions** - `linkedConclusions` on questions is ignored by the template.
+
+### Running Q-C Linking Manually
+
+The Q-C linker must be run after both questions and conclusions are extracted:
+
+```python
+# After extraction, run linking and store on conclusions
+from app.services.question_conclusion_linker import QuestionConclusionLinker
+import anthropic
+
+llm_client = anthropic.Anthropic()
+linker = QuestionConclusionLinker(llm_client)
+qc_links = linker.link_questions_to_conclusions(questions, conclusions)
+
+# Store on conclusions (not questions!)
+for link in qc_links:
+    conclusion = get_conclusion_by_number(link.conclusion_number)
+    json_data = conclusion.rdf_json_ld or {}
+    if 'answersQuestions' not in json_data:
+        json_data['answersQuestions'] = []
+    json_data['answersQuestions'].append(link.question_number)
+    conclusion.rdf_json_ld = json_data
+    flag_modified(conclusion, 'rdf_json_ld')
+```
+
+### Jinja2 Variable Scoping
+
+When setting variables inside loops, use list append pattern:
+```jinja2
+{# WRONG - variable scoping issue #}
+{% set found = false %}
+{% for item in items %}
+    {% set found = true %}  {# Creates new local variable! #}
+{% endfor %}
+{% if not found %}  {# Always false #}
+
+{# CORRECT - list mutation works #}
+{% set matched = [] %}
+{% for item in items %}
+    {% set _ = matched.append(item) %}
+{% endfor %}
+{% if matched|length == 0 %}
+```
+
+### Question/Conclusion Type Priority
+
+Display order for Q&C (board questions first):
+```python
+question_type_order = ['board_explicit', 'implicit', 'principle_tension', 'theoretical', 'counterfactual']
+conclusion_type_order = ['board_explicit', 'analytical_extension', 'question_response', 'principle_synthesis']
+```
+
+Sorting is applied in `step4.py` `step4_review()` route before passing to template.
+
+### Using Playwright for UI Testing
+
+Playwright is available for checking UI state:
+```python
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as p:
+    browser = p.chromium.launch(headless=True)
+    page = browser.new_page()
+    page.goto('http://localhost:5000/scenario_pipeline/case/8/step4/review')
+    # Check content, take screenshots, etc.
+    browser.close()
+```
 
 ---
 

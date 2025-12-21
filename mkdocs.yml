@@ -64,8 +64,8 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Getting Started:
-      - Installation: getting-started/installation.md
-      - First Login: getting-started/first-login.md
+      - Welcome: getting-started/welcome.md
+      - Interface Overview: getting-started/first-login.md
   - Concepts:
       - Nine-Concept Framework: concepts/nine-concepts.md
   - How-To Guides:
@@ -82,6 +82,7 @@ nav:
       - System Architecture: reference/architecture.md
       - Ontology Integration: reference/ontology-integration.md
       - Transformation Types: reference/transformation-types.md
+      - Installation & Deployment: reference/installation.md
       - Academic References: reference/citations.md
   - FAQ: faq.md
   - "Back to ProEthica": "/"

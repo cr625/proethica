@@ -4,26 +4,26 @@ ProEthica is a professional role-based ethical analysis tool that combines case-
 
 ## About ProEthica
 
-ProEthica analyzes professional ethical scenarios against established codes and precedent cases. The system extracts nine types of components from case text and scenario descriptions:
+ProEthica analyzes professional ethical scenarios against established codes and precedent cases. The system extracts nine types of components from case text and scenario descriptions, organized into three functional dimensions:
 
-| Component | Symbol | Description |
-|-----------|--------|-------------|
-| Roles | R | Professional positions that generate obligations |
-| Principles | P | Abstract ethical standards |
-| Obligations | O | Concrete duties derived from principles |
-| States | S | Situational context and conditions |
-| Resources | Rs | Available knowledge and references |
-| Actions | A | What professionals do or could do |
-| Events | E | Precipitating occurrences |
-| Capabilities | Ca | What professionals can do |
-| Constraints | Cs | Limitations on professional conduct |
+| Component | Symbol | Description | Dimension |
+|-----------|--------|-------------|-----------|
+| [Roles](concepts/nine-concepts.md#roles-r) | R | Professional positions with associated duties and decision-making authority | Contextual |
+| [States](concepts/nine-concepts.md#states-s) | S | Situational context including facts and environmental conditions | Contextual |
+| [Resources](concepts/nine-concepts.md#resources-rs) | Rs | Accumulated professional knowledge including codes and precedents | Contextual |
+| [Principles](concepts/nine-concepts.md#principles-p) | P | High-level ethical guidelines that establish professional ideals | Normative |
+| [Obligations](concepts/nine-concepts.md#obligations-o) | O | Specific requirements for action or restraint | Normative |
+| [Constraints](concepts/nine-concepts.md#constraints-cs) | Cs | Inviolable boundaries on professional conduct | Normative |
+| [Capabilities](concepts/nine-concepts.md#capabilities-ca) | Ca | Competencies for professional practice | Normative |
+| [Actions](concepts/nine-concepts.md#actions-a) | A | Volitional professional interventions | Temporal |
+| [Events](concepts/nine-concepts.md#events-e) | E | Occurrences outside agent control | Temporal |
 
-Domain-specific ontologies provide precise definitions that constrain LLM output to match formal concept specifications, ensuring consistency across extraction and validation.
+Domain-specific ontologies provide precise definitions that constrain LLM output to match formal concept specifications, ensuring consistency across extraction and validation. See [Nine-Concept Framework](concepts/nine-concepts.md) for detailed definitions and theoretical foundations.
 
 ## Quick Links
 
-- [Getting Started](getting-started/installation.md) - Installation and configuration
-- [First Login](getting-started/first-login.md) - Interface overview
+- [Getting Started](getting-started/welcome.md) - Introduction to ProEthica
+- [Interface Overview](getting-started/first-login.md) - Navigation and UI elements
 - [Nine-Concept Framework](concepts/nine-concepts.md) - Understanding the formal methodology
 - [FAQ](faq.md) - Frequently asked questions
 

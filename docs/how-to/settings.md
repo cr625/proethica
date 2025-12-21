@@ -328,6 +328,6 @@ print(svc.test_connection())
 
 ## Related Guides
 
-- [Installation](../getting-started/installation.md) - Initial setup
+- [Installation & Deployment](../reference/installation.md) - Setup and deployment
 - [Pipeline Automation](pipeline-automation.md) - Celery settings
 - [Ontology Integration](../reference/ontology-integration.md) - MCP settings
