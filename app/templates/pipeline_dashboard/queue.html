@@ -224,6 +224,74 @@ document.addEventListener('DOMContentLoaded', function() {
         selectedCountEl.textContent = count;
     }
 
+    // Check if processing is active on page load
+    async function checkProcessingStatus() {
+        try {
+            const response = await fetch('/pipeline/api/service-status');
+            const data = await response.json();
+
+            // Check if Celery has active tasks
+            const activeTasks = data.celery?.active_tasks || 0;
+            if (activeTasks > 0) {
+                setProcessingState(true);
+                startPolling();
+            }
+        } catch (e) {
+            console.error('Failed to check processing status:', e);
+        }
+    }
+
+    function setProcessingState(isProcessing) {
+        const startBtn = document.getElementById('startQueueBtn');
+        const clearBtn = document.getElementById('clearQueueBtn');
+        const addBtn = document.getElementById('addToQueueBtn');
+        const removeButtons = document.querySelectorAll('.remove-queue-btn');
+
+        if (isProcessing) {
+            startBtn.disabled = true;
+            startBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Processing...';
+            startBtn.classList.remove('btn-success');
+            startBtn.classList.add('btn-warning');
+            clearBtn.disabled = true;
+            addBtn.disabled = true;
+            removeButtons.forEach(b => b.disabled = true);
+
+            const infoCard = document.querySelector('.card.mt-3 .card-body');
+            if (infoCard) {
+                infoCard.innerHTML = `
+                    <div class="alert alert-info mb-0">
+                        <strong>Processing in progress</strong><br>
+                        <small>Cases are being processed in the background.
+                        <a href="/pipeline/dashboard">View progress on Dashboard</a></small>
+                    </div>
+                `;
+            }
+        }
+    }
+
+    // Check on page load and periodically while processing
+    checkProcessingStatus();
+
+    // Poll for status changes every 30 seconds if processing is active
+    let pollInterval = null;
+    async function startPolling() {
+        if (pollInterval) return;
+        pollInterval = setInterval(async () => {
+            try {
+                const response = await fetch('/pipeline/api/service-status');
+                const data = await response.json();
+                const activeTasks = data.celery?.active_tasks || 0;
+                if (activeTasks === 0) {
+                    // Processing complete - reload to refresh the page
+                    clearInterval(pollInterval);
+                    location.reload();
+                }
+            } catch (e) {
+                console.error('Polling error:', e);
+            }
+        }, 30000);
+    }
+
     // Select all/none
     document.getElementById('selectAll').addEventListener('click', () => {
         checkboxes.forEach(cb => cb.checked = true);
@@ -333,7 +401,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Start queue processing
     document.getElementById('startQueueBtn').addEventListener('click', async function() {
-        if (!confirm('Start processing the queue?')) return;
+        if (!confirm('Start processing the queue? This may take several minutes per case.')) return;
+
+        const btn = this;
+        const clearBtn = document.getElementById('clearQueueBtn');
+        const addBtn = document.getElementById('addToQueueBtn');
+        const removeButtons = document.querySelectorAll('.remove-queue-btn');
+
+        // Disable all queue controls
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Starting...';
+        clearBtn.disabled = true;
+        addBtn.disabled = true;
+        removeButtons.forEach(b => b.disabled = true);
 
         try {
             const response = await fetch('/pipeline/api/queue/start', {
@@ -343,13 +423,42 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             const data = await response.json();
             if (data.success) {
-                alert('Queue processing started');
-                window.location.href = '/pipeline/dashboard';
+                // Update button to show processing state
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Processing...';
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-warning');
+
+                // Show info message
+                const infoCard = document.querySelector('.card.mt-3 .card-body');
+                if (infoCard) {
+                    infoCard.innerHTML = `
+                        <div class="alert alert-info mb-0">
+                            <strong>Processing in progress</strong><br>
+                            <small>Cases are being processed in the background.
+                            <a href="/pipeline/dashboard">View progress on Dashboard</a></small>
+                        </div>
+                    `;
+                }
+
+                // Start polling for completion
+                startPolling();
             } else {
                 alert('Error: ' + data.error);
+                // Re-enable on error
+                btn.disabled = false;
+                btn.innerHTML = 'Start Processing';
+                clearBtn.disabled = false;
+                addBtn.disabled = false;
+                removeButtons.forEach(b => b.disabled = false);
             }
         } catch (e) {
             alert('Error: ' + e.message);
+            // Re-enable on error
+            btn.disabled = false;
+            btn.innerHTML = 'Start Processing';
+            clearBtn.disabled = false;
+            addBtn.disabled = false;
+            removeButtons.forEach(b => b.disabled = false);
         }
     });
 

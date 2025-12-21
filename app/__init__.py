@@ -302,19 +302,16 @@ def create_app(config_name=None):
         from app.models.world import World
 
         try:
-            # Get all available domains
-            all_domains = World.query.order_by(World.name).all()
+            # Get all available domains (reverse alpha so Engineering comes first)
+            all_domains = World.query.order_by(World.name.desc()).all()
 
-            # Get selected domain from session, default to first domain if exists
-            selected_domain_id = session.get('selected_domain_id')
+            # Always default to "Engineering" domain (ignore session for default)
             selected_domain = None
-
-            if selected_domain_id:
-                selected_domain = World.query.get(selected_domain_id)
-
-            # If no valid selection and domains exist, default to first
-            if not selected_domain and all_domains:
-                selected_domain = all_domains[0]
+            if all_domains:
+                selected_domain = next(
+                    (d for d in all_domains if d.name == 'Engineering'),
+                    all_domains[0]  # Fall back to first if not found
+                )
                 session['selected_domain_id'] = selected_domain.id
 
             return {

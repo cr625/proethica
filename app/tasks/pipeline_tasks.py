@@ -986,7 +986,11 @@ def process_queue_task(self, limit: int = 10):
 
     processed = []
     for item in queue_items:
-        logger.info(f"[Task {self.request.id}] Processing queue item {item.id} (case {item.case_id})")
+        queue_id = item.id
+        case_id = item.case_id
+        config = item.config or {}
+
+        logger.info(f"[Task {self.request.id}] Processing queue item {queue_id} (case {case_id})")
 
         # Update queue status
         item.status = 'processing'
@@ -995,33 +999,42 @@ def process_queue_task(self, limit: int = 10):
 
         try:
             # Start pipeline for this case with config from queue item
-            config = item.config or {}
-            eager_result = run_full_pipeline_task.apply(args=[item.case_id], kwargs={'config': config})
+            # This runs synchronously and can take 10-15 minutes
+            eager_result = run_full_pipeline_task.apply(args=[case_id], kwargs={'config': config})
 
             # Extract the actual result dict from EagerResult
             # Note: Don't call eager_result.get() - that triggers Celery's
             # "Never call result.get() within a task!" error
             result = eager_result.result
 
-            # Update queue status
-            item.status = 'completed' if result.get('success') else 'failed'
-            db.session.commit()
+            # Re-fetch the queue item after long-running task to avoid stale session
+            db.session.expire_all()
+            item = PipelineQueue.query.get(queue_id)
+            if item:
+                item.status = 'completed' if result.get('success') else 'failed'
+                db.session.commit()
+            else:
+                logger.warning(f"[Task {self.request.id}] Queue item {queue_id} not found after pipeline")
 
             processed.append({
-                'queue_id': item.id,
-                'case_id': item.case_id,
+                'queue_id': queue_id,
+                'case_id': case_id,
                 'success': result.get('success', False),
                 'run_id': result.get('run_id')
             })
 
         except Exception as e:
-            logger.error(f"[Task {self.request.id}] Queue item {item.id} failed: {e}")
-            item.status = 'failed'
-            db.session.commit()
+            logger.error(f"[Task {self.request.id}] Queue item {queue_id} failed: {e}", exc_info=True)
+            # Re-fetch and update status
+            db.session.expire_all()
+            item = PipelineQueue.query.get(queue_id)
+            if item:
+                item.status = 'failed'
+                db.session.commit()
 
             processed.append({
-                'queue_id': item.id,
-                'case_id': item.case_id,
+                'queue_id': queue_id,
+                'case_id': case_id,
                 'success': False,
                 'error': str(e)
             })
