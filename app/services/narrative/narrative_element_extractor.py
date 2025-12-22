@@ -198,6 +198,9 @@ class NarrativeElements:
     # Summary statistics
     extraction_metadata: Dict = field(default_factory=dict)
 
+    # LLM interaction traces for display
+    llm_traces: List[Dict] = field(default_factory=list)
+
     def to_dict(self) -> Dict:
         return {
             'case_id': self.case_id,
@@ -207,7 +210,8 @@ class NarrativeElements:
             'conflicts': [c.to_dict() for c in self.conflicts],
             'decision_moments': [d.to_dict() for d in self.decision_moments],
             'resolution': self.resolution.to_dict() if self.resolution else None,
-            'extraction_metadata': self.extraction_metadata
+            'extraction_metadata': self.extraction_metadata,
+            'llm_traces': self.llm_traces
         }
 
     def summary(self) -> Dict:
@@ -270,15 +274,23 @@ class NarrativeElementExtractor:
         decision_moments = self._extract_decision_moments(canonical_points)
         resolution = self._extract_resolution(conclusions, transformation_type)
 
+        # Collect LLM traces
+        llm_traces = []
+
         # Enhance with LLM if enabled
         if self.use_llm and self.llm_client:
-            characters = self._enhance_characters_with_llm(
+            characters, char_trace = self._enhance_characters_with_llm(
                 characters, foundation, case_id
             )
+            if char_trace:
+                llm_traces.append(char_trace)
+
             # Enhance ethical tensions with moral intensity factors (Jones 1991)
-            conflicts = self._enhance_tensions_with_llm(
+            conflicts, tension_trace = self._enhance_tensions_with_llm(
                 conflicts, foundation, case_id
             )
+            if tension_trace:
+                llm_traces.append(tension_trace)
 
         return NarrativeElements(
             case_id=case_id,
@@ -294,7 +306,8 @@ class NarrativeElementExtractor:
                 'conclusions_count': len(conclusions),
                 'transformation_type': transformation_type,
                 'llm_enhanced': self.use_llm
-            }
+            },
+            llm_traces=llm_traces
         )
 
     def _extract_characters(self, foundation) -> List[NarrativeCharacter]:
@@ -656,10 +669,10 @@ class NarrativeElementExtractor:
         characters: List[NarrativeCharacter],
         foundation,
         case_id: int
-    ) -> List[NarrativeCharacter]:
-        """Use LLM to enhance character descriptions."""
+    ) -> Tuple[List[NarrativeCharacter], Optional[Dict]]:
+        """Use LLM to enhance character descriptions. Returns (characters, llm_trace)."""
         if not characters or not self.llm_client:
-            return characters
+            return characters, None
 
         # Build context for LLM
         character_list = "\n".join([
@@ -688,6 +701,7 @@ Output as JSON array:
 ]
 ```"""
 
+        llm_trace = None
         try:
             response = self.llm_client.messages.create(
                 model="claude-sonnet-4-20250514",
@@ -700,6 +714,16 @@ Output as JSON array:
             import re
 
             response_text = response.content[0].text
+
+            # Capture LLM trace
+            llm_trace = {
+                'stage': 'CHARACTER_ENHANCEMENT',
+                'description': 'Enhance character descriptions with professional context',
+                'prompt': prompt,
+                'response': response_text,
+                'model': 'claude-sonnet-4-20250514'
+            }
+
             json_match = re.search(r'```json\n(.*?)\n```', response_text, re.DOTALL)
 
             if json_match:
@@ -722,16 +746,16 @@ Output as JSON array:
         except Exception as e:
             logger.warning(f"LLM character enhancement failed: {e}")
 
-        return characters
+        return characters, llm_trace
 
     def _enhance_tensions_with_llm(
         self,
         tensions: List[NarrativeConflict],
         foundation,
         case_id: int
-    ) -> List[NarrativeConflict]:
+    ) -> Tuple[List[NarrativeConflict], Optional[Dict]]:
         """
-        Use LLM to identify and enhance ethical tensions.
+        Use LLM to identify and enhance ethical tensions. Returns (tensions, llm_trace).
 
         Based on Jones (1991) Moral Intensity model:
         - Magnitude of consequences
@@ -746,7 +770,7 @@ Output as JSON array:
         3. Provides richer descriptions of the ethical dilemma
         """
         if not self.llm_client:
-            return tensions
+            return tensions, None
 
         # Build context from extracted entities
         obligations_list = "\n".join([
@@ -810,6 +834,7 @@ Output as JSON array (identify 2-5 key tensions):
 ]
 ```"""
 
+        llm_trace = None
         try:
             response = self.llm_client.messages.create(
                 model="claude-sonnet-4-20250514",
@@ -822,6 +847,16 @@ Output as JSON array (identify 2-5 key tensions):
             import re
 
             response_text = response.content[0].text
+
+            # Capture LLM trace
+            llm_trace = {
+                'stage': 'ETHICAL_TENSION_DETECTION',
+                'description': 'Identify ethical tensions with Jones (1991) moral intensity factors',
+                'prompt': prompt,
+                'response': response_text,
+                'model': 'claude-sonnet-4-20250514'
+            }
+
             json_match = re.search(r'```json\n(.*?)\n```', response_text, re.DOTALL)
 
             if json_match:
@@ -894,7 +929,7 @@ Output as JSON array (identify 2-5 key tensions):
         except Exception as e:
             logger.warning(f"LLM tension enhancement failed: {e}")
 
-        return tensions
+        return tensions, llm_trace
 
     def _find_entity_uri(self, entity_id: str, entity_label: str, foundation) -> str:
         """Find the full URI for an entity given its ID fragment or label."""

@@ -8,7 +8,7 @@ Uses transformation classification to guide branch structure generation.
 """
 
 import logging
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, Tuple
 from dataclasses import dataclass, field, asdict
 
 from app.utils.llm_utils import get_llm_client
@@ -92,6 +92,9 @@ class ScenarioSeeds:
     # Transformation classification
     transformation_type: str = ""
 
+    # LLM interaction traces for display
+    llm_traces: List[Dict] = field(default_factory=list)
+
     def to_dict(self) -> Dict:
         return {
             'case_id': self.case_id,
@@ -174,11 +177,16 @@ class ScenarioSeedGenerator:
             branches, canonical_path, transformation_type
         )
 
+        # Collect LLM traces
+        llm_traces = []
+
         # Enhance with LLM if enabled
         if self.use_llm and self.llm_client:
-            opening_context = self._enhance_opening_with_llm(
+            opening_context, opening_trace = self._enhance_opening_with_llm(
                 opening_context, narrative_elements, case_id
             )
+            if opening_trace:
+                llm_traces.append(opening_trace)
 
         return ScenarioSeeds(
             case_id=case_id,
@@ -193,7 +201,8 @@ class ScenarioSeedGenerator:
             branches=branches,
             canonical_path=canonical_path,
             alternative_paths=alternative_paths,
-            transformation_type=transformation_type or ""
+            transformation_type=transformation_type or "",
+            llm_traces=llm_traces
         )
 
     def _identify_protagonist(self, characters: List) -> Optional[Any]:
@@ -565,10 +574,10 @@ OPTION2_DESC: [1 sentence description]"""
         opening_context: str,
         narrative_elements,
         case_id: int
-    ) -> str:
-        """Use LLM to enhance opening context."""
+    ) -> Tuple[str, Optional[Dict]]:
+        """Use LLM to enhance opening context. Returns (opening_context, llm_trace)."""
         if not self.llm_client:
-            return opening_context
+            return opening_context, None
 
         protagonist = None
         if narrative_elements.characters:
@@ -590,6 +599,7 @@ Write a 2-3 sentence opening that:
 
 Output ONLY the enhanced opening text."""
 
+        llm_trace = None
         try:
             response = self.llm_client.messages.create(
                 model="claude-sonnet-4-20250514",
@@ -598,13 +608,23 @@ Output ONLY the enhanced opening text."""
                 messages=[{"role": "user", "content": prompt}]
             )
 
-            enhanced = response.content[0].text.strip()
+            response_text = response.content[0].text.strip()
+
+            # Capture LLM trace
+            llm_trace = {
+                'stage': 'SCENARIO_OPENING_ENHANCEMENT',
+                'description': 'Enhance scenario opening context for engagement',
+                'prompt': prompt,
+                'response': response_text,
+                'model': 'claude-sonnet-4-20250514'
+            }
+
             logger.info(f"Enhanced scenario opening with LLM")
-            return enhanced
+            return response_text, llm_trace
 
         except Exception as e:
             logger.warning(f"LLM opening enhancement failed: {e}")
-            return opening_context
+            return opening_context, llm_trace
 
 
 # =============================================================================

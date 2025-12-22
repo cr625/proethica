@@ -167,6 +167,9 @@ class EntityGroundedTimeline:
     total_time_points: int = 0
     construction_metadata: Dict = field(default_factory=dict)
 
+    # LLM interaction traces for display
+    llm_traces: List[Dict] = field(default_factory=list)
+
     def to_event_trace(self) -> str:
         """
         Generate Berreby-style event trace string.
@@ -295,11 +298,16 @@ class TimelineConstructor:
             if e.event_type == 'decision'
         ]
 
+        # Collect LLM traces
+        llm_traces = []
+
         # Enhance with LLM if enabled
         if self.use_llm and self.llm_client:
-            events = self._enhance_timeline_with_llm(
+            events, timeline_trace = self._enhance_timeline_with_llm(
                 events, narrative_elements, case_id
             )
+            if timeline_trace:
+                llm_traces.append(timeline_trace)
 
         # Build fluent history
         fluent_history = self._build_fluent_history(initial_fluents, events)
@@ -316,7 +324,8 @@ class TimelineConstructor:
                 'llm_enhanced': self.use_llm,
                 'source_elements': narrative_elements.summary() if hasattr(narrative_elements, 'summary') else {},
                 'causal_links_source_count': len(causal_normative_links)
-            }
+            },
+            llm_traces=llm_traces
         )
 
     def _build_initial_fluents(self, setting) -> List[Fluent]:
@@ -534,10 +543,10 @@ class TimelineConstructor:
         events: List[TimelineEvent],
         narrative_elements,
         case_id: int
-    ) -> List[TimelineEvent]:
-        """Use LLM to enhance timeline event descriptions."""
+    ) -> Tuple[List[TimelineEvent], Optional[Dict]]:
+        """Use LLM to enhance timeline event descriptions. Returns (events, llm_trace)."""
         if not events or not self.llm_client:
-            return events
+            return events, None
 
         # Build context for LLM
         event_list = "\n".join([
@@ -562,6 +571,7 @@ Output as JSON array:
 ]
 ```"""
 
+        llm_trace = None
         try:
             response = self.llm_client.messages.create(
                 model="claude-sonnet-4-20250514",
@@ -574,6 +584,16 @@ Output as JSON array:
             import re
 
             response_text = response.content[0].text
+
+            # Capture LLM trace
+            llm_trace = {
+                'stage': 'TIMELINE_ENHANCEMENT',
+                'description': 'Enhance timeline event descriptions with narrative context',
+                'prompt': prompt,
+                'response': response_text,
+                'model': 'claude-sonnet-4-20250514'
+            }
+
             json_match = re.search(r'```json\n(.*?)\n```', response_text, re.DOTALL)
 
             if json_match:
@@ -592,7 +612,7 @@ Output as JSON array:
         except Exception as e:
             logger.warning(f"LLM timeline enhancement failed: {e}")
 
-        return events
+        return events, llm_trace
 
 
 # =============================================================================

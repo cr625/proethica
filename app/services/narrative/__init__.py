@@ -102,6 +102,9 @@ class Phase4NarrativeResult:
     stages_completed: List[str] = field(default_factory=list)
     llm_enhanced: bool = True
 
+    # LLM interaction traces for display/audit
+    llm_traces: List[Dict] = field(default_factory=list)
+
     def to_dict(self) -> Dict:
         return {
             'case_id': self.case_id,
@@ -111,7 +114,8 @@ class Phase4NarrativeResult:
             'insights': self.insights.to_dict(),
             'construction_timestamp': self.construction_timestamp.isoformat(),
             'stages_completed': self.stages_completed,
-            'llm_enhanced': self.llm_enhanced
+            'llm_enhanced': self.llm_enhanced,
+            'llm_traces': self.llm_traces
         }
 
     def summary(self) -> Dict:

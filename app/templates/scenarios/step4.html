@@ -496,6 +496,31 @@
                 </div>
             </div>
         </div>
+
+        <!-- LLM Interactions Section (separate from Narrative Elements card) -->
+        <div id="phase4LLMSection" style="display: none;" class="mt-3">
+            <div class="step-card border-secondary">
+                <div class="step-header bg-secondary bg-opacity-10">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="bi bi-robot text-secondary"></i> LLM Interactions
+                            <span id="phase4LLMCount" class="badge bg-secondary ms-2">0</span>
+                        </h6>
+                        <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#phase4LLMContent">
+                            <i class="bi bi-chevron-down"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="collapse show" id="phase4LLMContent">
+                    <div class="step-content">
+                        <div id="phase4LLMTraces">
+                            <!-- LLM traces will be populated here -->
+                            <p class="text-muted small">LLM interactions will appear here as Phase 4 progresses...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -1733,6 +1758,14 @@ async function runPhase4Narrative() {
     // Hide previous results
     document.getElementById('phase4Results').style.display = 'none';
 
+    // Reset LLM traces section
+    const llmSection = document.getElementById('phase4LLMSection');
+    const llmTraces = document.getElementById('phase4LLMTraces');
+    const llmCount = document.getElementById('phase4LLMCount');
+    if (llmSection) llmSection.style.display = 'none';
+    if (llmTraces) llmTraces.innerHTML = '<p class="text-muted small">LLM interactions will appear here as Phase 4 progresses...</p>';
+    if (llmCount) llmCount.textContent = '0';
+
     console.log('[Phase 4] Calling streaming endpoint...');
 
     // Use streaming endpoint
@@ -1873,6 +1906,61 @@ function handlePhase4StreamingData(data) {
         }
     }
 
+    // Display LLM traces in dedicated section (outside Narrative Elements card)
+    if (data.llm_traces && data.llm_traces.length > 0) {
+        const llmSection = document.getElementById('phase4LLMSection');
+        const llmTraces = document.getElementById('phase4LLMTraces');
+        const llmCount = document.getElementById('phase4LLMCount');
+
+        // Show the LLM section
+        if (llmSection) llmSection.style.display = 'block';
+
+        // Build HTML for each trace
+        let tracesHtml = '';
+        for (const trace of data.llm_traces) {
+            const promptText = trace.prompt || '';
+            const responseText = trace.response || '';
+
+            tracesHtml += `<div class="card mb-3 border-secondary">
+                <div class="card-header bg-secondary text-white py-2 d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-robot me-2"></i> <strong>${escapeHtml(trace.description || trace.stage)}</strong></span>
+                    <span class="badge bg-light text-dark">${escapeHtml(trace.model || 'claude-sonnet')}</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="row g-0">
+                        <div class="col-md-6 border-end">
+                            <div class="p-2">
+                                <h6 class="text-primary mb-2"><i class="bi bi-chat-right-text me-1"></i> Prompt</h6>
+                                <pre class="bg-light p-2 rounded mb-0" style="white-space: pre-wrap; font-size: 0.8rem; max-height: 300px; overflow-y: auto;">${escapeHtml(promptText)}</pre>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-2">
+                                <h6 class="text-success mb-2"><i class="bi bi-chat-left-text me-1"></i> Response</h6>
+                                <pre class="bg-light p-2 rounded mb-0" style="white-space: pre-wrap; font-size: 0.8rem; max-height: 300px; overflow-y: auto;">${escapeHtml(responseText)}</pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        // Append to traces container
+        if (llmTraces) {
+            // Clear placeholder text on first trace
+            if (llmTraces.querySelector('.text-muted')) {
+                llmTraces.innerHTML = '';
+            }
+            llmTraces.innerHTML += tracesHtml;
+        }
+
+        // Update count badge
+        if (llmCount) {
+            const currentCount = parseInt(llmCount.textContent) || 0;
+            llmCount.textContent = currentCount + data.llm_traces.length;
+        }
+    }
+
     // Handle completion
     if (data.stage === 'COMPLETE' && data.result) {
         const resultsDiv = document.getElementById('phase4Results');
@@ -1901,6 +1989,15 @@ function handlePhase4StreamingData(data) {
         if (data.result.key_takeaways && data.result.key_takeaways.length > 0) {
             const takeawaysUl = document.getElementById('phase4Takeaways');
             takeawaysUl.innerHTML = data.result.key_takeaways.map(t => `<li>${escapeHtml(t)}</li>`).join('');
+        }
+
+        // Show LLM interaction count
+        if (data.llm_interactions_count) {
+            const statusHtml = `<div class="alert alert-success py-2 mb-2">
+                <i class="bi bi-check-circle-fill me-1"></i>
+                <strong>Phase 4 Complete</strong> - ${data.llm_interactions_count} LLM stages executed
+            </div>`;
+            promptText.innerHTML = statusHtml + promptText.innerHTML;
         }
 
         // Update phase indicator
@@ -2272,7 +2369,60 @@ function displayPhase4Data(data) {
         button.title = '';
     }
 
+    // Display saved LLM traces if available
+    if (data.llm_traces && data.llm_traces.length > 0) {
+        displaySavedLLMTraces(data.llm_traces);
+    }
+
     console.log('Phase 4 results displayed');
+}
+
+// Display saved LLM traces in the LLM Interactions section
+function displaySavedLLMTraces(traces) {
+    const llmSection = document.getElementById('phase4LLMSection');
+    const llmTracesDiv = document.getElementById('phase4LLMTraces');
+    const llmCount = document.getElementById('phase4LLMCount');
+
+    if (!llmSection || !llmTracesDiv) return;
+
+    // Show the section
+    llmSection.style.display = 'block';
+
+    // Build HTML for traces
+    let tracesHtml = '';
+    for (const trace of traces) {
+        const promptText = trace.prompt || '';
+        const responseText = trace.response || '';
+
+        tracesHtml += `<div class="card mb-3 border-secondary">
+            <div class="card-header bg-secondary text-white py-2 d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-robot me-2"></i> <strong>${escapeHtml(trace.description || trace.stage)}</strong></span>
+                <span class="badge bg-light text-dark">${escapeHtml(trace.model || 'claude-sonnet')}</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="row g-0">
+                    <div class="col-md-6 border-end">
+                        <div class="p-2">
+                            <h6 class="text-primary mb-2"><i class="bi bi-chat-right-text me-1"></i> Prompt</h6>
+                            <pre class="bg-light p-2 rounded mb-0" style="white-space: pre-wrap; font-size: 0.8rem; max-height: 300px; overflow-y: auto;">${escapeHtml(promptText)}</pre>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-2">
+                            <h6 class="text-success mb-2"><i class="bi bi-chat-left-text me-1"></i> Response</h6>
+                            <pre class="bg-light p-2 rounded mb-0" style="white-space: pre-wrap; font-size: 0.8rem; max-height: 300px; overflow-y: auto;">${escapeHtml(responseText)}</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    // Set traces HTML
+    llmTracesDiv.innerHTML = tracesHtml;
+
+    // Update count
+    if (llmCount) llmCount.textContent = traces.length;
 }
 
 function loadPhase3Results() {

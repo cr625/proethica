@@ -149,6 +149,9 @@ def register_phase4_routes(bp, build_entity_foundation, load_canonical_points, l
                 case = Document.query.get_or_404(case_id)
                 session_id = str(uuid.uuid4())
 
+                # Track LLM interactions for display
+                llm_traces = []
+
                 yield sse_msg({
                     'stage': 'START',
                     'progress': 0,
@@ -204,6 +207,11 @@ def register_phase4_routes(bp, build_entity_foundation, load_canonical_points, l
                     use_llm=True
                 )
 
+                # Get actual LLM traces from narrative_elements (includes prompts/responses)
+                if hasattr(narrative_elements, 'llm_traces') and narrative_elements.llm_traces:
+                    for trace in narrative_elements.llm_traces:
+                        llm_traces.append(trace)
+
                 yield sse_msg({
                     'stage': 'STAGE_4_1_DONE',
                     'progress': 30,
@@ -213,7 +221,8 @@ def register_phase4_routes(bp, build_entity_foundation, load_canonical_points, l
                         f'{len(narrative_elements.conflicts)} conflicts',
                         f'{len(narrative_elements.decision_moments)} decision moments'
                     ],
-                    'stage_4_1_result': narrative_elements.summary()
+                    'stage_4_1_result': narrative_elements.summary(),
+                    'llm_traces': narrative_elements.llm_traces if hasattr(narrative_elements, 'llm_traces') else []
                 })
 
                 # Stage 4.2: Timeline Construction
@@ -231,6 +240,11 @@ def register_phase4_routes(bp, build_entity_foundation, load_canonical_points, l
                     use_llm=True
                 )
 
+                # Collect LLM traces from timeline construction
+                if hasattr(timeline, 'llm_traces') and timeline.llm_traces:
+                    for trace in timeline.llm_traces:
+                        llm_traces.append(trace)
+
                 yield sse_msg({
                     'stage': 'STAGE_4_2_DONE',
                     'progress': 55,
@@ -240,7 +254,8 @@ def register_phase4_routes(bp, build_entity_foundation, load_canonical_points, l
                         f'{len(timeline.causal_links)} causal links',
                         f'{len(timeline.decision_points)} decision point markers'
                     ],
-                    'stage_4_2_result': timeline.summary()
+                    'stage_4_2_result': timeline.summary(),
+                    'llm_traces': timeline.llm_traces if hasattr(timeline, 'llm_traces') else []
                 })
 
                 # Stage 4.3: Scenario Seed Generation
@@ -258,6 +273,11 @@ def register_phase4_routes(bp, build_entity_foundation, load_canonical_points, l
                     use_llm=True
                 )
 
+                # Collect LLM traces from scenario seed generation
+                if hasattr(scenario_seeds, 'llm_traces') and scenario_seeds.llm_traces:
+                    for trace in scenario_seeds.llm_traces:
+                        llm_traces.append(trace)
+
                 yield sse_msg({
                     'stage': 'STAGE_4_3_DONE',
                     'progress': 80,
@@ -266,7 +286,8 @@ def register_phase4_routes(bp, build_entity_foundation, load_canonical_points, l
                         f'{sum(len(b.options) for b in scenario_seeds.branches)} total options',
                         f'Protagonist: {scenario_seeds.protagonist_label}'
                     ],
-                    'stage_4_3_result': scenario_seeds.summary()
+                    'stage_4_3_result': scenario_seeds.summary(),
+                    'llm_traces': scenario_seeds.llm_traces if hasattr(scenario_seeds, 'llm_traces') else []
                 })
 
                 # Stage 4.4: Insight Derivation
@@ -285,6 +306,11 @@ def register_phase4_routes(bp, build_entity_foundation, load_canonical_points, l
                     use_llm=True
                 )
 
+                # Collect LLM traces from insight derivation
+                if hasattr(insights, 'llm_traces') and insights.llm_traces:
+                    for trace in insights.llm_traces:
+                        llm_traces.append(trace)
+
                 yield sse_msg({
                     'stage': 'STAGE_4_4_DONE',
                     'progress': 95,
@@ -293,10 +319,11 @@ def register_phase4_routes(bp, build_entity_foundation, load_canonical_points, l
                         f'{len(insights.patterns)} patterns identified',
                         f'{len(insights.key_takeaways)} key takeaways'
                     ],
-                    'stage_4_4_result': insights.summary()
+                    'stage_4_4_result': insights.summary(),
+                    'llm_traces': insights.llm_traces if hasattr(insights, 'llm_traces') else []
                 })
 
-                # Build complete result
+                # Build complete result with all LLM traces
                 result = Phase4NarrativeResult(
                     case_id=case_id,
                     narrative_elements=narrative_elements,
@@ -304,7 +331,8 @@ def register_phase4_routes(bp, build_entity_foundation, load_canonical_points, l
                     scenario_seeds=scenario_seeds,
                     insights=insights,
                     stages_completed=['4.1_narrative_elements', '4.2_timeline', '4.3_scenario_seeds', '4.4_insights'],
-                    llm_enhanced=True
+                    llm_enhanced=True,
+                    llm_traces=llm_traces  # Include all accumulated traces for persistence
                 )
 
                 # Save provenance
@@ -347,7 +375,9 @@ def register_phase4_routes(bp, build_entity_foundation, load_canonical_points, l
                         'timeline_preview': timeline.to_event_trace()[:1000],
                         'opening_context': scenario_seeds.opening_context,
                         'key_takeaways': insights.key_takeaways[:3]
-                    }
+                    },
+                    'llm_traces': llm_traces,
+                    'llm_interactions_count': len(llm_traces)
                 })
 
             except Exception as e:

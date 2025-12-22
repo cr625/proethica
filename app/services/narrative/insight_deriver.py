@@ -7,7 +7,7 @@ for precedent discovery.
 """
 
 import logging
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, Tuple
 from dataclasses import dataclass, field, asdict
 
 from app.utils.llm_utils import get_llm_client
@@ -77,6 +77,9 @@ class CaseInsights:
     # Summary insights
     key_takeaways: List[str] = field(default_factory=list)
     precedent_features: Dict[str, Any] = field(default_factory=dict)
+
+    # LLM interaction traces for display
+    llm_traces: List[Dict] = field(default_factory=list)
 
     def to_dict(self) -> Dict:
         return {
@@ -151,15 +154,20 @@ class InsightDeriver:
             narrative_elements, patterns, transformation_type
         )
 
+        # Collect LLM traces
+        llm_traces = []
+
         # Generate key takeaways (with LLM if enabled)
         key_takeaways = []
         if self.use_llm and self.llm_client:
-            insights_result = self._generate_insights_with_llm(
+            insights_result, insight_trace = self._generate_insights_with_llm(
                 narrative_elements, principles, patterns, transformation_type
             )
             key_takeaways = insights_result.get('takeaways', [])
             novel_aspects = insights_result.get('novel_aspects', [])
             limitations = insights_result.get('limitations', [])
+            if insight_trace:
+                llm_traces.append(insight_trace)
         else:
             key_takeaways = self._generate_basic_takeaways(
                 narrative_elements, principles
@@ -172,6 +180,7 @@ class InsightDeriver:
             principles_applied=principles,
             patterns=patterns,
             novel_aspects=novel_aspects,
+            llm_traces=llm_traces,
             limitations=limitations,
             key_takeaways=key_takeaways,
             precedent_features=precedent_features
@@ -314,10 +323,10 @@ class InsightDeriver:
         principles: List[EthicalPrincipleApplied],
         patterns: List[CasePattern],
         transformation_type: str
-    ) -> Dict:
-        """Use LLM to generate detailed insights."""
+    ) -> Tuple[Dict, Optional[Dict]]:
+        """Use LLM to generate detailed insights. Returns (insights_dict, llm_trace)."""
         if not self.llm_client:
-            return {'takeaways': [], 'novel_aspects': [], 'limitations': []}
+            return {'takeaways': [], 'novel_aspects': [], 'limitations': []}, None
 
         # Build context
         conflicts_desc = "\n".join([
@@ -361,6 +370,7 @@ Output as JSON:
 }}
 ```"""
 
+        llm_trace = None
         try:
             response = self.llm_client.messages.create(
                 model="claude-sonnet-4-20250514",
@@ -373,6 +383,16 @@ Output as JSON:
             import re
 
             response_text = response.content[0].text
+
+            # Capture LLM trace
+            llm_trace = {
+                'stage': 'INSIGHT_GENERATION',
+                'description': 'Generate key takeaways, novel aspects, and limitations',
+                'prompt': prompt,
+                'response': response_text,
+                'model': 'claude-sonnet-4-20250514'
+            }
+
             json_match = re.search(r'```json\n(.*?)\n```', response_text, re.DOTALL)
 
             if json_match:
@@ -401,12 +421,12 @@ Output as JSON:
                     'takeaways': data.get('takeaways', []),
                     'novel_aspects': novel_aspects,
                     'limitations': limitations
-                }
+                }, llm_trace
 
         except Exception as e:
             logger.warning(f"LLM insight generation failed: {e}")
 
-        return {'takeaways': [], 'novel_aspects': [], 'limitations': []}
+        return {'takeaways': [], 'novel_aspects': [], 'limitations': []}, llm_trace
 
 
 # =============================================================================
