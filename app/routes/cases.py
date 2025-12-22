@@ -60,7 +60,8 @@ def list_cases():
     query = request.args.get('query', '')
 
     # Get status filter from query parameters
-    # Values: 'all' (default), 'extracted', 'analyzed'
+    # Values: 'all' (default), 'extracted', 'synthesized'
+    # 'extracted' = Passes 1-3 complete, 'synthesized' = Step 4 complete
     status_filter = request.args.get('status', 'all')
 
     # Get subject tag filter from query parameters
@@ -121,36 +122,9 @@ def list_cases():
                 for row in result:
                     term_links_status[row[0]] = True
 
-        # Bulk check for Step 4 synthesis completion (analyzed cases)
-        synthesis_status = {}
-        if case_ids:
-            with db.engine.connect() as conn:
-                result = conn.execute(
-                    text("""
-                        SELECT DISTINCT case_id
-                        FROM extraction_prompts
-                        WHERE case_id = ANY(:case_ids)
-                        AND concept_type = 'whole_case_synthesis'
-                    """),
-                    {"case_ids": case_ids}
-                )
-                for row in result:
-                    synthesis_status[row[0]] = True
-
-        # Bulk check for extraction status (cases with RDF entities = extracted)
-        extraction_status = {}
-        if case_ids:
-            with db.engine.connect() as conn:
-                result = conn.execute(
-                    text("""
-                        SELECT DISTINCT case_id
-                        FROM temporary_rdf_storage
-                        WHERE case_id = ANY(:case_ids)
-                    """),
-                    {"case_ids": case_ids}
-                )
-                for row in result:
-                    extraction_status[row[0]] = True
+        # Get pipeline status for all cases using the state machine
+        # Returns: 'not_started', 'extracted', or 'synthesized'
+        pipeline_status_map = PipelineStatusService.get_bulk_simple_status(case_ids)
         
         # Convert documents to case format
         for doc in document_cases:
@@ -188,13 +162,9 @@ def list_cases():
                 # Simple extraction - just use the HTML content as a single conclusion
                 conclusion_items = [metadata['sections']['conclusion']]
             
-            # Determine pipeline status: 'analyzed' > 'extracted' > 'not_started'
-            if synthesis_status.get(doc.id, False):
-                pipeline_status = 'analyzed'
-            elif extraction_status.get(doc.id, False):
-                pipeline_status = 'extracted'
-            else:
-                pipeline_status = 'not_started'
+            # Get pipeline status from state machine
+            # 'not_started' = No extraction, 'extracted' = Passes 1-3, 'synthesized' = Step 4
+            pipeline_status = pipeline_status_map.get(doc.id, 'not_started')
 
             # Create case object
             case = {
@@ -214,7 +184,7 @@ def list_cases():
                 'full_date': metadata.get('full_date', ''),
                 'has_enhanced_associations': enhanced_associations_status.get(doc.id, False),
                 'has_term_links': term_links_status.get(doc.id, False),
-                'pipeline_status': pipeline_status,  # 'not_started', 'extracted', or 'analyzed'
+                'pipeline_status': pipeline_status,  # 'not_started', 'extracted', or 'synthesized'
                 'doc_metadata': metadata  # Include full metadata for subject tags
             }
 
@@ -232,10 +202,10 @@ def list_cases():
     all_tags = sorted(all_tags)
 
     # Apply status filter if not 'all'
-    if status_filter == 'analyzed':
-        cases = [case for case in cases if case.get('pipeline_status') == 'analyzed']
+    if status_filter == 'synthesized':
+        cases = [case for case in cases if case.get('pipeline_status') == 'synthesized']
     elif status_filter == 'extracted':
-        cases = [case for case in cases if case.get('pipeline_status') in ('extracted', 'analyzed')]
+        cases = [case for case in cases if case.get('pipeline_status') in ('extracted', 'synthesized')]
 
     # Apply tag filter if specified
     if selected_tag:

@@ -25,11 +25,11 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div class="input-group" style="max-width: 160px;">
+                <div class="input-group" style="max-width: 180px;">
                     <select class="form-select form-select-sm" name="status" id="statusFilter" aria-label="Filter by Status">
                         <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Cases</option>
                         <option value="extracted" {% if status_filter == 'extracted' %}selected{% endif %}>Extracted+</option>
-                        <option value="analyzed" {% if status_filter == 'analyzed' %}selected{% endif %}>Analyzed</option>
+                        <option value="synthesized" {% if status_filter == 'synthesized' %}selected{% endif %}>Synthesized</option>
                     </select>
                 </div>
             </form>
@@ -111,12 +111,12 @@
                                 {% if case.case_number %}
                                 <span class="badge bg-secondary me-2">Case #{{ case.case_number }}</span>
                                 {% endif %}
-                                {% if case.pipeline_status == 'analyzed' %}
-                                <span class="badge bg-success" title="Step 4 Whole-Case Synthesis completed">
-                                    <i class="bi bi-check-circle"></i> Analyzed
+                                {% if case.pipeline_status == 'synthesized' %}
+                                <span class="badge bg-success" title="Step 4 Case Synthesis completed">
+                                    <i class="bi bi-check-circle"></i> Synthesized
                                 </span>
                                 {% elif case.pipeline_status == 'extracted' %}
-                                <span class="badge bg-info" title="Extraction completed (Passes 1-3)">
+                                <span class="badge bg-info" title="Passes 1-3 extraction completed">
                                     <i class="bi bi-layers"></i> Extracted
                                 </span>
                                 {% else %}

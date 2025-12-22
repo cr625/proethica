@@ -166,6 +166,7 @@ def construct_phase4_narrative(
     conclusions = conclusions or []
     causal_normative_links = causal_normative_links or []
     stages_completed = []
+    all_llm_traces = []
 
     # Stage 4.1: Narrative Element Extraction
     narrative_elements = extract_narrative_elements(
@@ -177,6 +178,9 @@ def construct_phase4_narrative(
         use_llm=use_llm
     )
     stages_completed.append('4.1_narrative_elements')
+    # Collect LLM traces from Stage 4.1
+    if hasattr(narrative_elements, 'llm_traces') and narrative_elements.llm_traces:
+        all_llm_traces.extend(narrative_elements.llm_traces)
 
     # Stage 4.2: Timeline Construction
     timeline = construct_timeline(
@@ -187,6 +191,9 @@ def construct_phase4_narrative(
         use_llm=use_llm
     )
     stages_completed.append('4.2_timeline')
+    # Collect LLM traces from Stage 4.2
+    if hasattr(timeline, 'llm_traces') and timeline.llm_traces:
+        all_llm_traces.extend(timeline.llm_traces)
 
     # Stage 4.3: Scenario Seed Generation
     scenario_seeds = generate_scenario_seeds(
@@ -197,6 +204,9 @@ def construct_phase4_narrative(
         use_llm=use_llm
     )
     stages_completed.append('4.3_scenario_seeds')
+    # Collect LLM traces from Stage 4.3
+    if hasattr(scenario_seeds, 'llm_traces') and scenario_seeds.llm_traces:
+        all_llm_traces.extend(scenario_seeds.llm_traces)
 
     # Stage 4.4: Insight Derivation
     insights = derive_insights(
@@ -208,6 +218,9 @@ def construct_phase4_narrative(
         use_llm=use_llm
     )
     stages_completed.append('4.4_insights')
+    # Collect LLM traces from Stage 4.4
+    if hasattr(insights, 'llm_traces') and insights.llm_traces:
+        all_llm_traces.extend(insights.llm_traces)
 
     return Phase4NarrativeResult(
         case_id=case_id,
@@ -216,7 +229,8 @@ def construct_phase4_narrative(
         scenario_seeds=scenario_seeds,
         insights=insights,
         stages_completed=stages_completed,
-        llm_enhanced=use_llm
+        llm_enhanced=use_llm,
+        llm_traces=all_llm_traces
     )
 
 

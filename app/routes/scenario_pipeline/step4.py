@@ -47,6 +47,7 @@ from app.routes.scenario_pipeline.step4_rich_analysis import register_rich_analy
 from app.routes.scenario_pipeline.step4_phase3 import register_phase3_routes
 from app.routes.scenario_pipeline.step4_phase4 import register_phase4_routes
 from app.routes.scenario_pipeline.step4_complete_synthesis import register_complete_synthesis_routes
+from app.routes.scenario_pipeline.step4_run_all import register_run_all_routes
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +101,8 @@ def init_step4_csrf_exemption(app):
         app.csrf.exempt('step4.get_phase4_data')
         # Complete synthesis streaming
         app.csrf.exempt('step4.synthesize_complete_streaming')
+        # Non-streaming complete synthesis (run all)
+        app.csrf.exempt('step4.run_complete_synthesis')
         # Utility endpoints
         app.csrf.exempt('step4.clear_step4_data')
 
@@ -154,8 +157,8 @@ def step4_synthesis(case_id):
             phase4_data=phase4_data,
             current_step=4,
             prev_step_url=f"/scenario_pipeline/case/{case_id}/step3",
-            next_step_url=f"/scenario_pipeline/case/{case_id}/step5",
-            next_step_name='Interactive Exploration',
+            next_step_url=None,  # Step 5 hidden until fully integrated
+            next_step_name=None,
             pipeline_status=pipeline_status
         )
 
@@ -1646,21 +1649,62 @@ def load_canonical_points_for_phase4(case_id: int) -> List:
 
 
 def load_conclusions_for_phase4(case_id: int) -> List[Dict]:
-    """Load conclusions for Phase 4."""
+    """Load conclusions for Phase 4 including mentioned_entities from extraction prompts."""
+    import json
+    import re
+
+    # Load from RDF storage
     conclusions_raw = TemporaryRDFStorage.query.filter_by(
         case_id=case_id,
         extraction_type='ethical_conclusion'
     ).all()
 
-    return [
-        {
+    # Also load mentioned_entities from extraction prompts
+    mentioned_entities_map = {}
+    try:
+        from app.models import ExtractionPrompt
+        prompt = ExtractionPrompt.query.filter_by(
+            case_id=case_id,
+            concept_type='ethical_conclusion'
+        ).order_by(ExtractionPrompt.created_at.desc()).first()
+
+        if prompt and prompt.raw_response:
+            raw = prompt.raw_response
+            # Remove markdown code blocks if present
+            raw = re.sub(r'^```json\s*', '', raw)
+            raw = re.sub(r'\s*```$', '', raw)
+            data = json.loads(raw)
+
+            # Build map from conclusion labels to mentioned_entities
+            for category in data.values():
+                if isinstance(category, list):
+                    for c in category:
+                        label = c.get('conclusion_text', '')[:50]
+                        if c.get('mentioned_entities'):
+                            mentioned_entities_map[label] = c.get('mentioned_entities', {})
+    except Exception as e:
+        logger.debug(f"Could not load mentioned_entities for conclusions: {e}")
+
+    results = []
+    for i, c in enumerate(conclusions_raw):
+        # Try to match with mentioned_entities by label prefix
+        mentioned = {}
+        label = c.entity_label or ''
+        definition = c.entity_definition or ''
+        for key in mentioned_entities_map:
+            if key in definition or key in label:
+                mentioned = mentioned_entities_map[key]
+                break
+
+        results.append({
             'uri': c.entity_uri or f"case-{case_id}#C{i+1}",
             'label': c.entity_label,
             'text': c.entity_definition or c.entity_label,
-            'cited_provisions': c.rdf_json_ld.get('citedProvisions', []) if c.rdf_json_ld else []
-        }
-        for i, c in enumerate(conclusions_raw)
-    ]
+            'cited_provisions': c.rdf_json_ld.get('citedProvisions', []) if c.rdf_json_ld else [],
+            'mentioned_entities': mentioned
+        })
+
+    return results
 
 
 def get_transformation_type_for_phase4(case_id: int) -> Optional[str]:
@@ -1724,6 +1768,9 @@ register_complete_synthesis_routes(
     get_transformation_type_for_phase4,
     load_causal_links_for_phase4
 )
+
+# Register Run All (non-streaming complete synthesis)
+register_run_all_routes(bp, get_all_case_entities)
 
 
 # ============================================================================
@@ -4349,9 +4396,32 @@ def get_saved_step4_prompt(case_id):
                 'error': 'task_type parameter required'
             }), 400
 
-        # Map task types to concept types
+        # Provisions are stored in temporary_rdf_storage, not extraction_prompts
+        if task_type == 'provisions':
+            provisions = TemporaryRDFStorage.query.filter_by(
+                case_id=case_id,
+                extraction_type='code_provision_reference'
+            ).all()
+
+            if provisions:
+                # Build a summary of provisions
+                provision_list = [p.entity_label for p in provisions]
+                return jsonify({
+                    'success': True,
+                    'prompt_text': f'Extracted {len(provisions)} code provisions from case references',
+                    'raw_response': '\n'.join(provision_list),
+                    'results_summary': f'{len(provisions)} provisions extracted',
+                    'model': 'regex-parser',
+                    'timestamp': provisions[0].created_at.isoformat() if provisions[0].created_at else None
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'message': 'No provisions extracted'
+                })
+
+        # Map task types to concept types for extraction_prompts lookup
         concept_type_map = {
-            'provisions': 'code_provision_reference',
             'questions': 'ethical_question',
             'conclusions': 'ethical_conclusion',
             'transformation': 'transformation_classification',

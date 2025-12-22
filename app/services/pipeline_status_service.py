@@ -297,3 +297,78 @@ class PipelineStatusService:
         status = cls.get_step_status(case_id)
         prev_step_key = f'step{step_number - 1}'
         return status.get(prev_step_key, {}).get('complete', False)
+
+    @classmethod
+    def get_simple_status(cls, case_id: int) -> str:
+        """
+        Get a simple status string for display in case listings.
+
+        Returns:
+            'synthesized' - Step 4 complete
+            'extracted' - Passes 1-3 have some entities
+            'not_started' - No extraction done
+        """
+        status = cls.get_step_status(case_id)
+
+        # Check Step 4 completion (synthesis)
+        if status.get('step4', {}).get('complete', False):
+            return 'synthesized'
+
+        # Check if any extraction has been done (Steps 1-3)
+        if (status.get('step1', {}).get('complete', False) or
+            status.get('step2', {}).get('complete', False) or
+            status.get('step3', {}).get('complete', False)):
+            return 'extracted'
+
+        return 'not_started'
+
+    @classmethod
+    def get_bulk_simple_status(cls, case_ids: list) -> dict:
+        """
+        Get simple status for multiple cases efficiently.
+
+        Uses bulk queries to avoid N+1 problem.
+
+        Returns:
+            Dict mapping case_id to status string
+        """
+        if not case_ids:
+            return {}
+
+        result = {cid: 'not_started' for cid in case_ids}
+
+        try:
+            # Check for Step 4 synthesis completion
+            # Check for either whole_case_synthesis OR phase4_narrative (Phase 4 complete)
+            synthesis_query = text("""
+                SELECT DISTINCT case_id
+                FROM extraction_prompts
+                WHERE case_id = ANY(:case_ids)
+                AND (concept_type = 'whole_case_synthesis' OR concept_type LIKE 'phase4%%')
+            """)
+            synthesis_result = db.session.execute(
+                synthesis_query,
+                {'case_ids': case_ids}
+            )
+            for row in synthesis_result:
+                result[row[0]] = 'synthesized'
+
+            # Check for extraction (has RDF entities)
+            extraction_query = text("""
+                SELECT DISTINCT case_id
+                FROM temporary_rdf_storage
+                WHERE case_id = ANY(:case_ids)
+            """)
+            extraction_result = db.session.execute(
+                extraction_query,
+                {'case_ids': case_ids}
+            )
+            for row in extraction_result:
+                # Only upgrade to 'extracted' if not already 'synthesized'
+                if result.get(row[0]) == 'not_started':
+                    result[row[0]] = 'extracted'
+
+        except Exception as e:
+            logger.error(f"Error getting bulk status: {e}")
+
+        return result

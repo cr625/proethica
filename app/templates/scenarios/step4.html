@@ -59,8 +59,9 @@
 
         <div class="text-center">
             {% if current_user.is_authenticated %}
-            <button type="button" id="run-complete-synthesis-btn" class="btn btn-primary btn-lg" onclick="runCompleteSynthesis()">
-                <i class="bi bi-play-circle"></i> Run Complete Synthesis
+            {% set step4_complete = pipeline_status.step4.complete if pipeline_status else false %}
+            <button type="button" id="run-complete-synthesis-btn" class="btn {% if step4_complete %}btn-success{% else %}btn-primary{% endif %} btn-lg" onclick="runCompleteSynthesis()">
+                <i class="bi bi-{% if step4_complete %}arrow-clockwise{% else %}play-circle{% endif %}"></i> {% if step4_complete %}Re-run Synthesis{% else %}Run Complete Synthesis{% endif %}
             </button>
             <a href="{{ url_for('step4.step4_review', case_id=case.id) }}" class="btn btn-outline-secondary btn-lg ms-2">
                 <i class="bi bi-eye"></i> Review Results
@@ -1370,76 +1371,87 @@ function handleStreamingExtraction(taskType, data, promptText, resultsSection, r
     }
 }
 
-// Run complete synthesis with SSE streaming for real-time progress
+// Run complete synthesis (non-streaming, calls same services as individual buttons)
 async function runCompleteSynthesis() {
     const button = document.getElementById('run-complete-synthesis-btn');
     const progressText = document.getElementById('synthesis-progress-text');
 
+    // Show processing state
     button.disabled = true;
-    button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Running...';
-    progressText.textContent = 'Starting synthesis...';
+    button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Running Complete Synthesis...';
+    progressText.textContent = 'Running all phases sequentially. This may take several minutes...';
 
-    // Reset streaming message trackers
-    Object.keys(streamingMessages).forEach(key => {
-        streamingMessages[key] = [];
-    });
-
-    // Show prompt sections for streaming updates
+    // Show a simple interstitial message
     document.getElementById('provisionsPromptSection').style.display = 'block';
-    document.getElementById('provisionsPromptText').innerHTML = '<div class="alert alert-info py-2"><i class="bi bi-hourglass-split me-1"></i> <strong>Waiting to start...</strong></div>';
+    document.getElementById('provisionsPromptText').innerHTML = `
+        <div class="alert alert-info py-3">
+            <h5 class="mb-3"><i class="bi bi-hourglass-split me-2"></i>Running Complete Synthesis</h5>
+            <p class="mb-2">Executing all phases in sequence:</p>
+            <ol class="mb-2">
+                <li>Provisions (2A)</li>
+                <li>Questions & Conclusions (2B)</li>
+                <li>Transformation Classification (2C)</li>
+                <li>Rich Analysis (2D)</li>
+                <li>Phase 3: Decision Point Synthesis</li>
+                <li>Phase 4: Narrative Construction</li>
+            </ol>
+            <p class="mb-0 text-muted small">Page will refresh automatically when complete.</p>
+        </div>
+    `;
 
-    // Use streaming endpoint
-    fetch(`/scenario_pipeline/case/${currentCaseId}/synthesize_complete_stream`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCsrfToken()
+    try {
+        // Call non-streaming endpoint
+        const response = await fetch(`/scenario_pipeline/case/${currentCaseId}/run_complete_synthesis`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            }
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            // Success - show completion and refresh
+            progressText.textContent = 'Complete! Refreshing page...';
+            button.innerHTML = '<i class="bi bi-check-circle"></i> Synthesis Complete';
+            button.classList.remove('btn-primary');
+            button.classList.add('btn-success');
+            document.getElementById('provisionsPromptText').innerHTML = `
+                <div class="alert alert-success py-3">
+                    <h5 class="mb-2"><i class="bi bi-check-circle me-2"></i>Synthesis Complete!</h5>
+                    <p class="mb-0">Refreshing page to show results...</p>
+                </div>
+            `;
+            // Refresh page to show updated state
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            // Error
+            progressText.textContent = `Error: ${result.error || 'Unknown error'}`;
+            button.disabled = false;
+            button.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Retry';
+            document.getElementById('provisionsPromptText').innerHTML = `
+                <div class="alert alert-danger py-3">
+                    <h5 class="mb-2"><i class="bi bi-exclamation-triangle me-2"></i>Synthesis Failed</h5>
+                    <p class="mb-0">${result.error || 'Unknown error'}</p>
+                    ${result.results ? '<pre class="mt-2 small">' + JSON.stringify(result.results, null, 2) + '</pre>' : ''}
+                </div>
+            `;
         }
-    })
-    .then(response => {
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-
-        function processStream() {
-            reader.read().then(({ done, value }) => {
-                if (done) {
-                    // Streaming complete
-                    progressText.textContent = 'Complete! Review your results below.';
-                    button.disabled = false;
-                    button.innerHTML = '<i class="bi bi-check-circle"></i> Synthesis Complete';
-                    button.classList.remove('btn-primary');
-                    button.classList.add('btn-success');
-                    return;
-                }
-
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split('\n');
-                buffer = lines.pop(); // Keep incomplete line in buffer
-
-                lines.forEach(line => {
-                    if (line.startsWith('data: ')) {
-                        try {
-                            const data = JSON.parse(line.substring(6));
-                            handleStreamingData(data);
-                        } catch (e) {
-                            console.log('Parse error for line:', line);
-                        }
-                    }
-                });
-
-                processStream();
-            });
-        }
-
-        processStream();
-    })
-    .catch(error => {
-        console.error('Streaming error:', error);
+    } catch (error) {
+        console.error('Synthesis error:', error);
         progressText.textContent = `Error: ${error.message}`;
         button.disabled = false;
-        button.innerHTML = '<i class="bi bi-play-circle"></i> Run Complete Synthesis';
-    });
+        button.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Retry';
+        document.getElementById('provisionsPromptText').innerHTML = `
+            <div class="alert alert-danger py-3">
+                <h5 class="mb-2"><i class="bi bi-exclamation-triangle me-2"></i>Request Failed</h5>
+                <p class="mb-0">${error.message}</p>
+            </div>
+        `;
+    }
 }
 
 // Phase 3 streaming messages accumulator

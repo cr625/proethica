@@ -300,8 +300,8 @@ http://localhost:5000/scenario_pipeline/case/7/step4/review
 ## Known Issues
 
 1. **Two disconnected synthesis paths** - LLM-extracted vs algorithmic decision points need unification (see UNIFIED_CASE_ANALYSIS_PIPELINE.md)
-2. **Auto-reload on step4_review** - Results flash after "Synthesize Case" button
-3. **Causal-normative linking** - Uses heuristics, not full LLM analysis
+2. **Cytoscape graph errors** - "Edge has invalid endpoints" in review page entity graph (non-blocking)
+3. **UI progress indicators** - Complete synthesis progress dots don't update in real-time (low priority)
 
 ---
 
@@ -427,6 +427,49 @@ with sync_playwright() as p:
     # Check content, take screenshots, etc.
     browser.close()
 ```
+
+### Phase 4 Narrative Construction (2025-12-22)
+
+Phase 4 uses the new narrative pipeline in `app/services/narrative/`:
+
+| Stage | Service | Output |
+|-------|---------|--------|
+| 4.1 | `narrative_element_extractor.py` | Characters, Settings, Events, Ethical Tensions, Decision Moments |
+| 4.2 | `timeline_constructor.py` | Entity-grounded timeline with Event Calculus |
+| 4.3 | `scenario_seed_generator.py` | Opening context, protagonist, branches |
+| 4.4 | `insight_deriver.py` | Key takeaways, patterns, limitations |
+
+**Data Classes** (in `app/services/narrative/narrative_element_extractor.py`):
+- `NarrativeCharacter` - includes `llm_enhanced: bool` flag
+- `NarrativeConflict` / `EthicalTension` - includes Jones (1991) moral intensity factors
+- `NarrativeResolution` - includes `ethical_principles_applied` from conclusions
+
+**LLM Enhancement:**
+- CHARACTER_ENHANCEMENT: Enriches character descriptions
+- ETHICAL_TENSION_DETECTION: Uses Jones (1991) model (magnitude, probability, temporal, proximity, concentration)
+- TIMELINE_ENHANCEMENT: Adds narrative descriptions to events
+- SCENARIO_OPENING_ENHANCEMENT: Creates engaging opening context
+- INSIGHT_GENERATION: Derives takeaways and patterns
+
+**Storage:**
+- Results stored in `extraction_prompts` with `concept_type='phase4_narrative'`
+- `raw_response` contains full JSON including `llm_traces` array
+- LLM traces persist and display on page reload
+
+**API Endpoints:**
+- **Streaming**: `POST /case/<id>/construct_phase4_stream` (uses new pipeline)
+- **Non-streaming**: `POST /case/<id>/construct_phase4` (uses new pipeline)
+- **Complete Synthesis**: `POST /case/<id>/synthesize_complete` (uses new pipeline, saves to DB)
+
+**Note**: Both streaming and non-streaming synthesis endpoints now use the same Phase 4 pipeline (4.1-4.4 stages). Results are stored in `extraction_prompts` with `concept_type='phase4_narrative'`.
+
+### Provisions Status Dot Fix (2025-12-22)
+
+The Phase 2 progress dots on step4.html check `extraction_prompts` for saved prompts. However, provisions are stored in `temporary_rdf_storage`, not `extraction_prompts`.
+
+**Fix in `get_saved_step4_prompt()`:**
+- For provisions, query `TemporaryRDFStorage` instead of `ExtractionPrompt`
+- Return success if provisions exist in RDF storage
 
 ---
 

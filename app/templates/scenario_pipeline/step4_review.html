@@ -62,21 +62,6 @@
             </button>
             {% endif %}
 
-            {% if has_synthesis_annotations %}
-                <a href="{{ url_for('cases.view_case', id=case.id) }}?highlight=synthesis" class="btn btn-success">
-                    <i class="bi bi-eye"></i> View Case with Annotations ({{ annotation_count }})
-                </a>
-            {% else %}
-                {% if current_user.is_authenticated %}
-                <button id="generateAnnotationsBtn" class="btn btn-warning" onclick="generateSynthesisAnnotations()">
-                    <i class="bi bi-lightbulb"></i> Generate Synthesis Annotations
-                </button>
-                {% else %}
-                <button class="btn btn-secondary" onclick="window.location.href='{{ url_for('auth.login') }}';" title="Login required to generate annotations">
-                    <i class="bi bi-lock-fill"></i> Generate Annotations (Login Required)
-                </button>
-                {% endif %}
-            {% endif %}
             <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}" class="btn btn-outline-secondary">
                 <i class="bi bi-arrow-left"></i> Back to Step 4
             </a>
@@ -88,32 +73,6 @@
         <div id="publishMessage"></div>
         <button type="button" class="btn-close" onclick="document.getElementById('publishAlert').style.display='none'"></button>
     </div>
-
-    <!-- Alert for annotation generation -->
-    <div id="annotationAlert" class="alert alert-dismissible fade" role="alert" style="display: none;">
-        <div id="annotationMessage"></div>
-        <button type="button" class="btn-close" onclick="document.getElementById('annotationAlert').style.display='none'"></button>
-    </div>
-
-    <!-- Show existing annotations info -->
-    {% if has_synthesis_annotations %}
-    <div class="alert alert-info alert-dismissible fade show">
-        <strong><i class="bi bi-info-circle"></i> Synthesis Annotations Available</strong>
-        <p class="mb-2 mt-2">{{ annotation_count }} synthesis annotations have been generated for this case:</p>
-        <ul class="mb-2">
-            {% if annotation_breakdown.get('question') %}<li>{{ annotation_breakdown.get('question') }} questions</li>{% endif %}
-            {% if annotation_breakdown.get('conclusion') %}<li>{{ annotation_breakdown.get('conclusion') }} conclusions</li>{% endif %}
-            {% if annotation_breakdown.get('provision') %}<li>{{ annotation_breakdown.get('provision') }} provision citations</li>{% endif %}
-            {% for key, value in annotation_breakdown.items() %}
-                {% if key.startswith('entity_') %}
-                    <li>{{ value }} {{ key.replace('entity_', '') }} mentions</li>
-                {% endif %}
-            {% endfor %}
-        </ul>
-        <p class="mb-0"><small class="text-muted">Click "View Case with Annotations" above to see them highlighted in the case text.</small></p>
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-    {% endif %}
 
     <!-- Summary Cards -->
     <div class="row mb-4">
@@ -1276,6 +1235,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Shows: Provisions → Questions → Conclusions + Entity mentions
     const elements = [];
     const nodeIds = new Set();
+    const edgeIds = new Set();  // Track edges to prevent duplicates
 
     // Add Provision nodes
     provisions.forEach(function(prov) {
@@ -1314,17 +1274,21 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
                 }
 
-                // Add edge: provision → entity
-                elements.push({
-                    group: 'edges',
-                    data: {
-                        id: nodeId + '_' + entityId,
-                        source: nodeId,
-                        target: entityId,
-                        label: 'applies to',
-                        edgeType: 'provision_to_entity'
-                    }
-                });
+                // Add edge: provision → entity (with deduplication)
+                const edgeId = nodeId + '_' + entityId;
+                if (!edgeIds.has(edgeId) && nodeId !== entityId) {
+                    edgeIds.add(edgeId);
+                    elements.push({
+                        group: 'edges',
+                        data: {
+                            id: edgeId,
+                            source: nodeId,
+                            target: entityId,
+                            label: 'applies to',
+                            edgeType: 'provision_to_entity'
+                        }
+                    });
+                }
             });
         }
     });
@@ -1345,7 +1309,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
-        // Link questions to related provisions
+        // Link questions to related provisions (with deduplication)
         if (q.rdf_json_ld && q.rdf_json_ld.relatedProvisions) {
             q.rdf_json_ld.relatedProvisions.forEach(function(provCode) {
                 // Find provision node
@@ -1355,16 +1319,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 );
                 if (provNode) {
                     const provId = 'prov_' + provNode.id;
-                    elements.push({
-                        group: 'edges',
-                        data: {
-                            id: provId + '_' + nodeId,
-                            source: provId,
-                            target: nodeId,
-                            label: 'informs',
-                            edgeType: 'provision_to_question'
-                        }
-                    });
+                    const edgeId = provId + '_' + nodeId;
+                    // Only add if not duplicate and nodes exist
+                    if (!edgeIds.has(edgeId) && nodeIds.has(provId) && provId !== nodeId) {
+                        edgeIds.add(edgeId);
+                        elements.push({
+                            group: 'edges',
+                            data: {
+                                id: edgeId,
+                                source: provId,
+                                target: nodeId,
+                                label: 'informs',
+                                edgeType: 'provision_to_question'
+                            }
+                        });
+                    }
                 }
             });
         }
@@ -1386,31 +1355,48 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
-        // Link conclusions to questions they answer
+        // Link conclusions to questions they answer (with deduplication)
         if (c.rdf_json_ld && c.rdf_json_ld.answersQuestions) {
             c.rdf_json_ld.answersQuestions.forEach(function(qNum) {
                 const qNode = questions.find(q => q.entity_label.includes(qNum) || q.entity_label.includes('Question_' + qNum));
                 if (qNode) {
                     const qId = 'q_' + qNode.id;
-                    elements.push({
-                        group: 'edges',
-                        data: {
-                            id: qId + '_' + nodeId,
-                            source: qId,
-                            target: nodeId,
-                            label: 'answered by',
-                            edgeType: 'question_to_conclusion'
-                        }
-                    });
+                    const edgeId = qId + '_' + nodeId;
+                    // Only add if not duplicate and nodes exist
+                    if (!edgeIds.has(edgeId) && nodeIds.has(qId) && qId !== nodeId) {
+                        edgeIds.add(edgeId);
+                        elements.push({
+                            group: 'edges',
+                            data: {
+                                id: edgeId,
+                                source: qId,
+                                target: nodeId,
+                                label: 'answered by',
+                                edgeType: 'question_to_conclusion'
+                            }
+                        });
+                    }
                 }
             });
         }
     });
 
+    // Filter out any invalid edges before initialization
+    const validElements = elements.filter(el => {
+        if (el.group === 'edges') {
+            const source = el.data.source;
+            const target = el.data.target;
+            // Remove edges where source equals target or endpoints don't exist
+            if (source === target) return false;
+            if (!nodeIds.has(source) || !nodeIds.has(target)) return false;
+        }
+        return true;
+    });
+
     // Initialize Cytoscape with HIERARCHICAL layout (LangGraph-style)
     const cy = cytoscape({
         container: document.getElementById('cy'),
-        elements: elements,
+        elements: validElements,
         style: [
             {
                 selector: 'node',
@@ -1473,10 +1459,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         return '#ccc';
                     },
                     'target-arrow-shape': 'triangle',
-                    'curve-style': 'bezier',
+                    'curve-style': 'straight',  // Straight lines avoid bezier control point errors
                     'label': 'data(label)',
                     'font-size': '9px',
                     'text-rotation': 'autorotate',
+                    'edge-distances': 'node-position',  // Better edge routing
                     'text-background-color': '#fff',
                     'text-background-opacity': 0.8,
                     'text-background-padding': '2px'
@@ -1486,8 +1473,10 @@ document.addEventListener('DOMContentLoaded', function() {
         layout: {
             name: 'breadthfirst',  // Hierarchical layout for flow
             directed: true,
-            spacingFactor: 1.5,
-            padding: 50,
+            spacingFactor: 2.0,  // Increased spacing to prevent overlap
+            padding: 60,
+            avoidOverlap: true,  // Prevent node overlap
+            nodeDimensionsIncludeLabels: true,  // Include labels in size calculation
             animate: true,
             animationDuration: 500
         }
@@ -1501,8 +1490,10 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('reset-graph').addEventListener('click', function() {
         cy.layout({
             name: 'cose',
-            idealEdgeLength: 100,
-            nodeOverlap: 20,
+            idealEdgeLength: 120,
+            nodeOverlap: 40,
+            avoidOverlap: true,
+            nodeDimensionsIncludeLabels: true,
             fit: true
         }).run();
     });
@@ -1548,56 +1539,7 @@ URI: ${data.uri}
 
 });
 
-// Synthesis Annotations (outside DOMContentLoaded for onclick access)
-
-// Synthesis Annotations Generation
 const currentCaseId = {{ case.id }};
-
-function generateSynthesisAnnotations() {
-    const btn = document.getElementById('generateAnnotationsBtn');
-    const alertDiv = document.getElementById('annotationAlert');
-    const message = document.getElementById('annotationMessage');
-    
-    // Disable button
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating...';
-    
-    // Show processing message
-    alertDiv.className = 'alert alert-info alert-dismissible fade show';
-    alertDiv.style.display = 'block';
-    message.innerHTML = '<strong>Generating synthesis annotations...</strong> This may take a minute.';
-    
-    // Call API
-    fetch('/scenario_pipeline/case/' + currentCaseId + '/step4/generate_synthesis_annotations', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            // Show success message
-            alertDiv.className = 'alert alert-success alert-dismissible fade show';
-            message.innerHTML = '<strong>Success!</strong> Generated ' + data.counts.total + ' synthesis annotations:<ul class="mb-0 mt-2"><li>' + data.counts.questions + ' questions</li><li>' + data.counts.conclusions + ' conclusions</li><li>' + data.counts.provisions + ' provision citations</li><li>' + data.counts.entity_mentions + ' entity mentions</li></ul><a href="/cases/{{ case.id }}?highlight=synthesis" class="btn btn-sm btn-info mt-2"><i class="bi bi-eye"></i> View Case with Annotations</a>';
-        } else {
-            // Show error
-            alertDiv.className = 'alert alert-danger alert-dismissible fade show';
-            message.innerHTML = '<strong>Error:</strong> ' + (data.error || 'Failed to generate annotations');
-        }
-        
-        // Re-enable button
-        btn.disabled = false;
-        btn.innerHTML = '<i class="bi bi-lightbulb"></i> Generate Synthesis Annotations';
-    })
-    .catch(error => {
-        alertDiv.className = 'alert alert-danger alert-dismissible fade show';
-        message.innerHTML = '<strong>Error:</strong> ' + error.message;
-        
-        btn.disabled = false;
-        btn.innerHTML = '<i class="bi bi-lightbulb"></i> Generate Synthesis Annotations';
-    });
-}
 
 // Helper function to get CSRF token
 function getCsrfToken() {

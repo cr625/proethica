@@ -45,6 +45,9 @@ class NarrativeCharacter:
     obligation_uris: List[str] = field(default_factory=list)
     principle_uris: List[str] = field(default_factory=list)
 
+    # LLM enhancement flag
+    llm_enhanced: bool = False
+
     def to_dict(self) -> Dict:
         return {
             **asdict(self),
@@ -641,6 +644,7 @@ class NarrativeElementExtractor:
         # Build conclusions list
         conclusion_data = []
         key_findings = []
+        principles_mentioned = set()
 
         for c in conclusions:
             conclusion_data.append({
@@ -649,6 +653,13 @@ class NarrativeElementExtractor:
                 'text': c.get('text', c.get('definition', ''))[:300]
             })
             key_findings.append(c.get('label', '')[:100])
+
+            # Extract principles from mentioned_entities
+            mentioned = c.get('mentioned_entities', {})
+            if isinstance(mentioned, dict):
+                for principle in mentioned.get('principles', []):
+                    if principle:
+                        principles_mentioned.add(principle)
 
         # Generate summary
         if conclusions:
@@ -661,7 +672,7 @@ class NarrativeElementExtractor:
             summary=summary,
             conclusions=conclusion_data,
             key_findings=key_findings[:5],
-            ethical_principles_applied=[]  # To be enriched
+            ethical_principles_applied=list(principles_mentioned)
         )
 
     def _enhance_characters_with_llm(
@@ -730,6 +741,7 @@ Output as JSON array:
                 enhancements = json.loads(json_match.group(1))
 
                 # Apply enhancements
+                enhanced_count = 0
                 for enhancement in enhancements:
                     role_label = enhancement.get('role', '')
                     for char in characters:
@@ -739,9 +751,11 @@ Output as JSON array:
                                 char.professional_position = enhancement['description']
                             if enhancement.get('motivation'):
                                 char.motivations.insert(0, enhancement['motivation'])
+                            char.llm_enhanced = True
+                            enhanced_count += 1
                             break
 
-            logger.info(f"Enhanced {len(characters)} characters with LLM")
+            logger.info(f"Enhanced {enhanced_count} characters with LLM")
 
         except Exception as e:
             logger.warning(f"LLM character enhancement failed: {e}")

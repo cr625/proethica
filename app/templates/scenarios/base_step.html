@@ -313,9 +313,10 @@
                                 <i class="bi bi-lock-fill me-1"></i> {{ next_step_name|default('Continue') }}
                             </span>
                             {% endif %}
-                        {% elif current_step >= 5 %}
+                        {% elif current_step >= 4 %}
+                        {# Step 5 is hidden, so Step 4 completion = analysis complete #}
                         <a href="{{ url_for('cases.view_case', id=case.id) }}" class="btn btn-success btn-lg">
-                            <i class="bi bi-check-circle"></i> Complete
+                            <i class="bi bi-check-circle"></i> View Case
                         </a>
                         {% endif %}
                     </div>

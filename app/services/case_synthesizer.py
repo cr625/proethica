@@ -49,6 +49,9 @@ from app.services.entity_analysis import (
     ValidatedArguments
 )
 
+# Phase 4 Narrative Pipeline
+from app.services.narrative import construct_phase4_narrative
+
 # Phase 3: Decision Point Synthesis
 from app.services.decision_point_synthesizer import (
     DecisionPointSynthesizer,
@@ -332,7 +335,8 @@ class CaseSynthesisModel:
     algorithmic_candidates_count: int = 0
 
     # Phase 4: Narrative Construction
-    narrative: Optional[CaseNarrative] = None
+    narrative: Optional[CaseNarrative] = None  # Legacy format
+    phase4_result: Optional[Any] = None  # New Phase4NarrativeResult from narrative pipeline
 
     # LLM Traces (for all phases that use LLM)
     llm_traces: List[LLMTrace] = field(default_factory=list)
@@ -373,6 +377,7 @@ class CaseSynthesisModel:
                 'timeline_events': len(self.narrative.timeline) if self.narrative else 0,
                 'has_scenario_seeds': bool(self.narrative and self.narrative.scenario_seeds)
             },
+            'phase4': self.phase4_result.summary() if self.phase4_result else None,
             'llm_traces': {
                 'count': len(self.llm_traces),
                 'phases': list(set(t.phase for t in self.llm_traces))
@@ -396,6 +401,7 @@ class CaseSynthesisModel:
             'canonical_decision_points': [dp.to_dict() for dp in self.canonical_decision_points],
             'algorithmic_candidates_count': self.algorithmic_candidates_count,
             'narrative': self.narrative.to_dict() if self.narrative else None,
+            'phase4_result': self.phase4_result.to_dict() if self.phase4_result else None,
             'llm_traces': [t.to_dict() for t in self.llm_traces],
             'summary': self.summary(),
             'synthesis_timestamp': self.synthesis_timestamp.isoformat() if self.synthesis_timestamp else None,
@@ -612,17 +618,76 @@ class CaseSynthesizer:
 
         logger.info(f"Phase 3: {len(canonical_points)} canonical decision points (from {algorithmic_candidates_count} candidates)")
 
-        # PHASE 4: Narrative Construction (with LLM enhancement)
-        logger.info("Phase 4: Constructing narrative")
-        if skip_llm_synthesis:
-            narrative = self._construct_narrative(case_id, foundation, canonical_points, conclusions)
-        else:
-            narrative, phase4_traces = self._construct_narrative_with_llm(
-                case_id, case, foundation, canonical_points, conclusions
-            )
-            llm_traces.extend(phase4_traces)
+        # PHASE 4: Narrative Construction (using new 4.1-4.4 pipeline)
+        logger.info("Phase 4: Constructing narrative with new pipeline")
 
-        logger.info(f"Narrative: {len(narrative.timeline)} timeline events")
+        # Get causal links as dicts for narrative pipeline
+        causal_links_for_narrative = [cl.to_dict() for cl in causal_links]
+
+        # Run the new Phase 4 pipeline
+        phase4_result = construct_phase4_narrative(
+            case_id=case_id,
+            foundation=foundation,
+            canonical_points=canonical_points,
+            conclusions=conclusions,
+            transformation_type=transformation,
+            causal_normative_links=causal_links_for_narrative,
+            use_llm=not skip_llm_synthesis
+        )
+
+        # Save Phase 4 result to database for provenance
+        import uuid
+        phase4_extraction_prompt = ExtractionPrompt(
+            case_id=case_id,
+            concept_type='phase4_narrative',
+            step_number=4,
+            section_type='synthesis',
+            prompt_text=f"Complete Synthesis - Phase 4 Narrative Construction (non-streaming)",
+            llm_model='claude-sonnet-4-20250514',
+            extraction_session_id=extraction_session_id,
+            raw_response=json.dumps(phase4_result.to_dict()),
+            results_summary=json.dumps(phase4_result.summary())
+        )
+        db.session.add(phase4_extraction_prompt)
+        db.session.commit()
+
+        # Create legacy CaseNarrative for backwards compatibility
+        legacy_timeline = []
+        for event in phase4_result.timeline.events:
+            legacy_timeline.append(TimelineEvent(
+                sequence=event.sequence,
+                event_label=event.event_label,
+                description=event.description,
+                entity_uris=[],
+                phase=event.phase
+            ))
+
+        narrative = CaseNarrative(
+            case_summary=phase4_result.scenario_seeds.opening_context[:500] if phase4_result.scenario_seeds.opening_context else "",
+            timeline=legacy_timeline,
+            scenario_seeds=ScenarioSeeds(
+                protagonist=phase4_result.scenario_seeds.protagonist_label,
+                opening_situation=phase4_result.scenario_seeds.opening_context,
+                central_tension="",
+                available_actions=[],
+                ethical_considerations=[]
+            )
+        )
+
+        logger.info(f"Narrative: {len(phase4_result.timeline.events)} timeline events, {len(phase4_result.narrative_elements.characters)} characters")
+
+        # Add Phase 4 LLM traces to the model's trace list
+        if phase4_result.llm_traces:
+            for trace in phase4_result.llm_traces:
+                llm_traces.append(LLMTrace(
+                    phase=4,
+                    phase_name="Narrative Construction",
+                    stage=trace.get('stage', 'unknown'),
+                    prompt=trace.get('prompt', ''),
+                    response=trace.get('response', ''),
+                    model=trace.get('model', 'claude-sonnet-4-20250514')
+                ))
+            logger.info(f"Phase 4 LLM traces: {len(phase4_result.llm_traces)}")
 
         # Note: Canonical points are already stored by DecisionPointSynthesizer
 
@@ -648,7 +713,9 @@ class CaseSynthesizer:
             # Phase 3
             canonical_decision_points=canonical_points,
             algorithmic_candidates_count=algorithmic_candidates_count,
+            # Phase 4
             narrative=narrative,
+            phase4_result=phase4_result,
             llm_traces=llm_traces,
             synthesis_timestamp=datetime.now(),
             extraction_session_id=extraction_session_id
@@ -947,12 +1014,13 @@ class CaseSynthesizer:
                 q_results = question_analyzer.extract_questions(questions_text, all_entities_formatted, provisions)
 
                 for i, q in enumerate(q_results):
+                    # q is a dict from _question_to_dict, not an EthicalQuestion object
                     questions.append({
                         'uri': f"case-{case_id}#Q{i+1}",
                         'label': f"Question_{i+1}",
-                        'text': getattr(q, 'question_text', str(q)),
-                        'mentioned_entities': getattr(q, 'mentioned_entities', []),
-                        'related_provisions': getattr(q, 'related_provisions', [])
+                        'text': q.get('question_text', str(q)) if isinstance(q, dict) else getattr(q, 'question_text', str(q)),
+                        'mentioned_entities': q.get('mentioned_entities', []) if isinstance(q, dict) else getattr(q, 'mentioned_entities', []),
+                        'related_provisions': q.get('related_provisions', []) if isinstance(q, dict) else getattr(q, 'related_provisions', [])
                     })
 
                 if hasattr(question_analyzer, 'last_prompt') and question_analyzer.last_prompt:
@@ -976,13 +1044,14 @@ class CaseSynthesizer:
                 c_results = conclusion_analyzer.extract_conclusions(conclusions_text, all_entities_formatted, provisions)
 
                 for i, c in enumerate(c_results):
+                    # c is a dict from _conclusion_to_dict, not an EthicalConclusion object
                     conclusions.append({
                         'uri': f"case-{case_id}#C{i+1}",
                         'label': f"Conclusion_{i+1}",
-                        'text': getattr(c, 'conclusion_text', str(c)),
-                        'mentioned_entities': getattr(c, 'mentioned_entities', []),
-                        'cited_provisions': getattr(c, 'cited_provisions', []),
-                        'conclusion_type': getattr(c, 'conclusion_type', 'determination')
+                        'text': c.get('conclusion_text', str(c)) if isinstance(c, dict) else getattr(c, 'conclusion_text', str(c)),
+                        'mentioned_entities': c.get('mentioned_entities', []) if isinstance(c, dict) else getattr(c, 'mentioned_entities', []),
+                        'cited_provisions': c.get('cited_provisions', []) if isinstance(c, dict) else getattr(c, 'cited_provisions', []),
+                        'conclusion_type': c.get('conclusion_type', 'determination') if isinstance(c, dict) else getattr(c, 'conclusion_type', 'determination')
                     })
 
                 if hasattr(conclusion_analyzer, 'last_prompt') and conclusion_analyzer.last_prompt:
@@ -1099,36 +1168,37 @@ class CaseSynthesizer:
                 {'case_id': case_id}
             ).fetchone()
 
+            # Use pattern_description for transformation_pattern column
+            pattern = getattr(result, 'pattern_description', '') or getattr(result, 'reasoning', '')
+
             if existing:
                 db.session.execute(
                     text("""
                         UPDATE case_precedent_features
                         SET transformation_type = :type,
-                            transformation_confidence = :confidence,
-                            transformation_reasoning = :reasoning
+                            transformation_pattern = :pattern
                         WHERE case_id = :case_id
                     """),
                     {
                         'case_id': case_id,
                         'type': result.transformation_type,
-                        'confidence': result.confidence,
-                        'reasoning': result.reasoning
+                        'pattern': pattern
                     }
                 )
             else:
                 db.session.execute(
                     text("""
-                        INSERT INTO case_precedent_features (case_id, transformation_type, transformation_confidence, transformation_reasoning)
-                        VALUES (:case_id, :type, :confidence, :reasoning)
+                        INSERT INTO case_precedent_features (case_id, transformation_type, transformation_pattern)
+                        VALUES (:case_id, :type, :pattern)
                     """),
                     {
                         'case_id': case_id,
                         'type': result.transformation_type,
-                        'confidence': result.confidence,
-                        'reasoning': result.reasoning
+                        'pattern': pattern
                     }
                 )
             db.session.commit()
+            logger.info(f"Stored transformation type '{result.transformation_type}' for case {case_id}")
         except Exception as e:
             logger.warning(f"Failed to store transformation type: {e}")
             db.session.rollback()
