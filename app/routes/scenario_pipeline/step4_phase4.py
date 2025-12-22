@@ -137,12 +137,15 @@ def register_phase4_routes(bp, build_entity_foundation, load_canonical_points, l
         Run Phase 4 narrative construction with SSE streaming.
         Shows real-time progress through 4.1, 4.2, 4.3, 4.4 stages.
         """
+        logger.info(f"[Phase 4] construct_phase4_streaming called for case {case_id}")
 
         def sse_msg(data):
+            logger.debug(f"[Phase 4] SSE: {data.get('stage', 'unknown')} - {data.get('progress', 0)}%")
             return f"data: {json.dumps(data)}\n\n"
 
         def generate():
             try:
+                logger.info(f"[Phase 4] Starting generator for case {case_id}")
                 case = Document.query.get_or_404(case_id)
                 session_id = str(uuid.uuid4())
 
@@ -380,23 +383,26 @@ def register_phase4_routes(bp, build_entity_foundation, load_canonical_points, l
                 concept_type='phase4_narrative'
             ).order_by(ExtractionPrompt.created_at.desc()).first()
 
-            if not prompt:
+            if not prompt or not prompt.raw_response:
                 return jsonify({
-                    'success': False,
+                    'has_phase4': False,
                     'message': 'No Phase 4 data found - run narrative construction first'
                 })
 
+            # Parse full result from raw_response
+            result = json.loads(prompt.raw_response) if prompt.raw_response else {}
+
             return jsonify({
-                'success': True,
+                'has_phase4': True,
                 'session_id': prompt.extraction_session_id,
                 'timestamp': prompt.created_at.isoformat() if prompt.created_at else None,
-                'summary': json.loads(prompt.results_summary) if prompt.results_summary else {}
+                'result': result
             })
 
         except Exception as e:
             logger.error(f"Error getting Phase 4 data for case {case_id}: {e}")
             return jsonify({
-                'success': False,
+                'has_phase4': False,
                 'error': str(e)
             }), 500
 

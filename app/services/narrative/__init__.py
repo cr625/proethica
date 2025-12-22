@@ -43,6 +43,7 @@ from app.services.narrative.narrative_element_extractor import (
     NarrativeSetting,
     NarrativeEvent,
     NarrativeConflict,
+    EthicalTension,  # Alias for NarrativeConflict - normalized terminology
     DecisionMoment,
     NarrativeResolution,
     extract_narrative_elements
@@ -227,6 +228,7 @@ __all__ = [
     'NarrativeSetting',
     'NarrativeEvent',
     'NarrativeConflict',
+    'EthicalTension',  # Alias for NarrativeConflict
     'DecisionMoment',
     'NarrativeResolution',
     'extract_narrative_elements',

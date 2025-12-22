@@ -10,7 +10,7 @@ Components extracted:
 - Characters (from Roles)
 - Setting (from States, Resources)
 - Events (from Actions, Events)
-- Conflicts (from Obligation tensions)
+- Ethical Tensions (from Obligation/Constraint tensions) - Jones (1991) Moral Intensity
 - Decision Moments (from Phase 3 decision points)
 - Resolution (from Conclusions)
 """
@@ -92,7 +92,17 @@ class NarrativeEvent:
 
 @dataclass
 class NarrativeConflict:
-    """An ethical conflict/tension in the narrative."""
+    """
+    An ethical tension in the narrative.
+
+    Based on Jones (1991) Moral Intensity model, ethical tensions are characterized by:
+    - Magnitude of consequences: How serious are the potential harms/benefits?
+    - Probability of effect: How likely are negative outcomes?
+    - Temporal immediacy: How soon will consequences occur?
+    - Proximity: How close is the decision-maker to those affected?
+    - Concentration of effect: Are harms concentrated or diffuse?
+    - Social consensus: Is there agreement that the action is wrong?
+    """
     conflict_id: str
     description: str
     conflict_type: str  # 'obligation_vs_obligation', 'obligation_vs_constraint', 'role_conflict'
@@ -108,13 +118,28 @@ class NarrativeConflict:
 
     # Affected parties
     affected_role_uris: List[str] = field(default_factory=list)
+    affected_role_labels: List[str] = field(default_factory=list)
+
+    # Jones (1991) Moral Intensity Factors (optional, LLM-enhanced)
+    magnitude_of_consequences: Optional[str] = None  # 'high', 'medium', 'low'
+    probability_of_effect: Optional[str] = None  # 'high', 'medium', 'low'
+    temporal_immediacy: Optional[str] = None  # 'immediate', 'near-term', 'long-term'
+    proximity: Optional[str] = None  # 'direct', 'indirect', 'remote'
+    concentration_of_effect: Optional[str] = None  # 'concentrated', 'diffuse'
 
     # Resolution (if known)
     resolution_type: Optional[str] = None  # 'prioritized', 'balanced', 'unresolved'
     resolution_rationale: str = ""
 
+    # LLM enhancement flag
+    llm_enhanced: bool = False
+
     def to_dict(self) -> Dict:
         return asdict(self)
+
+
+# Alias for consistency with UI terminology
+EthicalTension = NarrativeConflict
 
 
 @dataclass
@@ -250,13 +275,17 @@ class NarrativeElementExtractor:
             characters = self._enhance_characters_with_llm(
                 characters, foundation, case_id
             )
+            # Enhance ethical tensions with moral intensity factors (Jones 1991)
+            conflicts = self._enhance_tensions_with_llm(
+                conflicts, foundation, case_id
+            )
 
         return NarrativeElements(
             case_id=case_id,
             characters=characters,
             setting=setting,
             events=events,
-            conflicts=conflicts,
+            conflicts=conflicts,  # Now includes LLM-enhanced ethical tensions
             decision_moments=decision_moments,
             resolution=resolution,
             extraction_metadata={
@@ -694,6 +723,196 @@ Output as JSON array:
             logger.warning(f"LLM character enhancement failed: {e}")
 
         return characters
+
+    def _enhance_tensions_with_llm(
+        self,
+        tensions: List[NarrativeConflict],
+        foundation,
+        case_id: int
+    ) -> List[NarrativeConflict]:
+        """
+        Use LLM to identify and enhance ethical tensions.
+
+        Based on Jones (1991) Moral Intensity model:
+        - Magnitude of consequences
+        - Probability of effect
+        - Temporal immediacy
+        - Proximity
+        - Concentration of effect
+
+        This method:
+        1. Identifies additional tensions from obligations/constraints not caught by heuristics
+        2. Enhances existing tensions with moral intensity factors
+        3. Provides richer descriptions of the ethical dilemma
+        """
+        if not self.llm_client:
+            return tensions
+
+        # Build context from extracted entities
+        obligations_list = "\n".join([
+            f"- [{o.uri.split('#')[-1] if '#' in o.uri else o.uri.split('/')[-1]}] {o.label}"
+            for o in foundation.obligations[:15]
+        ])
+
+        constraints_list = "\n".join([
+            f"- [{c.uri.split('#')[-1] if '#' in c.uri else c.uri.split('/')[-1]}] {c.label}"
+            for c in foundation.constraints[:15]
+        ])
+
+        roles_list = "\n".join([
+            f"- {r.label}"
+            for r in foundation.roles[:10]
+        ])
+
+        # Existing tensions found algorithmically
+        existing_tensions = "\n".join([
+            f"- {t.entity1_label} vs {t.entity2_label}: {t.description}"
+            for t in tensions[:5]
+        ]) if tensions else "None identified yet"
+
+        prompt = f"""Analyze these extracted entities from an NSPE engineering ethics case and identify ethical tensions.
+
+OBLIGATIONS (duties the engineer must fulfill):
+{obligations_list}
+
+CONSTRAINTS (limitations on what the engineer can do):
+{constraints_list}
+
+ROLES INVOLVED:
+{roles_list}
+
+TENSIONS ALREADY IDENTIFIED:
+{existing_tensions}
+
+Identify ethical tensions between obligations and/or constraints. For each tension, assess its moral intensity using Jones (1991) factors.
+
+Focus on tensions that create genuine ethical dilemmas - where fulfilling one duty may compromise another.
+
+Output as JSON array (identify 2-5 key tensions):
+```json
+[
+  {{
+    "entity1_id": "URI fragment of first entity",
+    "entity1_label": "Label of first entity",
+    "entity1_type": "obligation or constraint",
+    "entity2_id": "URI fragment of second entity",
+    "entity2_label": "Label of second entity",
+    "entity2_type": "obligation or constraint",
+    "description": "Clear description of why these are in tension",
+    "conflict_type": "obligation_vs_obligation or obligation_vs_constraint",
+    "affected_roles": ["Role labels affected by this tension"],
+    "magnitude_of_consequences": "high/medium/low - how serious are potential harms?",
+    "probability_of_effect": "high/medium/low - how likely are negative outcomes?",
+    "temporal_immediacy": "immediate/near-term/long-term - when will consequences occur?",
+    "proximity": "direct/indirect/remote - how close is decision-maker to affected parties?",
+    "concentration_of_effect": "concentrated/diffuse - are harms focused or spread out?"
+  }}
+]
+```"""
+
+        try:
+            response = self.llm_client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=1500,
+                temperature=0.3,
+                messages=[{"role": "user", "content": prompt}]
+            )
+
+            import json
+            import re
+
+            response_text = response.content[0].text
+            json_match = re.search(r'```json\n(.*?)\n```', response_text, re.DOTALL)
+
+            if json_match:
+                llm_tensions = json.loads(json_match.group(1))
+
+                # Build lookup for existing tensions to avoid duplicates
+                existing_pairs = set()
+                for t in tensions:
+                    pair = tuple(sorted([t.entity1_label.lower(), t.entity2_label.lower()]))
+                    existing_pairs.add(pair)
+
+                # Add new tensions from LLM
+                tension_id = len(tensions) + 1
+                for lt in llm_tensions:
+                    pair = tuple(sorted([
+                        lt.get('entity1_label', '').lower(),
+                        lt.get('entity2_label', '').lower()
+                    ]))
+
+                    if pair not in existing_pairs and lt.get('entity1_label') and lt.get('entity2_label'):
+                        # Find URIs for entities
+                        entity1_uri = self._find_entity_uri(
+                            lt.get('entity1_id', ''),
+                            lt.get('entity1_label', ''),
+                            foundation
+                        )
+                        entity2_uri = self._find_entity_uri(
+                            lt.get('entity2_id', ''),
+                            lt.get('entity2_label', ''),
+                            foundation
+                        )
+
+                        tensions.append(NarrativeConflict(
+                            conflict_id=f"tension_{tension_id}",
+                            description=lt.get('description', ''),
+                            conflict_type=lt.get('conflict_type', 'obligation_vs_obligation'),
+                            entity1_uri=entity1_uri,
+                            entity1_label=lt.get('entity1_label', ''),
+                            entity1_type=lt.get('entity1_type', 'obligation'),
+                            entity2_uri=entity2_uri,
+                            entity2_label=lt.get('entity2_label', ''),
+                            entity2_type=lt.get('entity2_type', 'obligation'),
+                            affected_role_labels=lt.get('affected_roles', []),
+                            magnitude_of_consequences=lt.get('magnitude_of_consequences'),
+                            probability_of_effect=lt.get('probability_of_effect'),
+                            temporal_immediacy=lt.get('temporal_immediacy'),
+                            proximity=lt.get('proximity'),
+                            concentration_of_effect=lt.get('concentration_of_effect'),
+                            llm_enhanced=True
+                        ))
+                        tension_id += 1
+                        existing_pairs.add(pair)
+
+                # Also enhance existing tensions with moral intensity if not already present
+                for existing_tension in tensions:
+                    if not existing_tension.llm_enhanced:
+                        for lt in llm_tensions:
+                            if (existing_tension.entity1_label.lower() in lt.get('entity1_label', '').lower() or
+                                existing_tension.entity2_label.lower() in lt.get('entity2_label', '').lower()):
+                                existing_tension.magnitude_of_consequences = lt.get('magnitude_of_consequences')
+                                existing_tension.probability_of_effect = lt.get('probability_of_effect')
+                                existing_tension.temporal_immediacy = lt.get('temporal_immediacy')
+                                existing_tension.proximity = lt.get('proximity')
+                                existing_tension.concentration_of_effect = lt.get('concentration_of_effect')
+                                existing_tension.llm_enhanced = True
+                                break
+
+                logger.info(f"Enhanced tensions with LLM: {len(tensions)} total tensions for case {case_id}")
+
+        except Exception as e:
+            logger.warning(f"LLM tension enhancement failed: {e}")
+
+        return tensions
+
+    def _find_entity_uri(self, entity_id: str, entity_label: str, foundation) -> str:
+        """Find the full URI for an entity given its ID fragment or label."""
+        # Check obligations
+        for obl in foundation.obligations:
+            if entity_id and entity_id in obl.uri:
+                return obl.uri
+            if entity_label.lower() == obl.label.lower():
+                return obl.uri
+
+        # Check constraints
+        for con in foundation.constraints:
+            if entity_id and entity_id in con.uri:
+                return con.uri
+            if entity_label.lower() == con.label.lower():
+                return con.uri
+
+        return f"proeth:{entity_id or entity_label.replace(' ', '_')}"
 
 
 # =============================================================================

@@ -155,7 +155,7 @@ def step4_synthesis(case_id):
             current_step=4,
             prev_step_url=f"/scenario_pipeline/case/{case_id}/step3",
             next_step_url=f"/scenario_pipeline/case/{case_id}/step5",
-            next_step_name='Scenario Generation',
+            next_step_name='Interactive Exploration',
             pipeline_status=pipeline_status
         )
 
@@ -1126,7 +1126,9 @@ def step4_review(case_id):
             'published_count': published_count,
             'can_publish': can_publish,
             'pipeline_status': pipeline_status,
-            'rich_analysis': rich_analysis
+            'rich_analysis': rich_analysis,
+            'decision_points': _load_decision_points_for_review(case_id),
+            'narrative_data': _load_narrative_for_review(case_id)
         }
 
         return render_template('scenario_pipeline/step4_review.html', **context)
@@ -1136,6 +1138,96 @@ def step4_review(case_id):
         import traceback
         traceback.print_exc()
         return str(e), 500
+
+
+def _load_decision_points_for_review(case_id: int) -> List[Dict]:
+    """Load canonical decision points for the review page."""
+    decision_points = []
+    dp_objs = TemporaryRDFStorage.query.filter_by(
+        case_id=case_id,
+        extraction_type='canonical_decision_point'
+    ).order_by(TemporaryRDFStorage.created_at).all()
+
+    for obj in dp_objs:
+        if obj.rdf_json_ld:
+            data = obj.rdf_json_ld
+            decision_points.append({
+                'focus_id': data.get('focus_id', ''),
+                'focus_number': data.get('focus_number', 0),
+                'description': data.get('description', obj.entity_label),
+                'decision_question': data.get('decision_question', obj.entity_definition),
+                'entity_label': obj.entity_label,
+                'entity_definition': obj.entity_definition,
+                'obligation_label': data.get('obligation_label', ''),
+                'obligations_in_tension': data.get('obligations_in_tension', []),
+                'options': data.get('options', []),
+                'qc_alignment_score': data.get('qc_alignment_score', 0),
+                'source': data.get('source', 'algorithmic')
+            })
+
+    return decision_points
+
+
+def _load_narrative_for_review(case_id: int) -> Optional[Dict]:
+    """Load Phase 4 narrative data for the review page."""
+    try:
+        phase4_prompt = ExtractionPrompt.query.filter_by(
+            case_id=case_id,
+            concept_type='phase4_narrative'
+        ).order_by(ExtractionPrompt.created_at.desc()).first()
+
+        if phase4_prompt and phase4_prompt.raw_response:
+            import json
+            data = json.loads(phase4_prompt.raw_response)
+
+            # Extract narrative_elements
+            ne = data.get('narrative_elements', {})
+            characters = ne.get('characters', []) if isinstance(ne, dict) else []
+            conflicts = ne.get('conflicts', []) if isinstance(ne, dict) else []
+            decision_moments = ne.get('decision_moments', []) if isinstance(ne, dict) else []
+
+            # Extract timeline
+            tl = data.get('timeline', {})
+            events = tl.get('events', []) if isinstance(tl, dict) else (tl if isinstance(tl, list) else [])
+            initial_fluents = tl.get('initial_fluents', []) if isinstance(tl, dict) else []
+            causal_links = tl.get('causal_links', []) if isinstance(tl, dict) else []
+            event_trace = tl.get('event_trace', '') if isinstance(tl, dict) else ''
+
+            # Extract scenario_seeds
+            seeds = data.get('scenario_seeds', {})
+            opening_context = seeds.get('opening_context', '') if isinstance(seeds, dict) else ''
+            protagonist = seeds.get('protagonist_label', '') if isinstance(seeds, dict) else ''
+
+            # Extract insights
+            insights = data.get('insights', {})
+            key_takeaways = insights.get('key_takeaways', []) if isinstance(insights, dict) else []
+            patterns = insights.get('patterns', []) if isinstance(insights, dict) else []
+
+            return {
+                'has_data': True,
+                'timestamp': phase4_prompt.created_at.isoformat() if phase4_prompt.created_at else None,
+                # Narrative elements
+                'characters': characters,
+                'conflicts': conflicts,
+                'decision_moments': decision_moments,
+                # Timeline
+                'events': events,
+                'initial_fluents': initial_fluents,
+                'causal_links': causal_links,
+                'event_trace': event_trace,
+                # Scenario seeds
+                'opening_context': opening_context,
+                'protagonist': protagonist,
+                # Insights
+                'key_takeaways': key_takeaways,
+                'patterns': patterns,
+                # Summary for counts
+                'summary': data.get('summary', {})
+            }
+    except Exception as e:
+        logger.debug(f"Could not load narrative for case {case_id}: {e}")
+
+    return {'has_data': False}
 
 
 def _get_all_entities_for_graph(case_id: int) -> List:

@@ -1,385 +1,45 @@
 {% extends "scenarios/base_step.html" %}
 
-{% block step_title %}Step 5: Scenario Exploration{% endblock %}
-{% block step_header %}Step 5: Scenario Exploration{% endblock %}
-{% block step_subtitle %}Review the case or make your own ethical choices{% endblock %}
+{% block step_title %}Step 5: Interactive Exploration{% endblock %}
+{% block step_header %}Step 5: Interactive Exploration{% endblock %}
+{% block step_subtitle %}Experience the case through interactive scenario exploration{% endblock %}
 
 {% block step_navigation_bottom %}
-<!-- Step 5 has its own action buttons (Start Interactive Exploration / View Past) -->
+<!-- No bottom navigation for Coming Soon page -->
 {% endblock %}
 
 {% block step_content %}
 
-{% if has_phase4 %}
-<!-- Scenario Ready Banner -->
-<div class="card mb-4 border-success">
-    <div class="card-body bg-success bg-opacity-10">
-        <div class="row align-items-center">
-            <div class="col-md-8">
-                <h4 class="mb-2 text-success">
-                    <i class="bi bi-check-circle-fill"></i> Your Interactive Scenario is Ready
-                </h4>
-                <p class="mb-0 text-muted">
-                    Explore Case {{ case.case_number or case.id }} through three complementary views.
-                    Start with the narrative overview to understand the situation, then examine the timeline,
-                    and finally work through the ethical decision points.
-                </p>
-            </div>
-            <div class="col-md-4 text-end">
-                <div class="d-flex justify-content-end gap-3">
-                    <div class="text-center">
-                        <div class="fs-3 fw-bold text-primary">{{ narrative.characters|length if narrative.characters is iterable and narrative.characters is not string else narrative.characters or 0 }}</div>
-                        <small class="text-muted">Characters</small>
-                    </div>
-                    <div class="text-center">
-                        <div class="fs-3 fw-bold text-info">{{ timeline.events|length if timeline.events else 0 }}</div>
-                        <small class="text-muted">Events</small>
-                    </div>
-                    <div class="text-center">
-                        <div class="fs-3 fw-bold text-warning">{{ narrative.decision_moments|length if narrative.decision_moments is iterable and narrative.decision_moments is not string else 0 }}</div>
-                        <small class="text-muted">Decisions</small>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Guided Exploration - Three Steps -->
-<div class="row mb-4">
-    <!-- Step 1: Narrative -->
-    <div class="col-md-4 mb-3">
-        <div class="card h-100 exploration-card" data-step="1">
-            <div class="card-header bg-primary text-white">
-                <div class="d-flex align-items-center">
-                    <span class="step-badge">1</span>
-                    <h5 class="mb-0 ms-2">Narrative Overview</h5>
-                </div>
-            </div>
-            <div class="card-body">
-                <p class="card-text">
-                    <strong>Start here.</strong> Understand the case story, meet the characters,
-                    and identify the key ethical tensions.
-                </p>
-                <ul class="small text-muted mb-3">
-                    <li>Opening context and setting</li>
-                    <li>Character profiles and relationships</li>
-                    <li>Ethical conflicts identified</li>
-                    <li>Board resolution summary</li>
-                </ul>
-                <a href="{{ url_for('step5.narrative_overview', case_id=case.id) }}" class="btn btn-primary w-100">
-                    <i class="bi bi-book"></i> View Narrative
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <!-- Step 2: Timeline -->
-    <div class="col-md-4 mb-3">
-        <div class="card h-100 exploration-card" data-step="2">
-            <div class="card-header bg-info text-white">
-                <div class="d-flex align-items-center">
-                    <span class="step-badge">2</span>
-                    <h5 class="mb-0 ms-2">Event Timeline</h5>
-                </div>
-            </div>
-            <div class="card-body">
-                <p class="card-text">
-                    <strong>See the sequence.</strong> Follow the chronological progression
-                    of actions and events that led to the ethical dilemma.
-                </p>
-                <ul class="small text-muted mb-3">
-                    <li>Chronological event sequence</li>
-                    <li>Actions vs automatic events</li>
-                    <li>Causal relationships</li>
-                    <li>Decision point markers</li>
-                </ul>
-                <a href="{{ url_for('step5.enhanced_timeline', case_id=case.id) }}" class="btn btn-info w-100">
-                    <i class="bi bi-clock-history"></i> View Timeline
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <!-- Step 3: Decisions -->
-    <div class="col-md-4 mb-3">
-        <div class="card h-100 exploration-card" data-step="3">
-            <div class="card-header bg-warning text-dark">
-                <div class="d-flex align-items-center">
-                    <span class="step-badge bg-dark text-warning">3</span>
-                    <h5 class="mb-0 ms-2">Decision Points</h5>
-                </div>
-            </div>
-            <div class="card-body">
-                <p class="card-text">
-                    <strong>Explore the choices.</strong> Step through each ethical decision point
-                    and examine the options the board considered.
-                </p>
-                <ul class="small text-muted mb-3">
-                    <li>Key decision questions</li>
-                    <li>Available options</li>
-                    <li>Board's actual choices</li>
-                    <li>Ethical reasoning</li>
-                </ul>
-                <a href="{{ url_for('step5.decision_wizard', case_id=case.id) }}" class="btn btn-warning w-100">
-                    <i class="bi bi-signpost-split"></i> Explore Decisions
-                </a>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Quick Preview: Opening Context -->
-{% if seeds and seeds.opening_context %}
-<div class="card mb-4">
-    <div class="card-header bg-light">
-        <h5 class="mb-0"><i class="bi bi-quote"></i> Opening Context</h5>
-    </div>
-    <div class="card-body">
-        <blockquote class="blockquote mb-0">
-            <p class="fst-italic">{{ seeds.opening_context }}</p>
-            {% if seeds.protagonist_label %}
-            <footer class="blockquote-footer mt-2">From the perspective of <cite>{{ seeds.protagonist_label }}</cite></footer>
-            {% endif %}
-        </blockquote>
-    </div>
-</div>
-{% endif %}
-
-<!-- Key Takeaways Preview -->
-{% if insights and insights.key_takeaways and insights.key_takeaways|length > 0 %}
-<div class="card mb-4 border-info">
-    <div class="card-header bg-info bg-opacity-10">
-        <h5 class="mb-0"><i class="bi bi-lightbulb"></i> Key Takeaways</h5>
-    </div>
-    <div class="card-body">
-        <ul class="mb-0">
-            {% for takeaway in insights.key_takeaways %}
-            <li class="mb-2">{{ takeaway }}</li>
-            {% endfor %}
-        </ul>
-    </div>
-</div>
-{% endif %}
-
-<!-- Interactive Exploration Section -->
-<div class="card mb-4 border-danger">
-    <div class="card-header bg-danger bg-opacity-10">
-        <h5 class="mb-0">
-            <i class="bi bi-person-walking"></i> Interactive Exploration
-            <span class="badge bg-danger ms-2">Make Your Own Choices</span>
-        </h5>
-    </div>
-    <div class="card-body">
-        <p>
-            <strong>What would YOU do?</strong> Instead of just reviewing what happened,
-            step through each decision point and make your own ethical choices.
-            See how your path compares to the Board's actual decisions.
+<!-- Coming Soon Banner -->
+<div class="card mb-4 border-secondary">
+    <div class="card-body text-center py-5">
+        <i class="bi bi-hourglass-split display-1 text-secondary mb-3"></i>
+        <h2 class="text-secondary">Interactive Exploration</h2>
+        <h4 class="text-muted mb-4">Coming Soon</h4>
+        <p class="lead text-muted mb-4">
+            Step 5 will provide an interactive scenario exploration experience,
+            allowing you to make ethical decisions and see how they compare to the NSPE Board's conclusions.
         </p>
-
-        <div class="row">
-            <div class="col-md-8">
-                <ul class="mb-3">
-                    <li>Face each decision point with real options</li>
-                    <li>See LLM-generated consequences of your choices</li>
-                    <li>Track how your decisions differ from the board's</li>
-                    <li>Get a final analysis comparing your ethical reasoning</li>
-                </ul>
-            </div>
-            <div class="col-md-4">
-                <div class="d-grid gap-2">
-                    {% if current_user.is_authenticated %}
-                    <button type="button" class="btn btn-danger btn-lg w-100" id="startExplorationBtn" onclick="startExploration()">
-                        <i class="bi bi-play-circle"></i> Start Interactive Exploration
-                    </button>
-                    <!-- Loading state (hidden by default) -->
-                    <div id="explorationLoading" class="d-none">
-                        <div class="text-center p-3">
-                            <div class="spinner-border text-danger mb-2" role="status">
-                                <span class="visually-hidden">Loading...</span>
-                            </div>
-                            <p class="text-muted mb-0" id="loadingStatus">Preparing scenario...</p>
-                        </div>
-                    </div>
-                    {% else %}
-                    <a href="{{ url_for('auth.login') }}" class="btn btn-outline-danger btn-lg">
-                        <i class="bi bi-lock"></i> Login to Start
-                    </a>
-                    {% endif %}
-                    <a href="{{ url_for('step5.list_sessions', case_id=case.id) }}" class="btn btn-outline-secondary">
-                        <i class="bi bi-list"></i> View Past Explorations
-                        {% if completed_sessions_count and completed_sessions_count > 0 %}
-                        <span class="badge bg-success ms-1">{{ completed_sessions_count }}</span>
-                        {% endif %}
-                    </a>
-                </div>
-            </div>
-        </div>
+        <hr class="my-4">
+        <p class="text-muted">
+            Complete Step 4 (Case Synthesis) to prepare the case narrative and decision points for interactive exploration.
+        </p>
+        <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}" class="btn btn-outline-secondary btn-lg">
+            <i class="bi bi-arrow-left"></i> Back to Step 4
+        </a>
     </div>
 </div>
-
-{% else %}
-<!-- No Phase 4 Data - Need to Generate -->
-<div class="alert alert-warning mb-4">
-    <h5><i class="bi bi-exclamation-triangle"></i> Narrative Construction Required</h5>
-    <p class="mb-3">
-        The interactive scenario has not been generated yet. Please run Phase 4 (Narrative Construction)
-        from Step 4 first.
-    </p>
-    <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}" class="btn btn-primary">
-        <i class="bi bi-arrow-left"></i> Go to Step 4
-    </a>
-</div>
-
-<!-- Show Eligibility Status if not ready -->
-<div class="card mb-4">
-    <div class="card-header bg-light">
-        <h5 class="mb-0"><i class="bi bi-clipboard-check"></i> Prerequisites</h5>
-    </div>
-    <div class="card-body">
-        {% if eligibility %}
-        <h6>Extraction Status:</h6>
-        <ul>
-            {% for pass_name, status in eligibility.pass_completion.items() %}
-            <li>
-                <strong>{{ pass_name|upper }}:</strong>
-                {% if status.complete %}
-                    <span class="badge bg-success">Complete</span>
-                    ({{ status.entity_count }} entities)
-                {% else %}
-                    <span class="badge bg-warning">Incomplete</span>
-                {% endif %}
-            </li>
-            {% endfor %}
-            <li>
-                <strong>STEP 4:</strong>
-                {% if eligibility.step4_complete %}
-                    <span class="badge bg-success">Complete</span>
-                {% else %}
-                    <span class="badge bg-warning">Incomplete</span>
-                {% endif %}
-            </li>
-        </ul>
-        {% endif %}
-    </div>
-</div>
-{% endif %}
 
 {% endblock %}
 
 {% block step_styles %}
 <style>
-    .exploration-card {
-        transition: all 0.2s ease;
-        border: 2px solid transparent;
-    }
-
-    .exploration-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15);
-    }
-
-    .exploration-card[data-step="1"]:hover {
-        border-color: #4e73df;
-    }
-
-    .exploration-card[data-step="2"]:hover {
-        border-color: #36b9cc;
-    }
-
-    .exploration-card[data-step="3"]:hover {
-        border-color: #f6c23e;
-    }
-
-    .step-badge {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 28px;
-        height: 28px;
-        border-radius: 50%;
-        background: rgba(255,255,255,0.2);
-        font-weight: bold;
-        font-size: 0.9rem;
-    }
-
-    .card-header h5 {
-        font-size: 1rem;
-    }
-
-    .blockquote {
-        border-left: 4px solid #4e73df;
-        padding-left: 1rem;
-    }
-
-    .blockquote p {
-        font-size: 1.1rem;
-        line-height: 1.7;
-    }
+    /* Minimal styles for coming soon page */
 </style>
 {% endblock %}
 
 {% block step_scripts %}
 <script>
-// Add visual feedback when hovering over exploration cards
-document.querySelectorAll('.exploration-card').forEach(card => {
-    card.addEventListener('mouseenter', function() {
-        this.style.cursor = 'pointer';
-    });
-});
-
-// Start interactive exploration with loading feedback
-async function startExploration() {
-    const btn = document.getElementById('startExplorationBtn');
-    const loading = document.getElementById('explorationLoading');
-    const status = document.getElementById('loadingStatus');
-
-    // Hide button, show loading
-    btn.classList.add('d-none');
-    loading.classList.remove('d-none');
-
-    // Update status messages
-    const messages = [
-        'Preparing scenario...',
-        'Loading decision points...',
-        'Generating option descriptions...',
-        'Almost ready...'
-    ];
-    let msgIndex = 0;
-
-    const statusInterval = setInterval(() => {
-        msgIndex = (msgIndex + 1) % messages.length;
-        status.textContent = messages[msgIndex];
-    }, 2000);
-
-    try {
-        const response = await fetch('{{ url_for("step5.start_interactive_exploration_ajax", case_id=case.id) }}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token() }}'
-            }
-        });
-
-        const data = await response.json();
-        clearInterval(statusInterval);
-
-        if (data.success && data.redirect_url) {
-            status.textContent = 'Starting exploration...';
-            window.location.href = data.redirect_url;
-        } else {
-            // Show error and restore button
-            alert(data.error || 'Failed to start exploration');
-            btn.classList.remove('d-none');
-            loading.classList.add('d-none');
-        }
-    } catch (error) {
-        clearInterval(statusInterval);
-        console.error('Error starting exploration:', error);
-        alert('Failed to start exploration: ' + error.message);
-        btn.classList.remove('d-none');
-        loading.classList.add('d-none');
-    }
-}
+    // Minimal scripts for coming soon page
 </script>
 {% endblock %}

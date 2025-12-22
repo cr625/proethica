@@ -34,7 +34,14 @@ class PipelineStatusService:
     STEP3_TYPES = ('actions', 'events', 'actions_events', 'temporal_dynamics_enhanced')
 
     # Step 4 Phase 2 concept types (Analytical Extraction)
-    STEP4_PHASE2_TYPES = ('provisions', 'questions', 'conclusions', 'transformation', 'rich_analysis')
+    # These match the actual concept_type values saved in extraction_prompts
+    STEP4_PHASE2_TYPES = (
+        'code_provision_reference',  # 2A provisions
+        'ethical_question',          # 2B questions
+        'ethical_conclusion',        # 2B conclusions
+        'transformation_classification',  # 2C transformation
+        'rich_analysis'              # 2D rich analysis
+    )
 
     @classmethod
     def get_step_status(cls, case_id: int) -> Dict[str, Any]:
@@ -173,6 +180,7 @@ class PipelineStatusService:
         phase2_tasks_done = 0
 
         # Check Phase 2: extraction_prompts for each concept_type
+        # Core tasks that indicate Phase 2 completion: transformation_classification and rich_analysis
         try:
             phase2_query = text("""
                 SELECT COUNT(DISTINCT concept_type) as count
@@ -186,7 +194,22 @@ class PipelineStatusService:
                 {'case_id': case_id, 'types': cls.STEP4_PHASE2_TYPES}
             ).fetchone()
             phase2_tasks_done = phase2_result.count if phase2_result else 0
-            phase2_complete = phase2_tasks_done == len(cls.STEP4_PHASE2_TYPES)
+
+            # Check core tasks (2C transformation + 2D rich_analysis = Phase 2 done)
+            core_types = ('transformation_classification', 'rich_analysis')
+            core_query = text("""
+                SELECT COUNT(DISTINCT concept_type) as count
+                FROM extraction_prompts
+                WHERE case_id = :case_id
+                AND concept_type IN :types
+                AND prompt_text IS NOT NULL
+            """)
+            core_result = db.session.execute(
+                core_query,
+                {'case_id': case_id, 'types': core_types}
+            ).fetchone()
+            core_tasks_done = core_result.count if core_result else 0
+            phase2_complete = core_tasks_done == len(core_types)
         except Exception:
             db.session.rollback()
 

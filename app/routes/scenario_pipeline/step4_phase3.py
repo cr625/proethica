@@ -576,10 +576,10 @@ Return ONLY the JSON object."""
                         'entity_uri': cp.entity_uri
                     })
 
-            # Get last extraction prompt for metadata
-            last_prompt = ExtractionPrompt.query.filter_by(
-                case_id=case_id,
-                concept_type='phase3_decision_synthesis'
+            # Get last extraction prompt for metadata (check both regular and fallback)
+            last_prompt = ExtractionPrompt.query.filter(
+                ExtractionPrompt.case_id == case_id,
+                ExtractionPrompt.concept_type.in_(['phase3_decision_synthesis', 'phase3_e3_llm_fallback'])
             ).order_by(ExtractionPrompt.created_at.desc()).first()
 
             summary = {}

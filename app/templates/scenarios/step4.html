@@ -26,7 +26,17 @@
                 <div id="phase2-indicator" class="phase-indicator">
                     <span class="phase-number">2</span>
                     <div class="phase-label">Analytical Extraction</div>
-                    <small class="text-muted">Provisions, Q&C, Rich Analysis</small>
+                    <small class="text-muted">Provisions, Q&C, Transformation, Rich Analysis</small>
+                    <!-- Phase 2 substep progress -->
+                    <div class="phase2-progress mt-2">
+                        <div class="d-flex justify-content-center gap-1">
+                            <span id="p2-provisions" class="substep-dot" title="2A: Provisions"></span>
+                            <span id="p2-questions" class="substep-dot" title="2B: Questions"></span>
+                            <span id="p2-conclusions" class="substep-dot" title="2B: Conclusions"></span>
+                            <span id="p2-transformation" class="substep-dot" title="2C: Transformation"></span>
+                            <span id="p2-rich" class="substep-dot" title="2D: Rich Analysis"></span>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="col-md-3">
@@ -323,8 +333,8 @@
                             <i class="bi bi-bullseye text-primary"></i> Decision Point Synthesis (E1-E3 + Q&C Alignment + LLM)
                         </h6>
                         {% if current_user.is_authenticated %}
-                        <button class="btn btn-outline-primary btn-sm" onclick="runPhase3Synthesis()" id="extractDecisionSynthesisBtn">
-                            <i class="bi bi-play-fill"></i> Synthesize
+                        <button class="btn btn-outline-secondary btn-sm" onclick="runPhase3Synthesis()" id="extractDecisionSynthesisBtn" disabled title="Complete Phase 2 first">
+                            <i class="bi bi-lock-fill"></i> Synthesize
                         </button>
                         {% endif %}
                     </div>
@@ -409,12 +419,9 @@
 
 <!-- Phase 4: Narrative Construction -->
 <div class="card mb-4" id="phase4-card">
-    <div class="card-header">
+    <div class="card-header bg-dark text-white">
         <h5 class="mb-0">
             <span class="badge bg-secondary me-2">Phase 4</span> Narrative Construction
-            <a href="{{ url_for('tools.references') }}#nine-concept" class="text-muted ms-2" title="Berreby et al. (2017) - Event Calculus" target="_blank">
-                <i class="bi bi-info-circle"></i>
-            </a>
         </h5>
     </div>
     <div class="card-body">
@@ -423,11 +430,11 @@
                 <div class="step-header bg-dark bg-opacity-10">
                     <div class="d-flex justify-content-between align-items-center">
                         <h6 class="mb-0">
-                            <i class="bi bi-book text-dark"></i> Narrative Construction (Event Calculus + Scenario Seeds)
+                            <i class="bi bi-book text-dark"></i> Narrative Elements (Event Calculus + Scenario Seeds)
                         </h6>
                         {% if current_user.is_authenticated %}
-                        <button class="btn btn-outline-dark btn-sm" onclick="runPhase4Narrative()" id="extractNarrativeBtn">
-                            <i class="bi bi-play-fill"></i> Construct
+                        <button class="btn btn-outline-secondary btn-sm" onclick="runPhase4Narrative()" id="extractNarrativeBtn" disabled title="Complete Phase 3 first">
+                            <i class="bi bi-lock-fill"></i> Construct
                         </button>
                         {% endif %}
                     </div>
@@ -441,7 +448,7 @@
                     <div class="row text-center small mb-3" id="phase4Steps">
                         <div class="col border-end">
                             <span id="step-4-1" class="badge bg-secondary mb-1">4.1</span><br>
-                            <small>Narrative Elements</small><br>
+                            <small>Characters</small><br>
                             <span id="stage41Result" class="text-muted">-</span>
                         </div>
                         <div class="col border-end">
@@ -451,12 +458,12 @@
                         </div>
                         <div class="col border-end">
                             <span id="step-4-3" class="badge bg-secondary mb-1">4.3</span><br>
-                            <small>Scenario Seeds</small><br>
+                            <small>Conflicts</small><br>
                             <span id="stage43Result" class="text-muted">-</span>
                         </div>
                         <div class="col">
                             <span id="step-4-4" class="badge bg-secondary mb-1">4.4</span><br>
-                            <small>Insights</small><br>
+                            <small>Decisions</small><br>
                             <span id="stage44Result" class="text-muted">-</span>
                         </div>
                     </div>
@@ -466,54 +473,23 @@
                         <div class="prompt-text" id="narrativePromptText"></div>
                     </div>
 
-                    <!-- Phase 4 Results -->
+                    <!-- Phase 4 Results (Summary) -->
                     <div id="phase4Results" style="display: none;">
-                        <!-- Narrative Elements Summary -->
-                        <div class="card mb-3">
-                            <div class="card-header py-2 bg-light">
-                                <h6 class="mb-0"><i class="bi bi-people text-primary me-1"></i> Narrative Elements</h6>
-                            </div>
-                            <div class="card-body py-2">
-                                <div class="row small">
-                                    <div class="col-md-6">
-                                        <strong>Characters:</strong> <span id="phase4Characters">-</span><br>
-                                        <strong>Events:</strong> <span id="phase4Events">-</span>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <strong>Conflicts:</strong> <span id="phase4Conflicts">-</span><br>
-                                        <strong>Decision Moments:</strong> <span id="phase4Decisions">-</span>
+                        <div class="alert alert-success mb-0">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="bi bi-check-circle-fill me-2"></i>
+                                    <strong>Narrative Construction Complete</strong>
+                                    <div class="small mt-1">
+                                        <span id="phase4Characters">-</span> characters,
+                                        <span id="phase4Events">-</span> events,
+                                        <span id="phase4Conflicts">-</span> conflicts,
+                                        <span id="phase4Fluents">-</span> fluents
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-
-                        <!-- Timeline Preview -->
-                        <div class="card mb-3">
-                            <div class="card-header py-2 bg-light">
-                                <h6 class="mb-0"><i class="bi bi-clock-history text-success me-1"></i> Event Calculus Timeline</h6>
-                            </div>
-                            <div class="card-body py-2">
-                                <pre id="phase4TimelinePreview" class="small mb-0" style="white-space: pre-wrap; max-height: 200px; overflow-y: auto; background: #f8f9fa; padding: 0.5rem; border-radius: 0.25rem;"></pre>
-                            </div>
-                        </div>
-
-                        <!-- Scenario Opening -->
-                        <div class="card mb-3">
-                            <div class="card-header py-2 bg-light">
-                                <h6 class="mb-0"><i class="bi bi-play-circle text-warning me-1"></i> Scenario Opening</h6>
-                            </div>
-                            <div class="card-body py-2">
-                                <p id="phase4OpeningContext" class="mb-0 fst-italic"></p>
-                            </div>
-                        </div>
-
-                        <!-- Key Takeaways -->
-                        <div class="card mb-3">
-                            <div class="card-header py-2 bg-light">
-                                <h6 class="mb-0"><i class="bi bi-lightbulb text-info me-1"></i> Key Takeaways</h6>
-                            </div>
-                            <div class="card-body py-2">
-                                <ul id="phase4Takeaways" class="mb-0 small"></ul>
+                                <a href="{{ url_for('step4.step4_review', case_id=case.id) }}#narrative" class="btn btn-success btn-sm">
+                                    <i class="bi bi-eye"></i> View Narrative
+                                </a>
                             </div>
                         </div>
                     </div>
@@ -523,7 +499,7 @@
     </div>
 </div>
 
-<!-- Navigation to review page -->
+<!-- Navigation buttons -->
 <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4">
     <a href="{{ url_for('step4.step4_review', case_id=case.id) }}" class="btn btn-primary btn-lg">
         <i class="bi bi-eye"></i> Review Step 4 Results
@@ -576,6 +552,30 @@
 
     .phase-active .phase-number {
         background-color: #007bff;
+    }
+
+    /* Phase 2 substep progress dots */
+    .substep-dot {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background-color: #dee2e6;
+        transition: all 0.3s ease;
+    }
+
+    .substep-dot.complete {
+        background-color: #28a745;
+    }
+
+    .substep-dot.active {
+        background-color: #007bff;
+        animation: dotPulse 1s infinite;
+    }
+
+    @keyframes dotPulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.3); }
     }
 
     .extractor-section .step-card {
@@ -775,23 +775,29 @@ function resetStep4UI() {
         }
     });
 
-    // Reset Phase 3 button
+    // Reset Phase 3 button to disabled state (requires Phase 2 completion)
     const phase3Btn = document.getElementById('extractDecisionSynthesisBtn');
     if (phase3Btn) {
-        phase3Btn.disabled = false;
-        phase3Btn.classList.remove('btn-success', 'btn-outline-success', 'btn-outline-secondary');
-        phase3Btn.classList.add('btn-outline-primary');
-        phase3Btn.innerHTML = '<i class="bi bi-play-fill"></i> Synthesize';
+        phase3Btn.disabled = true;
+        phase3Btn.classList.remove('btn-success', 'btn-outline-success', 'btn-outline-primary');
+        phase3Btn.classList.add('btn-outline-secondary');
+        phase3Btn.innerHTML = '<i class="bi bi-lock-fill"></i> Synthesize';
+        phase3Btn.title = 'Complete Phase 2 first';
     }
 
-    // Reset Phase 4 button
-    const phase4Btn = document.getElementById('extractNarrativeBtn');
-    if (phase4Btn) {
-        phase4Btn.disabled = false;
-        phase4Btn.classList.remove('btn-outline-secondary', 'btn-success', 'btn-outline-success');
-        phase4Btn.classList.add('btn-outline-dark');
-        phase4Btn.innerHTML = '<i class="bi bi-play-fill"></i> Construct';
+    // Reset Phase 2 indicator
+    const phase2Indicator = document.getElementById('phase2-indicator');
+    if (phase2Indicator) {
+        phase2Indicator.classList.remove('phase-complete');
     }
+
+    // Reset substep dots
+    ['p2-provisions', 'p2-questions', 'p2-conclusions', 'p2-transformation', 'p2-rich'].forEach(id => {
+        const dot = document.getElementById(id);
+        if (dot) {
+            dot.classList.remove('active', 'complete');
+        }
+    });
 
     // Reset transformation type badge
     const transformType = document.getElementById('transformationType');
@@ -1071,6 +1077,9 @@ function extractTaskStreaming(taskType, button, promptSection, resultsSection, p
         button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Running...';
     }
 
+    // Update substep dot to active
+    updateSubstepDot(taskType, 'active');
+
     // Hide existing status alerts (provisions or Q&C)
     const statusAlerts = {
         'provisions': 'provisionsExistingStatus',
@@ -1220,6 +1229,19 @@ function handleStreamingExtraction(taskType, data, promptText, resultsSection, r
             if (countEl) {
                 countEl.textContent = data.result.count || 0;
             }
+        }
+
+        // Update substep dot to complete
+        updateSubstepDot(taskType, 'complete');
+
+        // Mark Phase 2 complete when rich_analysis (2D) finishes
+        if (taskType === 'rich_analysis') {
+            const phase2Indicator = document.getElementById('phase2-indicator');
+            if (phase2Indicator) {
+                phase2Indicator.classList.add('phase-complete');
+            }
+            // Enable Phase 3 now that Phase 2 is complete
+            enablePhase3();
         }
 
         // Show final status messages + prompt
@@ -1647,6 +1669,9 @@ function handlePhase3StreamingData(data) {
         const phase3Indicator = document.getElementById('phase3-indicator');
         if (phase3Indicator) phase3Indicator.classList.add('phase-complete');
 
+        // Enable Phase 4 now that Phase 3 is complete
+        enablePhase4();
+
         // Change button to Re-run (in case stream done event doesn't fire)
         const button = document.getElementById('extractDecisionSynthesisBtn');
         if (button) {
@@ -1672,6 +1697,8 @@ let phase4StreamingMessages = [];
 
 // Run Phase 4 Narrative Construction with SSE streaming
 async function runPhase4Narrative() {
+    console.log('[Phase 4] Starting Narrative Construction for case:', currentCaseId);
+
     const button = document.getElementById('extractNarrativeBtn');
     const promptSection = document.getElementById('narrativePromptSection');
     const promptText = document.getElementById('narrativePromptText');
@@ -1697,8 +1724,16 @@ async function runPhase4Narrative() {
         if (el) el.textContent = '-';
     });
 
+    // Clear previous result values
+    ['phase4Characters', 'phase4Events', 'phase4Conflicts', 'phase4Fluents'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = '-';
+    });
+
     // Hide previous results
     document.getElementById('phase4Results').style.display = 'none';
+
+    console.log('[Phase 4] Calling streaming endpoint...');
 
     // Use streaming endpoint
     fetch(`/scenario_pipeline/case/${currentCaseId}/construct_phase4_stream`, {
@@ -1709,6 +1744,10 @@ async function runPhase4Narrative() {
         }
     })
     .then(response => {
+        console.log('[Phase 4] Response received:', response.status, response.statusText);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
@@ -1716,6 +1755,7 @@ async function runPhase4Narrative() {
         function processStream() {
             reader.read().then(({ done, value }) => {
                 if (done) {
+                    console.log('[Phase 4] Stream complete');
                     button.disabled = false;
                     button.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Re-run';
                     button.classList.remove('btn-outline-dark');
@@ -1731,9 +1771,10 @@ async function runPhase4Narrative() {
                     if (line.startsWith('data: ')) {
                         try {
                             const data = JSON.parse(line.substring(6));
+                            console.log('[Phase 4] SSE data:', data.stage, data.progress);
                             handlePhase4StreamingData(data);
                         } catch (e) {
-                            console.log('Parse error:', line);
+                            console.log('[Phase 4] Parse error:', line);
                         }
                     }
                 });
@@ -1742,10 +1783,11 @@ async function runPhase4Narrative() {
             });
         }
 
+        console.log('[Phase 4] Starting stream processing...');
         processStream();
     })
     .catch(error => {
-        console.error('Phase 4 streaming error:', error);
+        console.error('[Phase 4] Streaming error:', error);
         promptText.innerHTML = `<div class="alert alert-danger py-2"><i class="bi bi-exclamation-triangle me-1"></i> Error: ${error.message}</div>`;
         button.disabled = false;
         button.innerHTML = '<i class="bi bi-play-fill"></i> Construct';
@@ -2155,84 +2197,82 @@ function loadPhase4Results() {
     {% if phase4_data %}
     const phase4Data = {{ phase4_data | tojson | safe }};
 
-    if (phase4Data && phase4Data.narrative_elements) {
-        // Show the results section
-        const resultsDiv = document.getElementById('phase4Results');
-        if (resultsDiv) resultsDiv.style.display = 'block';
+    if (phase4Data) {
+        displayPhase4Data(phase4Data);
+    }
+    {% else %}
+    // Fallback: fetch from API if not in template context
+    loadSavedPhase4Results();
+    {% endif %}
+}
 
-        // Update narrative elements summary
-        const ne = phase4Data.narrative_elements;
-        if (ne.characters) {
-            const charCount = Array.isArray(ne.characters) ? ne.characters.length : ne.characters;
-            document.getElementById('phase4Characters').textContent = charCount;
-        }
-        if (ne.events) {
-            const eventCount = Array.isArray(ne.events) ? ne.events.length : ne.events;
-            document.getElementById('phase4Events').textContent = eventCount;
-        }
-        if (ne.conflicts) {
-            const conflictCount = Array.isArray(ne.conflicts) ? ne.conflicts.length : ne.conflicts;
-            document.getElementById('phase4Conflicts').textContent = conflictCount;
-        }
-        if (ne.decision_moments) {
-            const dmCount = Array.isArray(ne.decision_moments) ? ne.decision_moments.length : ne.decision_moments;
-            document.getElementById('phase4Decisions').textContent = dmCount;
-        }
+// Display Phase 4 data (handles various data structures)
+function displayPhase4Data(data) {
+    // Show the results section
+    const resultsDiv = document.getElementById('phase4Results');
+    if (resultsDiv) resultsDiv.style.display = 'block';
 
-        // Update timeline preview
-        if (phase4Data.timeline && phase4Data.timeline.event_trace) {
-            document.getElementById('phase4TimelinePreview').textContent = phase4Data.timeline.event_trace.substring(0, 1000);
-        }
+    // Extract counts from various possible structures
+    let charCount = 0, eventCount = 0, conflictCount = 0, fluentCount = 0;
 
-        // Update scenario opening
-        if (phase4Data.scenario_seeds && phase4Data.scenario_seeds.opening_context) {
-            document.getElementById('phase4OpeningContext').textContent = phase4Data.scenario_seeds.opening_context;
-        }
+    // Handle narrative_elements structure
+    if (data.narrative_elements) {
+        const ne = data.narrative_elements;
+        charCount = Array.isArray(ne.characters) ? ne.characters.length : (ne.characters || 0);
+        conflictCount = Array.isArray(ne.conflicts) ? ne.conflicts.length : (ne.conflicts || 0);
+    }
 
-        // Update key takeaways
-        if (phase4Data.insights && phase4Data.insights.key_takeaways && phase4Data.insights.key_takeaways.length > 0) {
-            const takeawaysUl = document.getElementById('phase4Takeaways');
-            takeawaysUl.innerHTML = phase4Data.insights.key_takeaways.map(t => `<li>${escapeHtml(t)}</li>`).join('');
-        }
+    // Handle direct arrays (from streaming result)
+    if (data.characters) charCount = Array.isArray(data.characters) ? data.characters.length : data.characters;
+    if (data.conflicts) conflictCount = Array.isArray(data.conflicts) ? data.conflicts.length : data.conflicts;
 
-        // Mark Phase 4 stage badges as complete
-        ['step-4-1', 'step-4-2', 'step-4-3', 'step-4-4'].forEach(id => {
-            const badge = document.getElementById(id);
-            if (badge) badge.className = 'badge bg-success mb-1';
-        });
-
-        // Update stage result placeholders
-        if (ne.characters) {
-            const charCount = Array.isArray(ne.characters) ? ne.characters.length : ne.characters;
-            document.getElementById('stage41Result').textContent = `${charCount} chars`;
-        }
-        if (phase4Data.timeline && phase4Data.timeline.events) {
-            const eventCount = Array.isArray(phase4Data.timeline.events) ? phase4Data.timeline.events.length : 0;
-            document.getElementById('stage42Result').textContent = `${eventCount} events`;
-        }
-        if (phase4Data.scenario_seeds && phase4Data.scenario_seeds.branches) {
-            const branchCount = Array.isArray(phase4Data.scenario_seeds.branches) ? phase4Data.scenario_seeds.branches.length : 0;
-            document.getElementById('stage43Result').textContent = `${branchCount} branches`;
-        }
-        if (phase4Data.insights && phase4Data.insights.key_takeaways) {
-            const takeawayCount = phase4Data.insights.key_takeaways.length;
-            document.getElementById('stage44Result').textContent = `${takeawayCount} insights`;
-        }
-
-        // Update phase indicator
-        const phase4Indicator = document.getElementById('phase4-indicator');
-        if (phase4Indicator) phase4Indicator.classList.add('phase-complete');
-
-        // Change button to Re-run
-        const button = document.getElementById('extractNarrativeBtn');
-        if (button) {
-            button.disabled = false;
-            button.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Re-run';
-            button.classList.remove('btn-outline-dark');
-            button.classList.add('btn-outline-success');
+    // Handle timeline (full structure from to_dict())
+    if (data.timeline) {
+        if (Array.isArray(data.timeline)) {
+            eventCount = data.timeline.length;
+        } else {
+            if (data.timeline.events) {
+                eventCount = data.timeline.events.length;
+            }
+            if (data.timeline.initial_fluents) {
+                fluentCount = data.timeline.initial_fluents.length;
+            }
         }
     }
-    {% endif %}
+
+    // Update counts in summary
+    document.getElementById('phase4Characters').textContent = charCount;
+    document.getElementById('phase4Events').textContent = eventCount;
+    document.getElementById('phase4Conflicts').textContent = conflictCount;
+    document.getElementById('phase4Fluents').textContent = fluentCount;
+
+    // Update stage result placeholders
+    document.getElementById('stage41Result').textContent = `${charCount} chars`;
+    document.getElementById('stage42Result').textContent = `${eventCount} events`;
+    document.getElementById('stage43Result').textContent = `${conflictCount} conflicts`;
+    document.getElementById('stage44Result').textContent = `${fluentCount} fluents`;
+
+    // Mark Phase 4 stage badges as complete
+    ['step-4-1', 'step-4-2', 'step-4-3', 'step-4-4'].forEach(id => {
+        const badge = document.getElementById(id);
+        if (badge) badge.className = 'badge bg-success mb-1';
+    });
+
+    // Update phase indicator
+    const phase4Indicator = document.getElementById('phase4-indicator');
+    if (phase4Indicator) phase4Indicator.classList.add('phase-complete');
+
+    // Change button to Re-run
+    const button = document.getElementById('extractNarrativeBtn');
+    if (button) {
+        button.disabled = false;
+        button.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Re-run';
+        button.classList.remove('btn-outline-secondary', 'btn-outline-dark');
+        button.classList.add('btn-outline-success');
+        button.title = '';
+    }
+
+    console.log('Phase 4 results displayed');
 }
 
 function loadPhase3Results() {
@@ -2320,24 +2360,91 @@ function loadPhase3Results() {
                 const phase3Indicator = document.getElementById('phase3-indicator');
                 if (phase3Indicator) phase3Indicator.classList.add('phase-complete');
 
+                // Enable Phase 4 now that Phase 3 is complete
+                enablePhase4();
+
                 console.log(`Loaded ${data.canonical_decision_points.length} Phase 3 decision points`);
             }
         })
         .catch(error => console.log('No saved Phase 3 results:', error));
 }
 
+// Enable Phase 3 button when Phase 2 is complete
+function enablePhase3() {
+    const phase3Btn = document.getElementById('extractDecisionSynthesisBtn');
+    if (phase3Btn) {
+        phase3Btn.disabled = false;
+        phase3Btn.classList.remove('btn-outline-secondary');
+        phase3Btn.classList.add('btn-outline-primary');
+        phase3Btn.innerHTML = '<i class="bi bi-play-fill"></i> Synthesize';
+        phase3Btn.title = '';
+    }
+}
+
+// Enable Phase 4 button when Phase 3 is complete
+function enablePhase4() {
+    const phase4Btn = document.getElementById('extractNarrativeBtn');
+    if (phase4Btn) {
+        phase4Btn.disabled = false;
+        phase4Btn.classList.remove('btn-outline-secondary');
+        phase4Btn.classList.add('btn-outline-dark');
+        phase4Btn.innerHTML = '<i class="bi bi-play-fill"></i> Construct';
+        phase4Btn.title = '';
+    }
+}
+
+// Load saved Phase 4 results via API
+function loadSavedPhase4Results() {
+    fetch(`/scenario_pipeline/case/${currentCaseId}/get_phase4_data`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.has_phase4 && data.result) {
+                displayPhase4Data(data.result);
+            }
+        })
+        .catch(error => console.log('No saved Phase 4 results:', error));
+}
+
+// Update Phase 2 substep progress dots
+function updateSubstepDot(taskType, status) {
+    const dotMapping = {
+        'provisions': 'p2-provisions',
+        'questions': 'p2-questions',
+        'conclusions': 'p2-conclusions',
+        'transformation': 'p2-transformation',
+        'rich_analysis': 'p2-rich'
+    };
+    const dotId = dotMapping[taskType];
+    if (dotId) {
+        const dot = document.getElementById(dotId);
+        if (dot) {
+            dot.classList.remove('active', 'complete');
+            if (status === 'active') {
+                dot.classList.add('active');
+            } else if (status === 'complete') {
+                dot.classList.add('complete');
+            }
+        }
+    }
+}
+
 function loadSavedPrompts() {
     const tasks = ['provisions', 'questions', 'conclusions', 'transformation', 'rich_analysis'];
     const completedTasks = new Set();
 
-    // Track completed tasks and update phase2 indicator when all complete
+    // Track completed tasks and update phase2 indicator when core tasks complete
+    // Core tasks: transformation (2C) and rich_analysis (2D) indicate Phase 2 is done
     function checkPhase2Complete() {
-        if (completedTasks.size === tasks.length) {
+        const coreTasks = ['transformation', 'rich_analysis'];
+        const coreComplete = coreTasks.every(t => completedTasks.has(t));
+        if (coreComplete) {
             const phase2Indicator = document.getElementById('phase2-indicator');
             if (phase2Indicator) {
                 phase2Indicator.classList.add('phase-complete');
             }
-            console.log('Phase 2 (Analytical Extraction) complete - all 5 tasks loaded');
+            // Enable Phase 3 now that Phase 2 is complete
+            enablePhase3();
+            console.log('Phase 2 (Analytical Extraction) complete - Phase 3 unlocked');
         }
     }
 
@@ -2369,8 +2476,9 @@ function loadSavedPrompts() {
                         button.classList.add('btn-outline-success');
                     }
 
-                    // Track this task as complete
+                    // Track this task as complete and update substep dot
                     completedTasks.add(task);
+                    updateSubstepDot(task, 'complete');
                     checkPhase2Complete();
                 }
             })
