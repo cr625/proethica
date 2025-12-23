@@ -103,7 +103,7 @@
                                     Cancel
                                 </button>
                                 <span class="badge bg-warning text-dark fs-6 me-3">{{ run.status|replace('_', ' ')|title }}</span>
-                                <div class="timer-display bg-dark text-warning px-3 py-1 rounded" style="font-family: monospace; font-size: 1.5rem; font-weight: bold;" data-start-time="{{ run.started_at.isoformat() if run.started_at else '' }}">
+                                <div class="timer-display bg-dark text-warning px-3 py-1 rounded" style="font-family: monospace; font-size: 1.5rem; font-weight: bold;" data-start-time="{{ run.started_at.isoformat() + 'Z' if run.started_at else '' }}">
                                     {{ "%.0f"|format(run.duration_seconds) }}s
                                 </div>
                             </div>
@@ -120,6 +120,31 @@
                         {% endif %}
 
                         <!-- Progress Bar -->
+                        {% set is_step4_only = run.config and run.config.get('step4_only') %}
+                        {% if is_step4_only %}
+                        <!-- Step 4 Progress: 7 phases -->
+                        {% set step4_phases = ['CLEAR', 'PROVISIONS', 'QC', 'TRANSFORMATION', 'RICH_ANALYSIS', 'PHASE3', 'PHASE4'] %}
+                        {% set step4_labels = {'CLEAR': 'Clear', 'PROVISIONS': 'Provisions', 'QC': 'Q&C', 'TRANSFORMATION': 'Transform', 'RICH_ANALYSIS': 'Analysis', 'PHASE3': 'Decisions', 'PHASE4': 'Narrative'} %}
+                        {% set current_step_upper = run.current_step.split(':')[0] if run.current_step else '' %}
+                        {% set ns = namespace(progress=0, completed_phases=[]) %}
+                        {% for phase in step4_phases %}
+                            {% if run.status == 'completed' %}
+                                {% set ns.progress = 7 %}
+                                {% set ns.completed_phases = step4_phases %}
+                            {% elif phase == current_step_upper %}
+                                {% set ns.progress = loop.index %}
+                            {% elif ns.progress > 0 and loop.index < ns.progress %}
+                                {% set _ = ns.completed_phases.append(phase) %}
+                            {% endif %}
+                        {% endfor %}
+                        {% set step4_pct = 15 + ((ns.progress / 7) * 85)|int %}
+                        <div class="progress mb-2" style="height: 30px;">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-info" style="width: {{ step4_pct }}%; min-width: 220px; padding-left: 10px; text-align: left;">
+                                Step 4: {{ step4_labels.get(current_step_upper, 'Starting') }} ({{ ns.progress }}/7)
+                            </div>
+                        </div>
+                        {% else %}
+                        <!-- Pass 1-3 Progress: 5 steps -->
                         {% set completed_count = (run.steps_completed or [])|length %}
                         {% set total_steps = 5 %}
                         {% set progress_pct = (completed_count / total_steps * 100)|int %}
@@ -128,16 +153,34 @@
                                 {{ completed_count }}/{{ total_steps }} steps complete
                             </div>
                         </div>
+                        {% endif %}
 
                         <!-- Step Details -->
                         <div class="row">
                             <div class="col-md-6">
                                 <small class="text-muted d-block mb-1">Completed:</small>
-                                {% for step in (run.steps_completed or []) %}
-                                <span class="badge bg-success me-1 mb-1">{{ step|replace('_', ' ') }}</span>
-                                {% endfor %}
-                                {% if run.status not in ['pending', 'completed', 'failed'] %}
-                                <span class="badge bg-warning text-dark me-1 mb-1">{{ run.status|replace('_', ' ') }} (running...)</span>
+                                {% if is_step4_only %}
+                                    {# Show completed Step 4 phases #}
+                                    {% set step4_phase_order = ['CLEAR', 'PROVISIONS', 'QC', 'TRANSFORMATION', 'RICH_ANALYSIS', 'PHASE3', 'PHASE4'] %}
+                                    {% set phase_labels = {'CLEAR': 'Clear', 'PROVISIONS': 'Provisions', 'QC': 'Q&C', 'TRANSFORMATION': 'Transform', 'RICH_ANALYSIS': 'Analysis', 'PHASE3': 'Decisions', 'PHASE4': 'Narrative'} %}
+                                    {% set curr_step = run.current_step.split(':')[0] if run.current_step else '' %}
+                                    {% set curr_idx = step4_phase_order.index(curr_step) if curr_step in step4_phase_order else -1 %}
+                                    {% for phase in step4_phase_order %}
+                                        {% if run.status == 'completed' or (curr_idx >= 0 and loop.index0 < curr_idx) %}
+                                        <span class="badge bg-success me-1 mb-1">{{ phase_labels.get(phase, phase) }}</span>
+                                        {% endif %}
+                                    {% endfor %}
+                                    {% if run.status not in ['pending', 'completed', 'failed'] and curr_step %}
+                                    <span class="badge bg-warning text-dark me-1 mb-1">{{ phase_labels.get(curr_step, curr_step) }} (running...)</span>
+                                    {% endif %}
+                                {% else %}
+                                    {# Show Pass 1-3 steps #}
+                                    {% for step in (run.steps_completed or []) %}
+                                    <span class="badge bg-success me-1 mb-1">{{ step|replace('_', ' ') }}</span>
+                                    {% endfor %}
+                                    {% if run.status not in ['pending', 'completed', 'failed'] %}
+                                    <span class="badge bg-warning text-dark me-1 mb-1">{{ run.status|replace('_', ' ') }} (running...)</span>
+                                    {% endif %}
                                 {% endif %}
                             </div>
                             <div class="col-md-6">
@@ -169,7 +212,11 @@
                                     {% endif %}
                                 {% endfor %}
                                 {% else %}
+                                    {% if is_step4_only %}
+                                <small class="text-muted">Synthesis in progress...</small>
+                                    {% else %}
                                 <small class="text-muted">Starting extraction...</small>
+                                    {% endif %}
                                 {% endif %}
                             </div>
                         </div>
@@ -252,7 +299,7 @@
                                     <button class="btn btn-sm btn-primary synthesize-btn"
                                             data-case-id="{{ run.case_id }}"
                                             data-run-id="{{ run.id }}"
-                                            title="Commit to OntServe and run Step 4 Case Synthesis">
+                                            title="Run Step 4 Case Synthesis">
                                         Synthesize
                                     </button>
                                     {% endif %}
@@ -548,16 +595,14 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Synthesize button (for extracted/partial runs - commits to OntServe and runs Step 4)
+    // Synthesize button (for extracted/partial runs - runs Step 4 synthesis only)
     document.querySelectorAll('.synthesize-btn').forEach(btn => {
         btn.addEventListener('click', async function() {
             const caseId = this.dataset.caseId;
-            const runId = this.dataset.runId;
 
-            const msg = `Synthesize Case ${caseId}?\n\n` +
-                        `This will:\n` +
-                        `1. Commit extracted entities to OntServe\n` +
-                        `2. Run Step 4 (Case Synthesis)\n\n` +
+            const msg = `Run Step 4 synthesis for Case ${caseId}?\n\n` +
+                        `This will run Case Synthesis (Step 4) only.\n` +
+                        `No entities will be committed to OntServe.\n\n` +
                         `Steps 1-3 (extraction) are already complete.`;
 
             if (!confirm(msg)) return;
@@ -566,35 +611,19 @@ document.addEventListener('DOMContentLoaded', function() {
             this.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
 
             try {
-                // Add to queue with commit and step4 enabled, then start
-                const addResponse = await fetch('/pipeline/api/queue', {
+                // Call api_run_step4 directly (no OntServe commit)
+                const response = await fetch('/pipeline/api/run_step4', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        case_id: parseInt(caseId),
-                        config: {commit_to_ontserve: true, include_step4: true}
-                    })
+                    body: JSON.stringify({case_id: parseInt(caseId)})
                 });
-                const addData = await addResponse.json();
+                const data = await response.json();
 
-                if (addData.added && addData.added.length > 0) {
-                    // Start processing
-                    const startResponse = await fetch('/pipeline/api/queue/start', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({limit: 1})
-                    });
-                    const startData = await startResponse.json();
-                    if (startData.success) {
-                        alert(`Synthesizing Case ${caseId}...`);
-                        location.reload();
-                    } else {
-                        alert('Error starting: ' + (startData.error || 'Unknown'));
-                        this.disabled = false;
-                        this.textContent = 'Synthesize';
-                    }
+                if (data.success) {
+                    alert(`Step 4 synthesis started for Case ${caseId}.\nRun ID: ${data.run_id}`);
+                    location.reload();
                 } else {
-                    alert('Could not add to queue: ' + JSON.stringify(addData.skipped || addData));
+                    alert('Error: ' + (data.error || 'Unknown'));
                     this.disabled = false;
                     this.textContent = 'Synthesize';
                 }

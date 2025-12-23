@@ -13,6 +13,7 @@ from flask import Blueprint, render_template, jsonify, request
 from app.models import db
 from app.models.pipeline_run import PipelineRun, PipelineQueue, PIPELINE_STATUS
 from app.models.document import Document
+from app.services.pipeline_state_manager import PipelineStateManager
 from datetime import datetime
 import logging
 
@@ -72,10 +73,12 @@ def dashboard():
 
     # Get case IDs that have completed Step 4 synthesis
     # Used to hide Synthesize button for cases already synthesized
+    # Check actual artifacts via PipelineStateManager (works for manual synthesis too)
+    state_manager = PipelineStateManager()
+    all_case_ids = [doc.id for doc in Document.query.filter(Document.doc_metadata.isnot(None)).all()]
     completed_case_ids = set(
-        run.case_id for run in PipelineRun.query
-        .filter_by(status=PIPELINE_STATUS['COMPLETED'])
-        .all()
+        case_id for case_id in all_case_ids
+        if state_manager.check_step_complete(case_id, 'step4')
     )
 
     return render_template(

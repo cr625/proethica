@@ -67,7 +67,9 @@ PHASE 4: Narrative Construction
 
 ## Run Complete Synthesis
 
-**Primary Method:** Click "Run Complete Synthesis" button on step4.html
+### Method 1: UI Button (Interactive)
+
+**Button:** "Run Complete Synthesis" on step4.html
 
 **Endpoint:** `POST /scenario_pipeline/case/<id>/run_complete_synthesis`
 
@@ -78,6 +80,30 @@ This non-streaming endpoint:
 2. Runs all phases sequentially (2A -> 2B -> 2C -> 2D -> 3 -> 4)
 3. Captures all LLM prompts/responses to `extraction_prompts` table
 4. Auto-refreshes page on completion
+
+### Method 2: Pipeline Dashboard (Async/Celery)
+
+**Dashboard:** http://localhost:5000/pipeline/dashboard
+
+**Button:** "Synthesize" appears on extracted runs (cases with Pass 1-3 complete)
+
+**API Endpoint:** `POST /pipeline/api/run_step4` with `{"case_id": N}`
+
+**Code:**
+- `app/routes/pipeline_dashboard.py` - API endpoint
+- `app/tasks/pipeline_tasks.py` - `run_step4_task` Celery task
+- `app/services/step4_synthesis_service.py` - Unified synthesis service
+
+**Flow:**
+1. Creates `PipelineRun` record with status='step4', started_at set
+2. Dispatches Celery task `run_step4_task`
+3. Task calls `run_synthesis()` from `step4_synthesis_service`
+4. Updates run status to 'completed' on success
+5. Duration tracked via `started_at`/`completed_at` timestamps
+
+**Typical Duration:** ~7-8 minutes per case
+
+**Note:** Synthesize button hidden for cases that already have a completed run
 
 **LLM Prompt Capture:**
 - concept_types: `ethical_question`, `ethical_conclusion`, `transformation_classification`, `rich_analysis`, `phase3_decision_synthesis`, `phase4_narrative`
@@ -122,6 +148,7 @@ This non-streaming endpoint:
 
 | Service | Purpose |
 |---------|---------|
+| `step4_synthesis_service.py` | Unified synthesis for Flask and Celery |
 | `decision_point_synthesizer.py` | Phase 3 synthesis with LLM fallback |
 | `question_analyzer.py` | Extract questions (stores last_prompt) |
 | `conclusion_analyzer.py` | Extract conclusions (stores last_prompt) |
@@ -207,27 +234,36 @@ curl -X POST http://localhost:5000/scenario_pipeline/case/5/clear_step4
 
 | Case ID | Status | Notes |
 |---------|--------|-------|
+| 4 | TESTED | Via Celery pipeline |
+| 5 | TESTED | Via Celery pipeline |
 | 6 | TESTED | 5 decision points via LLM fallback |
 | 7 | TESTED | Primary demo case (24-02) |
-| 5 | NEXT | Validation case |
+| 12 | TESTED | Via Celery pipeline, 437s duration |
 
 **Expected outputs:**
 - Provisions: 5-10
 - Questions: 10-20 (board + analytical)
 - Conclusions: 5-10
 - Decision Points: 3-5 (via LLM fallback if E1-E3 fails)
+- Duration: ~7-8 minutes
 
 ---
 
 ## Development Notes
 
-### Flask Auto-Reload is OFF
+### Restarting Services
 
 After Python code changes:
 ```bash
-./scripts/reload_flask.sh
-# or
-pkill -f 'python run.py' && python run.py
+# Flask
+./scripts/restart_flask.sh restart
+
+# Celery (for async tasks)
+./scripts/restart_celery.sh restart
+
+# Check status
+./scripts/restart_flask.sh status
+./scripts/restart_celery.sh status
 ```
 
 Template changes (.html) take effect immediately.
