@@ -24,7 +24,7 @@ Required context variables:
 {% set step1_url = url_for('entity_review.review_case_entities', case_id=case.id, section_type='facts') if pipeline_status.step1.facts_complete else url_for('scenario_pipeline.step1', case_id=case.id) %}
 {% set step2_url = url_for('entity_review.review_case_entities_pass2', case_id=case.id, section_type='facts') if pipeline_status.step2.facts_complete else url_for('scenario_pipeline.step2', case_id=case.id) %}
 {% set step3_url = url_for('entity_review.review_enhanced_temporal', case_id=case.id) if step3_complete else url_for('scenario_pipeline.step3', case_id=case.id) %}
-{% set step4_url = url_for('step4.step4_synthesis', case_id=case.id) %}
+{% set step4_url = url_for('step4.step4_review', case_id=case.id) if step4_complete else url_for('step4.step4_synthesis', case_id=case.id) %}
 {% set step5_url = url_for('step5.step5_scenario_generation', case_id=case.id) %}
 
 <div class="card mb-4 pipeline-status-card">

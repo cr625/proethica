@@ -1,9 +1,61 @@
 {% extends "base.html" %}
 
+{# Ontology Label Macro - inline definition for entity labels with popovers #}
+{% macro ontology_label(uri, entity_lookup) %}
+{%- set label = uri.split('#')[-1] if uri is string and '#' in uri else (uri.split('/')[-1] if uri is string and '/' in uri else uri) -%}
+{%- set entity = entity_lookup.get(uri) if entity_lookup and uri is string else none -%}
+{%- if entity -%}
+{%- set pass_class = 'bg-primary' if entity.source_pass == 1 else ('bg-success' if entity.source_pass == 2 else ('bg-warning text-dark' if entity.source_pass == 3 else 'bg-danger')) -%}
+{%- set type_class = 'onto-type-' ~ (entity.extraction_type or 'default')|lower|replace(' ', '-') -%}
+<span class="onto-label"
+      tabindex="0"
+      data-bs-toggle="popover"
+      data-bs-trigger="hover focus"
+      data-bs-html="true"
+      data-bs-placement="top"
+      data-entity-type="{{ entity.entity_type or entity.extraction_type }}"
+      data-entity-pass="{{ entity.source_pass }}"
+      data-entity-definition="{{ entity.definition|e }}"
+      data-entity-uri="{{ uri|e }}"
+      title="{{ entity.label or label }}">{{ entity.label or label }}</span>
+{%- elif uri is string and ('http' in uri or '#' in uri) -%}
+<span class="onto-label onto-label-unknown"
+      tabindex="0"
+      data-bs-toggle="popover"
+      data-bs-trigger="hover focus"
+      data-bs-html="true"
+      data-bs-placement="top"
+      data-entity-uri="{{ uri|e }}"
+      title="{{ label }}">{{ label }}</span>
+{%- else -%}
+<span>{{ uri }}</span>
+{%- endif -%}
+{% endmacro %}
+
 {% block title %}Step 4 Review - Case {{ case.id }}{% endblock %}
 
 {% block styles %}
 <style>
+    /* Ontology Label Styles */
+    .onto-label { cursor: help; border-bottom: 1px dotted currentColor; text-decoration: none; }
+    .onto-label:hover { background-color: rgba(var(--bs-primary-rgb), 0.1); border-radius: 2px; }
+    .onto-popover-content { max-width: 350px; }
+    .onto-popover-content .onto-type-badge { font-size: 0.7rem; padding: 0.15rem 0.4rem; }
+    .onto-popover-content .onto-uri { font-size: 0.7rem; word-break: break-all; color: #6c757d; background: #f8f9fa; padding: 4px 6px; border-radius: 3px; margin-top: 8px; }
+    .onto-popover-content .onto-definition { font-size: 0.85rem; margin: 8px 0; color: #495057; }
+    .onto-popover-content .onto-pass-badge { font-size: 0.65rem; }
+    .onto-label-unknown { color: #6c757d; font-style: italic; }
+    .onto-type-roles, .onto-type-role { background-color: #0d6efd; color: white; }
+    .onto-type-states, .onto-type-state { background-color: #6f42c1; color: white; }
+    .onto-type-resources, .onto-type-resource { background-color: #20c997; color: white; }
+    .onto-type-principles, .onto-type-principle { background-color: #fd7e14; color: white; }
+    .onto-type-obligations, .onto-type-obligation { background-color: #dc3545; color: white; }
+    .onto-type-constraints, .onto-type-constraint { background-color: #6c757d; color: white; }
+    .onto-type-capabilities, .onto-type-capability { background-color: #0dcaf0; color: black; }
+    .onto-type-actions, .onto-type-action, .onto-type-temporal_dynamics_enhanced { background-color: #198754; color: white; }
+    .onto-type-events, .onto-type-event { background-color: #ffc107; color: black; }
+
+    /* Original styles */
     .bg-purple { background-color: #6F42C1 !important; }
     .applies-to-item { font-size: 0.9rem; }
     .qc-link-card {
@@ -696,72 +748,197 @@
                 </div>
                 <div class="card-body">
                     {% if rich_analysis %}
-                    <div class="row">
-                        <!-- Causal-Normative Links -->
-                        <div class="col-md-4 mb-3">
-                            <div class="card h-100">
-                                <div class="card-header bg-warning bg-opacity-25 py-2">
-                                    <strong><i class="bi bi-link-45deg me-1"></i> Causal-Normative Links</strong>
-                                    <span class="badge bg-warning text-dark float-end">{{ rich_analysis.causal_links|length }}</span>
+                    <!-- Causal-Normative Links Section -->
+                    <div class="mb-4">
+                        <h6 class="border-bottom pb-2 mb-3">
+                            <i class="bi bi-link-45deg text-warning me-2"></i>
+                            Causal-Normative Links
+                            <span class="badge bg-warning text-dark ms-2">{{ rich_analysis.causal_links|length }}</span>
+                        </h6>
+                        {% if rich_analysis.causal_links %}
+                        <div class="row">
+                            {% for cl in rich_analysis.causal_links %}
+                            <div class="col-md-6 mb-3">
+                                <div class="card border-warning">
+                                    <div class="card-body py-2">
+                                        <h6 class="card-title mb-2">{{ cl.action_label }}</h6>
+                                        {% if cl.action_definition %}
+                                        <p class="text-muted small mb-2">{{ cl.action_definition }}</p>
+                                        {% endif %}
+                                        <!-- Fulfills Section -->
+                                        <div class="mb-2 p-2 rounded" style="background-color: rgba(25, 135, 84, 0.08);">
+                                            <small class="text-success fw-bold d-block mb-1">Fulfills</small>
+                                            {% if cl.fulfills_obligations %}
+                                            <ul class="list-unstyled small mb-0">
+                                                {% for obl in cl.fulfills_obligations %}
+                                                <li class="py-1">{{ ontology_label(obl, entity_lookup) }}</li>
+                                                {% endfor %}
+                                            </ul>
+                                            {% else %}
+                                            <span class="text-muted small">None</span>
+                                            {% endif %}
+                                        </div>
+                                        <!-- Violates Section -->
+                                        <div class="p-2 rounded" style="background-color: rgba(220, 53, 69, 0.08);">
+                                            <small class="text-danger fw-bold d-block mb-1">Violates</small>
+                                            {% if cl.violates_obligations %}
+                                            <ul class="list-unstyled small mb-0">
+                                                {% for obl in cl.violates_obligations %}
+                                                <li class="py-1">{{ ontology_label(obl, entity_lookup) }}</li>
+                                                {% endfor %}
+                                            </ul>
+                                            {% else %}
+                                            <span class="text-muted small">None</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
                                 </div>
-                                <ul class="list-group list-group-flush small">
-                                    {% for cl in rich_analysis.causal_links[:5] %}
-                                    <li class="list-group-item py-2">
-                                        <strong>{{ cl.action_label }}</strong><br>
-                                        <span class="text-success">Fulfills: {{ cl.fulfills_obligations|length }}</span> |
-                                        <span class="text-danger">Violates: {{ cl.violates_obligations|length }}</span>
-                                    </li>
-                                    {% endfor %}
-                                    {% if rich_analysis.causal_links|length > 5 %}
-                                    <li class="list-group-item text-muted small">+ {{ rich_analysis.causal_links|length - 5 }} more</li>
-                                    {% endif %}
-                                </ul>
                             </div>
+                            {% endfor %}
                         </div>
+                        {% else %}
+                        <p class="text-muted">No causal-normative links found.</p>
+                        {% endif %}
+                    </div>
 
-                        <!-- Question Emergence -->
-                        <div class="col-md-4 mb-3">
-                            <div class="card h-100">
-                                <div class="card-header bg-info bg-opacity-25 py-2">
-                                    <strong><i class="bi bi-question-circle me-1"></i> Question Emergence</strong>
-                                    <span class="badge bg-info float-end">{{ rich_analysis.question_emergence|length }}</span>
-                                </div>
-                                <ul class="list-group list-group-flush small">
-                                    {% for qe in rich_analysis.question_emergence[:5] %}
-                                    <li class="list-group-item py-2">
-                                        <em>"{{ qe.question_text[:60] }}{% if qe.question_text|length > 60 %}...{% endif %}"</em><br>
-                                        <span class="badge bg-secondary">{{ (qe.data_events|length) + (qe.data_actions|length) }} triggers</span>
+                    <!-- Question Emergence Section -->
+                    <div class="mb-4">
+                        <h6 class="border-bottom pb-2 mb-3">
+                            <i class="bi bi-question-circle text-info me-2"></i>
+                            Question Emergence
+                            <span class="badge bg-info ms-2">{{ rich_analysis.question_emergence|length }}</span>
+                        </h6>
+                        {% if rich_analysis.question_emergence %}
+                        <div class="accordion" id="questionEmergenceAccordion">
+                            {% for qe in rich_analysis.question_emergence %}
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse" data-bs-target="#qe-{{ loop.index }}">
+                                        <span class="me-2">{{ qe.question_text }}</span>
+                                        <span class="badge bg-secondary ms-auto me-2">{{ (qe.data_events|length) + (qe.data_actions|length) }} triggers</span>
                                         <span class="badge bg-warning text-dark">{{ qe.competing_warrants|length }} competing warrants</span>
-                                    </li>
-                                    {% endfor %}
-                                    {% if rich_analysis.question_emergence|length > 5 %}
-                                    <li class="list-group-item text-muted small">+ {{ rich_analysis.question_emergence|length - 5 }} more</li>
-                                    {% endif %}
-                                </ul>
-                            </div>
-                        </div>
-
-                        <!-- Resolution Patterns -->
-                        <div class="col-md-4 mb-3">
-                            <div class="card h-100">
-                                <div class="card-header bg-success bg-opacity-25 py-2">
-                                    <strong><i class="bi bi-check-circle me-1"></i> Resolution Patterns</strong>
-                                    <span class="badge bg-success float-end">{{ rich_analysis.resolution_patterns|length }}</span>
+                                    </button>
+                                </h2>
+                                <div id="qe-{{ loop.index }}" class="accordion-collapse collapse" data-bs-parent="#questionEmergenceAccordion">
+                                    <div class="accordion-body">
+                                        <div class="row">
+                                            <div class="col-md-4">
+                                                <h6 class="small fw-bold">Triggering Events</h6>
+                                                {% if qe.data_events %}
+                                                <ul class="small mb-0">
+                                                    {% for evt in qe.data_events %}
+                                                    <li>{{ ontology_label(evt, entity_lookup) }}</li>
+                                                    {% endfor %}
+                                                </ul>
+                                                {% else %}
+                                                <span class="text-muted small">None</span>
+                                                {% endif %}
+                                            </div>
+                                            <div class="col-md-4">
+                                                <h6 class="small fw-bold">Triggering Actions</h6>
+                                                {% if qe.data_actions %}
+                                                <ul class="small mb-0">
+                                                    {% for act in qe.data_actions %}
+                                                    <li>{{ ontology_label(act, entity_lookup) }}</li>
+                                                    {% endfor %}
+                                                </ul>
+                                                {% else %}
+                                                <span class="text-muted small">None</span>
+                                                {% endif %}
+                                            </div>
+                                            <div class="col-md-4">
+                                                <h6 class="small fw-bold">Competing Warrants</h6>
+                                                {% if qe.competing_warrants %}
+                                                <ul class="small mb-0 list-unstyled">
+                                                    {% for cw_pair in qe.competing_warrants %}
+                                                    <li class="mb-2 p-2 rounded" style="background-color: rgba(255, 193, 7, 0.1);">
+                                                        {% if cw_pair is iterable and cw_pair is not string %}
+                                                        <span class="d-flex align-items-center flex-wrap gap-1">
+                                                            {{ ontology_label(cw_pair[0], entity_lookup) }}
+                                                            <i class="bi bi-arrow-left-right text-warning mx-1"></i>
+                                                            {{ ontology_label(cw_pair[1], entity_lookup) if cw_pair|length > 1 else '' }}
+                                                        </span>
+                                                        {% else %}
+                                                        {{ ontology_label(cw_pair, entity_lookup) }}
+                                                        {% endif %}
+                                                    </li>
+                                                    {% endfor %}
+                                                </ul>
+                                                {% else %}
+                                                <span class="text-muted small">None</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <ul class="list-group list-group-flush small">
-                                    {% for rp in rich_analysis.resolution_patterns[:5] %}
-                                    <li class="list-group-item py-2">
-                                        <em>"{{ rp.conclusion_text[:60] }}{% if rp.conclusion_text|length > 60 %}...{% endif %}"</em><br>
-                                        <span class="badge bg-primary">{{ rp.determinative_principles|length }} principles</span>
-                                        <span class="badge bg-dark">{{ rp.determinative_facts|length }} facts</span>
-                                    </li>
-                                    {% endfor %}
-                                    {% if rich_analysis.resolution_patterns|length > 5 %}
-                                    <li class="list-group-item text-muted small">+ {{ rich_analysis.resolution_patterns|length - 5 }} more</li>
-                                    {% endif %}
-                                </ul>
                             </div>
+                            {% endfor %}
                         </div>
+                        {% else %}
+                        <p class="text-muted">No question emergence data found.</p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Resolution Patterns Section -->
+                    <div class="mb-4">
+                        <h6 class="border-bottom pb-2 mb-3">
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            Resolution Patterns
+                            <span class="badge bg-success ms-2">{{ rich_analysis.resolution_patterns|length }}</span>
+                        </h6>
+                        {% if rich_analysis.resolution_patterns %}
+                        <div class="accordion" id="resolutionPatternsAccordion">
+                            {% for rp in rich_analysis.resolution_patterns %}
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse" data-bs-target="#rp-{{ loop.index }}">
+                                        <span class="me-2">{{ rp.conclusion_text }}</span>
+                                        <span class="badge bg-primary ms-auto me-2">{{ rp.determinative_principles|length }} principles</span>
+                                        <span class="badge bg-dark">{{ rp.determinative_facts|length }} facts</span>
+                                    </button>
+                                </h2>
+                                <div id="rp-{{ loop.index }}" class="accordion-collapse collapse" data-bs-parent="#resolutionPatternsAccordion">
+                                    <div class="accordion-body">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <h6 class="small fw-bold text-primary">Determinative Principles</h6>
+                                                {% if rp.determinative_principles %}
+                                                <ul class="small mb-0">
+                                                    {% for princ in rp.determinative_principles %}
+                                                    <li>{{ ontology_label(princ, entity_lookup) }}</li>
+                                                    {% endfor %}
+                                                </ul>
+                                                {% else %}
+                                                <span class="text-muted small">None identified</span>
+                                                {% endif %}
+                                            </div>
+                                            <div class="col-md-6">
+                                                <h6 class="small fw-bold">Determinative Facts</h6>
+                                                {% if rp.determinative_facts %}
+                                                <ul class="small mb-0">
+                                                    {% for fact in rp.determinative_facts %}
+                                                    <li>{{ ontology_label(fact, entity_lookup) }}</li>
+                                                    {% endfor %}
+                                                </ul>
+                                                {% else %}
+                                                <span class="text-muted small">None identified</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        {% if rp.reasoning_chain %}
+                                        <div class="mt-3">
+                                            <h6 class="small fw-bold">Reasoning Chain</h6>
+                                            <p class="small text-muted mb-0">{{ rp.reasoning_chain }}</p>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <p class="text-muted">No resolution patterns found.</p>
+                        {% endif %}
                     </div>
                     {% else %}
                     <div class="alert alert-warning">
@@ -2372,44 +2549,50 @@ function loadStep4Prompts() {
 }
 
 function renderPromptContents() {
+    // Helper to safely set innerHTML
+    function setContent(elementId, content) {
+        const el = document.getElementById(elementId);
+        if (el) el.innerHTML = content;
+    }
+
     // Provisions (4a)
     const provisionsPrompt = step4PromptsData['code_provision_reference'];
     if (provisionsPrompt) {
-        document.getElementById('provisionsPromptContent').innerHTML = formatPromptDisplay(provisionsPrompt, 'Code Provisions (4a)');
+        setContent('provisionsPromptContent', formatPromptDisplay(provisionsPrompt, 'Code Provisions (4a)'));
     } else {
-        document.getElementById('provisionsPromptContent').innerHTML = '<p class="text-muted mb-0">No prompt data available. Run synthesis first.</p>';
+        setContent('provisionsPromptContent', '<p class="text-muted mb-0">No prompt data available. Run synthesis first.</p>');
     }
 
     // Questions (4b)
     const questionsPrompt = step4PromptsData['ethical_question'];
     if (questionsPrompt) {
-        document.getElementById('questionsPromptContent').innerHTML = formatPromptDisplay(questionsPrompt, 'Questions (4b)');
+        setContent('questionsPromptContent', formatPromptDisplay(questionsPrompt, 'Questions (4b)'));
     } else {
-        document.getElementById('questionsPromptContent').innerHTML = '<p class="text-muted mb-0">No prompt data available. Run synthesis first.</p>';
+        setContent('questionsPromptContent', '<p class="text-muted mb-0">No prompt data available. Run synthesis first.</p>');
     }
 
     // Conclusions (4c)
     const conclusionsPrompt = step4PromptsData['ethical_conclusion'];
     if (conclusionsPrompt) {
-        document.getElementById('conclusionsPromptContent').innerHTML = formatPromptDisplay(conclusionsPrompt, 'Conclusions (4c)');
+        setContent('conclusionsPromptContent', formatPromptDisplay(conclusionsPrompt, 'Conclusions (4c)'));
     } else {
-        document.getElementById('conclusionsPromptContent').innerHTML = '<p class="text-muted mb-0">No prompt data available. Run synthesis first.</p>';
+        setContent('conclusionsPromptContent', '<p class="text-muted mb-0">No prompt data available. Run synthesis first.</p>');
     }
 
     // Decision Points (4e)
     const decisionPointsPrompt = step4PromptsData['decision_point'];
     if (decisionPointsPrompt) {
-        document.getElementById('decisionPointsPromptContent').innerHTML = formatPromptDisplay(decisionPointsPrompt, 'Decision Points (4e)');
+        setContent('decisionPointsPromptContent', formatPromptDisplay(decisionPointsPrompt, 'Decision Points (4e)'));
     } else {
-        document.getElementById('decisionPointsPromptContent').innerHTML = '<p class="text-muted mb-0">No prompt data available. Extract decision points first.</p>';
+        setContent('decisionPointsPromptContent', '<p class="text-muted mb-0">No prompt data available. Extract decision points first.</p>');
     }
 
     // Arguments (4f)
     const argumentsPrompt = step4PromptsData['decision_argument'];
     if (argumentsPrompt) {
-        document.getElementById('argumentsPromptContent').innerHTML = formatPromptDisplay(argumentsPrompt, 'Arguments (4f)');
+        setContent('argumentsPromptContent', formatPromptDisplay(argumentsPrompt, 'Arguments (4f)'));
     } else {
-        document.getElementById('argumentsPromptContent').innerHTML = '<p class="text-muted mb-0">No prompt data available. Generate arguments first.</p>';
+        setContent('argumentsPromptContent', '<p class="text-muted mb-0">No prompt data available. Generate arguments first.</p>');
     }
 }
 
@@ -2457,10 +2640,11 @@ function escapeHtml(text) {
 
 function showPromptError(message) {
     const errorHtml = `<p class="text-danger mb-0">${message}</p>`;
-    document.getElementById('provisionsPromptContent').innerHTML = errorHtml;
-    document.getElementById('questionsPromptContent').innerHTML = errorHtml;
-    document.getElementById('conclusionsPromptContent').innerHTML = errorHtml;
-    document.getElementById('decisionPointsPromptContent').innerHTML = errorHtml;
+    const elements = ['provisionsPromptContent', 'questionsPromptContent', 'conclusionsPromptContent', 'decisionPointsPromptContent'];
+    elements.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = errorHtml;
+    });
 }
 
 // ============================================================================
@@ -2555,5 +2739,98 @@ function publishAllEntities() {
 // =============================================================================
 // These functions were part of the Case Synthesis tab, which has been moved to step4.html
 // to follow the pattern of showing LLM interactions on the extraction page, not the review page.
+
+// =============================================================================
+// ONTOLOGY LABEL POPOVERS
+// =============================================================================
+// Initialize Bootstrap popovers for ontology labels with rich metadata
+document.addEventListener('DOMContentLoaded', function() {
+    // Wait a short time for Bootstrap to be fully loaded
+    setTimeout(function() {
+        if (typeof bootstrap === 'undefined') {
+            console.warn('Bootstrap not available for ontology label popovers');
+            return;
+        }
+
+        // Helper to get pass badge class
+        function getPassClass(pass) {
+            switch(parseInt(pass)) {
+                case 1: return 'bg-primary';
+                case 2: return 'bg-success';
+                case 3: return 'bg-warning text-dark';
+                case 4: return 'bg-danger';
+                default: return 'bg-secondary';
+            }
+        }
+
+        // Helper to get type badge class
+        function getTypeClass(type) {
+            if (!type) return 'bg-secondary';
+            var t = type.toLowerCase();
+            if (t.includes('role')) return 'onto-type-roles';
+            if (t.includes('state')) return 'onto-type-states';
+            if (t.includes('resource')) return 'onto-type-resources';
+            if (t.includes('principle')) return 'onto-type-principles';
+            if (t.includes('obligation')) return 'onto-type-obligations';
+            if (t.includes('constraint')) return 'onto-type-constraints';
+            if (t.includes('capability')) return 'onto-type-capabilities';
+            if (t.includes('action') || t.includes('temporal')) return 'onto-type-actions';
+            if (t.includes('event')) return 'onto-type-events';
+        return 'bg-secondary';
+    }
+
+    // Initialize popovers for ontology labels
+    var ontoLabels = document.querySelectorAll('.onto-label[data-bs-toggle="popover"]');
+    ontoLabels.forEach(function(el) {
+        var entityType = el.dataset.entityType || '';
+        var entityPass = el.dataset.entityPass || '';
+        var entityDef = el.dataset.entityDefinition || '';
+        var entityUri = el.dataset.entityUri || '';
+
+        var content = '<div class="onto-popover-content">';
+
+        // Type and Pass badges
+        if (entityType || entityPass) {
+            content += '<div class="d-flex align-items-center gap-2 mb-2">';
+            if (entityType) {
+                content += '<span class="badge ' + getTypeClass(entityType) + '" style="font-size: 0.7rem;">' + entityType + '</span>';
+            }
+            if (entityPass) {
+                content += '<span class="badge ' + getPassClass(entityPass) + '" style="font-size: 0.65rem;">Pass ' + entityPass + '</span>';
+            }
+            content += '</div>';
+        }
+
+        // Definition
+        if (entityDef) {
+            var truncatedDef = entityDef.length > 200 ? entityDef.substring(0, 200) + '...' : entityDef;
+            content += '<div class="onto-definition" style="font-size: 0.85rem; color: #495057; margin-bottom: 8px;">' + truncatedDef + '</div>';
+        }
+
+        // URI
+        if (entityUri) {
+            content += '<div class="onto-uri" style="font-size: 0.7rem; word-break: break-all; color: #6c757d; background: #f8f9fa; padding: 4px 6px; border-radius: 3px;"><i class="bi bi-link-45deg"></i> ' + entityUri + '</div>';
+        }
+
+        // For unknown entities
+        if (el.classList.contains('onto-label-unknown')) {
+            content = '<div class="onto-popover-content">';
+            content += '<div class="text-muted small mb-1"><i class="bi bi-question-circle"></i> Not found in case entities</div>';
+            if (entityUri) {
+                content += '<div class="onto-uri" style="font-size: 0.7rem; word-break: break-all; color: #6c757d; background: #f8f9fa; padding: 4px 6px; border-radius: 3px;"><i class="bi bi-link-45deg"></i> ' + entityUri + '</div>';
+            }
+        }
+
+        content += '</div>';
+
+        new bootstrap.Popover(el, {
+            container: 'body',
+            sanitize: false,
+            content: content,
+            html: true
+        });
+    });
+    }, 100); // Small delay to ensure Bootstrap is loaded
+});
 </script>
 {% endblock %}

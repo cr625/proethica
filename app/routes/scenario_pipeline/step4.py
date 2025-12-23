@@ -1103,6 +1103,9 @@ def step4_review(case_id):
         pipeline_status = PipelineStatusService.get_step_status(case_id)
         can_publish = pipeline_status.get('step1', {}).get('complete', False) and unpublished_count > 0
 
+        # Build entity lookup dict for ontology label popovers
+        entity_lookup = _build_entity_lookup_dict(case_id)
+
         context = {
             'case': case,
             'saved_synthesis': saved_synthesis,
@@ -1131,7 +1134,9 @@ def step4_review(case_id):
             'pipeline_status': pipeline_status,
             'rich_analysis': rich_analysis,
             'decision_points': _load_decision_points_for_review(case_id),
-            'narrative_data': _load_narrative_for_review(case_id)
+            'narrative_data': _load_narrative_for_review(case_id),
+            # Entity lookup for ontology label macro
+            'entity_lookup': entity_lookup
         }
 
         return render_template('scenario_pipeline/step4_review.html', **context)
@@ -1256,6 +1261,78 @@ def _get_all_entities_for_graph(case_id: int) -> List:
     all_entities.extend(entities)
 
     return all_entities
+
+
+def _build_entity_lookup_dict(case_id: int) -> Dict[str, Dict]:
+    """
+    Build a lookup dictionary mapping entity URIs to their metadata.
+
+    Used by the ontology_label macro to display rich popovers for entity references.
+
+    Args:
+        case_id: The case ID to load entities for
+
+    Returns:
+        Dict mapping entity_uri -> {
+            'label': str,
+            'definition': str,
+            'entity_type': str,
+            'extraction_type': str,
+            'is_published': bool,
+            'source_pass': int,
+            'provenance': dict
+        }
+    """
+    import re
+
+    # Get all entities for this case (both published and unpublished)
+    all_entities = TemporaryRDFStorage.query.filter_by(case_id=case_id).all()
+
+    # Determine source pass from extraction_type
+    pass_map = {
+        'roles': 1, 'states': 1, 'resources': 1,
+        'principles': 2, 'obligations': 2, 'constraints': 2, 'capabilities': 2,
+        'temporal_dynamics_enhanced': 3, 'actions': 3, 'events': 3,
+        'code_provision_reference': 4, 'ethical_question': 4, 'ethical_conclusion': 4,
+        'causal_normative_link': 4, 'question_emergence': 4, 'resolution_pattern': 4,
+        'canonical_decision_point': 4
+    }
+
+    lookup = {}
+    for entity in all_entities:
+        source_pass = pass_map.get(entity.extraction_type, 0)
+
+        entity_data = {
+            'label': entity.entity_label,
+            'definition': entity.entity_definition or '',
+            'entity_type': entity.entity_type,
+            'extraction_type': entity.extraction_type,
+            'is_published': entity.is_published,
+            'source_pass': source_pass,
+            'provenance': entity.provenance_metadata or {}
+        }
+
+        # Index by URI if available
+        if entity.entity_uri:
+            lookup[entity.entity_uri] = entity_data
+
+        # Also create synthetic short-form URI keys for matching
+        # This handles references like "case-8#Historic_Heavy_Rainfall_Event"
+        if entity.entity_label:
+            # Convert label to URI-friendly format: "Historic Heavy Rainfall Event" -> "Historic_Heavy_Rainfall_Event"
+            label_key = re.sub(r'[^\w\s]', '', entity.entity_label)  # Remove special chars except spaces
+            label_key = label_key.replace(' ', '_')
+            short_uri = f"case-{case_id}#{label_key}"
+            lookup[short_uri] = entity_data
+
+            # Also try without underscores for exact fragment match
+            # e.g., "case-8#HistoricHeavyRainfallEvent"
+            camel_key = label_key.replace('_', '')
+            short_uri_camel = f"case-{case_id}#{camel_key}"
+            if short_uri_camel not in lookup:
+                lookup[short_uri_camel] = entity_data
+
+    return lookup
 
 
 @bp.route('/case/<int:case_id>/step4/generate_synthesis_annotations', methods=['POST'])
