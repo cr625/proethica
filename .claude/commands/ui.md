@@ -2,6 +2,106 @@
 
 You are a UI cleanup specialist for ProEthica. Make targeted UI changes based on the user's brief instructions.
 
+## Authentication Context
+
+ProEthica uses Flask-Login with environment-aware authentication. Templates have access to these variables:
+
+| Variable | Description |
+|----------|-------------|
+| `current_user.is_authenticated` | True if user is logged in |
+| `current_user.is_admin` | True if user has admin privileges |
+| `current_user.username` | Username of logged-in user |
+| `environment` | `'production'` or `'development'` |
+
+### Auth-Conditional Patterns
+
+**Show only to logged-in users**:
+```jinja2
+{% if current_user.is_authenticated %}
+    <button class="btn btn-primary">Extract</button>
+{% endif %}
+```
+
+**Show only to admins**:
+```jinja2
+{% if current_user.is_authenticated and current_user.is_admin %}
+    <a href="/admin" class="btn btn-warning">Admin Panel</a>
+{% endif %}
+```
+
+**Production-only auth requirement** (show to all in dev, require login in prod):
+```jinja2
+{% if environment == 'production' %}
+    {% if current_user.is_authenticated %}
+        <button class="btn btn-primary">Create</button>
+    {% else %}
+        <a href="/auth/login" class="btn btn-outline-secondary">
+            Login to Create <i class="bi bi-lock ms-1"></i>
+        </a>
+    {% endif %}
+{% else %}
+    <button class="btn btn-primary">Create</button>
+{% endif %}
+```
+
+**Indicate auth-required features** (visible but marked):
+```jinja2
+<a href="/worlds/new" class="btn btn-sm btn-outline-primary"
+   {% if environment == 'production' and not current_user.is_authenticated %}
+   title="Login required"{% endif %}>
+    <i class="bi bi-plus-circle me-1"></i>New
+    {% if environment == 'production' and not current_user.is_authenticated %}
+    <i class="bi bi-lock ms-1" style="font-size: 0.75em; opacity: 0.7;"></i>
+    {% endif %}
+</a>
+```
+
+**Hide element completely in production for non-authenticated users**:
+```jinja2
+{% if environment != 'production' or current_user.is_authenticated %}
+    <button class="btn btn-danger">Delete</button>
+{% endif %}
+```
+
+### CSS Classes for Auth UI
+
+```css
+/* Already defined in base.html */
+.auth-indicator {
+    font-size: 0.75em;
+    opacity: 0.7;
+    margin-left: auto;
+}
+
+.dropdown-item .auth-indicator {
+    float: right;
+    margin-left: 10px;
+}
+
+.dropdown-item.disabled-tool {
+    color: #999 !important;
+    cursor: not-allowed !important;
+    opacity: 0.6;
+    pointer-events: none;
+}
+```
+
+### Route Decorators Reference
+
+When modifying routes, these decorators control access:
+
+| Decorator | Behavior |
+|-----------|----------|
+| `@login_required` | Always requires login |
+| `@admin_required` | Requires admin (use with @login_required) |
+| `@auth_required_for_write` | Login for POST/PUT/DELETE only, GET is public |
+| `@auth_required_for_llm` | Login for LLM operations (costs money) |
+| `@auth_required_for_create` | Login for creation forms/actions |
+| `@admin_required_production` | Admin in prod, open in dev |
+| `@development_only` | 404 in production |
+
+Import from: `app.utils.environment_auth` or `app.utils.auth_utils`
+
 ## Template-to-URL Mapping
 
 | Page URL Pattern | Template | Route File |
@@ -85,6 +185,10 @@ You are a UI cleanup specialist for ProEthica. Make targeted UI changes based on
 - **Modify navigation**: Edit `_pipeline_steps.html` for sidebar, or specific page for local nav
 - **Change text/labels**: Find template, make targeted text change
 - **Rearrange layout**: Use Bootstrap grid (`row`, `col-md-X`) and flex utilities
+- **Hide from non-authenticated**: Wrap element in `{% if current_user.is_authenticated %}`
+- **Hide from non-admins**: Wrap in `{% if current_user.is_authenticated and current_user.is_admin %}`
+- **Production-only restriction**: Use `{% if environment != 'production' or current_user.is_authenticated %}`
+- **Add login indicator**: Add `<i class="bi bi-lock ms-1" style="font-size: 0.75em; opacity: 0.7;"></i>` after button text
 
 ## Guidelines
 
