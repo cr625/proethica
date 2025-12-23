@@ -236,7 +236,8 @@
                            class="btn btn-sm btn-outline-info" title="View extraction history">
                             <i class="bi bi-clock-history"></i> History
                         </a>
-                        <!-- Re-run button (goes to extraction page) -->
+                        <!-- Re-run button (admin only) -->
+                        {% if current_user.is_authenticated and current_user.is_admin %}
                         {% if section_type == 'discussion' %}
                         <a href="{{ url_for('scenario_pipeline.step2b', case_id=case.id) }}"
                            class="btn btn-sm btn-outline-success" title="Re-run extraction">
@@ -248,9 +249,10 @@
                             <i class="bi bi-arrow-repeat"></i> Re-run
                         </a>
                         {% endif %}
+                        {% endif %}
                         <!-- Draft status -->
                         <span class="badge bg-info" title="Entities will be published to OntServe from Step 4 Review">
-                            <i class="bi bi-info-circle"></i> Draft - Publish at Step 4
+                            <i class="bi bi-info-circle"></i> Draft
                         </span>
                     </div>
                 </div>
@@ -1075,6 +1077,8 @@
 document.addEventListener('DOMContentLoaded', function() {
     const caseId = {{ case.id }};
     const sectionType = {{ section_type | tojson if section_type else 'null' }};
+    const isAuthenticated = {{ 'true' if current_user.is_authenticated else 'false' }};
+    const loginUrl = "{{ url_for('auth.login') }}";
 
     // Load session count
     appFetch(`/scenario_pipeline/case/${caseId}/entities/sessions`)
@@ -1239,6 +1243,14 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             const entityId = this.dataset.entityId;
             const entityLabel = this.dataset.entityLabel;
+
+            // Check authentication first
+            if (!isAuthenticated) {
+                // Show login required modal
+                const loginModal = new bootstrap.Modal(document.getElementById('loginRequiredModal'));
+                loginModal.show();
+                return;
+            }
 
             if (confirm(`Remove entity "${entityLabel}" from this case?`)) {
                 const btnElement = this;
@@ -1574,5 +1586,29 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
+
+<!-- Login Required Modal -->
+<div class="modal fade" id="loginRequiredModal" tabindex="-1" aria-labelledby="loginRequiredModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="loginRequiredModalLabel">
+                    <i class="bi bi-lock"></i> Login Required
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>You need to be logged in to modify entities.</p>
+                <p class="text-muted small mb-0">Logging in allows you to remove, edit, and manage extracted entities.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <a href="{{ url_for('auth.login', next=request.full_path) }}" class="btn btn-primary">
+                    <i class="bi bi-box-arrow-in-right"></i> Login
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
 
 {% endblock %}

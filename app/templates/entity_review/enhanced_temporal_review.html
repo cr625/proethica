@@ -28,43 +28,55 @@
 {% endblock %}
 
 {% block content %}
-<!-- Page Header -->
-<div class="page-header">
-    <div class="container">
-        <div class="row align-items-center">
-            <div class="col-md-8">
-                <h1 class="mb-2">
-                    <i class="bi bi-clock-history"></i> Enhanced Temporal Dynamics - Extraction Review
-                </h1>
-                <p class="mb-0 lead">Review extracted temporal entities with OWL-Time integration and Allen algebra</p>
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <!-- Top Menu Bar -->
+            <div class="bg-light border rounded p-3 mb-4">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex gap-2 align-items-center">
+                        <!-- Back to Overview -->
+                        <a href="{{ url_for('scenario_pipeline.overview', case_id=case.id) }}" class="btn btn-sm btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Overview
+                        </a>
+                        <!-- View Extraction -->
+                        <a href="{{ url_for('scenario_pipeline.step3', case_id=case.id) }}"
+                           class="btn btn-sm btn-outline-secondary" title="View extraction page">
+                            <i class="bi bi-eye"></i> View Extraction
+                        </a>
+                    </div>
+                    <div class="d-flex gap-2 align-items-center">
+                        <!-- History button -->
+                        <a href="{{ url_for('entity_review.extraction_history', case_id=case.id, step_number=3) }}"
+                           class="btn btn-sm btn-outline-info" title="View extraction history">
+                            <i class="bi bi-clock-history"></i> History
+                        </a>
+                        <!-- Re-run button (admin only) -->
+                        {% if current_user.is_authenticated and current_user.is_admin %}
+                        <a href="{{ url_for('scenario_pipeline.step3', case_id=case.id) }}"
+                           class="btn btn-sm btn-outline-primary" title="Re-run extraction">
+                            <i class="bi bi-arrow-repeat"></i> Re-run
+                        </a>
+                        {% endif %}
+                        <!-- Draft status -->
+                        <span class="badge bg-info" title="Entities will be published to OntServe from Step 4 Review">
+                            <i class="bi bi-info-circle"></i> Draft
+                        </span>
+                        <!-- Continue to Step 4 -->
+                        <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}" class="btn btn-sm btn-success">
+                            Continue to Step 4 <i class="bi bi-arrow-right"></i>
+                        </a>
+                    </div>
+                </div>
             </div>
-            <div class="col-md-4 text-md-end">
-                <a href="{{ url_for('scenario_pipeline.overview', case_id=case.id) }}" class="btn btn-light me-2">
-                    <i class="bi bi-arrow-left"></i> Overview
-                </a>
-                <a href="{{ url_for('entity_review.extraction_history', case_id=case.id, step_number=3) }}"
-                   class="btn btn-outline-light me-2" title="View extraction history">
-                    <i class="bi bi-clock-history"></i> History
-                </a>
-                <a href="{{ url_for('scenario_pipeline.step3', case_id=case.id) }}"
-                   class="btn btn-outline-light" title="Re-run extraction">
-                    <i class="bi bi-arrow-repeat"></i> Re-run
-                </a>
-            </div>
-        </div>
-    </div>
-</div>
 
-<div class="container-fluid">
-    <!-- Navigation -->
-    <div class="d-flex justify-content-between mb-4">
-        <div>
-            <span class="text-muted">Case:</span> <strong>{{ case.title }}</strong>
-        </div>
-        <div>
-            <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}" class="btn btn-success">
-                Continue to Step 4 <i class="bi bi-arrow-right"></i>
-            </a>
+            <!-- Pass Information Header -->
+            <div class="page-header rounded p-3 mb-3">
+                <h2 class="mb-1">
+                    <i class="bi bi-clock-history"></i> PASS 3: Temporal Dynamics
+                </h2>
+                <p class="mb-0">Case {{ case.id }}: {{ case.title }}</p>
+            </div>
         </div>
     </div>
 
@@ -590,8 +602,8 @@
     </div>
     {% endif %}
 
-    <!-- Commit to OntServe Section -->
-    {% if extraction_complete %}
+    <!-- Commit to OntServe Section (admin only) -->
+    {% if extraction_complete and current_user.is_authenticated and current_user.is_admin %}
     <div class="card mb-4">
         <div class="card-header {% if all_committed %}bg-secondary{% else %}bg-success{% endif %} bg-opacity-10">
             <h5 class="mb-0"><i class="bi bi-database-check"></i> Commit to OntServe</h5>

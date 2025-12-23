@@ -10,6 +10,7 @@ import logging
 from collections import defaultdict
 from datetime import datetime
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
+from flask_login import login_required
 from app.models import Document, db, TemporaryRDFStorage
 from app.services.case_entity_storage_service import CaseEntityStorageService
 from app.models.temporary_concept import TemporaryConcept

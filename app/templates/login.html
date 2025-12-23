@@ -11,7 +11,7 @@
                     <h2 class="text-center">Login</h2>
                 </div>
                 <div class="card-body">
-                    <form method="POST" action="{{ url_for('auth.login') }}">
+                    <form method="POST" action="{{ url_for('auth.login', next=request.args.get('next', '')) }}">
                         {{ form.hidden_tag() }}
 
                         <div class="mb-3">

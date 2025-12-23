@@ -1,5 +1,6 @@
 from flask import Blueprint, request, render_template, redirect, url_for, flash
 from flask_login import login_user, logout_user, login_required, current_user
+from urllib.parse import urlparse
 from app import db
 from app.models.user import User
 from app.forms import LoginForm, RegistrationForm
@@ -28,6 +29,17 @@ def login():
             
             # Redirect to the page the user was trying to access
             next_page = request.args.get('next')
+            if next_page:
+                # Handle full URLs by extracting just the path
+                parsed = urlparse(next_page)
+                # Security: only allow relative URLs (same host)
+                if parsed.netloc and parsed.netloc != request.host:
+                    next_page = None
+                elif parsed.path:
+                    # Use path with query string if present
+                    next_page = parsed.path
+                    if parsed.query:
+                        next_page += '?' + parsed.query
             if not next_page or not next_page.startswith('/'):
                 next_page = url_for('index.index')
             return redirect(next_page)

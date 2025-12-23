@@ -1,7 +1,8 @@
 #!/bin/bash
 #
-# ProEthica Full Stack Startup Script
-# Starts all required services: Redis, OntServe MCP, Celery, Flask
+# ProEthica Production Simulation Startup Script
+# Starts the local dev environment mimicking production auth behavior
+# Use this to test login/auth UI before deploying
 #
 
 set -e
@@ -10,6 +11,7 @@ set -e
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # Paths
@@ -22,7 +24,7 @@ ONTSERVE_DIR="$ONTO_DIR/OntServe"
 PROETHICA_VENV="$PROETHICA_DIR/venv-proethica"
 ONTSERVE_VENV="$ONTSERVE_DIR/venv-ontserve"
 
-# PID files (stored in proethica directory)
+# PID files
 PID_DIR="$PROETHICA_DIR/.pids"
 mkdir -p "$PID_DIR"
 
@@ -36,6 +38,10 @@ log_warn() {
 
 log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
+}
+
+log_prod() {
+    echo -e "${CYAN}[PROD-SIM]${NC} $1"
 }
 
 check_redis() {
@@ -57,7 +63,6 @@ start_redis() {
         redis-server --daemonize yes
     fi
 
-    # Wait for Redis to start
     for i in {1..10}; do
         if check_redis; then
             log_info "Redis started successfully"
@@ -100,7 +105,6 @@ start_mcp() {
     echo $MCP_PID > "$PID_DIR/mcp_server.pid"
     deactivate
 
-    # Wait for MCP to start
     for i in {1..15}; do
         if check_mcp; then
             log_info "OntServe MCP server started (PID: $MCP_PID)"
@@ -133,13 +137,11 @@ start_celery() {
     log_info "Starting Celery worker..."
     cd "$PROETHICA_DIR"
     source "$PROETHICA_VENV/bin/activate"
-    # IMPORTANT: ProEthica dir must come FIRST so its celery_config.py is found before OntExtract's
     export PYTHONPATH="$PROETHICA_DIR:$ONTO_DIR:$PYTHONPATH"
     nohup celery -A celery_config worker --loglevel=info > "$PID_DIR/celery.log" 2>&1 &
     CELERY_PID=$!
     echo $CELERY_PID > "$PID_DIR/celery.pid"
 
-    # Wait for Celery to initialize
     sleep 3
     if check_celery; then
         log_info "Celery worker started (PID: $CELERY_PID)"
@@ -150,34 +152,17 @@ start_celery() {
     return 1
 }
 
-start_flask() {
-    log_info "Starting ProEthica Flask application..."
-    cd "$PROETHICA_DIR"
-    source "$PROETHICA_VENV/bin/activate"
-    # IMPORTANT: ProEthica dir must come FIRST for correct module resolution
-    export PYTHONPATH="$PROETHICA_DIR:$ONTO_DIR:$PYTHONPATH"
-
-    # Run Flask in foreground so user can see output and Ctrl+C to stop
-    python run.py
-}
-
-start_flask_prod_sim() {
-    echo -e "${YELLOW}"
-    echo "========================================"
-    echo "  PRODUCTION SIMULATION MODE"
-    echo "========================================"
-    echo -e "${NC}"
-    echo "Authentication will be ENFORCED as in production:"
-    echo "  - Login required for write operations"
-    echo "  - Login required for LLM operations"
-    echo "  - Admin features require admin login"
-    echo ""
-    log_info "Login at: http://localhost:5000/auth/login"
+start_flask_production_sim() {
+    log_prod "Starting ProEthica in PRODUCTION SIMULATION mode..."
+    log_prod "Authentication will be ENFORCED as in production"
+    log_prod "Login at: http://localhost:5000/auth/login"
     echo ""
 
     cd "$PROETHICA_DIR"
     source "$PROETHICA_VENV/bin/activate"
     export PYTHONPATH="$PROETHICA_DIR:$ONTO_DIR:$PYTHONPATH"
+
+    # Set environment to production-simulation
     export FLASK_ENV=production-simulation
     # Enable debug/auto-reload for template changes
     export DEBUG=true
@@ -187,9 +172,9 @@ start_flask_prod_sim() {
 
 show_status() {
     echo ""
-    echo "======================================"
-    echo "       Service Status Summary         "
-    echo "======================================"
+    echo "========================================"
+    echo "       Service Status Summary           "
+    echo "========================================"
 
     if check_redis; then
         echo -e "  Redis:      ${GREEN}RUNNING${NC}"
@@ -209,104 +194,30 @@ show_status() {
         echo -e "  Celery:     ${RED}STOPPED${NC}"
     fi
 
-    echo "======================================"
+    echo -e "  Mode:       ${CYAN}PRODUCTION SIMULATION${NC}"
+    echo "========================================"
     echo ""
-}
-
-stop_services() {
-    log_info "Stopping services..."
-
-    # Stop Celery
-    if [ -f "$PID_DIR/celery.pid" ]; then
-        CELERY_PID=$(cat "$PID_DIR/celery.pid")
-        if kill -0 $CELERY_PID 2>/dev/null; then
-            kill $CELERY_PID 2>/dev/null
-            log_info "Stopped Celery (PID: $CELERY_PID)"
-        fi
-        rm -f "$PID_DIR/celery.pid"
-    fi
-
-    # Also kill any other celery workers
-    pkill -f "celery.*worker.*celery_config" 2>/dev/null || true
-
-    # Stop MCP server
-    if [ -f "$PID_DIR/mcp_server.pid" ]; then
-        MCP_PID=$(cat "$PID_DIR/mcp_server.pid")
-        if kill -0 $MCP_PID 2>/dev/null; then
-            kill $MCP_PID 2>/dev/null
-            log_info "Stopped OntServe MCP (PID: $MCP_PID)"
-        fi
-        rm -f "$PID_DIR/mcp_server.pid"
-    fi
-
-    log_info "Services stopped (Redis left running)"
-}
-
-usage() {
-    echo "Usage: $0 [command]"
-    echo ""
-    echo "Commands:"
-    echo "  start     - Start all services and Flask app (default)"
-    echo "  prod-test - Start in production simulation mode (auth enforced)"
-    echo "  stop      - Stop Celery and MCP (leaves Redis running)"
-    echo "  status    - Show service status"
-    echo "  restart   - Stop then start all services"
-    echo ""
-    echo "Services managed:"
-    echo "  - Redis (message broker)"
-    echo "  - OntServe MCP server (ontology serving)"
-    echo "  - Celery worker (background tasks)"
-    echo "  - Flask application (ProEthica web app)"
 }
 
 # Main
-case "${1:-start}" in
-    start)
-        echo ""
-        echo "======================================"
-        echo "    ProEthica Full Stack Startup      "
-        echo "======================================"
-        echo ""
+echo ""
+echo -e "${CYAN}========================================"
+echo "  ProEthica Production Simulation Mode  "
+echo "========================================${NC}"
+echo ""
+echo -e "${YELLOW}This mode mimics production authentication:"
+echo "  - Login required for write operations"
+echo "  - Login required for LLM operations"
+echo "  - Admin features require admin login"
+echo -e "  - Lock icons shown on protected features${NC}"
+echo ""
 
-        start_redis || exit 1
-        start_mcp || exit 1
-        start_celery || exit 1
+start_redis || exit 1
+start_mcp || exit 1
+start_celery || exit 1
 
-        show_status
+show_status
 
-        log_info "All background services running. Starting Flask..."
-        echo ""
-        start_flask
-        ;;
-    prod-test)
-        echo ""
-        echo "======================================"
-        echo "  ProEthica Production Simulation     "
-        echo "======================================"
-        echo ""
-
-        start_redis || exit 1
-        start_mcp || exit 1
-        start_celery || exit 1
-
-        show_status
-
-        start_flask_prod_sim
-        ;;
-    stop)
-        stop_services
-        show_status
-        ;;
-    status)
-        show_status
-        ;;
-    restart)
-        stop_services
-        sleep 2
-        exec "$0" start
-        ;;
-    *)
-        usage
-        exit 1
-        ;;
-esac
+log_prod "All background services running. Starting Flask in production-simulation mode..."
+echo ""
+start_flask_production_sim
