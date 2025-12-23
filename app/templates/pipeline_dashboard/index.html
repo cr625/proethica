@@ -248,7 +248,7 @@
                                         Resume
                                     </button>
                                     {% endif %}
-                                    {% if run.status in ['extracted', 'partial'] %}
+                                    {% if run.status in ['extracted', 'partial'] and run.case_id not in completed_case_ids %}
                                     <button class="btn btn-sm btn-primary synthesize-btn"
                                             data-case-id="{{ run.case_id }}"
                                             data-run-id="{{ run.id }}"
@@ -422,23 +422,33 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Live timer update - use server duration and increment locally
+    // Live timer update - calculate from start time to avoid reset on page refresh
     const timerDisplays = document.querySelectorAll('.timer-display');
     timerDisplays.forEach(timer => {
-        // Get initial duration from server (in seconds)
-        const text = timer.textContent.trim();
-        let initialSeconds = parseInt(text) || 0;
+        const startTimeStr = timer.dataset.startTime;
+        if (!startTimeStr) {
+            // No start time, show 0
+            timer.textContent = '0s';
+            return;
+        }
 
-        setInterval(() => {
-            initialSeconds++;
-            const mins = Math.floor(initialSeconds / 60);
-            const secs = initialSeconds % 60;
+        const startTime = new Date(startTimeStr);
+
+        function updateTimer() {
+            const now = new Date();
+            const elapsedSeconds = Math.floor((now - startTime) / 1000);
+            const mins = Math.floor(elapsedSeconds / 60);
+            const secs = elapsedSeconds % 60;
             if (mins > 0) {
                 timer.textContent = `${mins}m ${secs}s`;
             } else {
                 timer.textContent = `${secs}s`;
             }
-        }, 1000);
+        }
+
+        // Update immediately and then every second
+        updateTimer();
+        setInterval(updateTimer, 1000);
     });
 
     // Store previous status for flash detection

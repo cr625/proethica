@@ -99,7 +99,8 @@ class PipelineRun(db.Model):
         self.updated_at = datetime.utcnow()
         if status == PIPELINE_STATUS['RUNNING'] and not self.started_at:
             self.started_at = datetime.utcnow()
-        elif status in [PIPELINE_STATUS['COMPLETED'], PIPELINE_STATUS['FAILED']]:
+        elif status in [PIPELINE_STATUS['COMPLETED'], PIPELINE_STATUS['FAILED'], PIPELINE_STATUS['EXTRACTED']]:
+            # Set completed_at for all terminal states to stop duration from incrementing
             self.completed_at = datetime.utcnow()
 
     def set_error(self, error_message: str, error_step: str = None):

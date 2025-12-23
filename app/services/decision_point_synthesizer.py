@@ -242,7 +242,22 @@ class DecisionPointSynthesizer:
         logger.info(f"Stage 3.1: {result.candidates_count} candidates composed")
 
         if result.candidates_count == 0:
-            logger.warning("No algorithmic candidates - returning empty result")
+            logger.warning("No algorithmic candidates - trying LLM fallback with causal links")
+            # LLM fallback: generate decision points from causal_normative_links
+            if not skip_llm:
+                canonical_points, llm_prompt, llm_response = self._llm_generate_from_causal_links(
+                    case_id, questions, conclusions, question_emergence, resolution_patterns
+                )
+                if canonical_points:
+                    result.canonical_decision_points = canonical_points
+                    result.canonical_count = len(canonical_points)
+                    result.llm_prompt = llm_prompt
+                    result.llm_response = llm_response
+                    logger.info(f"LLM fallback generated {result.canonical_count} decision points")
+                    # Store the generated points
+                    self._store_canonical_points(case_id, canonical_points, session_id)
+                    return result
+            logger.warning("No decision points generated - returning empty result")
             return result
 
         # Stage 3.2: Q&C Alignment Scoring
@@ -541,6 +556,197 @@ class DecisionPointSynthesizer:
                 question_emergence, resolution_patterns
             )
             return canonical_points, prompt, f"ERROR: {e}"
+
+    def _llm_generate_from_causal_links(
+        self,
+        case_id: int,
+        questions: List[Dict],
+        conclusions: List[Dict],
+        question_emergence: List[Dict],
+        resolution_patterns: List[Dict]
+    ) -> Tuple[List[CanonicalDecisionPoint], str, str]:
+        """
+        LLM fallback: Generate decision points from causal_normative_links when E1-E3 finds 0 candidates.
+
+        Uses the already-extracted causal links (action-obligation relationships) to generate
+        meaningful decision points via LLM.
+
+        Returns:
+            Tuple of (canonical_points, prompt, response)
+        """
+        logger.info(f"LLM fallback: Loading causal links for case {case_id}")
+
+        # Load causal_normative_links from database
+        causal_links = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            extraction_type='causal_normative_link'
+        ).all()
+
+        if not causal_links:
+            logger.warning("No causal links found for LLM fallback")
+            return [], "", ""
+
+        # Format causal links for the prompt
+        causal_links_text = []
+        for i, link in enumerate(causal_links):
+            link_data = link.rdf_json_ld or {}
+            causal_links_text.append(f"""
+{i+1}. {link.entity_label}
+   - Action: {link_data.get('action_label', link.entity_label)}
+   - Obligation: {link_data.get('fulfills_obligations', link_data.get('obligation_label', 'N/A'))}
+   - Violates: {link_data.get('violates_obligations', 'N/A')}
+   - Description: {link.entity_definition or link_data.get('description', '')}
+""")
+
+        # Format questions
+        questions_text = []
+        for i, q in enumerate(questions[:10]):  # Limit to 10
+            questions_text.append(f"Q{i+1}: {q.get('question_text', q.get('text', ''))[:200]}")
+
+        # Format conclusions
+        conclusions_text = []
+        for i, c in enumerate(conclusions[:10]):  # Limit to 10
+            conclusions_text.append(f"C{i+1}: {c.get('conclusion_text', c.get('text', ''))[:200]}")
+
+        prompt = f"""You are analyzing an ethics case to identify key decision points where ethical choices must be made.
+
+The E1-E3 algorithmic composition found no decision point candidates. However, the case analysis has identified
+the following CAUSAL-NORMATIVE LINKS (relationships between actions and obligations):
+
+{chr(10).join(causal_links_text)}
+
+ETHICAL QUESTIONS identified in the case:
+{chr(10).join(questions_text)}
+
+BOARD CONCLUSIONS:
+{chr(10).join(conclusions_text)}
+
+Based on these causal links, generate 3-5 canonical decision points. Each decision point should represent
+a moment where an agent must choose between actions with ethical implications.
+
+For each decision point, provide:
+1. A focus_id (e.g., "DP1", "DP2")
+2. A description of the decision situation
+3. A decision_question (what choice must be made?)
+4. The primary role/agent facing the decision
+5. The relevant obligation or constraint
+6. 2-3 options available to the decision-maker
+7. Which question(s) this addresses (reference Q numbers)
+8. How the board resolved it (reference C numbers)
+
+Return as JSON array:
+```json
+[
+  {{
+    "focus_id": "DP1",
+    "description": "...",
+    "decision_question": "...",
+    "role_label": "...",
+    "obligation_label": "...",
+    "options": [
+      {{"label": "Option A", "description": "..."}},
+      {{"label": "Option B", "description": "..."}}
+    ],
+    "addresses_questions": ["Q1", "Q2"],
+    "board_resolution": "The board concluded that... (C1)"
+  }}
+]
+```
+"""
+
+        try:
+            response = self.llm_client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=4000,
+                temperature=0.3,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            response_text = response.content[0].text
+
+            # Parse response
+            canonical_points = self._parse_causal_link_response(
+                response_text, case_id, questions, conclusions
+            )
+
+            logger.info(f"LLM fallback generated {len(canonical_points)} decision points")
+            return canonical_points, prompt, response_text
+
+        except Exception as e:
+            logger.error(f"LLM fallback failed: {e}")
+            return [], prompt, f"ERROR: {e}"
+
+    def _parse_causal_link_response(
+        self,
+        response_text: str,
+        case_id: int,
+        questions: List[Dict],
+        conclusions: List[Dict]
+    ) -> List[CanonicalDecisionPoint]:
+        """Parse LLM response from causal link generation."""
+        canonical_points = []
+
+        try:
+            # Extract JSON from response
+            json_match = re.search(r'```json\s*(.*?)\s*```', response_text, re.DOTALL)
+            if json_match:
+                json_str = json_match.group(1)
+            else:
+                # Try to find raw JSON array
+                json_match = re.search(r'\[\s*\{.*?\}\s*\]', response_text, re.DOTALL)
+                if json_match:
+                    json_str = json_match.group(0)
+                else:
+                    logger.warning("Could not extract JSON from LLM response")
+                    return []
+
+            parsed = json.loads(json_str)
+
+            # Build question/conclusion URI lookup
+            q_uri_map = {f"Q{i+1}": q.get('uri', '') for i, q in enumerate(questions)}
+            c_uri_map = {f"C{i+1}": c.get('uri', '') for i, c in enumerate(conclusions)}
+
+            for i, dp_data in enumerate(parsed):
+                # Find aligned question
+                addresses = dp_data.get('addresses_questions', [])
+                aligned_q_uri = None
+                aligned_q_text = None
+                if addresses:
+                    first_q = addresses[0] if isinstance(addresses, list) else addresses
+                    aligned_q_uri = q_uri_map.get(first_q, '')
+                    for q in questions:
+                        if q.get('uri') == aligned_q_uri:
+                            aligned_q_text = q.get('question_text', q.get('text', ''))
+                            break
+
+                # Create canonical decision point
+                dp = CanonicalDecisionPoint(
+                    focus_id=dp_data.get('focus_id', f'DP{i+1}'),
+                    focus_number=i + 1,
+                    description=dp_data.get('description', ''),
+                    decision_question=dp_data.get('decision_question', ''),
+                    role_uri=f"case-{case_id}#Role_{dp_data.get('role_label', 'Unknown').replace(' ', '_')}",
+                    role_label=dp_data.get('role_label', 'Unknown'),
+                    obligation_uri=f"case-{case_id}#Obligation_{dp_data.get('obligation_label', 'Unknown').replace(' ', '_')}" if dp_data.get('obligation_label') else None,
+                    obligation_label=dp_data.get('obligation_label'),
+                    aligned_question_uri=aligned_q_uri,
+                    aligned_question_text=aligned_q_text,
+                    board_resolution=dp_data.get('board_resolution', ''),
+                    addresses_questions=[q_uri_map.get(q, q) for q in (addresses if isinstance(addresses, list) else [addresses])],
+                    options=[
+                        {'label': opt.get('label', f'Option {j+1}'), 'description': opt.get('description', '')}
+                        for j, opt in enumerate(dp_data.get('options', []))
+                    ],
+                    intensity_score=0.5,  # Default score for LLM-generated
+                    qc_alignment_score=0.7  # Higher since LLM explicitly aligned
+                )
+                canonical_points.append(dp)
+
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON parse error in causal link response: {e}")
+        except Exception as e:
+            logger.error(f"Error parsing causal link response: {e}")
+
+        return canonical_points
 
     def _build_refinement_prompt(
         self,

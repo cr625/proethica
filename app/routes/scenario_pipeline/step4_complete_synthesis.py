@@ -201,28 +201,35 @@ def register_complete_synthesis_routes(bp, build_entity_foundation, load_canonic
 
                 canonical_points = phase3_result.canonical_decision_points
 
-                # Save Phase 3 ExtractionPrompt for UI display (must match get_saved_step4_prompt lookup)
-                if phase3_result.llm_prompt:
-                    try:
-                        phase3_prompt = ExtractionPrompt(
-                            case_id=case_id,
-                            concept_type='phase3_decision_synthesis',
-                            step_number=4,
-                            section_type='synthesis',
-                            prompt_text=phase3_result.llm_prompt[:10000] if phase3_result.llm_prompt else '',
-                            llm_model='claude-sonnet-4-20250514',
-                            extraction_session_id=str(uuid.uuid4()),
-                            raw_response=phase3_result.llm_response[:10000] if phase3_result.llm_response else '',
-                            results_summary=json.dumps({
-                                'canonical_count': phase3_result.canonical_count,
-                                'candidates_count': phase3_result.candidates_count,
-                                'high_alignment_count': phase3_result.high_alignment_count
-                            })
-                        )
-                        db.session.add(phase3_prompt)
-                        db.session.commit()
-                    except Exception as e:
-                        logger.warning(f"Could not save Phase 3 prompt: {e}")
+                # Save Phase 3 ExtractionPrompt for UI display (always save, even with 0 candidates)
+                try:
+                    if phase3_result.llm_prompt:
+                        prompt_text = phase3_result.llm_prompt[:10000]
+                        raw_response = phase3_result.llm_response[:10000] if phase3_result.llm_response else ''
+                    else:
+                        # No LLM output (E1-E3 found 0 AND LLM fallback didn't produce results)
+                        prompt_text = f'Phase 3 Decision Point Synthesis (E1-E3 Algorithmic Composition)\n\nE1-E3 Algorithm found 0 matching candidates.\nLLM fallback using causal_normative_links was attempted but produced no results.'
+                        raw_response = f'Phase 3 Result:\n- Algorithmic candidates: 0\n- Canonical decision points: {phase3_result.canonical_count}'
+
+                    phase3_prompt = ExtractionPrompt(
+                        case_id=case_id,
+                        concept_type='phase3_decision_synthesis',
+                        step_number=4,
+                        section_type='synthesis',
+                        prompt_text=prompt_text,
+                        llm_model='claude-sonnet-4-20250514' if phase3_result.llm_prompt else 'algorithmic',
+                        extraction_session_id=str(uuid.uuid4()),
+                        raw_response=raw_response,
+                        results_summary=json.dumps({
+                            'canonical_count': phase3_result.canonical_count,
+                            'candidates_count': phase3_result.candidates_count,
+                            'high_alignment_count': phase3_result.high_alignment_count
+                        })
+                    )
+                    db.session.add(phase3_prompt)
+                    db.session.commit()
+                except Exception as e:
+                    logger.warning(f"Could not save Phase 3 prompt: {e}")
 
                 yield sse_msg({
                     'stage': 'DECISION_SYNTHESIS_COMPLETE',

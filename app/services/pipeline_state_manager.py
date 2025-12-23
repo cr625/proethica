@@ -160,26 +160,26 @@ WORKFLOW_DEFINITION: Dict[str, WorkflowStepDefinition] = {
         display_name='Step 4 - Case Analysis',
         route_name='scenario_pipeline.step4',
         tasks=[
-            # DB uses 'code_provision_reference'
+            # Phase 2A: Code provisions from References section
             TaskDefinition('provisions', 'Code Provisions', ['code_provision_reference'], 'code_provision'),
-            # DB uses 'ethical_question' (singular)
+            # Phase 2B: Questions extraction
             TaskDefinition('questions', 'Ethical Questions', ['ethical_question'], 'ethical_question',
                           prerequisites=['provisions']),
-            # DB uses 'ethical_conclusion'
-            TaskDefinition('conclusions', 'Board Conclusions', ['ethical_conclusion'], 'board_conclusion',
+            # Phase 2B: Conclusions extraction
+            TaskDefinition('conclusions', 'Board Conclusions', ['ethical_conclusion'], 'ethical_conclusion',
                           prerequisites=['provisions']),
-            # Transformation not currently stored as entity - uses case_transformation table
-            # For now, check for causal_normative_link as proxy (created during rich analysis)
-            TaskDefinition('transformation', 'Transformation', ['transformation_result'], 'transformation',
-                          prerequisites=['questions', 'conclusions']),
-            # Rich analysis creates causal_normative_link entities
+            # Phase 2D: Rich analysis creates causal links, question emergence, resolution patterns
             TaskDefinition('rich_analysis', 'Rich Analysis',
-                          ['causal_normative_link'], 'rich_analysis',
+                          ['causal_normative_link', 'question_emergence', 'resolution_pattern'], 'rich_analysis',
                           prerequisites=['questions', 'conclusions']),
-            # DB uses 'decision_point', 'decision_option'
+            # Phase 3: Decision point synthesis (E1-E3 + LLM fallback)
             TaskDefinition('decision_points', 'Decision Points',
-                          ['decision_point', 'decision_option'], 'decision_point',
-                          prerequisites=['questions', 'conclusions']),
+                          ['canonical_decision_point'], 'phase3_decision_synthesis',
+                          prerequisites=['rich_analysis']),
+            # Phase 4: Narrative construction (check extraction_prompts since entities vary)
+            TaskDefinition('narrative', 'Narrative Construction',
+                          [], 'phase4_narrative',  # Check prompt, not entities
+                          prerequisites=['decision_points'], min_artifacts=0),
         ],
         prerequisites=['pass3']
     ),

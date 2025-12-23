@@ -835,11 +835,16 @@ def run_step4_task(self, run_id: int):
     """
     Execute Step 4 (Case Synthesis) for a case.
 
-    Runs the complete four-phase synthesis:
-    - Phase 1: Entity Foundation (verification)
-    - Phase 2: Analytical Extraction (provisions, Q&C, transformation, rich analysis)
-    - Phase 3: Decision Point Synthesis (E1-E3 + LLM)
-    - Phase 4: Narrative Construction (timeline, scenario seeds)
+    Uses the unified step4_synthesis_service which runs the same code as
+    the manual "Run Complete Synthesis" button, ensuring consistent behavior.
+
+    Phases:
+    - Phase 2A: Code Provisions
+    - Phase 2B: Questions & Conclusions
+    - Phase 2C: Transformation Classification
+    - Phase 2D: Rich Analysis (causal links, question emergence, resolution)
+    - Phase 3: Decision Point Synthesis (E1-E3 + LLM fallback)
+    - Phase 4: Narrative Construction (characters, timeline)
 
     Args:
         run_id: PipelineRun ID
@@ -859,42 +864,43 @@ def run_step4_task(self, run_id: int):
     db.session.commit()
 
     try:
-        from app.services.case_synthesizer import CaseSynthesizer
+        from app.services.step4_synthesis_service import run_step4_synthesis
 
-        # Update status
-        run.current_step = "Building entity foundation"
-        db.session.commit()
+        # Progress callback to update run status
+        def update_progress(stage: str, message: str):
+            run.current_step = f"{stage}: {message}"
+            db.session.commit()
 
-        synthesizer = CaseSynthesizer()
+        logger.info(f"[Task {self.request.id}] Running unified Step 4 synthesis for case {run.case_id}")
 
-        # Run complete synthesis (this handles all 4 phases internally)
-        logger.info(f"[Task {self.request.id}] Running complete synthesis for case {run.case_id}")
-
-        run.current_step = "Running complete synthesis"
-        db.session.commit()
-
-        model = synthesizer.synthesize_complete(
+        # Run the unified synthesis service
+        result = run_step4_synthesis(
             case_id=run.case_id,
-            skip_llm_synthesis=False,
-            run_extraction_if_needed=True
+            progress_callback=update_progress,
+            skip_clear=False  # Always clear for pipeline runs
         )
+
+        if not result.success:
+            raise Exception(result.error or "Synthesis failed")
 
         # Extract results summary
         results = {
-            'entity_count': model.entity_foundation.summary()['total'] if model.entity_foundation else 0,
-            'provisions_count': len(model.provisions) if model.provisions else 0,
-            'questions_count': len(model.questions) if hasattr(model, 'questions') and model.questions else 0,
-            'conclusions_count': len(model.conclusions) if hasattr(model, 'conclusions') and model.conclusions else 0,
-            'transformation_type': model.transformation_type if hasattr(model, 'transformation_type') else 'unknown',
-            'decision_points_count': len(model.canonical_points) if hasattr(model, 'canonical_points') and model.canonical_points else 0,
-            'narrative_characters': len(model.narrative.characters) if model.narrative and hasattr(model.narrative, 'characters') else 0,
-            'timeline_events': len(model.narrative.timeline.events) if model.narrative and hasattr(model.narrative, 'timeline') else 0
+            'provisions_count': result.provisions_count,
+            'questions_count': result.questions_count,
+            'conclusions_count': result.conclusions_count,
+            'transformation_type': result.transformation_type,
+            'decision_points_count': result.decision_points_count,
+            'causal_links_count': result.causal_links_count,
+            'narrative_complete': result.narrative_complete,
+            'duration_seconds': result.duration_seconds,
+            'stages_completed': result.stages_completed
         }
 
         run.mark_step_complete(step_name, results)
+        run.set_status(PIPELINE_STATUS['COMPLETED'])  # Mark as fully completed
         db.session.commit()
 
-        logger.info(f"[Task {self.request.id}] Step 4 completed: {results}")
+        logger.info(f"[Task {self.request.id}] Step 4 completed in {result.duration_seconds:.1f}s: {results}")
         return {'success': True, 'step': step_name, 'results': results}
 
     except Exception as e:

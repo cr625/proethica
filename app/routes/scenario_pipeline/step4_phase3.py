@@ -70,18 +70,26 @@ def register_phase3_routes(bp, get_all_case_entities, load_phase2_data):
                 skip_llm=False
             )
 
-            # Save extraction prompt for provenance
+            # Save extraction prompt for provenance (always save, even with 0 candidates)
             session_id = result.extraction_session_id or str(uuid.uuid4())
-            if result.llm_prompt:
+            try:
+                if result.llm_prompt:
+                    prompt_text = result.llm_prompt[:10000]
+                    raw_response = result.llm_response[:10000] if result.llm_response else ''
+                else:
+                    # No LLM output (E1-E3 found 0 AND LLM fallback didn't produce results)
+                    prompt_text = f'Phase 3 Decision Point Synthesis (E1-E3 Algorithmic Composition)\n\nE1-E3 Algorithm found 0 matching candidates.\nLLM fallback using causal_normative_links was attempted.'
+                    raw_response = f'Phase 3 Result:\n- Algorithmic candidates: 0\n- Canonical decision points: {result.canonical_count}'
+
                 extraction_prompt = ExtractionPrompt(
                     case_id=case_id,
                     concept_type='phase3_decision_synthesis',
                     step_number=4,
                     section_type='synthesis',
-                    prompt_text=result.llm_prompt[:10000] if result.llm_prompt else '',
-                    llm_model='claude-sonnet-4-20250514',
+                    prompt_text=prompt_text,
+                    llm_model='claude-sonnet-4-20250514' if result.llm_prompt else 'algorithmic',
                     extraction_session_id=session_id,
-                    raw_response=result.llm_response[:10000] if result.llm_response else '',
+                    raw_response=raw_response,
                     results_summary=json.dumps({
                         'canonical_count': result.canonical_count,
                         'candidates_count': result.candidates_count,
@@ -90,6 +98,8 @@ def register_phase3_routes(bp, get_all_case_entities, load_phase2_data):
                 )
                 db.session.add(extraction_prompt)
                 db.session.commit()
+            except Exception as e:
+                logger.warning(f"Could not save Phase 3 prompt: {e}")
 
             return jsonify({
                 'success': True,
@@ -239,198 +249,86 @@ def register_phase3_routes(bp, get_all_case_entities, load_phase2_data):
                 })
 
                 if candidates_count == 0:
-                    # LLM fallback when algorithmic composition fails
+                    # LLM fallback using causal_normative_links (unified with synthesize_decision_points)
                     yield sse_msg({
                         'stage': 'E3_LLM_FALLBACK',
                         'progress': 52,
                         'messages': [
-                            'No algorithmic candidates - using LLM to identify decision points',
-                            f'Analyzing {len(coverage.obligations)} obligations against {len(questions)} questions'
+                            'No algorithmic candidates - using LLM fallback with causal links',
+                            'Loading causal_normative_links from Phase 2 rich analysis...'
                         ]
                     })
 
-                    # Build LLM prompt to identify decision points
-                    obligations_text = "\n".join([
-                        f"- {o.entity_label}: {o.entity_definition[:150]}"
-                        for o in coverage.obligations if o.decision_relevant
-                    ][:10])  # Limit to 10
+                    # Use the unified fallback from decision_point_synthesizer
+                    synthesizer = DecisionPointSynthesizer(domain_config=get_domain_config('engineering'))
+                    canonical_points, llm_prompt, llm_response = synthesizer._llm_generate_from_causal_links(
+                        case_id, questions, conclusions, question_emergence, resolution_patterns
+                    )
 
-                    questions_text = "\n".join([
-                        f"Q{i+1}: {q.get('text', q.get('question_text', ''))[:100]}"
-                        for i, q in enumerate(questions[:5])
-                    ])
+                    if canonical_points:
+                        yield sse_msg({
+                            'stage': 'E3_LLM_FALLBACK_DONE',
+                            'progress': 60,
+                            'messages': [f'LLM fallback generated {len(canonical_points)} decision points from causal links'],
+                            'e3_llm_trace': {
+                                'stage': 'E3_causal_link_fallback',
+                                'prompt': llm_prompt[:2000] if llm_prompt else None,
+                                'response': llm_response[:2000] if llm_response else None
+                            }
+                        })
 
-                    conclusions_text = "\n".join([
-                        f"C{i+1}: {c.get('text', c.get('conclusion_text', ''))[:100]}"
-                        for i, c in enumerate(conclusions[:5])
-                    ])
+                        # Store the generated decision points
+                        session_id = f"phase3_llm_{case_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                        synthesizer._store_canonical_points(case_id, canonical_points, session_id)
 
-                    e3_fallback_prompt = f"""Analyze this NSPE ethics case and identify the key decision points.
-
-DECISION-RELEVANT OBLIGATIONS:
-{obligations_text}
-
-BOARD'S QUESTIONS:
-{questions_text}
-
-BOARD'S CONCLUSIONS:
-{conclusions_text}
-
-Identify 2-4 key decision points where the engineer faced ethical choices.
-For each decision point, provide:
-1. A concise label (5-10 words)
-2. The central ethical question
-3. Which obligations are in tension
-4. The options available
-
-Return as JSON:
-{{
-  "decision_points": [
-    {{
-      "label": "Decision about disclosure",
-      "central_question": "Should the engineer disclose the safety concern?",
-      "obligations_in_tension": ["duty to client", "duty to public safety"],
-      "options": ["Disclose immediately", "Seek internal resolution first", "Remain silent"]
-    }}
-  ]
-}}
-
-Return ONLY the JSON object."""
-
-                    from app.utils.llm_utils import get_llm_client
-                    llm_client = get_llm_client()
-
-                    if llm_client:
+                        # Save prompt for provenance
                         try:
-                            response = llm_client.messages.create(
-                                model="claude-sonnet-4-20250514",
-                                max_tokens=2000,
-                                messages=[{"role": "user", "content": e3_fallback_prompt}]
-                            )
-                            e3_response_text = response.content[0].text.strip()
-
-                            # Parse response
-                            import re as re_module
-                            if e3_response_text.startswith('{'):
-                                e3_result = json.loads(e3_response_text)
-                            else:
-                                json_match = re_module.search(r'\{[\s\S]*\}', e3_response_text)
-                                if json_match:
-                                    e3_result = json.loads(json_match.group())
-                                else:
-                                    e3_result = {"decision_points": []}
-
-                            llm_decision_points = e3_result.get('decision_points', [])
-
-                            yield sse_msg({
-                                'stage': 'E3_LLM_FALLBACK_DONE',
-                                'progress': 60,
-                                'messages': [f'LLM identified {len(llm_decision_points)} decision points'],
-                                'e3_llm_trace': {
-                                    'stage': 'E3_decision_point_fallback',
-                                    'prompt': e3_fallback_prompt,
-                                    'response': e3_response_text
-                                }
-                            })
-
-                            # Store the LLM-generated decision points in canonical format for Phase 4
-                            session_id = f"phase3_llm_{case_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-
-                            # Clear any existing canonical decision points for this case
-                            TemporaryRDFStorage.query.filter_by(
-                                case_id=case_id,
-                                extraction_type='canonical_decision_point'
-                            ).delete(synchronize_session=False)
-
-                            for i, dp in enumerate(llm_decision_points):
-                                focus_id = f"DP{i+1}"
-                                # Convert options to structured format expected by Phase 4
-                                options_structured = [
-                                    {'label': opt, 'description': opt}
-                                    for opt in dp.get('options', [])
-                                ]
-
-                                entity = TemporaryRDFStorage(
-                                    case_id=case_id,
-                                    extraction_session_id=session_id,
-                                    extraction_type='canonical_decision_point',  # Match Phase 4 expectation
-                                    storage_type='individual',
-                                    entity_type='DecisionPoint',
-                                    entity_label=dp.get('label', f'Decision Point {i+1}'),
-                                    entity_uri=f"case-{case_id}#CanonicalDP_{i+1}",
-                                    entity_definition=dp.get('central_question', ''),
-                                    rdf_json_ld={
-                                        '@type': 'proeth:CanonicalDecisionPoint',
-                                        'focus_id': focus_id,
-                                        'focus_number': i + 1,
-                                        'description': dp.get('label', f'Decision Point {i+1}'),
-                                        'decision_question': dp.get('central_question', ''),
-                                        'role_uri': '',
-                                        'role_label': '',
-                                        'obligation_uri': '',
-                                        'obligation_label': ', '.join(dp.get('obligations_in_tension', [])),
-                                        'constraint_uri': '',
-                                        'constraint_label': '',
-                                        'involved_action_uris': [],
-                                        'provision_uris': [],
-                                        'provision_labels': [],
-                                        'options': options_structured,
-                                        'intensity_score': 0.7,
-                                        'qc_alignment_score': 0.8,
-                                        'source': 'llm_fallback',
-                                        'obligations_in_tension': dp.get('obligations_in_tension', [])
-                                    }
-                                )
-                                db.session.add(entity)
-
-                            db.session.commit()
-
-                            # Save prompt for provenance
                             extraction_prompt = ExtractionPrompt(
                                 case_id=case_id,
-                                concept_type='phase3_e3_llm_fallback',
+                                concept_type='phase3_decision_synthesis',
                                 step_number=4,
                                 section_type='synthesis',
-                                prompt_text=e3_fallback_prompt,
+                                prompt_text=llm_prompt[:10000] if llm_prompt else 'LLM fallback with causal links',
                                 llm_model='claude-sonnet-4-20250514',
                                 extraction_session_id=session_id,
-                                raw_response=e3_response_text,
-                                results_summary=json.dumps({'decision_points': len(llm_decision_points)})
+                                raw_response=llm_response[:10000] if llm_response else '',
+                                results_summary=json.dumps({
+                                    'canonical_count': len(canonical_points),
+                                    'candidates_count': 0,
+                                    'used_llm_fallback': True,
+                                    'fallback_source': 'causal_normative_links'
+                                })
                             )
                             db.session.add(extraction_prompt)
                             db.session.commit()
+                        except Exception as e:
+                            logger.warning(f"Could not save Phase 3 fallback prompt: {e}")
 
-                            yield sse_msg({
-                                'stage': 'COMPLETE',
-                                'progress': 100,
-                                'messages': [
-                                    f'Phase 3 complete (LLM fallback): {len(llm_decision_points)} decision points',
-                                    'Note: Algorithmic composition failed, used LLM to identify decision points'
-                                ],
-                                'canonical_count': len(llm_decision_points),
-                                'used_llm_fallback': True,
-                                'llm_trace': {
-                                    'stage': 'E3_decision_point_fallback',
-                                    'prompt': e3_fallback_prompt,
-                                    'response': e3_response_text
-                                }
-                            })
-                            return
-
-                        except Exception as llm_err:
-                            logger.error(f"E3 LLM fallback failed: {llm_err}")
-                            yield sse_msg({
-                                'stage': 'ERROR',
-                                'progress': 100,
-                                'messages': [f'LLM fallback failed: {str(llm_err)}'],
-                                'error': True
-                            })
-                            return
+                        yield sse_msg({
+                            'stage': 'COMPLETE',
+                            'progress': 100,
+                            'messages': [
+                                f'Phase 3 complete (LLM fallback): {len(canonical_points)} decision points',
+                                'Used causal_normative_links from Phase 2 rich analysis'
+                            ],
+                            'canonical_count': len(canonical_points),
+                            'used_llm_fallback': True,
+                            'canonical_decision_points': [dp.to_dict() for dp in canonical_points],
+                            'llm_trace': {
+                                'stage': 'E3_causal_link_fallback',
+                                'prompt': llm_prompt if llm_prompt else None,
+                                'response': llm_response if llm_response else None
+                            }
+                        })
+                        return
                     else:
                         yield sse_msg({
                             'stage': 'ERROR',
                             'progress': 100,
-                            'messages': ['No LLM client available for fallback'],
+                            'messages': [
+                                'LLM fallback produced no decision points',
+                                'Check that causal_normative_links exist from Phase 2 rich analysis'
+                            ],
                             'error': True
                         })
                         return

@@ -102,7 +102,7 @@ def init_step4_csrf_exemption(app):
         # Complete synthesis streaming
         app.csrf.exempt('step4.synthesize_complete_streaming')
         # Non-streaming complete synthesis (run all)
-        app.csrf.exempt('step4.run_complete_synthesis')
+        app.csrf.exempt(run_complete_synthesis_func)
         # Utility endpoints
         app.csrf.exempt('step4.clear_step4_data')
 
@@ -1770,7 +1770,8 @@ register_complete_synthesis_routes(
 )
 
 # Register Run All (non-streaming complete synthesis)
-register_run_all_routes(bp, get_all_case_entities)
+_run_all_funcs = register_run_all_routes(bp, get_all_case_entities)
+run_complete_synthesis_func = _run_all_funcs['run_complete_synthesis']
 
 
 # ============================================================================
@@ -4426,12 +4427,13 @@ def get_saved_step4_prompt(case_id):
             'conclusions': 'ethical_conclusion',
             'transformation': 'transformation_classification',
             'rich_analysis': 'rich_analysis',
-            'decision_synthesis': 'decision_point_synthesis',
-            'narrative': 'narrative_construction'
+            'decision_synthesis': 'phase3_decision_synthesis',  # Updated to match run_all saves
+            'narrative': 'phase4_narrative'  # Updated to match phase4 saves
         }
 
         concept_type = concept_type_map.get(task_type, task_type)
 
+        # For decision_synthesis, try both concept_type names (old and new)
         prompt_record = ExtractionPrompt.query.filter_by(
             case_id=case_id,
             concept_type=concept_type

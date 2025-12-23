@@ -1,230 +1,265 @@
 """
-Step 4 Run All - Simple Non-Streaming Complete Synthesis
+Step 4 Synthesis Service
 
-Calls the same services as the individual UI buttons in sequence.
-This ensures we use the EXACT same code paths without SSE overhead.
+Provides unified synthesis logic that can be called from:
+- Flask routes (step4_run_all.py)
+- Celery tasks (pipeline_tasks.py)
 
-Order matches UI (http://localhost:5000/scenario_pipeline/case/<id>/step4):
-1. Provisions (2A)
-2. Q&C Unified (2B)
-3. Transformation (2C)
-4. Rich Analysis (2D)
-5. Phase 3 Decision Synthesis
-6. Phase 4 Narrative Construction
+This ensures the same code path is used regardless of invocation method.
 
-Usage: Called by "Run Complete Synthesis" button.
+Usage:
+    from app.services.step4_synthesis_service import run_step4_synthesis
+
+    # Synchronous call
+    result = run_step4_synthesis(case_id)
+
+    # With progress callback (for async status updates)
+    def on_progress(stage, message):
+        print(f"{stage}: {message}")
+    result = run_step4_synthesis(case_id, progress_callback=on_progress)
 """
 
 import json
 import logging
 import uuid
 from datetime import datetime
-from flask import jsonify
+from typing import Dict, Any, Callable, Optional
+from dataclasses import dataclass, field
 
 from app.models import Document, TemporaryRDFStorage, ExtractionPrompt, db
-from app.utils.environment_auth import auth_required_for_llm
 from app.utils.llm_utils import get_llm_client
 
 logger = logging.getLogger(__name__)
 
 
-def register_run_all_routes(bp, get_all_case_entities):
-    """
-    Register the run-all-synthesis route on the blueprint.
+@dataclass
+class Step4SynthesisResult:
+    """Result of Step 4 synthesis."""
+    success: bool
+    case_id: int
+    stages_completed: list = field(default_factory=list)
+    provisions_count: int = 0
+    questions_count: int = 0
+    conclusions_count: int = 0
+    transformation_type: str = ''
+    causal_links_count: int = 0
+    decision_points_count: int = 0
+    narrative_complete: bool = False
+    error: str = None
+    duration_seconds: float = 0.0
 
-    Args:
-        bp: The Flask Blueprint to register routes on
-        get_all_case_entities: Helper function to load entities for a case
-    """
-
-    @bp.route('/case/<int:case_id>/run_complete_synthesis', methods=['POST'])
-    @auth_required_for_llm
-    def run_complete_synthesis(case_id):
-        """
-        Run complete Step 4 synthesis by calling the same services as UI buttons.
-
-        Non-streaming - runs to completion, returns JSON result.
-        """
-        try:
-            case = Document.query.get_or_404(case_id)
-            results = {'stages': [], 'success': False}
-            llm_client = get_llm_client()
-
-            # =====================================================================
-            # STEP 1: Clear existing Step 4 data
-            # =====================================================================
-            logger.info(f"[RunAll] Clearing Step 4 data for case {case_id}")
-            clear_result = _clear_step4_data(case_id)
-            results['clear'] = clear_result
-            results['stages'].append('CLEAR')
-
-            # =====================================================================
-            # STEP 2A: Provisions
-            # =====================================================================
-            logger.info(f"[RunAll] Running provisions extraction for case {case_id}")
-            provisions_result = _run_provisions(case_id, llm_client, get_all_case_entities)
-            results['provisions'] = provisions_result
-            results['stages'].append('PROVISIONS')
-
-            if provisions_result.get('error'):
-                logger.error(f"[RunAll] Provisions failed: {provisions_result}")
-                return jsonify({
-                    'success': False,
-                    'error': f"Provisions failed: {provisions_result.get('error')}",
-                    'results': results
-                }), 500
-
-            # =====================================================================
-            # STEP 2B: Q&C Unified
-            # =====================================================================
-            logger.info(f"[RunAll] Running Q&C extraction for case {case_id}")
-            qc_result = _run_qc_unified(case_id, llm_client, get_all_case_entities)
-            results['qc'] = qc_result
-            results['stages'].append('QC')
-
-            if qc_result.get('error'):
-                logger.error(f"[RunAll] Q&C failed: {qc_result}")
-                return jsonify({
-                    'success': False,
-                    'error': f"Q&C failed: {qc_result.get('error')}",
-                    'results': results
-                }), 500
-
-            # =====================================================================
-            # STEP 2C: Transformation
-            # =====================================================================
-            logger.info(f"[RunAll] Running transformation classification for case {case_id}")
-            transformation_result = _run_transformation(case_id, llm_client)
-            results['transformation'] = transformation_result
-            results['stages'].append('TRANSFORMATION')
-
-            # Non-blocking - continue even on error
-
-            # =====================================================================
-            # STEP 2D: Rich Analysis
-            # =====================================================================
-            logger.info(f"[RunAll] Running rich analysis for case {case_id}")
-            rich_result = _run_rich_analysis(case_id)
-            results['rich_analysis'] = rich_result
-            results['stages'].append('RICH_ANALYSIS')
-
-            # Non-blocking - continue even on error
-
-            # =====================================================================
-            # PHASE 3: Decision Synthesis
-            # =====================================================================
-            logger.info(f"[RunAll] Running Phase 3 decision synthesis for case {case_id}")
-            phase3_result = _run_phase3(case_id)
-            results['phase3'] = phase3_result
-            results['stages'].append('PHASE3')
-
-            # Non-blocking - continue even on error
-
-            # =====================================================================
-            # PHASE 4: Narrative Construction
-            # =====================================================================
-            logger.info(f"[RunAll] Running Phase 4 narrative construction for case {case_id}")
-            phase4_result = _run_phase4(case_id)
-            results['phase4'] = phase4_result
-            results['stages'].append('PHASE4')
-
-            # Non-blocking - continue even on error
-
-            # =====================================================================
-            # COMPLETE
-            # =====================================================================
-            logger.info(f"[RunAll] Complete synthesis finished for case {case_id}")
-            results['success'] = True
-
-            return jsonify(results)
-
-        except Exception as e:
-            logger.error(f"[RunAll] Error in run_complete_synthesis for case {case_id}: {e}")
-            import traceback
-            traceback.print_exc()
-            return jsonify({
-                'success': False,
-                'error': str(e)
-            }), 500
-
-    return {
-        'run_complete_synthesis': run_complete_synthesis
-    }
-
-
-def _clear_step4_data(case_id: int) -> dict:
-    """Clear all Step 4 data (Phase 2-4) while preserving Phase 1 entities."""
-    try:
-        extraction_types_to_clear = [
-            'code_provision_reference',
-            'ethical_question',
-            'ethical_conclusion',
-            'question_emergence',
-            'resolution_pattern',
-            'causal_normative_link',
-            'canonical_decision_point',
-            'decision_point',
-            'decision_option',
-            'transformation_analysis',
-            'case_summary',
-            'timeline_event'
-        ]
-
-        deleted_counts = {}
-        total_deleted = 0
-
-        for extraction_type in extraction_types_to_clear:
-            count = TemporaryRDFStorage.query.filter_by(
-                case_id=case_id,
-                extraction_type=extraction_type
-            ).delete(synchronize_session=False)
-            if count > 0:
-                deleted_counts[extraction_type] = count
-                total_deleted += count
-
-        # Clear related extraction prompts
-        prompt_types = [
-            'code_provision',
-            'ethical_question',
-            'ethical_conclusion',
-            'question_emergence',
-            'resolution_pattern',
-            'causal_normative_link',
-            'transformation',
-            'transformation_classification',
-            'rich_analysis',
-            'phase3_decision_synthesis',
-            'phase4_narrative',
-            'unified_synthesis',
-            'whole_case_synthesis'
-        ]
-
-        prompts_deleted = 0
-        for prompt_type in prompt_types:
-            count = ExtractionPrompt.query.filter_by(
-                case_id=case_id,
-                concept_type=prompt_type
-            ).delete(synchronize_session=False)
-            prompts_deleted += count
-
-        db.session.commit()
-
-        logger.info(f"[RunAll] Cleared: {total_deleted} entities, {prompts_deleted} prompts")
-
+    def to_dict(self) -> Dict[str, Any]:
         return {
-            'entities_deleted': total_deleted,
-            'prompts_deleted': prompts_deleted
+            'success': self.success,
+            'case_id': self.case_id,
+            'stages_completed': self.stages_completed,
+            'provisions_count': self.provisions_count,
+            'questions_count': self.questions_count,
+            'conclusions_count': self.conclusions_count,
+            'transformation_type': self.transformation_type,
+            'causal_links_count': self.causal_links_count,
+            'decision_points_count': self.decision_points_count,
+            'narrative_complete': self.narrative_complete,
+            'error': self.error,
+            'duration_seconds': self.duration_seconds
         }
 
+
+def run_step4_synthesis(
+    case_id: int,
+    progress_callback: Optional[Callable[[str, str], None]] = None,
+    skip_clear: bool = False
+) -> Step4SynthesisResult:
+    """
+    Run complete Step 4 synthesis for a case.
+
+    This is the unified entry point for Step 4 synthesis, used by both
+    Flask routes and Celery tasks.
+
+    Args:
+        case_id: Case ID to synthesize
+        progress_callback: Optional callback for progress updates
+            Signature: callback(stage: str, message: str)
+        skip_clear: If True, don't clear existing Step 4 data first
+
+    Returns:
+        Step4SynthesisResult with synthesis results
+    """
+    start_time = datetime.now()
+    result = Step4SynthesisResult(success=False, case_id=case_id)
+
+    def notify(stage: str, message: str):
+        logger.info(f"[Step4Synthesis] {stage}: {message}")
+        if progress_callback:
+            try:
+                progress_callback(stage, message)
+            except Exception as e:
+                logger.warning(f"Progress callback failed: {e}")
+
+    try:
+        # Verify case exists
+        case = Document.query.get(case_id)
+        if not case:
+            result.error = f"Case {case_id} not found"
+            return result
+
+        llm_client = get_llm_client()
+        if not llm_client:
+            result.error = "LLM client not available"
+            return result
+
+        # Helper to get entities - must return dict keyed by entity type
+        def get_all_case_entities(cid):
+            entity_type_map = {
+                'roles': 'Roles',
+                'states': 'States',
+                'resources': 'Resources',
+                'principles': 'Principles',
+                'obligations': 'Obligations',
+                'constraints': 'Constraints',
+                'capabilities': 'Capabilities',
+                'actions': 'actions',
+                'events': 'events'
+            }
+            entities = {}
+            for key, db_type in entity_type_map.items():
+                entities[key] = TemporaryRDFStorage.query.filter_by(
+                    case_id=cid,
+                    entity_type=db_type,
+                    storage_type='individual'
+                ).all()
+            return entities
+
+        # =====================================================================
+        # STEP 1: Clear existing Step 4 data (unless skipped)
+        # =====================================================================
+        if not skip_clear:
+            notify('CLEAR', f"Clearing Step 4 data for case {case_id}")
+            _clear_step4_data(case_id)
+            result.stages_completed.append('CLEAR')
+
+        # =====================================================================
+        # STEP 2A: Provisions
+        # =====================================================================
+        notify('PROVISIONS', 'Extracting code provisions')
+        provisions_result = _run_provisions(case_id, llm_client, get_all_case_entities)
+        if provisions_result.get('error'):
+            result.error = f"Provisions failed: {provisions_result.get('error')}"
+            return result
+        result.provisions_count = provisions_result.get('provisions_count', 0)
+        result.stages_completed.append('PROVISIONS')
+
+        # =====================================================================
+        # STEP 2B: Q&C Unified
+        # =====================================================================
+        notify('QC', 'Extracting questions and conclusions')
+        qc_result = _run_qc_unified(case_id, llm_client, get_all_case_entities)
+        if qc_result.get('error'):
+            result.error = f"Q&C failed: {qc_result.get('error')}"
+            return result
+        result.questions_count = qc_result.get('questions_count', 0)
+        result.conclusions_count = qc_result.get('conclusions_count', 0)
+        result.stages_completed.append('QC')
+
+        # =====================================================================
+        # STEP 2C: Transformation
+        # =====================================================================
+        notify('TRANSFORMATION', 'Classifying transformation type')
+        transformation_result = _run_transformation(case_id, llm_client, get_all_case_entities)
+        result.transformation_type = transformation_result.get('transformation_type', 'unknown')
+        result.stages_completed.append('TRANSFORMATION')
+
+        # =====================================================================
+        # STEP 2D: Rich Analysis
+        # =====================================================================
+        notify('RICH_ANALYSIS', 'Running rich analysis')
+        rich_result = _run_rich_analysis(case_id, llm_client)
+        if rich_result.get('error'):
+            result.error = f"Rich analysis failed: {rich_result.get('error')}"
+            return result
+        result.causal_links_count = rich_result.get('causal_links_count', 0)
+        result.stages_completed.append('RICH_ANALYSIS')
+
+        # =====================================================================
+        # PHASE 3: Decision Point Synthesis
+        # =====================================================================
+        notify('PHASE3', 'Synthesizing decision points')
+        phase3_result = _run_phase3(case_id, llm_client)
+        if phase3_result.get('error'):
+            result.error = f"Phase 3 failed: {phase3_result.get('error')}"
+            return result
+        result.decision_points_count = phase3_result.get('canonical_count', 0)
+        result.stages_completed.append('PHASE3')
+
+        # =====================================================================
+        # PHASE 4: Narrative Construction
+        # =====================================================================
+        notify('PHASE4', 'Constructing narrative')
+        phase4_result = _run_phase4(case_id, llm_client)
+        if phase4_result.get('error'):
+            result.error = f"Phase 4 failed: {phase4_result.get('error')}"
+            return result
+        result.narrative_complete = True
+        result.stages_completed.append('PHASE4')
+
+        # =====================================================================
+        # SUCCESS
+        # =====================================================================
+        result.success = True
+        result.duration_seconds = (datetime.now() - start_time).total_seconds()
+        notify('COMPLETE', f"Synthesis complete in {result.duration_seconds:.1f}s")
+
+        return result
+
     except Exception as e:
-        logger.error(f"[RunAll] Error clearing data: {e}")
-        db.session.rollback()
-        return {'error': str(e)}
+        logger.error(f"[Step4Synthesis] Failed for case {case_id}: {e}", exc_info=True)
+        result.error = str(e)
+        result.duration_seconds = (datetime.now() - start_time).total_seconds()
+        return result
+
+
+# =============================================================================
+# Helper functions (same logic as step4_run_all.py)
+# =============================================================================
+
+def _clear_step4_data(case_id: int) -> dict:
+    """Clear existing Step 4 data for a case."""
+    step4_types = [
+        'code_provision_reference',
+        'ethical_question',
+        'ethical_conclusion',
+        'causal_normative_link',
+        'question_emergence',
+        'resolution_pattern',
+        'canonical_decision_point',
+        'decision_point',
+        'decision_option',
+        'scenario_character',
+        'scenario_timeline_event',
+        'narrative_element'
+    ]
+
+    deleted_count = 0
+    for entity_type in step4_types:
+        count = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            extraction_type=entity_type
+        ).delete(synchronize_session=False)
+        deleted_count += count
+
+    # Also clear extraction prompts for step 4
+    ExtractionPrompt.query.filter_by(
+        case_id=case_id,
+        step_number=4
+    ).delete(synchronize_session=False)
+
+    db.session.commit()
+    return {'deleted_entities': deleted_count}
 
 
 def _run_provisions(case_id: int, llm_client, get_all_case_entities) -> dict:
     """
-    Run provisions extraction - SAME code as extract_provisions_streaming.
+    Run provisions extraction - SAME code as step4_run_all.py.
     """
     from app.services.nspe_references_parser import NSPEReferencesParser
     from app.services.universal_provision_detector import UniversalProvisionDetector
@@ -249,7 +284,7 @@ def _run_provisions(case_id: int, llm_client, get_all_case_entities) -> dict:
         # Parse provisions
         parser = NSPEReferencesParser()
         provisions = parser.parse_references_html(references_html)
-        logger.info(f"[RunAll] Parsed {len(provisions)} NSPE code provisions")
+        logger.info(f"[Step4Synthesis] Parsed {len(provisions)} NSPE code provisions")
 
         # Get case sections for detection
         case_sections = {}
@@ -261,7 +296,7 @@ def _run_provisions(case_id: int, llm_client, get_all_case_entities) -> dict:
         # Detect mentions
         detector = UniversalProvisionDetector()
         all_mentions = detector.detect_all_provisions(case_sections)
-        logger.info(f"[RunAll] Detected {len(all_mentions)} provision mentions")
+        logger.info(f"[Step4Synthesis] Detected {len(all_mentions)} provision mentions")
 
         # Group mentions
         grouper = ProvisionGrouper()
@@ -318,7 +353,7 @@ def _run_provisions(case_id: int, llm_client, get_all_case_entities) -> dict:
         )
 
         total_links = sum(len(p.get('applies_to', [])) for p in provisions)
-        logger.info(f"[RunAll] Linked provisions to {total_links} entities")
+        logger.info(f"[Step4Synthesis] Linked provisions to {total_links} entities")
 
         # Store provisions
         session_id = str(uuid.uuid4())
@@ -343,7 +378,7 @@ def _run_provisions(case_id: int, llm_client, get_all_case_entities) -> dict:
             db.session.add(rdf_entity)
 
         db.session.commit()
-        logger.info(f"[RunAll] Stored {len(provisions)} provisions")
+        logger.info(f"[Step4Synthesis] Stored {len(provisions)} provisions")
 
         return {
             'provisions_count': len(provisions),
@@ -351,7 +386,7 @@ def _run_provisions(case_id: int, llm_client, get_all_case_entities) -> dict:
         }
 
     except Exception as e:
-        logger.error(f"[RunAll] Provisions error: {e}")
+        logger.error(f"[Step4Synthesis] Provisions error: {e}")
         import traceback
         traceback.print_exc()
         return {'error': str(e)}
@@ -359,7 +394,7 @@ def _run_provisions(case_id: int, llm_client, get_all_case_entities) -> dict:
 
 def _run_qc_unified(case_id: int, llm_client, get_all_case_entities) -> dict:
     """
-    Run Q&C unified extraction - SAME code as extract_qc_unified_streaming.
+    Run Q&C unified extraction - SAME code as step4_run_all.py.
     """
     from app.services.question_analyzer import QuestionAnalyzer
     from app.services.conclusion_analyzer import ConclusionAnalyzer
@@ -374,7 +409,7 @@ def _run_qc_unified(case_id: int, llm_client, get_all_case_entities) -> dict:
             extraction_type='code_provision_reference'
         ).all()
         provisions = [r.rdf_json_ld for r in provisions_records if r.rdf_json_ld]
-        logger.info(f"[RunAll] Loaded {len(provisions)} provisions")
+        logger.info(f"[Step4Synthesis] Loaded {len(provisions)} provisions")
 
         # Get all entities
         all_entities = get_all_case_entities(case_id)
@@ -424,7 +459,7 @@ def _run_qc_unified(case_id: int, llm_client, get_all_case_entities) -> dict:
                 questions.append(q_dict)
 
         board_q_count = len(questions_result.get('board_explicit', []))
-        logger.info(f"[RunAll] Extracted {board_q_count} Board + {len(questions) - board_q_count} analytical = {len(questions)} questions")
+        logger.info(f"[Step4Synthesis] Extracted {board_q_count} Board + {len(questions) - board_q_count} analytical = {len(questions)} questions")
 
         # Get questions for conclusion context
         board_questions = [question_analyzer._question_to_dict(q) if hasattr(q, 'question_number') else q
@@ -450,13 +485,13 @@ def _run_qc_unified(case_id: int, llm_client, get_all_case_entities) -> dict:
                 conclusions.append(c_dict)
 
         board_c_count = len(conclusions_result.get('board_explicit', []))
-        logger.info(f"[RunAll] Extracted {board_c_count} Board + {len(conclusions) - board_c_count} analytical = {len(conclusions)} conclusions")
+        logger.info(f"[Step4Synthesis] Extracted {board_c_count} Board + {len(conclusions) - board_c_count} analytical = {len(conclusions)} conclusions")
 
         # Link Q to C
         linker = QuestionConclusionLinker(llm_client)
         qc_links = linker.link_questions_to_conclusions(questions, conclusions)
         conclusions = linker.apply_links_to_conclusions(conclusions, qc_links)
-        logger.info(f"[RunAll] Created {len(qc_links)} Q-C links")
+        logger.info(f"[Step4Synthesis] Created {len(qc_links)} Q-C links")
 
         # Store everything
         session_id = str(uuid.uuid4())
@@ -509,12 +544,10 @@ def _run_qc_unified(case_id: int, llm_client, get_all_case_entities) -> dict:
             db.session.add(rdf_entity)
 
         db.session.commit()
-        logger.info(f"[RunAll] Stored {len(questions)} questions and {len(conclusions)} conclusions")
+        logger.info(f"[Step4Synthesis] Stored {len(questions)} questions and {len(conclusions)} conclusions")
 
-        # Save ExtractionPrompts for UI display (questions and conclusions)
-        # Capture actual LLM prompts from analyzers
+        # Save ExtractionPrompts for UI display
         try:
-            # Get actual LLM prompt/response from question analyzer
             q_prompt_text = getattr(question_analyzer, 'last_prompt', None) or f'LLM extraction of {len(questions)} questions'
             q_response_text = getattr(question_analyzer, 'last_response', None) or ''
 
@@ -535,7 +568,6 @@ def _run_qc_unified(case_id: int, llm_client, get_all_case_entities) -> dict:
             )
             db.session.add(questions_prompt)
 
-            # Get actual LLM prompt/response from conclusion analyzer
             c_prompt_text = getattr(conclusion_analyzer, 'last_prompt', None) or f'LLM extraction of {len(conclusions)} conclusions'
             c_response_text = getattr(conclusion_analyzer, 'last_response', None) or ''
 
@@ -557,9 +589,9 @@ def _run_qc_unified(case_id: int, llm_client, get_all_case_entities) -> dict:
             )
             db.session.add(conclusions_prompt)
             db.session.commit()
-            logger.info(f"[RunAll] Saved Q&C ExtractionPrompts with LLM prompts")
+            logger.info(f"[Step4Synthesis] Saved Q&C ExtractionPrompts with LLM prompts")
         except Exception as e:
-            logger.warning(f"[RunAll] Could not save Q&C prompts: {e}")
+            logger.warning(f"[Step4Synthesis] Could not save Q&C prompts: {e}")
 
         return {
             'questions_count': len(questions),
@@ -568,15 +600,15 @@ def _run_qc_unified(case_id: int, llm_client, get_all_case_entities) -> dict:
         }
 
     except Exception as e:
-        logger.error(f"[RunAll] Q&C error: {e}")
+        logger.error(f"[Step4Synthesis] Q&C error: {e}")
         import traceback
         traceback.print_exc()
         return {'error': str(e)}
 
 
-def _run_transformation(case_id: int, llm_client) -> dict:
+def _run_transformation(case_id: int, llm_client, get_all_case_entities) -> dict:
     """
-    Run transformation classification - SAME code as extract_transformation_streaming.
+    Run transformation classification - SAME code as step4_run_all.py.
     """
     from app.services.case_analysis.transformation_classifier import TransformationClassifier
 
@@ -623,7 +655,6 @@ def _run_transformation(case_id: int, llm_client) -> dict:
                 facts_text = f_data.get('text', '') if isinstance(f_data, dict) else str(f_data)
 
         # Get all entities for context
-        from app.routes.scenario_pipeline.step4 import get_all_case_entities
         all_entities = get_all_case_entities(case_id)
 
         # Classify transformation
@@ -637,7 +668,7 @@ def _run_transformation(case_id: int, llm_client) -> dict:
             all_entities=all_entities
         )
 
-        logger.info(f"[RunAll] Transformation type: {result.transformation_type} (confidence: {result.confidence})")
+        logger.info(f"[Step4Synthesis] Transformation type: {result.transformation_type} (confidence: {result.confidence})")
 
         # Save ExtractionPrompt
         session_id = str(uuid.uuid4())
@@ -657,7 +688,7 @@ def _run_transformation(case_id: int, llm_client) -> dict:
                 db.session.add(transformation_prompt)
                 db.session.commit()
             except Exception as e:
-                logger.warning(f"[RunAll] Could not save transformation prompt: {e}")
+                logger.warning(f"[Step4Synthesis] Could not save transformation prompt: {e}")
 
         return {
             'transformation_type': result.transformation_type,
@@ -665,15 +696,15 @@ def _run_transformation(case_id: int, llm_client) -> dict:
         }
 
     except Exception as e:
-        logger.error(f"[RunAll] Transformation error: {e}")
+        logger.error(f"[Step4Synthesis] Transformation error: {e}")
         import traceback
         traceback.print_exc()
         return {'error': str(e)}
 
 
-def _run_rich_analysis(case_id: int) -> dict:
+def _run_rich_analysis(case_id: int, llm_client) -> dict:
     """
-    Run rich analysis - SAME code as extract_rich_analysis_streaming.
+    Run rich analysis - SAME code as step4_run_all.py.
     """
     from app.services.case_synthesizer import CaseSynthesizer
 
@@ -699,20 +730,20 @@ def _run_rich_analysis(case_id: int) -> dict:
 
         # Causal-normative links
         causal_links = synthesizer._analyze_causal_normative_links(foundation, llm_traces)
-        logger.info(f"[RunAll] Causal links: {len(causal_links)}")
+        logger.info(f"[Step4Synthesis] Causal links: {len(causal_links)}")
 
         # Question emergence
         question_emergence = []
         for i, q in enumerate(questions):
             batch_results = synthesizer._analyze_question_batch([q], foundation, llm_traces, i)
             question_emergence.extend(batch_results)
-        logger.info(f"[RunAll] Question emergence: {len(question_emergence)}")
+        logger.info(f"[Step4Synthesis] Question emergence: {len(question_emergence)}")
 
         # Resolution patterns
         resolution_patterns = synthesizer._analyze_resolution_patterns(
             conclusions, questions, provisions, llm_traces
         )
-        logger.info(f"[RunAll] Resolution patterns: {len(resolution_patterns)}")
+        logger.info(f"[Step4Synthesis] Resolution patterns: {len(resolution_patterns)}")
 
         # Store rich analysis
         synthesizer._store_rich_analysis(case_id, causal_links, question_emergence, resolution_patterns)
@@ -736,108 +767,88 @@ def _run_rich_analysis(case_id: int) -> dict:
                 llm_model='claude-sonnet-4-20250514',
                 extraction_session_id=session_id
             )
-            logger.info(f"[RunAll] Saved rich analysis prompt id={saved_prompt.id}")
+            logger.info(f"[Step4Synthesis] Saved rich analysis prompt id={saved_prompt.id}")
         except Exception as e:
-            logger.warning(f"[RunAll] Could not save rich analysis prompt: {e}")
+            logger.warning(f"[Step4Synthesis] Could not save rich analysis prompt: {e}")
 
         return {
-            'causal_links': len(causal_links),
-            'question_emergence': len(question_emergence),
-            'resolution_patterns': len(resolution_patterns)
+            'causal_links_count': len(causal_links),
+            'question_emergence_count': len(question_emergence),
+            'resolution_patterns_count': len(resolution_patterns)
         }
 
     except Exception as e:
-        logger.error(f"[RunAll] Rich analysis error: {e}")
+        logger.error(f"[Step4Synthesis] Rich analysis error: {e}")
         import traceback
         traceback.print_exc()
         return {'error': str(e)}
 
 
-def _run_phase3(case_id: int) -> dict:
-    """
-    Run Phase 3 decision synthesis - SAME code as synthesize_phase3_streaming.
-    """
-    from app.services.decision_point_synthesizer import synthesize_decision_points
-    from app.services.case_synthesizer import CaseSynthesizer
-
+def _run_phase3(case_id: int, llm_client) -> dict:
+    """Run Phase 3 decision point synthesis."""
     try:
-        case = Document.query.get_or_404(case_id)
-        synthesizer = CaseSynthesizer()
+        from app.services.decision_point_synthesizer import synthesize_decision_points
 
-        # Load Q&C
-        questions, conclusions = synthesizer._load_qc(case_id)
-        if not questions:
-            return {'error': 'No questions found - run Phase 2 extraction first'}
+        # Load Phase 2 data
+        questions = [e.rdf_json_ld for e in TemporaryRDFStorage.query.filter_by(
+            case_id=case_id, extraction_type='ethical_question').all()]
+        conclusions = [e.rdf_json_ld for e in TemporaryRDFStorage.query.filter_by(
+            case_id=case_id, extraction_type='ethical_conclusion').all()]
+        question_emergence = [e.rdf_json_ld for e in TemporaryRDFStorage.query.filter_by(
+            case_id=case_id, extraction_type='question_emergence').all()]
+        resolution_patterns = [e.rdf_json_ld for e in TemporaryRDFStorage.query.filter_by(
+            case_id=case_id, extraction_type='resolution_pattern').all()]
 
-        # Load rich analysis data
-        causal_links, question_emergence, resolution_patterns = synthesizer._load_rich_analysis(case_id)
-
-        # Convert to dict format expected by synthesize_decision_points
-        qe_dicts = [qe.to_dict() if hasattr(qe, 'to_dict') else vars(qe) for qe in question_emergence]
-        rp_dicts = [rp.to_dict() if hasattr(rp, 'to_dict') else vars(rp) for rp in resolution_patterns]
-
-        # Run Phase 3 synthesis
+        # Run synthesis (this has the unified LLM fallback)
         result = synthesize_decision_points(
             case_id=case_id,
             questions=questions,
             conclusions=conclusions,
-            question_emergence=qe_dicts,
-            resolution_patterns=rp_dicts,
+            question_emergence=question_emergence,
+            resolution_patterns=resolution_patterns,
             domain='engineering',
             skip_llm=False
         )
 
-        logger.info(f"[RunAll] Phase 3: {result.canonical_count} canonical decision points")
-
-        # Save extraction prompt for provenance (always save, even with 0 candidates)
+        # Save prompt
         session_id = result.extraction_session_id or str(uuid.uuid4())
-        try:
-            # Build description of what Phase 3 did
-            if result.llm_prompt:
-                prompt_text = result.llm_prompt[:10000]
-                raw_response = result.llm_response[:10000] if result.llm_response else ''
-            else:
-                # No LLM output (E1-E3 found 0 AND LLM fallback didn't produce results)
-                prompt_text = f'Phase 3 Decision Point Synthesis (E1-E3 Algorithmic Composition)\n\nInput:\n- Questions: {len(questions)}\n- Conclusions: {len(conclusions)}\n- Question Emergence: {len(qe_dicts)}\n- Resolution Patterns: {len(rp_dicts)}\n\nE1-E3 Algorithm found 0 matching candidates.\nLLM fallback using causal_normative_links was attempted but produced no results.'
-                raw_response = f'Phase 3 Result:\n- Algorithmic candidates: 0\n- Canonical decision points: {result.canonical_count}\n\nThe E1-E3 composition algorithm requires actions to be matched with obligations and constraints. No matches were found for this case.\n\nLLM fallback was attempted using causal_normative_links from Phase 2 rich analysis, but no decision points could be generated.'
+        if result.llm_prompt:
+            prompt_text = result.llm_prompt[:10000]
+            raw_response = result.llm_response[:10000] if result.llm_response else ''
+        else:
+            prompt_text = 'Phase 3 Decision Point Synthesis (E1-E3 Algorithmic)'
+            raw_response = f'Candidates: {result.candidates_count}, Canonical: {result.canonical_count}'
 
-            extraction_prompt = ExtractionPrompt(
-                case_id=case_id,
-                concept_type='phase3_decision_synthesis',
-                step_number=4,
-                section_type='synthesis',
-                prompt_text=prompt_text,
-                llm_model='claude-sonnet-4-20250514' if result.llm_prompt else 'algorithmic',
-                extraction_session_id=session_id,
-                raw_response=raw_response,
-                results_summary=json.dumps({
-                    'canonical_count': result.canonical_count,
-                    'candidates_count': result.candidates_count,
-                    'high_alignment_count': result.high_alignment_count
-                })
-            )
-            db.session.add(extraction_prompt)
-            db.session.commit()
-            logger.info(f"[RunAll] Saved Phase 3 prompt (candidates: {result.candidates_count})")
-        except Exception as e:
-            logger.warning(f"[RunAll] Could not save Phase 3 prompt: {e}")
+        prompt = ExtractionPrompt(
+            case_id=case_id,
+            concept_type='phase3_decision_synthesis',
+            step_number=4,
+            section_type='synthesis',
+            prompt_text=prompt_text,
+            llm_model='claude-sonnet-4-20250514' if result.llm_prompt else 'algorithmic',
+            extraction_session_id=session_id,
+            raw_response=raw_response,
+            results_summary=json.dumps({
+                'canonical_count': result.canonical_count,
+                'candidates_count': result.candidates_count
+            })
+        )
+        db.session.add(prompt)
+        db.session.commit()
 
         return {
             'canonical_count': result.canonical_count,
-            'candidates_count': result.candidates_count,
-            'high_alignment_count': result.high_alignment_count
+            'candidates_count': result.candidates_count
         }
 
     except Exception as e:
-        logger.error(f"[RunAll] Phase 3 error: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"Phase 3 failed: {e}", exc_info=True)
         return {'error': str(e)}
 
 
-def _run_phase4(case_id: int) -> dict:
+def _run_phase4(case_id: int, llm_client) -> dict:
     """
-    Run Phase 4 narrative construction - SAME code as construct_phase4_streaming.
+    Run Phase 4 narrative construction - SAME code as step4_run_all.py.
     """
     from app.services.narrative import construct_phase4_narrative
     from app.services.precedent import update_precedent_features_from_phase4
@@ -895,7 +906,7 @@ def _run_phase4(case_id: int) -> dict:
             use_llm=True
         )
 
-        logger.info(f"[RunAll] Phase 4: {len(result.narrative_elements.characters)} characters, {len(result.timeline.events)} events")
+        logger.info(f"[Step4Synthesis] Phase 4: {len(result.narrative_elements.characters)} characters, {len(result.timeline.events)} events")
 
         # Save extraction prompt for provenance
         session_id = str(uuid.uuid4())
@@ -939,18 +950,18 @@ def _run_phase4(case_id: int) -> dict:
                 narrative_result=result,
                 transformation_type=transformation_type
             )
-            logger.info(f"[RunAll] Updated precedent features from Phase 4")
+            logger.info(f"[Step4Synthesis] Updated precedent features from Phase 4")
         except Exception as e:
-            logger.warning(f"[RunAll] Failed to update precedent features: {e}")
+            logger.warning(f"[Step4Synthesis] Failed to update precedent features: {e}")
 
         return {
             'characters_count': len(result.narrative_elements.characters),
-            'timeline_events': len(result.timeline.events),
+            'timeline_events_count': len(result.timeline.events),
             'branches_count': len(result.scenario_seeds.branches)
         }
 
     except Exception as e:
-        logger.error(f"[RunAll] Phase 4 error: {e}")
+        logger.error(f"[Step4Synthesis] Phase 4 error: {e}")
         import traceback
         traceback.print_exc()
         return {'error': str(e)}

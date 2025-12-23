@@ -30,6 +30,7 @@ def init_pipeline_csrf_exemption(app):
         app.csrf.exempt(api_start_queue_processing)
         app.csrf.exempt(api_clear_queue)
         app.csrf.exempt(api_run_single_case)
+        app.csrf.exempt(api_run_step4)
         app.csrf.exempt(api_retry_run)
         app.csrf.exempt(api_cancel_run)
         app.csrf.exempt(api_service_status)
@@ -69,12 +70,21 @@ def dashboard():
         Document.doc_metadata.isnot(None)
     ).count()
 
+    # Get case IDs that have completed Step 4 synthesis
+    # Used to hide Synthesize button for cases already synthesized
+    completed_case_ids = set(
+        run.case_id for run in PipelineRun.query
+        .filter_by(status=PIPELINE_STATUS['COMPLETED'])
+        .all()
+    )
+
     return render_template(
         'pipeline_dashboard/index.html',
         recent_runs=recent_runs,
         active_runs=active_runs,
         queue_count=queue_count,
-        case_count=case_count
+        case_count=case_count,
+        completed_case_ids=completed_case_ids
     )
 
 
@@ -390,6 +400,110 @@ def api_run_single_case():
         'success': True,
         'message': f'Pipeline started for case {case_id}',
         'task_id': result.id
+    })
+
+
+@pipeline_bp.route('/api/run_step4', methods=['POST'])
+def api_run_step4():
+    """
+    Run Step 4 synthesis for a case via Celery.
+
+    Uses the unified synthesis service that runs the same code as
+    the manual "Run Complete Synthesis" button.
+
+    Request body:
+        case_id: int - Case ID to synthesize
+
+    Returns:
+        JSON with task_id for monitoring
+    """
+    data = request.get_json()
+
+    if not data or 'case_id' not in data:
+        return jsonify({'error': 'case_id required'}), 400
+
+    case_id = data['case_id']
+
+    # Verify case exists
+    case = Document.query.get(case_id)
+    if not case:
+        return jsonify({'error': f'Case {case_id} not found'}), 404
+
+    # Check if case has Pass 1-3 complete (required for Step 4)
+    from app.models import TemporaryRDFStorage
+    entity_count = TemporaryRDFStorage.query.filter_by(case_id=case_id).count()
+    if entity_count < 10:
+        return jsonify({
+            'error': f'Case {case_id} has insufficient entities ({entity_count}). Run Pass 1-3 first.'
+        }), 400
+
+    # Create a PipelineRun to track this
+    run = PipelineRun(
+        case_id=case_id,
+        status=PIPELINE_STATUS['STEP4'],
+        current_step='step4',
+        config={'step4_only': True},
+        started_at=datetime.utcnow()  # Set started_at so duration tracks properly
+    )
+    db.session.add(run)
+    db.session.commit()
+
+    # Import task here to avoid circular imports
+    from app.tasks.pipeline_tasks import run_step4_task
+
+    result = run_step4_task.delay(run_id=run.id)
+
+    return jsonify({
+        'success': True,
+        'message': f'Step 4 synthesis started for case {case_id}',
+        'task_id': result.id,
+        'run_id': run.id
+    })
+
+
+@pipeline_bp.route('/api/step4_status/<int:case_id>', methods=['GET'])
+def api_step4_status(case_id):
+    """
+    Check Step 4 synthesis status for a case.
+
+    Returns:
+        JSON with synthesis status (complete, in_progress, not_started)
+        and counts of extracted entities.
+    """
+    from app.models import TemporaryRDFStorage
+
+    # Check for Step 4 entities
+    provisions = TemporaryRDFStorage.query.filter_by(
+        case_id=case_id, extraction_type='code_provision_reference').count()
+    questions = TemporaryRDFStorage.query.filter_by(
+        case_id=case_id, extraction_type='ethical_question').count()
+    conclusions = TemporaryRDFStorage.query.filter_by(
+        case_id=case_id, extraction_type='ethical_conclusion').count()
+    decision_points = TemporaryRDFStorage.query.filter_by(
+        case_id=case_id, extraction_type='canonical_decision_point').count()
+    causal_links = TemporaryRDFStorage.query.filter_by(
+        case_id=case_id, extraction_type='causal_normative_link').count()
+
+    # Determine status
+    if decision_points > 0:
+        status = 'complete'
+    elif questions > 0 or conclusions > 0:
+        status = 'in_progress'
+    elif provisions > 0:
+        status = 'partial'
+    else:
+        status = 'not_started'
+
+    return jsonify({
+        'case_id': case_id,
+        'status': status,
+        'entities': {
+            'provisions': provisions,
+            'questions': questions,
+            'conclusions': conclusions,
+            'decision_points': decision_points,
+            'causal_links': causal_links
+        }
     })
 
 
