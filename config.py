@@ -64,7 +64,10 @@ class TestingConfig(Config):
     """Testing configuration."""
     TESTING = True
     ENVIRONMENT = 'testing'
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
+    # Use PostgreSQL test database instead of SQLite for schema compatibility
+    SQLALCHEMY_DATABASE_URI = os.environ.get('TEST_DATABASE_URL') or \
+                              'postgresql://postgres:PASS@localhost:5432/ai_ethical_dm_test'
+    WTF_CSRF_ENABLED = False  # Disable CSRF for easier testing
 
 
 class ProductionSimulationConfig(Config):

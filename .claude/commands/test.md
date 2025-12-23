@@ -91,6 +91,7 @@ PYTHONPATH=/home/chris/onto:$PYTHONPATH pytest tests/ --cov=app --cov-report=htm
 | | `test_all_routes.py` | EXISTS |
 | | `test_scenarios_routes.py` | EXISTS |
 | | `test_auth_routes.py` | EXISTS |
+| | `test_auth_security.py` | EXISTS (56 tests) |
 | | `test_document_routes.py` | EXISTS |
 | | `test_entities_routes.py` | EXISTS |
 | | `test_worlds_routes.py` | EXISTS |
@@ -121,6 +122,36 @@ PYTHONPATH=/home/chris/onto:$PYTHONPATH pytest tests/ --cov=app --cov-report=htm
 | Extensional Principles | `academic_references/frameworks/extensional_principles.py` | (needs tests) | LOW |
 
 **Total new tests: 86 passing**
+
+### Authentication Security Tests (December 2025)
+
+The `test_auth_security.py` file verifies authentication and authorization behavior:
+
+| Test Class | Purpose | Environment | Tests |
+|------------|---------|-------------|-------|
+| `TestPublicPageAccess` | Public pages accessible without login | Testing | 8 |
+| `TestDataModifyingRoutesRequireAuth` | Document route availability | Testing | 31 |
+| `TestCSRFProtection` | CSRF tokens present in forms | Testing | 2 |
+| `TestPipelineReviewPagesReadable` | Review pages publicly readable | Testing | 4 |
+| **`TestProductionModeAuthEnforcement`** | **Write routes require auth in prod** | **Production** | **8** |
+| **`TestAdminRoutesProductionMode`** | **Admin routes blocked in prod** | **Production** | **3** |
+
+**Run auth security tests:**
+```bash
+# All tests
+PYTHONPATH=/home/chris/onto:$PYTHONPATH pytest tests/integration/test_auth_security.py -v
+
+# Production-mode security tests only (CRITICAL)
+PYTHONPATH=/home/chris/onto:$PYTHONPATH pytest tests/integration/test_auth_security.py::TestProductionModeAuthEnforcement tests/integration/test_auth_security.py::TestAdminRoutesProductionMode -v
+```
+
+**Key security principles verified:**
+- Unauthenticated users CAN read all public pages
+- In PRODUCTION mode: unauthenticated users CANNOT modify data
+- Admin routes require admin privileges in production
+- LLM extraction and OntServe commit routes require authentication in production
+
+**Note:** Auth decorators like `@auth_required_for_write` bypass auth in development/testing mode for convenience. The `TestProductionModeAuthEnforcement` tests simulate production to verify auth is enforced.
 
 ## Environment Awareness
 

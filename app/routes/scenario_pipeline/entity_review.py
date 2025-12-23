@@ -1294,6 +1294,7 @@ def refresh_committed_from_ontserve(case_id):
 
 
 @bp.route('/case/<int:case_id>/entities/temporal/commit', methods=['POST'])
+@auth_required_for_write  # Require auth for commit operations
 def commit_temporal_entities(case_id):
     """Commit all temporal dynamics entities to OntServe."""
     try:

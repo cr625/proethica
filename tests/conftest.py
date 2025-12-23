@@ -296,6 +296,31 @@ def auth_client(client, create_test_user):
     return client
 
 
+@pytest.fixture
+def create_admin_user(app_context):
+    """Create a test admin user."""
+    def _create_admin_user(username='adminuser', email='admin@example.com', password='adminpassword'):
+        user = User(username=username, email=email, password=password)
+        user.is_admin = True
+        db.session.add(user)
+        db.session.commit()
+        return user
+    return _create_admin_user
+
+
+@pytest.fixture
+def admin_client(client, create_admin_user):
+    """A test client with admin authentication."""
+    user = create_admin_user()
+    client.post('/auth/login', data={
+        'username': 'adminuser',
+        'password': 'adminpassword',
+        'remember_me': False,
+        'submit': 'Sign In'
+    }, follow_redirects=True)
+    return client
+
+
 # Mock LLM fixtures for fast unit testing
 
 @pytest.fixture

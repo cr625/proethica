@@ -2179,6 +2179,7 @@ def view_interim_scenario(case_id):
 
 
 @cases_bp.route('/<int:case_id>/clear_scenario', methods=['POST'])
+@auth_required_for_write  # Require auth for write operations
 def clear_scenario(case_id):
     """Clear all scenario data for a case to enable fresh generation."""
     try:
