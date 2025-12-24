@@ -77,6 +77,26 @@
         border-left: 4px solid #6c757d;
         opacity: 0.8;
     }
+
+    /* Fullscreen mode for D3 graph */
+    #d3-graph-card.fullscreen {
+        position: fixed !important;
+        top: 0;
+        left: 0;
+        width: 100vw !important;
+        height: 100vh !important;
+        z-index: 9999;
+        background: white;
+        padding: 10px;
+    }
+    #d3-graph-card.fullscreen #d3-graph-container {
+        height: calc(100vh - 20px) !important;
+        border: none;
+    }
+    #d3-graph-card.fullscreen #d3-graph-svg {
+        width: 100%;
+        height: 100%;
+    }
 </style>
 {% endblock %}
 
@@ -222,7 +242,7 @@
     <ul class="nav nav-tabs nav-fill mb-3" id="reviewTabs" role="tablist">
         <li class="nav-item" role="presentation">
             <button class="nav-link active" id="fullgraph-tab" data-bs-toggle="tab" data-bs-target="#fullgraph" type="button">
-                <i class="bi bi-diagram-3"></i> Entities <span class="badge bg-secondary">{{ entity_count }}</span>
+                <i class="bi bi-diagram-3"></i> Entities <span class="badge bg-secondary" id="entities-tab-badge">{{ entity_count }}</span>
             </button>
         </li>
         <li class="nav-item" role="presentation">
@@ -266,7 +286,7 @@
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <div>
                         <h5 class="mb-0"><i class="bi bi-diagram-3"></i> Full Entity Graph</h5>
-                        <small class="text-muted">All <span id="d3-node-count">0</span> entities from Passes 1-4 with relationships</small>
+                        <small class="text-muted"><span id="d3-node-count">Loading...</span></small>
                     </div>
                     <div>
                         <span class="badge bg-primary me-1" id="d3-pass1">Pass 1: 0</span>
@@ -276,50 +296,92 @@
                     </div>
                 </div>
                 <div class="card-body">
-                    <!-- D3 Graph Controls -->
-                    <div class="mb-3 d-flex justify-content-between align-items-center">
+                    <!-- D3 Graph Controls - Row 1: Search and Pass Filters -->
+                    <div class="mb-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
                         <div>
-                            <div class="input-group input-group-sm" style="width: 250px;">
+                            <div class="input-group input-group-sm" style="width: 200px;">
                                 <span class="input-group-text"><i class="bi bi-search"></i></span>
                                 <input type="text" id="d3-search" class="form-control" placeholder="Search entities...">
                             </div>
                         </div>
-                        <div>
-                            <span class="me-2 text-muted small">Filter:</span>
+                        <div class="d-flex align-items-center flex-wrap gap-1">
+                            <span class="me-1 text-muted small">Pass:</span>
                             <button class="btn btn-sm btn-outline-secondary d3-filter active" data-pass="all">All</button>
-                            <button class="btn btn-sm btn-outline-primary d3-filter" data-pass="1">Pass 1</button>
-                            <button class="btn btn-sm btn-outline-success d3-filter" data-pass="2">Pass 2</button>
-                            <button class="btn btn-sm btn-outline-warning d3-filter" data-pass="3">Pass 3</button>
-                            <button class="btn btn-sm btn-outline-danger d3-filter" data-pass="4">Step 4</button>
-                            <span class="mx-2 text-muted">|</span>
-                            <button class="btn btn-sm btn-outline-info" id="d3-toggle-hubs" title="Show type hub nodes (R, P, O, S, Rs, A, E, Ca, Cs)">
+                            <button class="btn btn-sm btn-outline-primary d3-filter" data-pass="1">1</button>
+                            <button class="btn btn-sm btn-outline-success d3-filter" data-pass="2">2</button>
+                            <button class="btn btn-sm btn-outline-warning d3-filter" data-pass="3">3</button>
+                            <button class="btn btn-sm btn-outline-danger d3-filter" data-pass="4">4</button>
+                        </div>
+                    </div>
+                    <!-- D3 Graph Controls - Row 2: Layout, Display Options -->
+                    <div class="mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="d-flex align-items-center">
+                                <label class="form-label mb-0 me-1 small text-muted">Layout:</label>
+                                <select class="form-select form-select-sm" id="d3-layout-select" style="width: 90px;">
+                                    <option value="force" selected>Force</option>
+                                    <option value="circular">Circular</option>
+                                    <option value="grid">Grid</option>
+                                    <option value="radial">Radial</option>
+                                </select>
+                            </div>
+                            <div class="form-check form-check-inline mb-0">
+                                <input class="form-check-input" type="checkbox" id="d3-hide-unconnected" checked>
+                                <label class="form-check-label small" for="d3-hide-unconnected">Hide unconnected</label>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center gap-1">
+                            <button class="btn btn-sm btn-info" id="d3-toggle-hubs" title="Group entities by type (R, P, O, S, Rs, A, E, Ca, Cs)">
                                 <i class="bi bi-diagram-2"></i> Type Hubs
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary" id="d3-refresh" title="Refresh graph">
+                                <i class="bi bi-arrow-clockwise"></i>
                             </button>
                         </div>
                     </div>
 
                     <!-- D3 Graph Container -->
-                    <div id="d3-graph-container" style="width: 100%; height: 600px; border: 1px solid #ddd; background-color: #fafafa; position: relative;">
-                        <svg id="d3-graph-svg" style="width: 100%; height: 100%;"></svg>
+                    <div id="d3-graph-card" class="position-relative">
+                        <div id="d3-graph-container" style="width: 100%; height: 600px; border: 1px solid #ddd; background-color: #fafafa; position: relative;">
+                            <svg id="d3-graph-svg" style="width: 100%; height: 100%;"></svg>
 
-                        <!-- Entity Details Panel -->
-                        <div id="d3-entity-details" style="position: absolute; top: 10px; right: 10px; width: 300px; max-height: 350px; overflow-y: auto; background: white; border: 1px solid #dee2e6; border-radius: 0.25rem; padding: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: none; z-index: 100;">
-                            <button type="button" class="btn-close float-end" id="d3-close-details"></button>
-                            <h6 id="d3-detail-label" class="mb-2" style="border-bottom: 2px solid #666; padding-bottom: 5px;"></h6>
-                            <p class="small mb-2">
-                                <span class="badge" id="d3-detail-type"></span>
-                                <span class="badge bg-secondary" id="d3-detail-pass"></span>
-                            </p>
-                            <p class="small text-muted mb-2" id="d3-detail-definition"></p>
-                            <p class="small mb-1"><strong>Connections:</strong></p>
-                            <ul class="small list-unstyled" id="d3-detail-connections"></ul>
-                        </div>
+                            <!-- Loading Overlay -->
+                            <div id="d3-loading-overlay" class="position-absolute top-0 start-0 w-100 h-100 d-none align-items-center justify-content-center" style="background: rgba(255,255,255,0.9); z-index: 50;">
+                                <div class="text-center">
+                                    <div class="spinner-border text-primary mb-2" role="status"></div>
+                                    <div class="small text-muted" id="d3-loading-text">Building graph...</div>
+                                </div>
+                            </div>
 
-                        <!-- Zoom Controls -->
-                        <div style="position: absolute; bottom: 10px; left: 10px; z-index: 100;">
-                            <button class="btn btn-sm btn-light" id="d3-zoom-in" title="Zoom In"><i class="bi bi-plus-lg"></i></button>
-                            <button class="btn btn-sm btn-light" id="d3-zoom-out" title="Zoom Out"><i class="bi bi-dash-lg"></i></button>
-                            <button class="btn btn-sm btn-light" id="d3-zoom-reset" title="Reset"><i class="bi bi-arrows-fullscreen"></i></button>
+                            <!-- Entity Details Panel -->
+                            <div id="d3-entity-details" style="position: absolute; top: 10px; right: 10px; width: 320px; max-height: 450px; overflow-y: auto; background: white; border: 1px solid #dee2e6; border-radius: 0.25rem; padding: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: none; z-index: 100;">
+                                <button type="button" class="btn-close float-end" id="d3-close-details"></button>
+                                <h6 id="d3-detail-label" class="mb-2" style="border-bottom: 2px solid #666; padding-bottom: 5px;"></h6>
+                                <p class="small mb-2">
+                                    <span class="badge" id="d3-detail-type"></span>
+                                    <span class="badge bg-secondary" id="d3-detail-pass"></span>
+                                </p>
+                                <p class="small text-muted mb-2" id="d3-detail-definition"></p>
+                                <div id="d3-detail-metadata" class="small mb-2" style="display: none;">
+                                    <div id="d3-detail-agent" class="mb-1" style="display: none;">
+                                        <strong class="text-primary">Agent:</strong> <span></span>
+                                    </div>
+                                    <div id="d3-detail-temporal" class="mb-1" style="display: none;">
+                                        <strong class="text-info">When:</strong> <span></span>
+                                    </div>
+                                </div>
+                                <p class="small mb-1"><strong>Connections:</strong></p>
+                                <ul class="small list-unstyled" id="d3-detail-connections"></ul>
+                            </div>
+
+                            <!-- Zoom Controls -->
+                            <div style="position: absolute; bottom: 10px; left: 10px; z-index: 100;">
+                                <button class="btn btn-sm btn-light" id="d3-zoom-in" title="Zoom In"><i class="bi bi-plus-lg"></i></button>
+                                <button class="btn btn-sm btn-light" id="d3-zoom-out" title="Zoom Out"><i class="bi bi-dash-lg"></i></button>
+                                <button class="btn btn-sm btn-light" id="d3-zoom-reset" title="Reset View"><i class="bi bi-arrows-fullscreen"></i></button>
+                                <button class="btn btn-sm btn-primary" id="d3-fullscreen-btn" title="Full Screen"><i class="bi bi-fullscreen"></i></button>
+                                <button class="btn btn-sm btn-warning" id="d3-exit-fullscreen-btn" title="Exit Full Screen" style="display: none;"><i class="bi bi-fullscreen-exit"></i></button>
+                            </div>
                         </div>
                     </div>
 
@@ -355,7 +417,23 @@
                     </div>
 
                     <!-- Cytoscape Container -->
-                    <div id="cy" style="width: 100%; height: 700px; border: 1px solid #ddd; background-color: #fafafa;"></div>
+                    <div style="position: relative;">
+                        <div id="cy" style="width: 100%; height: 700px; border: 1px solid #ddd; background-color: #fafafa;"></div>
+
+                        <!-- Flow Details Panel -->
+                        <div id="cy-details-panel" style="position: absolute; top: 10px; right: 10px; width: 320px; max-height: 400px; overflow-y: auto; background: white; border: 1px solid #dee2e6; border-radius: 0.25rem; padding: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: none; z-index: 100;">
+                            <button type="button" class="btn-close float-end" id="cy-close-details"></button>
+                            <h6 id="cy-detail-label" class="mb-2" style="border-bottom: 2px solid #666; padding-bottom: 5px;"></h6>
+                            <p class="small mb-2">
+                                <span class="badge" id="cy-detail-type"></span>
+                            </p>
+                            <div id="cy-detail-text" class="small text-muted mb-2"></div>
+                            <div id="cy-detail-connections" class="small">
+                                <strong>Connections:</strong>
+                                <ul class="list-unstyled mt-1" id="cy-detail-edges"></ul>
+                            </div>
+                        </div>
+                    </div>
 
                     <!-- Legend -->
                     <div class="mt-3">
@@ -1589,23 +1667,34 @@ document.addEventListener('DOMContentLoaded', function() {
                         };
                         return colors[type] || '#17A2B8'; // Cyan for entities
                     },
-                    'label': 'data(label)',
-                    'color': '#fff',
+                    'label': function(ele) {
+                        // Truncate labels to fit in nodes
+                        const label = ele.data('label') || '';
+                        const type = ele.data('type');
+                        const maxLen = (type === 'provision') ? 8 : 12;
+                        return label.length > maxLen ? label.substring(0, maxLen) + '...' : label;
+                    },
+                    'color': function(ele) {
+                        // Dark text for light backgrounds (yellow, green)
+                        const type = ele.data('type');
+                        if (type === 'question' || type === 'conclusion') return '#333';
+                        return '#fff';
+                    },
                     'text-valign': 'center',
                     'text-halign': 'center',
-                    'font-size': '11px',
+                    'font-size': '10px',
                     'font-weight': 'bold',
                     'width': function(ele) {
                         // Larger nodes for Q/C/Provisions
                         const type = ele.data('type');
-                        return (type === 'provision' || type === 'question' || type === 'conclusion') ? '60px' : '45px';
+                        return (type === 'provision' || type === 'question' || type === 'conclusion') ? '80px' : '55px';
                     },
                     'height': function(ele) {
                         const type = ele.data('type');
-                        return (type === 'provision' || type === 'question' || type === 'conclusion') ? '60px' : '45px';
+                        return (type === 'provision' || type === 'question' || type === 'conclusion') ? '80px' : '55px';
                     },
                     'text-wrap': 'wrap',
-                    'text-max-width': '100px',
+                    'text-max-width': '70px',
                     'shape': function(ele) {
                         const type = ele.data('type');
                         if (type === 'provision') return 'rectangle';
@@ -1614,7 +1703,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         return 'ellipse';
                     },
                     'border-width': 2,
-                    'border-color': '#fff'
+                    'border-color': function(ele) {
+                        const type = ele.data('type');
+                        if (type === 'question' || type === 'conclusion') return '#333';
+                        return '#fff';
+                    }
                 }
             },
             {
@@ -1648,12 +1741,24 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         ],
         layout: {
-            name: 'breadthfirst',  // Hierarchical layout for flow
-            directed: true,
-            spacingFactor: 2.0,  // Increased spacing to prevent overlap
-            padding: 60,
-            avoidOverlap: true,  // Prevent node overlap
-            nodeDimensionsIncludeLabels: true,  // Include labels in size calculation
+            name: 'cose',  // Force-directed layout handles DAGs (provisions connect to multiple questions)
+            idealEdgeLength: 150,
+            nodeOverlap: 50,
+            refresh: 20,
+            fit: true,
+            padding: 40,
+            randomize: false,
+            componentSpacing: 100,
+            nodeRepulsion: 8000,
+            edgeElasticity: 100,
+            nestingFactor: 5,
+            gravity: 80,
+            numIter: 1000,
+            initialTemp: 200,
+            coolingFactor: 0.95,
+            minTemp: 1.0,
+            avoidOverlap: true,
+            nodeDimensionsIncludeLabels: true,
             animate: true,
             animationDuration: 500
         }
@@ -1677,26 +1782,78 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('show-labels').addEventListener('change', function(e) {
         if (e.target.checked) {
-            cy.style().selector('node').style('label', 'data(label)').update();
+            cy.style().selector('node').style('label', function(ele) {
+                const label = ele.data('label') || '';
+                const type = ele.data('type');
+                const maxLen = (type === 'provision') ? 8 : 12;
+                return label.length > maxLen ? label.substring(0, maxLen) + '...' : label;
+            }).update();
         } else {
             cy.style().selector('node').style('label', '').update();
         }
     });
 
-    // Node click handler
+    // Node click handler - show details panel
     cy.on('tap', 'node', function(evt) {
         const node = evt.target;
         const data = node.data();
 
-        // Show entity details in modal or alert
-        const details = `
-Entity: ${data.label}
-Type: ${data.type}
-Definition: ${data.definition || 'No definition available'}
-URI: ${data.uri}
-        `.trim();
+        // Get node type colors
+        const typeColors = {
+            'provision': '#6C757D',
+            'question': '#FFC107',
+            'conclusion': '#28A745',
+            'action': '#343A40',
+            'event': '#6C757D'
+        };
 
-        alert(details);
+        // Populate details panel
+        const panel = document.getElementById('cy-details-panel');
+        const labelEl = document.getElementById('cy-detail-label');
+        const typeEl = document.getElementById('cy-detail-type');
+        const textEl = document.getElementById('cy-detail-text');
+        const edgesEl = document.getElementById('cy-detail-edges');
+
+        labelEl.textContent = data.label;
+        labelEl.style.borderColor = typeColors[data.type] || '#17A2B8';
+
+        typeEl.textContent = data.nodeType || data.type;
+        typeEl.style.backgroundColor = typeColors[data.type] || '#17A2B8';
+        typeEl.style.color = (data.type === 'question' || data.type === 'conclusion') ? '#333' : '#fff';
+
+        // Show full text (definition)
+        const fullText = data.fullText || data.definition || data.reasoning || '';
+        textEl.textContent = fullText || 'No details available';
+
+        // Show connected edges
+        const connectedEdges = node.connectedEdges();
+        edgesEl.innerHTML = '';
+        if (connectedEdges.length === 0) {
+            edgesEl.innerHTML = '<li class="text-muted">None</li>';
+        } else {
+            connectedEdges.forEach(edge => {
+                const isSource = edge.source().id() === node.id();
+                const otherNode = isSource ? edge.target() : edge.source();
+                const arrow = isSource ? '→' : '←';
+                const li = document.createElement('li');
+                li.innerHTML = `<span style="color:${typeColors[otherNode.data('type')] || '#17A2B8'}">${arrow}</span> ${otherNode.data('label')} <small class="text-muted">(${edge.data('label') || 'related'})</small>`;
+                edgesEl.appendChild(li);
+            });
+        }
+
+        panel.style.display = 'block';
+    });
+
+    // Close details panel
+    document.getElementById('cy-close-details').addEventListener('click', function() {
+        document.getElementById('cy-details-panel').style.display = 'none';
+    });
+
+    // Click on background to close panel
+    cy.on('tap', function(evt) {
+        if (evt.target === cy) {
+            document.getElementById('cy-details-panel').style.display = 'none';
+        }
     });
 
     // Q&C View Toggle
@@ -1724,44 +1881,75 @@ function getCsrfToken() {
 }
 
 // ============================================================================
-// D3.js Full Entity Graph
+// D3.js Full Entity Graph with Layout Options
 // ============================================================================
 (function() {
     const caseId = {{ case.id }};
-    const container = document.getElementById('d3-graph-container');
     const svg = d3.select('#d3-graph-svg');
 
     let graphData = null;
     let simulation = null;
     let currentFilter = 'all';
     let searchTerm = '';
-    let showTypeHubs = false;
+    let showTypeHubs = true;  // Default to true for meaningful connections
+    let hideUnconnected = true;  // Default to hide unconnected
+    let currentLayout = 'force';
+    let zoom = null;
+    let g = null;
 
-    // Fetch and render graph
-    loadGraph();
+    // DOM element getters (ensures they exist when accessed)
+    function getContainer() { return document.getElementById('d3-graph-container'); }
+    function getGraphCard() { return document.getElementById('d3-graph-card'); }
+    function getLoadingOverlay() { return document.getElementById('d3-loading-overlay'); }
+
+    function showLoading(text) {
+        const textEl = document.getElementById('d3-loading-text');
+        const overlay = getLoadingOverlay();
+        if (textEl) textEl.textContent = text || 'Building graph...';
+        if (overlay) {
+            overlay.classList.remove('d-none');
+            overlay.classList.add('d-flex');
+        }
+    }
+
+    function hideLoading() {
+        const overlay = getLoadingOverlay();
+        if (overlay) {
+            overlay.classList.remove('d-flex');
+            overlay.classList.add('d-none');
+        }
+    }
 
     function loadGraph() {
+        showLoading('Loading entity data...');
         const url = `/scenario_pipeline/case/${caseId}/entity_graph` + (showTypeHubs ? '?type_hubs=true' : '');
         fetch(url)
             .then(response => response.json())
             .then(data => {
-                if (data.success) {
-                    graphData = data;
-                    renderD3Graph(data);
-                    updateD3Stats(data.metadata);
-                    buildD3Legend(data.metadata.type_colors);
-                } else {
-                    console.error('Failed to load graph:', data.error);
-                    document.getElementById('d3-node-count').textContent = 'Error loading';
+                try {
+                    if (data.success) {
+                        graphData = data;
+                        renderD3Graph(data);
+                        updateD3Stats(data.metadata);
+                        buildD3Legend(data.metadata.type_colors);
+                    } else {
+                        console.error('Failed to load graph:', data.error);
+                        document.getElementById('d3-node-count').textContent = 'Error loading';
+                    }
+                } catch (e) {
+                    console.error('Error rendering graph:', e);
                 }
+                hideLoading();
             })
             .catch(error => {
                 console.error('Error fetching graph:', error);
                 document.getElementById('d3-node-count').textContent = 'Error';
+                hideLoading();
             });
     }
 
     function renderD3Graph(data) {
+        const container = getContainer();
         const width = container.clientWidth;
         const height = container.clientHeight || 600;
 
@@ -1781,44 +1969,62 @@ function getCsrfToken() {
             .attr('fill', '#666');
 
         // Create zoom behavior
-        const zoom = d3.zoom()
+        zoom = d3.zoom()
             .scaleExtent([0.1, 4])
             .on('zoom', (event) => g.attr('transform', event.transform));
 
         svg.call(zoom);
-        const g = svg.append('g');
+        g = svg.append('g');
 
-        // Filter nodes
-        const filteredNodes = filterD3Nodes(data.nodes);
-        const filteredNodeIds = new Set(filteredNodes.map(n => n.id));
-        const filteredEdges = data.edges.filter(e =>
+        // Filter nodes by pass and search
+        let filteredNodes = filterD3Nodes(data.nodes);
+
+        // Build edge set for connectivity check
+        let filteredNodeIds = new Set(filteredNodes.map(n => n.id));
+        let filteredEdges = data.edges.filter(e =>
             filteredNodeIds.has(e.source) && filteredNodeIds.has(e.target) ||
             filteredNodeIds.has(e.source?.id) && filteredNodeIds.has(e.target?.id)
         );
 
-        // Create simulation with adjusted forces
-        simulation = d3.forceSimulation(filteredNodes)
-            .force('link', d3.forceLink(filteredEdges).id(d => d.id).distance(d => d.type === 'instance_of' ? 40 : 80))
-            .force('charge', d3.forceManyBody().strength(d => d.is_hub ? -300 : -120))
-            .force('center', d3.forceCenter(width / 2, height / 2))
-            .force('collision', d3.forceCollide().radius(d => d.is_hub ? 40 : 25));
+        // If hideUnconnected is enabled, filter out nodes with no connections
+        if (hideUnconnected) {
+            const connectedNodeIds = new Set();
+            filteredEdges.forEach(e => {
+                connectedNodeIds.add(typeof e.source === 'object' ? e.source.id : e.source);
+                connectedNodeIds.add(typeof e.target === 'object' ? e.target.id : e.target);
+            });
+            filteredNodes = filteredNodes.filter(n => connectedNodeIds.has(n.id));
+            filteredNodeIds = new Set(filteredNodes.map(n => n.id));
+            // Re-filter edges with new node set
+            filteredEdges = data.edges.filter(e =>
+                filteredNodeIds.has(e.source) && filteredNodeIds.has(e.target) ||
+                filteredNodeIds.has(e.source?.id) && filteredNodeIds.has(e.target?.id)
+            );
+        }
+
+        // Deep copy nodes to avoid mutation issues with D3
+        const nodesCopy = filteredNodes.map(n => ({...n}));
+        const edgesCopy = filteredEdges.map(e => ({...e}));
+
+        // Apply layout
+        applyLayout(nodesCopy, edgesCopy, width, height);
 
         // Create edges with arrows
         const link = g.append('g')
             .attr('class', 'links')
             .selectAll('line')
-            .data(filteredEdges)
+            .data(edgesCopy)
             .enter().append('line')
             .attr('stroke', d => d.type === 'instance_of' ? '#ccc' : '#666')
             .attr('stroke-opacity', d => d.type === 'instance_of' ? 0.3 : 0.7)
             .attr('stroke-width', d => d.type === 'instance_of' ? 1 : 2)
             .attr('marker-end', d => d.type !== 'instance_of' ? 'url(#arrowhead)' : null);
 
-        // Create edge labels
+        // Create edge labels (only for non-instance_of edges in force layout)
         const edgeLabels = g.append('g')
             .attr('class', 'edge-labels')
             .selectAll('text')
-            .data(filteredEdges.filter(e => e.type !== 'instance_of'))
+            .data(edgesCopy.filter(e => e.type !== 'instance_of'))
             .enter().append('text')
             .attr('font-size', '8px')
             .attr('fill', '#666')
@@ -1829,7 +2035,7 @@ function getCsrfToken() {
         const node = g.append('g')
             .attr('class', 'nodes')
             .selectAll('g')
-            .data(filteredNodes)
+            .data(nodesCopy)
             .enter().append('g')
             .style('cursor', 'pointer')
             .call(d3.drag()
@@ -1861,21 +2067,144 @@ function getCsrfToken() {
             .attr('fill', '#333')
             .text(d => truncateD3Label(d.label, d.is_hub ? 20 : 12));
 
-        simulation.on('tick', () => {
+        // For force layout, use simulation; for static layouts, position immediately
+        if (currentLayout === 'force') {
+            simulation.on('tick', () => {
+                link.attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+                    .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+                node.attr('transform', d => `translate(${d.x},${d.y})`);
+                edgeLabels
+                    .attr('x', d => (d.source.x + d.target.x) / 2)
+                    .attr('y', d => (d.source.y + d.target.y) / 2);
+            });
+        } else {
+            // Static layout - position immediately
             link.attr('x1', d => d.source.x).attr('y1', d => d.source.y)
                 .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
             node.attr('transform', d => `translate(${d.x},${d.y})`);
             edgeLabels
                 .attr('x', d => (d.source.x + d.target.x) / 2)
                 .attr('y', d => (d.source.y + d.target.y) / 2);
+        }
+
+        // Update stats
+        const hubCount = nodesCopy.filter(n => n.is_hub).length;
+        const entityCount = nodesCopy.length - hubCount;
+        const totalEntities = data.nodes.filter(n => !n.is_hub).length;
+        const hiddenCount = totalEntities - entityCount;
+
+        let statsText = `Showing ${entityCount} of ${totalEntities} entities`;
+        if (hubCount > 0) {
+            statsText += ` (+ ${hubCount} type hubs)`;
+        }
+        if (hiddenCount > 0) {
+            statsText += ` - ${hiddenCount} unconnected hidden`;
+        }
+        document.getElementById('d3-node-count').textContent = statsText;
+
+        // Update tab badge to show visible entity count
+        const tabBadge = document.getElementById('entities-tab-badge');
+        if (tabBadge) {
+            tabBadge.textContent = entityCount;
+        }
+    }
+
+    // Layout functions
+    function applyLayout(nodes, edges, width, height) {
+        if (currentLayout === 'force') {
+            // Create simulation with tighter clustering but spaced individual nodes
+            simulation = d3.forceSimulation(nodes)
+                .force('link', d3.forceLink(edges).id(d => d.id).distance(d => d.type === 'instance_of' ? 35 : 60).strength(1.5))
+                .force('charge', d3.forceManyBody().strength(d => d.is_hub ? -250 : -120))
+                .force('center', d3.forceCenter(width / 2, height / 2))
+                .force('collision', d3.forceCollide().radius(d => d.is_hub ? 45 : 30))
+                // Pull clusters toward center
+                .force('x', d3.forceX(width / 2).strength(0.08))
+                .force('y', d3.forceY(height / 2).strength(0.08));
+        } else if (currentLayout === 'circular') {
+            // Arrange nodes in a circle, grouped by type
+            const typeGroups = {};
+            nodes.forEach(n => {
+                if (!typeGroups[n.type]) typeGroups[n.type] = [];
+                typeGroups[n.type].push(n);
+            });
+            let angleOffset = 0;
+            const radius = Math.min(width, height) / 2.5;
+            Object.values(typeGroups).forEach(group => {
+                const angleStep = (2 * Math.PI) / nodes.length;
+                group.forEach((n, i) => {
+                    const angle = angleOffset + i * angleStep;
+                    n.x = width / 2 + radius * Math.cos(angle);
+                    n.y = height / 2 + radius * Math.sin(angle);
+                });
+                angleOffset += group.length * angleStep;
+            });
+            // Resolve edge references
+            resolveEdgeReferences(nodes, edges);
+        } else if (currentLayout === 'grid') {
+            // Arrange in grid, hubs on top
+            const hubs = nodes.filter(n => n.is_hub);
+            const others = nodes.filter(n => !n.is_hub);
+            const cols = Math.ceil(Math.sqrt(others.length));
+            const cellWidth = width / (cols + 1);
+            const cellHeight = (height - 100) / (Math.ceil(others.length / cols) + 1);
+
+            // Place hubs at top
+            hubs.forEach((n, i) => {
+                n.x = (i + 1) * (width / (hubs.length + 1));
+                n.y = 40;
+            });
+
+            // Place others in grid below
+            others.forEach((n, i) => {
+                const row = Math.floor(i / cols);
+                const col = i % cols;
+                n.x = (col + 1) * cellWidth;
+                n.y = 100 + (row + 1) * cellHeight;
+            });
+            resolveEdgeReferences(nodes, edges);
+        } else if (currentLayout === 'radial') {
+            // Radial layout with hubs at center
+            const hubs = nodes.filter(n => n.is_hub);
+            const others = nodes.filter(n => !n.is_hub);
+            const centerX = width / 2;
+            const centerY = height / 2;
+
+            // Place hubs in inner ring
+            const innerRadius = 60;
+            hubs.forEach((n, i) => {
+                const angle = (i / hubs.length) * 2 * Math.PI;
+                n.x = centerX + innerRadius * Math.cos(angle);
+                n.y = centerY + innerRadius * Math.sin(angle);
+            });
+
+            // Place others in outer rings by pass
+            const passGroups = {1: [], 2: [], 3: [], 4: []};
+            others.forEach(n => {
+                if (passGroups[n.pass]) passGroups[n.pass].push(n);
+                else passGroups[1].push(n);
+            });
+
+            let ringRadius = 120;
+            Object.values(passGroups).forEach(group => {
+                if (group.length === 0) return;
+                group.forEach((n, i) => {
+                    const angle = (i / group.length) * 2 * Math.PI;
+                    n.x = centerX + ringRadius * Math.cos(angle);
+                    n.y = centerY + ringRadius * Math.sin(angle);
+                });
+                ringRadius += 80;
+            });
+            resolveEdgeReferences(nodes, edges);
+        }
+    }
+
+    function resolveEdgeReferences(nodes, edges) {
+        const nodeMap = new Map(nodes.map(n => [n.id, n]));
+        edges.forEach(e => {
+            if (typeof e.source === 'string') e.source = nodeMap.get(e.source) || e.source;
+            if (typeof e.target === 'string') e.target = nodeMap.get(e.target) || e.target;
         });
-
-        document.getElementById('d3-node-count').textContent = filteredNodes.length + ' nodes, ' + filteredEdges.length + ' edges';
-
-        // Zoom controls
-        document.getElementById('d3-zoom-in').onclick = () => svg.transition().call(zoom.scaleBy, 1.3);
-        document.getElementById('d3-zoom-out').onclick = () => svg.transition().call(zoom.scaleBy, 0.7);
-        document.getElementById('d3-zoom-reset').onclick = () => svg.transition().call(zoom.transform, d3.zoomIdentity);
     }
 
     function filterD3Nodes(nodes) {
@@ -1907,7 +2236,32 @@ function getCsrfToken() {
 
         const passNames = {1: 'Pass 1', 2: 'Pass 2', 3: 'Pass 3', 4: 'Step 4'};
         document.getElementById('d3-detail-pass').textContent = passNames[d.pass] || 'Unknown';
-        document.getElementById('d3-detail-definition').textContent = d.definition || 'No definition';
+        document.getElementById('d3-detail-definition').textContent = d.definition || 'No definition available';
+
+        // Show additional metadata if available
+        const metadataDiv = document.getElementById('d3-detail-metadata');
+        const agentDiv = document.getElementById('d3-detail-agent');
+        const temporalDiv = document.getElementById('d3-detail-temporal');
+
+        let hasMetadata = false;
+
+        if (d.agent) {
+            agentDiv.querySelector('span').textContent = d.agent;
+            agentDiv.style.display = 'block';
+            hasMetadata = true;
+        } else {
+            agentDiv.style.display = 'none';
+        }
+
+        if (d.temporal_marker) {
+            temporalDiv.querySelector('span').textContent = d.temporal_marker;
+            temporalDiv.style.display = 'block';
+            hasMetadata = true;
+        } else {
+            temporalDiv.style.display = 'none';
+        }
+
+        metadataDiv.style.display = hasMetadata ? 'block' : 'none';
 
         const connections = graphData.edges.filter(e =>
             e.source === d.id || e.target === d.id ||
@@ -1995,6 +2349,78 @@ function getCsrfToken() {
         this.classList.toggle('btn-outline-info', !showTypeHubs);
         loadGraph(); // Reload with/without type hubs
     });
+
+    // Hide unconnected toggle
+    document.getElementById('d3-hide-unconnected').addEventListener('change', function() {
+        hideUnconnected = this.checked;
+        if (graphData) renderD3Graph(graphData);
+    });
+
+    // Layout select
+    document.getElementById('d3-layout-select').addEventListener('change', function() {
+        currentLayout = this.value;
+        if (graphData) renderD3Graph(graphData);
+    });
+
+    // Refresh button
+    document.getElementById('d3-refresh').addEventListener('click', function() {
+        loadGraph();
+    });
+
+    // Zoom controls
+    document.getElementById('d3-zoom-in').addEventListener('click', function() {
+        if (zoom) svg.transition().call(zoom.scaleBy, 1.3);
+    });
+    document.getElementById('d3-zoom-out').addEventListener('click', function() {
+        if (zoom) svg.transition().call(zoom.scaleBy, 0.7);
+    });
+    document.getElementById('d3-zoom-reset').addEventListener('click', function() {
+        if (zoom) svg.transition().call(zoom.transform, d3.zoomIdentity);
+    });
+
+    // Fullscreen toggle
+    document.getElementById('d3-fullscreen-btn').addEventListener('click', function() {
+        const card = getGraphCard();
+        if (card) card.classList.add('fullscreen');
+        this.style.display = 'none';
+        document.getElementById('d3-exit-fullscreen-btn').style.display = 'inline-block';
+        // Resize after transition
+        setTimeout(() => {
+            if (graphData) renderD3Graph(graphData);
+        }, 100);
+    });
+
+    document.getElementById('d3-exit-fullscreen-btn').addEventListener('click', function() {
+        const card = getGraphCard();
+        if (card) card.classList.remove('fullscreen');
+        this.style.display = 'none';
+        document.getElementById('d3-fullscreen-btn').style.display = 'inline-block';
+        // Resize after transition
+        setTimeout(() => {
+            if (graphData) renderD3Graph(graphData);
+        }, 100);
+    });
+
+    // ESC key to exit fullscreen
+    document.addEventListener('keydown', function(e) {
+        const card = getGraphCard();
+        if (e.key === 'Escape' && card && card.classList.contains('fullscreen')) {
+            document.getElementById('d3-exit-fullscreen-btn').click();
+        }
+    });
+
+    // Initialize on DOM ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            const hubsBtn = document.getElementById('d3-toggle-hubs');
+            if (hubsBtn) hubsBtn.classList.add('active');
+            loadGraph();
+        });
+    } else {
+        const hubsBtn = document.getElementById('d3-toggle-hubs');
+        if (hubsBtn) hubsBtn.classList.add('active');
+        loadGraph();
+    }
 })();
 
 // ============================================================================

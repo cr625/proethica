@@ -416,11 +416,49 @@ def get_entity_graph_api(case_id):
             node_id = f"{entity.extraction_type}_{entity.id}"
             node_ids.add(node_id)
 
-            # Get section from RDF if available
+            # Get section and definition from RDF if available
             section = 'unknown'
+            definition = entity.entity_definition or ''
+            agent = None
+            temporal_marker = None
+
             if entity.rdf_json_ld and isinstance(entity.rdf_json_ld, dict):
-                section = entity.rdf_json_ld.get('sourceSection',
-                          entity.rdf_json_ld.get('section', 'unknown'))
+                rdf = entity.rdf_json_ld
+                section = rdf.get('sourceSection', rdf.get('section', 'unknown'))
+
+                # Fall back to RDF fields for definition if database field is empty
+                if not definition:
+                    # Try standard RDF fields first
+                    definition = (
+                        rdf.get('proeth:description') or
+                        rdf.get('description') or
+                        rdf.get('rdfs:comment') or
+                        rdf.get('proeth-scenario:ethicalTension') or
+                        ''
+                    )
+                    # For Pass 1-2 entities, try properties fields
+                    if not definition and rdf.get('properties'):
+                        props = rdf.get('properties', {})
+                        # Try caseInvolvement first (describes role in case)
+                        if props.get('caseInvolvement'):
+                            inv = props.get('caseInvolvement')
+                            definition = inv[0] if isinstance(inv, list) else inv
+                        # Try hasEthicalTension
+                        elif props.get('hasEthicalTension'):
+                            tension = props.get('hasEthicalTension')
+                            definition = tension[0] if isinstance(tension, list) else tension
+                    # Try source_text as last resort
+                    if not definition and rdf.get('source_text'):
+                        definition = rdf.get('source_text')
+                    # For competing priorities, extract the conflict description
+                    if not definition and rdf.get('proeth:hasCompetingPriorities'):
+                        cp = rdf.get('proeth:hasCompetingPriorities', {})
+                        if isinstance(cp, dict):
+                            definition = cp.get('proeth:priorityConflict', '')
+
+                # Extract additional metadata for richer display
+                agent = rdf.get('proeth:hasAgent')
+                temporal_marker = rdf.get('proeth:temporalMarker')
 
             nodes.append({
                 'id': node_id,
@@ -428,12 +466,14 @@ def get_entity_graph_api(case_id):
                 'type': entity.extraction_type,
                 'entity_type': entity.entity_type,
                 'label': entity.entity_label or f"Entity {entity.id}",
-                'definition': entity.entity_definition or '',
+                'definition': definition,
                 'pass': type_to_pass.get(entity.extraction_type, 0),
                 'section': section,
                 'color': type_colors.get(entity.extraction_type, '#999999'),
                 'is_published': entity.is_published,
-                'is_selected': entity.is_selected
+                'is_selected': entity.is_selected,
+                'agent': agent,
+                'temporal_marker': temporal_marker
             })
 
         # Build edges from RDF relationships
@@ -517,6 +557,67 @@ def get_entity_graph_api(case_id):
                                     'weight': 1.0
                                 })
                                 edge_id += 1
+
+        # SPECIAL: Create Q-C edges from answersQuestions (contains question numbers, not labels)
+        # Build a mapping from question number to node_id
+        import re
+        question_num_to_node = {}
+        for entity in entities:
+            if entity.extraction_type == 'ethical_question':
+                label = entity.entity_label or ''
+                # Extract number from label like "Question_1", "Q1_board_explicit", etc.
+                match = re.search(r'(\d+)', label)
+                if match:
+                    q_num = int(match.group(1))
+                    question_num_to_node[q_num] = f"ethical_question_{entity.id}"
+
+        # Now create edges from conclusions to questions
+        for entity in entities:
+            if entity.extraction_type == 'ethical_conclusion':
+                if entity.rdf_json_ld and isinstance(entity.rdf_json_ld, dict):
+                    rdf = entity.rdf_json_ld
+
+                    # Try multiple sources for question linkage (in priority order):
+                    # 1. answersQuestions (current format)
+                    # 2. relatedAnalyticalQuestions (legacy format)
+                    # 3. Infer from label naming pattern (C1_* -> Q1, etc.)
+                    answers = rdf.get('answersQuestions', [])
+
+                    if not answers:
+                        # Fallback to relatedAnalyticalQuestions
+                        answers = rdf.get('relatedAnalyticalQuestions', [])
+
+                    if not answers:
+                        # Fallback: infer from conclusion label naming pattern
+                        # Labels like "C1_board_explicit" -> Q1, "C101_analytical" -> Q101
+                        label = entity.entity_label or ''
+                        match = re.match(r'C(\d+)', label)
+                        if match:
+                            inferred_q_num = int(match.group(1))
+                            if inferred_q_num in question_num_to_node:
+                                answers = [inferred_q_num]
+
+                    if answers:
+                        source_id = f"ethical_conclusion_{entity.id}"
+                        for q_num in answers:
+                            if isinstance(q_num, (int, str)):
+                                q_num_int = int(q_num) if isinstance(q_num, str) else q_num
+                                target_id = question_num_to_node.get(q_num_int)
+                                if target_id and target_id != source_id:
+                                    # Check for duplicates
+                                    existing = any(
+                                        e['source'] == source_id and e['target'] == target_id and e['type'] == 'answers'
+                                        for e in edges
+                                    )
+                                    if not existing:
+                                        edges.append({
+                                            'id': f"edge_{edge_id}",
+                                            'source': source_id,
+                                            'target': target_id,
+                                            'type': 'answers',
+                                            'weight': 1.0
+                                        })
+                                        edge_id += 1
 
         # OPTIONAL: Add type hub nodes if requested via query param
         show_type_hubs = request.args.get('type_hubs', 'false').lower() == 'true'
@@ -1240,15 +1341,18 @@ def _load_narrative_for_review(case_id: int) -> Optional[Dict]:
 
 def _get_all_entities_for_graph(case_id: int) -> List:
     """
-    Get all extracted entities from Passes 1-3 + precedent references for graph visualization.
-    Returns list of entity objects for Cytoscape rendering (both committed and uncommitted).
+    Get all extracted entities from Passes 1-4 for graph visualization.
+    Returns list of entity objects for D3/Cytoscape rendering (both committed and uncommitted).
     """
-    # Include Pass 1-3 extraction types PLUS precedent_case_reference
+    # Include all entity types shown in the entity graph (matches entity_graph API)
     extraction_types = [
         'roles', 'states', 'resources',  # Pass 1
         'principles', 'obligations', 'constraints', 'capabilities',  # Pass 2
         'temporal_dynamics_enhanced',  # Pass 3 (all temporal entities)
-        'precedent_case_reference'  # Step 6 precedent discovery (shown in Step 4 graph)
+        'code_provision_reference', 'ethical_question', 'ethical_conclusion',  # Step 4 core
+        'causal_normative_link', 'question_emergence', 'resolution_pattern',  # Step 4 rich analysis
+        'canonical_decision_point',  # Step 4 decision points
+        'precedent_case_reference'  # Step 6 precedent discovery
     ]
 
     all_entities = []
@@ -1302,14 +1406,47 @@ def _build_entity_lookup_dict(case_id: int) -> Dict[str, Dict]:
     for entity in all_entities:
         source_pass = pass_map.get(entity.extraction_type, 0)
 
+        # Get definition from database field first, then fall back to RDF fields
+        definition = entity.entity_definition or ''
+        if not definition and entity.rdf_json_ld and isinstance(entity.rdf_json_ld, dict):
+            rdf = entity.rdf_json_ld
+            # Try standard RDF fields first
+            definition = (
+                rdf.get('proeth:description') or
+                rdf.get('description') or
+                rdf.get('rdfs:comment') or
+                rdf.get('proeth-scenario:ethicalTension') or
+                ''
+            )
+            # For Pass 1-2 entities, try properties fields
+            if not definition and rdf.get('properties'):
+                props = rdf.get('properties', {})
+                if props.get('caseInvolvement'):
+                    inv = props.get('caseInvolvement')
+                    definition = inv[0] if isinstance(inv, list) else inv
+                elif props.get('hasEthicalTension'):
+                    tension = props.get('hasEthicalTension')
+                    definition = tension[0] if isinstance(tension, list) else tension
+            # Try source_text as last resort
+            if not definition and rdf.get('source_text'):
+                definition = rdf.get('source_text')
+            # For competing priorities
+            if not definition and rdf.get('proeth:hasCompetingPriorities'):
+                cp = rdf.get('proeth:hasCompetingPriorities', {})
+                if isinstance(cp, dict):
+                    definition = cp.get('proeth:priorityConflict', '')
+
         entity_data = {
             'label': entity.entity_label,
-            'definition': entity.entity_definition or '',
+            'definition': definition,
             'entity_type': entity.entity_type,
             'extraction_type': entity.extraction_type,
             'is_published': entity.is_published,
             'source_pass': source_pass,
-            'provenance': entity.provenance_metadata or {}
+            'provenance': entity.provenance_metadata or {},
+            # Add additional RDF metadata for richer display
+            'rdf_agent': entity.rdf_json_ld.get('proeth:hasAgent') if entity.rdf_json_ld else None,
+            'rdf_temporal': entity.rdf_json_ld.get('proeth:temporalMarker') if entity.rdf_json_ld else None
         }
 
         # Index by URI if available

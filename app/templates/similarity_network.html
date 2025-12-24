@@ -830,8 +830,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             });
         } else {
-            // Force layout - clear fixed positions
-            nodes.forEach(node => {
+            // Force layout - spread nodes initially across canvas
+            const spreadRadius = Math.min(width, height) * 0.4;
+            nodes.forEach((node, i) => {
+                // Start with a spiral pattern for even initial distribution
+                const angle = (2 * Math.PI * i) / nodes.length + (i * 0.5);
+                const r = spreadRadius * (0.3 + 0.7 * (i / nodes.length));
+                node.x = width / 2 + r * Math.cos(angle);
+                node.y = height / 2 + r * Math.sin(angle);
                 node.fx = null;
                 node.fy = null;
             });
@@ -839,20 +845,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Adjust simulation parameters based on edge count
         const edgeCount = edges.length;
-        const chargeStrength = edgeCount < 50 ? -400 : (edgeCount < 100 ? -300 : -200);
-        const linkDistance = edgeCount < 50 ? 120 : (edgeCount < 100 ? 100 : 80);
+        const chargeStrength = edgeCount < 50 ? -800 : (edgeCount < 100 ? -600 : -400);
+        const linkDistance = edgeCount < 50 ? 180 : (edgeCount < 100 ? 150 : 120);
 
         // Create simulation (only active for force layout)
         simulation = d3.forceSimulation(nodes)
             .force('link', d3.forceLink(edges)
                 .id(d => d.id)
-                .distance(d => linkDistance + (1 - d.similarity) * 50)
-                .strength(d => currentLayout === 'force' ? 0.3 + d.similarity * 0.3 : 0))
+                .distance(d => linkDistance + (1 - d.similarity) * 80)
+                .strength(d => currentLayout === 'force' ? 0.15 + d.similarity * 0.25 : 0))
             .force('charge', d3.forceManyBody().strength(currentLayout === 'force' ? chargeStrength : 0))
             .force('center', d3.forceCenter(width / 2, height / 2))
-            .force('collision', d3.forceCollide().radius(45))
-            .force('x', d3.forceX(width / 2).strength(0.05))
-            .force('y', d3.forceY(height / 2).strength(0.05));
+            .force('collision', d3.forceCollide().radius(60))
+            .force('x', d3.forceX(width / 2).strength(0.02))
+            .force('y', d3.forceY(height / 2).strength(0.02));
 
         // Create edges
         const link = g.append('g')
