@@ -16,33 +16,35 @@ Phase 1 extracts the nine concepts across three passes:
 
 ### Access the Pipeline
 
-1. Navigate to the case detail page (`/cases/<id>`)
-2. Click **Analyze** button
-3. You'll arrive at the Scenario Pipeline overview
+Navigate to any case detail page. The numbered step buttons appear at the top of the case:
 
-### Pipeline Navigation
+![Case Step Buttons](../assets/images/screenshots/case-step-buttons-content.png)
 
-The left sidebar shows pipeline steps:
+Steps must be processed in sequence. Completed steps display as green; incomplete steps show the step number. Click any available step to begin extraction for that pass.
 
-| Step | Description | Prerequisite |
-|------|-------------|--------------|
-| Step 1 | Facts extraction (Pass 1) | None |
-| Step 1b | Discussion extraction (Pass 1) | Step 1 |
-| Step 2 | Facts extraction (Pass 2) | Step 1b |
-| Step 2b | Discussion extraction (Pass 2) | Step 2 |
-| Step 3 | Temporal extraction (Pass 3) | Step 2b |
-| Step 4 | Case analysis | Step 3 |
-| Step 5 | Scenario visualization | Step 4 |
+### Pipeline Steps
+
+| Step | Name | Concepts Extracted |
+|------|------|-------------------|
+| Step 1 | Contextual Framework | Roles, States, Resources |
+| Step 2 | Normative Requirements | Principles, Obligations, Constraints, Capabilities |
+| Step 3 | Temporal Dynamics | Actions, Events |
+| Step 4 | Synthesis | Provisions, Questions, Decision Points, Narrative |
+
+Each step extracts from both Facts and Discussion sections. The Discussion section becomes available after Facts extraction completes for that step.
 
 ## Pass 1: Contextual Framework
 
 ### Step 1: Facts Section
 
-1. Click **Step 1** in the pipeline sidebar
-2. The Facts section text is displayed
-3. Click **Run Extraction** to begin
+1. Click the **Step 1** button on the case page
+2. The extraction page displays the Facts section text
+3. Click individual extraction buttons for each concept type:
+   - **Extract Roles** - Professional positions
+   - **Extract States** - Situational conditions
+   - **Extract Resources** - Referenced standards
 
-The system extracts:
+After extraction completes for each type:
 
 | Concept | Description | Typical Count |
 |---------|-------------|---------------|
@@ -52,25 +54,33 @@ The system extracts:
 
 ### Entity Review
 
-After extraction completes:
+Click **Review Pass 1 Entities (Facts)** to access the review page:
 
-1. Review extracted entities in the table
-2. Available classes from OntServe shown in collapsible section
-3. Edit entity labels or definitions as needed
-4. Select entities to keep
+1. Entities displayed in cards organized by concept type
+2. Available OntServe classes shown for matching
+3. Remove incorrect entities using the delete button
+4. Use the **Facts/Discussion** toggle to switch between sections
 
-### Step 1b: Discussion Section
+### Discussion Section
 
-1. After completing Step 1 review, click **Step 1b**
-2. Discussion section text displayed
-3. Run extraction for additional Roles, States, Resources
+After completing Facts extraction:
+
+1. Click **Discussion Section** on the extraction page
+2. Extract concepts from the Discussion section using the same buttons
+3. Review using **Review Pass 1 Entities** with the Discussion toggle active
 
 ## Pass 2: Normative Requirements
 
 ### Step 2: Facts Section
 
-1. Click **Step 2** (requires Step 1b complete)
-2. Extract from Facts section:
+1. Click the **Step 2** button on the case page
+2. Click individual extraction buttons:
+   - **Extract Principles** - Abstract ethical standards
+   - **Extract Obligations** - Concrete duties
+   - **Extract Constraints** - Prohibitions and limits
+   - **Extract Capabilities** - Permissions and options
+
+Expected entity counts:
 
 | Concept | Description | Typical Count |
 |---------|-------------|---------------|
@@ -79,53 +89,33 @@ After extraction completes:
 | **Constraints** | Prohibitions and limits | 15-20 entities |
 | **Capabilities** | Permissions and options | 15-25 entities |
 
-### Step 2b: Discussion Section
+### Discussion Section
 
-Extract normative concepts from Discussion section for comprehensive coverage.
+Click **Discussion Section** after completing Facts extraction to extract normative concepts from the Discussion section.
 
 ## Pass 3: Temporal Dynamics
 
-### Step 3: Full Case
+### Step 3
 
-1. Click **Step 3** (requires Step 2b complete)
-2. Extracts from full case content:
+1. Click the **Step 3** button on the case page
+2. Step 3 extracts temporal concepts from the full case:
 
 | Concept | Description | Typical Count |
 |---------|-------------|---------------|
+| **Actions** | Professional responses and decisions | 5-12 entities |
 | **Events** | Precipitating occurrences | 3-8 entities |
-| **Actions** | Professional responses | 5-12 entities |
-| **Temporal Relations** | Before/after relationships | 10-20 relations |
-| **Causal Chains** | Cause-effect links | 5-10 chains |
 
-### Timeline Construction
-
-Pass 3 builds a timeline showing:
-
-- Event sequence
-- Action responses
-- Causal relationships
+The temporal extraction also identifies causal relationships and timeline sequences.
 
 ## Extraction Options
 
-### Clear and Re-run
+### Re-run Extraction
 
-Each step includes **Clear and Re-run** to restart extraction:
-
-- Removes previously extracted entities
-- Starts fresh extraction
-- Use when results need improvement
-
-### Model Selection
-
-The system uses Claude for extraction by default. Model selection configured via environment variables.
+The review page includes a **Re-run** button to return to the extraction page and run extraction again if results need improvement.
 
 ### Progress Tracking
 
-During extraction:
-
-- SSE streaming shows progress
-- Progress bar indicates completion
-- Entity count updates in real-time
+During extraction, a progress indicator shows completion status. Entity counts update after each extraction completes.
 
 ## Entity Quality
 
@@ -140,33 +130,22 @@ When reviewing extracted entities:
 | **Distinctness** | No duplicate entities |
 | **Specificity** | Entities are appropriately specific |
 
-### Editing Entities
+### Managing Entities
 
-For each entity, you can:
+For each entity on the review page:
 
-- Edit the label (short identifier)
-- Edit the definition (full description)
-- Change the class assignment
-- Delete if not relevant
+- Remove incorrect entities using the delete button
+- View entity details and matched ontology classes
 
-### Approving New Classes
+Full entity editing after commit is planned for a future release.
 
-When LLM identifies a concept not in the ontology:
+### New Classes
 
-1. Entity marked as "New Class"
-2. Review if genuinely novel
-3. Approve to add to OntServe ontology
-4. Or reassign to existing class
+When the LLM identifies a concept not matching existing ontology classes, it appears with a "New" badge. Click the badge to open the Entity Match Details modal:
 
-## Commit Entities
-
-After review, click **Commit** to:
-
-- Save entities to temporary storage
-- Link entities with extraction session
-- Enable Step 4 analysis
-
-Entities remain in temporary storage until explicitly committed to OntServe ontology.
+- **Search for Alternative Match** - Search for an existing ontology class
+- **Confirm Current Match** - Accept the current match status
+- **Mark as New Class** - Confirm this as a new class proposal
 
 ## Extraction Metrics
 
@@ -195,10 +174,8 @@ For NSPE Case 24-2 (AI in Engineering Practice):
 - Capabilities (20): Can hire specialists, Can request extensions, etc.
 
 **Pass 3 Results**:
-- Events (3): Client requests AI design, etc.
-- Actions (7): Uses AI without verification, etc.
-- Relations (12): Request before decision, etc.
-- Chains (6): Lacks competence leads to violation, etc.
+- Actions (7): Uses AI without verification, Certifies design, etc.
+- Events (3): Client requests AI design, Board receives complaint, etc.
 
 ## Troubleshooting
 
@@ -224,7 +201,7 @@ LLM may extract duplicates:
 
 1. Review carefully during entity review
 2. Delete duplicates manually
-3. Use Clear and Re-run for fresh extraction
+3. Use **Re-run** to re-extract if needed
 
 ## Related Guides
 

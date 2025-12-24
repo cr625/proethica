@@ -13,8 +13,6 @@ let documentId = null;
 
 document.addEventListener('DOMContentLoaded', function () {
     try {
-        console.log('Initializing case detail page interactions...');
-
         // Store the selected triples
         const selectedTriples = new Set();
 
@@ -33,8 +31,6 @@ document.addEventListener('DOMContentLoaded', function () {
         // Initialize color coding for triples by source
         initTripleColorCoding();
 
-        console.log('Document ID:', documentId);
-
         // Get DOM elements - with null checks and fallbacks
         const tripleLabels = document.querySelectorAll('.triple-label') || [];
         const relatedCasesContainer = document.getElementById('relatedCasesContainer');
@@ -46,15 +42,10 @@ document.addEventListener('DOMContentLoaded', function () {
         const descriptionContainer = document.getElementById('description-container');
         const descriptionContent = document.getElementById('description-content');
 
-        console.log('Initializing triple labels interaction...');
-        console.log('Found ' + tripleLabels.length + ' triple labels');
-
         // Add click event to all triple labels
         if (tripleLabels.length > 0) {
             tripleLabels.forEach(label => {
                 label.addEventListener('click', function () {
-                    console.log('Triple label clicked:', this.textContent.trim());
-
                     // Toggle selection
                     const selected = this.classList.toggle('selected');
                     const tripleKey = getTripleKey(this);
@@ -63,12 +54,10 @@ document.addEventListener('DOMContentLoaded', function () {
                         selectedTriples.add(tripleKey);
                         this.classList.replace('bg-info', 'bg-primary');
                         this.classList.replace('text-dark', 'text-white');
-                        console.log('Label selected, total selected:', selectedTriples.size);
                     } else {
                         selectedTriples.delete(tripleKey);
                         this.classList.replace('bg-primary', 'bg-info');
                         this.classList.replace('text-white', 'text-dark');
-                        console.log('Label deselected, total selected:', selectedTriples.size);
                     }
 
                     // Update UI
@@ -86,16 +75,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // Add show more/less toggle for description
         if (descriptionContainer && descriptionContent) {
-            console.log('Setting up show more/less toggle for description');
             setupShowMoreLessToggle();
-        } else {
-            console.log('Description container or content element not found');
         }
 
         // Clear selection button
         if (clearSelectionBtn) {
             clearSelectionBtn.addEventListener('click', function () {
-                console.log('Clearing all selections');
                 selectedTriples.clear();
                 tripleLabels.forEach(label => {
                     label.classList.remove('selected');
@@ -111,7 +96,6 @@ document.addEventListener('DOMContentLoaded', function () {
          * Initialize color coding for triples by source
          */
         function initTripleColorCoding() {
-            console.log('Initializing triple color coding...');
             const tripleLabels = document.querySelectorAll('.triple-label');
 
             tripleLabels.forEach(label => {
@@ -162,8 +146,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                 }
             });
-
-            console.log('Triple color coding initialized');
         }
 
         /**
@@ -197,7 +179,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
             // Skip show more/less toggle for extraction style formatted cases
             if (document.querySelector('[data-extraction-style="true"]')) {
-                console.log('Skipping show more/less toggle for extraction style case');
                 return;
             }
 
@@ -209,11 +190,8 @@ document.addEventListener('DOMContentLoaded', function () {
                         const contentHeight = descriptionContent.scrollHeight;
                         const maxHeight = 300; // Default max height
 
-                        console.log('Content height:', contentHeight, 'Max height:', maxHeight);
-
                         // Only add show more/less toggle if the content is tall enough
                         if (contentHeight > maxHeight) {
-                            console.log('Adding show more/less toggle for description');
 
                             // Set initial height to full height (expanded by default)
                             descriptionContent.style.maxHeight = contentHeight + 'px';
@@ -247,8 +225,6 @@ document.addEventListener('DOMContentLoaded', function () {
                             } else {
                                 console.warn('Cannot append Show More button: container is null');
                             }
-                        } else {
-                            console.log('Content height is not tall enough for show more/less toggle');
                         }
                     } catch (innerError) {
                         console.error('Error in setTimeout callback:', innerError);
@@ -279,11 +255,8 @@ document.addEventListener('DOMContentLoaded', function () {
         function fetchRelatedCases() {
             // Return early if required elements don't exist
             if (!relatedCasesContent && !relatedCasesList) {
-                console.log('Cannot fetch related cases: required DOM elements missing');
                 return;
             }
-
-            console.log('Fetching related cases for selected triples...');
 
             // Show loading state
             if (relatedCasesContent) {
@@ -295,7 +268,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
             // Convert selected triples to array of objects
             const triples = Array.from(selectedTriples).map(key => JSON.parse(key));
-            console.log('Selected triples for API request:', triples);
 
             // Make API request
             fetch('/cases/api/related-cases', {
@@ -308,12 +280,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     selected_triples: triples
                 }),
             })
-                .then(response => {
-                    console.log('API response status:', response.status);
-                    return response.json();
-                })
+                .then(response => response.json())
                 .then(data => {
-                    console.log('API response data:', data);
 
                     if (data.error) {
                         if (relatedCasesContent) {
@@ -362,7 +330,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
                         if (relatedCasesList) {
                             relatedCasesList.innerHTML = caseListHTML;
-                            console.log('Updated related cases list with ' + cases.length + ' cases');
                         }
                     }
                 })
@@ -384,11 +351,8 @@ document.addEventListener('DOMContentLoaded', function () {
      * Initialize annotation-based highlighting and toggle functionality
      */
     function initAnnotationHighlighting() {
-        console.log('Initializing annotation highlighting...');
-
         const toggleCheckbox = document.getElementById('toggleAnnotationHighlighting');
         if (!toggleCheckbox) {
-            console.log('No annotation highlighting toggle found for this case');
             return;
         }
 
@@ -416,8 +380,6 @@ document.addEventListener('DOMContentLoaded', function () {
          * Fetch annotations from API and apply highlighting
          */
         function fetchAnnotationsAndHighlight() {
-            console.log('Fetching annotations for highlighting...');
-
             // Show loading state
             toggleCheckbox.disabled = true;
             const label = document.querySelector('label[for="toggleAnnotationHighlighting"]');
@@ -450,7 +412,6 @@ document.addEventListener('DOMContentLoaded', function () {
                             allAnnotations = allAnnotations.concat(data.annotations_by_ontology[ontologyKey]);
                         });
 
-                        console.log(`Fetched ${allAnnotations.length} annotations for highlighting from ${Object.keys(data.annotations_by_ontology).length} ontologies`);
                         annotationsData = allAnnotations;
                         applyAnnotationHighlighting(annotationsData);
                         isHighlightingEnabled = true;
@@ -475,8 +436,6 @@ document.addEventListener('DOMContentLoaded', function () {
          * Apply highlighting to annotated text segments
          */
         function applyAnnotationHighlighting(annotations) {
-            console.log('Applying annotation highlighting...');
-
             // Clear any existing highlights first
             removeAnnotationHighlighting();
 
@@ -502,8 +461,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
             });
 
-            console.log(`Applied highlighting to ${highlightCount} text segments`);
-
             // Add styles if not already present
             addAnnotationHighlightingStyles();
         }
@@ -512,8 +469,6 @@ document.addEventListener('DOMContentLoaded', function () {
          * Remove all annotation highlighting
          */
         function removeAnnotationHighlighting() {
-            console.log('Removing annotation highlighting...');
-
             const highlights = document.querySelectorAll('.annotation-highlight');
             highlights.forEach(highlight => {
                 const parent = highlight.parentNode;
@@ -974,8 +929,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             });
         });
-
-        console.log(`Applied highlighting to ${highlightedCount} terms in section`);
     }
 
 

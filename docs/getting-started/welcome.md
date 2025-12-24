@@ -8,10 +8,10 @@ ProEthica is an ethical decision analysis platform that uses large language mode
 
 ProEthica analyzes ethics cases from professional boards (such as the NSPE Board of Ethical Review) using a formal nine-concept framework. The system:
 
-- **Extracts structured entities** from case narratives (roles, obligations, principles, actions, events)
-- **Maps relationships** between ethical concepts using ontology-based representation
-- **Discovers precedents** by finding semantically similar cases
-- **Generates scenarios** for understanding case dynamics and transformation patterns
+- Extracts [structured entities](../concepts/nine-concepts.md) from case narratives (Roles, States, Resources, Principles, Obligations, Constraints, Capabilities, Actions, Events)
+- Maps relationships between ethical concepts using ontology-based representation
+- Discovers precedents by finding semantically similar cases
+- Generates scenarios for understanding case dynamics and transformation patterns (coming soon)
 
 ## Two Processing Modes
 
@@ -23,8 +23,7 @@ Progress through each extraction step individually with full visibility into LLM
 
 - **View prompts and responses** - See exactly what the LLM receives and produces at each step
 - **Review before committing** - Examine extracted entities before saving to the ontology
-- **Edit as you go** - Modify, add, or remove entities during the review phase
-- **Track provenance** - Each extraction records the prompt, model, and timestamp
+- **Review and remove** - Remove incorrect entities during the review phase (editing after commit coming soon)
 
 Manual mode is recommended for understanding the extraction process and validating results.
 
@@ -38,7 +37,7 @@ Queue cases for batch processing through all extraction steps:
 
 Pipeline mode is efficient for processing multiple cases after you are familiar with manual extraction.
 
-Access manual mode from any case's **Analyze** button. Access pipeline mode from **Pipeline > Dashboard**.
+Manual mode is accessed from the numbered step buttons at the top of any case page. Steps must be processed in sequence; completed steps display as green. See [Phase 1 Extraction](../how-to/phase1-extraction.md) for details. Pipeline mode is accessed from **Pipeline > Dashboard**.
 
 ## Quick Start
 
@@ -46,21 +45,21 @@ The home page provides three main entry points:
 
 | Card | Purpose |
 |------|---------|
-| **Browse Cases** | View and analyze ethics cases in the repository |
-| **Find Precedents** | Discover similar cases using semantic similarity |
-| **Documentation** | Access this user manual |
+| [Browse Cases](../how-to/view-cases.md) | View and analyze ethics cases in the repository |
+| [Find Precedents](../how-to/precedent-discovery.md) | Discover similar cases using semantic similarity |
+| Documentation | Access this user manual |
 
 ## Main Features
 
 ### Professional Domains
 
-The left panel shows available professional domains (e.g., Engineering Ethics). Each domain contains:
+The left panel shows available professional domains. The current implementation includes Engineering Ethics; additional domains can be configured. Each domain contains:
 
 - Ethics cases from professional review boards
 - Domain-specific ontologies and guidelines
 - Precedent relationships between cases
 
-Click a domain to set it as active, or use the folder icon to browse its cases directly.
+Use the folder icon to browse cases within a domain.
 
 ### Linked Data
 

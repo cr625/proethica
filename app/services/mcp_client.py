@@ -25,7 +25,8 @@ class MCPClient:
     def __init__(self):
         """Initialize the MCP client."""
         # Get MCP server URL from environment variable or use default
-        self.mcp_url = os.environ.get('MCP_SERVER_URL', 'http://localhost:5002')
+        # Prefer ONTSERVE_MCP_URL, fall back to MCP_SERVER_URL for backwards compatibility
+        self.mcp_url = os.environ.get('ONTSERVE_MCP_URL') or os.environ.get('MCP_SERVER_URL', 'http://localhost:8082')
         self.use_mock_fallback = os.environ.get('USE_MOCK_FALLBACK', 'true').lower() == 'true'
         
         # Normalize the URL to avoid escape sequence issues

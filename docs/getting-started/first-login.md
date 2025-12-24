@@ -31,7 +31,7 @@ The top navigation provides access to main features:
 | **Precedents** | Dropdown | Find Precedents, Similarity Network |
 | **Guidelines** | Link | Browse ethical guidelines and codes of ethics |
 | **Docs** | Link | This documentation |
-| **Tools** | Dropdown | Provenance Viewer, Academic References, OntServe Web, Browse Ontologies, Pipeline Dashboard, Queue Management |
+| **Tools** | Dropdown | Academic References, OntServe Web, Browse Ontologies, Pipeline Dashboard, Queue Management |
 | **[User]** | Dropdown | User menu with Logout |
 
 The domain dropdown (e.g., "Engineering") reflects the currently active professional domain and provides access to domain management.
@@ -56,7 +56,7 @@ Each case has a detail page showing:
 - Case title, reference number, and metadata
 - Full narrative with Facts and Discussion sections
 - **Structure** button - View document sections and embeddings
-- **Analyze** button - Launch the extraction pipeline
+- **Numbered step buttons** (1-4) - Launch extraction steps in sequence
 
 ![Case Detail](../assets/images/screenshots/case-detail-content.png)
 
@@ -84,13 +84,13 @@ The pipeline (`/scenario_pipeline/<case_id>`) provides step-by-step case analysi
 
 ### Pipeline Overview
 
-The overview page shows step completion status:
+Step buttons at the top of case pages indicate completion status:
 
-- **Lock icon** - Prerequisites not met
-- **Check mark** - Step completed
-- **Arrow** - Current step available
+- **Green (btn-success)** - Step completed
+- **Blue outline** - Step available, ready to run
+- **Gray outline (disabled)** - Prerequisites not met
 
-![Pipeline Overview](../assets/images/screenshots/pipeline-overview-complete-content.png)
+![Pipeline Overview](../assets/images/screenshots/pipeline-overview-content.png)
 
 ### Entity Review
 
@@ -98,8 +98,8 @@ After each extraction, the review page displays:
 
 - Extracted entities organized by concept type
 - Section toggle (Facts vs Discussion)
-- Edit and delete controls for each entity
-- Commit button to finalize to OntServe
+- Delete controls for each entity
+- Re-run button to return to extraction
 
 ![Entity Review](../assets/images/screenshots/entity-review-pass1-content.png)
 
