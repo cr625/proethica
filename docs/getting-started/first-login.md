@@ -2,16 +2,39 @@
 
 This guide covers the main interface elements and navigation patterns in ProEthica.
 
+## Access Levels
+
+ProEthica operates in demo mode by default, allowing exploration of cases and extracted entities without authentication. The interface adapts based on access level:
+
+| Level | Access | Available Features |
+|-------|--------|-------------------|
+| Anonymous (Demo) | No login required | Browse cases, view extractions, explore precedent network, read guidelines |
+| Authenticated | Login required | Run extractions, edit entities, manage pipeline queue |
+| Admin | Admin account | User management, domain configuration, system settings |
+
+Users exploring the demo will see view-only interfaces. Buttons for extraction, editing, and pipeline operations appear only for authenticated users. This documentation describes the full interface as seen by authenticated users.
+
+Future development will introduce additional access levels:
+
+- **Domain Expert**: Create and maintain domain ontologies, define guideline structures
+- **Professional User**: Run interactive scenarios, explore decision consequences
+
 ## Navigation Bar
 
 The top navigation provides access to main features:
 
-| Menu Item | Description |
-|-----------|-------------|
-| **Cases** | Case repository, upload, and individual case views |
-| **Precedents** | Similarity-based precedent discovery and network visualization |
-| **Tools** | Academic references, documentation, and utilities |
-| **Admin** | System administration (if authorized) |
+| Menu Item | Type | Contents |
+|-----------|------|----------|
+| **Home** | Link | Return to home page |
+| **[Domain]** | Dropdown | Current domain (e.g., Engineering), Manage Domains, Create New |
+| **Cases** | Link | Case repository |
+| **Precedents** | Dropdown | Find Precedents, Similarity Network |
+| **Guidelines** | Link | Browse ethical guidelines and codes of ethics |
+| **Docs** | Link | This documentation |
+| **Tools** | Dropdown | Provenance Viewer, Academic References, OntServe Web, Browse Ontologies, Pipeline Dashboard, Queue Management |
+| **[User]** | Dropdown | User menu with Logout |
+
+The domain dropdown (e.g., "Engineering") reflects the currently active professional domain and provides access to domain management.
 
 ## Cases Section
 
@@ -51,15 +74,13 @@ The Structure view (`/cases/<id>/structure`) provides:
 
 The pipeline (`/scenario_pipeline/<case_id>`) provides step-by-step case analysis:
 
-| Step | Phase | Description |
-|------|-------|-------------|
-| Step 1 | Phase 1 | Pass 1 extraction (Facts: Roles, States, Resources) |
-| Step 1b | Phase 1 | Pass 1 extraction (Discussion section) |
-| Step 2 | Phase 1 | Pass 2 extraction (Principles, Obligations) |
-| Step 2b | Phase 1 | Pass 2 extraction (Discussion section) |
-| Step 3 | Phase 1 | Pass 3 extraction (Actions, Events, Constraints, Capabilities) |
-| Step 4 | Phase 2 | Case synthesis and transformation analysis |
-| Step 5 | Phase 3 | Interactive scenario exploration |
+| Step | Name | Description | Status |
+|------|------|-------------|--------|
+| 1 | Contextual Framework | Extract Roles, States, Resources from Facts and Discussion | Implemented |
+| 2 | Normative Requirements | Extract Principles, Obligations, Constraints, Capabilities | Implemented |
+| 3 | Temporal Dynamics | Extract Actions, Events, build timeline | Implemented |
+| 4 | Case Synthesis | Four-phase analysis: provisions, questions, decision points, narrative | Implemented |
+| 5 | Scenario Exploration | Interactive decision-making with consequence generation | Planned |
 
 ### Pipeline Overview
 

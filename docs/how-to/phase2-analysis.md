@@ -1,19 +1,21 @@
 # Phase 2: Case Synthesis and Analysis
 
-Phase 2 analyzes extracted entities to identify code provisions, ethical questions and conclusions, classify transformation patterns, and extract decision points for scenario generation.
+Phase 2 (Step 4) analyzes extracted entities to identify code provisions, ethical questions and conclusions, classify transformation patterns, and extract decision points for scenario generation.
+
+![Step 4 Synthesis](../assets/images/screenshots/step4-synthesis-content.png)
 
 ## Overview
 
-After Phase 1 extraction completes (133+ entities typical), Phase 2 performs six-part analysis:
+After Phase 1 extraction completes (133+ entities typical), Step 4 performs a Four-Phase Synthesis Pipeline:
 
-| Part | Name | Description | Status |
-|------|------|-------------|--------|
-| A | Code Provisions | Parse References section, detect mentions, link to entities | Complete |
-| B | Questions & Conclusions | Extract Q/C, tag with entities, link Q to C | Complete |
-| C | Cross-Section Synthesis | Build entity knowledge graph | Complete |
-| D | Transformation | Classify as transfer/stalemate/oscillation/phase_lag | Complete |
-| E | Decision Point Extraction | Identify key decision points for scenario generation | Complete |
-| F | Pros/Cons Arguments | Generate arguments for/against each decision option | Planned |
+| Phase | Name | Description |
+|-------|------|-------------|
+| Phase 1 | Entity Foundation | Prepare extracted entities for analysis |
+| Phase 2 | Analytical Extraction | Extract code provisions, questions, conclusions, and transformation patterns |
+| Phase 3 | Decision Point Synthesis | Identify key decision points for scenario generation |
+| Phase 4 | Narrative Construction | Build case narrative linking all elements |
+
+Each phase can be run individually or as part of the complete synthesis pipeline.
 
 ## Starting Analysis
 
@@ -170,33 +172,34 @@ This feature is planned for implementation.
 
 ## Running Analysis
 
-### Automatic Analysis
+### Four-Phase Pipeline
 
-Click **Run Synthesis** to execute Parts A-D:
+The Step 4 page shows the synthesis pipeline with four phases:
 
-1. SSE streaming shows progress
-2. Each part completes sequentially
-3. Results displayed in tabbed interface
+1. **Phase 1 - Entity Foundation**: Click **Re-run** to prepare entity data
+2. **Phase 2 - Analytical Extraction**: Click **Re-run** to extract provisions, questions, conclusions
+3. **Phase 3 - Decision Point Synthesis**: Click **Analyze** to extract decision points
+4. **Phase 4 - Narrative Construction**: Click **Construct** to build the case narrative, then **View Narrative** to see results
 
-### Decision Point Extraction
+Each phase shows its LLM prompts and responses in expandable sections.
 
-Decision points are extracted separately:
+### Quick Actions
 
-1. Go to **Step 4 Review** page
-2. Click **Decision Points** tab
-3. Click **Extract Decision Points** button
-4. Review extracted decision points and options
-5. Click **Commit to OntServe** to persist
+The page header provides:
+
+- **Back to Case** - Return to case detail page
+- **Re-run Synthesis** - Re-execute all phases
+- **Review Results** - View synthesis outputs
+- **Clear Step 4** - Remove all synthesis data to start fresh
 
 ### Review Results
 
-After analysis:
+After analysis, click **Review Step 4 Results** to see:
 
-1. **Provisions** tab - Code references found
-2. **Questions & Conclusions** tab - Q/C with linking
-3. **Entity Graph** tab - Cytoscape visualization
-4. **Raw Data** tab - JSON view
-5. **Decision Points** tab - Extracted decision points
+- Code provisions extracted
+- Questions and conclusions with linking
+- Decision points and options
+- Case narrative
 
 ### Edit Results
 

@@ -542,7 +542,7 @@ The similarity network implementation draws on:
 - **NS-LCR** (Sun et al., 2024) - Logic rules for legal case retrieval
 - **Richter & Weber** (2013) - Case-based reasoning foundations
 
-See [Citations](../reference/citations.md) for full references.
+See [Academic References](/tools/references) for full citations.
 
 ## Related Guides
 

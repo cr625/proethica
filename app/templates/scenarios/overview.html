@@ -6,25 +6,20 @@
 
 {% block step_content %}
 <div class="alert alert-primary border-primary mb-4">
-    <h5 class="alert-heading"><i class="bi bi-diagram-3 me-2"></i>Three-Pass Extraction Pipeline</h5>
+    <h5 class="alert-heading"><i class="bi bi-diagram-3 me-2"></i>Analysis Pipeline</h5>
     <p class="mb-2">
-        The system analyzes cases using a three-pass extraction process that identifies nine types of entities:
-        <strong>D = (R, S, Rs, P, O, Cs, Ca, A, E)</strong>
+        The system extracts nine entity types <strong>D = (R, S, Rs, P, O, Cs, Ca, A, E)</strong> then synthesizes case analysis:
     </p>
     <ul class="mb-2">
-        <li><strong>Pass 1 - Contextual Framework:</strong> Roles (R), States (S), Resources (Rs)</li>
-        <li><strong>Pass 2 - Normative Structure:</strong> Principles (P), Obligations (O), Constraints (Cs), Capabilities (Ca)</li>
-        <li><strong>Pass 3 - Temporal Dynamics:</strong> Actions (A), Events (E)</li>
+        <li><strong>Step 1 - Contextual:</strong> Roles (R), States (S), Resources (Rs)</li>
+        <li><strong>Step 2 - Normative:</strong> Principles (P), Obligations (O), Constraints (Cs), Capabilities (Ca)</li>
+        <li><strong>Step 3 - Temporal:</strong> Actions (A), Events (E)</li>
+        <li><strong>Step 4 - Synthesis:</strong> Provisions, Questions, Decision Points, Narrative</li>
+        <li class="text-muted"><strong>Step 5 - Scenarios:</strong> Interactive exploration (planned)</li>
     </ul>
-    <p class="mb-2">
-        Each pass follows this workflow: <strong>Ontology</strong> defines entity types,
-        <strong>LLM Prompts</strong> built from ontological terms guide extraction,
-        <strong>LLM Response</strong> returns structured data, and
-        <strong>Entity Review</strong> (at bottom of each step) displays extracted entities and their representations.
-    </p>
     <p class="mb-0">
-        <a href="https://ojs.aaai.org/index.php/AIES/article/view/36794" target="_blank" class="alert-link">
-            <i class="bi bi-journal-text me-1"></i>Read the abstract
+        <a href="/docs/" class="alert-link">
+            <i class="bi bi-book me-1"></i>Documentation
         </a>
     </p>
 </div>

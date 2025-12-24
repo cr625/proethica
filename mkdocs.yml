@@ -58,6 +58,7 @@ markdown_extensions:
   - attr_list
   - md_in_html
   - tables
+  - footnotes
   - toc:
       permalink: true
 
@@ -71,6 +72,7 @@ nav:
   - How-To Guides:
       - Upload Cases: how-to/upload-cases.md
       - View Cases: how-to/view-cases.md
+      - Guidelines: how-to/guidelines.md
       - "Phase 1: Extraction": how-to/phase1-extraction.md
       - "Phase 2: Analysis": how-to/phase2-analysis.md
       - "Phase 3: Scenario": how-to/phase3-scenario.md
@@ -83,7 +85,6 @@ nav:
       - Ontology Integration: reference/ontology-integration.md
       - Transformation Types: reference/transformation-types.md
       - Installation & Deployment: reference/installation.md
-      - Academic References: reference/citations.md
   - FAQ: faq.md
   - "Back to ProEthica": "/"
 

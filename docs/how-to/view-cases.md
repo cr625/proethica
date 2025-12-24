@@ -82,24 +82,23 @@ Direct URL: `/cases/<id>`
 ![Case Detail](../assets/images/screenshots/case-detail-content.png)
 *Individual case page showing the analysis pipeline status bar and case sections*
 
-### Analysis Pipeline Status Bar
+### Analysis Pipeline Steps
 
-Below the case title, a horizontal status bar shows extraction progress:
+Below the case title, numbered step buttons provide direct access to the extraction pipeline:
 
-| Step | Name | Status Indicators |
-|------|------|-------------------|
-| **1** | Contextual | Roles, States, Resources |
+| Button | Name | Content |
+|--------|------|---------|
+| **1** | Contextual | Roles, States, Resources extraction |
 | **2** | Normative | Principles, Obligations, Constraints, Capabilities |
-| **3** | Temporal | Actions, Events |
-| **4** | Synthesis | Code Provisions, Questions, Conclusions |
-| **5** | Scenario | Interactive Exploration |
+| **3** | Temporal | Actions, Events, timeline |
+| **4** | Synthesis | Four-phase analysis (provisions, questions, decisions, narrative) |
 
-Status colors:
-- **Green with checkmark** - Step complete
-- **Blue outline** - Step available (click to start)
-- **Gray with lock** - Step locked (complete prerequisites first)
+Step button states:
+- **Filled (green)** - Step complete
+- **Outline** - Step available
+- **Lock icon** - Step locked (complete prerequisites first)
 
-Click any available step to navigate directly to its extraction or review page.
+Click any step button to navigate directly to extraction or review for that step. Step 5 (Interactive Exploration) is accessed from the Step 4 results page.
 
 ### Action Buttons
 

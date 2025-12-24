@@ -1,10 +1,18 @@
 # ProEthica Documentation
 
-ProEthica is a professional role-based ethical analysis tool that combines case-based reasoning with ontology-supported validation, orchestrated by large language models (LLMs), to help professional ethics committees analyze ethical scenarios against established standards and precedents.
+ProEthica is a research prototype demonstrating how case-based reasoning, ontology-supported validation, and large language models might be combined to support professional ethics review. The system provides a reference implementation for analyzing ethical scenarios against established standards and precedents.
 
 ## About ProEthica
 
-ProEthica analyzes professional ethical scenarios against established codes and precedent cases. The system extracts nine types of components from case text and scenario descriptions, organized into three functional dimensions:
+ProEthica demonstrates a methodology for computational support of professional ethics review. In regulated professions, designated authorities assess whether practitioner actions align with established standards. These evaluations apply codes and precedents developed through practice over time, using standards specific to professional roles and specialized knowledge.
+
+Many technical specialists who serve on ethics review boards lack formal training in ethical analysis, yet their domain expertise is essential for evaluating professional conduct. ProEthica explores whether computational tools could augment this process by making professional resources accessible and by exposing analytical pathways that connect specific situations to established standards. The approach follows pedagogical methods common in legal education, where examination of cases reveals how abstract principles become operationalized through accumulated precedents.
+
+The current implementation demonstrates feasibility through engineering ethics cases from the NSPE Board of Ethical Review. Validation of the methodology and extension to operational use will require involvement of domain experts and empirical assessment against professional judgment.
+
+## Nine-Concept Framework
+
+The system extracts nine types of components from case text and scenario descriptions, organized into three functional dimensions:
 
 | Component | Symbol | Description | Dimension |
 |-----------|--------|-------------|-----------|
@@ -18,7 +26,7 @@ ProEthica analyzes professional ethical scenarios against established codes and 
 | [Actions](concepts/nine-concepts.md#actions-a) | A | Volitional professional interventions | Temporal |
 | [Events](concepts/nine-concepts.md#events-e) | E | Occurrences outside agent control | Temporal |
 
-Domain-specific ontologies provide precise definitions that constrain LLM output to match formal concept specifications, ensuring consistency across extraction and validation. See [Nine-Concept Framework](concepts/nine-concepts.md) for detailed definitions and theoretical foundations.
+Domain-specific ontologies provide precise definitions that constrain LLM output to match the formal concept specifications shown above. See [Nine-Concept Framework](concepts/nine-concepts.md) for detailed definitions and theoretical foundations.
 
 ## Quick Links
 
@@ -27,56 +35,56 @@ Domain-specific ontologies provide precise definitions that constrain LLM output
 - [Nine-Concept Framework](concepts/nine-concepts.md) - Understanding the formal methodology
 - [FAQ](faq.md) - Frequently asked questions
 
-## Five-Step Analysis Workflow
+## Analysis Workflow
 
-ProEthica guides you through a structured workflow for ethical case analysis:
+ProEthica guides case analysis through a structured workflow. The current implementation provides four steps, with interactive scenario exploration planned for future development.
 
-| Step | Name | Task | Guide |
-|------|------|------|-------|
-| 1 | Contextual Framework | Extract Roles, States, Resources from Facts and Discussion sections | [Step 1 Guide](how-to/phase1-extraction.md#pass-1-contextual-framework) |
-| 2 | Normative Requirements | Extract Principles, Obligations, Constraints, Capabilities | [Step 2 Guide](how-to/phase1-extraction.md#pass-2-normative-requirements) |
-| 3 | Temporal Dynamics | Extract Actions, Events, Causal Chains, Timeline | [Step 3 Guide](how-to/phase1-extraction.md#pass-3-temporal-dynamics) |
-| 4 | Case Synthesis | Code provisions, Questions/Conclusions, Decision Points, Arguments | [Step 4 Guide](how-to/phase2-analysis.md) |
-| 5 | Scenario Exploration | Interactive decision-making, consequences, comparison to board | [Step 5 Guide](how-to/phase3-scenario.md) |
+| Step | Name | Task | Status |
+|------|------|------|--------|
+| 1 | Contextual Framework | Extract Roles, States, Resources from Facts and Discussion sections | Implemented |
+| 2 | Normative Requirements | Extract Principles, Obligations, Constraints, Capabilities | Implemented |
+| 3 | Temporal Dynamics | Extract Actions, Events, Causal Chains, Timeline | Implemented |
+| 4 | Case Synthesis | Four-phase analysis: provisions, questions, decision points, narrative | Implemented |
+| 5 | Scenario Exploration | Interactive decision-making with consequence generation | Planned |
 
-### Pipeline States
+See [Phase 1 Extraction](how-to/phase1-extraction.md) for Steps 1-3 and [Phase 2 Analysis](how-to/phase2-analysis.md) for Step 4.
 
-The sidebar navigation shows step completion status:
+### Pipeline Navigation
 
-![Pipeline - New Case](assets/images/screenshots/pipeline-overview-new-content.png)
-*New case: Steps locked until prerequisites complete*
+The sidebar shows step completion status with checkmarks for completed steps and lock icons for steps with unmet prerequisites.
 
-![Pipeline - Complete](assets/images/screenshots/pipeline-overview-complete-content.png)
-*Extracted case: Checkmarks show completed steps, navigation goes to review pages*
+![Pipeline Overview](assets/images/screenshots/pipeline-overview-content.png)
 
-### Navigation Behavior
-
-- **Incomplete steps**: Link to extraction page
-- **Complete steps**: Link to entity review page
-- **Facts/Discussion toggle**: Switch between section reviews
-- **History button**: View all extraction prompts and responses
-- **Re-run button**: Return to extraction page for re-processing
+Step links navigate to extraction pages (for incomplete steps) or review pages (for completed steps).
 
 ## Core Features
 
 ### Multi-Pass Extraction (Steps 1-3)
-Three extraction passes systematically identify concepts from case narratives:
+Three extraction passes identify concepts from case narratives:
 
-- **Step 1 (Contextual)**: Roles, States, Resources - from Facts and Discussion sections
+- **Step 1 (Contextual)**: Roles, States, Resources from Facts and Discussion sections
 - **Step 2 (Normative)**: Principles, Obligations, Constraints, Capabilities
 - **Step 3 (Temporal)**: Events, Actions, Causal Chains, Timeline
 
-Each step extracts from both Facts and Discussion sections of the case, with Discussion unlocking after Facts is complete.
+Each step extracts from both Facts and Discussion sections, with Discussion unlocking after Facts completes.
+
+![Step 1 Extraction](assets/images/screenshots/step1-extraction-content.png)
+*Extraction page showing LLM prompt configuration and entity type selection*
+
+See [Phase 1 Extraction](how-to/phase1-extraction.md) for details.
 
 ### Entity Review
-After extraction, review pages allow validation of extracted entities:
+After extraction completes, the review interface displays extracted entities organized by type:
 
-![Entity Review](assets/images/screenshots/entity-review-pass1-content.png)
-*Entity review with Facts/Discussion toggle, History, and Re-run buttons*
+![Entity Review](assets/images/screenshots/entity-review-content.png)
+*Review page with Facts/Discussion toggle, entity cards, and edit controls*
 
-- **Facts/Discussion toggle**: Switch between section reviews
-- **Match status**: See which entities match existing ontology classes
-- **Edit/Delete**: Modify entities before committing to ontology
+- **Facts/Discussion toggle**: Switch between section extractions
+- **Entity cards**: View extracted entities with ontology class matching
+- **Edit controls**: Modify or delete entities before committing
+- **Re-run button**: Return to extraction for reprocessing
+
+See [Entity Review](how-to/entity-review.md) for details.
 
 ### Extraction History
 Track all extraction prompts and responses:
@@ -89,37 +97,49 @@ Step 4 analyzes extracted entities to identify:
 
 - Code of ethics provisions referenced in the case
 - Ethical questions and board conclusions with linking
-- Transformation classification (transfer, stalemate, oscillation, phase lag)
+- Transformation classification[^1] (transfer, stalemate, oscillation, phase lag)
 - Decision points where ethical choices must be made
-- Toulmin-structured arguments for each decision option
+- Toulmin-structured arguments[^2] for each decision option
+
+[^1]: [Marchais-Roubelat & Roubelat (2015)](/tools/references#transformation)
+[^2]: [Toulmin (1958/2003)](/tools/references#argument-mining)
 
 ![Step 4 Synthesis](assets/images/screenshots/step4-synthesis-content.png)
 
-### Interactive Scenarios (Step 5)
-Step 5 enables exploration of ethical decisions:
+See [Phase 2 Analysis](how-to/phase2-analysis.md) for details.
 
-- **Interactive mode**: Make your own choices, see LLM-generated consequences
-- **Decision analysis**: View board reasoning with Toulmin argument structure
+### Interactive Scenarios (Planned)
+Step 5 will enable exploration of ethical decisions:
+
+- Interactive mode for making choices and viewing LLM-generated consequences
+- Decision analysis with Toulmin argument structure
 - Timeline construction with decision points
 - Participant mapping with LLM-enhanced profiles
 
-![Step 5 Scenario](assets/images/screenshots/step5-scenario-content.png)
-
 ### Precedent Discovery
-Case-based reasoning identifies precedent cases through semantic similarity matching, enabling comparison against prior board decisions.
+Case-based reasoning identifies precedent cases through semantic similarity matching, enabling comparison against prior board decisions. The similarity network visualizes relationships between cases.
+
+![Precedent Discovery](assets/images/screenshots/precedent-discovery-content.png)
+
+See [Precedent Discovery](how-to/precedent-discovery.md) for details.
+
+### Guidelines
+Browse and reference professional codes of ethics. Guidelines provide the normative foundation for case analysis, with each domain (e.g., Engineering Ethics) having its governing code and provisions.
+
+See [Guidelines](how-to/guidelines.md) for details.
 
 ### Pipeline Automation
 Batch processing capabilities allow automated extraction across multiple cases with progress tracking and result management.
+
+![Pipeline Dashboard](assets/images/screenshots/pipeline-dashboard-content.png)
+
+See [Pipeline Automation](how-to/pipeline-automation.md) for details.
 
 ## Current Implementation
 
 ProEthica currently processes engineering ethics cases from the National Society of Professional Engineers (NSPE) Board of Ethical Review. The framework supports extension to other professional domains with established codes and precedent systems.
 
-## Getting Help
-
-- Check the [FAQ](faq.md) for common questions
-- Report issues at [GitHub](https://github.com/cr625/proethica/issues)
-- Production demo: [https://proethica.org](https://proethica.org)
+The production site operates in demo mode by default, allowing exploration of cases, extracted entities, and the precedent network without authentication. Extraction and editing operations require login. See [Interface Overview](getting-started/first-login.md#access-levels) for details on access levels.
 
 ## Academic Citation
 
