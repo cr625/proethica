@@ -46,11 +46,6 @@
                         </a>
                     </div>
                     <div class="d-flex gap-2 align-items-center">
-                        <!-- History button -->
-                        <a href="{{ url_for('entity_review.extraction_history', case_id=case.id, step_number=3) }}"
-                           class="btn btn-sm btn-outline-info" title="View extraction history">
-                            <i class="bi bi-clock-history"></i> History
-                        </a>
                         <!-- Re-run button (admin only) -->
                         {% if current_user.is_authenticated and current_user.is_admin %}
                         <a href="{{ url_for('scenario_pipeline.step3', case_id=case.id) }}"

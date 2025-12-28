@@ -231,11 +231,18 @@
                         {% endif %}
                     </div>
                     <div class="d-flex gap-2 align-items-center">
-                        <!-- History button -->
-                        <a href="{{ url_for('entity_review.extraction_history', case_id=case.id, step_number=2, section_type=section_type) }}"
-                           class="btn btn-sm btn-outline-info" title="View extraction history">
-                            <i class="bi bi-clock-history"></i> History
+                        <!-- View Extraction button -->
+                        {% if section_type == 'discussion' %}
+                        <a href="{{ url_for('scenario_pipeline.step2b', case_id=case.id) }}"
+                           class="btn btn-sm btn-outline-info" title="View extraction page">
+                            <i class="bi bi-eye"></i> View Extraction
                         </a>
+                        {% else %}
+                        <a href="{{ url_for('scenario_pipeline.step2', case_id=case.id) }}"
+                           class="btn btn-sm btn-outline-info" title="View extraction page">
+                            <i class="bi bi-eye"></i> View Extraction
+                        </a>
+                        {% endif %}
                         <!-- Re-run button (admin only) -->
                         {% if current_user.is_authenticated and current_user.is_admin %}
                         {% if section_type == 'discussion' %}

@@ -5,123 +5,154 @@ Specialized agent for deploying ProEthica changes from local development (WSL) t
 ## Agent Purpose
 
 This agent handles:
-1. Code synchronization (local → GitHub → production)
-2. Database backup and restoration with demo cases
-3. Service management (nginx, gunicorn, systemd)
-4. Environment-specific configuration differences
-5. Documentation deployment (MkDocs site)
-6. Verification and rollback procedures
+1. Code synchronization (local -> GitHub -> production)
+2. Database backup and restoration
+3. Documentation compilation and deployment (MkDocs)
+4. Service management (gunicorn, nginx)
+5. Verification and rollback procedures
 
 ## Production Server Details
 
 **Server**: DigitalOcean droplet
 **Domain**: proethica.org
-**SSH Access**: `ssh digitalocean` or `ssh chris@209.38.62.85`
+**SSH Access**: `ssh digitalocean` (alias) or `ssh chris@209.38.62.85`
 **App Location**: `/opt/proethica`
+**Venv Location**: `/opt/proethica/venv`
 **Database**: PostgreSQL (ai_ethical_dm)
+**Docs Location**: `/opt/proethica/site/` (served at /docs/)
 **Services**:
-- ProEthica (systemd service)
-- nginx (reverse proxy)
-- gunicorn (WSGI server)
+- ProEthica runs via gunicorn (port 5000)
+- nginx (reverse proxy on 80/443)
+- No systemd service - gunicorn runs directly
+
+## Server Directory Structure
+
+```
+/opt/
+  proethica/          # ProEthica application
+    venv/             # Python virtual environment
+    site/             # MkDocs compiled documentation
+  ontserve/           # OntServe application
+  ontextract/         # OntExtract application
+```
 
 ## Deployment Workflow
 
 ### Phase 1: Local Preparation
 
 1. **Verify Local Changes**
-   - Check git status for uncommitted changes
-   - Review modified files
-   - Ensure all tests pass locally
-
-2. **Prepare Demo Cases** (if deploying with database)
-   - Analyze demonstration cases completely (all passes + Step 4)
-   - Recommended cases: 8, 10, 13
-   - Verify all extractions completed successfully
-
-3. **Create Database Backup** (if needed)
-   ```bash
-   cd /home/chris/onto/proethica
-   ./scripts/backup_demo_database.sh
-   # Creates: backups/proethica_demo_YYYYMMDD_HHMMSS.sql
-   ```
-
-### Phase 2: Git Operations
-
-1. **Commit Local Changes**
    ```bash
    cd /home/chris/onto/proethica
    git status
-   git add .
-   git commit -m "Descriptive commit message"
+   git diff
    ```
 
-2. **Push to GitHub**
+2. **Run Tests** (recommended)
    ```bash
-   # Push to develop branch first
-   git push origin develop
-
-   # Merge to main (for production)
-   git checkout main
-   git merge develop
-   git push origin main
+   PYTHONPATH=/home/chris/onto:$PYTHONPATH pytest tests/ -v
    ```
 
-### Phase 3: Production Server Deployment
-
-1. **SSH to Production**
+3. **Create Database Dump** (if deploying database)
    ```bash
-   ssh digitalocean
+   PGPASSWORD=PASS pg_dump -h localhost -U postgres -d ai_ethical_dm \
+     --clean --if-exists --no-owner --no-privileges \
+     -f /tmp/proethica_dev_backup.sql
    ```
 
-2. **Deploy Code Updates**
+4. **Build Documentation** (REQUIRED for full deployments)
    ```bash
-   cd /opt/proethica
-
-   # Option A: Use deployment script
-   ./scripts/deploy_production.sh
-
-   # Option B: Manual deployment
-   git fetch origin
-   git pull origin main
-   source venv/bin/activate
-   pip install -r requirements.txt  # if requirements changed
-   flask db upgrade  # if migrations exist
-   deactivate
-   sudo systemctl restart proethica
-   ```
-
-3. **Restore Database** (if deploying with demo cases)
-   ```bash
-   # Transfer backup from local to production
-   # (On local machine)
-   scp backups/proethica_demo_YYYYMMDD_HHMMSS.sql digitalocean:/tmp/
-
-   # (On production server - IMPORTANT: Use sudo for postgres user)
-   cd /opt/proethica
-   sudo -u postgres psql -d ai_ethical_dm < /tmp/proethica_demo_YYYYMMDD_HHMMSS.sql
-
-   # CRITICAL: Grant permissions to proethica_user after restore
-   sudo -u postgres psql -d ai_ethical_dm -c "GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO proethica_user;"
-   sudo -u postgres psql -d ai_ethical_dm -c "GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO proethica_user;"
-
-   # Restart service to pick up changes
-   sudo systemctl restart proethica
-   ```
-
-### Phase 3.5: Documentation Deployment
-
-1. **Build Documentation Locally** (if docs changed)
-   ```bash
-   cd /home/chris/onto/proethica
    source venv-proethica/bin/activate
    mkdocs build
    # Creates/updates site/ directory
    ```
 
-2. **Sync Documentation to Production**
+### Phase 2: Git Operations
+
+1. **Commit and Push** (if changes exist)
+   ```bash
+   git add .
+   git commit -m "Descriptive commit message"
+   git push origin development
+   ```
+
+2. **Merge to Main** (for production deployment)
+   ```bash
+   git checkout main
+   git merge development
+   git push origin main
+   git checkout development
+   ```
+
+   Note: If branches are already in sync, skip the merge step.
+
+### Phase 3: Production Code Deployment
+
+1. **Pull Latest Code**
+   ```bash
+   ssh digitalocean "cd /opt/proethica && git fetch origin && git pull origin main"
+   ```
+
+2. **Install Dependencies** (if requirements.txt changed)
+   ```bash
+   ssh digitalocean "cd /opt/proethica && source venv/bin/activate && pip install -r requirements.txt"
+   ```
+
+3. **Restart Gunicorn**
+   ```bash
+   ssh digitalocean "pkill -f 'gunicorn.*proethica' || true"
+   ssh digitalocean "cd /opt/proethica && source venv/bin/activate && nohup gunicorn -w 4 -b 127.0.0.1:5000 --timeout 300 --access-logfile - --error-logfile - 'app:create_app()' > /tmp/proethica.log 2>&1 &"
+   ```
+
+### Phase 4: Database Restore (if deploying database)
+
+**IMPORTANT**: Always create a production backup before restoring.
+
+1. **Create Production Backup First**
+   ```bash
+   ssh digitalocean "PGPASSWORD=PASS pg_dump -h localhost -U postgres -d ai_ethical_dm \
+     --clean --if-exists --no-owner --no-privileges \
+     -f /tmp/proethica_production_backup_\$(date +%Y%m%d_%H%M%S).sql"
+   ```
+
+2. **Transfer Local Dump to Production**
+   ```bash
+   scp /tmp/proethica_dev_backup.sql digitalocean:/tmp/
+   ```
+
+3. **Restore Database**
+
+   For databases with circular foreign keys (like ProEthica), use this approach:
+   ```bash
+   ssh digitalocean "PGPASSWORD=PASS psql -h localhost -U postgres -c 'DROP DATABASE IF EXISTS ai_ethical_dm;'"
+   ssh digitalocean "PGPASSWORD=PASS psql -h localhost -U postgres -c 'CREATE DATABASE ai_ethical_dm;'"
+   ssh digitalocean "PGPASSWORD=PASS psql -h localhost -U postgres -d ai_ethical_dm -c 'SET session_replication_role = replica;' -f /tmp/proethica_dev_backup.sql"
+   ```
+
+   The `SET session_replication_role = replica` disables triggers during restore, avoiding foreign key constraint issues.
+
+4. **Grant Permissions** (if using proethica_user)
+   ```bash
+   ssh digitalocean "PGPASSWORD=PASS psql -h localhost -U postgres -d ai_ethical_dm -c 'GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO proethica_user;'"
+   ssh digitalocean "PGPASSWORD=PASS psql -h localhost -U postgres -d ai_ethical_dm -c 'GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO proethica_user;'"
+   ```
+
+### Phase 5: Documentation Deployment (REQUIRED)
+
+**IMPORTANT**: Always compile and deploy docs as part of a full deployment.
+
+1. **Build Locally** (if not done in Phase 1)
+   ```bash
+   cd /home/chris/onto/proethica
+   source venv-proethica/bin/activate
+   mkdocs build
+   ```
+
+2. **Sync to Production**
    ```bash
    rsync -avz --delete /home/chris/onto/proethica/site/ digitalocean:/opt/proethica/site/
    ```
+
+   Note: The site/ directory will be created automatically if it doesn't exist.
 
 3. **Verify Documentation**
    ```bash
@@ -129,294 +160,162 @@ This agent handles:
    # Should return 200
    ```
 
-Note: Documentation is served by Flask from the `site/` directory via the `/docs` route. No service restart required after syncing - static files are served directly.
+### Phase 6: Verification
 
-### Phase 4: Verification
-
-1. **Check Service Status**
+1. **Check Gunicorn Process**
    ```bash
-   sudo systemctl status proethica
-   sudo systemctl status nginx
+   ssh digitalocean "ps aux | grep gunicorn | grep proethica"
+   # Should show 4+ workers
    ```
 
-2. **Verify Application**
+2. **Test Application**
    ```bash
-   # Local endpoint
-   curl http://localhost:5000
+   curl -s -o /dev/null -w '%{http_code}' https://proethica.org/
+   # Should return 200
 
-   # Public endpoint
-   curl https://proethica.org
+   curl -s -o /dev/null -w '%{http_code}' https://proethica.org/cases/
+   # Should return 200
    ```
 
-3. **Check Logs** (if issues)
+3. **Verify Database Counts** (if database was restored)
    ```bash
-   sudo journalctl -u proethica -n 100 --follow
-   tail -f /var/log/nginx/error.log
+   ssh digitalocean "PGPASSWORD=PASS psql -h localhost -U postgres -d ai_ethical_dm -c 'SELECT COUNT(*) as documents FROM documents;'"
+   ssh digitalocean "PGPASSWORD=PASS psql -h localhost -U postgres -d ai_ethical_dm -c 'SELECT COUNT(*) as users FROM users;'"
    ```
 
-4. **Test Demo Cases**
-   - Navigate to https://proethica.org
-   - Verify demo cases (8, 10, 13) are accessible
-   - Check that all extraction results display correctly
-
-### Phase 5: Rollback (if needed)
-
-```bash
-cd /opt/proethica
-git log --oneline -5  # Note the previous commit hash
-git reset --hard <previous-commit-hash>
-sudo systemctl restart proethica
-
-# If database needs rollback, restore previous backup
-```
+4. **Check Error Logs**
+   ```bash
+   ssh digitalocean "tail -20 /tmp/proethica.log"
+   ```
 
 ## Environment Differences
 
 ### Development (WSL/Local)
-- **Database**: ai_ethical_dm (localhost:5432)
-- **Port**: 5000 (Flask development server)
-- **Debug**: Enabled
-- **URL**: http://localhost:5000
-- **User**: chris
 - **Location**: /home/chris/onto/proethica
+- **Venv**: venv-proethica
+- **Database**: ai_ethical_dm (postgres/PASS)
+- **Port**: 5000 (Flask dev server)
+- **URL**: http://localhost:5000
+- **Branch**: development
 
 ### Production (DigitalOcean)
-- **Database**: ai_ethical_dm (localhost:5432, different server)
-  - **DB User**: proethica_user (for app) / postgres (for admin/restore)
-  - **DB Password**: ProEthicaSecure2025 (proethica_user)
-  - **Connection**: postgresql://proethica_user:ProEthicaSecure2025@localhost:5432/ai_ethical_dm
-- **Port**: 5000 (gunicorn) → nginx proxy → 80/443
-- **Debug**: Disabled
-- **URL**: https://proethica.org
-- **User**: chris (but app runs as systemd service)
 - **Location**: /opt/proethica
+- **Venv**: venv (not venv-proethica)
+- **Database**: ai_ethical_dm (postgres/PASS or proethica_user)
+- **Port**: 5000 (gunicorn) -> nginx -> 80/443
+- **URL**: https://proethica.org
+- **Branch**: main
 
-### Configuration Files to Check
+## Quick Reference Commands
 
-1. **Environment Variables**
-   - Development: `.env` file (not committed)
-   - Production: `/etc/systemd/system/proethica.service` (Environment variables)
-
-2. **Database Connections**
-   - Both use same PostgreSQL credentials but different database instances
-   - Production may have different ANTHROPIC_API_KEY
-
-3. **Service Configuration**
-   - Development: Manual `python run.py`
-   - Production: systemd service + gunicorn + nginx
-
-## Database Backup/Restore Scripts
-
-### Backup Script: `scripts/backup_demo_database.sh`
-```bash
-#!/bin/bash
-# Creates a PostgreSQL dump of demonstration cases
-# Output: backups/proethica_demo_YYYYMMDD_HHMMSS.sql
-
-TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-BACKUP_DIR="backups"
-BACKUP_FILE="${BACKUP_DIR}/proethica_demo_${TIMESTAMP}.sql"
-
-mkdir -p "$BACKUP_DIR"
-
-echo "Creating database backup: $BACKUP_FILE"
-PGPASSWORD=PASS pg_dump -h localhost -U postgres -d ai_ethical_dm \
-  --clean --if-exists --no-owner --no-privileges \
-  -f "$BACKUP_FILE"
-
-if [ $? -eq 0 ]; then
-    echo "✓ Backup created successfully: $BACKUP_FILE"
-    ls -lh "$BACKUP_FILE"
-else
-    echo "✗ Backup failed"
-    exit 1
-fi
-```
-
-### Restore Script: `scripts/restore_demo_database.sh`
-```bash
-#!/bin/bash
-# Restores a PostgreSQL dump to the database
-# Usage: ./restore_demo_database.sh <backup_file.sql>
-
-if [ -z "$1" ]; then
-    echo "Usage: $0 <backup_file.sql>"
-    exit 1
-fi
-
-BACKUP_FILE="$1"
-
-if [ ! -f "$BACKUP_FILE" ]; then
-    echo "Error: Backup file not found: $BACKUP_FILE"
-    exit 1
-fi
-
-echo "WARNING: This will replace the current database with the backup!"
-echo "Backup file: $BACKUP_FILE"
-read -p "Continue? (yes/no): " CONFIRM
-
-if [ "$CONFIRM" != "yes" ]; then
-    echo "Restore cancelled"
-    exit 0
-fi
-
-echo "Restoring database from: $BACKUP_FILE"
-PGPASSWORD=PASS psql -h localhost -U postgres -d ai_ethical_dm < "$BACKUP_FILE"
-
-if [ $? -eq 0 ]; then
-    echo "✓ Database restored successfully"
-else
-    echo "✗ Restore failed"
-    exit 1
-fi
-```
-
-## Common Tasks
-
-### Deploy Code Only (No Database Changes)
+### Code-Only Deployment
 ```bash
 # Local
-git add .
-git commit -m "Update message"
-git push origin main
+git push origin development
+git checkout main && git merge development && git push origin main && git checkout development
 
-# Production
-ssh digitalocean "cd /opt/proethica && ./scripts/deploy_production.sh"
+# Server
+ssh digitalocean "cd /opt/proethica && git pull origin main && pkill -f 'gunicorn.*proethica'"
+ssh digitalocean "cd /opt/proethica && source venv/bin/activate && nohup gunicorn -w 4 -b 127.0.0.1:5000 --timeout 300 'app:create_app()' > /tmp/proethica.log 2>&1 &"
 ```
 
-### Deploy Code + Database with Demo Cases
+### Full Deployment (Code + Database + Docs)
 ```bash
-# Local - prepare and backup
-./scripts/backup_demo_database.sh
+# 1. Local: Create dump and build docs
+PGPASSWORD=PASS pg_dump -h localhost -U postgres -d ai_ethical_dm --clean --if-exists --no-owner -f /tmp/proethica_dev_backup.sql
+source venv-proethica/bin/activate && mkdocs build
 
-# Local - commit and push code
-git add .
-git commit -m "Update with demo cases"
-git push origin main
+# 2. Push code
+git push origin development
+git checkout main && git merge development && git push origin main && git checkout development
 
-# Transfer database
-scp backups/proethica_demo_*.sql digitalocean:/tmp/
+# 3. Deploy to server
+ssh digitalocean "cd /opt/proethica && git pull origin main"
+scp /tmp/proethica_dev_backup.sql digitalocean:/tmp/
 
-# Production - deploy code
-ssh digitalocean "cd /opt/proethica && ./scripts/deploy_production.sh"
+# 4. Backup and restore database
+ssh digitalocean "PGPASSWORD=PASS pg_dump -h localhost -U postgres -d ai_ethical_dm -f /tmp/prod_backup_\$(date +%Y%m%d).sql"
+ssh digitalocean "PGPASSWORD=PASS psql -h localhost -U postgres -c 'DROP DATABASE IF EXISTS ai_ethical_dm; CREATE DATABASE ai_ethical_dm;'"
+ssh digitalocean "PGPASSWORD=PASS psql -h localhost -U postgres -d ai_ethical_dm -c 'SET session_replication_role = replica;' -f /tmp/proethica_dev_backup.sql"
 
-# Production - restore database
-ssh digitalocean "cd /opt/proethica && ./scripts/restore_demo_database.sh /tmp/proethica_demo_*.sql"
-```
-
-### Deploy Documentation Only
-```bash
-# Build docs locally
-cd /home/chris/onto/proethica
-source venv-proethica/bin/activate
-mkdocs build
-
-# Sync to production
+# 5. Sync docs
 rsync -avz --delete site/ digitalocean:/opt/proethica/site/
 
-# Verify
+# 6. Restart service
+ssh digitalocean "pkill -f 'gunicorn.*proethica' || true"
+ssh digitalocean "cd /opt/proethica && source venv/bin/activate && nohup gunicorn -w 4 -b 127.0.0.1:5000 --timeout 300 'app:create_app()' > /tmp/proethica.log 2>&1 &"
+
+# 7. Verify
+curl -s -o /dev/null -w '%{http_code}' https://proethica.org/
 curl -s -o /dev/null -w '%{http_code}' https://proethica.org/docs/
 ```
 
-### Check Service Logs
+### Documentation Only
 ```bash
-ssh digitalocean "sudo journalctl -u proethica -n 100 --follow"
-```
-
-### Restart Services
-```bash
-ssh digitalocean "sudo systemctl restart proethica && sudo systemctl status proethica"
+cd /home/chris/onto/proethica
+source venv-proethica/bin/activate
+mkdocs build
+rsync -avz --delete site/ digitalocean:/opt/proethica/site/
+curl -s -o /dev/null -w '%{http_code}' https://proethica.org/docs/
 ```
 
 ## Pre-Deployment Checklist
 
 - [ ] All local changes committed
-- [ ] Tests passing locally
-- [ ] Demo cases fully analyzed (if deploying database)
-- [ ] Database backup created (if deploying database)
-- [ ] Documentation built: `mkdocs build` (if docs changed)
-- [ ] Requirements.txt updated (if new dependencies)
-- [ ] Migration files created (if database schema changed)
-- [ ] Environment variables documented (if new variables added)
-- [ ] Git main branch up to date
+- [ ] Tests passing locally (recommended)
+- [ ] Database dump created (if deploying database)
+- [ ] Documentation built with `mkdocs build`
+- [ ] main branch up to date with development
 
 ## Post-Deployment Verification
 
-- [ ] ProEthica service running: `sudo systemctl status proethica`
-- [ ] Nginx service running: `sudo systemctl status nginx`
-- [ ] Application responds: `curl https://proethica.org`
-- [ ] Documentation serves: `curl https://proethica.org/docs/`
-- [ ] Demo cases accessible and display correctly
-- [ ] No errors in logs: `sudo journalctl -u proethica -n 50`
-- [ ] Database queries working (test a case extraction)
+- [ ] Gunicorn running: `ps aux | grep gunicorn | grep proethica`
+- [ ] Main site responds: https://proethica.org/ (HTTP 200)
+- [ ] Cases page works: https://proethica.org/cases/
+- [ ] Documentation serves: https://proethica.org/docs/ (HTTP 200)
+- [ ] Error logs clean: `tail /tmp/proethica.log`
+- [ ] Database counts match expected values
 
 ## Troubleshooting
 
-### Service Won't Start
+### Gunicorn Won't Start
 ```bash
-sudo journalctl -u proethica -n 100
-# Check for Python errors, import errors, database connection issues
+ssh digitalocean "tail -50 /tmp/proethica.log"
+# Check for Python import errors, missing dependencies
 ```
 
 ### Database Connection Errors
 ```bash
-# Check PostgreSQL is running
-sudo systemctl status postgresql
-
-# Test database connection
-PGPASSWORD=PASS psql -h localhost -U postgres -d ai_ethical_dm -c "SELECT COUNT(*) FROM documents;"
+ssh digitalocean "PGPASSWORD=PASS psql -h localhost -U postgres -d ai_ethical_dm -c 'SELECT 1;'"
 ```
 
-### Permission Issues
-```bash
-# Check file ownership
-ls -la /opt/proethica
+### Foreign Key Errors During Restore
+Use the `SET session_replication_role = replica;` approach shown in Phase 4 to disable triggers during restore.
 
-# Fix ownership if needed
-sudo chown -R chris:chris /opt/proethica
+### Permission Denied on Tables
+```bash
+ssh digitalocean "PGPASSWORD=PASS psql -h localhost -U postgres -d ai_ethical_dm -c 'GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO proethica_user;'"
 ```
 
 ### Nginx Issues
 ```bash
-sudo nginx -t  # Test configuration
-sudo systemctl status nginx
-sudo tail -f /var/log/nginx/error.log
+ssh digitalocean "sudo nginx -t"
+ssh digitalocean "sudo tail -20 /var/log/nginx/error.log"
 ```
 
-### Database Permission Errors After Restore
-If you see errors like "permission denied for table" after restoring the database:
-
-```bash
-# Grant permissions to proethica_user
-sudo -u postgres psql -d ai_ethical_dm -c "GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO proethica_user;"
-sudo -u postgres psql -d ai_ethical_dm -c "GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO proethica_user;"
-
-# Restart service
-sudo systemctl restart proethica
-
-# Verify permissions
-sudo -u postgres psql -d ai_ethical_dm -c "\dp" | grep proethica_user
-```
-
-This happens because pg_dump with --no-owner creates tables owned by postgres, but the app runs as proethica_user.
-
-## Agent Usage
-
-When you need to deploy ProEthica to production, invoke this agent with:
+## Agent Invocation Examples
 
 **Code-only deployment:**
 "Deploy the latest ProEthica changes to production"
 
 **Code + database deployment:**
-"Deploy ProEthica to production with demo cases 8, 10, and 13"
+"Deploy ProEthica to production with a fresh database dump"
 
 **Full deployment (code + database + docs):**
-"Sync ProEthica to production including database and documentation"
+"Full deployment to production including database and documentation"
 
 **Documentation only:**
 "Deploy ProEthica documentation to production"
 
-**Rollback:**
-"Rollback ProEthica production to the previous version"
-
-The agent will handle the complete workflow including verification and error handling.
+**Verify production:**
+"Check the status of ProEthica on production"
