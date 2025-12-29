@@ -821,6 +821,82 @@ def system_health():
     else:
         return render_template('admin/system_health.html', health_stats=health_stats)
 
+# ============================================================================
+# Validation Studies Routes
+# ============================================================================
+
+@admin_bp.route('/validation')
+@admin_required_production
+def validation_dashboard():
+    """Validation studies management dashboard."""
+    from app.models.experiment import ExperimentRun, Prediction, ExperimentEvaluation
+    from sqlalchemy import func, distinct
+
+    # Get experiment statistics
+    total_studies = ExperimentRun.query.count()
+    completed_studies = ExperimentRun.query.filter_by(status='completed').count()
+
+    # Get prediction statistics
+    total_predictions = Prediction.query.count()
+    proethica_predictions = Prediction.query.filter_by(condition='proethica').count()
+    baseline_predictions = Prediction.query.filter_by(condition='baseline').count()
+
+    # Get evaluation statistics
+    total_evaluations = ExperimentEvaluation.query.count()
+    unique_evaluators = db.session.query(
+        func.count(distinct(ExperimentEvaluation.evaluator_id))
+    ).scalar() or 0
+
+    # Get case statistics
+    available_cases = Document.query.filter(
+        Document.document_type.in_(['case', 'case_study'])
+    ).count()
+
+    # Get cases with predictions
+    cases_with_pred_ids = db.session.query(distinct(Prediction.document_id)).all()
+    cases_with_predictions_count = len(cases_with_pred_ids)
+
+    # Build stats dictionary
+    stats = {
+        'total_studies': total_studies,
+        'completed_studies': completed_studies,
+        'total_predictions': total_predictions,
+        'proethica_predictions': proethica_predictions,
+        'baseline_predictions': baseline_predictions,
+        'total_evaluations': total_evaluations,
+        'unique_evaluators': unique_evaluators,
+        'available_cases': available_cases,
+        'cases_with_predictions': cases_with_predictions_count
+    }
+
+    # Get recent studies
+    studies = ExperimentRun.query.order_by(
+        ExperimentRun.created_at.desc()
+    ).limit(10).all()
+
+    # Get cases that have predictions
+    cases_with_predictions = []
+    if cases_with_pred_ids:
+        pred_case_ids = [c[0] for c in cases_with_pred_ids if c[0] is not None]
+        if pred_case_ids:
+            cases = Document.query.filter(Document.id.in_(pred_case_ids)).all()
+            for case in cases:
+                prediction_count = Prediction.query.filter_by(document_id=case.id).count()
+                case.prediction_count = prediction_count
+                cases_with_predictions.append(case)
+
+    # Get all available cases for the generate predictions modal
+    all_cases = Document.query.filter(
+        Document.document_type.in_(['case', 'case_study'])
+    ).order_by(Document.title).all()
+
+    return render_template('admin/validation_dashboard.html',
+                         stats=stats,
+                         studies=studies,
+                         cases_with_predictions=cases_with_predictions,
+                         all_cases=all_cases)
+
+
 # Error handlers for admin routes
 @admin_bp.errorhandler(403)
 def admin_forbidden(error):

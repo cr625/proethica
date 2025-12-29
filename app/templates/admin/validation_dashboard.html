@@ -1,0 +1,458 @@
+{% extends "base.html" %}
+
+{% block title %}Validation Studies - Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h2 mb-0">
+                        <i class="bi bi-clipboard-check text-primary me-2"></i>
+                        Validation Studies
+                    </h1>
+                    <p class="text-muted mb-0">Manage and monitor validation experiments for ProEthica</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline-secondary me-2">
+                        <i class="bi bi-arrow-left me-1"></i> Back to Admin
+                    </a>
+                    <a href="{{ url_for('experiment.conclusion_prediction_setup') }}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle me-1"></i> New Study
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <!-- Total Studies -->
+        <div class="col-md-3 mb-3">
+            <div class="card border-primary h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title text-primary mb-1">
+                                <i class="bi bi-journal-text me-1"></i>
+                                Studies
+                            </h6>
+                            <h3 class="mb-0">{{ stats.total_studies }}</h3>
+                            <small class="text-muted">
+                                {{ stats.completed_studies }} completed
+                            </small>
+                        </div>
+                        <div class="text-primary">
+                            <i class="bi bi-journal-text display-6 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Predictions Generated -->
+        <div class="col-md-3 mb-3">
+            <div class="card border-info h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title text-info mb-1">
+                                <i class="bi bi-robot me-1"></i>
+                                Predictions
+                            </h6>
+                            <h3 class="mb-0">{{ stats.total_predictions }}</h3>
+                            <small class="text-muted">
+                                {{ stats.proethica_predictions }} ProEthica, {{ stats.baseline_predictions }} baseline
+                            </small>
+                        </div>
+                        <div class="text-info">
+                            <i class="bi bi-robot display-6 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Evaluations Collected -->
+        <div class="col-md-3 mb-3">
+            <div class="card border-success h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title text-success mb-1">
+                                <i class="bi bi-person-check me-1"></i>
+                                Evaluations
+                            </h6>
+                            <h3 class="mb-0">{{ stats.total_evaluations }}</h3>
+                            <small class="text-muted">
+                                {{ stats.unique_evaluators }} evaluators
+                            </small>
+                        </div>
+                        <div class="text-success">
+                            <i class="bi bi-person-check display-6 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Available Cases -->
+        <div class="col-md-3 mb-3">
+            <div class="card border-warning h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title text-warning mb-1">
+                                <i class="bi bi-folder2-open me-1"></i>
+                                Available Cases
+                            </h6>
+                            <h3 class="mb-0">{{ stats.available_cases }}</h3>
+                            <small class="text-muted">
+                                {{ stats.cases_with_predictions }} have predictions
+                            </small>
+                        </div>
+                        <div class="text-warning">
+                            <i class="bi bi-folder2-open display-6 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-lightning me-2"></i>
+                        Quick Actions
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 mb-2">
+                            <a href="{{ url_for('experiment.conclusion_prediction_setup') }}" class="btn btn-outline-primary w-100">
+                                <i class="bi bi-plus-circle me-2"></i>
+                                Create New Study
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <a href="{{ url_for('experiment.index') }}" class="btn btn-outline-info w-100">
+                                <i class="bi bi-speedometer2 me-2"></i>
+                                Experiment Dashboard
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <button class="btn btn-outline-success w-100" data-bs-toggle="modal" data-bs-target="#generatePredictionsModal">
+                                <i class="bi bi-play-circle me-2"></i>
+                                Generate Predictions
+                            </button>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <button class="btn btn-outline-secondary w-100" onclick="exportAllData()">
+                                <i class="bi bi-download me-2"></i>
+                                Export All Data
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Studies and Cases Row -->
+    <div class="row">
+        <!-- Recent Studies -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-journal-text me-2"></i>
+                        Recent Studies
+                    </h5>
+                    {% if studies %}
+                    <a href="{{ url_for('experiment.index') }}" class="btn btn-sm btn-outline-primary">View All</a>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    {% if studies %}
+                        <div class="list-group list-group-flush">
+                            {% for study in studies %}
+                            <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                <div>
+                                    <strong>{{ study.name or 'Unnamed Study' }}</strong>
+                                    <br>
+                                    <small class="text-muted">
+                                        Created: {{ study.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                        {% if study.config and study.config.selected_cases %}
+                                        | Cases: {{ study.config.selected_cases|length }}
+                                        {% endif %}
+                                    </small>
+                                </div>
+                                <div>
+                                    {% if study.status == 'completed' %}
+                                        <span class="badge bg-success">Completed</span>
+                                    {% elif study.status == 'running' %}
+                                        <span class="badge bg-warning">Running</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ study.status|title }}</span>
+                                    {% endif %}
+                                    <a href="{{ url_for('experiment.results', id=study.id) }}" class="btn btn-sm btn-outline-primary ms-2">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-journal-x display-4 text-muted"></i>
+                            <p class="text-muted mt-2 mb-0">No studies created yet</p>
+                            <a href="{{ url_for('experiment.conclusion_prediction_setup') }}" class="btn btn-primary mt-3">
+                                <i class="bi bi-plus-circle me-1"></i> Create First Study
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Cases with Predictions -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-file-earmark-check me-2"></i>
+                        Cases with Predictions
+                    </h5>
+                    {% if cases_with_predictions %}
+                    <span class="badge bg-info">{{ cases_with_predictions|length }} cases</span>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    {% if cases_with_predictions %}
+                        <div class="list-group list-group-flush">
+                            {% for case in cases_with_predictions[:5] %}
+                            <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                <div>
+                                    <strong>{{ case.title|truncate(40) }}</strong>
+                                    <br>
+                                    <small class="text-muted">
+                                        ID: {{ case.id }}
+                                        {% if case.prediction_count %}
+                                        | {{ case.prediction_count }} predictions
+                                        {% endif %}
+                                    </small>
+                                </div>
+                                <div>
+                                    <a href="{{ url_for('experiment.case_comparison', case_id=case.id) }}" class="btn btn-sm btn-outline-info me-1" title="Compare">
+                                        <i class="bi bi-arrow-left-right"></i>
+                                    </a>
+                                    <a href="{{ url_for('experiment.double_blind_evaluation', case_id=case.id) }}" class="btn btn-sm btn-outline-primary" title="Double-Blind Eval">
+                                        <i class="bi bi-eye-slash"></i>
+                                    </a>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% if cases_with_predictions|length > 5 %}
+                        <div class="text-center mt-3">
+                            <a href="{{ url_for('experiment.index') }}" class="btn btn-sm btn-outline-secondary">
+                                View all {{ cases_with_predictions|length }} cases
+                            </a>
+                        </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-file-earmark-x display-4 text-muted"></i>
+                            <p class="text-muted mt-2 mb-0">No predictions generated yet</p>
+                            <a href="{{ url_for('experiment.index') }}" class="btn btn-info mt-3">
+                                <i class="bi bi-play-circle me-1"></i> Generate Predictions
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Evaluator Access Information -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-info">
+                <div class="card-header bg-info text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-link-45deg me-2"></i>
+                        Evaluator Access URLs
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-3">Share these URLs with study participants (students). They do not require login.</p>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Experiment Dashboard (case selection)</label>
+                            <div class="input-group mb-3">
+                                <input type="text" class="form-control" id="experimentDashboardUrl"
+                                       value="{{ request.url_root }}experiment/" readonly>
+                                <button class="btn btn-outline-secondary" type="button" onclick="copyUrl('experimentDashboardUrl')">
+                                    <i class="bi bi-clipboard"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Double-Blind Evaluation (specific case)</label>
+                            <div class="input-group mb-3">
+                                <input type="text" class="form-control" id="doubleBlindUrl"
+                                       value="{{ request.url_root }}experiment/double_blind/[CASE_ID]" readonly>
+                                <button class="btn btn-outline-secondary" type="button" onclick="copyUrl('doubleBlindUrl')">
+                                    <i class="bi bi-clipboard"></i>
+                                </button>
+                            </div>
+                            <small class="text-muted">Replace [CASE_ID] with the actual case ID</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Validation Methodology Reference -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-book me-2"></i>
+                        Validation Methodology
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <h6 class="fw-bold">Evaluation Metrics</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="bi bi-check2 text-success me-1"></i> Reasoning Quality (0-10)</li>
+                                <li><i class="bi bi-check2 text-success me-1"></i> Ethical Grounding (0-10)</li>
+                                <li><i class="bi bi-check2 text-success me-1"></i> Practical Applicability (0-10)</li>
+                                <li><i class="bi bi-check2 text-success me-1"></i> Overall Coherence (0-10)</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-4">
+                            <h6 class="fw-bold">Study Conditions</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="bi bi-circle-fill text-primary me-1" style="font-size: 0.5em;"></i> <strong>ProEthica</strong>: Ontology-enhanced reasoning</li>
+                                <li><i class="bi bi-circle-fill text-secondary me-1" style="font-size: 0.5em;"></i> <strong>Baseline</strong>: Standard LLM reasoning</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-4">
+                            <h6 class="fw-bold">Documentation</h6>
+                            <ul class="list-unstyled">
+                                <li>
+                                    <a href="{{ url_for('tools.references') }}" class="text-decoration-none">
+                                        <i class="bi bi-journal-bookmark me-1"></i> Academic References
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="/docs/" target="_blank" class="text-decoration-none">
+                                        <i class="bi bi-book me-1"></i> System Documentation
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Generate Predictions Modal -->
+<div class="modal fade" id="generatePredictionsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-play-circle me-2"></i>
+                    Generate Predictions
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Select a case to generate predictions for:</p>
+                <select class="form-select mb-3" id="caseSelectForPrediction">
+                    <option value="">Select a case...</option>
+                    {% for case in all_cases %}
+                    <option value="{{ case.id }}">{{ case.title }} (ID: {{ case.id }})</option>
+                    {% endfor %}
+                </select>
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="generateBaseline" checked>
+                    <label class="form-check-label" for="generateBaseline">
+                        Generate Baseline Prediction
+                    </label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="generateProethica" checked>
+                    <label class="form-check-label" for="generateProethica">
+                        Generate ProEthica Prediction
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="generatePredictions()">
+                    <i class="bi bi-play-fill me-1"></i> Generate
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyUrl(inputId) {
+    const input = document.getElementById(inputId);
+    input.select();
+    document.execCommand('copy');
+
+    // Show feedback
+    const btn = input.nextElementSibling;
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="bi bi-check"></i>';
+    btn.classList.add('btn-success');
+    btn.classList.remove('btn-outline-secondary');
+
+    setTimeout(() => {
+        btn.innerHTML = originalHtml;
+        btn.classList.remove('btn-success');
+        btn.classList.add('btn-outline-secondary');
+    }, 2000);
+}
+
+function generatePredictions() {
+    const caseId = document.getElementById('caseSelectForPrediction').value;
+    if (!caseId) {
+        alert('Please select a case');
+        return;
+    }
+
+    // Redirect to quick predict endpoint
+    window.location.href = `/experiment/double_blind/${caseId}`;
+}
+
+function exportAllData() {
+    // Get all experiment IDs and export
+    const studies = {{ studies|map(attribute='id')|list|tojson if studies else '[]' }};
+    if (studies.length === 0) {
+        alert('No studies to export');
+        return;
+    }
+
+    // Export first study for now (could be enhanced to export all)
+    window.location.href = `/experiment/${studies[0]}/export`;
+}
+</script>
+{% endblock %}
