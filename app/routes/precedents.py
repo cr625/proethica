@@ -155,18 +155,46 @@ def _find_precedents_for_case(case_id, limit=10, min_score=0.1):
             include_llm_analysis=False
         )
 
+        # Get source case's features for overlap calculation
+        source_features = _get_case_features(case_id)
+        source_cited = set(source_features.get('cited_case_numbers', []) or []) if source_features else set()
+        source_transformation = source_features.get('transformation_type') if source_features else None
+
+        # Get source case's subject tags and outcome from doc_metadata
+        source_case = Document.query.get(case_id)
+        source_tags = set()
+        source_outcome = None
+        if source_case and source_case.doc_metadata:
+            source_tags = set(source_case.doc_metadata.get('subject_tags', []) or [])
+            source_outcome = source_case.doc_metadata.get('outcome')
+
         results = []
         for match in matches:
             # Determine primary matching method based on highest component score
             primary_method = _get_primary_method(match.component_scores)
 
             # Get additional features from database
-            principle_tensions = []
             cited_case_numbers = []
             features = _get_case_features(match.target_case_id)
             if features:
-                principle_tensions = features.get('principle_tensions', []) or []
                 cited_case_numbers = features.get('cited_case_numbers', []) or []
+
+            # Calculate overlapping citations between source and target
+            target_cited = set(cited_case_numbers) if cited_case_numbers else set()
+            overlapping_citations = list(source_cited & target_cited)
+
+            # Calculate overlapping subject tags
+            target_case = Document.query.get(match.target_case_id)
+            target_tags = set()
+            if target_case and target_case.doc_metadata:
+                target_tags = set(target_case.doc_metadata.get('subject_tags', []) or [])
+            overlapping_tags = list(source_tags & target_tags)
+
+            # Calculate transformation match
+            transformation_match = (
+                source_transformation and match.target_transformation and
+                source_transformation == match.target_transformation
+            )
 
             results.append({
                 'case_id': match.target_case_id,
@@ -178,12 +206,13 @@ def _find_precedents_for_case(case_id, limit=10, min_score=0.1):
                 },
                 'matching_provisions': match.matching_provisions,
                 'outcome_match': match.outcome_match,
+                'source_outcome': source_outcome,
                 'target_outcome': match.target_outcome,
+                'transformation_match': transformation_match,
+                'source_transformation': source_transformation,
                 'target_transformation': match.target_transformation,
-                'principle_tensions': principle_tensions,
-                'cited_case_numbers': cited_case_numbers,
-                'primary_method': primary_method,
-                'method_info': MATCHING_METHODS.get(primary_method, {})
+                'overlapping_tags': overlapping_tags,
+                'overlapping_citations': overlapping_citations,
             })
 
         return {

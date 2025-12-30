@@ -528,6 +528,97 @@ class CaseSynthesizer:
         logger.warning(f"Could not parse JSON in {context} response. First 500 chars: {response_text[:500]}")
         return None
 
+    def _build_uri_normalization_lookup(self, foundation: 'EntityFoundation') -> Dict[str, str]:
+        """
+        Build a lookup dict mapping partial/truncated URIs to actual entity URIs.
+
+        The LLM sometimes returns truncated URIs like 'T_Safety_Design_Obligation'
+        when the actual URI is 'T_Safety_Design_Obligation_Design'. This lookup
+        allows matching truncated URIs to their full versions.
+
+        Returns:
+            Dict mapping partial URI fragments -> full entity URI
+        """
+        lookup = {}
+
+        # Collect all entities with URIs
+        all_entities = (
+            list(foundation.roles) +
+            list(foundation.obligations) +
+            list(foundation.principles) +
+            list(foundation.constraints) +
+            list(foundation.capabilities) +
+            list(foundation.states) +
+            list(foundation.resources) +
+            list(foundation.actions) +
+            list(foundation.events)
+        )
+
+        for entity in all_entities:
+            if not entity.uri:
+                continue
+
+            # Index by full URI
+            lookup[entity.uri] = entity.uri
+
+            # Index by fragment only (after #)
+            if '#' in entity.uri:
+                fragment = entity.uri.split('#')[-1]
+                base_url = entity.uri.rsplit('#', 1)[0]
+
+                # Index by fragment
+                lookup[fragment] = entity.uri
+
+                # Index by truncated versions (strip common suffixes)
+                for suffix in ['_Design', '_Engineer', '_No', '_Ber', '_Failed', '_Contractor', '_Opportunity']:
+                    if fragment.endswith(suffix):
+                        truncated = fragment[:-len(suffix)]
+                        truncated_uri = f"{base_url}#{truncated}"
+                        if truncated_uri not in lookup:
+                            lookup[truncated_uri] = entity.uri
+                        if truncated not in lookup:
+                            lookup[truncated] = entity.uri
+
+            # Also index by label for fallback matching
+            if entity.label:
+                lookup[entity.label] = entity.uri
+
+        return lookup
+
+    def _normalize_uri(self, uri: Optional[str], lookup: Dict[str, str]) -> str:
+        """
+        Normalize a URI using the lookup dict, returning the best match.
+
+        Args:
+            uri: The URI to normalize (may be truncated or a fragment)
+            lookup: Dict from _build_uri_normalization_lookup()
+
+        Returns:
+            The normalized full URI, or the original if no match found
+        """
+        if not uri:
+            return ''
+
+        # Direct match
+        if uri in lookup:
+            return lookup[uri]
+
+        # Try fragment-only match
+        if '#' in uri:
+            fragment = uri.split('#')[-1]
+            if fragment in lookup:
+                return lookup[fragment]
+
+        # Try prefix matching - find URIs that start with this fragment
+        if '#' in uri:
+            fragment = uri.split('#')[-1]
+            for key, value in lookup.items():
+                if '#' in key and key.split('#')[-1].startswith(fragment):
+                    return value
+
+        # Return original if no match
+        return uri
+
     def synthesize_complete(
         self,
         case_id: int,
@@ -1695,15 +1786,18 @@ Include ALL actions even if they have empty relationships. Be precise with URI m
             # Parse JSON from response using robust parser
             links_data = self._parse_json_response(response_text, "causal-normative links")
             if links_data:
+                # Build URI lookup for normalization (LLM may return truncated URIs)
+                uri_lookup = self._build_uri_normalization_lookup(foundation)
+
                 return [
                     CausalNormativeLink(
-                        action_id=link.get('action_id', ''),
+                        action_id=self._normalize_uri(link.get('action_id', ''), uri_lookup),
                         action_label=link.get('action_label', ''),
-                        fulfills_obligations=link.get('fulfills_obligations', []),
-                        violates_obligations=link.get('violates_obligations', []),
-                        guided_by_principles=link.get('guided_by_principles', []),
-                        constrained_by=link.get('constrained_by', []),
-                        agent_role=link.get('agent_role'),
+                        fulfills_obligations=[self._normalize_uri(u, uri_lookup) for u in link.get('fulfills_obligations', [])],
+                        violates_obligations=[self._normalize_uri(u, uri_lookup) for u in link.get('violates_obligations', [])],
+                        guided_by_principles=[self._normalize_uri(u, uri_lookup) for u in link.get('guided_by_principles', [])],
+                        constrained_by=[self._normalize_uri(u, uri_lookup) for u in link.get('constrained_by', [])],
+                        agent_role=self._normalize_uri(link.get('agent_role'), uri_lookup) if link.get('agent_role') else None,
                         reasoning=link.get('reasoning', ''),
                         confidence=link.get('confidence', 0.5)
                     )

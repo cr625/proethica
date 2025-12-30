@@ -60,9 +60,9 @@ def list_cases():
     query = request.args.get('query', '')
 
     # Get status filter from query parameters
-    # Values: 'all' (default), 'extracted', 'synthesized'
+    # Values: 'all', 'extracted', 'synthesized' (default)
     # 'extracted' = Passes 1-3 complete, 'synthesized' = Step 4 complete
-    status_filter = request.args.get('status', 'all')
+    status_filter = request.args.get('status', 'synthesized')
 
     # Get subject tag filter from query parameters
     selected_tag = request.args.get('tag', '')

@@ -1453,6 +1453,18 @@ def _build_entity_lookup_dict(case_id: int) -> Dict[str, Dict]:
         if entity.entity_uri:
             lookup[entity.entity_uri] = entity_data
 
+            # Also index by URI prefix (without trailing suffixes like _Design, _Engineer, _No)
+            # This handles mismatches from rich analysis generating truncated URIs
+            if '#' in entity.entity_uri:
+                fragment = entity.entity_uri.split('#')[-1]
+                base_url = entity.entity_uri.rsplit('#', 1)[0]
+                # Strip common suffixes that get added during extraction
+                for suffix in ['_Design', '_Engineer', '_No', '_Ber', '_Failed', '_Contractor']:
+                    if fragment.endswith(suffix):
+                        truncated_uri = f"{base_url}#{fragment[:-len(suffix)]}"
+                        if truncated_uri not in lookup:
+                            lookup[truncated_uri] = entity_data
+
         # Also create synthetic short-form URI keys for matching
         # This handles references like "case-8#Historic_Heavy_Rainfall_Event"
         if entity.entity_label:

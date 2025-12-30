@@ -602,8 +602,17 @@
                             {% if question.rdf_json_ld and question.rdf_json_ld.mentionedEntities %}
                             <div class="mb-3">
                                 <small class="text-muted"><strong>Involves:</strong></small>
-                                {% for entity in question.rdf_json_ld.mentionedEntities %}
-                                <span class="badge bg-info me-1">{{ entity }}</span>
+                                {% for entity_type, entity_list in question.rdf_json_ld.mentionedEntities.items() %}
+                                {% for entity_name in entity_list %}
+                                <span class="badge me-1
+                                    {% if entity_type == 'roles' %}bg-primary
+                                    {% elif entity_type == 'states' %}bg-info
+                                    {% elif entity_type == 'obligations' %}bg-warning text-dark
+                                    {% elif entity_type == 'principles' %}bg-purple
+                                    {% elif entity_type == 'actions' %}bg-success
+                                    {% elif entity_type == 'events' %}bg-dark
+                                    {% else %}bg-secondary{% endif %}" title="{{ entity_type|title }}">{{ entity_name }}</span>
+                                {% endfor %}
                                 {% endfor %}
                             </div>
                             {% endif %}
@@ -1067,7 +1076,7 @@
                                         <small class="text-secondary"><strong>Options:</strong></small>
                                         <ol class="mb-0 ps-3 mt-1 small">
                                             {% for opt in dp.options %}
-                                            <li>{{ opt.label if opt.label else opt }}</li>
+                                            <li>{{ opt.label or opt.description or opt.option_id or opt }}</li>
                                             {% endfor %}
                                         </ol>
                                     </div>
