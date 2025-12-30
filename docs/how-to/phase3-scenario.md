@@ -1,5 +1,8 @@
 # Phase 3: Interactive Scenario
 
+!!! note "Planned Feature"
+    Step 5 (Interactive Scenario) is planned for future development. This documentation describes the intended functionality. The current implementation displays a placeholder page.
+
 Phase 3 generates interactive scenarios with participant mapping, decision points, and provenance tracking.
 
 ## Overview

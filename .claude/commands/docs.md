@@ -32,7 +32,7 @@ Help create, update, and maintain the MkDocs documentation for ProEthica.
 | Precedents | Dropdown | Find Precedents, Similarity Network |
 | Guidelines | Link | Codes of ethics by domain |
 | Docs | Link | This documentation |
-| Tools | Dropdown | Provenance Viewer, References, OntServe, Pipeline |
+| Tools | Dropdown | Academic References, OntServe Web, Browse ProEthica Ontologies |
 | [User] | Dropdown | Logout |
 
 ## Documentation Structure
@@ -57,11 +57,10 @@ docs/
 │   ├── pipeline-automation.md   # Batch processing
 │   └── settings.md              # Configuration
 ├── reference/
-│   ├── architecture.md          # System architecture
+│   ├── architecture.md          # System architecture (placeholder)
 │   ├── ontology-integration.md  # OntServe integration
 │   ├── transformation-types.md  # Classification reference
-│   ├── installation.md          # Deployment
-│   └── citations.md             # Academic references
+│   └── installation.md          # Deployment
 └── faq.md
 ```
 
@@ -198,6 +197,18 @@ Documentation served at `/docs/` via Flask:
 - Route: `app/routes/docs.py`
 - Blueprint: `docs_bp`
 - Source: `site/` directory
+
+## Placeholder Pages
+
+These pages contain placeholder content and need full documentation:
+
+| Page | Status | Notes |
+|------|--------|-------|
+| `how-to/phase2-analysis.md` | Placeholder | Created Dec 2025, describes Step 4 synthesis |
+| `reference/architecture.md` | Placeholder | Created Dec 2025, basic service overview |
+| `how-to/phase3-scenario.md` | Aspirational | Describes Step 5 which is not yet implemented |
+
+Note: `reference/citations.md` is listed in the structure but does not exist. References are served via `/tools/references` route instead.
 
 ## References
 

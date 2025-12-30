@@ -31,7 +31,7 @@ The top navigation provides access to main features:
 | **Precedents** | Dropdown | Find Precedents, Similarity Network |
 | **Guidelines** | Link | Browse ethical guidelines and codes of ethics |
 | **Docs** | Link | This documentation |
-| **Tools** | Dropdown | Academic References, OntServe Web, Browse Ontologies, Pipeline Dashboard, Queue Management |
+| **Tools** | Dropdown | Academic References, OntServe Web, Browse Ontologies; Admin Tools (admin only): Pipeline Dashboard, Queue Management, Validation Studies |
 | **[User]** | Dropdown | User menu with Logout |
 
 The domain dropdown (e.g., "Engineering") reflects the currently active professional domain and provides access to domain management.
@@ -78,7 +78,7 @@ The pipeline (`/scenario_pipeline/<case_id>`) provides step-by-step case analysi
 |------|------|-------------|--------|
 | 1 | Contextual Framework | Extract Roles, States, Resources from Facts and Discussion | Implemented |
 | 2 | Normative Requirements | Extract Principles, Obligations, Constraints, Capabilities | Implemented |
-| 3 | Temporal Dynamics | Extract Actions, Events, build timeline | Implemented |
+| 3 | Temporal Dynamics | Extract Actions, Events, Causal Relationships | Implemented |
 | 4 | Case Synthesis | Four-phase analysis: provisions, questions, decision points, narrative | Implemented |
 | 5 | Scenario Exploration | Interactive decision-making with consequence generation | Planned |
 
@@ -100,6 +100,7 @@ After each extraction, the review page displays:
 - Section toggle (Facts vs Discussion)
 - Delete controls for each entity
 - Re-run button to return to extraction
+- View Extraction button to see the original LLM prompt and response
 
 ![Entity Review](../assets/images/screenshots/entity-review-pass1-content.png)
 

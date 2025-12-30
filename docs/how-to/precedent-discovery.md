@@ -16,7 +16,7 @@ There are multiple ways to access precedent discovery:
 
 ### From Navigation
 
-Navigate to: **Cases** > **Find Precedents** in the navigation bar
+Navigate to: **Precedents** > **Find Precedents** in the navigation bar
 
 Or direct URL: `/cases/precedents/`
 

@@ -6,7 +6,7 @@ ProEthica is a research prototype demonstrating how case-based reasoning, ontolo
 
 ProEthica demonstrates a methodology for computational support of professional ethics review. In regulated professions, designated authorities assess whether practitioner actions align with established standards. These evaluations apply codes and precedents developed through practice over time, using standards specific to professional roles and specialized knowledge.
 
-Many technical specialists who serve on ethics review boards lack formal training in ethical analysis, yet their domain expertise is essential for evaluating professional conduct. ProEthica explores whether computational tools could augment this process by making professional resources accessible and by exposing analytical pathways that connect specific situations to established standards. The approach follows pedagogical methods common in legal education, where examination of cases reveals how abstract principles become operationalized through accumulated precedents.
+Many technical specialists who serve on ethics review boards lack formal training in ethical analysis, yet their domain expertise is essential for evaluating professional conduct. ProEthica explores whether computational tools could augment this process by making professional resources more accessible and by exposing analytical pathways that connect specific situations to established standards. The approach follows pedagogical methods common in legal education, where examination of cases reveals how abstract principles become operationalized through accumulated precedents.
 
 The current implementation demonstrates feasibility through engineering ethics cases from the NSPE Board of Ethical Review. Validation of the methodology and extension to operational use will require involvement of domain experts and empirical assessment against professional judgment.
 
@@ -43,7 +43,7 @@ ProEthica guides case analysis through a structured workflow. The current implem
 |------|------|------|--------|
 | 1 | Contextual Framework | Extract Roles, States, Resources from Facts and Discussion sections | Implemented |
 | 2 | Normative Requirements | Extract Principles, Obligations, Constraints, Capabilities | Implemented |
-| 3 | Temporal Dynamics | Extract Actions, Events, Causal Chains, Timeline | Implemented |
+| 3 | Temporal Dynamics | Extract Actions, Events, Causal Relationships | Implemented |
 | 4 | Case Synthesis | Four-phase analysis: provisions, questions, decision points, narrative | Implemented |
 | 5 | Scenario Exploration | Interactive decision-making with consequence generation | Planned |
 
@@ -64,7 +64,7 @@ Three extraction passes identify concepts from case narratives:
 
 - **Step 1 (Contextual)**: Roles, States, Resources from Facts and Discussion sections
 - **Step 2 (Normative)**: Principles, Obligations, Constraints, Capabilities
-- **Step 3 (Temporal)**: Events, Actions, Causal Chains, Timeline
+- **Step 3 (Temporal)**: Actions, Events, Causal Relationships
 
 Each step extracts from both Facts and Discussion sections, with Discussion unlocking after Facts completes.
 
@@ -83,14 +83,9 @@ After extraction completes, the review interface displays extracted entities org
 - **Entity cards**: View extracted entities with ontology class matching
 - **Edit controls**: Modify or delete entities before committing
 - **Re-run button**: Return to extraction for reprocessing
+- **View Extraction**: See the original LLM prompt and response for this extraction
 
 See [Entity Review](how-to/entity-review.md) for details.
-
-### Extraction History
-Track all extraction prompts and responses:
-
-![Extraction History](assets/images/screenshots/extraction-history-content.png)
-*Timeline view of all extractions with filters by step, section, and concept type*
 
 ### Case Synthesis (Step 4)
 Step 4 analyzes extracted entities to identify:

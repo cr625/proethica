@@ -37,7 +37,7 @@ Queue cases for batch processing through all extraction steps:
 
 Pipeline mode is efficient for processing multiple cases after you are familiar with manual extraction.
 
-Manual mode is accessed from the numbered step buttons at the top of any case page. Steps must be processed in sequence; completed steps display as green. See [Phase 1 Extraction](../how-to/phase1-extraction.md) for details. Pipeline mode is accessed from **Pipeline > Dashboard**.
+Manual mode is accessed from the numbered step buttons at the top of any case page. Steps must be processed in sequence; completed steps display as green. See [Phase 1 Extraction](../how-to/phase1-extraction.md) for details. Pipeline mode is accessed from **Tools > Pipeline Dashboard** (requires admin login).
 
 ## Quick Start
 
@@ -46,7 +46,7 @@ The home page provides three main entry points:
 | Card | Purpose |
 |------|---------|
 | [Browse Cases](../how-to/view-cases.md) | View and analyze ethics cases in the repository |
-| [Find Precedents](../how-to/precedent-discovery.md) | Discover similar cases using semantic similarity |
+| [Similarity Network](../how-to/precedent-discovery.md) | Discover similar cases using semantic similarity |
 | Documentation | Access this user manual |
 
 ## Main Features
@@ -78,7 +78,7 @@ These ontologies are managed by OntServe and provide the semantic foundation for
 3. **Run the extraction pipeline** to extract structured entities
 4. **Review and validate** extracted concepts
 5. **Discover precedents** using similarity matching
-6. **Explore scenarios** to understand case dynamics
+6. **Explore scenarios** to understand case dynamics (coming soon)
 
 ## Next Steps
 

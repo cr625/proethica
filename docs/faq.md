@@ -68,7 +68,7 @@ Typical extraction times per pass:
 |------|------|-------|
 | Pass 1 | 30-60 seconds | Roles, States, Resources |
 | Pass 2 | 60-90 seconds | Principles, Obligations, etc. |
-| Pass 3 | 30-60 seconds | Events, Actions |
+| Pass 3 | 30-60 seconds | Actions, Events, Causal Relationships |
 
 Times vary with case length and LLM response time.
 

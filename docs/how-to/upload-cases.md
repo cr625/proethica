@@ -11,8 +11,8 @@ ProEthica provides four methods for adding cases:
 | Method | Status | Description |
 |--------|--------|-------------|
 | **Enter URL** | Available | Import from NSPE website URLs |
-| Upload Document | Coming Soon | PDF, DOCX, TXT file upload |
-| Create Manually | Coming Soon | Manual entry of case details |
+| Upload Document | Available | PDF, DOCX, TXT file upload |
+| Create Manually | Available | Manual entry of case details |
 | Language Model | Coming Soon | LLM-assisted case creation |
 
 Currently, the **Enter URL** method is the primary way to add cases, optimized for importing NSPE Board of Ethical Review cases directly from the NSPE website.
@@ -115,9 +115,9 @@ User-created scenarios for analysis should follow the Facts/Discussion structure
 
 ## Batch Upload
 
-For multiple cases, use the Pipeline Dashboard:
+For multiple cases, use the Pipeline Dashboard (requires admin login):
 
-1. Navigate to **Pipeline Dashboard** (`/pipeline/dashboard`)
+1. Navigate to **Tools > Pipeline Dashboard**
 2. Use **Queue** tab for batch operations
 3. Upload cases through batch interface
 

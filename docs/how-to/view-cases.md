@@ -90,7 +90,7 @@ Below the case title, numbered step buttons provide direct access to the extract
 |--------|------|---------|
 | **1** | Contextual | Roles, States, Resources extraction |
 | **2** | Normative | Principles, Obligations, Constraints, Capabilities |
-| **3** | Temporal | Actions, Events, timeline |
+| **3** | Temporal | Actions, Events, Causal Relationships |
 | **4** | Synthesis | Four-phase analysis (provisions, questions, decisions, narrative) |
 
 Step button states:
@@ -98,7 +98,7 @@ Step button states:
 - **Outline** - Step available
 - **Lock icon** - Step locked (complete prerequisites first)
 
-Click any step button to navigate directly to extraction or review for that step. Step 5 (Interactive Exploration) is accessed from the Step 4 results page.
+Click any step button to navigate directly to extraction or review for that step.
 
 ### Action Buttons
 
@@ -107,7 +107,6 @@ The header provides quick access to case functions:
 | Button | Function |
 |--------|----------|
 | **Back to Cases** | Return to case list |
-| **Edit** | Edit case content (currently disabled) |
 | **Structure** | View document sections and embeddings |
 | **Source** | Link to original source (if available) |
 | **Delete** | Remove case (authenticated users only) |

@@ -69,7 +69,11 @@ When reviewing entities:
 | **Type** | Concept type (Role, State, etc.) |
 | **Definition** | Full description |
 | **Status** | New, Existing, Modified |
-| **Actions** | Edit, Delete buttons |
+| **Actions** | Edit, Delete, View Extraction buttons |
+
+### View Extraction
+
+Click **View Extraction** on any entity to see the original LLM prompt and response that produced the extraction. This provides transparency into the extraction process and helps evaluate entity quality.
 
 ### Status Indicators
 

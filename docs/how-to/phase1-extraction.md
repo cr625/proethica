@@ -10,7 +10,7 @@ Phase 1 extracts the nine concepts across three passes:
 |------|------|----------|---------|
 | Pass 1 | Contextual Framework | Roles, States, Resources | Facts |
 | Pass 2 | Normative Requirements | Principles, Obligations, Constraints, Capabilities | Discussion |
-| Pass 3 | Temporal Dynamics | Events, Actions, Temporal Relations | Full Case |
+| Pass 3 | Temporal Dynamics | Actions, Events, Causal Relationships | Full Case |
 
 ## Starting Extraction
 
@@ -28,7 +28,7 @@ Steps must be processed in sequence. Completed steps display as green; incomplet
 |------|------|-------------------|
 | Step 1 | Contextual Framework | Roles, States, Resources |
 | Step 2 | Normative Requirements | Principles, Obligations, Constraints, Capabilities |
-| Step 3 | Temporal Dynamics | Actions, Events |
+| Step 3 | Temporal Dynamics | Actions, Events, Causal Relationships |
 | Step 4 | Synthesis | Provisions, Questions, Decision Points, Narrative |
 
 Each step extracts from both Facts and Discussion sections. The Discussion section becomes available after Facts extraction completes for that step.

@@ -65,9 +65,9 @@ PYTHONPATH=/path/to/parent:$PYTHONPATH python run.py
 
 ### Accessing Dashboard
 
-Navigate to: **Pipeline Dashboard** (`/pipeline/dashboard`)
+Navigate to: **Tools > Pipeline Dashboard** (requires admin login)
 
-Or via Cases page: Click **Automation** button
+Direct URL: `/pipeline/dashboard`
 
 ![Pipeline Dashboard](../assets/images/screenshots/pipeline-dashboard-content.png)
 
@@ -263,7 +263,7 @@ Step 2: Facts (Principles, Obligations, Constraints, Capabilities)
     ↓
 Step 2b: Discussion (Principles, Obligations, Constraints, Capabilities)
     ↓
-Step 3: Temporal (Events, Actions, Relations)
+Step 3: Temporal (Actions, Events, Causal Relationships)
     ↓
 Complete
 ```
