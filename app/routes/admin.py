@@ -830,6 +830,7 @@ def system_health():
 def validation_dashboard():
     """Validation studies management dashboard."""
     from app.models.experiment import ExperimentRun, Prediction, ExperimentEvaluation
+    from app.services.experiment.validation_export_service import ValidationExportService
     from sqlalchemy import func, distinct
 
     # Get experiment statistics
@@ -895,6 +896,75 @@ def validation_dashboard():
                          studies=studies,
                          cases_with_predictions=cases_with_predictions,
                          all_cases=all_cases)
+
+
+@admin_bp.route('/validation/export')
+@admin_required_production
+def validation_export():
+    """Export validation data for Krippendorff's alpha analysis."""
+    from flask import Response
+    from app.services.experiment.validation_export_service import ValidationExportService
+
+    # Get query parameters
+    format_type = request.args.get('format', 'csv')
+    domain = request.args.get('domain')
+    use_means = request.args.get('level', 'means') == 'means'
+    experiment_run_id = request.args.get('experiment_run_id', type=int)
+
+    export_service = ValidationExportService()
+    content, filename = export_service.export_for_krippendorff(
+        experiment_run_id=experiment_run_id,
+        domain=domain,
+        use_means=use_means,
+        format=format_type
+    )
+
+    if format_type == 'json':
+        mimetype = 'application/json'
+    else:
+        mimetype = 'text/csv'
+
+    return Response(
+        content,
+        mimetype=mimetype,
+        headers={
+            'Content-Disposition': f'attachment; filename={filename}'
+        }
+    )
+
+
+@admin_bp.route('/validation/summary')
+@admin_required_production
+def validation_summary():
+    """Get summary statistics comparing baseline vs ProEthica."""
+    from app.services.experiment.validation_export_service import ValidationExportService
+
+    domain = request.args.get('domain')
+    experiment_run_id = request.args.get('experiment_run_id', type=int)
+
+    export_service = ValidationExportService()
+    summary = export_service.export_comparison_summary(
+        experiment_run_id=experiment_run_id,
+        domain=domain
+    )
+
+    return jsonify(summary)
+
+
+@admin_bp.route('/validation/evaluator-progress')
+@admin_required_production
+def validation_evaluator_progress():
+    """Get progress summary for each evaluator."""
+    from app.services.experiment.validation_export_service import ValidationExportService
+
+    experiment_run_id = request.args.get('experiment_run_id', type=int)
+
+    export_service = ValidationExportService()
+    progress = export_service.get_evaluator_progress(
+        experiment_run_id=experiment_run_id
+    )
+
+    return jsonify({'evaluators': progress})
 
 
 # Error handlers for admin routes

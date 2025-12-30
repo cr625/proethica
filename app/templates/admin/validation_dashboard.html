@@ -153,10 +153,36 @@
                             </button>
                         </div>
                         <div class="col-md-3 mb-2">
-                            <button class="btn btn-outline-secondary w-100" onclick="exportAllData()">
-                                <i class="bi bi-download me-2"></i>
-                                Export All Data
-                            </button>
+                            <div class="dropdown">
+                                <button class="btn btn-outline-secondary w-100 dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                    <i class="bi bi-download me-2"></i>
+                                    Export Data
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><h6 class="dropdown-header">Krippendorff's Alpha Format</h6></li>
+                                    <li><a class="dropdown-item" href="{{ url_for('admin.validation_export', format='csv', level='means') }}">
+                                        <i class="bi bi-filetype-csv me-2"></i>CSV (Metric Means)
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="{{ url_for('admin.validation_export', format='csv', level='subitems') }}">
+                                        <i class="bi bi-filetype-csv me-2"></i>CSV (All Sub-items)
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="{{ url_for('admin.validation_export', format='json', level='means') }}">
+                                        <i class="bi bi-filetype-json me-2"></i>JSON (Metric Means)
+                                    </a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><h6 class="dropdown-header">By Domain</h6></li>
+                                    <li><a class="dropdown-item" href="{{ url_for('admin.validation_export', format='csv', domain='engineering') }}">
+                                        <i class="bi bi-gear me-2"></i>Engineering Only
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="{{ url_for('admin.validation_export', format='csv', domain='education') }}">
+                                        <i class="bi bi-mortarboard me-2"></i>Education Only
+                                    </a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" href="#" onclick="viewSummary()">
+                                        <i class="bi bi-bar-chart me-2"></i>View Summary Statistics
+                                    </a></li>
+                                </ul>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -333,12 +359,13 @@
                 <div class="card-body">
                     <div class="row">
                         <div class="col-md-4">
-                            <h6 class="fw-bold">Evaluation Metrics</h6>
-                            <ul class="list-unstyled">
-                                <li><i class="bi bi-check2 text-success me-1"></i> Reasoning Quality (0-10)</li>
-                                <li><i class="bi bi-check2 text-success me-1"></i> Ethical Grounding (0-10)</li>
-                                <li><i class="bi bi-check2 text-success me-1"></i> Practical Applicability (0-10)</li>
-                                <li><i class="bi bi-check2 text-success me-1"></i> Overall Coherence (0-10)</li>
+                            <h6 class="fw-bold">Chapter 4 Metrics (1-7 Likert)</h6>
+                            <ul class="list-unstyled small">
+                                <li><i class="bi bi-check2 text-success me-1"></i> <strong>RTI</strong> - Reasoning Transparency Index (4 sub-items)</li>
+                                <li><i class="bi bi-check2 text-success me-1"></i> <strong>PBRQ</strong> - Precedent-Based Reasoning Quality (4 sub-items)</li>
+                                <li><i class="bi bi-check2 text-success me-1"></i> <strong>CA</strong> - Citation Accuracy (3 sub-items)</li>
+                                <li><i class="bi bi-check2 text-success me-1"></i> <strong>DRA</strong> - Domain Relevance Assessment (4 sub-items)</li>
+                                <li class="mt-2"><i class="bi bi-arrows-angle-expand text-info me-1"></i> <strong>Preference</strong> - 5-point scale (-2 to +2)</li>
                             </ul>
                         </div>
                         <div class="col-md-4">
@@ -347,18 +374,30 @@
                                 <li><i class="bi bi-circle-fill text-primary me-1" style="font-size: 0.5em;"></i> <strong>ProEthica</strong>: Ontology-enhanced reasoning</li>
                                 <li><i class="bi bi-circle-fill text-secondary me-1" style="font-size: 0.5em;"></i> <strong>Baseline</strong>: Standard LLM reasoning</li>
                             </ul>
+                            <h6 class="fw-bold mt-3">Evaluator Tracks</h6>
+                            <ul class="list-unstyled small">
+                                <li><i class="bi bi-gear text-warning me-1"></i> <strong>Track A</strong>: Engineering graduate students</li>
+                                <li><i class="bi bi-mortarboard text-info me-1"></i> <strong>Track B</strong>: Education graduate students</li>
+                            </ul>
                         </div>
                         <div class="col-md-4">
-                            <h6 class="fw-bold">Documentation</h6>
+                            <h6 class="fw-bold">Analysis Tools</h6>
+                            <ul class="list-unstyled small">
+                                <li>
+                                    <i class="bi bi-calculator me-1"></i> Krippendorff's alpha for inter-rater reliability
+                                </li>
+                                <li>
+                                    <i class="bi bi-graph-up me-1"></i> Paired comparison analysis
+                                </li>
+                                <li>
+                                    <i class="bi bi-file-earmark-arrow-down me-1"></i> Export to CSV/JSON for external analysis
+                                </li>
+                            </ul>
+                            <h6 class="fw-bold mt-3">Documentation</h6>
                             <ul class="list-unstyled">
                                 <li>
                                     <a href="{{ url_for('tools.references') }}" class="text-decoration-none">
                                         <i class="bi bi-journal-bookmark me-1"></i> Academic References
-                                    </a>
-                                </li>
-                                <li>
-                                    <a href="/docs/" target="_blank" class="text-decoration-none">
-                                        <i class="bi bi-book me-1"></i> System Documentation
                                     </a>
                                 </li>
                             </ul>
@@ -443,16 +482,72 @@ function generatePredictions() {
     window.location.href = `/experiment/double_blind/${caseId}`;
 }
 
-function exportAllData() {
-    // Get all experiment IDs and export
-    const studies = {{ studies|map(attribute='id')|list|tojson if studies else '[]' }};
-    if (studies.length === 0) {
-        alert('No studies to export');
-        return;
-    }
+function viewSummary() {
+    fetch('{{ url_for("admin.validation_summary") }}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert(data.error);
+                return;
+            }
 
-    // Export first study for now (could be enhanced to export all)
-    window.location.href = `/experiment/${studies[0]}/export`;
+            let summaryHtml = '<div class="container-fluid">';
+            summaryHtml += `<p><strong>Total Evaluations:</strong> ${data.total_evaluations}</p>`;
+            summaryHtml += '<h6>Baseline Scores</h6><table class="table table-sm"><thead><tr><th>Metric</th><th>N</th><th>Mean</th><th>Std</th></tr></thead><tbody>';
+            for (const [metric, stats] of Object.entries(data.baseline || {})) {
+                summaryHtml += `<tr><td>${metric}</td><td>${stats.n}</td><td>${stats.mean || '-'}</td><td>${stats.std || '-'}</td></tr>`;
+            }
+            summaryHtml += '</tbody></table>';
+
+            summaryHtml += '<h6>ProEthica Scores</h6><table class="table table-sm"><thead><tr><th>Metric</th><th>N</th><th>Mean</th><th>Std</th></tr></thead><tbody>';
+            for (const [metric, stats] of Object.entries(data.proethica || {})) {
+                summaryHtml += `<tr><td>${metric}</td><td>${stats.n}</td><td>${stats.mean || '-'}</td><td>${stats.std || '-'}</td></tr>`;
+            }
+            summaryHtml += '</tbody></table>';
+
+            if (data.preferences) {
+                summaryHtml += '<h6>Preferences</h6><ul>';
+                summaryHtml += `<li>Prefer Baseline: ${data.preferences.prefer_baseline || 0}</li>`;
+                summaryHtml += `<li>Prefer ProEthica: ${data.preferences.prefer_proethica || 0}</li>`;
+                summaryHtml += `<li>No Preference: ${data.preferences.no_preference || 0}</li>`;
+                summaryHtml += '</ul>';
+            }
+            summaryHtml += '</div>';
+
+            // Create and show modal
+            const modalHtml = `
+                <div class="modal fade" id="summaryModal" tabindex="-1">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title"><i class="bi bi-bar-chart me-2"></i>Validation Summary Statistics</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">${summaryHtml}</div>
+                            <div class="modal-footer">
+                                <a href="{{ url_for('admin.validation_export', format='csv') }}" class="btn btn-primary">
+                                    <i class="bi bi-download me-1"></i>Export CSV
+                                </a>
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Remove existing modal if any
+            const existing = document.getElementById('summaryModal');
+            if (existing) existing.remove();
+
+            // Add and show new modal
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            const modal = new bootstrap.Modal(document.getElementById('summaryModal'));
+            modal.show();
+        })
+        .catch(err => {
+            console.error('Error fetching summary:', err);
+            alert('Error fetching summary statistics');
+        });
 }
 </script>
 {% endblock %}
