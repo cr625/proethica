@@ -2,6 +2,8 @@
 
 This guide covers the entity review workflow for validating extracted concepts before commitment to the ontology.
 
+![Entity Review Interface - Pass 1 Facts](../assets/images/screenshots/entity-review-pass1-facts-content.png)
+
 ## Overview
 
 After each extraction pass, entities enter a review queue where users:
@@ -33,6 +35,8 @@ After extraction completes, the Entity Review page displays automatically. You c
 
 ## Available Classes
 
+![Pass 1 Discussion Section](../assets/images/screenshots/entity-review-pass1-discussion-content.png)
+
 The collapsible "Available Classes" section shows existing ontology classes from OntServe:
 
 ### Class Categories
@@ -59,6 +63,16 @@ When reviewing entities:
 4. Or approve as new class
 
 ## Entity Table
+
+The entity table displays extracted entities with their labels, definitions, types, and status indicators. Each extraction pass shows different entity types.
+
+**Pass 2 - Normative Requirements (Principles, Obligations, Constraints, Capabilities):**
+
+![Pass 2 Entity Review - Discussion](../assets/images/screenshots/entity-review-pass2-discussion-content.png)
+
+**Pass 3 - Temporal Dynamics (Actions, Events):**
+
+![Pass 3 Entity Review](../assets/images/screenshots/entity-review-pass3-content.png)
 
 ### Table Columns
 

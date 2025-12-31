@@ -3,7 +3,7 @@
 ## Agent Responsibilities
 
 This agent maintains alignment between:
-1. **Chapter 4** ([docs-internal/references/chapter4.md](docs-internal/references/chapter4.md)) - Dissertation validation methodology
+1. **Chapter 4** ([docs-internal/chapter4.md](docs-internal/chapter4.md)) - Dissertation validation methodology
 2. **Implementation** - Database schema, routes, templates, and services
 3. **Documentation** - [VALIDATION_FRAMEWORK_UNIFIED.md](docs-internal/VALIDATION_FRAMEWORK_UNIFIED.md)
 
@@ -24,7 +24,7 @@ The pipeline **analyzes** what exists in a case. The validation interface **dete
 
 ## Current Metrics (Chapter 4 Aligned)
 
-All metrics use **1-7 Likert scale** (standard in argument quality research).
+All metrics use **1-7 Likert scale** (design choice for ordinal ratings).
 
 ### RTI: Reasoning Transparency Index
 Measures clarity of argumentative steps and Toulmin-based traceability (Data -> Warrant -> Claim).
@@ -85,7 +85,7 @@ Evaluates professional practice applicability.
 ### Scale Alignment
 - [ ] All metrics use 1-7 Likert scale
 - [ ] Preference uses 5-point scale (-2 to +2)
-- [ ] IRR thresholds: 0.60 minimum, 0.70 target, 0.80 strong
+- [ ] IRR thresholds: 0.667 minimum, 0.800 target (Krippendorff, 2004)
 
 ### Protocol Alignment
 - [ ] 10-15 evaluators
@@ -99,9 +99,9 @@ Evaluates professional practice applicability.
 
 | Component | Location |
 |-----------|----------|
-| **Chapter 4** | [docs-internal/references/chapter4.md](docs-internal/references/chapter4.md) |
+| **Chapter 4** | [docs-internal/chapter4.md](docs-internal/chapter4.md) |
 | **Unified Framework** | [docs-internal/VALIDATION_FRAMEWORK_UNIFIED.md](docs-internal/VALIDATION_FRAMEWORK_UNIFIED.md) |
-| **Revision Guide** | [docs-internal/CHAPTER4_REVISION_GUIDE.md](docs-internal/CHAPTER4_REVISION_GUIDE.md) |
+| **Citation Corrections** | [docs-internal/references/CITATION_CORRECTIONS.md](docs-internal/references/CITATION_CORRECTIONS.md) |
 | Routes | [app/routes/experiment.py](app/routes/experiment.py) |
 | Prediction service | [app/services/experiment/prediction_service.py](app/services/experiment/prediction_service.py) |
 | Database model | [app/models/experiment.py](app/models/experiment.py) |
@@ -125,9 +125,11 @@ The validation metrics align with Toulmin's argumentation model:
 | Rebuttal (R) | Alternatives considered |
 
 ### Academic Precedent
-- McLaren (2006): 8 experts, 15 cases, alpha = 0.72
-- Ashley & McLaren (1995): 10-15 domain experts for CBR validation
-- AI-CARE study (Lemieux et al., 2025): Double-blind comparative methodology
+- McLaren (2006): Truth-Teller evaluation with 5 professional ethicists, 20 case comparisons
+- Mirzababaei & Pammer-Schindler (2021): F1 scores 0.80-0.91 for Toulmin argument detection
+- AI-CARE study (Lemieux et al., 2025): Double-blind crossover RCT methodology
+
+**Note**: See [CITATION_CORRECTIONS.md](docs-internal/references/CITATION_CORRECTIONS.md) for verified source information.
 
 ---
 
@@ -142,8 +144,12 @@ The validation metrics align with Toulmin's argumentation model:
 - > 60% prefer ProEthica over baseline
 - Strong preferences favor ProEthica more than baseline
 
-### Reliability
-- Krippendorff's alpha >= 0.60 for all metrics
+### Reliability (Krippendorff, 2004, p. 241)
+- **Minimum**: alpha >= 0.667 (tentative conclusions acceptable)
+- **Target**: alpha >= 0.800 (reliable conclusions)
+- **Below 0.667**: Data should be discarded
+
+**CRITICAL**: Earlier versions incorrectly cited 0.60 and 0.70 thresholds. These do not exist in Krippendorff.
 
 ---
 
@@ -203,5 +209,6 @@ When invoked with arguments:
 
 ---
 
-*Last Updated: December 30, 2025*
+*Last Updated: December 31, 2025*
 *Aligned with Chapter 4 and VALIDATION_FRAMEWORK_UNIFIED.md*
+*Citation corrections applied - see [CITATION_CORRECTIONS.md](docs-internal/references/CITATION_CORRECTIONS.md)*

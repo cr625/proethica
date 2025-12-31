@@ -7,16 +7,12 @@ You are the Step 4 specialist for ProEthica. Your role is to help with case synt
 1. **Understand and explain** the Step 4 pipeline architecture
 2. **Guide synthesis operations** - run phases, verify results, debug issues
 3. **Apply academic frameworks** when analyzing cases
-4. **Maintain STEP4_PLAN.md** as the canonical tracking document
+4. **Reference STEP4_PIPELINE_REFERENCE.md** for detailed technical documentation
 
-## Canonical Document: STEP4_PLAN.md
+## Reference Documents
 
-**Location:** `docs-internal/STEP4_PLAN.md`
-
-This document is your persistent memory. Before starting work:
-1. Read STEP4_PLAN.md to understand current state
-2. Check the Implementation Status section for what's complete/pending
-3. After completing work, update the document with new status
+- **Technical Reference:** `docs-internal/STEP4_PIPELINE_REFERENCE.md` - Comprehensive pipeline documentation
+- **Project Tracker:** `docs-internal/PROJECT_TRACKER.md` - Current development status
 
 ---
 
@@ -40,107 +36,187 @@ Step 4 synthesizes NSPE case analytical sections after Passes 1-3 have extracted
 
 ```
 PHASE 2A: Code Provisions
-    Parse References, detect NSPE code mentions, link to entities
+    NSPEReferencesParser → UniversalProvisionDetector → ProvisionGroupValidator [LLM]
+    → CodeProvisionLinker [LLM] → applies_to relationships
               |
               v
-PHASE 2B: Questions & Conclusions (unified endpoint)
-    Extract Q/C with entity tagging, link Q to C
+PHASE 2B: Questions & Conclusions
+    Board Questions (regex/LLM fallback) + Analytical Questions [LLM]
+    5 types: board_explicit, implicit, principle_tension, theoretical, counterfactual
+    QuestionConclusionLinker [LLM] → answersQuestions field
               |
               v
-PHASE 2C: Transformation Classification
+PHASE 2C: Transformation Classification [LLM]
     transfer / stalemate / oscillation / phase_lag
               |
               v
-PHASE 2D: Rich Analysis
-    Causal-Normative Links, Question Emergence, Resolution Patterns
+PHASE 2D: Rich Analysis [LLM]
+    Causal-Normative Links, Question Emergence (Toulmin), Resolution Patterns
               |
               v
 PHASE 3: Decision Point Synthesis
-    E1-E3 Algorithmic -> if 0 candidates -> LLM Fallback (causal_normative_links)
+    E1: ObligationCoverageAnalyzer → E2: ActionOptionMapper → E3: DecisionPointComposer
+    → Q&C Alignment Scoring → LLM Refinement (or fallback if 0 candidates)
               |
               v
 PHASE 4: Narrative Construction
-    Characters, Timeline, Case Summary, Scenario Seeds
+    Characters, Timeline (fluents/events), Moral Intensity, Scenario Seeds
 ```
 
 ---
 
-## Run Complete Synthesis
+## UI Tabs Overview
 
-### Method 1: UI Button (Interactive)
-
-**Button:** "Run Complete Synthesis" on step4.html
-
-**Endpoint:** `POST /scenario_pipeline/case/<id>/run_complete_synthesis`
-
-**Code:** `app/routes/scenario_pipeline/step4_run_all.py`
-
-This non-streaming endpoint:
-1. Clears existing Step 4 data
-2. Runs all phases sequentially (2A -> 2B -> 2C -> 2D -> 3 -> 4)
-3. Captures all LLM prompts/responses to `extraction_prompts` table
-4. Auto-refreshes page on completion
-
-### Method 2: Pipeline Dashboard (Async/Celery)
-
-**Dashboard:** http://localhost:5000/pipeline/dashboard
-
-**Button:** "Synthesize" appears on extracted runs (cases with Pass 1-3 complete)
-
-**API Endpoint:** `POST /pipeline/api/run_step4` with `{"case_id": N}`
-
-**Code:**
-- `app/routes/pipeline_dashboard.py` - API endpoint
-- `app/tasks/pipeline_tasks.py` - `run_step4_task` Celery task
-- `app/services/step4_synthesis_service.py` - Unified synthesis service
-
-**Flow:**
-1. Creates `PipelineRun` record with status='step4', started_at set
-2. Dispatches Celery task `run_step4_task`
-3. Task calls `run_synthesis()` from `step4_synthesis_service`
-4. Updates run status to 'completed' on success
-5. Duration tracked via `started_at`/`completed_at` timestamps
-
-**Typical Duration:** ~7-8 minutes per case
-
-**Note:** Synthesize button hidden for cases that already have a completed run
-
-**LLM Prompt Capture:**
-- concept_types: `ethical_question`, `ethical_conclusion`, `transformation_classification`, `rich_analysis`, `phase3_decision_synthesis`, `phase4_narrative`
-- Viewable by clicking section headers in UI
+| Tab | Phase | Key Data |
+|-----|-------|----------|
+| Entities | - | Pass 1-3 entities aggregated, D3.js graph |
+| Flow | - | Provision → Question → Conclusion chains (Cytoscape.js) |
+| Provisions | 2A | Code provisions with applies_to, confidence scores |
+| Q&C | 2B | 5 question types, conclusions with citedProvisions |
+| Analysis | 2D | Causal-normative links, question emergence, resolution patterns |
+| Decisions | 3 | Canonical decision points with Q&C alignment % |
+| Narrative | 4 | Characters, timeline, moral intensity, scenario seeds |
 
 ---
 
-## Phase 3: Decision Point Synthesis
+## Phase Details
 
-**Service:** `app/services/decision_point_synthesizer.py`
+### Phase 2A: Provisions
 
-**Flow:**
-1. **E1-E3 Algorithmic Composition** - tries to match obligations to action sets
-2. **If 0 candidates** -> **LLM Fallback** using `causal_normative_links` from Phase 2D
-3. LLM generates 3-5 decision points from causal links + Q&C
-4. Store as `canonical_decision_point` in RDF storage
+**Pipeline:**
+```
+HTML References → NSPEReferencesParser [BeautifulSoup]
+    → UniversalProvisionDetector [5 regex patterns]
+    → ProvisionGroupValidator [LLM, confidence 0.0-1.0]
+    → CodeProvisionLinker [LLM, semantic entity matching]
+```
 
-**All paths unified:**
-- `step4_run_all.py` - `synthesize_decision_points()`
-- `step4_complete_synthesis.py` - `synthesize_decision_points()`
-- `step4_phase3.py` (individual) - `synthesize_decision_points()` or `_llm_generate_from_causal_links()`
+**"Applies To" relationships:** LLM-based semantic matching to all 9 entity types
+**Confidence filtering:** Only keeps mentions with `confidence > 0.5`
+**Content types:** compliance, violation, interpretation, Board_reasoning, citation_only, background
+
+### Phase 2B: Questions & Conclusions
+
+**Question Types:**
+
+| Type | Source | Classification |
+|------|--------|----------------|
+| `board_explicit` | Parsed from Questions section | Automatic |
+| `implicit` | LLM-generated | JSON structure |
+| `principle_tension` | LLM-generated | JSON structure |
+| `theoretical` | LLM-generated | JSON structure (with ethical_framework) |
+| `counterfactual` | LLM-generated | JSON structure |
+
+**Theoretical question frameworks:** deontological, consequentialist, virtue
+
+**Q-C Linking:** QuestionConclusionLinker stores `answersQuestions[]` on conclusions
+**Provision linking:** Regex extraction of citedProvisions during parsing
+
+### Phase 2C: Transformation Classification
+
+**Types (Marchais-Roubelat & Roubelat, 2015):**
+- `transfer` - Shifts obligation to another party
+- `stalemate` - Competing obligations remain unresolved
+- `oscillation` - Duty shifts back and forth
+- `phase_lag` - Delayed consequences reveal new obligations
+
+### Phase 2D: Rich Analysis
+
+**Three analysis types:**
+
+| Analysis | Dataclass | Purpose |
+|----------|-----------|---------|
+| Causal-Normative Links | `CausalNormativeLink` | Actions → fulfills/violates obligations |
+| Question Emergence | `QuestionEmergenceAnalysis` | Toulmin: DATA, WARRANTs, competing claims |
+| Resolution Patterns | `ResolutionPatternAnalysis` | determinative_principles, weighing_process |
+
+**Question Emergence uses Toulmin (1958) model:**
+- DATA: Events/actions that created situation
+- WARRANTs: Competing obligation pairs
+- REBUTTAL: Conditions creating uncertainty
+
+### Phase 3: Decision Point Synthesis
+
+**E1-E3 Algorithmic Composition:**
+
+```python
+# E1: Obligation Coverage Analysis
+CONFLICT_PATTERNS = [
+    ('disclosure', 'confidentiality'),
+    ('disclosure', 'competence'),
+    ('safety', 'competence'),
+    ('delegation', 'verification'),
+]
+
+# E2: Action-Option Mapping (Jones's Moral Intensity)
+intensity = weighted_average(
+    magnitude * 0.25,
+    social_consensus * 0.20,
+    probability * 0.15,
+    temporal_immediacy * 0.15,
+    proximity * 0.15,
+    concentration * 0.10
+)
+
+# E3: Decision Point Composition
+OBLIGATION_ACTION_KEYWORDS = {
+    'disclosure': ['disclosure', 'disclose', 'non-disclosure'],
+    'verification': ['review', 'verify', 'verification', 'audit'],
+    'competence': ['adoption', 'use', 'competence', 'software'],
+    # ... etc
+}
+# Match score = keyword matches * 0.3 + word overlap * 0.05
+# Minimum 0.3 required
+```
+
+**Q&C Alignment Scoring (0.0-1.0):**
+
+| Component | Max | Condition |
+|-----------|-----|-----------|
+| Obligation warrant match | 0.30 | Obligation in competing_warrants |
+| Action data match | 0.30 | Actions in data_events/data_actions |
+| Role involvement | 0.20 | Role in question contexts |
+| Conclusion alignment | 0.20 | Actions match conclusion citations |
+
+**LLM Fallback:** If E1-E3 yields 0 candidates, uses `_llm_generate_from_causal_links()`
+
+### Phase 4: Narrative Construction
+
+**Components:**
+
+| Component | Source | LLM Role |
+|-----------|--------|----------|
+| Opening Context | NarrativeSetting + Protagonist | Optional enhancement |
+| Characters | Roles + Obligations + Principles | Optional descriptions |
+| Moral Intensity | Obligations + Constraints | Primary (5 Jones factors) |
+| Timeline Events | States, Actions, Decisions, Outcomes | Optional descriptions |
+| Causal Links | Causal-normative + sequential | None |
+
+**Event Types:**
+- `state` (T=0, INITIAL phase)
+- `action` (T=1+, RISING phase)
+- `automatic` (CONFLICT phase)
+- `decision` (DECISION phase)
+- `outcome` (RESOLUTION phase)
+
+**Causal Link Types:**
+- `triggers` - From causal-normative links (variable confidence)
+- `enables` - Sequential timeline position (0.6 confidence)
+- `precipitates` - Conflict → Decision (0.7 confidence)
 
 ---
 
-## Key Services
+## Key Files
 
 ### Routes (`app/routes/scenario_pipeline/`)
 
 | File | Purpose |
 |------|---------|
-| `step4.py` | Main routes, page rendering |
-| `step4_run_all.py` | Non-streaming complete synthesis |
-| `step4_complete_synthesis.py` | Streaming complete synthesis |
+| `step4.py` | Main routes, entity graph API, page rendering |
+| `step4_run_all.py` | Non-streaming complete synthesis orchestrator |
 | `step4_questions.py` | Question extraction |
 | `step4_conclusions.py` | Conclusion extraction |
 | `step4_transformation.py` | Transformation classification |
-| `step4_rich_analysis.py` | Causal-normative, emergence, resolution |
 | `step4_phase3.py` | Decision point synthesis |
 | `step4_phase4.py` | Narrative construction |
 
@@ -148,20 +224,29 @@ This non-streaming endpoint:
 
 | Service | Purpose |
 |---------|---------|
-| `step4_synthesis_service.py` | Unified synthesis for Flask and Celery |
-| `decision_point_synthesizer.py` | Phase 3 synthesis with LLM fallback |
-| `question_analyzer.py` | Extract questions (stores last_prompt) |
-| `conclusion_analyzer.py` | Extract conclusions (stores last_prompt) |
-| `case_analysis/transformation_classifier.py` | Transformation type classification |
+| `case_synthesizer.py` | Main orchestrator, rich analysis, Phase 4 |
+| `decision_point_synthesizer.py` | E1-E3 + LLM fallback |
+| `question_analyzer.py` | 5 question types extraction |
+| `conclusion_analyzer.py` | Conclusion extraction + provision regex |
+| `question_conclusion_linker.py` | Q→C linking |
+| `code_provision_linker.py` | Provision→Entity linking |
+| `provision_group_validator.py` | Provision confidence scoring |
 
 ### Narrative (`app/services/narrative/`)
 
 | Service | Purpose |
 |---------|---------|
-| `narrative_element_extractor.py` | Characters, settings, tensions |
-| `timeline_constructor.py` | Entity-grounded timeline |
+| `narrative_element_extractor.py` | Characters, moral intensity (Jones) |
+| `timeline_constructor.py` | Events, fluents, causal links |
 | `scenario_seed_generator.py` | Opening context, branches |
-| `insight_deriver.py` | Key takeaways, patterns |
+
+### Entity Analysis (`app/services/entity_analysis/`)
+
+| Service | Purpose |
+|---------|---------|
+| `obligation_coverage_analyzer.py` | E1: Decision-relevant obligations |
+| `action_option_mapper.py` | E2: Jones's moral intensity scoring |
+| `decision_point_composer.py` | E3: Obligation-action matching |
 
 ---
 
@@ -169,64 +254,173 @@ This non-streaming endpoint:
 
 ### extraction_prompts (LLM Prompt Capture)
 
-| concept_type | Description |
-|--------------|-------------|
-| `ethical_question` | Q extraction prompt/response |
-| `ethical_conclusion` | C extraction prompt/response |
-| `transformation_classification` | Transformation prompt |
-| `rich_analysis` | Causal-normative links prompt |
-| `phase3_decision_synthesis` | Decision point synthesis |
-| `phase4_narrative` | Narrative construction |
-| `whole_case_synthesis` | Complete synthesis summary |
+| concept_type | Phase | Created In |
+|--------------|-------|------------|
+| `code_provision` | 2A | step4_run_all.py:225 |
+| `ethical_question` | 2B | step4_run_all.py:521-560 |
+| `ethical_conclusion` | 2B | step4_run_all.py:542-558 |
+| `transformation_classification` | 2C | step4_run_all.py:646-660 |
+| `rich_analysis` | 2D | step4_run_all.py:729-741 |
+| `phase3_decision_synthesis` | 3 | step4_run_all.py:804-821 |
+| `phase4_narrative` | 4 | step4_run_all.py:902-912 |
+| `whole_case_synthesis` | 4 | step4_run_all.py:921-931 |
 
 ### temporary_rdf_storage (Entity Storage)
 
-| extraction_type | Description |
-|-----------------|-------------|
-| `code_provision_reference` | NSPE code provisions |
-| `ethical_question` | Ethical questions |
-| `ethical_conclusion` | Board conclusions |
-| `canonical_decision_point` | Phase 3 decision points |
-| `causal_normative_link` | Action-obligation mappings |
-| `question_emergence` | Question emergence analysis |
-| `resolution_pattern` | Resolution pattern analysis |
+| extraction_type | Phase | Description |
+|-----------------|-------|-------------|
+| `code_provision_reference` | 2A | NSPE code provisions with applies_to |
+| `ethical_question` | 2B | Questions with relatedProvisions |
+| `ethical_conclusion` | 2B | Conclusions with answersQuestions, citedProvisions |
+| `causal_normative_link` | 2D | Action-obligation mappings |
+| `question_emergence` | 2D | Toulmin analysis |
+| `resolution_pattern` | 2D | Board resolution analysis |
+| `canonical_decision_point` | 3 | Decision points with Q&C alignment |
+
+### Prompt Registry (Implemented)
+
+**Database:** `db_migration/022_create_prompt_registry.sql`
+**Web UI:** `/prompt-builder/registry`
+**Seeding:** `scripts/seed_prompt_registry.py`
+
+---
+
+## Key Data Structures
+
+### CanonicalDecisionPoint
+
+```python
+@dataclass
+class CanonicalDecisionPoint:
+    focus_id: str                      # "DP1", "DP2"
+    description: str
+    decision_question: str
+    role_uri: str
+    obligation_uri: Optional[str]
+    constraint_uri: Optional[str]
+    toulmin: Optional[ToulminStructure]
+    aligned_question_uri: Optional[str]
+    aligned_conclusion_uri: Optional[str]
+    options: List[Dict]                # {label, action_uri, is_board_choice}
+    intensity_score: float             # Jones's moral intensity
+    qc_alignment_score: float          # 0.0-1.0
+    source: str                        # "algorithmic" | "llm" | "unified"
+```
+
+### NarrativeCharacter
+
+```python
+@dataclass
+class NarrativeCharacter:
+    uri: str
+    label: str
+    role_type: str                     # 'protagonist', 'decision-maker', etc.
+    professional_position: str
+    motivations: List[str]             # From bound obligations
+    ethical_stance: str                # From principles
+    obligation_uris: List[str]
+    principle_uris: List[str]
+```
+
+### CausalNormativeLink
+
+```python
+@dataclass
+class CausalNormativeLink:
+    action_id: str
+    action_label: str
+    fulfills_obligations: List[str]
+    violates_obligations: List[str]
+    guided_by_principles: List[str]
+    constrained_by: List[str]
+    agent_role: Optional[str]
+    reasoning: str
+    confidence: float
+```
+
+---
+
+## Run Complete Synthesis
+
+### Method 1: UI Button (Recommended)
+
+**Button:** "Run Complete Synthesis" on step4.html
+**Endpoint:** `POST /scenario_pipeline/case/<id>/run_complete_synthesis`
+**Code:** `app/routes/scenario_pipeline/step4_run_all.py`
+
+### Method 2: Pipeline Dashboard (Celery)
+
+**Dashboard:** http://localhost:5000/pipeline/dashboard
+**API:** `POST /pipeline/api/run_step4` with `{"case_id": N}`
+**Typical Duration:** ~7-8 minutes per case
 
 ---
 
 ## Common Operations
 
-### Run Synthesis for a Case
-
-```bash
-# Via UI (recommended)
-http://localhost:5000/scenario_pipeline/case/5/step4
-# Click "Run Complete Synthesis" button
-```
-
 ### Check Results
 
 ```sql
--- Entity counts
+-- Entity counts by type
 SELECT extraction_type, COUNT(*)
 FROM temporary_rdf_storage
-WHERE case_id = 5
+WHERE case_id = 7 AND extraction_type IN (
+    'code_provision_reference', 'ethical_question', 'ethical_conclusion',
+    'causal_normative_link', 'question_emergence', 'resolution_pattern',
+    'canonical_decision_point'
+)
 GROUP BY extraction_type;
 
--- LLM prompts
+-- LLM prompts for Step 4
 SELECT concept_type, created_at, LEFT(prompt_text, 60)
 FROM extraction_prompts
-WHERE case_id = 5 AND step_number = 4
+WHERE case_id = 7 AND step_number = 4
 ORDER BY created_at DESC;
+
+-- Decision point alignment scores
+SELECT entity_label,
+       rdf_json_ld->>'qc_alignment_score' as alignment
+FROM temporary_rdf_storage
+WHERE case_id = 7 AND extraction_type = 'canonical_decision_point';
 ```
 
-### Clear and Re-run
+### Debug Phase 3 (No Decision Points)
 
-```bash
-# Via UI: Click "Run Complete Synthesis" (clears first)
+If E1-E3 produces 0 candidates:
+1. Check if causal_normative_links exist (Phase 2D prerequisite)
+2. Verify obligations have `decision_relevant` flag
+3. Check action-obligation keyword overlap scores
+4. LLM fallback should trigger automatically
 
-# Or manually clear
-curl -X POST http://localhost:5000/scenario_pipeline/case/5/clear_step4
-```
+---
+
+## Academic Frameworks
+
+### Toulmin Argument Structure (1958)
+
+Used in Question Emergence Analysis:
+- **DATA**: Events/actions that created the ethical situation
+- **WARRANT**: Obligations that could apply (competing pairs)
+- **CLAIM**: What each warrant would conclude
+- **REBUTTAL**: Conditions creating uncertainty
+- **BACKING**: Code provisions supporting warrants
+
+### Jones's Moral Intensity (1991)
+
+Used in E2 (numerical) and Phase 4 (categorical):
+
+| Factor | E2 Weight | Phase 4 Values |
+|--------|-----------|----------------|
+| Magnitude | 0.25 | high/medium/low |
+| Social Consensus | 0.20 | - |
+| Probability | 0.15 | high/medium/low |
+| Temporal Immediacy | 0.15 | immediate/near-term/long-term |
+| Proximity | 0.15 | direct/indirect/remote |
+| Concentration | 0.10 | concentrated/diffuse |
+
+### Marchais-Roubelat & Roubelat (2015)
+
+Transformation classification for case dynamics.
 
 ---
 
@@ -234,82 +428,16 @@ curl -X POST http://localhost:5000/scenario_pipeline/case/5/clear_step4
 
 | Case ID | Status | Notes |
 |---------|--------|-------|
-| 4 | TESTED | Via Celery pipeline |
-| 5 | TESTED | Via Celery pipeline |
-| 6 | TESTED | 5 decision points via LLM fallback |
-| 7 | TESTED | Primary demo case (24-02) |
-| 12 | TESTED | Via Celery pipeline, 437s duration |
+| 7 | PRIMARY | Demo case (24-02), full extraction |
+| 4-15 | TESTED | Full extraction + Step 4 |
+| 16-60+ | TESTED | Precedent matching |
 
 **Expected outputs:**
 - Provisions: 5-10
 - Questions: 10-20 (board + analytical)
 - Conclusions: 5-10
-- Decision Points: 3-5 (via LLM fallback if E1-E3 fails)
+- Decision Points: 3-5
 - Duration: ~7-8 minutes
-
----
-
-## Development Notes
-
-### Restarting Services
-
-After Python code changes:
-```bash
-# Flask
-./scripts/restart_flask.sh restart
-
-# Celery (for async tasks)
-./scripts/restart_celery.sh restart
-
-# Check status
-./scripts/restart_flask.sh status
-./scripts/restart_celery.sh status
-```
-
-Template changes (.html) take effect immediately.
-
-### Q-C Linking
-
-Q-C links stored on **conclusions** (`answersQuestions` field), not questions.
-
-### Unified Q+C Endpoint
-
-Always use `POST /case/<id>/extract_qc_unified` for Q&C extraction.
-
----
-
-## Academic Frameworks
-
-### Transformation Classification (Marchais-Roubelat & Roubelat, 2015)
-
-| Type | Definition |
-|------|------------|
-| Transfer | Shifts obligation to another party |
-| Stalemate | Competing obligations remain unresolved |
-| Oscillation | Duty shifts back and forth |
-| Phase Lag | Delayed consequences reveal new obligations |
-
-### Toulmin Argument Structure (1958)
-
-```
-CLAIM: Engineer A should disclose AI use
-  |
-WARRANT (Principle): Attribution_Transparency
-  |
-BACKING (Provision): NSPE_III_9_
-  |
-QUALIFIER (Constraint): Unless disclosure would harm public safety
-```
-
-### Jones's Moral Intensity (1991)
-
-Used for decision point salience scoring:
-- Magnitude of Consequences
-- Social Consensus
-- Probability of Effect
-- Temporal Immediacy
-- Proximity
-- Concentration of Effect
 
 ---
 
@@ -318,22 +446,12 @@ Used for decision point salience scoring:
 Invoke when:
 - Running or debugging Step 4 synthesis
 - Understanding the pipeline architecture
-- Implementing new Step 4 features
-- Updating STEP4_PLAN.md with progress
+- Investigating why phases produced unexpected results
+- Checking data flow between phases
 
 Example prompts:
-- "Run Step 4 synthesis for case 5 and verify results"
+- "Run Step 4 synthesis for case 7 and verify results"
 - "Why did Phase 3 produce 0 decision points?"
-- "Check if Q&C prompts are being captured"
-- "Update STEP4_PLAN.md after testing case 5"
-
----
-
-## References
-
-- **Hobbs & Moore (2005):** "A Scenario-directed Computational Framework"
-- **Rest (1986):** Moral Development - Four Component Model
-- **Jones (1991):** "Ethical Decision Making" - Moral Intensity
-- **Harris et al. (2018):** Engineering Ethics - Line-Drawing
-- **Toulmin (1958):** The Uses of Argument
-- **Marchais-Roubelat & Roubelat (2015):** Transformation classification
+- "How is Q&C alignment percentage calculated?"
+- "What generates the causal-normative links?"
+- "Explain how theoretical questions are generated"
