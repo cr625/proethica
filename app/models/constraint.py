@@ -32,7 +32,7 @@ class Constraint(db.Model):
     constrains_capability_id = db.Column(db.Integer, db.ForeignKey('capabilities.id'))
     
     # BFO Ontology classification fields
-    bfo_class = db.Column(db.String(255), default='BFO_0000040')  # material entity or process boundary
+    bfo_class = db.Column(db.String(255), default='BFO_0000017')  # realizable entity (matches ontology)
     proethica_category = db.Column(db.String(50), default='constraint')
     ontology_uri = db.Column(db.String(500))
     

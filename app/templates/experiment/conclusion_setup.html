@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Setup Conclusion Prediction Experiment{% endblock %}
+{% block title %}Setup Ethical Determination Study{% endblock %}
 
 {% block head %}
 {{ super() }}
@@ -55,12 +55,12 @@
 
 {% block content %}
 <div class="experiment-setup-container">
-  <h1>Setup Conclusion Prediction Experiment</h1>
-  
+  <h1>Setup Ethical Determination Study</h1>
+
   <div class="alert alert-info mb-4">
-    <h4>About This Experiment</h4>
-    <p>This experiment compares standard LLM predictions with ProEthica enhanced ethical reasoning for engineering ethics case conclusions.</p>
-    <p>You will select cases, then the system will generate conclusions using both methods for comparison and evaluation.</p>
+    <h4>About This Study</h4>
+    <p>This study compares standard LLM outputs with ProEthica-enhanced ethical reasoning for engineering ethics case determinations.</p>
+    <p>You will select cases, then the system will generate ethical determinations using both methods for comparison and evaluation.</p>
   </div>
   
   <form id="setup-form" method="POST" action="{{ url_for('experiment.conclusion_prediction_setup') }}">
@@ -107,24 +107,24 @@
     </div>
     
     <div class="form-section">
-      <h3>Prediction Settings</h3>
+      <h3>Determination Settings</h3>
       <div class="form-group">
         <div class="form-check">
           <input class="form-check-input" type="checkbox" id="use-ontology" name="use_ontology" checked>
           <label class="form-check-label" for="use-ontology">
-            Use ontology constraints for enhanced predictions
+            Use ontology constraints for enhanced determinations
           </label>
-          <small class="form-text text-muted">ProEthica will use relevant engineering ethics principles from the ontology to guide prediction.</small>
+          <small class="form-text text-muted">ProEthica will use relevant engineering ethics principles from the ontology to guide the ethical determination.</small>
         </div>
       </div>
-      
+
       <div class="form-group">
         <div class="form-check">
           <input class="form-check-input" type="checkbox" id="use-validation" name="use_validation" checked>
           <label class="form-check-label" for="use-validation">
             Apply bidirectional validation
           </label>
-          <small class="form-text text-muted">Predictions will be validated against ontology constraints and ethical principles.</small>
+          <small class="form-text text-muted">Determinations will be validated against ontology constraints and ethical principles.</small>
         </div>
       </div>
     </div>

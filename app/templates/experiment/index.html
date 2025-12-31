@@ -156,8 +156,8 @@
 {% block content %}
 <div class="experiment-container">
   <div class="header-section">
-    <h1>ProEthica Experiment Interface</h1>
-    <p class="lead">Test conclusion prediction capabilities on engineering ethics cases</p>
+    <h1>ProEthica Validation Interface</h1>
+    <p class="lead">Generate ethical determinations for engineering ethics cases</p>
   </div>
 
   <!-- Statistics Section -->
@@ -172,14 +172,14 @@
     </div>
     <div class="stat-card">
       <div class="stat-value">{{ completed_predictions }}</div>
-      <div class="stat-label">Completed Predictions</div>
+      <div class="stat-label">Completed Determinations</div>
     </div>
   </div>
 
-  <!-- Quick Prediction Section -->
+  <!-- Ethical Determination Section -->
   <div class="quick-predict-section">
-    <h3>Quick Conclusion Prediction</h3>
-    <p>Select a case below to predict its conclusion and compare with the original NSPE decision.</p>
+    <h3>Generate Ethical Determination</h3>
+    <p>Select a case below to generate an ethical determination and compare with the original NSPE decision.</p>
     
     <div class="case-list">
       {% for case in cases %}
@@ -195,8 +195,8 @@
           </div>
         </div>
         <div class="case-actions">
-          <button class="btn btn-primary btn-sm" onclick="predictConclusion({{ case.id }})">
-            Predict Conclusion
+          <button class="btn btn-primary btn-sm" onclick="generateDetermination({{ case.id }})">
+            Generate Determination
           </button>
           {% if case.has_prediction %}
           <button class="btn btn-outline-info btn-sm" onclick="viewComparison({{ case.id }})">
@@ -254,13 +254,13 @@
 <div class="loading-modal" id="loadingModal">
   <div class="loading-content">
     <div class="spinner"></div>
-    <p>Generating conclusion prediction...</p>
+    <p>Generating ethical determination...</p>
     <p class="text-muted">This may take a few moments.</p>
   </div>
 </div>
 
 <script>
-function predictConclusion(caseId) {
+function generateDetermination(caseId) {
   // Show loading modal
   const loadingModal = document.getElementById('loadingModal');
   if (loadingModal) {
@@ -285,7 +285,7 @@ function predictConclusion(caseId) {
       // Redirect to comparison view
       window.location.href = `/experiment/case_comparison/${caseId}`;
     } else {
-      alert('Error predicting conclusion: ' + data.error);
+      alert('Error generating determination: ' + data.error);
     }
   })
   .catch(error => {
@@ -293,7 +293,7 @@ function predictConclusion(caseId) {
     if (loadingModal) {
       loadingModal.classList.remove('show');
     }
-    alert('Error predicting conclusion: ' + error.message);
+    alert('Error generating determination: ' + error.message);
   });
 }
 

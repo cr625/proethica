@@ -1,433 +1,207 @@
 # ProEthica Validation Framework
 
-## Overview
+## Agent Responsibilities
 
-This document analyzes the existing validation infrastructure in ProEthica and provides a framework for conducting validation studies with two evaluator populations: engineering students (engineering ethics domain) and education students (new education domain).
+This agent maintains alignment between:
+1. **Chapter 4** ([docs-internal/references/chapter4.md](docs-internal/references/chapter4.md)) - Dissertation validation methodology
+2. **Implementation** - Database schema, routes, templates, and services
+3. **Documentation** - [VALIDATION_FRAMEWORK_UNIFIED.md](docs-internal/VALIDATION_FRAMEWORK_UNIFIED.md)
 
-## Current Infrastructure Analysis
-
-### Database Schema
-
-Three experiment-related tables exist in the `ai_ethical_dm` database:
-
-| Table | Purpose | Current Records |
-|-------|---------|-----------------|
-| `experiment_runs` | Stores experiment configurations and status | 0 |
-| `experiment_predictions` | Stores baseline and ProEthica predictions | 0 |
-| `experiment_evaluations` | Stores evaluator ratings and feedback | 0 |
-
-**Schema Details:**
-
-```
-experiment_runs:
-  - id, name, description
-  - config (JSON): selected_cases, use_ontology, target
-  - status: created, running, completed, failed
-  - created_at, updated_at, created_by
-
-experiment_predictions:
-  - id, experiment_run_id, document_id
-  - condition: 'baseline' or 'proethica'
-  - target: 'full', 'conclusion', 'discussion'
-  - prediction_text, reasoning, prompt
-  - meta_info (JSON): ontology_entities, similar_cases, validation_metrics
-
-experiment_evaluations:
-  - id, experiment_run_id, prediction_id, evaluator_id
-  - Core metrics (0-10 scale): reasoning_quality, persuasiveness, coherence,
-    support_quality, preference_score, alignment_score
-  - Binary: accuracy, agreement
-  - comments, meta_info
-```
-
-### Existing Routes and Templates
-
-**Routes** ([app/routes/experiment.py](app/routes/experiment.py)):
-
-| Route | Purpose |
-|-------|---------|
-| `/experiment/` | Dashboard with case list and statistics |
-| `/experiment/quick_predict/<case_id>` | Generate single-case prediction |
-| `/experiment/case_comparison/<case_id>` | Compare prediction vs original |
-| `/experiment/double_blind/<case_id>` | Double-blind evaluation interface |
-| `/experiment/conclusion_setup` | Create batch experiment |
-| `/experiment/<id>/cases` | Select cases for experiment |
-| `/experiment/<id>/run_conclusion_predictions` | Execute predictions |
-| `/experiment/<id>/results` | View experiment results |
-| `/experiment/evaluate_prediction/<prediction_id>` | Submit evaluation |
-| `/experiment/<id>/export` | Export results as JSON |
-
-**Templates** (13 templates in [app/templates/experiment/](app/templates/experiment/)):
-
-- `index.html` - Main dashboard
-- `double_blind_comparison.html` - Randomized A/B evaluation interface
-- `evaluate_prediction.html` - Metric scoring form
-- `case_comparison.html` - Side-by-side comparison
-- `conclusion_setup.html`, `conclusion_run.html`, `conclusion_results.html` - Experiment workflow
-- Others: cases.html, results.html, setup.html, run.html, case_results.html, conclusion_comparison.html
-
-### Prediction Service
-
-[app/services/experiment/prediction_service.py](app/services/experiment/prediction_service.py) provides:
-
-1. **Baseline predictions**: LLM analysis without ontology enhancement
-2. **ProEthica predictions**: LLM analysis with:
-   - Ontology entity extraction per section
-   - Similar case retrieval (precedent matching)
-   - Structured prompts with NSPE Code references
-
-**Key Methods:**
-- `generate_conclusion_prediction(document_id, use_ontology)` - Core prediction generation
-- `get_document_sections(document_id, leave_out_conclusion)` - Retrieve case sections
-- `get_section_ontology_entities(document_id, sections)` - Fetch related ontology concepts
-- `_validate_conclusion(conclusion, ontology_entities)` - Basic entity mention validation
-
-### Double-Blind Evaluation Interface
-
-The existing double-blind interface ([double_blind_comparison.html](app/templates/experiment/double_blind_comparison.html)) includes:
-
-- Randomized system assignment (System A vs System B)
-- Case context display (Facts, Issue, Discussion)
-- Four evaluation criteria per system:
-  - Reasoning Quality (1-7 scale)
-  - Ethical Grounding (1-7 scale)
-  - Practical Applicability (1-7 scale)
-  - Overall Coherence (1-7 scale)
-- Overall preference selection (System A / No Preference / System B)
-- Comments field
-- Participant ID hashing for anonymization
-- Progress tracking
+When invoked, verify that terminology, metrics, scales, and protocols are consistent across all three.
 
 ---
 
-## Academic Foundation (from Chapter 4)
+## Terminology Distinction
 
-The original validation framework was designed for legal professionals. Key elements to adapt:
+| Operation | Term | Description |
+|-----------|------|-------------|
+| **Pipeline (Steps 1-4)** | "Analysis" | Extracts concepts (R, P, O, S, Rs, A, E, Ca, Cs) FROM existing case text |
+| **Validation Interface** | "Ethical Determination" | Generates the judgment/conclusion the ethics board SHOULD make |
 
-### Original Four-Metric Framework
-
-| Metric | Description | Scale |
-|--------|-------------|-------|
-| **PAQ** (Precedent Application Quality) | Identification and application of relevant prior cases | 0-100 |
-| **CSA** (Component Structure Assessment) | Proper identification of D = (R, P, O, S, Rs, A, E, Ca, Cs) components | 0-100 |
-| **RTI** (Reasoning Transparency Index) | Clarity of argumentative steps and fact-principle-conclusion traceability | 0-100 |
-| **PRA** (Professional Reasoning Alignment) | Conformance to professional analytical standards | 0-100 |
-
-### Success Criteria from Original Framework
-
-- Mean scores above 60 across all metrics
-- Evaluator preference for ProEthica over baseline in majority of cases
-- Inter-rater reliability exceeding alpha = 0.60 (Krippendorff's alpha)
-
-### Study Protocol Elements
-
-1. **Orientation** (1 hour): Domain primer + 2 practice cases
-2. **Individual Evaluation** (2-3 hours): Double-blind comparison via web interface
-3. **Reflection and Feedback** (1 hour): Structured questions on overall impressions
-4. Total time: 4-5 hours per participant
+The pipeline **analyzes** what exists in a case. The validation interface **determines** what the outcome should be.
 
 ---
 
-## Proposed Validation Framework for New Evaluator Populations
+## Current Metrics (Chapter 4 Aligned)
 
-### Population 1: Engineering School (Engineering Ethics)
+All metrics use **1-7 Likert scale** (standard in argument quality research).
 
-**Evaluators**: Masters students in engineering programs
+### RTI: Reasoning Transparency Index
+Measures clarity of argumentative steps and Toulmin-based traceability (Data -> Warrant -> Claim).
 
-**Case Domain**: NSPE Board of Ethical Review cases (existing case base)
+**Sub-items (4):**
+- `rti_premises_clear` - Are factual premises clearly stated?
+- `rti_steps_explicit` - Are reasoning steps explicit and followable?
+- `rti_conclusion_supported` - Is the conclusion clearly supported by prior steps?
+- `rti_alternatives_acknowledged` - Are alternative interpretations acknowledged?
 
-**Rationale**: Engineering students have:
-- Domain knowledge of engineering practice contexts
-- Familiarity with professional engineering codes (NSPE, discipline-specific)
-- Understanding of technical decision-making constraints
-- Perspective as future practitioners
+### PBRQ: Precedent-Based Reasoning Quality
+Evaluates case-based reasoning methodology.
 
-**Adaptation Requirements**:
-- Update orientation to assume engineering context knowledge
-- Focus evaluation criteria on technical accuracy and professional applicability
-- Include questions about whether reasoning aligns with their professional training
+**Sub-items (4):**
+- `pbrq_precedents_identified` - Are relevant precedent cases identified?
+- `pbrq_principles_extracted` - Are transferable principles correctly extracted?
+- `pbrq_adaptation_appropriate` - Is the adaptation to current facts appropriate?
+- `pbrq_selection_justified` - Is the precedent selection well-justified?
 
-### Population 2: School of Education (Education Ethics - NEW DOMAIN)
+### CA: Citation Accuracy
+Measures factual correctness of source attribution.
 
-**Evaluators**: Masters students in education programs
+**Sub-items (3):**
+- `ca_code_citations_correct` - Are code provisions correctly cited?
+- `ca_precedents_characterized` - Are precedent cases accurately characterized?
+- `ca_citations_support_claims` - Do citations support the claims made?
 
-**Case Domain**: NEW - Education ethics cases needed
+### DRA: Domain Relevance Assessment
+Evaluates professional practice applicability.
 
-**Rationale**: Education students have:
-- Domain knowledge of educational practice contexts
-- Familiarity with education professional codes (NEA, state codes)
-- Understanding of student welfare, academic integrity, professional boundaries
-- Perspective as current or future educators
+**Sub-items (4):**
+- `dra_concerns_relevant` - Does the analysis address concerns relevant to practice?
+- `dra_patterns_accepted` - Does reasoning follow accepted professional patterns?
+- `dra_guidance_helpful` - Would this guidance help a practitioner?
+- `dra_domain_weighted` - Are domain considerations appropriately weighted?
 
-**Adaptation Requirements**:
-- Develop education ethics ontology in OntServe
-- Import education ethics cases (sources below)
-- Create education-specific principle and obligation hierarchies
-- Modify prompts for education context
-
-### Potential Education Ethics Case Sources
-
-1. **NEA Code of Ethics Cases** - National Education Association
-2. **AASA Ethics Cases** - American Association of School Administrators
-3. **NAEYC Ethics Cases** - Early childhood education
-4. **State Department of Education** - Disciplinary case summaries
-5. **Journal of Cases in Educational Leadership** - Academic case studies
-6. **Chronicle of Higher Education** - Higher ed ethics cases
-
----
-
-## Implementation Checklist
-
-### Phase 1: Infrastructure Verification
-
-- [ ] Verify experiment tables are migrated in production
-- [ ] Test prediction generation for existing cases
-- [ ] Validate double-blind interface randomization
-- [ ] Test evaluation submission and storage
-- [ ] Verify JSON export functionality
-
-### Phase 2: Metric Refinement
-
-Current metrics in database:
-```
-reasoning_quality, persuasiveness, coherence, support_quality,
-preference_score, alignment_score, accuracy, agreement
-```
-
-Proposed alignment with Chapter 4 metrics:
-
-| Chapter 4 Metric | Current Mapping | Notes |
-|------------------|-----------------|-------|
-| PAQ | preference_score + similar_cases in meta_info | Consider explicit precedent rating |
-| CSA | (not directly captured) | Add component extraction accuracy |
-| RTI | reasoning_quality + coherence | Combine or keep separate |
-| PRA | alignment_score | Rename for clarity |
-
-**Recommended Additions:**
-- `component_accuracy` - Rate completeness of extracted components (R, P, O, S, Rs, A, E, Ca, Cs)
-- `precedent_relevance` - Rate quality of precedent case citations
-- `code_provision_accuracy` - Rate correctness of ethics code references
-- `domain_appropriateness` - Rate fit with domain-specific professional norms
-
-### Phase 3: Study Protocol Updates
-
-#### For Engineering Ethics (Engineering School)
-
-```
-Orientation (45 min):
-- ProEthica system overview
-- 9-component framework explanation
-- 2 practice cases with guided evaluation
-- Q&A session
-
-Evaluation Session (2 hours):
-- 10-15 cases per evaluator
-- Double-blind baseline vs ProEthica
-- Metrics: RTI, PRA, Component Accuracy, Precedent Relevance
-- Comments per case
-
-Debrief (30 min):
-- Overall impressions questionnaire
-- Professional utility assessment
-- Suggestions for improvement
-```
-
-#### For Education Ethics (School of Education)
-
-```
-Orientation (60 min):
-- ProEthica system overview
-- 9-component framework with education examples
-- Education ethics code overview (NEA, etc.)
-- 2 practice cases with guided evaluation
-- Q&A session
-
-Evaluation Session (2 hours):
-- 10-15 cases per evaluator
-- Double-blind baseline vs ProEthica
-- Same metrics as engineering
-- Comments per case
-
-Debrief (30 min):
-- Overall impressions questionnaire
-- Education domain fit assessment
-- Cross-domain applicability feedback
-```
-
-### Phase 4: Education Domain Development
-
-To support education ethics validation:
-
-1. **Ontology Extension**
-   - Create education ethics ontology in OntServe
-   - Define role hierarchy (Teacher, Administrator, Counselor, etc.)
-   - Map NEA Code principles to ontology
-   - Define education-specific obligations, constraints, capabilities
-
-2. **Case Import**
-   - Develop case import scripts for education cases
-   - Parse case structure (facts, issue, analysis, conclusion)
-   - Generate embeddings for similarity matching
-   - Validate extraction pipeline on education cases
-
-3. **Prompt Adaptation**
-   - Create education-specific extraction prompts
-   - Update conclusion prediction prompts for education context
-   - Add education precedent matching
+### Overall Preference (5-point scale)
+- -2: System A strongly preferred
+- -1: System A somewhat preferred
+- 0: No meaningful difference
+- +1: System B somewhat preferred
+- +2: System B strongly preferred
 
 ---
 
-## Technical Implementation Notes
+## Alignment Verification Checklist
 
-### Running a Validation Study
+### Terminology Alignment
+- [ ] UI uses "Ethical Determination" (not "Conclusion Prediction")
+- [ ] Routes use correct docstrings
+- [ ] Chapter 4 uses consistent terminology
 
-```python
-# Create experiment
-POST /experiment/conclusion_prediction_setup
-{
-    "name": "Engineering Validation Study Spring 2026",
-    "description": "Masters students evaluation of ProEthica",
-    "use_ontology": true
-}
+### Metric Alignment
+- [ ] Database schema has all 15 sub-item columns
+- [ ] Templates show all 4 metrics with correct sub-items
+- [ ] Chapter 4 describes same metrics and sub-items
 
-# Select cases
-POST /experiment/<id>/cases
-{
-    "selected_cases": [7, 8, 60, 61, 62, ...]  # Case IDs
-}
+### Scale Alignment
+- [ ] All metrics use 1-7 Likert scale
+- [ ] Preference uses 5-point scale (-2 to +2)
+- [ ] IRR thresholds: 0.60 minimum, 0.70 target, 0.80 strong
 
-# Generate predictions (runs baseline + ProEthica)
-POST /experiment/<id>/run_conclusion_predictions
-
-# Distribute evaluation links to participants
-# /experiment/double_blind/<case_id>
-
-# Export results
-GET /experiment/<id>/export
-```
-
-### Participant Management
-
-Current system uses IP-based participant tracking (`evaluator_id = request.remote_addr`).
-
-**Recommended Enhancement:**
-- Add participant registration with anonymized ID
-- Track evaluator metadata (program, year, experience level)
-- Enable session persistence for multi-session evaluation
-
-### Data Export Format
-
-```json
-{
-    "experiment": {
-        "id": 1,
-        "name": "Validation Study",
-        "config": {"selected_cases": [...]},
-        "status": "completed"
-    },
-    "predictions": [
-        {
-            "document_id": 7,
-            "condition": "proethica",
-            "prediction_text": "...",
-            "meta_info": {
-                "ontology_entities": {...},
-                "similar_cases": [...],
-                "validation_metrics": {...}
-            }
-        }
-    ],
-    "evaluations": [
-        {
-            "evaluator_id": "P1234",
-            "reasoning_quality": 7.5,
-            "coherence": 8.0,
-            ...
-        }
-    ]
-}
-```
+### Protocol Alignment
+- [ ] 10-15 evaluators
+- [ ] 23 cases
+- [ ] 3-4 hours total time commitment
+- [ ] Orientation 45 min, Evaluation 2-3 hours, Reflection 30 min
 
 ---
 
-## Analysis Plan
-
-### Quantitative Analysis
-
-1. **Descriptive Statistics**
-   - Mean scores per metric per condition (baseline vs ProEthica)
-   - Standard deviation and confidence intervals
-   - Distribution visualization
-
-2. **Comparative Analysis**
-   - Paired t-tests or Wilcoxon signed-rank for baseline vs ProEthica
-   - Effect size calculation (Cohen's d)
-   - Preference proportion with binomial test
-
-3. **Reliability Analysis**
-   - Krippendorff's alpha for inter-rater reliability
-   - Intraclass correlation coefficient (ICC)
-
-4. **Cross-Domain Comparison**
-   - Compare engineering vs education evaluator patterns
-   - Identify domain-specific factors affecting evaluation
-
-### Qualitative Analysis
-
-1. **Comment Coding**
-   - Thematic analysis of evaluator comments
-   - Identify strengths and weaknesses patterns
-   - Extract improvement suggestions
-
-2. **Domain Expert Feedback**
-   - Structured interviews with faculty advisors
-   - Professional applicability assessment
-
----
-
-## Pilot Study Recommendations
-
-Before full validation:
-
-1. **Technical Pilot** (2-3 participants)
-   - Verify system functionality end-to-end
-   - Test evaluation interface usability
-   - Identify technical issues
-
-2. **Protocol Pilot** (3-5 participants)
-   - Test orientation effectiveness
-   - Validate time estimates
-   - Refine metrics and instructions
-
-3. **Domain Pilot** (education only)
-   - Test with 3-5 education cases
-   - Validate education ontology coverage
-   - Assess prompt adaptation quality
-
----
-
-## File References
+## Key Files
 
 | Component | Location |
 |-----------|----------|
-| Experiment routes | [app/routes/experiment.py](app/routes/experiment.py) |
+| **Chapter 4** | [docs-internal/references/chapter4.md](docs-internal/references/chapter4.md) |
+| **Unified Framework** | [docs-internal/VALIDATION_FRAMEWORK_UNIFIED.md](docs-internal/VALIDATION_FRAMEWORK_UNIFIED.md) |
+| **Revision Guide** | [docs-internal/CHAPTER4_REVISION_GUIDE.md](docs-internal/CHAPTER4_REVISION_GUIDE.md) |
+| Routes | [app/routes/experiment.py](app/routes/experiment.py) |
 | Prediction service | [app/services/experiment/prediction_service.py](app/services/experiment/prediction_service.py) |
-| Experiment models | [app/models/experiment.py](app/models/experiment.py) |
+| Database model | [app/models/experiment.py](app/models/experiment.py) |
 | Double-blind template | [app/templates/experiment/double_blind_comparison.html](app/templates/experiment/double_blind_comparison.html) |
-| Evaluation template | [app/templates/experiment/evaluate_prediction.html](app/templates/experiment/evaluate_prediction.html) |
-| Chapter 4 reference | [docs-internal/references/chapter4.md](docs-internal/references/chapter4.md) |
-| AAAI paper | [docs-internal/references/AAAI_Demo_Paper__Camera_Ready_.pdf](docs-internal/references/AAAI_Demo_Paper__Camera_Ready_.pdf) |
+| Dashboard | [app/templates/experiment/index.html](app/templates/experiment/index.html) |
 
 ---
 
-## Next Steps
+## Theoretical Foundation
 
-1. **Immediate**: Verify infrastructure by running test experiment on 2-3 cases
-2. **Short-term**: Recruit pilot participants from engineering program
-3. **Medium-term**: Develop education ethics ontology and import cases
-4. **Long-term**: Conduct full validation studies in both domains
+### Toulmin Model Mapping
+The validation metrics align with Toulmin's argumentation model:
+
+| Toulmin Component | ProEthica Framework |
+|-------------------|---------------------|
+| Claim (C) | Ethical conclusion |
+| Data (D) | States (S), Resources (Rs) |
+| Warrant (W) | Principles (P), Obligations (O) |
+| Backing (B) | Resources (Rs), Precedents |
+| Qualifier (Q) | Capabilities (Ca), Constraints (Cs) |
+| Rebuttal (R) | Alternatives considered |
+
+### Academic Precedent
+- McLaren (2006): 8 experts, 15 cases, alpha = 0.72
+- Ashley & McLaren (1995): 10-15 domain experts for CBR validation
+- AI-CARE study (Lemieux et al., 2025): Double-blind comparative methodology
 
 ---
 
-*Document created: December 28, 2025*
-*Based on analysis of existing ProEthica validation infrastructure*
+## Success Criteria
+
+### Metric Performance
+- ProEthica mean scores > 4.5 (adequate quality)
+- ProEthica significantly higher than baseline on >= 2 metrics
+- No metric shows ProEthica worse than baseline
+
+### Evaluator Preference
+- > 60% prefer ProEthica over baseline
+- Strong preferences favor ProEthica more than baseline
+
+### Reliability
+- Krippendorff's alpha >= 0.60 for all metrics
+
+---
+
+## Implementation Status
+
+### Current State (December 2025)
+- [x] Double-blind interface implemented with Chapter 4 metrics
+- [x] 15 sub-items across 4 metrics
+- [x] 5-point preference scale with justification
+- [x] Randomized system assignment
+- [x] Progress tracking and validation
+- [x] Terminology updated to "Ethical Determination"
+- [ ] Database migration for new schema columns (pending)
+- [ ] Analysis service for statistical computations (pending)
+- [ ] Education domain support (future work)
+
+### Database Schema (Target)
+```sql
+-- RTI sub-items (1-7 scale)
+rti_premises_clear INTEGER
+rti_steps_explicit INTEGER
+rti_conclusion_supported INTEGER
+rti_alternatives_acknowledged INTEGER
+
+-- PBRQ sub-items (1-7 scale)
+pbrq_precedents_identified INTEGER
+pbrq_principles_extracted INTEGER
+pbrq_adaptation_appropriate INTEGER
+pbrq_selection_justified INTEGER
+
+-- CA sub-items (1-7 scale)
+ca_code_citations_correct INTEGER
+ca_precedents_characterized INTEGER
+ca_citations_support_claims INTEGER
+
+-- DRA sub-items (1-7 scale)
+dra_concerns_relevant INTEGER
+dra_patterns_accepted INTEGER
+dra_guidance_helpful INTEGER
+dra_domain_weighted INTEGER
+
+-- Preference
+overall_preference INTEGER  -- -2 to +2
+preference_justification TEXT
+```
+
+---
+
+## Agent Commands
+
+When invoked with arguments:
+
+- `verify` - Check alignment between Chapter 4, implementation, and documentation
+- `verify <file1> <file2>` - Verify specific files for consistency
+- `update` - Identify and list needed updates
+- `status` - Report current implementation status
+
+---
+
+*Last Updated: December 30, 2025*
+*Aligned with Chapter 4 and VALIDATION_FRAMEWORK_UNIFIED.md*

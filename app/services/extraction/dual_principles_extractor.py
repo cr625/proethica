@@ -48,8 +48,9 @@ class PrincipleIndividual:
     applied_to: List[str]  # What situation/decision it applies to
     interpretation: str  # Context-specific interpretation
     balancing_with: List[str]  # Other principles it must be balanced against
-    case_section: str
-    confidence: float
+    tension_resolution: Optional[str] = None  # How conflicts between principles are resolved
+    case_section: str = ''
+    confidence: float = 0.0
     is_new_principle_class: bool = False
     source_text: Optional[str] = None  # Text snippet where this principle is mentioned
 
@@ -352,6 +353,7 @@ Respond with valid JSON in this format:
                     applied_to=raw_ind.get('applied_to', []),
                     interpretation=raw_ind.get('interpretation', ''),
                     balancing_with=raw_ind.get('balancing_with', []),
+                    tension_resolution=raw_ind.get('tension_resolution'),
                     case_section=section_type,
                     confidence=raw_ind.get('confidence', 0.85),
                     is_new_principle_class=False,

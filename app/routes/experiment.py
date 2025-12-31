@@ -1,8 +1,13 @@
 """
-Routes for the ProEthica experiment interface.
+Routes for the ProEthica validation interface.
 
-This module provides routes for setting up experiments, generating predictions,
-and evaluating results under different experimental conditions.
+This module provides routes for setting up validation studies, generating ethical
+determinations, and evaluating results under different experimental conditions.
+
+Terminology distinction:
+- "Ethical Determination": Generating the judgment/conclusion the ethics board SHOULD make
+  (used in validation studies to compare baseline vs ProEthica-enhanced reasoning)
+- "Analysis": Extracting concepts from existing case text (used in the pipeline Steps 1-4)
 """
 
 import logging
@@ -81,7 +86,7 @@ class DoubleBlindEvaluationForm(FlaskForm):
 
 @experiment_bp.route('/')
 def index():
-    """Experiment dashboard."""
+    """Validation study dashboard for ethical determination generation."""
     # Get all experiments
     experiments = ExperimentRun.query.order_by(ExperimentRun.created_at.desc()).limit(10).all()
     
@@ -110,7 +115,7 @@ def index():
 
 @experiment_bp.route('/quick_predict/<int:case_id>', methods=['POST'])
 def quick_predict(case_id):
-    """Generate a quick conclusion prediction for a single case."""
+    """Generate an ethical determination for a single case."""
     try:
         # Get the document
         document = Document.query.get_or_404(case_id)
@@ -125,8 +130,8 @@ def quick_predict(case_id):
         ).first()
         
         if not existing_prediction:
-            # Generate conclusion prediction
-            logger.info(f"Generating quick conclusion prediction for document {case_id}")
+            # Generate ethical determination
+            logger.info(f"Generating ethical determination for document {case_id}")
             conclusion_result = prediction_service.generate_conclusion_prediction(
                 document_id=case_id
             )
@@ -155,7 +160,7 @@ def quick_predict(case_id):
                 
                 return jsonify({
                     'success': True,
-                    'message': f"Conclusion prediction generated for '{document.title}'"
+                    'message': f"Ethical determination generated for '{document.title}'"
                 })
             else:
                 return jsonify({
@@ -165,7 +170,7 @@ def quick_predict(case_id):
         else:
             return jsonify({
                 'success': True,
-                'message': f"Prediction already exists for '{document.title}'"
+                'message': f"Determination already exists for '{document.title}'"
             })
             
     except Exception as e:
@@ -453,7 +458,7 @@ def evaluate_prediction(prediction_id):
 
 @experiment_bp.route('/conclusion_setup', methods=['GET', 'POST'])
 def conclusion_prediction_setup():
-    """Setup a new conclusion prediction experiment."""
+    """Setup a new ethical determination study."""
     form = ConclusionPredictionForm()
     
     # Get all available cases
@@ -522,7 +527,7 @@ def cases(id):
 
 @experiment_bp.route('/<int:experiment_id>/run_conclusion_predictions', methods=['GET', 'POST'])
 def run_conclusion_predictions(experiment_id):
-    """Run conclusion predictions for selected cases."""
+    """Generate ethical determinations for selected cases in a validation study."""
     experiment = ExperimentRun.query.get_or_404(experiment_id)
     
     if request.method == 'POST':
@@ -541,9 +546,9 @@ def run_conclusion_predictions(experiment_id):
             # Get prediction service
             prediction_service = PredictionService()
             
-            # Generate predictions for each selected case
+            # Generate determinations for each selected case
             for case_id in selected_cases:
-                logger.info(f"Generating predictions for case {case_id} in experiment {experiment_id}")
+                logger.info(f"Generating ethical determinations for case {case_id} in study {experiment_id}")
                 
                 # Generate ProEthica prediction
                 proethica_result = prediction_service.generate_conclusion_prediction(

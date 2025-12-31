@@ -57,7 +57,7 @@ docs/
 │   ├── pipeline-automation.md   # Batch processing
 │   └── settings.md              # Configuration
 ├── reference/
-│   ├── architecture.md          # System architecture (placeholder)
+│   ├── architecture.md          # System architecture with diagrams
 │   ├── ontology-integration.md  # OntServe integration
 │   ├── transformation-types.md  # Classification reference
 │   └── installation.md          # Deployment
@@ -205,7 +205,6 @@ These pages contain placeholder content and need full documentation:
 | Page | Status | Notes |
 |------|--------|-------|
 | `how-to/phase2-analysis.md` | Placeholder | Created Dec 2025, describes Step 4 synthesis |
-| `reference/architecture.md` | Placeholder | Created Dec 2025, basic service overview |
 | `how-to/phase3-scenario.md` | Aspirational | Describes Step 5 which is not yet implemented |
 
 Note: `reference/citations.md` is listed in the structure but does not exist. References are served via `/tools/references` route instead.
