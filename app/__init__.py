@@ -433,25 +433,51 @@ def create_app(config_name=None):
             if path.startswith('/auth/'):
                 pass  # Let auth routes handle their own logging
 
-            # Admin actions
+            # Skip API/AJAX endpoints (usually internal)
+            elif '/api/' in path or path.endswith('.json'):
+                pass
+
+            # Admin pages
             elif path.startswith('/admin'):
-                if method in ['POST', 'PUT', 'DELETE']:
+                if method == 'GET':
+                    # Track admin page views
+                    if path == '/admin/' or path == '/admin':
+                        action = 'Viewed admin dashboard'
+                    elif '/users' in path:
+                        action = 'Viewed user management'
+                    elif '/validation' in path:
+                        action = 'Viewed validation studies'
+                    elif '/data' in path:
+                        action = 'Viewed data overview'
+                    category = 'admin'
+                elif method in ['POST', 'PUT', 'DELETE']:
                     action = f"Admin action on {path}"
                     category = 'admin'
 
-            # Document/Case actions
+            # Document/Case pages
             elif path.startswith('/cases/') or path.startswith('/documents/'):
-                if method == 'GET' and '/structure' in path or '/review' in path:
-                    # Extract case ID from path like /cases/7/structure
-                    parts = path.split('/')
-                    if len(parts) >= 3 and parts[2].isdigit():
-                        action = f"Viewed case {parts[2]}"
+                parts = path.split('/')
+                if method == 'GET':
+                    if path == '/cases/' or path == '/cases':
+                        action = 'Viewed cases list'
+                        category = 'page_view'
+                    elif '/precedents' in path:
+                        action = 'Viewed precedents'
+                        category = 'page_view'
+                    elif len(parts) >= 3 and parts[2].isdigit():
+                        case_id = parts[2]
+                        if '/structure' in path:
+                            action = f"Viewed case {case_id} structure"
+                        elif '/review' in path:
+                            action = f"Viewed case {case_id} review"
+                        else:
+                            action = f"Viewed case {case_id}"
                         category = 'document'
                 elif method in ['POST', 'PUT', 'DELETE']:
                     action = f"Modified {path}"
                     category = 'document'
 
-            # Pipeline actions
+            # Pipeline pages
             elif path.startswith('/scenario_pipeline/'):
                 parts = path.split('/')
                 if len(parts) >= 3 and parts[2].isdigit():
@@ -459,10 +485,25 @@ def create_app(config_name=None):
                     if method == 'POST':
                         action = f"Pipeline action on case {case_id}"
                         category = 'pipeline'
-                    elif method == 'GET' and len(parts) > 3:
-                        step = parts[3] if len(parts) > 3 else 'overview'
-                        action = f"Viewed pipeline {step} for case {case_id}"
+                    elif method == 'GET':
+                        if len(parts) > 3:
+                            step = parts[3]
+                            action = f"Viewed pipeline {step} for case {case_id}"
+                        else:
+                            action = f"Viewed pipeline for case {case_id}"
                         category = 'pipeline'
+
+            # Home page
+            elif path == '/' or path == '/index':
+                if method == 'GET':
+                    action = 'Visited home page'
+                    category = 'page_view'
+
+            # Documentation
+            elif path.startswith('/docs'):
+                if method == 'GET':
+                    action = 'Viewed documentation'
+                    category = 'page_view'
 
             # Log if we identified an action
             if action and category:

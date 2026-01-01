@@ -13,6 +13,7 @@ import time
 import socket
 from flask import Blueprint, jsonify, current_app, request
 from functools import wraps
+from app.utils.environment_auth import admin_required_production
 
 logger = logging.getLogger(__name__)
 
@@ -236,6 +237,7 @@ def services():
 
 
 @health_bp.route('/demo')
+@admin_required_production
 def demo():
     """
     Test all extracted cases (cases with extraction prompts).
@@ -283,6 +285,7 @@ def demo():
 
 
 @health_bp.route('/clear-cache')
+@admin_required_production
 def clear_cache():
     """Clear health check cache (for testing)."""
     global _health_cache
@@ -294,6 +297,7 @@ def clear_cache():
 
 
 @health_bp.route('/status')
+@admin_required_production
 def status_page():
     """
     Visual status page for monitoring.
@@ -304,6 +308,7 @@ def status_page():
 
 
 @health_bp.route('/test-alert', methods=['POST'])
+@admin_required_production
 def test_alert():
     """
     Send a test alert to verify alerting configuration.
@@ -321,6 +326,7 @@ def test_alert():
 
 
 @health_bp.route('/errors')
+@admin_required_production
 def errors():
     """
     Get recent errors as JSON.
@@ -338,6 +344,7 @@ def errors():
 
 
 @health_bp.route('/errors/clear', methods=['POST'])
+@admin_required_production
 def clear_errors():
     """
     Clear the error log (for testing).
@@ -352,6 +359,7 @@ def clear_errors():
 
 
 @health_bp.route('/errors/test', methods=['POST'])
+@admin_required_production
 def test_error():
     """
     Generate a test error to verify error tracking and alerting.
@@ -361,6 +369,7 @@ def test_error():
 
 
 @health_bp.route('/activities')
+@admin_required_production
 def activities():
     """
     Get recent user activities as JSON.
@@ -379,6 +388,7 @@ def activities():
 
 
 @health_bp.route('/activities/clear', methods=['POST'])
+@admin_required_production
 def clear_activities():
     """
     Clear the activity log (for testing).
