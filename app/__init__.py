@@ -400,7 +400,88 @@ def create_app(config_name=None):
             seed_initial_prompt_templates()
         except Exception as e:
             print(f"Warning: Could not seed prompt templates: {e}")
-    
+
+    # Activity tracking middleware
+    @app.after_request
+    def track_activity(response):
+        """Track significant user activities for the activity log."""
+        from flask import request
+        from flask_login import current_user
+
+        # Skip static files and health check endpoints
+        if request.path.startswith('/static') or request.path.startswith('/health'):
+            return response
+
+        # Skip if not a successful response
+        if response.status_code >= 400:
+            return response
+
+        # Determine if this is a significant action to log
+        try:
+            from app.utils.activity_tracker import log_activity
+
+            path = request.path
+            method = request.method
+            user_id = current_user.id if current_user.is_authenticated else None
+            username = current_user.username if current_user.is_authenticated else None
+
+            # Categorize and log significant actions
+            action = None
+            category = None
+
+            # Auth actions (handled separately in auth routes)
+            if path.startswith('/auth/'):
+                pass  # Let auth routes handle their own logging
+
+            # Admin actions
+            elif path.startswith('/admin'):
+                if method in ['POST', 'PUT', 'DELETE']:
+                    action = f"Admin action on {path}"
+                    category = 'admin'
+
+            # Document/Case actions
+            elif path.startswith('/cases/') or path.startswith('/documents/'):
+                if method == 'GET' and '/structure' in path or '/review' in path:
+                    # Extract case ID from path like /cases/7/structure
+                    parts = path.split('/')
+                    if len(parts) >= 3 and parts[2].isdigit():
+                        action = f"Viewed case {parts[2]}"
+                        category = 'document'
+                elif method in ['POST', 'PUT', 'DELETE']:
+                    action = f"Modified {path}"
+                    category = 'document'
+
+            # Pipeline actions
+            elif path.startswith('/scenario_pipeline/'):
+                parts = path.split('/')
+                if len(parts) >= 3 and parts[2].isdigit():
+                    case_id = parts[2]
+                    if method == 'POST':
+                        action = f"Pipeline action on case {case_id}"
+                        category = 'pipeline'
+                    elif method == 'GET' and len(parts) > 3:
+                        step = parts[3] if len(parts) > 3 else 'overview'
+                        action = f"Viewed pipeline {step} for case {case_id}"
+                        category = 'pipeline'
+
+            # Log if we identified an action
+            if action and category:
+                log_activity(
+                    action=action,
+                    category=category,
+                    user_id=user_id,
+                    username=username,
+                    path=path,
+                    method=method,
+                    remote_addr=request.remote_addr
+                )
+
+        except Exception as e:
+            # Don't let activity tracking break the request
+            logging.getLogger(__name__).debug(f"Activity tracking error: {e}")
+
+        return response
+
     return app
 
 # Make db accessible at the module level for imports

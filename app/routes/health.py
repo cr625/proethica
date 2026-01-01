@@ -22,10 +22,11 @@ health_bp = Blueprint('health', __name__, url_prefix='/health')
 def init_health_csrf_exemption(app):
     """Exempt health API routes from CSRF protection."""
     if hasattr(app, 'csrf'):
-        from app.routes.health import test_alert, clear_errors, test_error
+        from app.routes.health import test_alert, clear_errors, test_error, clear_activities
         app.csrf.exempt(test_alert)
         app.csrf.exempt(clear_errors)
         app.csrf.exempt(test_error)
+        app.csrf.exempt(clear_activities)
 
 # Cache for health check results (avoid hammering services)
 _health_cache = {
@@ -237,10 +238,21 @@ def services():
 @health_bp.route('/demo')
 def demo():
     """
-    Test demo-critical routes (cases 4-15).
-    Returns status for each demo case and overall health.
+    Test all extracted cases (cases with extraction prompts).
+    Returns status for each case and overall health.
     """
-    demo_case_ids = list(range(4, 16))  # Cases 4-15
+    from app.models import db
+
+    # Get cases that have extraction data
+    try:
+        result = db.session.execute(
+            db.text("SELECT DISTINCT case_id FROM extraction_prompts WHERE case_id IS NOT NULL ORDER BY case_id")
+        )
+        demo_case_ids = [row[0] for row in result]
+    except Exception as e:
+        logger.error(f"Failed to get case list: {e}")
+        # Fallback to known range
+        demo_case_ids = list(range(4, 27))
 
     results = {}
     for case_id in demo_case_ids:
@@ -346,3 +358,35 @@ def test_error():
     """
     # This will trigger the 500 error handler
     raise Exception("Test error triggered from /health/errors/test")
+
+
+@health_bp.route('/activities')
+def activities():
+    """
+    Get recent user activities as JSON.
+    """
+    try:
+        from app.utils.activity_tracker import get_recent_activities, get_activity_stats
+        limit = request.args.get('limit', 50, type=int)
+        category = request.args.get('category')
+        return jsonify({
+            'activities': get_recent_activities(limit=limit, category=category),
+            'stats': get_activity_stats()
+        }), 200
+    except Exception as e:
+        logger.error(f"Error fetching activities: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@health_bp.route('/activities/clear', methods=['POST'])
+def clear_activities():
+    """
+    Clear the activity log (for testing).
+    """
+    try:
+        from app.utils.activity_tracker import clear_activities as _clear_activities
+        _clear_activities()
+        return jsonify({'message': 'Activity log cleared'}), 200
+    except Exception as e:
+        logger.error(f"Error clearing activities: {e}")
+        return jsonify({'error': str(e)}), 500

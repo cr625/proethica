@@ -89,8 +89,8 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Demo Cases (4-15)</h5>
-                    <span id="demoCasesCount" class="badge bg-secondary">--/12 healthy</span>
+                    <h5 class="mb-0">Extracted Cases</h5>
+                    <span id="demoCasesCount" class="badge bg-secondary">-- healthy</span>
                 </div>
                 <div class="card-body">
                     <div id="demoCasesGrid" class="row g-2">
@@ -105,10 +105,34 @@
         </div>
     </div>
 
-    <!-- Error Log -->
+    <!-- Activity Log and Error Log in columns -->
     <div class="row mb-4">
-        <div class="col-12">
-            <div class="card" id="errorLogCard">
+        <!-- Activity Log -->
+        <div class="col-md-6">
+            <div class="card h-100" id="activityLogCard">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-history me-2"></i>User Activity
+                    </h5>
+                    <div class="d-flex align-items-center gap-2">
+                        <span id="activityStats" class="badge bg-secondary">--</span>
+                        <button id="clearActivitiesBtn" class="btn btn-sm btn-outline-secondary">Clear</button>
+                    </div>
+                </div>
+                <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                    <div id="activityList">
+                        <div class="text-center text-muted">
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                            Loading activity log...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error Log -->
+        <div class="col-md-6">
+            <div class="card h-100" id="errorLogCard">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">
                         <i class="fas fa-exclamation-circle me-2"></i>Error Log
@@ -119,7 +143,7 @@
                         <button id="testErrorBtn" class="btn btn-sm btn-outline-warning">Test Error</button>
                     </div>
                 </div>
-                <div class="card-body">
+                <div class="card-body" style="max-height: 400px; overflow-y: auto;">
                     <div id="errorList">
                         <div class="text-center text-muted">
                             <span class="spinner-border spinner-border-sm me-2"></span>
@@ -461,11 +485,84 @@ document.addEventListener('DOMContentLoaded', function() {
         modal.addEventListener('hidden.bs.modal', () => modal.remove());
     }
 
-    // Fetch errors on load
+    // Activity log functions
+    async function fetchActivities() {
+        try {
+            const resp = await fetch('/health/activities?limit=30');
+            const data = await resp.json();
+
+            // Update stats
+            const stats = data.stats || {};
+            const statsEl = document.getElementById('activityStats');
+            const lastHour = stats.last_hour || 0;
+            const uniqueUsers = stats.unique_users_last_hour || 0;
+            if (lastHour > 0) {
+                statsEl.className = 'badge bg-info';
+                statsEl.textContent = `${lastHour} actions (${uniqueUsers} users)`;
+            } else {
+                statsEl.className = 'badge bg-secondary';
+                statsEl.textContent = 'No recent activity';
+            }
+
+            // Build activity list
+            const listEl = document.getElementById('activityList');
+            const activities = data.activities || [];
+
+            if (activities.length === 0) {
+                listEl.innerHTML = '<div class="text-center text-muted py-3"><i class="fas fa-check-circle text-success me-2"></i>No activity recorded</div>';
+                return;
+            }
+
+            let html = '<div class="list-group list-group-flush">';
+            for (const act of activities) {
+                const time = new Date(act.timestamp).toLocaleTimeString();
+                const categoryBadge = {
+                    'auth': 'bg-success',
+                    'document': 'bg-primary',
+                    'pipeline': 'bg-info',
+                    'admin': 'bg-warning'
+                }[act.category] || 'bg-secondary';
+
+                html += `
+                    <div class="list-group-item px-0 py-2">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <span class="badge ${categoryBadge} me-1">${act.category}</span>
+                                <strong>${act.username || 'anonymous'}</strong>
+                                <br><small class="text-muted">${act.action}</small>
+                            </div>
+                            <small class="text-muted text-nowrap">${time}</small>
+                        </div>
+                    </div>
+                `;
+            }
+            html += '</div>';
+            listEl.innerHTML = html;
+
+        } catch (e) {
+            console.error('Error fetching activities:', e);
+            document.getElementById('activityList').innerHTML = '<div class="text-danger">Failed to load activity log</div>';
+        }
+    }
+
+    // Fetch on load
+    fetchActivities();
     fetchErrors();
 
-    // Refresh errors every 30 seconds
+    // Refresh every 30 seconds
+    setInterval(fetchActivities, 30000);
     setInterval(fetchErrors, 30000);
+
+    // Clear activities button
+    document.getElementById('clearActivitiesBtn').addEventListener('click', async function() {
+        if (!confirm('Clear all recorded activities?')) return;
+        try {
+            await fetch('/health/activities/clear', {method: 'POST'});
+            fetchActivities();
+        } catch (e) {
+            alert('Error: ' + e.message);
+        }
+    });
 
     // Clear errors button
     document.getElementById('clearErrorsBtn').addEventListener('click', async function() {
