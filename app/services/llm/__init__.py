@@ -18,13 +18,14 @@ Usage:
     print(response.text)
 """
 
-from .manager import LLMManager, get_llm_manager
+from .manager import LLMManager, get_llm_manager, reset_llm_manager
 from .response import LLMResponse, Usage
 from .config import LLMConfig
 
 __all__ = [
     'LLMManager',
     'get_llm_manager',
+    'reset_llm_manager',
     'LLMResponse',
     'Usage',
     'LLMConfig'

@@ -1254,7 +1254,7 @@
                                 <div id="matchedClassLabel" class="fw-bold">-</div>
                                 <small id="matchedClassUri" class="text-muted">-</small>
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-md-6" id="matchConfidenceSection">
                                 <label class="form-label text-muted small">Confidence</label>
                                 <div id="matchConfidenceValue" class="fw-bold">-</div>
                                 <div class="progress" style="height: 8px;">
@@ -1262,8 +1262,8 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="row mt-3">
-                            <div class="col-md-6">
+                        <div class="row mt-3" id="matchMethodStatusRow">
+                            <div class="col-md-6" id="matchMethodSection">
                                 <label class="form-label text-muted small">Match Method</label>
                                 <div id="matchMethodValue">-</div>
                             </div>
@@ -1289,25 +1289,26 @@
                         <small class="text-muted ms-2">(Admin only)</small>
                     </div>
                     <div class="card-body">
-                        <div class="mb-3">
-                            <label class="form-label">Search for Alternative Match</label>
+                        <div class="mb-3 opacity-50">
+                            <label class="form-label">
+                                Search for Alternative Match
+                                <span class="badge bg-secondary ms-2">Coming Soon</span>
+                            </label>
                             <div class="input-group">
                                 <input type="text" class="form-control" id="searchMatchInput"
-                                       placeholder="Search OntServe classes...">
-                                <button class="btn btn-outline-secondary" type="button" id="searchMatchBtn">
+                                       placeholder="Search OntServe classes..." disabled>
+                                <button class="btn btn-outline-secondary" type="button" id="searchMatchBtn" disabled>
                                     <i class="bi bi-search"></i> Search
                                 </button>
                             </div>
+                            <small class="text-muted">Type-safe matching (Role to Role, etc.) in development</small>
                         </div>
                         <div id="searchResults" class="mb-3" style="max-height: 200px; overflow-y: auto; display: none;">
                             <!-- Search results will be populated here -->
                         </div>
-                        <div class="d-flex gap-2">
+                        <div class="d-flex gap-2" id="matchActionButtons">
                             <button type="button" class="btn btn-outline-success" id="confirmMatchBtn" disabled>
                                 <i class="bi bi-check-circle"></i> Confirm Current Match
-                            </button>
-                            <button type="button" class="btn btn-outline-warning" id="markAsNewBtn">
-                                <i class="bi bi-plus-circle"></i> Mark as New Class
                             </button>
                         </div>
                     </div>
@@ -1322,7 +1323,7 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 {% if current_user.is_authenticated %}
-                <button type="button" class="btn btn-primary" id="saveMatchBtn" disabled>
+                <button type="button" class="btn btn-primary" id="saveMatchBtn" disabled title="Coming soon - type-safe matching in development">
                     <i class="bi bi-save"></i> Save Changes
                 </button>
                 {% endif %}
@@ -1636,30 +1637,42 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('matchedClassUri').textContent = 'Entity marked as new class';
             }
 
-            // Confidence
-            const confidencePercent = Math.round(confidence * 100);
-            document.getElementById('matchConfidenceValue').textContent = `${confidencePercent}%`;
-            const confidenceBar = document.getElementById('matchConfidenceBar');
-            confidenceBar.style.width = `${confidencePercent}%`;
-            confidenceBar.className = 'progress-bar';
-            if (confidence >= 0.90) {
-                confidenceBar.classList.add('bg-success');
-            } else if (confidence >= 0.75) {
-                confidenceBar.classList.add('bg-warning');
-            } else if (confidence > 0) {
-                confidenceBar.classList.add('bg-danger');
+            // Confidence - only show when there's a match
+            const confidenceSection = document.getElementById('matchConfidenceSection');
+            if (matchedUri) {
+                confidenceSection.style.display = 'block';
+                const confidencePercent = Math.round(confidence * 100);
+                document.getElementById('matchConfidenceValue').textContent = `${confidencePercent}%`;
+                const confidenceBar = document.getElementById('matchConfidenceBar');
+                confidenceBar.style.width = `${confidencePercent}%`;
+                confidenceBar.className = 'progress-bar';
+                if (confidence >= 0.90) {
+                    confidenceBar.classList.add('bg-success');
+                } else if (confidence >= 0.75) {
+                    confidenceBar.classList.add('bg-warning');
+                } else if (confidence > 0) {
+                    confidenceBar.classList.add('bg-danger');
+                } else {
+                    confidenceBar.classList.add('bg-secondary');
+                }
             } else {
-                confidenceBar.classList.add('bg-secondary');
+                confidenceSection.style.display = 'none';
             }
 
-            // Method
-            const methodDisplay = {
-                'llm': 'LLM Extraction',
-                'embedding': 'Embedding Similarity',
-                'manual': 'Manual Override',
-                'label_match': 'Label Match'
-            };
-            document.getElementById('matchMethodValue').textContent = methodDisplay[method] || method || 'Not specified';
+            // Method - only show when there's a match
+            const methodSection = document.getElementById('matchMethodSection');
+            if (matchedUri) {
+                methodSection.style.display = 'block';
+                const methodDisplay = {
+                    'llm': 'LLM Extraction',
+                    'embedding': 'Embedding Similarity',
+                    'manual': 'Manual Override',
+                    'label_match': 'Label Match'
+                };
+                document.getElementById('matchMethodValue').textContent = methodDisplay[method] || method || 'Not specified';
+            } else {
+                methodSection.style.display = 'none';
+            }
 
             // Status badge
             const statusBadge = document.getElementById('matchStatusBadge');
@@ -1685,10 +1698,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 reasoningSection.style.display = 'none';
             }
 
-            // Enable/disable buttons
+            // Show/hide action buttons based on match status
+            const actionButtons = document.getElementById('matchActionButtons');
             const confirmBtn = document.getElementById('confirmMatchBtn');
-            if (confirmBtn) {
-                confirmBtn.disabled = !matchedUri;
+            if (matchedUri) {
+                // Has a match - show buttons, enable confirm
+                if (actionButtons) actionButtons.style.display = 'flex';
+                if (confirmBtn) confirmBtn.disabled = false;
+            } else {
+                // No match - hide both buttons (they're redundant)
+                if (actionButtons) actionButtons.style.display = 'none';
             }
         });
 
@@ -1759,41 +1778,42 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
 
-        // Mark as new class
-        const markAsNewBtn = document.getElementById('markAsNewBtn');
-        if (markAsNewBtn) {
-            markAsNewBtn.addEventListener('click', function() {
+        // Confirm current match
+        const confirmMatchBtn = document.getElementById('confirmMatchBtn');
+        if (confirmMatchBtn) {
+            confirmMatchBtn.addEventListener('click', function() {
                 const entityId = document.getElementById('matchEntityId').value;
                 if (!entityId) return;
 
-                if (!confirm('Mark this entity as a new class? This will clear any existing match.')) return;
-
                 this.disabled = true;
-                this.innerHTML = '<i class="bi bi-hourglass-split"></i> Processing...';
+                this.innerHTML = '<i class="bi bi-hourglass-split"></i> Confirming...';
 
-                appFetch(`/scenario_pipeline/case/${caseId}/entities/${entityId}/mark_new`, {
+                appFetch(`/scenario_pipeline/case/${caseId}/entities/${entityId}/confirm_match`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' }
                 })
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        alert('Entity marked as new class');
+                        // Close modal and reload to show updated status
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('matchDetailsModal'));
+                        if (modal) modal.hide();
                         location.reload();
                     } else {
                         alert(`Error: ${data.error}`);
                     }
                 })
                 .catch(error => {
-                    console.error('Mark as new error:', error);
+                    console.error('Confirm match error:', error);
                     alert(`Error: ${error}`);
                 })
                 .finally(() => {
                     this.disabled = false;
-                    this.innerHTML = '<i class="bi bi-plus-circle"></i> Mark as New Class';
+                    this.innerHTML = '<i class="bi bi-check-circle"></i> Confirm Current Match';
                 });
             });
         }
+
 
         // Save match changes
         const saveMatchBtn = document.getElementById('saveMatchBtn');

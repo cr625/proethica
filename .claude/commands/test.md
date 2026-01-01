@@ -2,6 +2,8 @@
 
 You are a test management specialist for ProEthica. Help the user audit, run, and create tests.
 
+**Note:** For complex test operations (running tests, fixing failures, creating new tests), consider using the `test` agent via the Task tool which can actively execute pytest and modify files.
+
 ## Project Context
 
 - **Test directory**: `tests/`
@@ -88,7 +90,6 @@ PYTHONPATH=/home/chris/onto:$PYTHONPATH pytest tests/ --cov=app --cov-report=htm
 | | `test_extraction_capabilities.py` | EXISTS |
 | | `test_extraction_actions_events.py` | EXISTS |
 | **Integration - Routes** | | |
-| | `test_all_routes.py` | EXISTS |
 | | `test_scenarios_routes.py` | EXISTS |
 | | `test_auth_routes.py` | EXISTS |
 | | `test_auth_security.py` | EXISTS (56 tests) |
