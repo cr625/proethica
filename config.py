@@ -45,6 +45,23 @@ class Config:
     # Set MOCK_LLM_ENABLED=true in .env to enable mock mode for UI testing
     MOCK_LLM_ENABLED = os.environ.get('MOCK_LLM_ENABLED', 'false').lower() == 'true'
 
+    # Monitoring & Alerting Configuration
+    # Set ALERT_EMAIL_ENABLED=true and configure SMTP to enable email alerts
+    ALERT_EMAIL_ENABLED = os.environ.get('ALERT_EMAIL_ENABLED', 'false').lower() == 'true'
+    ALERT_SMTP_HOST = os.environ.get('ALERT_SMTP_HOST', '')
+    ALERT_SMTP_PORT = int(os.environ.get('ALERT_SMTP_PORT', '587'))
+    ALERT_SMTP_USER = os.environ.get('ALERT_SMTP_USER', '')
+    ALERT_SMTP_PASS = os.environ.get('ALERT_SMTP_PASS', '')
+    ALERT_EMAIL_FROM = os.environ.get('ALERT_EMAIL_FROM', 'alerts@proethica.org')
+    ALERT_EMAIL_TO = os.environ.get('ALERT_EMAIL_TO', '')
+    ALERT_RATE_LIMIT = int(os.environ.get('ALERT_RATE_LIMIT', '300'))  # 5 minutes
+
+    # Healthchecks.io for Celery worker monitoring
+    HEALTHCHECKS_PING_URL = os.environ.get('HEALTHCHECKS_PING_URL', '')
+
+    # Monitoring settings
+    MONITOR_ENABLED = os.environ.get('MONITOR_ENABLED', 'true').lower() == 'true'
+
 
 class DevelopmentConfig(Config):
     """Development configuration."""

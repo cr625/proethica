@@ -55,6 +55,10 @@ pyzotero>=1.5.0
 # Production Server
 gunicorn>=23.0.0
 
+# Monitoring & Alerting
+apprise>=1.6.0
+redis>=5.0.0
+
 # ===== Development Dependencies =====
 
 # Testing
