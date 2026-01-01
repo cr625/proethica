@@ -514,7 +514,8 @@ def create_app(config_name=None):
                     username=username,
                     path=path,
                     method=method,
-                    remote_addr=request.remote_addr
+                    remote_addr=request.remote_addr,
+                    user_agent=request.headers.get('User-Agent', '')
                 )
 
         except Exception as e:

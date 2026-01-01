@@ -20,7 +20,8 @@ def _log_auth_activity(action: str, user_id: int = None, username: str = None):
             username=username,
             path=request.path,
             method=request.method,
-            remote_addr=request.remote_addr
+            remote_addr=request.remote_addr,
+            user_agent=request.headers.get('User-Agent', '')
         )
     except Exception:
         pass  # Don't break auth flow for logging

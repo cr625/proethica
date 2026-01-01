@@ -524,12 +524,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     'page_view': 'bg-secondary'
                 }[act.category] || 'bg-light text-dark';
 
+                const botBadge = act.is_bot ? '<span class="badge bg-dark ms-1" title="Suspected bot">BOT</span>' : '';
                 html += `
-                    <div class="list-group-item px-0 py-2">
+                    <div class="list-group-item px-0 py-2${act.is_bot ? ' opacity-50' : ''}">
                         <div class="d-flex justify-content-between align-items-start">
                             <div>
                                 <span class="badge ${categoryBadge} me-1">${act.category}</span>
-                                <strong>${act.username || 'anonymous'}</strong>
+                                <strong>${act.username || 'anonymous'}</strong>${botBadge}
                                 <br><small class="text-muted">${act.action}</small>
                             </div>
                             <small class="text-muted text-nowrap">${time}</small>
