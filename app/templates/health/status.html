@@ -520,8 +520,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     'auth': 'bg-success',
                     'document': 'bg-primary',
                     'pipeline': 'bg-info',
-                    'admin': 'bg-warning'
-                }[act.category] || 'bg-secondary';
+                    'admin': 'bg-warning',
+                    'page_view': 'bg-secondary'
+                }[act.category] || 'bg-light text-dark';
 
                 html += `
                     <div class="list-group-item px-0 py-2">

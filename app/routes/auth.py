@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from flask import Blueprint, request, render_template, redirect, url_for, flash
 from flask_login import login_user, logout_user, login_required, current_user
 from urllib.parse import urlparse
@@ -41,6 +42,10 @@ def login():
         
         # Check if user exists and password is correct
         if user and user.check_password(form.password.data):
+            # Update last login timestamp
+            user.last_login = datetime.now(timezone.utc)
+            db.session.commit()
+
             login_user(user, remember=form.remember_me.data)
             _log_auth_activity('Login', user_id=user.id, username=user.username)
             flash('Login successful!', 'success')
