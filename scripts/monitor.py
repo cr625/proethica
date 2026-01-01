@@ -179,9 +179,27 @@ def check_celery() -> Dict[str, Any]:
 def check_postgresql() -> Dict[str, Any]:
     """Check PostgreSQL database."""
     try:
+        # Get database credentials from environment or parse DATABASE_URL
+        db_user = os.environ.get('PGUSER', 'postgres')
         db_pass = os.environ.get('PGPASSWORD', 'PASS')
+        db_name = os.environ.get('PGDATABASE', 'ai_ethical_dm')
+        db_host = os.environ.get('PGHOST', 'localhost')
+
+        # Try to parse from SQLALCHEMY_DATABASE_URI if available
+        db_uri = os.environ.get('SQLALCHEMY_DATABASE_URI', '')
+        if 'postgresql://' in db_uri:
+            try:
+                from urllib.parse import urlparse
+                parsed = urlparse(db_uri)
+                db_user = parsed.username or db_user
+                db_pass = parsed.password or db_pass
+                db_name = parsed.path.lstrip('/') or db_name
+                db_host = parsed.hostname or db_host
+            except Exception:
+                pass
+
         result = subprocess.run(
-            ['psql', '-h', 'localhost', '-U', 'postgres', '-d', 'ai_ethical_dm', '-c', 'SELECT 1;'],
+            ['psql', '-h', db_host, '-U', db_user, '-d', db_name, '-c', 'SELECT 1;'],
             capture_output=True,
             text=True,
             timeout=10,
