@@ -7,6 +7,23 @@ from app.forms import LoginForm, RegistrationForm
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 
+
+def _log_auth_activity(action: str, user_id: int = None, username: str = None):
+    """Log authentication activity."""
+    try:
+        from app.utils.activity_tracker import log_activity
+        log_activity(
+            action=action,
+            category='auth',
+            user_id=user_id,
+            username=username,
+            path=request.path,
+            method=request.method,
+            remote_addr=request.remote_addr
+        )
+    except Exception:
+        pass  # Don't break auth flow for logging
+
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
     """Handle user login."""
@@ -25,6 +42,7 @@ def login():
         # Check if user exists and password is correct
         if user and user.check_password(form.password.data):
             login_user(user, remember=form.remember_me.data)
+            _log_auth_activity('Login', user_id=user.id, username=user.username)
             flash('Login successful!', 'success')
             
             # Redirect to the page the user was trying to access
@@ -77,6 +95,7 @@ def register():
 @login_required
 def logout():
     """Handle user logout."""
+    _log_auth_activity('Logout', user_id=current_user.id, username=current_user.username)
     logout_user()
     flash('You have been logged out.', 'info')
     return redirect(url_for('index.index'))
