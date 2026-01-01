@@ -22,7 +22,9 @@ if str(parent_dir) not in sys.path:
     sys.path.insert(0, str(parent_dir))
 
 from celery import Celery
+from celery.schedules import crontab
 import logging
+import os
 from dotenv import load_dotenv
 
 # Load .env file before anything else (critical for API keys)
@@ -75,6 +77,17 @@ def get_celery():
             worker_max_tasks_per_child=20,  # Restart worker after 20 tasks
             broker_connection_retry_on_startup=True
         )
+
+        # Beat schedule for periodic tasks (monitoring heartbeat)
+        healthchecks_url = os.environ.get('HEALTHCHECKS_PING_URL')
+        if healthchecks_url:
+            celery.conf.beat_schedule = {
+                'heartbeat-every-5-minutes': {
+                    'task': 'proethica.tasks.heartbeat',
+                    'schedule': 300.0,  # Every 5 minutes
+                },
+            }
+            logger.info("Healthchecks.io heartbeat configured")
 
         # Set Flask app context for all tasks
         class ContextTask(celery.Task):

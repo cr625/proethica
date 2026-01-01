@@ -1832,6 +1832,75 @@ def mark_entity_as_new(case_id, entity_id):
         }), 500
 
 
+@bp.route('/case/<int:case_id>/entities/<int:entity_id>/confirm_match', methods=['POST'])
+@auth_required_for_write
+def confirm_entity_match(case_id, entity_id):
+    """
+    Confirm the current match for an entity.
+
+    Logs the confirmation for future learning and updates confidence to 1.0.
+    """
+    try:
+        from app.models.temporary_rdf_storage import TemporaryRDFStorage
+        from app.models.entity_match_confirmation import EntityMatchConfirmation
+        from flask_login import current_user
+
+        # Find the entity
+        entity = TemporaryRDFStorage.query.filter_by(id=entity_id, case_id=case_id).first()
+        if not entity:
+            return jsonify({
+                'success': False,
+                'error': 'Entity not found'
+            }), 404
+
+        if not entity.matched_ontology_uri:
+            return jsonify({
+                'success': False,
+                'error': 'No match to confirm'
+            }), 400
+
+        # Log the confirmation
+        confirmation = EntityMatchConfirmation(
+            case_id=case_id,
+            entity_id=entity_id,
+            entity_label=entity.entity_label,
+            entity_type=entity.entity_type,
+            original_match_uri=entity.matched_ontology_uri,
+            original_match_label=entity.matched_ontology_label,
+            original_confidence=entity.match_confidence,
+            original_method=entity.match_method,
+            action='confirmed',
+            new_match_uri=entity.matched_ontology_uri,
+            new_match_label=entity.matched_ontology_label,
+            user_id=current_user.id if current_user and hasattr(current_user, 'id') else None
+        )
+        db.session.add(confirmation)
+
+        # Update entity confidence to 1.0 (user confirmed)
+        entity.match_confidence = 1.0
+        entity.match_method = 'manual_confirmed'
+
+        db.session.commit()
+
+        logger.info(f"Confirmed match for entity {entity_id}: {entity.matched_ontology_label}")
+
+        return jsonify({
+            'success': True,
+            'entity_id': entity_id,
+            'matched_uri': entity.matched_ontology_uri,
+            'matched_label': entity.matched_ontology_label,
+            'message': 'Match confirmed'
+        })
+
+    except Exception as e:
+        logger.error(f"Error confirming entity match: {e}")
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 @bp.route('/case/<int:case_id>/entities/entity_overlap')
 @auth_optional
 def get_entity_overlap(case_id):

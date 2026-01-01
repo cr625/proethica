@@ -198,6 +198,8 @@ def create_app(config_name=None):
     from app.routes.pipeline_dashboard import pipeline_bp
     # Documentation routes
     from app.routes.docs import docs_bp
+    # Health check endpoints for monitoring
+    from app.routes.health import health_bp
 
     app.register_blueprint(index_bp)
     app.register_blueprint(auth_bp)
@@ -245,10 +247,13 @@ def create_app(config_name=None):
     app.register_blueprint(precedents_bp)  # Register precedent discovery routes
     app.register_blueprint(pipeline_bp)  # Pipeline automation dashboard
     app.register_blueprint(docs_bp)  # Documentation routes
+    app.register_blueprint(health_bp)  # Health check endpoints for monitoring
 
     # Exempt API routes from CSRF protection
     from app.routes.api_document_annotations import init_csrf_exemption
     init_csrf_exemption(app)
+    from app.routes.health import init_health_csrf_exemption
+    init_health_csrf_exemption(app)
     from app.routes.scenario_pipeline.interactive_builder import init_csrf_exemption as init_scenario_csrf_exemption
     init_scenario_csrf_exemption(app)
     
@@ -356,7 +361,38 @@ def create_app(config_name=None):
         """Handle 403 Forbidden errors with helpful message."""
         from flask import render_template
         return render_template('errors/403.html'), 403
-    
+
+    @app.errorhandler(500)
+    def internal_error(error):
+        """Handle 500 Internal Server errors with tracking and alerting."""
+        from flask import render_template, request
+        from flask_login import current_user
+        logger = logging.getLogger(__name__)
+
+        # Log the error
+        logger.error(f"500 error on {request.path}: {error}")
+
+        # Capture error for tracking and alerting
+        try:
+            from app.utils.error_tracker import capture_error
+            user_id = current_user.id if current_user.is_authenticated else None
+            capture_error(
+                error=error,
+                path=request.path,
+                method=request.method,
+                user_id=user_id,
+                remote_addr=request.remote_addr,
+                send_alert=True
+            )
+        except Exception as track_error:
+            logger.warning(f"Failed to track error: {track_error}")
+
+        # Check if templates exist, otherwise return JSON
+        try:
+            return render_template('errors/500.html'), 500
+        except Exception:
+            return {'error': 'Internal server error', 'status': 500}, 500
+
     # Initialize prompt templates on startup (after database is ready)
     with app.app_context():
         try:

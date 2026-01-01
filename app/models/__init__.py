@@ -92,3 +92,6 @@ from app.models.case_precedent_features import CasePrecedentFeatures
 
 # Interactive scenario exploration (added 2025-12-19)
 from app.models.scenario_exploration import ScenarioExplorationSession, ScenarioExplorationChoice
+
+# Entity match confirmation logging (added 2026-01-01)
+from app.models.entity_match_confirmation import EntityMatchConfirmation

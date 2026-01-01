@@ -1047,3 +1047,35 @@ def process_queue_task(self, limit: int = 10):
 
     logger.info(f"[Task {self.request.id}] Queue processing complete: {len(processed)} items")
     return {'processed': processed, 'count': len(processed)}
+
+
+# Monitoring heartbeat task for Healthchecks.io
+@celery.task(name='proethica.tasks.heartbeat', bind=True, max_retries=0)
+def heartbeat_task(self):
+    """
+    Periodic heartbeat task to ping Healthchecks.io.
+
+    This task runs every 5 minutes (configured in celery_config.py beat_schedule).
+    If the ping stops, Healthchecks.io will send an alert indicating the
+    Celery worker is down.
+    """
+    import os
+    import urllib.request
+
+    healthchecks_url = os.environ.get('HEALTHCHECKS_PING_URL')
+    if not healthchecks_url:
+        logger.debug("HEALTHCHECKS_PING_URL not configured, skipping heartbeat")
+        return {'status': 'skipped', 'reason': 'URL not configured'}
+
+    try:
+        req = urllib.request.Request(
+            healthchecks_url,
+            headers={'User-Agent': 'ProEthica-Celery-Heartbeat/1.0'}
+        )
+        response = urllib.request.urlopen(req, timeout=10)
+        status_code = response.getcode()
+        logger.debug(f"Healthchecks.io heartbeat sent: {status_code}")
+        return {'status': 'success', 'http_code': status_code}
+    except Exception as e:
+        logger.warning(f"Failed to send heartbeat to Healthchecks.io: {e}")
+        return {'status': 'failed', 'error': str(e)}
