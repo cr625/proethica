@@ -18,6 +18,7 @@ Code provisions as backing.
 """
 
 import logging
+import re
 from typing import List, Dict, Optional, Any
 from dataclasses import dataclass, field, asdict
 
@@ -27,6 +28,7 @@ from app.domains import DomainConfig, get_domain_config
 from app.services.entity_analysis.decision_point_composer import (
     EntityGroundedDecisionPoint,
     DecisionPointOption,
+    DecisionPointGrounding,
     ComposedDecisionPoints,
     compose_decision_points
 )
@@ -37,6 +39,87 @@ from app.services.entity_analysis.principle_provision_aligner import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def load_canonical_decision_points(case_id: int) -> Optional[ComposedDecisionPoints]:
+    """
+    Load canonical decision points from database storage.
+
+    Returns None if no canonical decision points exist for this case,
+    in which case the caller should fall back to compose_decision_points().
+
+    Args:
+        case_id: The case ID to load decision points for
+
+    Returns:
+        ComposedDecisionPoints or None
+    """
+    stored_dps = TemporaryRDFStorage.query.filter_by(
+        case_id=case_id,
+        extraction_type='canonical_decision_point'
+    ).all()
+
+    if not stored_dps:
+        return None
+
+    decision_points = []
+
+    for entry in stored_dps:
+        data = entry.rdf_json_ld or {}
+
+        # Reconstruct grounding
+        grounding = DecisionPointGrounding(
+            role_uri=data.get('role_uri', ''),
+            role_label=data.get('role_label', ''),
+            obligation_uri=data.get('obligation_uri'),
+            obligation_label=data.get('obligation_label'),
+            constraint_uri=data.get('constraint_uri'),
+            constraint_label=data.get('constraint_label')
+        )
+
+        # Reconstruct options
+        options = []
+        for opt_data in data.get('options', []):
+            option = DecisionPointOption(
+                option_id=opt_data.get('option_id', ''),
+                action_uri=opt_data.get('action_uri', ''),
+                action_label=opt_data.get('action_label', opt_data.get('description', '')),
+                description=opt_data.get('description', ''),
+                is_board_choice=opt_data.get('is_board_choice', False),
+                downstream_event_uris=opt_data.get('downstream_event_uris', [])
+            )
+            options.append(option)
+
+        # Reconstruct decision point
+        dp = EntityGroundedDecisionPoint(
+            focus_id=data.get('focus_id', ''),
+            focus_number=data.get('focus_number', 0),
+            description=data.get('description', ''),
+            decision_question=data.get('decision_question', ''),
+            grounding=grounding,
+            options=options,
+            provision_uris=data.get('provision_uris', []),
+            provision_labels=data.get('provision_labels', []),
+            related_event_uris=data.get('related_event_uris', []),
+            board_question_uri=data.get('aligned_question_uri'),
+            board_conclusion_uri=data.get('aligned_conclusion_uri'),
+            board_conclusion_text=data.get('aligned_conclusion_text'),
+            intensity_score=data.get('intensity_score', 0.0),
+            decision_relevance_score=data.get('qc_alignment_score', 0.0)
+        )
+        decision_points.append(dp)
+
+    # Sort by focus_number
+    decision_points.sort(key=lambda dp: dp.focus_number)
+
+    logger.info(f"Loaded {len(decision_points)} canonical decision points from storage for case {case_id}")
+
+    return ComposedDecisionPoints(
+        case_id=case_id,
+        decision_points=decision_points,
+        unmatched_obligations=[],
+        unmatched_actions=[]
+    )
 
 
 @dataclass
@@ -56,17 +139,22 @@ class EntityGroundedArgument:
     """A complete Toulmin-structured argument grounded in entities."""
     argument_id: str
     argument_type: str  # 'pro' or 'con'
-    decision_point_id: str
+    decision_point_id: str  # Primary decision point
     option_id: str
     option_description: str
 
     # Toulmin components
     claim: ArgumentComponent
-    warrant: ArgumentComponent  # From Obligation
+    warrant: ArgumentComponent  # Primary warrant (from Obligation)
     backing: ArgumentComponent  # From Provision
     data: List[ArgumentComponent] = field(default_factory=list)  # From Actions/Events
     qualifier: Optional[ArgumentComponent] = None  # From Constraint/Capability
     rebuttal: Optional[ArgumentComponent] = None  # From conflicting Obligation
+
+    # Additional warrants when multiple obligations support same claim
+    additional_warrants: List[ArgumentComponent] = field(default_factory=list)
+    # Additional decision points that share this argument
+    additional_decision_points: List[str] = field(default_factory=list)
 
     # Role ethics analysis
     role_uri: str = ""
@@ -78,15 +166,27 @@ class EntityGroundedArgument:
     confidence_score: float = 0.0
     source_entities: List[str] = field(default_factory=list)
 
+    @property
+    def all_warrants(self) -> List[ArgumentComponent]:
+        """Get all warrants (primary + additional)."""
+        return [self.warrant] + self.additional_warrants
+
+    @property
+    def all_decision_points(self) -> List[str]:
+        """Get all decision point IDs."""
+        return [self.decision_point_id] + self.additional_decision_points
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             'argument_id': self.argument_id,
             'argument_type': self.argument_type,
             'decision_point_id': self.decision_point_id,
+            'decision_point_ids': self.all_decision_points,
             'option_id': self.option_id,
             'option_description': self.option_description,
             'claim': self.claim.to_dict(),
             'warrant': self.warrant.to_dict(),
+            'warrants': [w.to_dict() for w in self.all_warrants],
             'backing': self.backing.to_dict(),
             'data': [d.to_dict() for d in self.data],
             'qualifier': self.qualifier.to_dict() if self.qualifier else None,
@@ -126,7 +226,46 @@ class ArgumentGenerator:
     Generates entity-grounded Toulmin-structured arguments.
 
     Step F2 in the entity-grounded argument pipeline.
+
+    Uses ethical tension pairs from professional ethics literature:
+    - Ross (1930): Prima facie duties can conflict
+    - Oakley & Cocking (2001): Professional role tensions
+    - Harris et al. (2018): Engineering ethics dilemmas
     """
+
+    # Ethical tension pairs - each obligation has natural counter-considerations
+    # Based on professional ethics literature and NSPE Code structure
+    # Format: keyword -> (tension_concept, grammatical_reason_clause)
+    # The reason_clause must form a grammatical sentence when prefixed with "Because"
+    ETHICAL_TENSIONS = {
+        # Disclosure vs Confidentiality
+        'disclosure': ('Confidentiality', 'this may compromise confidentiality obligations'),
+        'transparency': ('Privacy', 'this may violate privacy boundaries'),
+        'inform': ('Discretion', 'professional discretion may require withholding information'),
+
+        # Safety vs Other Values
+        'safety': ('Efficiency', 'this may reduce operational efficiency'),
+        'protection': ('Autonomy', 'this may limit stakeholder autonomy'),
+        'verification': ('Trust', 'excessive verification may undermine trust relationships'),
+
+        # Professional Duties
+        'competence': ('Delegation', 'appropriate delegation may better serve this situation'),
+        'independence': ('Collaboration', 'collaborative approaches may be more effective'),
+        'loyalty': ('Objectivity', 'this may compromise professional objectivity'),
+
+        # Public vs Client
+        'public': ('Client Interests', 'this may conflict with client relationship obligations'),
+        'welfare': ('Confidentiality', 'confidentiality obligations may be compromised'),
+
+        # AI-Specific Tensions
+        'ai': ('Human Oversight', 'this may reduce necessary human judgment and oversight'),
+        'automation': ('Professional Judgment', 'this may supplant necessary professional judgment'),
+        'data': ('Privacy', 'data privacy concerns may be implicated'),
+
+        # Default fallbacks
+        'obligation': ('Competing Interests', 'competing professional interests may be affected'),
+        'duty': ('Practical Constraints', 'practical implementation constraints may apply'),
+    }
 
     def __init__(self, domain_config: Optional[DomainConfig] = None):
         """
@@ -161,7 +300,12 @@ class ArgumentGenerator:
 
         # Get E3 and F1 outputs if not provided
         if decision_points is None:
-            decision_points = compose_decision_points(case_id, self.domain.name)
+            # First try to load canonical decision points from storage
+            decision_points = load_canonical_decision_points(case_id)
+            if decision_points is None:
+                # Fall back to composing fresh decision points
+                logger.info(f"No canonical decision points found, composing from entities")
+                decision_points = compose_decision_points(case_id, self.domain.name)
         if alignment_map is None:
             alignment_map = get_principle_provision_alignment(case_id, self.domain.name)
 
@@ -178,7 +322,9 @@ class ArgumentGenerator:
             obligations + constraints + capabilities + actions + events + principles
         )
 
-        arguments = []
+        # Track arguments by (option_description, argument_type) for deduplication
+        # Key: (option_description, argument_type) -> EntityGroundedArgument
+        argument_map: Dict[tuple, EntityGroundedArgument] = {}
         argument_counter = 1
         options_with_args = set()
 
@@ -190,9 +336,21 @@ class ArgumentGenerator:
                     argument_counter, case_id
                 )
                 if pro_arg:
-                    arguments.append(pro_arg)
+                    key = (option.description, 'pro')
+                    if key in argument_map:
+                        # Merge: add warrant and decision point to existing argument
+                        existing = argument_map[key]
+                        existing.additional_warrants.append(pro_arg.warrant)
+                        existing.additional_decision_points.append(pro_arg.decision_point_id)
+                        existing.source_entities.extend(pro_arg.source_entities)
+                        # Merge virtues
+                        for v in pro_arg.professional_virtues:
+                            if v not in existing.professional_virtues:
+                                existing.professional_virtues.append(v)
+                    else:
+                        argument_map[key] = pro_arg
+                        argument_counter += 1
                     options_with_args.add(f"{dp.focus_id}:{option.option_id}")
-                    argument_counter += 1
 
                 # Generate CON argument
                 con_arg = self._generate_con_argument(
@@ -200,8 +358,24 @@ class ArgumentGenerator:
                     argument_counter, case_id
                 )
                 if con_arg:
-                    arguments.append(con_arg)
-                    argument_counter += 1
+                    key = (option.description, 'con')
+                    if key in argument_map:
+                        # Merge: add warrant and decision point to existing argument
+                        existing = argument_map[key]
+                        existing.additional_warrants.append(con_arg.warrant)
+                        existing.additional_decision_points.append(con_arg.decision_point_id)
+                        existing.source_entities.extend(con_arg.source_entities)
+                        for v in con_arg.professional_virtues:
+                            if v not in existing.professional_virtues:
+                                existing.professional_virtues.append(v)
+                    else:
+                        argument_map[key] = con_arg
+                        argument_counter += 1
+
+        # Convert map to list, renumber argument IDs
+        arguments = list(argument_map.values())
+        for i, arg in enumerate(arguments, 1):
+            arg.argument_id = f"A{i}"
 
         # Count types
         pro_count = sum(1 for a in arguments if a.argument_type == 'pro')
@@ -217,8 +391,8 @@ class ArgumentGenerator:
         )
 
         logger.info(
-            f"Generated {len(arguments)} arguments: {pro_count} pro, {con_count} con "
-            f"covering {len(options_with_args)} options"
+            f"Generated {len(arguments)} deduplicated arguments: {pro_count} pro, {con_count} con "
+            f"covering {len(options_with_args)} options (from {len(decision_points.decision_points)} decision points)"
         )
 
         return result
@@ -258,16 +432,29 @@ class ArgumentGenerator:
         arg_number: int,
         case_id: int
     ) -> Optional[EntityGroundedArgument]:
-        """Generate a PRO argument for this option."""
-        # Get warrant from obligation/constraint in grounding
-        warrant_uri = dp.grounding.obligation_uri or dp.grounding.constraint_uri
-        warrant_label = dp.grounding.obligation_label or dp.grounding.constraint_label
+        """Generate a PRO argument for this option.
 
-        if not warrant_uri:
-            logger.warning(f"No warrant found for {dp.focus_id}")
-            return None
+        For the board's chosen option: Use the grounding obligation as warrant.
+        For alternative options: Infer a supporting value from the option description.
+        """
+        # Determine warrant based on whether this is the board's choice
+        if option.is_board_choice:
+            # Board's choice: Use the grounding obligation
+            warrant_uri = dp.grounding.obligation_uri or dp.grounding.constraint_uri
+            warrant_label = dp.grounding.obligation_label or dp.grounding.constraint_label
+            warrant_type = "obligation"
 
-        warrant_info = entity_lookup.get(warrant_uri, {})
+            if not warrant_uri:
+                logger.warning(f"No warrant found for board choice in {dp.focus_id}")
+                return None
+        else:
+            # Alternative option: Infer supporting value from option description
+            inferred = self._infer_supporting_value(option.description, entity_lookup, case_id)
+            warrant_uri = inferred.get('uri')
+            warrant_label = inferred.get('label', 'Professional Judgment')
+            warrant_type = inferred.get('type', 'inferred_value')
+
+        warrant_info = entity_lookup.get(warrant_uri, {}) if warrant_uri else {}
 
         # Find backing from provisions
         backing = self._find_backing_provision(dp, alignment_map, entity_lookup)
@@ -300,6 +487,12 @@ class ArgumentGenerator:
             source_entities.append(backing.entity_uri)
         source_entities.extend(d.entity_uri for d in data_components if d.entity_uri)
 
+        # Generate appropriate warrant text based on type
+        if option.is_board_choice:
+            warrant_text = f"Because {warrant_label} requires this action"
+        else:
+            warrant_text = f"Because this promotes {warrant_label}"
+
         return EntityGroundedArgument(
             argument_id=f"A{arg_number}",
             argument_type="pro",
@@ -313,10 +506,10 @@ class ArgumentGenerator:
                 entity_type="action"
             ),
             warrant=ArgumentComponent(
-                text=f"Because {warrant_label} requires this action",
+                text=warrant_text,
                 entity_uri=warrant_uri,
                 entity_label=warrant_label,
-                entity_type="obligation"
+                entity_type=warrant_type
             ),
             backing=backing,
             data=data_components,
@@ -339,36 +532,66 @@ class ArgumentGenerator:
         arg_number: int,
         case_id: int
     ) -> Optional[EntityGroundedArgument]:
-        """Generate a CON argument against this option."""
-        # For CON, we need a conflicting obligation or constraint
-        conflicting_warrant = self._find_conflicting_warrant(dp, entity_lookup, case_id)
+        """Generate a CON argument against this option.
 
-        if not conflicting_warrant:
-            # No explicit conflict - generate based on potential harm
-            return self._generate_harm_based_con(
-                dp, option, alignment_map, entity_lookup, arg_number, case_id
-            )
+        Uses a three-tier approach:
+        1. Find explicit conflicting obligation from extracted entities
+        2. Use ethical tension pairs based on the PRO warrant
+        3. Fall back to founding good considerations
 
-        # Find backing for conflicting warrant
-        backing = self._find_backing_for_principle(
-            conflicting_warrant.get('label', ''), alignment_map
-        )
-
-        # Build claim
+        Always returns a CON argument to ensure balanced ethical analysis.
+        """
+        # Build claim first (always needed)
         claim_text = self._generate_con_claim(dp, option)
 
-        # Analyze founding good violation potential
-        founding_analysis = self._analyze_founding_good(
-            claim_text, conflicting_warrant.get('label', ''), "con"
-        )
+        # Tier 1: Try to find explicit conflicting obligation
+        conflicting_warrant = self._find_conflicting_warrant(dp, entity_lookup, case_id)
 
-        virtues = self._identify_relevant_virtues(
-            conflicting_warrant.get('label', ''), option.action_label
-        )
+        if conflicting_warrant:
+            warrant_label = conflicting_warrant.get('label', '')
+            warrant_uri = conflicting_warrant.get('uri', '')
+            warrant_text = f"Because {warrant_label} would be violated"
+            warrant_type = "obligation"
+            confidence = 0.85
+        else:
+            # Tier 2: Use ethical tension pairs
+            pro_warrant_label = dp.grounding.obligation_label or dp.grounding.constraint_label or ''
+            tension = self._get_tension_warrant(pro_warrant_label, option.description)
 
-        confidence = self._calculate_argument_confidence(
-            conflicting_warrant.get('uri', ''), backing, []
-        )
+            if tension:
+                warrant_label = tension['label']
+                warrant_uri = None
+                warrant_text = f"Because {tension['reason']}"
+                warrant_type = "ethical_tension"
+                confidence = 0.70
+            else:
+                # Tier 3: Fall back to founding good consideration
+                warrant_label = f"Professional {self.founding_good.replace('_', ' ')}"
+                warrant_uri = None
+                warrant_text = f"Because this may not fully serve {self.founding_good.replace('_', ' ')}"
+                warrant_type = "founding_good"
+                confidence = 0.55
+
+        # Find backing
+        backing = self._find_backing_for_principle(warrant_label, alignment_map)
+
+        # Analyze founding good
+        founding_analysis = self._analyze_founding_good(claim_text, warrant_label, "con")
+
+        # Identify relevant virtues
+        virtues = self._identify_relevant_virtues(warrant_label, option.action_label)
+
+        # Build data from downstream events if available
+        data_components = []
+        for event_uri in (option.downstream_event_uris or [])[:2]:
+            event_info = entity_lookup.get(event_uri, {})
+            if event_info:
+                data_components.append(ArgumentComponent(
+                    text=f"May lead to: {event_info.get('label', event_uri)}",
+                    entity_uri=event_uri,
+                    entity_label=event_info.get('label', ''),
+                    entity_type="event"
+                ))
 
         return EntityGroundedArgument(
             argument_id=f"A{arg_number}",
@@ -383,13 +606,13 @@ class ArgumentGenerator:
                 entity_type="action"
             ),
             warrant=ArgumentComponent(
-                text=f"Because {conflicting_warrant.get('label', 'this')} would be violated",
-                entity_uri=conflicting_warrant.get('uri', ''),
-                entity_label=conflicting_warrant.get('label', ''),
-                entity_type="obligation"
+                text=warrant_text,
+                entity_uri=warrant_uri,
+                entity_label=warrant_label,
+                entity_type=warrant_type
             ),
             backing=backing,
-            data=[],
+            data=data_components,
             qualifier=None,
             rebuttal=ArgumentComponent(
                 text=f"Unless {dp.grounding.obligation_label or 'the primary obligation'} takes precedence",
@@ -402,8 +625,31 @@ class ArgumentGenerator:
             founding_good_analysis=founding_analysis,
             professional_virtues=virtues,
             confidence_score=confidence,
-            source_entities=[conflicting_warrant.get('uri', '')] if conflicting_warrant.get('uri') else []
+            source_entities=[warrant_uri] if warrant_uri else []
         )
+
+    def _get_tension_warrant(
+        self,
+        pro_warrant_label: str,
+        option_description: str
+    ) -> Optional[Dict[str, str]]:
+        """Find the ethical tension counter-consideration for a given PRO warrant.
+
+        Uses the ETHICAL_TENSIONS lookup to find natural professional tensions.
+        Returns a dict with 'label' and 'reason' keys.
+        """
+        text = f"{pro_warrant_label} {option_description}".lower()
+
+        # Check each tension keyword
+        for keyword, (tension_concept, tension_reason) in self.ETHICAL_TENSIONS.items():
+            if keyword in text:
+                return {
+                    'label': tension_concept,  # Already properly formatted
+                    'reason': tension_reason
+                }
+
+        # No specific tension found
+        return None
 
     def _generate_harm_based_con(
         self,
@@ -414,13 +660,18 @@ class ArgumentGenerator:
         arg_number: int,
         case_id: int
     ) -> Optional[EntityGroundedArgument]:
-        """Generate a CON argument based on potential harm/consequences."""
+        """Generate a CON argument based on potential harm/consequences.
+
+        Note: This method is now deprecated in favor of the unified _generate_con_argument
+        which always produces a CON using tension-based reasoning.
+        """
         # Check for negative consequences in downstream events
         if not option.downstream_event_uris:
             return None
 
         # Build claim
-        claim_text = f"{dp.grounding.role_label} should NOT {option.description} due to potential consequences"
+        action_phrase = self._make_action_phrase(option.description)
+        claim_text = f"{dp.grounding.role_label} should NOT {action_phrase} due to potential consequences"
 
         # Build data from downstream events
         data_components = []
@@ -534,6 +785,79 @@ class ArgumentGenerator:
             entity_label="Professional Standards",
             entity_type="code"
         )
+
+    def _infer_supporting_value(
+        self,
+        option_description: str,
+        entity_lookup: Dict[str, Dict],
+        case_id: int
+    ) -> Dict[str, Any]:
+        """Infer what value an alternative option promotes.
+
+        Analyzes the option description to find keywords indicating
+        professional values, then tries to match with extracted entities.
+
+        Returns dict with 'label', 'uri' (optional), and 'type'.
+        """
+        desc_lower = option_description.lower()
+
+        # Value keywords and their professional meanings
+        # Format: (keyword_in_option, (value_label, rationale))
+        VALUE_KEYWORDS = {
+            'enhanced': ('Enhanced Functionality', 'achieving better outcomes'),
+            'functionality': ('Enhanced Functionality', 'achieving better outcomes'),
+            'efficient': ('Efficiency', 'optimizing resource use'),
+            'efficiency': ('Efficiency', 'optimizing resource use'),
+            'faster': ('Efficiency', 'reducing time to completion'),
+            'innovative': ('Innovation', 'advancing professional practice'),
+            'innovation': ('Innovation', 'advancing professional practice'),
+            'open-source': ('Open Access', 'leveraging community resources'),
+            'open source': ('Open Access', 'leveraging community resources'),
+            'cost': ('Cost Effectiveness', 'responsible resource management'),
+            'budget': ('Cost Effectiveness', 'responsible resource management'),
+            'client request': ('Client Autonomy', 'respecting client preferences'),
+            'client preference': ('Client Autonomy', 'respecting client preferences'),
+            'immediate': ('Timeliness', 'meeting urgent needs'),
+            'urgent': ('Timeliness', 'meeting urgent needs'),
+            'time constraint': ('Timeliness', 'meeting schedule requirements'),
+            'time constraints': ('Timeliness', 'meeting schedule requirements'),
+            'unfamiliar': ('Practical Necessity', 'addressing resource limitations'),
+            'unavailable': ('Practical Necessity', 'working within constraints'),
+            'alternative': ('Alternative Approach', 'considering other methods'),
+            'transparency': ('Professional Transparency', 'maintaining openness with stakeholders'),
+            'transparent': ('Professional Transparency', 'maintaining openness with stakeholders'),
+            'disclose': ('Disclosure', 'providing relevant information'),
+            'disclosure': ('Disclosure', 'providing relevant information'),
+            'high-level': ('Efficiency', 'focusing on essential elements'),
+            'rely on': ('Trust in Tools', 'leveraging validated capabilities'),
+        }
+
+        # Check for keyword matches
+        for keyword, (value_label, rationale) in VALUE_KEYWORDS.items():
+            if keyword in desc_lower:
+                # Try to find matching extracted entity
+                entity_uri = None
+                for uri, info in entity_lookup.items():
+                    if isinstance(info, dict):
+                        entity_label = info.get('label', '').lower()
+                        if value_label.lower() in entity_label or keyword in entity_label:
+                            entity_uri = uri
+                            break
+
+                return {
+                    'label': value_label,
+                    'uri': entity_uri,
+                    'type': 'inferred_value' if entity_uri is None else 'principle',
+                    'rationale': rationale
+                }
+
+        # Default fallback: Professional judgment
+        return {
+            'label': 'Professional Judgment',
+            'uri': None,
+            'type': 'inferred_value',
+            'rationale': 'exercising professional discretion'
+        }
 
     def _build_data_components(
         self,
@@ -658,7 +982,8 @@ class ArgumentGenerator:
         option: DecisionPointOption
     ) -> str:
         """Generate PRO argument claim text."""
-        return f"{dp.grounding.role_label} should {option.description}"
+        action_phrase = self._make_action_phrase(option.description)
+        return f"{dp.grounding.role_label} should {action_phrase}"
 
     def _generate_con_claim(
         self,
@@ -666,7 +991,84 @@ class ArgumentGenerator:
         option: DecisionPointOption
     ) -> str:
         """Generate CON argument claim text."""
-        return f"{dp.grounding.role_label} should NOT {option.description}"
+        action_phrase = self._make_action_phrase(option.description)
+        return f"{dp.grounding.role_label} should NOT {action_phrase}"
+
+    def _make_action_phrase(self, description: str) -> str:
+        """Convert a noun phrase description into a grammatical action phrase.
+
+        Examples:
+            "Differential Review Strategy" -> "adopt the Differential Review Strategy"
+            "AI Non-Disclosure Decision" -> "make the AI Non-Disclosure Decision"
+            "Disclose the information" -> "disclose the information" (already a verb phrase)
+            "No disclosure required unless X" -> "withhold disclosure unless X requires it"
+        """
+        if not description:
+            return "take this action"
+
+        desc_lower = description.lower()
+
+        # Handle policy statements starting with "No X required/needed unless"
+        # e.g., "No disclosure required unless contractually specified"
+        if desc_lower.startswith('no ') and ('required' in desc_lower or 'needed' in desc_lower):
+            # Extract the subject (what's not required)
+            match = re.match(r'no\s+(\w+)\s+(required|needed)', desc_lower)
+            if match:
+                subject = match.group(1)
+                # Find any "unless" clause
+                unless_match = re.search(r'unless\s+(.+)$', desc_lower)
+                unless_clause = f" unless {unless_match.group(1)}" if unless_match else ""
+                return f"withhold {subject}{unless_clause}"
+
+        # Handle "X only if/when Y" patterns
+        if ' only if ' in desc_lower or ' only when ' in desc_lower:
+            # This is a conditional policy, convert to action
+            parts = re.split(r'\s+only\s+(if|when)\s+', description, maxsplit=1)
+            if len(parts) > 1:
+                action_part = parts[0].lower()
+                condition = parts[-1] if len(parts) > 2 else parts[1]
+                return f"proceed with {action_part} only when {condition}"
+
+        # Check if it already starts with a verb
+        action_verbs = [
+            'disclose', 'report', 'review', 'verify', 'check', 'inform',
+            'notify', 'submit', 'approve', 'reject', 'accept', 'refuse',
+            'investigate', 'evaluate', 'assess', 'document', 'implement',
+            'adopt', 'use', 'apply', 'follow', 'maintain', 'ensure',
+            'seek', 'obtain', 'provide', 'request', 'retain', 'upload',
+            'withhold', 'omit', 'skip', 'defer', 'delay', 'conduct',
+            'fulfill', 'complete', 'perform', 'execute', 'limit',
+            'respect', 'present', 'develop', 'prioritize', 'balance',
+            'acknowledge', 'consent', 'honor', 'recommend', 'decline',
+            'proceed', 'attempt', 'lobby', 'award', 'require',
+            'proactively', 'immediately', 'continue', 'strictly',
+            'thoroughly', 'fully'
+        ]
+
+        for verb in action_verbs:
+            if desc_lower.startswith(verb):
+                # Already an action phrase, just lowercase first letter if needed
+                return description[0].lower() + description[1:]
+
+        # Check for "Alternative approach to X" pattern
+        if desc_lower.startswith('alternative approach to'):
+            rest = description[len('Alternative approach to'):].strip()
+            return f"take an alternative approach to the {rest}"
+
+        # Determine appropriate verb based on keywords
+        if 'decision' in desc_lower:
+            return f"make the {description}"
+        elif 'strategy' in desc_lower or 'approach' in desc_lower:
+            return f"adopt the {description}"
+        elif 'review' in desc_lower or 'analysis' in desc_lower:
+            return f"conduct the {description}"
+        elif 'disclosure' in desc_lower:
+            return f"make the {description}"
+        elif 'selection' in desc_lower:
+            return f"make the {description}"
+        else:
+            # Default: use "adopt" for noun phrase options
+            return f"adopt the {description}"
 
     def _analyze_founding_good(
         self,
