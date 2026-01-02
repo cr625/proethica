@@ -396,21 +396,21 @@ def get_entity_graph_api(case_id):
             'code_provision_reference': 4, 'ethical_question': 4, 'ethical_conclusion': 4
         }
 
-        # Entity type colors
+        # Entity type colors - matches ENTITY_RESOLUTION_PLAN.md
         type_colors = {
-            'roles': '#2196F3',
-            'states': '#4CAF50',
-            'resources': '#FF9800',
-            'principles': '#9C27B0',
-            'obligations': '#F44336',
-            'constraints': '#795548',
-            'capabilities': '#3F51B5',
-            'temporal_dynamics_enhanced': '#009688',
-            'actions': '#009688',
-            'events': '#FFC107',
-            'code_provision_reference': '#E91E63',
-            'ethical_question': '#00BCD4',
-            'ethical_conclusion': '#CDDC39'
+            'roles': '#0d6efd',              # Blue - Pass 1
+            'states': '#6f42c1',             # Purple - Pass 1
+            'resources': '#0dcaf0',          # Cyan - Pass 1
+            'principles': '#198754',         # Green - Pass 2
+            'obligations': '#dc3545',        # Red - Pass 2
+            'constraints': '#6c757d',        # Gray - Pass 2
+            'capabilities': '#ffc107',       # Yellow - Pass 2
+            'temporal_dynamics_enhanced': '#212529',  # Dark - Pass 3
+            'actions': '#212529',            # Dark - Pass 3
+            'events': '#adb5bd',             # Light gray - Pass 3
+            'code_provision_reference': '#6c757d',  # Gray - Provisions
+            'ethical_question': '#0dcaf0',   # Cyan - Pass 4
+            'ethical_conclusion': '#198754'  # Green - Pass 4
         }
 
         for entity in entities:
@@ -1206,7 +1206,10 @@ def step4_review(case_id):
         can_publish = pipeline_status.get('step1', {}).get('complete', False) and unpublished_count > 0
 
         # Build entity lookup dict for ontology label popovers (includes OntServe base classes)
-        entity_lookup = get_unified_entity_lookup(case_id)
+        from app.services.unified_entity_resolver import UnifiedEntityResolver
+        resolver = UnifiedEntityResolver(case_id=case_id)
+        entity_lookup = resolver.get_lookup_dict()
+        entity_lookup_by_label = resolver.get_label_index()
 
         context = {
             'case': case,
@@ -1238,7 +1241,8 @@ def step4_review(case_id):
             'decision_points': _load_decision_points_for_review(case_id),
             'narrative_data': _load_narrative_for_review(case_id),
             # Entity lookup for ontology label macro
-            'entity_lookup': entity_lookup
+            'entity_lookup': entity_lookup,
+            'entity_lookup_by_label': entity_lookup_by_label
         }
 
         return render_template('scenario_pipeline/step4_review.html', **context)
