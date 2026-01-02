@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from '_macros.html' import info_link, info_link_inline %}
+{% from '_macros.html' import info_link, info_link_inline, research_caveat %}
 
 {# Ontology Label Macro - inline definition for entity labels with popovers #}
 {% macro ontology_label(uri, entity_lookup) %}
@@ -573,7 +573,7 @@
                                     {% elif q_type == 'principle_tension' %}
                                     <span class="badge bg-info ms-2">Principle Tension</span>
                                     {% elif q_type == 'theoretical' %}
-                                    <span class="badge bg-dark ms-2">Theoretical</span>
+                                    <span class="badge bg-dark ms-2">Theoretical</span>{{ research_caveat('ethical-frameworks', 'Ethical frameworks (deontological, virtue ethics, etc.) not fully defined in ontology - research exploratory') }}
                                     {% elif q_type == 'counterfactual' %}
                                     <span class="badge bg-light text-dark ms-2">Counterfactual</span>
                                     {% endif %}
@@ -754,7 +754,7 @@
                                         {% elif q_type == 'principle_tension' %}
                                         <span class="badge bg-info">Principle Tension</span>
                                         {% elif q_type == 'theoretical' %}
-                                        <span class="badge bg-dark">Theoretical</span>
+                                        <span class="badge bg-dark">Theoretical</span>{{ research_caveat('ethical-frameworks', 'Ethical frameworks (deontological, virtue ethics, etc.) not fully defined in ontology - research exploratory') }}
                                         {% elif q_type == 'counterfactual' %}
                                         <span class="badge bg-light text-dark">Counterfactual</span>
                                         {% endif %}
@@ -879,7 +879,7 @@
                         <h6 class="border-bottom pb-2 mb-3">
                             <i class="bi bi-question-circle text-info me-2"></i>
                             Question Emergence
-                            {{ info_link_inline('question-emergence', 'Toulmin Warrants (1958)') }}
+                            {{ info_link_inline('question-emergence', 'Toulmin Warrants (1958)') }}{{ research_caveat('ethical-frameworks', 'Ethical frameworks (deontological, virtue ethics, etc.) not fully defined in ontology - research exploratory') }}
                             <span class="badge bg-info ms-2">{{ rich_analysis.question_emergence|length }}</span>
                         </h6>
                         {% if rich_analysis.question_emergence %}
