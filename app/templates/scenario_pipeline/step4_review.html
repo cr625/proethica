@@ -1021,6 +1021,14 @@
                         <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}#rich_analysisSection">Run Rich Analysis</a> on the Step 4 page first.
                     </div>
                     {% endif %}
+
+                    <!-- Entity-Grounded Arguments Section (populated via JavaScript) -->
+                    <div class="mt-4" id="argumentsContainer">
+                        <div class="text-center text-muted py-3">
+                            <i class="bi bi-chat-left-text" style="font-size: 2rem;"></i>
+                            <p class="mt-2 mb-0">Entity-grounded arguments will appear here when generated.</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2771,6 +2779,10 @@ function updateArgumentCount(count) {
 
 function renderEntityGroundedArguments(data) {
     const container = document.getElementById('argumentsContainer');
+    if (!container) {
+        console.log('argumentsContainer not found - skipping entity arguments render');
+        return;
+    }
     const args = data.arguments || [];
     const validations = data.validations || [];
     const decisionPoints = data.decision_points || [];
