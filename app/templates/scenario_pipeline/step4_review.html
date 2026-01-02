@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from '_macros.html' import info_link, info_link_inline %}
 
 {# Ontology Label Macro - inline definition for entity labels with popovers #}
 {% macro ontology_label(uri, entity_lookup) %}
@@ -7,7 +8,7 @@
 {%- if entity -%}
 {%- set pass_class = 'bg-primary' if entity.source_pass == 1 else ('bg-success' if entity.source_pass == 2 else ('bg-warning text-dark' if entity.source_pass == 3 else 'bg-danger')) -%}
 {%- set type_class = 'onto-type-' ~ (entity.extraction_type or 'default')|lower|replace(' ', '-') -%}
-<span class="onto-label"
+<span class="onto-label{% if entity.source == 'ontology' %} onto-source-ontology{% endif %}"
       tabindex="0"
       data-bs-toggle="popover"
       data-bs-trigger="hover focus"
@@ -15,6 +16,7 @@
       data-bs-placement="top"
       data-entity-type="{{ entity.entity_type or entity.extraction_type }}"
       data-entity-pass="{{ entity.source_pass }}"
+      data-entity-source="{{ entity.source or 'case' }}"
       data-entity-definition="{{ entity.definition|e }}"
       data-entity-uri="{{ uri|e }}"
       title="{{ entity.label or label }}">{{ entity.label or label }}</span>
@@ -45,15 +47,19 @@
     .onto-popover-content .onto-definition { font-size: 0.85rem; margin: 8px 0; color: #495057; }
     .onto-popover-content .onto-pass-badge { font-size: 0.65rem; }
     .onto-label-unknown { color: #6c757d; font-style: italic; }
-    .onto-type-roles, .onto-type-role { background-color: #0d6efd; color: white; }
-    .onto-type-states, .onto-type-state { background-color: #6f42c1; color: white; }
-    .onto-type-resources, .onto-type-resource { background-color: #20c997; color: white; }
-    .onto-type-principles, .onto-type-principle { background-color: #fd7e14; color: white; }
-    .onto-type-obligations, .onto-type-obligation { background-color: #dc3545; color: white; }
-    .onto-type-constraints, .onto-type-constraint { background-color: #6c757d; color: white; }
-    .onto-type-capabilities, .onto-type-capability { background-color: #0dcaf0; color: black; }
-    .onto-type-actions, .onto-type-action, .onto-type-temporal_dynamics_enhanced { background-color: #198754; color: white; }
-    .onto-type-events, .onto-type-event { background-color: #ffc107; color: black; }
+    /* Entity type colors - matches ENTITY_RESOLUTION_PLAN.md */
+    .onto-type-roles, .onto-type-role { background-color: #0d6efd; color: white; }  /* Blue - Pass 1 */
+    .onto-type-states, .onto-type-state { background-color: #6f42c1; color: white; }  /* Purple - Pass 1 */
+    .onto-type-resources, .onto-type-resource { background-color: #0dcaf0; color: black; }  /* Cyan - Pass 1 */
+    .onto-type-principles, .onto-type-principle { background-color: #198754; color: white; }  /* Green - Pass 2 */
+    .onto-type-obligations, .onto-type-obligation { background-color: #dc3545; color: white; }  /* Red - Pass 2 */
+    .onto-type-constraints, .onto-type-constraint { background-color: #6c757d; color: white; }  /* Gray - Pass 2 */
+    .onto-type-capabilities, .onto-type-capability { background-color: #ffc107; color: black; }  /* Yellow - Pass 2 */
+    .onto-type-actions, .onto-type-action, .onto-type-temporal_dynamics_enhanced { background-color: #212529; color: white; }  /* Dark - Pass 3 */
+    .onto-type-events, .onto-type-event { background-color: #e9ecef; color: #212529; }  /* Light gray - Pass 3 */
+    .onto-type-conclusions, .onto-type-ethical_conclusion { background-color: #198754; color: white; }  /* Green - Pass 4 */
+    .onto-type-questions, .onto-type-ethical_question { background-color: #0dcaf0; color: black; }  /* Cyan - Pass 4 */
+    .onto-source-ontology { border: 2px solid #0d6efd; }  /* Blue border for base ontology */
 
     /* Original styles */
     .bg-purple { background-color: #6F42C1 !important; }
@@ -146,63 +152,55 @@
         <button type="button" class="btn-close" onclick="document.getElementById('publishAlert').style.display='none'"></button>
     </div>
 
-    <!-- Summary Cards -->
+    <!-- Summary Cards - colors match ENTITY_RESOLUTION_PLAN.md -->
     <div class="row mb-4">
         <div class="col">
-            <div class="card text-center border-primary">
+            <div class="card text-center" style="border-color: #0d6efd !important; border-width: 2px;">
                 <div class="card-body py-2">
-                    <h4 class="text-primary mb-0">{{ entity_count }}</h4>
+                    <h4 class="mb-0" style="color: #0d6efd;">{{ entity_count }}</h4>
                     <small class="text-muted">Entities</small>
                 </div>
             </div>
         </div>
         <div class="col">
-            <div class="card text-center border-info">
+            <div class="card text-center" style="border-color: #6c757d !important; border-width: 2px;">
                 <div class="card-body py-2">
-                    <h4 class="text-info mb-0">{{ provision_count }}</h4>
+                    <h4 class="mb-0" style="color: #6c757d;">{{ provision_count }}</h4>
                     <small class="text-muted">Provisions</small>
                 </div>
             </div>
         </div>
         <div class="col">
-            <div class="card text-center border-warning">
+            <div class="card text-center" style="border-color: #0dcaf0 !important; border-width: 2px;">
                 <div class="card-body py-2">
-                    <h4 class="text-warning mb-0">{{ question_count }}</h4>
+                    <h4 class="mb-0" style="color: #0dcaf0;">{{ question_count }}</h4>
                     <small class="text-muted">Questions</small>
                 </div>
             </div>
         </div>
         <div class="col">
-            <div class="card text-center border-success">
+            <div class="card text-center" style="border-color: #198754 !important; border-width: 2px;">
                 <div class="card-body py-2">
-                    <h4 class="text-success mb-0">{{ conclusion_count }}</h4>
+                    <h4 class="mb-0" style="color: #198754;">{{ conclusion_count }}</h4>
                     <small class="text-muted">Conclusions</small>
                 </div>
             </div>
         </div>
         <div class="col">
-            <div class="card text-center border-purple" style="border-color: #6F42C1 !important;">
+            <div class="card text-center" style="border-color: #6f42c1 !important; border-width: 2px;">
                 <div class="card-body py-2">
                     {% if transformation_data and transformation_data.type %}
-                    <h4 class="mb-0" style="color: #6F42C1;">
+                    <h4 class="mb-0" style="color: #6f42c1;">
                         {% if transformation_data.type == 'transfer' %}Transfer
                         {% elif transformation_data.type == 'stalemate' %}Stalemate
                         {% elif transformation_data.type == 'oscillation' %}Oscillation
                         {% elif transformation_data.type == 'phase_lag' %}Phase Lag
                         {% else %}{{ transformation_data.type|title }}{% endif %}
                     </h4>
-                    <small class="text-muted">Transformation
-                        <a href="/tools/references#transformation" title="Marchais-Roubelat & Roubelat (2015)" class="text-muted ms-1">
-                            <i class="bi bi-info-circle"></i>
-                        </a>
-                    </small>
+                    <small class="text-muted">Transformation {{ info_link_inline('transformation', 'Marchais-Roubelat & Roubelat (2015)') }}</small>
                     {% else %}
                     <h4 class="text-muted mb-0">--</h4>
-                    <small class="text-muted">Transformation
-                        <a href="/tools/references#transformation" title="Marchais-Roubelat & Roubelat (2015)" class="text-muted ms-1">
-                            <i class="bi bi-info-circle"></i>
-                        </a>
-                    </small>
+                    <small class="text-muted">Transformation {{ info_link_inline('transformation', 'Marchais-Roubelat & Roubelat (2015)') }}</small>
                     {% endif %}
                 </div>
             </div>
@@ -213,7 +211,7 @@
     {% if transformation_data and transformation_data.type and transformation_data.type != 'unclear' %}
     <div class="alert alert-light border mb-4">
         <div class="d-flex align-items-center">
-            <span class="badge me-2" style="background-color: #6F42C1;">
+            <span class="badge me-2" style="background-color: #6f42c1;">
                 {% if transformation_data.type == 'transfer' %}Transfer
                 {% elif transformation_data.type == 'stalemate' %}Stalemate
                 {% elif transformation_data.type == 'oscillation' %}Oscillation
@@ -442,18 +440,18 @@
                             <div class="col-md-6">
                                 <strong>Nodes:</strong>
                                 <div class="d-flex flex-wrap gap-3 mt-2">
-                                    <span><span class="badge" style="background-color: #6C757D;">■</span> NSPE Provisions (rectangles)</span>
-                                    <span><span class="badge" style="background-color: #FFC107;">◆</span> Questions (diamonds)</span>
-                                    <span><span class="badge" style="background-color: #28A745;">▬</span> Conclusions (rounded)</span>
-                                    <span><span class="badge" style="background-color: #17A2B8;">●</span> Entities (circles)</span>
+                                    <span><span class="badge" style="background-color: #6c757d;">■</span> NSPE Provisions (rectangles)</span>
+                                    <span><span class="badge" style="background-color: #0dcaf0; color: #212529;">◆</span> Questions (diamonds)</span>
+                                    <span><span class="badge" style="background-color: #198754;">▬</span> Conclusions (rounded)</span>
+                                    <span><span class="badge" style="background-color: #0d6efd;">●</span> Entities (circles)</span>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <strong>Edge Colors:</strong>
                                 <div class="mt-2">
-                                    <span class="badge" style="background-color: #6C757D;">→</span> Provision informs Question<br>
-                                    <span class="badge" style="background-color: #FFC107;">→</span> Question answered by Conclusion<br>
-                                    <span class="badge" style="background-color: #17A2B8;">→</span> Provision applies to Entity
+                                    <span class="badge" style="background-color: #6c757d;">→</span> Provision informs Question<br>
+                                    <span class="badge" style="background-color: #0dcaf0; color: #212529;">→</span> Question answered by Conclusion<br>
+                                    <span class="badge" style="background-color: #0d6efd;">→</span> Provision applies to Entity
                                 </div>
                             </div>
                         </div>
@@ -507,13 +505,7 @@
                                     {% for entity in provision.rdf_json_ld.appliesTo %}
                                     <div class="applies-to-item mb-2 p-2 border rounded bg-light">
                                         <div class="d-flex align-items-center">
-                                            <span class="badge me-2
-                                                {% if entity.entity_type|lower == 'roles' %}bg-primary
-                                                {% elif entity.entity_type|lower == 'obligations' %}bg-warning text-dark
-                                                {% elif entity.entity_type|lower == 'principles' %}bg-purple
-                                                {% elif entity.entity_type|lower == 'actions' %}bg-dark
-                                                {% elif entity.entity_type|lower == 'states' %}bg-info
-                                                {% else %}bg-secondary{% endif %}">
+                                            <span class="badge me-2 onto-type-{{ entity.entity_type|lower|default('default') }}">
                                                 {{ entity.entity_type|default('Entity') }}
                                             </span>
                                             <strong>{{ entity.entity_label|default(entity) }}</strong>
@@ -604,14 +596,7 @@
                                 <small class="text-muted"><strong>Involves:</strong></small>
                                 {% for entity_type, entity_list in question.rdf_json_ld.mentionedEntities.items() %}
                                 {% for entity_name in entity_list %}
-                                <span class="badge me-1
-                                    {% if entity_type == 'roles' %}bg-primary
-                                    {% elif entity_type == 'states' %}bg-info
-                                    {% elif entity_type == 'obligations' %}bg-warning text-dark
-                                    {% elif entity_type == 'principles' %}bg-purple
-                                    {% elif entity_type == 'actions' %}bg-success
-                                    {% elif entity_type == 'events' %}bg-dark
-                                    {% else %}bg-secondary{% endif %}" title="{{ entity_type|title }}">{{ entity_name }}</span>
+                                <span class="badge me-1 onto-type-{{ entity_type|lower }}" title="{{ entity_type|title }}">{{ entity_name }}</span>
                                 {% endfor %}
                                 {% endfor %}
                             </div>
@@ -840,6 +825,7 @@
                         <h6 class="border-bottom pb-2 mb-3">
                             <i class="bi bi-link-45deg text-warning me-2"></i>
                             Causal-Normative Links
+                            {{ info_link_inline('causal-normative-links', 'NESS Test (Sarmiento et al. 2023)') }}
                             <span class="badge bg-warning text-dark ms-2">{{ rich_analysis.causal_links|length }}</span>
                         </h6>
                         {% if rich_analysis.causal_links %}
@@ -893,6 +879,7 @@
                         <h6 class="border-bottom pb-2 mb-3">
                             <i class="bi bi-question-circle text-info me-2"></i>
                             Question Emergence
+                            {{ info_link_inline('question-emergence', 'Toulmin Warrants (1958)') }}
                             <span class="badge bg-info ms-2">{{ rich_analysis.question_emergence|length }}</span>
                         </h6>
                         {% if rich_analysis.question_emergence %}
@@ -971,6 +958,7 @@
                         <h6 class="border-bottom pb-2 mb-3">
                             <i class="bi bi-check-circle text-success me-2"></i>
                             Resolution Patterns
+                            {{ info_link_inline('argument-mining', 'Harris et al. (2018) Line-Drawing Method') }}
                             <span class="badge bg-success ms-2">{{ rich_analysis.resolution_patterns|length }}</span>
                         </h6>
                         {% if rich_analysis.resolution_patterns %}
@@ -1041,7 +1029,10 @@
         <div class="tab-pane fade" id="decisionpoints" role="tabpanel">
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0"><i class="bi bi-signpost-split"></i> Decision Points</h5>
+                    <h5 class="mb-0">
+                        <i class="bi bi-signpost-split"></i> Decision Points
+                        {{ info_link_inline('jones-moral-intensity', 'Moral Intensity / Salience (Jones 1991)') }}
+                    </h5>
                     <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}#phase3-card" class="btn btn-sm btn-outline-secondary">
                         <i class="bi bi-arrow-left"></i> View Extraction
                     </a>
@@ -1168,7 +1159,13 @@
                             <div class="mb-3 pb-3 border-bottom">
                                 <!-- Character name and role badge -->
                                 <div class="d-flex align-items-center justify-content-between mb-2">
-                                    <strong class="fs-6">{{ char.label if char.label else (char.name if char.name else char) }}</strong>
+                                    <strong class="fs-6">
+                                        {%- if char.uri -%}
+                                        {{ ontology_label(char.uri, entity_lookup) }}
+                                        {%- else -%}
+                                        {{ char.label if char.label else (char.name if char.name else char) }}
+                                        {%- endif -%}
+                                    </strong>
                                     {% set role_type = char.role_type if char.role_type else (char.role if char.role else '') %}
                                     {% if role_type %}
                                         {% if role_type == 'protagonist' %}
@@ -1223,7 +1220,15 @@
                                     <div class="d-flex flex-wrap gap-1 mt-1">
                                         {% for rel in char.relationships %}
                                         <span class="badge bg-light text-dark border">
-                                            {{ rel[0] if rel is iterable else rel }}: {{ rel[1].split('#')[-1].split('/')[-1] if rel is iterable and rel|length > 1 else '' }}
+                                            {{ rel[0] if rel is iterable else rel }}:
+                                            {%- if rel is iterable and rel|length > 1 -%}
+                                                {%- set target = rel[1] -%}
+                                                {%- if target is string and ('#' in target or 'http' in target) -%}
+                                                {{ ontology_label(target, entity_lookup) }}
+                                                {%- else -%}
+                                                {{ target }}
+                                                {%- endif -%}
+                                            {%- endif -%}
                                         </span>
                                         {% endfor %}
                                     </div>
@@ -1243,9 +1248,7 @@
                     <div class="card h-100">
                         <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
                             <h6 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Ethical Tensions ({{ narrative_data.conflicts|length if narrative_data.conflicts else 0 }})</h6>
-                            <a href="{{ url_for('tools.references') }}#jones-moral-intensity" class="text-dark" title="Jones (1991) Moral Intensity Model">
-                                <i class="bi bi-info-circle"></i>
-                            </a>
+                            {{ info_link('ethical-tensions', 'Conflict Classification + Moral Intensity', 'text-dark') }}
                         </div>
                         <div class="card-body" style="max-height: 400px; overflow-y: auto;">
                             {% if narrative_data.conflicts %}
@@ -1261,9 +1264,21 @@
 
                                 <!-- Entities in tension -->
                                 <div class="d-flex align-items-center gap-2 mb-2 small">
-                                    <span class="badge bg-primary">{{ tension.entity1_label if tension.entity1_label else '?' }}</span>
+                                    <span class="badge bg-primary">
+                                        {%- if tension.entity1_uri -%}
+                                        {{ ontology_label(tension.entity1_uri, entity_lookup) }}
+                                        {%- else -%}
+                                        {{ tension.entity1_label if tension.entity1_label else '?' }}
+                                        {%- endif -%}
+                                    </span>
                                     <i class="bi bi-arrow-left-right text-warning"></i>
-                                    <span class="badge bg-danger">{{ tension.entity2_label if tension.entity2_label else '?' }}</span>
+                                    <span class="badge bg-danger">
+                                        {%- if tension.entity2_uri -%}
+                                        {{ ontology_label(tension.entity2_uri, entity_lookup) }}
+                                        {%- else -%}
+                                        {{ tension.entity2_label if tension.entity2_label else '?' }}
+                                        {%- endif -%}
+                                    </span>
                                 </div>
 
                                 <!-- Tension type -->
@@ -1282,13 +1297,26 @@
                                 {% endif %}
 
                                 <!-- Affected roles -->
-                                {% set roles = tension.affected_role_labels if tension.affected_role_labels else [] %}
-                                {% if roles %}
+                                {% set role_uris = tension.affected_role_uris if tension.affected_role_uris else [] %}
+                                {% set role_labels = tension.affected_role_labels if tension.affected_role_labels else [] %}
+                                {% if role_uris or role_labels %}
                                 <div class="small mb-2">
                                     <span class="text-muted">Affects:</span>
-                                    {% for role in roles %}
-                                    <span class="badge bg-secondary bg-opacity-50 text-dark">{{ role }}</span>
-                                    {% endfor %}
+                                    {% if role_uris %}
+                                        {% for uri in role_uris %}
+                                        <span class="badge bg-secondary bg-opacity-50 text-dark">{{ ontology_label(uri, entity_lookup) }}</span>
+                                        {% endfor %}
+                                    {% else %}
+                                        {% for role in role_labels %}
+                                        {# Try to find entity by label for popover support #}
+                                        {% set role_entity = entity_lookup_by_label.get(role|lower) if entity_lookup_by_label else none %}
+                                        {% if role_entity and role_entity.uri %}
+                                        <span class="badge bg-secondary bg-opacity-50 text-dark">{{ ontology_label(role_entity.uri, entity_lookup) }}</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary bg-opacity-50 text-dark">{{ role }}</span>
+                                        {% endif %}
+                                        {% endfor %}
+                                    {% endif %}
                                 </div>
                                 {% endif %}
 
@@ -1335,23 +1363,27 @@
                 </div>
             </div>
 
-            <!-- Initial Fluents (Event Calculus State) -->
+            <!-- States (from Pass 1) -->
             {% if narrative_data.initial_fluents %}
             <div class="card mb-3">
                 <div class="card-header bg-success bg-opacity-10">
-                    <h6 class="mb-0"><i class="bi bi-toggles text-success"></i> Initial Fluents ({{ narrative_data.initial_fluents|length }})</h6>
+                    <h6 class="mb-0"><i class="bi bi-toggles text-success"></i> States ({{ narrative_data.initial_fluents|length }})</h6>
                 </div>
                 <div class="card-body">
-                    <p class="small text-muted mb-2">State conditions at case start (Event Calculus)</p>
-                    <div class="d-flex flex-wrap gap-1">
+                    <div class="d-flex flex-wrap gap-2">
                         {% for fluent in narrative_data.initial_fluents %}
-                        {% set raw_name = fluent.name if fluent.name else (fluent.fluent_name if fluent.fluent_name else (fluent|string)) %}
-                        {% set fname = raw_name.split('#')[-1].split('/')[-1] if '#' in (raw_name|string) or '/' in (raw_name|string) else raw_name %}
-                        {% set fname = fname.replace('_', ' ').replace('HoldsAt', '').replace('holdsAt', '') %}
-                        {% set fval = fluent.value if fluent.value is defined else (fluent.initial_value if fluent.initial_value is defined else true) %}
-                        <span class="badge {{ 'bg-success' if fval == true or fval == 'true' else ('bg-danger' if fval == false or fval == 'false' else 'bg-info') }} text-white" style="font-size: 0.75em;" title="{{ raw_name }}">
-                            {{ fname[:40] }}{% if fname|length > 40 %}...{% endif %}
+                        {% set flabel = fluent.label if fluent.label else (fluent.name if fluent.name else '') %}
+                        {% set flabel = flabel.split('#')[-1].split('/')[-1] if flabel and ('#' in (flabel|string) or '/' in (flabel|string)) else flabel %}
+                        {% set flabel = flabel.replace('_', ' ') if flabel else '' %}
+                        {% if flabel %}
+                        <span class="badge bg-success bg-opacity-75 py-2 px-3" style="font-size: 0.85em; font-weight: normal;">
+                            {%- if fluent.uri -%}
+                            {{ ontology_label(fluent.uri, entity_lookup) }}
+                            {%- else -%}
+                            {{ flabel }}
+                            {%- endif -%}
                         </span>
+                        {% endif %}
                         {% endfor %}
                     </div>
                 </div>
@@ -1419,6 +1451,72 @@
             </div>
             {% endif %}
 
+            <!-- Causal Links (Timeline Flow) -->
+            {% if narrative_data.causal_links %}
+            {# Group causal links by link_type, excluding triggers (shown on Analysis tab) #}
+            {% set enables_links = [] %}
+            {% set precipitates_links = [] %}
+            {% for link in narrative_data.causal_links %}
+                {% set ltype = link.link_type if link.link_type else (link.type if link.type else '') %}
+                {% set has_source = link.source_label or link.source_uri %}
+                {% set has_target = link.target_label or link.target_uri %}
+                {% if has_source and has_target %}
+                    {% if ltype == 'enables' %}
+                        {% set _ = enables_links.append(link) %}
+                    {% elif ltype == 'precipitates' %}
+                        {% set _ = precipitates_links.append(link) %}
+                    {% endif %}
+                {% endif %}
+            {% endfor %}
+            {% if enables_links or precipitates_links %}
+            <div class="card mb-3">
+                <div class="card-header bg-secondary bg-opacity-10 d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="bi bi-arrow-right-circle text-secondary"></i> Timeline Flow</h6>
+                    {{ info_link('causal-normative-links', 'Event Calculus (Berreby et al. 2017)') }}
+                </div>
+                <div class="card-body" style="max-height: 250px; overflow-y: auto;">
+                    <p class="small text-muted mb-2">Sequential action-event relationships. See Analysis tab for action-obligation links.</p>
+                    {% if enables_links %}
+                    <div class="mb-3">
+                        <small class="text-info fw-bold"><i class="bi bi-arrow-right-circle"></i> Enables (action → event)</small>
+                        <ul class="mb-0 small mt-1">
+                            {% for link in enables_links %}
+                            <li class="mb-1">
+                                <span class="text-primary">
+                                    {%- if link.source_uri -%}{{ ontology_label(link.source_uri, entity_lookup) }}{%- else -%}{{ link.source_label }}{%- endif -%}
+                                </span>
+                                <i class="bi bi-arrow-right mx-1 text-muted"></i>
+                                <span class="text-success">
+                                    {%- if link.target_uri -%}{{ ontology_label(link.target_uri, entity_lookup) }}{%- else -%}{{ link.target_label }}{%- endif -%}
+                                </span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                    {% if precipitates_links %}
+                    <div>
+                        <small class="text-danger fw-bold"><i class="bi bi-exclamation-triangle"></i> Precipitates (conflict → decision)</small>
+                        <ul class="mb-0 small mt-1">
+                            {% for link in precipitates_links %}
+                            <li class="mb-1">
+                                <span class="text-primary">
+                                    {%- if link.source_uri -%}{{ ontology_label(link.source_uri, entity_lookup) }}{%- else -%}{{ link.source_label }}{%- endif -%}
+                                </span>
+                                <i class="bi bi-arrow-right mx-1 text-muted"></i>
+                                <span class="text-success">
+                                    {%- if link.target_uri -%}{{ ontology_label(link.target_uri, entity_lookup) }}{%- else -%}{{ link.target_label }}{%- endif -%}
+                                </span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+            {% endif %}
+
             <!-- Key Takeaways -->
             {% if narrative_data.key_takeaways %}
             <div class="card mb-3 border-info">
@@ -1429,28 +1527,6 @@
                     <ul class="mb-0">
                         {% for takeaway in narrative_data.key_takeaways %}
                         <li class="mb-2">{{ takeaway }}</li>
-                        {% endfor %}
-                    </ul>
-                </div>
-            </div>
-            {% endif %}
-
-            <!-- Causal Links -->
-            {% if narrative_data.causal_links %}
-            <div class="card mb-3">
-                <div class="card-header bg-secondary bg-opacity-10">
-                    <h6 class="mb-0"><i class="bi bi-arrow-right-circle text-secondary"></i> Causal Links ({{ narrative_data.causal_links|length }})</h6>
-                </div>
-                <div class="card-body" style="max-height: 200px; overflow-y: auto;">
-                    <ul class="mb-0 small">
-                        {% for link in narrative_data.causal_links %}
-                        <li class="mb-2">
-                            <span class="text-primary">{{ link.source_label if link.source_label else (link.cause if link.cause else '?') }}</span>
-                            <i class="bi bi-arrow-right mx-2 text-muted"></i>
-                            <span class="text-success">{{ link.target_label if link.target_label else (link.effect if link.effect else '?') }}</span>
-                            {% set ltype = link.link_type if link.link_type else (link.type if link.type else '') %}
-                            {% if ltype %}<span class="badge bg-light text-dark ms-2">{{ ltype }}</span>{% endif %}
-                        </li>
                         {% endfor %}
                     </ul>
                 </div>
@@ -1667,14 +1743,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 style: {
                     'background-color': function(ele) {
                         const type = ele.data('type');
+                        // Colors match ENTITY_RESOLUTION_PLAN.md
                         const colors = {
-                            'provision': '#6C757D',  // Gray - Code provisions
-                            'question': '#FFC107',   // Yellow - Questions
-                            'conclusion': '#28A745', // Green - Conclusions
-                            'action': '#343A40',     // Dark - Actions
-                            'event': '#6C757D'       // Gray - Events
+                            'provision': '#6c757d',  // Gray - Code provisions
+                            'question': '#0dcaf0',   // Cyan - Questions (Pass 4)
+                            'conclusion': '#198754', // Green - Conclusions (Pass 4)
+                            'action': '#212529',     // Dark - Actions (Pass 3)
+                            'event': '#adb5bd'       // Light gray - Events (Pass 3)
                         };
-                        return colors[type] || '#17A2B8'; // Cyan for entities
+                        return colors[type] || '#0d6efd'; // Blue for entities
                     },
                     'label': function(ele) {
                         // Truncate labels to fit in nodes
@@ -1684,9 +1761,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         return label.length > maxLen ? label.substring(0, maxLen) + '...' : label;
                     },
                     'color': function(ele) {
-                        // Dark text for light backgrounds (yellow, green)
+                        // Dark text for light backgrounds
                         const type = ele.data('type');
-                        if (type === 'question' || type === 'conclusion') return '#333';
+                        if (type === 'question' || type === 'event') return '#212529'; // Dark text on cyan/light gray
                         return '#fff';
                     },
                     'text-valign': 'center',
@@ -1725,16 +1802,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     'width': 3,
                     'line-color': function(ele) {
                         const edgeType = ele.data('edgeType');
-                        if (edgeType === 'provision_to_question') return '#6C757D';
-                        if (edgeType === 'question_to_conclusion') return '#FFC107';
-                        if (edgeType === 'provision_to_entity') return '#17A2B8';
+                        if (edgeType === 'provision_to_question') return '#6c757d';
+                        if (edgeType === 'question_to_conclusion') return '#0dcaf0';
+                        if (edgeType === 'provision_to_entity') return '#0d6efd';
                         return '#ccc';
                     },
                     'target-arrow-color': function(ele) {
                         const edgeType = ele.data('edgeType');
-                        if (edgeType === 'provision_to_question') return '#6C757D';
-                        if (edgeType === 'question_to_conclusion') return '#FFC107';
-                        if (edgeType === 'provision_to_entity') return '#17A2B8';
+                        if (edgeType === 'provision_to_question') return '#6c757d';
+                        if (edgeType === 'question_to_conclusion') return '#0dcaf0';
+                        if (edgeType === 'provision_to_entity') return '#0d6efd';
                         return '#ccc';
                     },
                     'target-arrow-shape': 'triangle',
@@ -1807,13 +1884,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const node = evt.target;
         const data = node.data();
 
-        // Get node type colors
+        // Get node type colors - matches ENTITY_RESOLUTION_PLAN.md
         const typeColors = {
-            'provision': '#6C757D',
-            'question': '#FFC107',
-            'conclusion': '#28A745',
-            'action': '#343A40',
-            'event': '#6C757D'
+            'provision': '#6c757d',  // Gray
+            'question': '#0dcaf0',   // Cyan
+            'conclusion': '#198754', // Green
+            'action': '#212529',     // Dark
+            'event': '#adb5bd'       // Light gray
         };
 
         // Populate details panel
@@ -1824,11 +1901,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const edgesEl = document.getElementById('cy-detail-edges');
 
         labelEl.textContent = data.label;
-        labelEl.style.borderColor = typeColors[data.type] || '#17A2B8';
+        labelEl.style.borderColor = typeColors[data.type] || '#0d6efd';
 
         typeEl.textContent = data.nodeType || data.type;
-        typeEl.style.backgroundColor = typeColors[data.type] || '#17A2B8';
-        typeEl.style.color = (data.type === 'question' || data.type === 'conclusion') ? '#333' : '#fff';
+        typeEl.style.backgroundColor = typeColors[data.type] || '#0d6efd';
+        typeEl.style.color = (data.type === 'question' || data.type === 'event') ? '#212529' : '#fff';
 
         // Show full text (definition)
         const fullText = data.fullText || data.definition || data.reasoning || '';
@@ -1845,7 +1922,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const otherNode = isSource ? edge.target() : edge.source();
                 const arrow = isSource ? '→' : '←';
                 const li = document.createElement('li');
-                li.innerHTML = `<span style="color:${typeColors[otherNode.data('type')] || '#17A2B8'}">${arrow}</span> ${otherNode.data('label')} <small class="text-muted">(${edge.data('label') || 'related'})</small>`;
+                li.innerHTML = `<span style="color:${typeColors[otherNode.data('type')] || '#0d6efd'}">${arrow}</span> ${otherNode.data('label')} <small class="text-muted">(${edge.data('label') || 'related'})</small>`;
                 edgesEl.appendChild(li);
             });
         }
@@ -3176,10 +3253,220 @@ function publishAllEntities() {
 // to follow the pattern of showing LLM interactions on the extraction page, not the review page.
 
 // =============================================================================
+// ENTITY LOOKUP DATA (for automatic entity detection)
+// =============================================================================
+var ENTITY_LOOKUP = {
+    byUri: {},
+    byLabel: {}
+};
+
+{% if entity_lookup %}
+// Build lookup tables from entity_lookup
+{% for uri, entity in entity_lookup.items() %}
+ENTITY_LOOKUP.byUri["{{ uri|e }}"] = {
+    label: "{{ (entity.label or '')|e }}",
+    definition: "{{ (entity.definition or '')|e|replace('\n', ' ')|replace('\r', '') }}",
+    entityType: "{{ (entity.extraction_type or entity.entity_type or '')|e }}",
+    sourcePass: {{ entity.source_pass or 0 }},
+    source: "{{ entity.source or 'case' }}",
+    uri: "{{ uri|e }}"
+};
+{% if entity.label %}
+ENTITY_LOOKUP.byLabel["{{ entity.label|lower|e }}"] = ENTITY_LOOKUP.byUri["{{ uri|e }}"];
+{% endif %}
+{% endfor %}
+{% endif %}
+
+// =============================================================================
+// AUTOMATIC ENTITY ENHANCEMENT
+// =============================================================================
+// Scans page content and wraps entity labels with interactive popovers
+function enhanceEntityMentions() {
+    if (Object.keys(ENTITY_LOOKUP.byLabel).length === 0) return;
+
+    // Build regex pattern from entity labels (sorted by length desc to match longer first)
+    var labels = Object.keys(ENTITY_LOOKUP.byLabel).sort(function(a, b) {
+        return b.length - a.length;
+    });
+
+    // Escape regex special chars and build pattern
+    var escapedLabels = labels.map(function(label) {
+        return label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    });
+
+    if (escapedLabels.length === 0) return;
+
+    var pattern = new RegExp('\\b(' + escapedLabels.join('|') + ')\\b', 'gi');
+
+    // Elements to scan (card bodies, list items, paragraphs, table cells)
+    var containers = document.querySelectorAll('.tab-content .card-body, .tab-content td, .tab-content p:not(.onto-definition)');
+
+    containers.forEach(function(container) {
+        // Skip if already processed or contains form elements
+        if (container.dataset.entitiesEnhanced || container.querySelector('input, textarea, select')) return;
+
+        var walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null, false);
+        var textNodes = [];
+        var node;
+
+        while (node = walker.nextNode()) {
+            // Skip if parent is already an onto-label or link
+            if (node.parentElement.classList.contains('onto-label') ||
+                node.parentElement.tagName === 'A' ||
+                node.parentElement.closest('.onto-label')) continue;
+
+            if (pattern.test(node.textContent)) {
+                textNodes.push(node);
+            }
+            pattern.lastIndex = 0; // Reset regex state
+        }
+
+        textNodes.forEach(function(textNode) {
+            var text = textNode.textContent;
+            var parts = [];
+            var lastIndex = 0;
+
+            pattern.lastIndex = 0;
+            var match;
+            while ((match = pattern.exec(text)) !== null) {
+                // Add text before match
+                if (match.index > lastIndex) {
+                    parts.push(document.createTextNode(text.substring(lastIndex, match.index)));
+                }
+
+                // Create enhanced span for the match
+                var entity = ENTITY_LOOKUP.byLabel[match[1].toLowerCase()];
+                if (entity) {
+                    var span = document.createElement('span');
+                    span.className = 'onto-label';
+                    span.setAttribute('tabindex', '0');
+                    span.setAttribute('data-bs-toggle', 'popover');
+                    span.setAttribute('data-bs-trigger', 'hover focus');
+                    span.setAttribute('data-bs-html', 'true');
+                    span.setAttribute('data-bs-placement', 'top');
+                    span.setAttribute('data-entity-type', entity.entityType);
+                    span.setAttribute('data-entity-pass', entity.sourcePass);
+                    span.setAttribute('data-entity-definition', entity.definition);
+                    span.setAttribute('data-entity-uri', entity.uri);
+                    span.setAttribute('title', entity.label || match[1]);
+                    span.textContent = match[1];
+                    parts.push(span);
+                } else {
+                    parts.push(document.createTextNode(match[1]));
+                }
+
+                lastIndex = pattern.lastIndex;
+            }
+
+            // Add remaining text
+            if (lastIndex < text.length) {
+                parts.push(document.createTextNode(text.substring(lastIndex)));
+            }
+
+            // Replace text node with parts
+            if (parts.length > 1) {
+                var parent = textNode.parentNode;
+                parts.forEach(function(part) {
+                    parent.insertBefore(part, textNode);
+                });
+                parent.removeChild(textNode);
+            }
+        });
+
+        container.dataset.entitiesEnhanced = 'true';
+    });
+}
+
+// =============================================================================
 // ONTOLOGY LABEL POPOVERS
 // =============================================================================
+// Helper to get pass badge class (global for reuse)
+function getPopoverPassClass(pass) {
+    switch(parseInt(pass)) {
+        case 1: return 'bg-primary';
+        case 2: return 'bg-success';
+        case 3: return 'bg-warning text-dark';
+        case 4: return 'bg-danger';
+        default: return 'bg-secondary';
+    }
+}
+
+// Helper to get type badge class (global for reuse)
+function getPopoverTypeClass(type) {
+    if (!type) return 'bg-secondary';
+    var t = type.toLowerCase();
+    if (t.includes('role')) return 'onto-type-roles';
+    if (t.includes('state')) return 'onto-type-states';
+    if (t.includes('resource')) return 'onto-type-resources';
+    if (t.includes('principle')) return 'onto-type-principles';
+    if (t.includes('obligation')) return 'onto-type-obligations';
+    if (t.includes('constraint')) return 'onto-type-constraints';
+    if (t.includes('capability')) return 'onto-type-capabilities';
+    if (t.includes('action') || t.includes('temporal')) return 'onto-type-actions';
+    if (t.includes('event')) return 'onto-type-events';
+    return 'bg-secondary';
+}
+
+// Build popover content from data attributes
+function buildPopoverContent(el) {
+    var entityType = el.dataset.entityType || '';
+    var entityPass = el.dataset.entityPass || '';
+    var entitySource = el.dataset.entitySource || 'case';
+    var entityDef = el.dataset.entityDefinition || '';
+    var entityUri = el.dataset.entityUri || '';
+
+    var content = '<div class="onto-popover-content">';
+    if (entityType || entityPass || entitySource === 'ontology') {
+        content += '<div class="d-flex align-items-center gap-2 mb-2">';
+        if (entityType) {
+            content += '<span class="badge ' + getPopoverTypeClass(entityType) + '" style="font-size: 0.7rem;">' + entityType + '</span>';
+        }
+        // Show "Ontology" badge for base ontology, or "Pass N" for case entities
+        if (entitySource === 'ontology') {
+            content += '<span class="badge bg-dark" style="font-size: 0.65rem;">Ontology</span>';
+        } else if (entityPass) {
+            content += '<span class="badge ' + getPopoverPassClass(entityPass) + '" style="font-size: 0.65rem;">Pass ' + entityPass + '</span>';
+        }
+        content += '</div>';
+    }
+    if (entityDef) {
+        var truncatedDef = entityDef.length > 200 ? entityDef.substring(0, 200) + '...' : entityDef;
+        content += '<div class="onto-definition" style="font-size: 0.85rem; color: #495057; margin-bottom: 8px;">' + truncatedDef + '</div>';
+    }
+    if (entityUri) {
+        content += '<div class="onto-uri" style="font-size: 0.7rem; word-break: break-all; color: #6c757d; background: #f8f9fa; padding: 4px 6px; border-radius: 3px;"><i class="bi bi-link-45deg"></i> ' + entityUri + '</div>';
+    }
+    if (el.classList.contains('onto-label-unknown')) {
+        content = '<div class="onto-popover-content">';
+        content += '<div class="text-muted small mb-1"><i class="bi bi-question-circle"></i> Not found in case entities</div>';
+        if (entityUri) {
+            content += '<div class="onto-uri" style="font-size: 0.7rem; word-break: break-all; color: #6c757d; background: #f8f9fa; padding: 4px 6px; border-radius: 3px;"><i class="bi bi-link-45deg"></i> ' + entityUri + '</div>';
+        }
+    }
+    content += '</div>';
+    return content;
+}
+
+// Initialize popovers for a set of elements
+function initializePopovers(container) {
+    if (typeof bootstrap === 'undefined') return;
+    var labels = container.querySelectorAll('.onto-label[data-bs-toggle="popover"]:not([aria-describedby])');
+    labels.forEach(function(el) {
+        new bootstrap.Popover(el, {
+            container: 'body',
+            sanitize: false,
+            content: buildPopoverContent(el),
+            html: true
+        });
+    });
+}
+
 // Initialize Bootstrap popovers for ontology labels with rich metadata
 document.addEventListener('DOMContentLoaded', function() {
+    // First, enhance entity mentions throughout the page
+    setTimeout(function() {
+        enhanceEntityMentions();
+    }, 50);
     // Wait a short time for Bootstrap to be fully loaded
     setTimeout(function() {
         if (typeof bootstrap === 'undefined') {
@@ -3187,32 +3474,9 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        // Helper to get pass badge class
-        function getPassClass(pass) {
-            switch(parseInt(pass)) {
-                case 1: return 'bg-primary';
-                case 2: return 'bg-success';
-                case 3: return 'bg-warning text-dark';
-                case 4: return 'bg-danger';
-                default: return 'bg-secondary';
-            }
-        }
-
-        // Helper to get type badge class
-        function getTypeClass(type) {
-            if (!type) return 'bg-secondary';
-            var t = type.toLowerCase();
-            if (t.includes('role')) return 'onto-type-roles';
-            if (t.includes('state')) return 'onto-type-states';
-            if (t.includes('resource')) return 'onto-type-resources';
-            if (t.includes('principle')) return 'onto-type-principles';
-            if (t.includes('obligation')) return 'onto-type-obligations';
-            if (t.includes('constraint')) return 'onto-type-constraints';
-            if (t.includes('capability')) return 'onto-type-capabilities';
-            if (t.includes('action') || t.includes('temporal')) return 'onto-type-actions';
-            if (t.includes('event')) return 'onto-type-events';
-        return 'bg-secondary';
-    }
+        // Local aliases for backward compatibility
+        var getPassClass = getPopoverPassClass;
+        var getTypeClass = getPopoverTypeClass;
 
     // Initialize popovers for ontology labels
     var ontoLabels = document.querySelectorAll('.onto-label[data-bs-toggle="popover"]');
@@ -3263,6 +3527,18 @@ document.addEventListener('DOMContentLoaded', function() {
             sanitize: false,
             content: content,
             html: true
+        });
+    });
+
+    // Reinitialize popovers when switching tabs (needed for hidden tab content)
+    document.querySelectorAll('button[data-bs-toggle="tab"]').forEach(function(tabEl) {
+        tabEl.addEventListener('shown.bs.tab', function(event) {
+            setTimeout(function() {
+                var tabPane = document.querySelector(event.target.dataset.bsTarget);
+                if (tabPane) {
+                    initializePopovers(tabPane);
+                }
+            }, 50);
         });
     });
     }, 100); // Small delay to ensure Bootstrap is loaded

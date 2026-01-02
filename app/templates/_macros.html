@@ -1,0 +1,33 @@
+{#
+    ProEthica Shared Macros
+
+    Usage: {% from '_macros.html' import info_link %}
+#}
+
+{#
+    info_link - Reusable (i) info button linking to references page
+
+    Parameters:
+        anchor: The anchor ID on the references page (without #)
+        tooltip: Tooltip text (usually "Source (Author Year)")
+        class_: Additional CSS classes (optional)
+
+    Example:
+        {{ info_link('ethical-tensions', 'Conflict Classification + Moral Intensity') }}
+        {{ info_link('jones-moral-intensity', 'Jones (1991)') }}
+#}
+{% macro info_link(anchor, tooltip, class_='') %}
+<a href="{{ url_for('tools.references') }}#{{ anchor }}"
+   class="info-link text-muted {{ class_ }}"
+   title="{{ tooltip }}"
+   data-ref-anchor="{{ anchor }}">
+    <i class="bi bi-info-circle"></i>
+</a>
+{% endmacro %}
+
+{#
+    info_link_inline - Same as info_link but with ms-1 margin for inline use
+#}
+{% macro info_link_inline(anchor, tooltip) %}
+{{ info_link(anchor, tooltip, 'ms-1') }}
+{% endmacro %}

@@ -13,6 +13,22 @@ from threading import Lock
 
 logger = logging.getLogger(__name__)
 
+# Bot detection signatures (case-insensitive)
+BOT_SIGNATURES = [
+    'bot', 'crawl', 'spider', 'slurp', 'curl', 'wget', 'python-requests',
+    'scrapy', 'httpclient', 'apache-http', 'java/', 'libwww', 'lwp-',
+    'go-http', 'okhttp', 'headless', 'phantom', 'selenium', 'puppeteer'
+]
+
+
+def is_bot(user_agent: str) -> bool:
+    """Check if user agent looks like a bot."""
+    if not user_agent:
+        return True  # No user agent = suspicious
+    ua_lower = user_agent.lower()
+    return any(sig in ua_lower for sig in BOT_SIGNATURES)
+
+
 # In-memory activity store (last 500 actions)
 MAX_ACTIVITIES = 500
 _activity_store: deque = deque(maxlen=MAX_ACTIVITIES)
@@ -34,7 +50,8 @@ class ActivityRecord:
         path: str = "",
         method: str = "",
         details: Optional[Dict[str, Any]] = None,
-        remote_addr: str = ""
+        remote_addr: str = "",
+        user_agent: str = ""
     ):
         self.timestamp = datetime.now(timezone.utc)
         self.action = action
@@ -45,6 +62,8 @@ class ActivityRecord:
         self.method = method
         self.details = details or {}
         self.remote_addr = remote_addr
+        self.user_agent = user_agent
+        self.is_bot = is_bot(user_agent)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -57,7 +76,8 @@ class ActivityRecord:
             'path': self.path,
             'method': self.method,
             'details': self.details,
-            'remote_addr': self.remote_addr
+            'remote_addr': self.remote_addr,
+            'is_bot': self.is_bot
         }
 
 
@@ -69,7 +89,8 @@ def log_activity(
     path: str = "",
     method: str = "",
     details: Optional[Dict[str, Any]] = None,
-    remote_addr: str = ""
+    remote_addr: str = "",
+    user_agent: str = ""
 ) -> ActivityRecord:
     """
     Log a user activity.
@@ -83,6 +104,7 @@ def log_activity(
         method: HTTP method
         details: Additional context
         remote_addr: Client IP address
+        user_agent: Browser user agent string
 
     Returns:
         The created ActivityRecord
@@ -95,7 +117,8 @@ def log_activity(
         path=path,
         method=method,
         details=details,
-        remote_addr=remote_addr
+        remote_addr=remote_addr,
+        user_agent=user_agent
     )
 
     with _activity_lock:

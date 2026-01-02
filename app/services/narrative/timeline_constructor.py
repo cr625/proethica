@@ -460,16 +460,58 @@ class TimelineConstructor:
 
         # First, add links from causal_normative_links
         for cnl in causal_normative_links:
-            links.append(CausalLink(
-                source_uri=cnl.get('action_uri', ''),
-                source_label=cnl.get('action_label', ''),
-                source_type='action',
-                target_uri=cnl.get('obligation_uri', ''),
-                target_label=cnl.get('obligation_label', ''),
-                target_type='obligation',
-                link_type='triggers',
-                confidence=cnl.get('confidence', 0.5)
-            ))
+            action_uri = cnl.get('action_uri', cnl.get('action_id', ''))
+            action_label = cnl.get('action_label', '')
+
+            # Handle fulfills_obligations array (newer format)
+            fulfills = cnl.get('fulfills_obligations', [])
+            if fulfills:
+                for obl in fulfills:
+                    obl_uri = obl if isinstance(obl, str) else obl.get('uri', '')
+                    obl_label = obl.split('#')[-1].split('/')[-1].replace('_', ' ') if isinstance(obl, str) else obl.get('label', '')
+                    links.append(CausalLink(
+                        source_uri=action_uri,
+                        source_label=action_label,
+                        source_type='action',
+                        target_uri=obl_uri,
+                        target_label=obl_label,
+                        target_type='obligation',
+                        link_type='triggers',
+                        confidence=cnl.get('confidence', 0.7)
+                    ))
+
+            # Handle violates_obligations array (newer format)
+            violates = cnl.get('violates_obligations', [])
+            if violates:
+                for obl in violates:
+                    obl_uri = obl if isinstance(obl, str) else obl.get('uri', '')
+                    obl_label = obl.split('#')[-1].split('/')[-1].replace('_', ' ') if isinstance(obl, str) else obl.get('label', '')
+                    links.append(CausalLink(
+                        source_uri=action_uri,
+                        source_label=action_label,
+                        source_type='action',
+                        target_uri=obl_uri,
+                        target_label=obl_label,
+                        target_type='obligation',
+                        link_type='triggers',
+                        confidence=cnl.get('confidence', 0.7)
+                    ))
+
+            # Fallback to older single obligation format
+            if not fulfills and not violates:
+                obl_uri = cnl.get('obligation_uri', '')
+                obl_label = cnl.get('obligation_label', '')
+                if obl_uri or obl_label:
+                    links.append(CausalLink(
+                        source_uri=action_uri,
+                        source_label=action_label,
+                        source_type='action',
+                        target_uri=obl_uri,
+                        target_label=obl_label,
+                        target_type='obligation',
+                        link_type='triggers',
+                        confidence=cnl.get('confidence', 0.5)
+                    ))
 
         # Build sequential links between timeline events
         for i, event in enumerate(events[:-1]):

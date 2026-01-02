@@ -32,6 +32,7 @@ from app.services.entity_grounding_service import EntityGroundingService
 from app.services.conclusion_analyzer import ConclusionAnalyzer
 from app.services.question_conclusion_linker import QuestionConclusionLinker
 from app.services.case_synthesis_service import CaseSynthesisService
+from app.services.unified_entity_resolver import get_unified_entity_lookup
 
 # Import streaming synthesis
 from app.routes.scenario_pipeline.step4_streaming import synthesize_case_streaming
@@ -395,21 +396,21 @@ def get_entity_graph_api(case_id):
             'code_provision_reference': 4, 'ethical_question': 4, 'ethical_conclusion': 4
         }
 
-        # Entity type colors
+        # Entity type colors - matches ENTITY_RESOLUTION_PLAN.md
         type_colors = {
-            'roles': '#2196F3',
-            'states': '#4CAF50',
-            'resources': '#FF9800',
-            'principles': '#9C27B0',
-            'obligations': '#F44336',
-            'constraints': '#795548',
-            'capabilities': '#3F51B5',
-            'temporal_dynamics_enhanced': '#009688',
-            'actions': '#009688',
-            'events': '#FFC107',
-            'code_provision_reference': '#E91E63',
-            'ethical_question': '#00BCD4',
-            'ethical_conclusion': '#CDDC39'
+            'roles': '#0d6efd',              # Blue - Pass 1
+            'states': '#6f42c1',             # Purple - Pass 1
+            'resources': '#0dcaf0',          # Cyan - Pass 1
+            'principles': '#198754',         # Green - Pass 2
+            'obligations': '#dc3545',        # Red - Pass 2
+            'constraints': '#6c757d',        # Gray - Pass 2
+            'capabilities': '#ffc107',       # Yellow - Pass 2
+            'temporal_dynamics_enhanced': '#212529',  # Dark - Pass 3
+            'actions': '#212529',            # Dark - Pass 3
+            'events': '#adb5bd',             # Light gray - Pass 3
+            'code_provision_reference': '#6c757d',  # Gray - Provisions
+            'ethical_question': '#0dcaf0',   # Cyan - Pass 4
+            'ethical_conclusion': '#198754'  # Green - Pass 4
         }
 
         for entity in entities:
@@ -1204,8 +1205,11 @@ def step4_review(case_id):
         pipeline_status = PipelineStatusService.get_step_status(case_id)
         can_publish = pipeline_status.get('step1', {}).get('complete', False) and unpublished_count > 0
 
-        # Build entity lookup dict for ontology label popovers
-        entity_lookup = _build_entity_lookup_dict(case_id)
+        # Build entity lookup dict for ontology label popovers (includes OntServe base classes)
+        from app.services.unified_entity_resolver import UnifiedEntityResolver
+        resolver = UnifiedEntityResolver(case_id=case_id)
+        entity_lookup = resolver.get_lookup_dict()
+        entity_lookup_by_label = resolver.get_label_index()
 
         context = {
             'case': case,
@@ -1237,7 +1241,8 @@ def step4_review(case_id):
             'decision_points': _load_decision_points_for_review(case_id),
             'narrative_data': _load_narrative_for_review(case_id),
             # Entity lookup for ontology label macro
-            'entity_lookup': entity_lookup
+            'entity_lookup': entity_lookup,
+            'entity_lookup_by_label': entity_lookup_by_label
         }
 
         return render_template('scenario_pipeline/step4_review.html', **context)
@@ -1371,117 +1376,16 @@ def _build_entity_lookup_dict(case_id: int) -> Dict[str, Dict]:
     """
     Build a lookup dictionary mapping entity URIs to their metadata.
 
-    Used by the ontology_label macro to display rich popovers for entity references.
+    DEPRECATED: Use get_unified_entity_lookup() from unified_entity_resolver instead.
+    This function is kept for backwards compatibility.
 
     Args:
         case_id: The case ID to load entities for
 
     Returns:
-        Dict mapping entity_uri -> {
-            'label': str,
-            'definition': str,
-            'entity_type': str,
-            'extraction_type': str,
-            'is_published': bool,
-            'source_pass': int,
-            'provenance': dict
-        }
+        Dict mapping entity_uri -> entity metadata
     """
-    import re
-
-    # Get all entities for this case (both published and unpublished)
-    all_entities = TemporaryRDFStorage.query.filter_by(case_id=case_id).all()
-
-    # Determine source pass from extraction_type
-    pass_map = {
-        'roles': 1, 'states': 1, 'resources': 1,
-        'principles': 2, 'obligations': 2, 'constraints': 2, 'capabilities': 2,
-        'temporal_dynamics_enhanced': 3, 'actions': 3, 'events': 3,
-        'code_provision_reference': 4, 'ethical_question': 4, 'ethical_conclusion': 4,
-        'causal_normative_link': 4, 'question_emergence': 4, 'resolution_pattern': 4,
-        'canonical_decision_point': 4
-    }
-
-    lookup = {}
-    for entity in all_entities:
-        source_pass = pass_map.get(entity.extraction_type, 0)
-
-        # Get definition from database field first, then fall back to RDF fields
-        definition = entity.entity_definition or ''
-        if not definition and entity.rdf_json_ld and isinstance(entity.rdf_json_ld, dict):
-            rdf = entity.rdf_json_ld
-            # Try standard RDF fields first
-            definition = (
-                rdf.get('proeth:description') or
-                rdf.get('description') or
-                rdf.get('rdfs:comment') or
-                rdf.get('proeth-scenario:ethicalTension') or
-                ''
-            )
-            # For Pass 1-2 entities, try properties fields
-            if not definition and rdf.get('properties'):
-                props = rdf.get('properties', {})
-                if props.get('caseInvolvement'):
-                    inv = props.get('caseInvolvement')
-                    definition = inv[0] if isinstance(inv, list) else inv
-                elif props.get('hasEthicalTension'):
-                    tension = props.get('hasEthicalTension')
-                    definition = tension[0] if isinstance(tension, list) else tension
-            # Try source_text as last resort
-            if not definition and rdf.get('source_text'):
-                definition = rdf.get('source_text')
-            # For competing priorities
-            if not definition and rdf.get('proeth:hasCompetingPriorities'):
-                cp = rdf.get('proeth:hasCompetingPriorities', {})
-                if isinstance(cp, dict):
-                    definition = cp.get('proeth:priorityConflict', '')
-
-        entity_data = {
-            'label': entity.entity_label,
-            'definition': definition,
-            'entity_type': entity.entity_type,
-            'extraction_type': entity.extraction_type,
-            'is_published': entity.is_published,
-            'source_pass': source_pass,
-            'provenance': entity.provenance_metadata or {},
-            # Add additional RDF metadata for richer display
-            'rdf_agent': entity.rdf_json_ld.get('proeth:hasAgent') if entity.rdf_json_ld else None,
-            'rdf_temporal': entity.rdf_json_ld.get('proeth:temporalMarker') if entity.rdf_json_ld else None
-        }
-
-        # Index by URI if available
-        if entity.entity_uri:
-            lookup[entity.entity_uri] = entity_data
-
-            # Also index by URI prefix (without trailing suffixes like _Design, _Engineer, _No)
-            # This handles mismatches from rich analysis generating truncated URIs
-            if '#' in entity.entity_uri:
-                fragment = entity.entity_uri.split('#')[-1]
-                base_url = entity.entity_uri.rsplit('#', 1)[0]
-                # Strip common suffixes that get added during extraction
-                for suffix in ['_Design', '_Engineer', '_No', '_Ber', '_Failed', '_Contractor']:
-                    if fragment.endswith(suffix):
-                        truncated_uri = f"{base_url}#{fragment[:-len(suffix)]}"
-                        if truncated_uri not in lookup:
-                            lookup[truncated_uri] = entity_data
-
-        # Also create synthetic short-form URI keys for matching
-        # This handles references like "case-8#Historic_Heavy_Rainfall_Event"
-        if entity.entity_label:
-            # Convert label to URI-friendly format: "Historic Heavy Rainfall Event" -> "Historic_Heavy_Rainfall_Event"
-            label_key = re.sub(r'[^\w\s]', '', entity.entity_label)  # Remove special chars except spaces
-            label_key = label_key.replace(' ', '_')
-            short_uri = f"case-{case_id}#{label_key}"
-            lookup[short_uri] = entity_data
-
-            # Also try without underscores for exact fragment match
-            # e.g., "case-8#HistoricHeavyRainfallEvent"
-            camel_key = label_key.replace('_', '')
-            short_uri_camel = f"case-{case_id}#{camel_key}"
-            if short_uri_camel not in lookup:
-                lookup[short_uri_camel] = entity_data
-
-    return lookup
+    return get_unified_entity_lookup(case_id)
 
 
 @bp.route('/case/<int:case_id>/step4/generate_synthesis_annotations', methods=['POST'])
