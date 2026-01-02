@@ -97,7 +97,12 @@
 
         <div class="card-body">
 
-            <!-- Prefer sections_dual for consistent ordering, fallback to extraction_style -->
+            {% if case.doc_metadata and case.doc_metadata.display_format == 'extraction_style' %}
+            <div data-extraction-style="true">
+                {{ case.description|safe }}
+            </div>
+            {% else %}
+            <!-- Check if we have sections in metadata -->
             {% if case.doc_metadata and case.doc_metadata.sections_dual %}
             <!-- Facts Section -->
             {% if case.doc_metadata.sections_dual.facts and case.doc_metadata.sections_dual.facts.html %}
@@ -119,6 +124,22 @@
             </div>
             {% endif %}
 
+            <!-- NSPE Code of Ethics References Section -->
+            {% if case.doc_metadata.sections_dual.references and case.doc_metadata.sections_dual.references.html %}
+            <div class="mb-4" id="references-section">
+                <h4>NSPE Code of Ethics References</h4>
+                {{ case.doc_metadata.sections_dual.references.html|safe }}
+            </div>
+            {% endif %}
+
+            <!-- Discussion Section -->
+            {% if case.doc_metadata.sections_dual.discussion and case.doc_metadata.sections_dual.discussion.html %}
+            <div class="mb-4" id="discussion-section">
+                <h4>Discussion</h4>
+                {{ case.doc_metadata.sections_dual.discussion.html|safe }}
+            </div>
+            {% endif %}
+
             <!-- Conclusions Section -->
             {% if case.doc_metadata.sections_dual.conclusion and case.doc_metadata.sections_dual.conclusion.html %}
             <div class="mb-4" id="conclusion-section">
@@ -131,22 +152,6 @@
             </div>
             {% endif %}
 
-            <!-- Discussion Section -->
-            {% if case.doc_metadata.sections_dual.discussion and case.doc_metadata.sections_dual.discussion.html %}
-            <div class="mb-4" id="discussion-section">
-                <h4>Discussion</h4>
-                {{ case.doc_metadata.sections_dual.discussion.html|safe }}
-            </div>
-            {% endif %}
-
-            <!-- NSPE Code of Ethics References Section -->
-            {% if case.doc_metadata.sections_dual.references and case.doc_metadata.sections_dual.references.html %}
-            <div class="mb-4" id="references-section">
-                <h4>NSPE Code of Ethics References</h4>
-                {{ case.doc_metadata.sections_dual.references.html|safe }}
-            </div>
-            {% endif %}
-
             <!-- Dissent Section (if present) -->
             {% if case.doc_metadata.sections_dual.dissenting_opinion and case.doc_metadata.sections_dual.dissenting_opinion.html %}
             <div class="mb-4" id="dissent-section">
@@ -155,7 +160,8 @@
             </div>
             {% endif %}
             {% else %}
-            <!-- Fallback to regular description if no sections_dual -->
+            <!-- Fallback to regular description if no sections -->
+            <h4>Description</h4>
             <div class="mb-4">
                 <div id="description-container">
                     <div id="description-content">
@@ -163,6 +169,7 @@
                     </div>
                 </div>
             </div>
+            {% endif %}
             {% endif %}
 
             {% if case.decision %}
