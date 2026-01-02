@@ -1022,11 +1022,10 @@
                     </div>
                     {% endif %}
 
-                    <!-- Entity-Grounded Arguments Section (populated via JavaScript) -->
-                    <div class="mt-4" id="argumentsContainer">
-                        <div class="text-center text-muted py-3">
-                            <i class="bi bi-chat-left-text" style="font-size: 2rem;"></i>
-                            <p class="mt-2 mb-0">Entity-grounded arguments will appear here when generated.</p>
+                    <!-- Entity-Grounded Arguments Section (dynamically loaded) -->
+                    <div id="argumentsContainer" class="mt-4">
+                        <div class="text-center text-muted py-4">
+                            <i class="bi bi-hourglass-split me-2"></i>Loading entity-grounded arguments...
                         </div>
                     </div>
                 </div>
@@ -1047,6 +1046,16 @@
                 </div>
                 <div class="card-body">
                     {% if decision_points and decision_points|length > 0 %}
+                    <!-- Validation Score Legend -->
+                    <div class="alert alert-light border py-2 px-3 mb-3" style="font-size: 0.85rem;">
+                        <strong>Legend:</strong>
+                        <span class="ms-2"><i class="bi bi-hand-thumbs-up text-success"></i> PRO</span>
+                        <span class="ms-2"><i class="bi bi-hand-thumbs-down text-danger"></i> CON</span>
+                        <span class="mx-3">|</span>
+                        <span class="badge bg-secondary text-white" style="font-size: 0.75rem;">N%</span>
+                        <span class="ms-1">= Validation Score</span>
+                        {{ info_link_inline('argument-validation', 'Role ethics validation (Oakley & Cocking 2001)') }}{{ research_caveat('validation-weighting', 'Validation weighting is heuristic, not from literature') }}
+                    </div>
                     <div class="list-group">
                         {% for dp in decision_points %}
                         <div class="list-group-item">
@@ -1078,6 +1087,38 @@
                                             <li>{{ opt.label or opt.description or opt.option_id or opt }}</li>
                                             {% endfor %}
                                         </ol>
+                                    </div>
+                                    {% endif %}
+                                    {% if dp.arguments %}
+                                    <div class="mt-3 pt-2 border-top">
+                                        <small class="text-secondary"><strong>Arguments:</strong></small>
+                                        <div class="row mt-2">
+                                            {% for arg in dp.arguments %}
+                                            <div class="col-md-6 mb-2">
+                                                <div class="card border-{{ 'success' if arg.argument_type == 'pro' else 'danger' }} card-sm">
+                                                    <div class="card-body py-2 px-3">
+                                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                                            <span>
+                                                                <span class="text-{{ 'success' if arg.argument_type == 'pro' else 'danger' }}" title="{{ arg.argument_type|upper }}">
+                                                                    <i class="bi bi-hand-thumbs-{{ 'up' if arg.argument_type == 'pro' else 'down' }}"></i>
+                                                                </span>
+                                                                <span class="text-muted small ms-1" title="{% if arg.decision_point_ids and arg.decision_point_ids|length > 1 %}Shared: {{ arg.decision_point_ids|join(', ') }}{% else %}Unique to this DP{% endif %}">{{ arg.argument_id }}</span>
+                                                            </span>
+                                                            {% if arg.validation %}
+                                                            <span class="badge bg-{{ 'success' if arg.validation.is_valid else 'secondary' }} text-white" style="font-size: 0.7rem;" title="Validation Score: Entity grounding (40%) + Founding value compliance (40%) + Professional virtue alignment (20%)">
+                                                                Score: {{ (arg.validation.validation_score * 100)|int }}%
+                                                            </span>
+                                                            {% endif %}
+                                                        </div>
+                                                        <p class="small mb-1"><strong>{{ arg.claim.text if arg.claim else '' }}</strong></p>
+                                                        {% if arg.warrant %}
+                                                        <p class="small text-muted mb-0">{{ arg.warrant.text }}</p>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
                                     </div>
                                     {% endif %}
                                 </div>
@@ -2769,6 +2810,7 @@ function generateArguments() {
 
 function updateArgumentCount(count) {
     const badge = document.getElementById('argument-count');
+    if (!badge) return;  // Badge element may not exist
     if (count > 0) {
         badge.textContent = count;
         badge.style.display = 'inline';
@@ -2923,6 +2965,16 @@ function renderEntityGroundedArguments(data) {
     });
 
     container.innerHTML = html;
+
+    // Initialize popovers for dynamically added warrant badges
+    if (typeof bootstrap !== 'undefined') {
+        container.querySelectorAll('[data-bs-toggle="popover"]:not([aria-describedby])').forEach(function(el) {
+            new bootstrap.Popover(el, {
+                container: 'body',
+                sanitize: false
+            });
+        });
+    }
 }
 
 function renderToulminArgument(arg, validation, colorClass) {
@@ -2976,7 +3028,12 @@ function renderToulminArgument(arg, validation, colorClass) {
                 <div class="mb-2">
                     <span class="badge bg-primary me-1">WARRANT</span>
                     <span>${arg.warrant?.text || ''}</span>
-                    ${arg.warrant?.entity_label ? `<span class="badge bg-primary bg-opacity-25 ms-1">${arg.warrant.entity_label}</span>` : ''}
+                    ${arg.warrant?.entity_label ? `<span class="badge bg-primary bg-opacity-25 ms-1"
+                        data-bs-toggle="popover"
+                        data-bs-trigger="hover"
+                        data-bs-placement="top"
+                        data-bs-content="${arg.warrant.entity_type ? arg.warrant.entity_type.charAt(0).toUpperCase() + arg.warrant.entity_type.slice(1) : 'Entity'}: ${arg.warrant.entity_label}${arg.warrant.entity_uri ? ' (' + arg.warrant.entity_uri + ')' : ''}"
+                        style="cursor: help;">${arg.warrant.entity_label}</span>` : ''}
                 </div>
 
                 <!-- BACKING (from Provision) -->

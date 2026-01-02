@@ -1255,18 +1255,59 @@ def step4_review(case_id):
 
 
 def _load_decision_points_for_review(case_id: int) -> List[Dict]:
-    """Load canonical decision points for the review page."""
+    """Load canonical decision points for the review page with their arguments."""
     decision_points = []
     dp_objs = TemporaryRDFStorage.query.filter_by(
         case_id=case_id,
         extraction_type='canonical_decision_point'
     ).order_by(TemporaryRDFStorage.created_at).all()
 
+    # Load arguments and validations
+    arg_objs = TemporaryRDFStorage.query.filter_by(
+        case_id=case_id,
+        extraction_type='argument_generated'
+    ).all()
+    val_objs = TemporaryRDFStorage.query.filter_by(
+        case_id=case_id,
+        extraction_type='argument_validation'
+    ).all()
+
+    # Build validation lookup
+    validations = {}
+    for v in val_objs:
+        if v.rdf_json_ld:
+            validations[v.rdf_json_ld.get('argument_id')] = v.rdf_json_ld
+
+    # Group arguments by decision point (including all DPs in decision_point_ids array)
+    args_by_dp = {}
+    for arg in arg_objs:
+        if arg.rdf_json_ld:
+            arg_data = arg.rdf_json_ld.copy()
+            # Attach validation if available
+            arg_id = arg_data.get('argument_id')
+            if arg_id and arg_id in validations:
+                arg_data['validation'] = validations[arg_id]
+
+            # Get all decision point IDs this argument belongs to
+            dp_ids = arg.rdf_json_ld.get('decision_point_ids', [])
+            if not dp_ids:
+                # Fallback to singular decision_point_id
+                primary_dp = arg.rdf_json_ld.get('decision_point_id', '')
+                if primary_dp:
+                    dp_ids = [primary_dp]
+
+            # Add argument to each decision point it belongs to
+            for dp_id in dp_ids:
+                if dp_id not in args_by_dp:
+                    args_by_dp[dp_id] = []
+                args_by_dp[dp_id].append(arg_data)
+
     for obj in dp_objs:
         if obj.rdf_json_ld:
             data = obj.rdf_json_ld
+            focus_id = data.get('focus_id', '')
             decision_points.append({
-                'focus_id': data.get('focus_id', ''),
+                'focus_id': focus_id,
                 'focus_number': data.get('focus_number', 0),
                 'description': data.get('description', obj.entity_label),
                 'decision_question': data.get('decision_question', obj.entity_definition),
@@ -1276,7 +1317,8 @@ def _load_decision_points_for_review(case_id: int) -> List[Dict]:
                 'obligations_in_tension': data.get('obligations_in_tension', []),
                 'options': data.get('options', []),
                 'qc_alignment_score': data.get('qc_alignment_score', 0),
-                'source': data.get('source', 'algorithmic')
+                'source': data.get('source', 'algorithmic'),
+                'arguments': args_by_dp.get(focus_id, [])
             })
 
     return decision_points
@@ -3054,6 +3096,7 @@ def get_entity_grounded_arguments(case_id):
             ArgumentGenerator,
             ArgumentValidator
         )
+        from app.services.entity_analysis.argument_generator import load_canonical_decision_points
         from app.domains import get_domain_config
         from app.models import TemporaryRDFStorage, ExtractionPrompt
 
@@ -3061,7 +3104,15 @@ def get_entity_grounded_arguments(case_id):
 
         # Run pipeline
         domain_config = get_domain_config('engineering')
-        decision_points = compose_decision_points(case_id)
+
+        # Use canonical decision points if available, otherwise compose fresh
+        decision_points = load_canonical_decision_points(case_id)
+        if decision_points is None:
+            logger.info(f"No canonical decision points found, composing from entities")
+            decision_points = compose_decision_points(case_id)
+        else:
+            logger.info(f"Using {len(decision_points.decision_points)} canonical decision points")
+
         alignment_map = get_principle_provision_alignment(case_id)
 
         # Use class methods to pass decision_points and alignment_map

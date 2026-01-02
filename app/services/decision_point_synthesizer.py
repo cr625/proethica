@@ -634,6 +634,10 @@ For each decision point, provide:
 7. Which question(s) this addresses (reference Q numbers)
 8. How the board resolved it (reference C numbers)
 
+CRITICAL: Option descriptions must be ACTION PHRASES (verb form), not policy statements.
+- Good: "Disclose AI tool usage to client", "Verify code with subject matter expert"
+- Bad: "No disclosure required unless contractually specified", "AI Tool Adoption Strategy"
+
 Return as JSON array:
 ```json
 [
@@ -644,8 +648,8 @@ Return as JSON array:
     "role_label": "...",
     "obligation_label": "...",
     "options": [
-      {{"label": "Option A", "description": "..."}},
-      {{"label": "Option B", "description": "..."}}
+      {{"label": "Option A", "description": "Disclose X to stakeholders"}},
+      {{"label": "Option B", "description": "Do not disclose X"}}
     ],
     "addresses_questions": ["Q1", "Q2"],
     "board_resolution": "The board concluded that... (C1)"
@@ -825,6 +829,11 @@ Synthesize 4-6 decision points that:
 2. **Align with Q&C** - Each point should address real board concerns
 3. **Merge similar candidates** - Combine candidates addressing the same issue
 4. **Include Toulmin structure** - Show DATA, WARRANTs, and REBUTTAL for each
+5. **Use action-form options** - Options must be verb phrases describing actions
+
+CRITICAL: Option descriptions must be ACTION PHRASES (verb form), not policy statements.
+- Good: "Disclose AI tool usage to client", "Verify code with subject matter expert"
+- Bad: "No disclosure required unless contractually specified", "AI Tool Adoption Strategy"
 
 ## OUTPUT FORMAT (JSON)
 
@@ -852,8 +861,8 @@ Synthesize 4-6 decision points that:
     "qc_alignment_score": 0.85,
     "intensity_score": 0.7,
     "options": [
-      {{"option_id": "O1", "description": "Option 1", "action_uri": "URI", "is_board_choice": true}},
-      {{"option_id": "O2", "description": "Option 2", "action_uri": "URI", "is_board_choice": false}}
+      {{"option_id": "O1", "description": "Disclose AI tool usage to client", "action_uri": "URI", "is_board_choice": true}},
+      {{"option_id": "O2", "description": "Do not disclose AI tool usage", "action_uri": "URI", "is_board_choice": false}}
     ]
   }}
 ]
