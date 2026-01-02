@@ -4,6 +4,18 @@
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/structure-viewer.css') }}">
+<style>
+/* Improve readability of case content, especially facts section */
+[data-extraction-style="true"] .card-body {
+    line-height: 1.8;
+    font-size: 0.95rem;
+}
+[data-extraction-style="true"] .card-body > p {
+    text-align: justify;
+    hyphens: auto;
+    word-spacing: 0.05em;
+}
+</style>
 {% endblock %}
 
 {% block content %}
@@ -388,6 +400,25 @@
         docIdEl.id = 'document-id';
         docIdEl.value = '{{ case.id }}';
         document.body.appendChild(docIdEl);
+
+        // Format dense facts paragraph into readable chunks
+        const factsCard = document.querySelector('[data-extraction-style="true"] .card-body > p.mb-0');
+        if (factsCard && factsCard.textContent.length > 500) {
+            const text = factsCard.innerHTML;
+            // Split on sentence boundaries (period followed by capital letter)
+            const sentences = text.split(/\.(?=\s*[A-Z])/);
+            if (sentences.length > 3) {
+                // Group sentences into paragraphs (3-4 sentences each)
+                const paragraphs = [];
+                for (let i = 0; i < sentences.length; i += 3) {
+                    const chunk = sentences.slice(i, i + 3).join('. ');
+                    paragraphs.push(chunk + (chunk.endsWith('.') ? '' : '.'));
+                }
+                factsCard.innerHTML = paragraphs.map(p =>
+                    '<span class="d-block mb-3">' + p.trim() + '</span>'
+                ).join('');
+            }
+        }
     });
 
     // Disable old term links highlighting (will be replaced with annotation-based highlighting)
