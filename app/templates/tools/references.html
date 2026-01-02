@@ -2,6 +2,43 @@
 
 {% block title %}References - ProEthica{% endblock %}
 
+{% block styles %}
+<style>
+    /* Highlight animation for referenced sections */
+    .ref-highlight {
+        animation: highlightPulse 2s ease-out;
+    }
+
+    @keyframes highlightPulse {
+        0% {
+            background-color: rgba(255, 193, 7, 0.5);
+            box-shadow: 0 0 0 4px rgba(255, 193, 7, 0.3);
+        }
+        100% {
+            background-color: transparent;
+            box-shadow: none;
+        }
+    }
+
+    /* Ensure h6 headers with IDs have proper padding for scroll offset */
+    h6[id] {
+        scroll-margin-top: 80px;
+        padding: 4px 8px;
+        margin-left: -8px;
+        border-radius: 4px;
+    }
+
+    /* Info link styling (for consistency) */
+    .info-link {
+        text-decoration: none;
+        transition: color 0.2s ease;
+    }
+    .info-link:hover {
+        color: #0d6efd !important;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -180,8 +217,6 @@
                                 professional ethics.</p>
                             <ul class="mb-0">
                                 <li><strong>Dennis et al. (2016)</strong> - Principles vs obligations distinction</li>
-                                <li><strong>Scheutz & Malle (2014)</strong> - Obligations as
-                                    permissible/obligatory/forbidden actions</li>
                                 <li><strong>Anderson & Anderson (2006, 2007, 2011)</strong> - Prima facie duty framework
                                 </li>
                                 <li><strong>Ganascia (2007)</strong> - Answer set programming for conflicting
@@ -205,7 +240,6 @@
                             <p>Context determines which principles activate and how they apply - identical actions
                                 receive different moral evaluations.</p>
                             <ul class="mb-0">
-                                <li><strong>Rao et al. (2023)</strong> - Context-dependence in moral evaluation</li>
                                 <li><strong>Berreby et al. (2017)</strong> - Event Calculus for state representation
                                 </li>
                                 <li><strong>Almpani et al. (2023)</strong> - Context as environmental states</li>
@@ -259,7 +293,6 @@
                                 <li><strong>Govindarajulu & Bringsjord (2017)</strong> - Doctrine of Double Effect
                                     formalization</li>
                                 <li><strong>Sarmiento et al. (2023)</strong> - Causal relationships with NESS test</li>
-                                <li><strong>Dawson (1994)</strong> - Professional actions as distinct categories</li>
                             </ul>
                         </div>
                     </div>
@@ -278,7 +311,6 @@
                             <p>Ethical evaluation depends on event sequences - appropriate responses depend on
                                 historical context and anticipated future.</p>
                             <ul class="mb-0">
-                                <li><strong>Zhang et al. (2023)</strong> - Moral event classification</li>
                                 <li><strong>Anderson & Anderson (2018)</strong> - Event sequence evaluation</li>
                                 <li><strong>Govindarajulu & Bringsjord (2017)</strong> - Temporal modal logic</li>
                                 <li><strong>Arkin (2008)</strong> - "Ethical black box" for event documentation</li>
@@ -329,7 +361,6 @@
                                 requirements.</p>
                             <ul class="mb-0">
                                 <li><strong>Ganascia (2007)</strong> - Hard vs soft (defeasible) constraints</li>
-                                <li><strong>Furbach et al. (2014)</strong> - Deontic constraints and prioritization</li>
                                 <li><strong>Taddeo et al. (2024)</strong> - Legal/regulatory constraint interaction</li>
                                 <li><strong>Arkin (2008)</strong> - Architectural "ethical governors"</li>
                             </ul>
@@ -450,22 +481,6 @@
                 </p>
             </div>
 
-            <h6>Embedding Methods</h6>
-            <div class="border-start border-3 border-info ps-3 mb-3">
-                <p class="mb-1"><strong>Reimers, N. & Gurevych, I. (2019)</strong></p>
-                <p class="fst-italic mb-1">Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks</p>
-                <p class="small text-muted mb-0">
-                    <em>Proceedings of EMNLP-IJCNLP 2019</em>, pp. 3982-3992.
-                    <a href="https://doi.org/10.18653/v1/D19-1410" target="_blank">DOI: 10.18653/v1/D19-1410</a>
-                    |
-                    <a href="https://aclanthology.org/D19-1410/" target="_blank">ACL Anthology</a>
-                </p>
-                <p class="small mt-2 mb-0">
-                    Sentence-BERT (SBERT) for semantic similarity via dense vectors.
-                    ProEthica uses all-MiniLM-L6-v2 for cosine similarity across case sections.
-                </p>
-            </div>
-
             <h6>Legal Case Retrieval</h6>
             <div class="border-start border-3 border-warning ps-3 mb-3">
                 <p class="mb-1"><strong>Sun, Z., Zhang, K., Yu, W., Wang, H. & Xu, J. (2024)</strong></p>
@@ -567,21 +582,76 @@
                 </div>
             </div>
 
-            <h6>Argument Mining Survey</h6>
-            <div class="border-start border-3 border-info ps-3 mb-3">
-                <p class="mb-1"><strong>Lawrence, J. & Reed, C. (2019)</strong></p>
-                <p class="fst-italic mb-1">Argument Mining: A Survey</p>
-                <p class="small text-muted mb-0">
-                    <em>Computational Linguistics</em>, Vol. 45, No. 4, pp. 765-818.
-                    <a href="https://doi.org/10.1162/coli_a_00364" target="_blank">DOI: 10.1162/coli_a_00364</a>
-                    |
-                    <a href="https://direct.mit.edu/coli/article/45/4/765/93362/Argument-Mining-A-Survey"
-                        target="_blank">MIT Press</a>
+            <h6 id="ethical-tensions">Ethical Tensions</h6>
+            <div class="border-start border-3 border-warning ps-3 mb-3">
+                <p class="small mt-2 mb-2">
+                    <strong>Definition:</strong> Ethical tensions document conflicts between obligations and constraints
+                    that create ethical difficulty. ProEthica identifies tensions during Stage 4 (Narrative Construction)
+                    and characterizes each through two complementary frameworks.
                 </p>
-                <p class="small mt-2 mb-0">
-                    Comprehensive survey covering argument component identification (claims, premises),
-                    relation detection (support, attack), and structured prediction approaches.
+
+                <div class="table-responsive mt-2">
+                    <table class="table table-sm table-bordered mb-3 small">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Framework</th>
+                                <th>Description</th>
+                                <th>Source</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Conflict Type Classification</strong></td>
+                                <td>Categorizes tension as Obligation vs Obligation or Obligation vs Constraint</td>
+                                <td>Ganascia (2007); Dennis et al. (2016)</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Moral Intensity Scoring</strong></td>
+                                <td>Assesses severity using six intensity dimensions</td>
+                                <td>Jones (1991) - <a href="#jones-moral-intensity">see below</a></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h6 class="mt-3">Conflict Type Classification</h6>
+                <p class="mb-1"><strong>Ganascia, J.-G. (2007)</strong></p>
+                <p class="fst-italic mb-1">Modelling Ethical Rules of Lying with Answer Set Programming</p>
+                <p class="small text-muted mb-2">
+                    <em>Ethics and Information Technology</em>, Vol. 9, pp. 39-47.
+                    <a href="https://doi.org/10.1007/s10676-006-9134-y" target="_blank">DOI</a>
                 </p>
+                <p class="small mb-2">
+                    Formalizes conflicting obligations through defeasible logic, showing how constraints can
+                    operate as default rules that tolerate justified exceptions under extraordinary circumstances.
+                    These default rules with exceptions enable systems to satisfy a general prohibition while
+                    recommending an exception when adherence would violate other duties. ProEthica adopts this
+                    framework for <strong>Obligation vs Obligation</strong> tensions where two <em>prima facie</em>
+                    duties pull in opposite directions.
+                </p>
+
+                <p class="mb-1 mt-3"><strong>Dennis, L.A., Fisher, M., Slavkovik, M., & Webster, M. (2016)</strong></p>
+                <p class="fst-italic mb-1">Formal Verification of Ethical Choices in Autonomous Systems</p>
+                <p class="small text-muted mb-2">
+                    <em>Robotics and Autonomous Systems</em>, Vol. 77, pp. 1-14.
+                    <a href="https://doi.org/10.1016/j.robot.2015.11.012" target="_blank">DOI</a>
+                </p>
+                <p class="small mb-2">
+                    Establishes hierarchical constraint management that assigns constraints an ethical order
+                    for evaluation purposes. This structure allows systems to distinguish available choices
+                    by how badly they violate principles and to select the least unethical option when
+                    multiple constraints compete. ProEthica uses this for <strong>Obligation vs Constraint</strong>
+                    tensions where a professional duty conflicts with an inviolable boundary.
+                </p>
+
+                <div class="alert alert-light border mt-3 mb-0">
+                    <p class="small mb-0">
+                        <strong>Application:</strong> Each extracted ethical tension displays its conflict type
+                        (Obligation vs Obligation or Obligation vs Constraint) alongside moral intensity scores.
+                        This dual characterization helps practitioners understand both <em>what</em> is in conflict
+                        and <em>how serious</em> the tension is.
+                    </p>
+                </div>
             </div>
 
             <h6 id="jones-moral-intensity">Decision Point Salience / Moral Intensity</h6>
@@ -675,6 +745,89 @@
                 </p>
             </div>
 
+            <h6 id="causal-normative-links">Causal-Normative Links</h6>
+            <div class="border-start border-3 border-warning ps-3 mb-3">
+                <p class="small mt-2 mb-2">
+                    <strong>Definition:</strong> Causal-normative links connect professional actions to the obligations
+                    they fulfill or violate. Each action is mapped to normative framework components through causal
+                    responsibility analysis.
+                </p>
+                <p class="mb-1"><strong>Sarmiento, C., Bourgne, G., Inoue, K., & Ganascia, J.-G. (2023)</strong></p>
+                <p class="fst-italic mb-1">Action Languages Based Actual Causality in Decision Making Contexts</p>
+                <p class="small text-muted mb-2">
+                    <em>LNCS vol. 14276</em>, pp. 247-262. Springer.
+                    <a href="https://doi.org/10.1007/978-3-031-21203-1_15" target="_blank">DOI</a> |
+                    <a href="https://arxiv.org/abs/2205.02919" target="_blank">arXiv</a>
+                </p>
+                <p class="small mb-2">
+                    Uses the <strong>NESS test</strong> (Necessary Element of a Sufficient Set) for causal responsibility
+                    attribution. An action is causally responsible for an outcome if it was a necessary element in a
+                    set of conditions jointly sufficient to produce that outcome. ProEthica applies NESS to determine
+                    which actions fulfill or violate specific obligations.
+                </p>
+                <div class="alert alert-light border mt-2 mb-0">
+                    <p class="small mb-0">
+                        <strong>Application:</strong> The Analysis tab displays causal-normative links showing which
+                        obligations each action <span class="text-success">fulfills</span> and which it
+                        <span class="text-danger">violates</span>, enabling systematic evaluation of professional conduct.
+                    </p>
+                </div>
+            </div>
+
+            <h6 id="initial-fluents">Initial Fluents (Event Calculus)</h6>
+            <div class="border-start border-3 border-success ps-3 mb-3">
+                <p class="small mt-2 mb-2">
+                    <strong>Definition:</strong> Fluents are time-varying properties that represent the state of the
+                    ethical situation. Initial fluents capture the conditions at case start that persist until
+                    changed by actions or events.
+                </p>
+                <p class="mb-1"><strong>Berreby, F., Bourgne, G., & Ganascia, J.-G. (2017)</strong></p>
+                <p class="fst-italic mb-1">A Declarative Modular Framework for Representing and Applying Ethical Principles</p>
+                <p class="small text-muted mb-2">
+                    <em>Proceedings of AAMAS 2017</em>, pp. 96-104.
+                    <a href="https://dl.acm.org/doi/10.5555/3091125.3091145" target="_blank">ACM</a> |
+                    <a href="https://www.ifaamas.org/Proceedings/aamas2017/pdfs/p96.pdf" target="_blank">PDF</a>
+                </p>
+                <p class="small mb-2">
+                    Employs <strong>Event Calculus</strong> formalism where fluents are properties that hold at
+                    particular time points. Actions and events <em>initiate</em> or <em>terminate</em> fluents,
+                    creating state transitions. Fluents persist by default (law of inertia) until explicitly changed.
+                </p>
+                <div class="alert alert-light border mt-2 mb-0">
+                    <p class="small mb-0">
+                        <strong>Application:</strong> The Narrative tab displays initial fluents as state conditions
+                        at case start (e.g., "Engineer_A hasEmploymentWith Firm_X", "Project_Y hasStatus active").
+                        These provide the baseline context for evaluating subsequent actions and events.
+                    </p>
+                </div>
+            </div>
+
+            <h6 id="question-emergence">Question Emergence (Toulmin Warrants)</h6>
+            <div class="border-start border-3 border-info ps-3 mb-3">
+                <p class="small mt-2 mb-2">
+                    <strong>Definition:</strong> Question emergence analysis identifies how ethical questions arise
+                    from triggering conditions and competing normative claims.
+                </p>
+                <p class="mb-1"><strong>Toulmin, S.E. (1958/2003)</strong></p>
+                <p class="fst-italic mb-1">The Uses of Argument</p>
+                <p class="small text-muted mb-2">
+                    Cambridge University Press.
+                    <a href="https://doi.org/10.1017/CBO9780511840005" target="_blank">DOI</a>
+                </p>
+                <p class="small mb-2">
+                    In Toulmin's model, <strong>Data</strong> (facts/events) trigger ethical consideration when they
+                    invoke <strong>Warrants</strong> (principles/obligations that license conclusions).
+                    <strong>Competing warrants</strong> arise when the same data supports different conclusions
+                    through different normative pathways.
+                </p>
+                <div class="alert alert-light border mt-2 mb-0">
+                    <p class="small mb-0">
+                        <strong>Application:</strong> The Analysis tab shows question emergence with triggering
+                        events/actions (data) and competing warrants (obligations that pull toward different answers).
+                    </p>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -688,4 +841,40 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Highlight the referenced section when navigating via hash
+    function highlightSection() {
+        const hash = window.location.hash;
+        if (hash) {
+            const targetId = hash.substring(1);
+            const target = document.getElementById(targetId);
+
+            if (target) {
+                // Remove any existing highlights
+                document.querySelectorAll('.ref-highlight').forEach(el => {
+                    el.classList.remove('ref-highlight');
+                });
+
+                // Add highlight to target
+                target.classList.add('ref-highlight');
+
+                // Scroll into view with offset for fixed header
+                setTimeout(() => {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 100);
+            }
+        }
+    }
+
+    // Run on page load
+    highlightSection();
+
+    // Run on hash change (for in-page navigation)
+    window.addEventListener('hashchange', highlightSection);
+});
+</script>
 {% endblock %}
