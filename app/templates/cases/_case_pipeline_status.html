@@ -30,10 +30,24 @@ Required context variables:
 <div class="card mb-4 pipeline-status-card">
     <div class="card-body py-2">
         <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
-            <div class="d-flex align-items-center">
-                <span class="text-muted me-3 small fw-bold">
+            <div class="d-flex align-items-center gap-3">
+                <span class="text-muted small fw-bold">
                     <i class="bi bi-diagram-3"></i> Analysis Pipeline
                 </span>
+                {% if entity_count is defined and entity_count > 0 %}
+                <span class="badge bg-primary" title="Entities Extracted">
+                    <i class="bi bi-node-plus"></i> {{ entity_count }}
+                </span>
+                {% endif %}
+                {% if transformation_type is defined and transformation_type %}
+                <span class="badge bg-purple text-white" title="Transformation Type" style="background-color: #6f42c1 !important;">
+                    {% if transformation_type == 'transfer' %}Transfer
+                    {% elif transformation_type == 'stalemate' %}Stalemate
+                    {% elif transformation_type == 'oscillation' %}Oscillation
+                    {% elif transformation_type == 'phase_lag' %}Phase Lag
+                    {% else %}{{ transformation_type|title }}{% endif %}
+                </span>
+                {% endif %}
             </div>
             <div class="d-flex align-items-center gap-2 flex-wrap pipeline-steps-row">
                 {# Step 1: Contextual Framework #}
@@ -42,7 +56,6 @@ Required context variables:
                    title="Roles, States, Resources">
                     <span class="step-num">1</span>
                     <span class="step-name d-none d-md-inline">Contextual</span>
-                    {% if step1_complete %}<i class="bi bi-check-lg ms-1"></i>{% endif %}
                 </a>
 
                 {# Step 2: Normative Requirements #}
@@ -52,7 +65,6 @@ Required context variables:
                    title="Principles, Obligations, Constraints, Capabilities">
                     <span class="step-num">2</span>
                     <span class="step-name d-none d-md-inline">Normative</span>
-                    {% if step2_complete %}<i class="bi bi-check-lg ms-1"></i>{% endif %}
                 </a>
                 {% else %}
                 <span class="btn btn-sm btn-outline-secondary pipeline-step-btn disabled" title="Complete Step 1 first">
@@ -69,7 +81,6 @@ Required context variables:
                    title="Actions, Events">
                     <span class="step-num">3</span>
                     <span class="step-name d-none d-md-inline">Temporal</span>
-                    {% if step3_complete %}<i class="bi bi-check-lg ms-1"></i>{% endif %}
                 </a>
                 {% else %}
                 <span class="btn btn-sm btn-outline-secondary pipeline-step-btn disabled" title="Complete Step 2 first">
@@ -79,14 +90,14 @@ Required context variables:
                 </span>
                 {% endif %}
 
-                {# Step 4: Whole-Case Synthesis #}
+                {# Step 4: Whole-Case Synthesis - PRIMARY ACTION #}
                 {% if step4_available %}
                 <a href="{{ step4_url }}"
-                   class="btn btn-sm pipeline-step-btn {% if step4_complete %}btn-success{% elif step4_available %}btn-outline-primary{% endif %}"
+                   class="btn pipeline-step-btn pipeline-step-primary {% if step4_complete %}pipeline-step-complete{% endif %}"
                    title="Code Provisions, Questions, Conclusions, Transformation">
+                    <i class="bi bi-stars me-1"></i>
                     <span class="step-num">4</span>
                     <span class="step-name d-none d-md-inline">Synthesis</span>
-                    {% if step4_complete %}<i class="bi bi-check-lg ms-1"></i>{% endif %}
                 </a>
                 {% else %}
                 <span class="btn btn-sm btn-outline-secondary pipeline-step-btn disabled" title="Complete Step 3 first">
@@ -138,6 +149,34 @@ Required context variables:
     opacity: 0.6;
     cursor: not-allowed;
     pointer-events: none;
+}
+
+/* Step 4 Synthesis - Primary CTA styling */
+.pipeline-step-primary {
+    background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+    border: 2px solid #fd7e14;
+    color: #000;
+    font-weight: bold;
+    font-size: 0.9rem;
+    padding: 0.35rem 0.75rem;
+    box-shadow: 0 2px 8px rgba(253, 126, 20, 0.3);
+}
+.pipeline-step-primary:hover {
+    background: linear-gradient(135deg, #ffca2c 0%, #fd9644 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(253, 126, 20, 0.4);
+    color: #000;
+}
+.pipeline-step-primary.pipeline-step-complete {
+    background: linear-gradient(135deg, #198754 0%, #157347 100%);
+    border-color: #146c43;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(25, 135, 84, 0.3);
+}
+.pipeline-step-primary.pipeline-step-complete:hover {
+    background: linear-gradient(135deg, #1ea362 0%, #198754 100%);
+    box-shadow: 0 4px 12px rgba(25, 135, 84, 0.4);
+    color: #fff;
 }
 
 @media (max-width: 576px) {

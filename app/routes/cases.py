@@ -490,12 +490,61 @@ def view_case(id):
     # Get pipeline status for the analysis pipeline status bar
     pipeline_status = PipelineStatusService.get_step_status(document.id)
 
+    # Get summary counts for Quick Summary card
+    entity_count = 0
+    question_count = 0
+    conclusion_count = 0
+    transformation_type = None
+    try:
+        from app.models import TemporaryRDFStorage
+        entity_count = TemporaryRDFStorage.query.filter_by(case_id=document.id).count()
+
+        # Get question/conclusion counts from doc_metadata if available
+        if metadata:
+            questions_list = metadata.get('questions_list', [])
+            question_count = len(questions_list) if questions_list else 0
+
+            conclusion_items = metadata.get('conclusion_items', [])
+            conclusion_count = len(conclusion_items) if conclusion_items else 0
+
+        # Get transformation type from extraction_prompts if Step 4 complete
+        if pipeline_status.get('step4', {}).get('complete'):
+            from app.models import ExtractionPrompt
+            transform_prompt = ExtractionPrompt.query.filter_by(
+                case_id=document.id,
+                concept_type='transformation_classification'
+            ).first()
+            if transform_prompt and transform_prompt.raw_response:
+                transform_data = transform_prompt.raw_response
+                if isinstance(transform_data, dict):
+                    transformation_type = transform_data.get('transformation_type') or transform_data.get('type')
+    except Exception as e:
+        logger.warning(f"Could not get summary counts for case {document.id}: {str(e)}")
+
+    # Get entity lookup for popovers (only if entities exist)
+    entity_lookup = {}
+    entity_lookup_by_label = {}
+    if entity_count > 0:
+        try:
+            from app.services.unified_entity_resolver import UnifiedEntityResolver
+            resolver = UnifiedEntityResolver(case_id=document.id)
+            entity_lookup = resolver.get_lookup_dict()
+            entity_lookup_by_label = resolver.get_label_index()
+        except Exception as e:
+            logger.warning(f"Could not get entity lookup for case {document.id}: {str(e)}")
+
     return render_template('case_detail.html', case=case, world=world,
                           entity_triples=entity_triples,
                           knowledge_graph_connections=knowledge_graph_connections,
                           term_links_by_section=term_links_by_section,
                           annotation_count=annotation_count,
-                          pipeline_status=pipeline_status)
+                          pipeline_status=pipeline_status,
+                          entity_count=entity_count,
+                          question_count=question_count,
+                          conclusion_count=conclusion_count,
+                          transformation_type=transformation_type,
+                          entity_lookup=entity_lookup,
+                          entity_lookup_by_label=entity_lookup_by_label)
 
 @cases_bp.route('/new', methods=['GET'])
 @auth_required_for_create  # Require login to see case creation options

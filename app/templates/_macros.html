@@ -1,7 +1,7 @@
 {#
     ProEthica Shared Macros
 
-    Usage: {% from '_macros.html' import info_link %}
+    Usage: {% from '_macros.html' import info_link, research_caveat, synthesis_link %}
 #}
 
 {#
@@ -16,18 +16,53 @@
         {{ info_link('ethical-tensions', 'Conflict Classification + Moral Intensity') }}
         {{ info_link('jones-moral-intensity', 'Jones (1991)') }}
 #}
-{% macro info_link(anchor, tooltip, class_='') %}
+{% macro info_link(anchor, tooltip, class_='') -%}
 <a href="{{ url_for('tools.references') }}#{{ anchor }}"
    class="info-link text-muted {{ class_ }}"
    title="{{ tooltip }}"
-   data-ref-anchor="{{ anchor }}">
-    <i class="bi bi-info-circle"></i>
-</a>
-{% endmacro %}
+   data-ref-anchor="{{ anchor }}"
+   style="text-decoration: none;"><i class="bi bi-info-circle"></i></a>
+{%- endmacro %}
 
 {#
     info_link_inline - Same as info_link but with ms-1 margin for inline use
 #}
-{% macro info_link_inline(anchor, tooltip) %}
+{% macro info_link_inline(anchor, tooltip) -%}
 {{ info_link(anchor, tooltip, 'ms-1') }}
-{% endmacro %}
+{%- endmacro %}
+
+{#
+    research_caveat - Warning icon for research/exploratory features
+
+    Parameters:
+        anchor: The anchor ID on the references page (without #)
+        tooltip: Tooltip text explaining the caveat
+
+    Example:
+        {{ research_caveat('ethical-frameworks', 'Ethical frameworks not fully defined in ontology') }}
+#}
+{% macro research_caveat(anchor, tooltip) -%}
+<a href="{{ url_for('tools.references') }}#{{ anchor }}"
+   class="text-warning ms-1"
+   title="{{ tooltip }}"
+   data-ref-anchor="{{ anchor }}"
+   style="text-decoration: none;"><i class="bi bi-exclamation-triangle-fill"></i></a>
+{%- endmacro %}
+
+{#
+    synthesis_link - Link to Step 4 Synthesis tabs for deep navigation
+
+    Parameters:
+        case_id: The case ID to link to
+        tab: Tab anchor without -tab suffix (e.g., 'questions', 'narrative', 'provisions')
+        tooltip: Tooltip text (e.g., 'View in Synthesis')
+
+    Example:
+        {{ synthesis_link(case.id, 'questions', 'View Questions & Conclusions analysis') }}
+#}
+{% macro synthesis_link(case_id, tab, tooltip) -%}
+<a href="{{ url_for('step4.step4_review', case_id=case_id) }}#{{ tab }}"
+   class="synthesis-link text-primary ms-2"
+   title="{{ tooltip }}"
+   style="text-decoration: none; font-size: 0.85em;"><i class="bi bi-box-arrow-up-right"></i></a>
+{%- endmacro %}

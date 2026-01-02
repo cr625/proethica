@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from '_macros.html' import info_link, info_link_inline %}
+{% from '_macros.html' import info_link, info_link_inline, research_caveat %}
 
 {# Ontology Label Macro - inline definition for entity labels with popovers #}
 {% macro ontology_label(uri, entity_lookup) %}
@@ -573,7 +573,7 @@
                                     {% elif q_type == 'principle_tension' %}
                                     <span class="badge bg-info ms-2">Principle Tension</span>
                                     {% elif q_type == 'theoretical' %}
-                                    <span class="badge bg-dark ms-2">Theoretical</span>
+                                    <span class="badge bg-dark ms-2">Theoretical</span>{{ research_caveat('ethical-frameworks', 'Ethical frameworks (deontological, virtue ethics, etc.) not fully defined in ontology - research exploratory') }}
                                     {% elif q_type == 'counterfactual' %}
                                     <span class="badge bg-light text-dark ms-2">Counterfactual</span>
                                     {% endif %}
@@ -754,7 +754,7 @@
                                         {% elif q_type == 'principle_tension' %}
                                         <span class="badge bg-info">Principle Tension</span>
                                         {% elif q_type == 'theoretical' %}
-                                        <span class="badge bg-dark">Theoretical</span>
+                                        <span class="badge bg-dark">Theoretical</span>{{ research_caveat('ethical-frameworks', 'Ethical frameworks (deontological, virtue ethics, etc.) not fully defined in ontology - research exploratory') }}
                                         {% elif q_type == 'counterfactual' %}
                                         <span class="badge bg-light text-dark">Counterfactual</span>
                                         {% endif %}
@@ -879,7 +879,7 @@
                         <h6 class="border-bottom pb-2 mb-3">
                             <i class="bi bi-question-circle text-info me-2"></i>
                             Question Emergence
-                            {{ info_link_inline('question-emergence', 'Toulmin Warrants (1958)') }}
+                            {{ info_link_inline('question-emergence', 'Toulmin Warrants (1958)') }}{{ research_caveat('ethical-frameworks', 'Ethical frameworks (deontological, virtue ethics, etc.) not fully defined in ontology - research exploratory') }}
                             <span class="badge bg-info ms-2">{{ rich_analysis.question_emergence|length }}</span>
                         </h6>
                         {% if rich_analysis.question_emergence %}
@@ -1021,6 +1021,14 @@
                         <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}#rich_analysisSection">Run Rich Analysis</a> on the Step 4 page first.
                     </div>
                     {% endif %}
+
+                    <!-- Entity-Grounded Arguments Section (populated via JavaScript) -->
+                    <div class="mt-4" id="argumentsContainer">
+                        <div class="text-center text-muted py-3">
+                            <i class="bi bi-chat-left-text" style="font-size: 2rem;"></i>
+                            <p class="mt-2 mb-0">Entity-grounded arguments will appear here when generated.</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2771,6 +2779,10 @@ function updateArgumentCount(count) {
 
 function renderEntityGroundedArguments(data) {
     const container = document.getElementById('argumentsContainer');
+    if (!container) {
+        console.log('argumentsContainer not found - skipping entity arguments render');
+        return;
+    }
     const args = data.arguments || [];
     const validations = data.validations || [];
     const decisionPoints = data.decision_points || [];
@@ -3253,15 +3265,15 @@ function publishAllEntities() {
 // to follow the pattern of showing LLM interactions on the extraction page, not the review page.
 
 // =============================================================================
-// ENTITY LOOKUP DATA (for automatic entity detection)
+// ENTITY LOOKUP DATA (for popover content)
 // =============================================================================
+// Used by ontology_label macro popovers - explicit entity references only
 var ENTITY_LOOKUP = {
-    byUri: {},
-    byLabel: {}
+    byUri: {}
 };
 
 {% if entity_lookup %}
-// Build lookup tables from entity_lookup
+// Build lookup table from entity_lookup (keyed by URI)
 {% for uri, entity in entity_lookup.items() %}
 ENTITY_LOOKUP.byUri["{{ uri|e }}"] = {
     label: "{{ (entity.label or '')|e }}",
@@ -3271,111 +3283,8 @@ ENTITY_LOOKUP.byUri["{{ uri|e }}"] = {
     source: "{{ entity.source or 'case' }}",
     uri: "{{ uri|e }}"
 };
-{% if entity.label %}
-ENTITY_LOOKUP.byLabel["{{ entity.label|lower|e }}"] = ENTITY_LOOKUP.byUri["{{ uri|e }}"];
-{% endif %}
 {% endfor %}
 {% endif %}
-
-// =============================================================================
-// AUTOMATIC ENTITY ENHANCEMENT
-// =============================================================================
-// Scans page content and wraps entity labels with interactive popovers
-function enhanceEntityMentions() {
-    if (Object.keys(ENTITY_LOOKUP.byLabel).length === 0) return;
-
-    // Build regex pattern from entity labels (sorted by length desc to match longer first)
-    var labels = Object.keys(ENTITY_LOOKUP.byLabel).sort(function(a, b) {
-        return b.length - a.length;
-    });
-
-    // Escape regex special chars and build pattern
-    var escapedLabels = labels.map(function(label) {
-        return label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    });
-
-    if (escapedLabels.length === 0) return;
-
-    var pattern = new RegExp('\\b(' + escapedLabels.join('|') + ')\\b', 'gi');
-
-    // Elements to scan (card bodies, list items, paragraphs, table cells)
-    var containers = document.querySelectorAll('.tab-content .card-body, .tab-content td, .tab-content p:not(.onto-definition)');
-
-    containers.forEach(function(container) {
-        // Skip if already processed or contains form elements
-        if (container.dataset.entitiesEnhanced || container.querySelector('input, textarea, select')) return;
-
-        var walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null, false);
-        var textNodes = [];
-        var node;
-
-        while (node = walker.nextNode()) {
-            // Skip if parent is already an onto-label or link
-            if (node.parentElement.classList.contains('onto-label') ||
-                node.parentElement.tagName === 'A' ||
-                node.parentElement.closest('.onto-label')) continue;
-
-            if (pattern.test(node.textContent)) {
-                textNodes.push(node);
-            }
-            pattern.lastIndex = 0; // Reset regex state
-        }
-
-        textNodes.forEach(function(textNode) {
-            var text = textNode.textContent;
-            var parts = [];
-            var lastIndex = 0;
-
-            pattern.lastIndex = 0;
-            var match;
-            while ((match = pattern.exec(text)) !== null) {
-                // Add text before match
-                if (match.index > lastIndex) {
-                    parts.push(document.createTextNode(text.substring(lastIndex, match.index)));
-                }
-
-                // Create enhanced span for the match
-                var entity = ENTITY_LOOKUP.byLabel[match[1].toLowerCase()];
-                if (entity) {
-                    var span = document.createElement('span');
-                    span.className = 'onto-label';
-                    span.setAttribute('tabindex', '0');
-                    span.setAttribute('data-bs-toggle', 'popover');
-                    span.setAttribute('data-bs-trigger', 'hover focus');
-                    span.setAttribute('data-bs-html', 'true');
-                    span.setAttribute('data-bs-placement', 'top');
-                    span.setAttribute('data-entity-type', entity.entityType);
-                    span.setAttribute('data-entity-pass', entity.sourcePass);
-                    span.setAttribute('data-entity-definition', entity.definition);
-                    span.setAttribute('data-entity-uri', entity.uri);
-                    span.setAttribute('title', entity.label || match[1]);
-                    span.textContent = match[1];
-                    parts.push(span);
-                } else {
-                    parts.push(document.createTextNode(match[1]));
-                }
-
-                lastIndex = pattern.lastIndex;
-            }
-
-            // Add remaining text
-            if (lastIndex < text.length) {
-                parts.push(document.createTextNode(text.substring(lastIndex)));
-            }
-
-            // Replace text node with parts
-            if (parts.length > 1) {
-                var parent = textNode.parentNode;
-                parts.forEach(function(part) {
-                    parent.insertBefore(part, textNode);
-                });
-                parent.removeChild(textNode);
-            }
-        });
-
-        container.dataset.entitiesEnhanced = 'true';
-    });
-}
 
 // =============================================================================
 // ONTOLOGY LABEL POPOVERS
@@ -3463,10 +3372,6 @@ function initializePopovers(container) {
 
 // Initialize Bootstrap popovers for ontology labels with rich metadata
 document.addEventListener('DOMContentLoaded', function() {
-    // First, enhance entity mentions throughout the page
-    setTimeout(function() {
-        enhanceEntityMentions();
-    }, 50);
     // Wait a short time for Bootstrap to be fully loaded
     setTimeout(function() {
         if (typeof bootstrap === 'undefined') {

@@ -1,9 +1,41 @@
 {% extends "base.html" %}
+{% from '_macros.html' import synthesis_link %}
 
 {% block title %}{{ case.title }} - AI Ethical Decision-Making Simulator{% endblock %}
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/structure-viewer.css') }}">
+<style>
+/* Improve readability of case content, especially facts section */
+[data-extraction-style="true"] .card-body {
+    line-height: 1.8;
+    font-size: 0.95rem;
+}
+[data-extraction-style="true"] .card-body > p {
+    text-align: justify;
+    hyphens: auto;
+    word-spacing: 0.05em;
+}
+
+/* Entity Popover Styles */
+.onto-label { cursor: help; border-bottom: 1px dotted currentColor; text-decoration: none; }
+.onto-label:hover { background-color: rgba(var(--bs-primary-rgb), 0.1); border-radius: 2px; }
+.onto-popover-content { max-width: 350px; }
+.onto-popover-content .onto-type-badge { font-size: 0.7rem; padding: 0.15rem 0.4rem; }
+.onto-popover-content .onto-uri { font-size: 0.7rem; word-break: break-all; color: #6c757d; background: #f8f9fa; padding: 4px 6px; border-radius: 3px; margin-top: 8px; }
+.onto-popover-content .onto-definition { font-size: 0.85rem; margin: 8px 0; color: #495057; }
+/* Entity type colors */
+.onto-type-roles, .onto-type-role { background-color: #0d6efd; color: white; }
+.onto-type-states, .onto-type-state { background-color: #6f42c1; color: white; }
+.onto-type-resources, .onto-type-resource { background-color: #0dcaf0; color: black; }
+.onto-type-principles, .onto-type-principle { background-color: #198754; color: white; }
+.onto-type-obligations, .onto-type-obligation { background-color: #dc3545; color: white; }
+.onto-type-constraints, .onto-type-constraint { background-color: #6c757d; color: white; }
+.onto-type-capabilities, .onto-type-capability { background-color: #ffc107; color: black; }
+.onto-type-actions, .onto-type-action { background-color: #212529; color: white; }
+.onto-type-events, .onto-type-event { background-color: #e9ecef; color: #212529; }
+.onto-source-ontology { border: 2px solid #0d6efd; }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -107,7 +139,7 @@
             <!-- Facts Section -->
             {% if case.doc_metadata.sections_dual.facts and case.doc_metadata.sections_dual.facts.html %}
             <div class="mb-4" id="facts-section">
-                <h4>Facts</h4>
+                <h4>Facts{% if pipeline_status.step4.complete %}{{ synthesis_link(case.id, 'narrative', 'View Initial Fluents in Synthesis') }}{% endif %}</h4>
                 {{ case.doc_metadata.sections_dual.facts.html|safe }}
             </div>
             {% endif %}
@@ -116,9 +148,9 @@
             {% if case.doc_metadata.sections_dual.question and case.doc_metadata.sections_dual.question.html %}
             <div class="mb-4" id="questions-section">
                 {% if case.doc_metadata.questions_list and case.doc_metadata.questions_list|length > 1 %}
-                <h4>Questions</h4>
+                <h4>Questions{% if pipeline_status.step4.complete %}{{ synthesis_link(case.id, 'questions', 'View Questions & Conclusions analysis') }}{% endif %}</h4>
                 {% else %}
-                <h4>Question</h4>
+                <h4>Question{% if pipeline_status.step4.complete %}{{ synthesis_link(case.id, 'questions', 'View Questions & Conclusions analysis') }}{% endif %}</h4>
                 {% endif %}
                 {{ case.doc_metadata.sections_dual.question.html|safe }}
             </div>
@@ -144,9 +176,9 @@
             {% if case.doc_metadata.sections_dual.conclusion and case.doc_metadata.sections_dual.conclusion.html %}
             <div class="mb-4" id="conclusion-section">
                 {% if case.doc_metadata.conclusion_items and case.doc_metadata.conclusion_items|length > 1 %}
-                <h4>Conclusions</h4>
+                <h4>Conclusions{% if pipeline_status.step4.complete %}{{ synthesis_link(case.id, 'questions', 'View Questions & Conclusions analysis') }}{% endif %}</h4>
                 {% else %}
-                <h4>Conclusion</h4>
+                <h4>Conclusion{% if pipeline_status.step4.complete %}{{ synthesis_link(case.id, 'questions', 'View Questions & Conclusions analysis') }}{% endif %}</h4>
                 {% endif %}
                 {{ case.doc_metadata.sections_dual.conclusion.html|safe }}
             </div>
@@ -388,10 +420,303 @@
         docIdEl.id = 'document-id';
         docIdEl.value = '{{ case.id }}';
         document.body.appendChild(docIdEl);
+
+        // Format dense facts paragraph into readable chunks with expand/collapse
+        const factsCard = document.querySelector('[data-extraction-style="true"] .card-body > p.mb-0');
+        if (factsCard && factsCard.textContent.length > 500) {
+            const text = factsCard.innerHTML;
+            // Split on sentence boundaries (period followed by capital letter)
+            const sentences = text.split(/\.(?=\s*[A-Z])/);
+            if (sentences.length > 5) {
+                // Create preview (first 4 sentences) and remaining content
+                const previewSentences = sentences.slice(0, 4).join('. ') + '.';
+                const remainingSentences = sentences.slice(4);
+
+                // Group remaining sentences into paragraphs (3 sentences each)
+                const remainingParagraphs = [];
+                for (let i = 0; i < remainingSentences.length; i += 3) {
+                    const chunk = remainingSentences.slice(i, i + 3).join('. ');
+                    remainingParagraphs.push(chunk + (chunk.endsWith('.') ? '' : '.'));
+                }
+
+                // Build expandable structure
+                const expandId = 'factsExpand';
+                factsCard.innerHTML = `
+                    <span class="d-block mb-2">${previewSentences.trim()}</span>
+                    <div class="collapse" id="${expandId}">
+                        ${remainingParagraphs.map(p => '<span class="d-block mb-3">' + p.trim() + '</span>').join('')}
+                    </div>
+                    <button class="btn btn-sm btn-link text-muted p-0" type="button"
+                            data-bs-toggle="collapse" data-bs-target="#${expandId}"
+                            aria-expanded="false" aria-controls="${expandId}">
+                        <span class="expand-text"><i class="bi bi-chevron-down"></i> Show more (${remainingSentences.length} more sentences)</span>
+                        <span class="collapse-text d-none"><i class="bi bi-chevron-up"></i> Show less</span>
+                    </button>
+                `;
+
+                // Toggle button text on expand/collapse
+                const collapseEl = document.getElementById(expandId);
+                if (collapseEl) {
+                    collapseEl.addEventListener('show.bs.collapse', function() {
+                        const btn = factsCard.querySelector('button');
+                        btn.querySelector('.expand-text').classList.add('d-none');
+                        btn.querySelector('.collapse-text').classList.remove('d-none');
+                    });
+                    collapseEl.addEventListener('hide.bs.collapse', function() {
+                        const btn = factsCard.querySelector('button');
+                        btn.querySelector('.expand-text').classList.remove('d-none');
+                        btn.querySelector('.collapse-text').classList.add('d-none');
+                    });
+                }
+            }
+        }
+
+        // Add synthesis deep links to extraction_style card headers (only if Step 4 complete)
+        {% if pipeline_status.step4.complete %}
+        const extractionContainer = document.querySelector('[data-extraction-style="true"]');
+        if (extractionContainer) {
+            const caseId = {{ case.id }};
+            const synthesisUrl = '{{ url_for("step4.step4_review", case_id=case.id) }}';
+
+            // Create link element helper
+            function createSynthesisLink(tab, tooltip) {
+                const link = document.createElement('a');
+                link.href = synthesisUrl + '#' + tab;
+                link.className = 'synthesis-link text-primary ms-2';
+                link.title = tooltip;
+                link.style.cssText = 'text-decoration: none; font-size: 0.85em;';
+                link.innerHTML = '<i class="bi bi-box-arrow-up-right"></i>';
+                return link;
+            }
+
+            // Find card headers and add synthesis links
+            extractionContainer.querySelectorAll('.card-header h5').forEach(function(header) {
+                const text = header.textContent.trim().toLowerCase();
+                if (text.includes('facts')) {
+                    header.appendChild(createSynthesisLink('narrative', 'View Initial Fluents in Synthesis'));
+                } else if (text.includes('question')) {
+                    header.appendChild(createSynthesisLink('questions', 'View Questions & Conclusions analysis'));
+                } else if (text.includes('conclusion')) {
+                    header.appendChild(createSynthesisLink('questions', 'View Questions & Conclusions analysis'));
+                }
+            });
+        }
+        {% endif %}
+
+        // Collapse NSPE Code References to section numbers
+        const extractionStyleContainer = document.querySelector('[data-extraction-style="true"]');
+        if (extractionStyleContainer) {
+            extractionStyleContainer.querySelectorAll('.card').forEach(function(card) {
+                const header = card.querySelector('.card-header h5');
+                if (header && header.textContent.toLowerCase().includes('nspe')) {
+                    const cardBody = card.querySelector('.card-body');
+                    if (cardBody) {
+                        const fullText = cardBody.innerHTML;
+                        // Extract section numbers in multiple formats:
+                        // - "Section II.1.a" style
+                        // - "I.1." bare style (from NSPE website)
+                        // - "II.3.a" with letter suffixes
+                        const sectionMatches = fullText.match(/(?:Section\s+)?([IVX]+\.\d+(?:\.[a-z])?\.?)/gi) || [];
+                        const sectionNumbers = sectionMatches.map(m => m.replace(/Section\s+/i, '').replace(/\.$/, ''));
+
+                        if (sectionNumbers.length > 0) {
+                            const expandId = 'nspeExpand';
+                            const uniqueSections = [...new Set(sectionNumbers)];
+                            cardBody.innerHTML = `
+                                <div class="mb-2">
+                                    <strong class="text-muted">Referenced Sections:</strong>
+                                    ${uniqueSections.map(s => '<span class="badge bg-secondary me-1">' + s + '</span>').join('')}
+                                </div>
+                                <div class="collapse" id="${expandId}">
+                                    ${fullText}
+                                </div>
+                                <button class="btn btn-sm btn-link text-muted p-0" type="button"
+                                        data-bs-toggle="collapse" data-bs-target="#${expandId}"
+                                        aria-expanded="false" aria-controls="${expandId}">
+                                    <span class="expand-text"><i class="bi bi-chevron-down"></i> Show full text</span>
+                                    <span class="collapse-text d-none"><i class="bi bi-chevron-up"></i> Show less</span>
+                                </button>
+                            `;
+
+                            // Toggle button text on expand/collapse
+                            const collapseEl = document.getElementById(expandId);
+                            if (collapseEl) {
+                                collapseEl.addEventListener('show.bs.collapse', function() {
+                                    const btn = cardBody.querySelector('button');
+                                    btn.querySelector('.expand-text').classList.add('d-none');
+                                    btn.querySelector('.collapse-text').classList.remove('d-none');
+                                });
+                                collapseEl.addEventListener('hide.bs.collapse', function() {
+                                    const btn = cardBody.querySelector('button');
+                                    btn.querySelector('.expand-text').classList.remove('d-none');
+                                    btn.querySelector('.collapse-text').classList.add('d-none');
+                                });
+                            }
+                        }
+                    }
+                }
+            });
+        }
     });
 
     // Disable old term links highlighting (will be replaced with annotation-based highlighting)
     window.termLinksData = {};
+
+    // Entity lookup data for popovers
+    {% if entity_lookup_by_label %}
+    var ENTITY_LOOKUP_BY_LABEL = {
+        {% for label, entity in entity_lookup_by_label.items() %}
+        "{{ label|e }}": {
+            label: "{{ (entity.label or '')|e }}",
+            definition: "{{ (entity.definition or '')|e|replace('\n', ' ')|replace('\r', '') }}",
+            entityType: "{{ (entity.extraction_type or entity.entity_type or '')|e }}",
+            source: "{{ (entity.source or 'case')|e }}",
+            sourcePass: {{ entity.source_pass or 'null' }},
+            uri: "{{ (entity.uri or '')|e }}"
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    };
+
+    // Apply entity popovers to case text after page load
+    document.addEventListener('DOMContentLoaded', function() {
+        const caseDetailsCard = document.getElementById('case-details');
+        if (!caseDetailsCard) return;
+
+        // Common words and document references to skip even if they match entity labels
+        const skipWords = new Set([
+            'state', 'action', 'event', 'role', 'resource', 'principle', 'obligation', 'constraint', 'capability',
+            'nspe code of ethics', 'code of ethics'  // Document references, not entities
+        ]);
+
+        // Sort labels by length (longest first) to match longer phrases before shorter ones
+        const sortedLabels = Object.keys(ENTITY_LOOKUP_BY_LABEL)
+            .filter(label => label.length >= 4 && !skipWords.has(label.toLowerCase()))
+            .sort((a, b) => b.length - a.length);
+
+        if (sortedLabels.length === 0) return;
+
+        // Create regex pattern for all entity labels (case-insensitive, word boundaries)
+        const pattern = new RegExp('\\b(' + sortedLabels.map(l => l.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')\\b', 'gi');
+
+        // Process text nodes in card bodies (excluding headers and NSPE references)
+        const cardBodies = caseDetailsCard.querySelectorAll('.card-body');
+        cardBodies.forEach(function(cardBody) {
+            // Skip NSPE Code References section (contains specific code excerpts, not entity references)
+            const parentCard = cardBody.closest('.card');
+            if (parentCard) {
+                const cardHeader = parentCard.querySelector('.card-header h5');
+                if (cardHeader && cardHeader.textContent.toLowerCase().includes('nspe')) {
+                    return; // Skip this card body
+                }
+            }
+
+            // Get all text nodes
+            const walker = document.createTreeWalker(cardBody, NodeFilter.SHOW_TEXT, null, false);
+            const textNodes = [];
+            let node;
+            while (node = walker.nextNode()) {
+                if (node.textContent.trim() && node.parentElement.closest('.onto-label, a, button, .badge') === null) {
+                    textNodes.push(node);
+                }
+            }
+
+            // Process each text node
+            textNodes.forEach(function(textNode) {
+                const text = textNode.textContent;
+                const matches = [];
+                let match;
+
+                // Find all matches
+                while ((match = pattern.exec(text)) !== null) {
+                    const lowerMatch = match[1].toLowerCase();
+                    if (ENTITY_LOOKUP_BY_LABEL[lowerMatch]) {
+                        matches.push({
+                            index: match.index,
+                            length: match[1].length,
+                            text: match[1],
+                            entity: ENTITY_LOOKUP_BY_LABEL[lowerMatch]
+                        });
+                    }
+                }
+
+                // Replace matches (process in reverse to maintain indices)
+                if (matches.length > 0) {
+                    const fragment = document.createDocumentFragment();
+                    let lastIndex = 0;
+
+                    // Remove overlapping matches (keep longest)
+                    const nonOverlapping = [];
+                    matches.sort((a, b) => a.index - b.index);
+                    for (const m of matches) {
+                        const last = nonOverlapping[nonOverlapping.length - 1];
+                        if (!last || m.index >= last.index + last.length) {
+                            nonOverlapping.push(m);
+                        }
+                    }
+
+                    nonOverlapping.forEach(function(m) {
+                        // Add text before match
+                        if (m.index > lastIndex) {
+                            fragment.appendChild(document.createTextNode(text.substring(lastIndex, m.index)));
+                        }
+
+                        // Create popover span
+                        const span = document.createElement('span');
+                        span.className = 'onto-label';
+                        if (m.entity.source === 'ontology') span.className += ' onto-source-ontology';
+                        span.textContent = m.text;
+                        span.tabIndex = 0;
+                        span.setAttribute('data-bs-toggle', 'popover');
+                        span.setAttribute('data-bs-trigger', 'hover focus');
+                        span.setAttribute('data-bs-html', 'true');
+                        span.setAttribute('data-bs-placement', 'top');
+                        span.setAttribute('data-entity-type', m.entity.entityType);
+                        span.setAttribute('data-entity-source', m.entity.source);
+                        span.setAttribute('data-entity-definition', m.entity.definition);
+                        span.setAttribute('data-entity-uri', m.entity.uri);
+                        span.setAttribute('title', m.entity.label || m.text);
+
+                        fragment.appendChild(span);
+                        lastIndex = m.index + m.length;
+                    });
+
+                    // Add remaining text
+                    if (lastIndex < text.length) {
+                        fragment.appendChild(document.createTextNode(text.substring(lastIndex)));
+                    }
+
+                    textNode.parentNode.replaceChild(fragment, textNode);
+                }
+            });
+        });
+
+        // Initialize popovers with custom content generator
+        const popoverElements = document.querySelectorAll('#case-details .onto-label[data-bs-toggle="popover"]');
+        popoverElements.forEach(function(el) {
+            // Pre-build content from element attributes (avoids 'this' context issues)
+            const type = el.getAttribute('data-entity-type') || 'unknown';
+            const source = el.getAttribute('data-entity-source') || 'case';
+            const definition = el.getAttribute('data-entity-definition') || 'No definition available';
+            const uri = el.getAttribute('data-entity-uri') || '';
+            const typeClass = 'onto-type-' + type.toLowerCase().replace(/\s+/g, '-');
+
+            const popoverContent = `<div class="onto-popover-content">
+                <div class="d-flex gap-1 mb-2">
+                    <span class="badge onto-type-badge ${typeClass}">${type}</span>
+                    ${source === 'ontology' ? '<span class="badge bg-primary onto-type-badge">Ontology</span>' : '<span class="badge bg-secondary onto-type-badge">Case</span>'}
+                </div>
+                <div class="onto-definition">${definition}</div>
+                ${uri ? '<div class="onto-uri"><i class="bi bi-link-45deg"></i> ' + uri + '</div>' : ''}
+            </div>`;
+
+            new bootstrap.Popover(el, {
+                content: popoverContent,
+                html: true,
+                sanitize: false
+            });
+        });
+    });
+    {% endif %}
 
     // Annotation generation functions
     window.generateAnnotations = function (caseId) {

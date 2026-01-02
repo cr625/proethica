@@ -3122,10 +3122,14 @@ def get_entity_grounded_arguments(case_id):
 
         session_id = str(uuid.uuid4())
 
-        # Clear previous arguments for this case
+        # Clear previous arguments and validations for this case
         TemporaryRDFStorage.query.filter_by(
             case_id=case_id,
             extraction_type='argument_generated'
+        ).delete()
+        TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            extraction_type='argument_validation'
         ).delete()
 
         # Save each argument to temporary storage
