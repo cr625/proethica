@@ -110,40 +110,6 @@
                     </div>
                     {% endif %}
 
-                    <!-- References Section -->
-                    {% if (result.sections and result.sections.references) or result.references %}
-                    <div class="row mb-4">
-                        <div class="col-12">
-                            <div class="card">
-                                <div class="card-header bg-light">
-                                    <h5 class="mb-0">NSPE Code of Ethics References</h5>
-                                </div>
-                                <div class="card-body">
-                                    <p class="mb-0">{{ (result.sections.references if result.sections else
-                                        result.references)|safe }}</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    {% endif %}
-
-                    <!-- Discussion Section -->
-                    {% if (result.sections and result.sections.discussion) or result.discussion %}
-                    <div class="row mb-4">
-                        <div class="col-12">
-                            <div class="card">
-                                <div class="card-header bg-light">
-                                    <h5 class="mb-0">Discussion</h5>
-                                </div>
-                                <div class="card-body">
-                                    <p class="mb-0">{{ (result.sections.discussion if result.sections else
-                                        result.discussion)|safe }}</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    {% endif %}
-
                     <!-- Conclusion Section -->
                     {% if result.conclusion_items or (result.sections and result.sections.conclusion) or
                     result.conclusion %}
@@ -168,6 +134,40 @@
                                     <p class="mb-0">{{ (result.sections.conclusion if result.sections else
                                         result.conclusion)|safe }}</p>
                                     {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Discussion Section -->
+                    {% if (result.sections and result.sections.discussion) or result.discussion %}
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header bg-light">
+                                    <h5 class="mb-0">Discussion</h5>
+                                </div>
+                                <div class="card-body">
+                                    <p class="mb-0">{{ (result.sections.discussion if result.sections else
+                                        result.discussion)|safe }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- References Section -->
+                    {% if (result.sections and result.sections.references) or result.references %}
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header bg-light">
+                                    <h5 class="mb-0">NSPE Code of Ethics References</h5>
+                                </div>
+                                <div class="card-body">
+                                    <p class="mb-0">{{ (result.sections.references if result.sections else
+                                        result.references)|safe }}</p>
                                 </div>
                             </div>
                         </div>
