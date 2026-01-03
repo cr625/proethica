@@ -591,7 +591,7 @@ class GuidelineAnalysisService:
             all_concepts.extend(behavioral_concepts)
             logger.info(f"Pass 3 complete: {len(behavioral_concepts)} behavioral concepts")
             
-            logger.info(f"Complete 9-concept extraction: {len(all_concepts)} total concepts")
+            logger.info(f"Complete 9-component extraction: {len(all_concepts)} total components")
             
             # Apply unified enhanced concept splitting to all concepts at once
             if os.environ.get('ENABLE_CONCEPT_SPLITTING', 'false').lower() == 'true':
@@ -600,7 +600,7 @@ class GuidelineAnalysisService:
             return all_concepts
             
         except Exception as e:
-            logger.error(f"Error in 9-concept extraction: {e}", exc_info=True)
+            logger.error(f"Error in 9-component extraction: {e}", exc_info=True)
             # Fallback to 5-concept extraction
             logger.warning("Falling back to 5-concept extraction")
             return self._extract_5_concept_fallback(content)
@@ -929,7 +929,7 @@ class GuidelineAnalysisService:
             return all_concepts
     
     def _extract_5_concept_fallback(self, content: str) -> List[Dict[str, Any]]:
-        """Fallback to 5-concept extraction if 9-concept extraction fails."""
+        """Fallback to 5-component extraction if 9-component extraction fails."""
         logger.info("Using 5-concept fallback extraction")
         all_concepts = []
         

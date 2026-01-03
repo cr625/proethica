@@ -1,7 +1,7 @@
 """
 Constraints Extractor - Extraction of constraints from guidelines.
 
-This implements the Constraints component of the 9-concept formalism:
+This implements the Constraints component of the 9-component formalism:
 Constraints (Cs) - Rules, regulations, or contextual constraints that limit actions or obligations.
 """
 

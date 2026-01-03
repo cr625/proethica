@@ -406,7 +406,7 @@ Filter by specific similarity types using the button row:
 
 #### Entity Overlap Filters
 
-Filter by shared entities from the ProEthica 9-concept formalism:
+Filter by shared entities from the ProEthica 9-component formalism:
 
 | Button | Entity Type | Description |
 |--------|-------------|-------------|

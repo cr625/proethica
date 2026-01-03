@@ -206,5 +206,5 @@ LLM may extract duplicates:
 ## Related Guides
 
 - [Entity Review](entity-review.md) - Detailed entity validation
-- [Nine-Concept Framework](../concepts/nine-concepts.md) - Understanding concepts
+- [Nine-Component Framework](../concepts/nine-components.md) - Understanding components
 - [Phase 2 Analysis](phase2-analysis.md) - Next phase

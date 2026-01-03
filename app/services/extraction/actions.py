@@ -1,7 +1,7 @@
 """
 Actions Extractor - Extraction of performable actions from guidelines.
 
-This implements the Actions component of the 9-concept formalism:
+This implements the Actions component of the 9-component formalism:
 Actions (A) - Processes or interventions that role-bearers can initiate in fulfilling obligations.
 """
 

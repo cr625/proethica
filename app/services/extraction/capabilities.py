@@ -1,7 +1,7 @@
 """
 Capabilities Extractor - Extraction of agent capabilities from guidelines.
 
-This implements the Capabilities component of the 9-concept formalism:
+This implements the Capabilities component of the 9-component formalism:
 Capabilities (Ca) - Dispositions or competencies required to perform role-appropriate actions.
 """
 

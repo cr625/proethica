@@ -1,7 +1,7 @@
 """
 Enhanced Actions Extractor - Pass 3 Temporal Dynamics Implementation
 
-This implements the Actions component of the ProEthica 9-concept formalism with comprehensive
+This implements the Actions component of the ProEthica 9-component formalism with comprehensive
 Pass integration showing how Actions fulfill Obligations from Pass 2 within Roles from Pass 1.
 
 Actions (A) - Volitional professional decisions and interventions that carry ethical significance

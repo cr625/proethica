@@ -44,7 +44,7 @@ docs/
 │   ├── welcome.md               # Quick start
 │   └── first-login.md           # Interface overview
 ├── concepts/
-│   └── nine-concepts.md         # Framework reference
+│   └── nine-components.md       # Framework reference
 ├── how-to/
 │   ├── upload-cases.md          # Adding cases
 │   ├── view-cases.md            # Browsing cases

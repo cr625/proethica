@@ -43,10 +43,9 @@ postgresql://postgres:PASS@localhost:5432/ai_ethical_dm
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ONTSERVE_MCP_ENABLED` | true | Enable MCP integration |
+| `ONTSERVE_MCP_ENABLED` | auto | Auto-detected on startup |
 | `ONTSERVE_MCP_URL` | http://localhost:8082 | MCP server URL |
-| `AUTO_START_MCP` | false | Auto-start MCP server |
-| `ENABLE_EXTERNAL_MCP_ACCESS` | true | Allow external MCP queries |
+| `ONTSERVE_MCP_PORT` | 8082 | MCP server port for auto-detection |
 
 ### Extraction Settings
 

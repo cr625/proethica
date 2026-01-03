@@ -119,6 +119,12 @@
         height: calc(100vh - 20px) !important;
         border: none;
     }
+
+    /* Pass filter button active states */
+    .d3-filter[data-pass="1"].active { background-color: #3b82f6 !important; color: white !important; }
+    .d3-filter[data-pass="2"].active { background-color: #8b5cf6 !important; color: white !important; }
+    .d3-filter[data-pass="3"].active { background-color: #14b8a6 !important; color: white !important; }
+    .d3-filter[data-pass="4"].active { background-color: #64748b !important; color: white !important; }
 </style>
 {% endblock %}
 
@@ -303,10 +309,10 @@
                         <small class="text-muted"><span id="d3-node-count">Loading...</span></small>
                     </div>
                     <div>
-                        <span class="badge bg-primary me-1" id="d3-pass1">Pass 1: 0</span>
-                        <span class="badge bg-success me-1" id="d3-pass2">Pass 2: 0</span>
-                        <span class="badge bg-warning text-dark me-1" id="d3-pass3">Pass 3: 0</span>
-                        <span class="badge bg-danger" id="d3-pass4">Step 4: 0</span>
+                        <span class="badge me-1" id="d3-pass1" title="Roles, States, Resources" style="background-color: #3b82f6;">Context: 0</span>
+                        <span class="badge me-1" id="d3-pass2" title="Principles, Obligations, Constraints, Capabilities" style="background-color: #8b5cf6;">Normative: 0</span>
+                        <span class="badge me-1" id="d3-pass3" title="Actions, Events" style="background-color: #14b8a6;">Temporal: 0</span>
+                        <span class="badge" id="d3-pass4" title="Provisions, Questions, Conclusions" style="background-color: #64748b;">Synthesis: 0</span>
                     </div>
                 </div>
                 <div class="card-body">
@@ -319,12 +325,12 @@
                             </div>
                         </div>
                         <div class="d-flex align-items-center flex-wrap gap-1">
-                            <span class="me-1 text-muted small">Pass:</span>
+                            <span class="me-1 text-muted small">Filter:</span>
                             <button class="btn btn-sm btn-outline-secondary d3-filter active" data-pass="all">All</button>
-                            <button class="btn btn-sm btn-outline-primary d3-filter" data-pass="1">1</button>
-                            <button class="btn btn-sm btn-outline-success d3-filter" data-pass="2">2</button>
-                            <button class="btn btn-sm btn-outline-warning d3-filter" data-pass="3">3</button>
-                            <button class="btn btn-sm btn-outline-danger d3-filter" data-pass="4">4</button>
+                            <button class="btn btn-sm d3-filter" data-pass="1" title="Roles, States, Resources" style="border-color: #3b82f6; color: #3b82f6;">Context</button>
+                            <button class="btn btn-sm d3-filter" data-pass="2" title="Principles, Obligations, Constraints, Capabilities" style="border-color: #8b5cf6; color: #8b5cf6;">Normative</button>
+                            <button class="btn btn-sm d3-filter" data-pass="3" title="Actions, Events" style="border-color: #14b8a6; color: #14b8a6;">Temporal</button>
+                            <button class="btn btn-sm d3-filter" data-pass="4" title="Provisions, Questions, Conclusions" style="border-color: #64748b; color: #64748b;">Synthesis</button>
                         </div>
                     </div>
                     <!-- D3 Graph Controls - Row 2: Layout, Display Options -->
@@ -2587,10 +2593,10 @@ function getCsrfToken() {
 
     function updateD3Stats(metadata) {
         const pc = metadata.pass_counts;
-        document.getElementById('d3-pass1').textContent = `Pass 1: ${pc[1] || 0}`;
-        document.getElementById('d3-pass2').textContent = `Pass 2: ${pc[2] || 0}`;
-        document.getElementById('d3-pass3').textContent = `Pass 3: ${pc[3] || 0}`;
-        document.getElementById('d3-pass4').textContent = `Step 4: ${pc[4] || 0}`;
+        document.getElementById('d3-pass1').textContent = `Context: ${pc[1] || 0}`;
+        document.getElementById('d3-pass2').textContent = `Normative: ${pc[2] || 0}`;
+        document.getElementById('d3-pass3').textContent = `Temporal: ${pc[3] || 0}`;
+        document.getElementById('d3-pass4').textContent = `Synthesis: ${pc[4] || 0}`;
     }
 
     function buildD3Legend(colors) {
@@ -2701,16 +2707,21 @@ function getCsrfToken() {
     });
 
     // Initialize on DOM ready
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function() {
-            const hubsBtn = document.getElementById('d3-toggle-hubs');
-            if (hubsBtn) hubsBtn.classList.add('active');
-            loadGraph();
-        });
-    } else {
+    function initGraph() {
         const hubsBtn = document.getElementById('d3-toggle-hubs');
-        if (hubsBtn) hubsBtn.classList.add('active');
+        if (hubsBtn) {
+            // Sync button state with showTypeHubs variable
+            hubsBtn.classList.toggle('active', showTypeHubs);
+            hubsBtn.classList.toggle('btn-info', showTypeHubs);
+            hubsBtn.classList.toggle('btn-outline-info', !showTypeHubs);
+        }
         loadGraph();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initGraph);
+    } else {
+        initGraph();
     }
 })();
 

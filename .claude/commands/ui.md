@@ -80,26 +80,28 @@ document.addEventListener('DOMContentLoaded', function() {
 
 ## Entity Type Colors
 
+See [Color Scheme Reference](../../docs/reference/color-scheme.md) for the canonical color definitions.
+
 | Type | CSS Class | Color |
 |------|-----------|-------|
-| Role | `.onto-type-roles` | Blue (#0d6efd) |
-| State | `.onto-type-states` | Purple (#6f42c1) |
-| Resource | `.onto-type-resources` | Teal (#20c997) |
-| Principle | `.onto-type-principles` | Orange (#fd7e14) |
-| Obligation | `.onto-type-obligations` | Red (#dc3545) |
-| Constraint | `.onto-type-constraints` | Gray (#6c757d) |
-| Capability | `.onto-type-capabilities` | Cyan (#0dcaf0) |
-| Action | `.onto-type-actions` | Green (#198754) |
-| Event | `.onto-type-events` | Yellow (#ffc107) |
+| Role | `.onto-type-role` | Blue (#0d6efd) |
+| State | `.onto-type-state` | Purple (#6f42c1) |
+| Resource | `.onto-type-resource` | Teal (#20c997) |
+| Principle | `.onto-type-principle` | Orange (#fd7e14) |
+| Obligation | `.onto-type-obligation` | Red (#dc3545) |
+| Constraint | `.onto-type-constraint` | Gray (#6c757d) |
+| Capability | `.onto-type-capability` | Cyan (#0dcaf0) |
+| Action | `.onto-type-action` | Green (#198754) |
+| Event | `.onto-type-event` | Yellow (#ffc107) |
 
-## Pass Badge Colors
+## Pass Filter Colors (Semantically Neutral)
 
-| Pass | Bootstrap Class |
-|------|-----------------|
-| Pass 1 | `bg-primary` (blue) |
-| Pass 2 | `bg-success` (green) |
-| Pass 3 | `bg-warning text-dark` (yellow) |
-| Pass 4 | `bg-danger` (red) |
+| Pass | Name | Color | Entities |
+|------|------|-------|----------|
+| 1 | Context | `#3b82f6` | R, S, Rs |
+| 2 | Normative | `#8b5cf6` | P, O, Cs, Ca |
+| 3 | Temporal | `#14b8a6` | A, E |
+| 4 | Synthesis | `#64748b` | Provisions, Q, C |
 
 ## Authentication Context
 

@@ -233,7 +233,7 @@ Step 4 classifies the case transformation pattern based on Marchais-Roubelat and
 | **Oscillation** | Position alternates between competing duties |
 | **Phase Lag** | Delayed recognition of ethical issue |
 
-See [Transformation Types](../reference/transformation-types.md) for detailed definitions.
+See [References: Transformation Classification](/tools/references#transformation) for detailed definitions.
 
 ---
 
@@ -241,4 +241,4 @@ See [Transformation Types](../reference/transformation-types.md) for detailed de
 
 - [Phase 1 Extraction](phase1-extraction.md) - Steps 1-3 extraction
 - [Entity Review](entity-review.md) - Validating extracted entities
-- [Transformation Types](../reference/transformation-types.md) - Classification reference
+- [References: Transformation Classification](/tools/references#transformation) - Classification reference

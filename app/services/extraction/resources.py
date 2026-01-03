@@ -1,7 +1,7 @@
 """
 Resources Extractor - Extraction of decision-making resources from guidelines.
 
-This implements Checkpoint 3 of the 9-concept extraction plan:
+This implements Checkpoint 3 of the 9-component extraction plan:
 Resources (Rs) - Documents, tools, or knowledge sources used to guide ethical decision-making.
 """
 

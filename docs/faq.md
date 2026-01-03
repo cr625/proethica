@@ -10,7 +10,7 @@ ProEthica is a professional role-based ethical analysis tool that combines case-
 
 The current implementation processes engineering ethics cases from the National Society of Professional Engineers (NSPE) Board of Ethical Review. The framework supports extension to other professional domains with established codes and precedent systems, including medical and legal ethics.
 
-### What is the Nine-Concept Framework?
+### What is the Nine-Component Framework?
 
 ProEthica uses a formal framework D = (R, P, O, S, Rs, A, E, Ca, Cs) consisting of:
 
@@ -24,7 +24,7 @@ ProEthica uses a formal framework D = (R, P, O, S, Rs, A, E, Ca, Cs) consisting 
 - **Ca**pabilities - Permissions
 - **Cs**onstraints - Prohibitions
 
-See [Nine-Concept Framework](concepts/nine-concepts.md) for details.
+See [Nine-Component Framework](concepts/nine-components.md) for details.
 
 ### What are the three phases?
 
