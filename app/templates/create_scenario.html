@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Create New Scenario - AI Ethical Decision-Making Simulator{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Create New Scenario</h1>
+        <a href="/scenarios" class="btn btn-secondary">Back to Scenarios</a>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3>Scenario Details</h3>
+        </div>
+        <div class="card-body">
+            <form action="/scenarios/" method="POST">
+                <div class="mb-3">
+                    <label for="name" class="form-label">Scenario Name</label>
+                    <input type="text" class="form-control" id="name" name="name" required>
+                </div>
+
+                <div class="mb-3">
+                    <label for="world" class="form-label">World</label>
+                    <select class="form-select" id="world" name="world_id" required>
+                        <option value="">-- Select a World --</option>
+                        {% for w in worlds %}
+                        <option value="{{ w.id }}" {% if world and world.id==w.id %}selected{% endif %}>{{ w.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text">Select a world to define the context for this scenario.</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="description" class="form-label">Description</label>
+                    <textarea class="form-control" id="description" name="description" rows="4"></textarea>
+                    <div class="form-text">Describe the scenario, including context, setting, and key challenges.</div>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary">Create Scenario</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <h3 class="mb-0">Next Steps</h3>
+        </div>
+        <div class="card-body">
+            <p>After creating your scenario, you'll be able to:</p>
+            <ol>
+                <li>Add characters with conditions</li>
+                <li>Add resources</li>
+                <li>Create a timeline of events</li>
+                <li>Define decision points</li>
+            </ol>
+            <p>These elements will help build a comprehensive scenario for ethical decision-making simulation.</p>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
