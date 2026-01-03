@@ -80,6 +80,7 @@ from app.models.extraction_prompt import ExtractionPrompt
 
 # Scenario generation models (added 2025-11-16)
 from app.models.scenario_participant import ScenarioParticipant
+from app.models.participant import Participant
 
 # Pipeline automation models (added 2025-11-30)
 from app.models.pipeline_run import PipelineRun, PipelineQueue, PIPELINE_STATUS
