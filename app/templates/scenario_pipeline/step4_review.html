@@ -103,6 +103,22 @@
         width: 100%;
         height: 100%;
     }
+
+    /* Fullscreen mode for Flow (Cytoscape) graph */
+    #cy-graph-card.fullscreen {
+        position: fixed !important;
+        top: 0;
+        left: 0;
+        width: 100vw !important;
+        height: 100vh !important;
+        z-index: 9999;
+        background: white;
+        padding: 10px;
+    }
+    #cy-graph-card.fullscreen #cy {
+        height: calc(100vh - 20px) !important;
+        border: none;
+    }
 </style>
 {% endblock %}
 
@@ -402,9 +418,6 @@
                 <div class="card-body">
                     <!-- Graph Controls -->
                     <div class="mb-3">
-                        <button id="fit-graph" class="btn btn-sm btn-outline-primary">
-                            <i class="bi bi-arrows-fullscreen"></i> Fit to View
-                        </button>
                         <button id="reset-graph" class="btn btn-sm btn-outline-secondary">
                             <i class="bi bi-arrow-clockwise"></i> Reset Layout
                         </button>
@@ -415,7 +428,7 @@
                     </div>
 
                     <!-- Cytoscape Container -->
-                    <div style="position: relative;">
+                    <div id="cy-graph-card" style="position: relative;">
                         <div id="cy" style="width: 100%; height: 700px; border: 1px solid #ddd; background-color: #fafafa;"></div>
 
                         <!-- Flow Details Panel -->
@@ -431,6 +444,15 @@
                                 <ul class="list-unstyled mt-1" id="cy-detail-edges"></ul>
                             </div>
                         </div>
+
+                        <!-- Zoom Controls -->
+                        <div style="position: absolute; bottom: 10px; left: 10px; z-index: 100;">
+                            <button class="btn btn-sm btn-light" id="cy-zoom-in" title="Zoom In"><i class="bi bi-plus-lg"></i></button>
+                            <button class="btn btn-sm btn-light" id="cy-zoom-out" title="Zoom Out"><i class="bi bi-dash-lg"></i></button>
+                            <button class="btn btn-sm btn-light" id="cy-zoom-fit" title="Fit to View"><i class="bi bi-arrows-fullscreen"></i></button>
+                            <button class="btn btn-sm btn-primary" id="cy-fullscreen-btn" title="Full Screen"><i class="bi bi-fullscreen"></i></button>
+                            <button class="btn btn-sm btn-warning" id="cy-exit-fullscreen-btn" title="Exit Full Screen" style="display: none;"><i class="bi bi-fullscreen-exit"></i></button>
+                        </div>
                     </div>
 
                     <!-- Legend -->
@@ -440,22 +462,21 @@
                             <div class="col-md-6">
                                 <strong>Nodes:</strong>
                                 <div class="d-flex flex-wrap gap-3 mt-2">
-                                    <span><span class="badge" style="background-color: #6c757d;">■</span> NSPE Provisions (rectangles)</span>
-                                    <span><span class="badge" style="background-color: #0dcaf0; color: #212529;">◆</span> Questions (diamonds)</span>
-                                    <span><span class="badge" style="background-color: #198754;">▬</span> Conclusions (rounded)</span>
-                                    <span><span class="badge" style="background-color: #0d6efd;">●</span> Entities (circles)</span>
+                                    <span><span class="badge" style="background-color: #495057;">■</span> NSPE Provisions</span>
+                                    <span><span class="badge" style="background-color: #0dcaf0; color: #212529;">◆</span> Questions</span>
+                                    <span><span class="badge" style="background-color: #198754;">▬</span> Conclusions</span>
+                                    <span><span class="badge" style="background-color: #1d4ed8;">▬</span> Entities (labels)</span>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <strong>Edge Colors:</strong>
                                 <div class="mt-2">
-                                    <span class="badge" style="background-color: #6c757d;">→</span> Provision informs Question<br>
+                                    <span class="badge" style="background-color: #495057;">→</span> Provision informs Question<br>
                                     <span class="badge" style="background-color: #0dcaf0; color: #212529;">→</span> Question answered by Conclusion<br>
-                                    <span class="badge" style="background-color: #0d6efd;">→</span> Provision applies to Entity
+                                    <span class="badge" style="background-color: #1d4ed8;">→</span> Provision applies to Entity
                                 </div>
                             </div>
                         </div>
-                        <p class="text-muted mt-2 mb-0"><small><strong>Note:</strong> For individual entity visualization, see <a href="http://localhost:5003/editor/ontology/proethica-case-{{ case.id }}/visualize" target="_blank">OntServe's full ontology view</a></small></p>
                     </div>
                 </div>
             </div>
@@ -1782,6 +1803,26 @@ document.addEventListener('DOMContentLoaded', function() {
         return true;
     });
 
+    // Helper: Format label for display (underscores to spaces, title case)
+    // Keep original label in data for lookups - only format for rendering
+    function formatLabelForDisplay(label) {
+        if (!label) return '';
+        // Replace underscores with spaces
+        let formatted = label.replace(/_/g, ' ');
+        // Title case: capitalize first letter of each word
+        formatted = formatted.replace(/\b\w/g, c => c.toUpperCase());
+        return formatted;
+    }
+
+    // Helper: Check if label is a short code (section number, type abbreviation)
+    function isShortCode(label) {
+        if (!label) return false;
+        // Match patterns like: I.2, II.3.a, III.9, R, P, O, S, Rs, A, E, Ca, Cs, Q1, C1
+        return /^[IVX]+\.\d+(\.[a-z])?$/.test(label) ||  // Roman numeral codes
+               /^[A-Z][a-z]?$/.test(label) ||             // Single/double letter codes
+               /^[QC]\d+$/.test(label);                   // Q1, C1 patterns
+    }
+
     // Initialize Cytoscape with HIERARCHICAL layout (LangGraph-style)
     const cy = cytoscape({
         container: document.getElementById('cy'),
@@ -1792,56 +1833,111 @@ document.addEventListener('DOMContentLoaded', function() {
                 style: {
                     'background-color': function(ele) {
                         const type = ele.data('type');
-                        // Colors match ENTITY_RESOLUTION_PLAN.md
+                        // Colors with good contrast - darker shades for entity types
                         const colors = {
-                            'provision': '#6c757d',  // Gray - Code provisions
-                            'question': '#0dcaf0',   // Cyan - Questions (Pass 4)
-                            'conclusion': '#198754', // Green - Conclusions (Pass 4)
-                            'action': '#212529',     // Dark - Actions (Pass 3)
-                            'event': '#adb5bd'       // Light gray - Events (Pass 3)
+                            'provision': '#495057',  // Darker gray for provisions
+                            'question': '#0dcaf0',   // Cyan - Questions
+                            'conclusion': '#198754', // Green - Conclusions
+                            'action': '#212529',     // Dark - Actions
+                            'event': '#6c757d',      // Medium gray - Events
+                            // Entity type colors (darker for contrast with white text)
+                            'R': '#1e40af',          // Dark blue - Roles
+                            'P': '#7c3aed',          // Purple - Principles
+                            'O': '#dc2626',          // Red - Obligations
+                            'S': '#0891b2',          // Teal - States
+                            'Rs': '#d97706',         // Orange - Resources
+                            'A': '#374151',          // Dark gray - Actions
+                            'E': '#059669',          // Emerald - Events
+                            'Ca': '#7c2d12',         // Brown - Capabilities
+                            'Cs': '#be185d'          // Pink - Constraints
                         };
-                        return colors[type] || '#0d6efd'; // Blue for entities
+                        return colors[type] || '#1d4ed8'; // Darker blue for generic entities
                     },
                     'label': function(ele) {
-                        // Truncate labels to fit in nodes
                         const label = ele.data('label') || '';
                         const type = ele.data('type');
-                        const maxLen = (type === 'provision') ? 8 : 12;
-                        return label.length > maxLen ? label.substring(0, maxLen) + '...' : label;
+
+                        // Format label for display
+                        const displayLabel = formatLabelForDisplay(label);
+
+                        // Determine max length based on node type and shape
+                        let maxLen;
+                        if (type === 'provision') {
+                            maxLen = 10;  // Code refs like "II.3.a"
+                        } else if (type === 'question' || type === 'conclusion') {
+                            maxLen = 14;  // Q/C labels
+                        } else if (isShortCode(label)) {
+                            maxLen = 8;   // Short codes fit in circle
+                        } else {
+                            maxLen = 18;  // Entity labels get more space in rectangles
+                        }
+
+                        return displayLabel.length > maxLen
+                            ? displayLabel.substring(0, maxLen) + '...'
+                            : displayLabel;
                     },
                     'color': function(ele) {
-                        // Dark text for light backgrounds
                         const type = ele.data('type');
-                        if (type === 'question' || type === 'event') return '#212529'; // Dark text on cyan/light gray
-                        return '#fff';
+                        // White text on dark backgrounds, dark text on light
+                        if (type === 'question') return '#212529';  // Dark on cyan
+                        return '#ffffff';  // White on all other (darker) backgrounds
                     },
                     'text-valign': 'center',
                     'text-halign': 'center',
-                    'font-size': '10px',
+                    'font-size': function(ele) {
+                        const label = ele.data('label') || '';
+                        const type = ele.data('type');
+                        // Larger font for short labels, smaller for long ones
+                        if (isShortCode(label)) return '12px';
+                        if (type === 'provision') return '11px';
+                        return '9px';  // Smaller font for longer entity labels
+                    },
                     'font-weight': 'bold',
                     'width': function(ele) {
-                        // Larger nodes for Q/C/Provisions
+                        const label = ele.data('label') || '';
                         const type = ele.data('type');
-                        return (type === 'provision' || type === 'question' || type === 'conclusion') ? '80px' : '55px';
+                        // Size based on content type
+                        if (type === 'question') return '85px';
+                        if (type === 'conclusion') return '90px';
+                        if (type === 'provision') return '70px';
+                        // Entities: larger for long labels
+                        if (isShortCode(label)) return '50px';
+                        return '100px';  // Wider rectangles for entity labels
                     },
                     'height': function(ele) {
+                        const label = ele.data('label') || '';
                         const type = ele.data('type');
-                        return (type === 'provision' || type === 'question' || type === 'conclusion') ? '80px' : '55px';
+                        if (type === 'question') return '85px';
+                        if (type === 'conclusion') return '50px';  // Shorter height for round-rect
+                        if (type === 'provision') return '70px';
+                        if (isShortCode(label)) return '50px';
+                        return '45px';  // Shorter height for wide entity rectangles
                     },
                     'text-wrap': 'wrap',
-                    'text-max-width': '70px',
+                    'text-max-width': function(ele) {
+                        const label = ele.data('label') || '';
+                        const type = ele.data('type');
+                        if (type === 'question') return '75px';
+                        if (type === 'conclusion') return '80px';
+                        if (isShortCode(label)) return '45px';
+                        return '90px';  // More wrap width for entity rectangles
+                    },
                     'shape': function(ele) {
+                        const label = ele.data('label') || '';
                         const type = ele.data('type');
                         if (type === 'provision') return 'rectangle';
                         if (type === 'question') return 'diamond';
                         if (type === 'conclusion') return 'round-rectangle';
-                        return 'ellipse';
+                        // Entities: circle for short codes, round-rectangle for long labels
+                        if (isShortCode(label)) return 'ellipse';
+                        return 'round-rectangle';
                     },
                     'border-width': 2,
                     'border-color': function(ele) {
                         const type = ele.data('type');
-                        if (type === 'question' || type === 'conclusion') return '#333';
-                        return '#fff';
+                        if (type === 'question') return '#0891b2';  // Darker cyan border
+                        if (type === 'conclusion') return '#166534';  // Darker green border
+                        return '#374151';  // Dark gray border for visibility
                     }
                 }
             },
@@ -1900,10 +1996,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Graph controls
-    document.getElementById('fit-graph').addEventListener('click', function() {
-        cy.fit();
-    });
-
     document.getElementById('reset-graph').addEventListener('click', function() {
         cy.layout({
             name: 'cose',
@@ -1920,8 +2012,13 @@ document.addEventListener('DOMContentLoaded', function() {
             cy.style().selector('node').style('label', function(ele) {
                 const label = ele.data('label') || '';
                 const type = ele.data('type');
-                const maxLen = (type === 'provision') ? 8 : 12;
-                return label.length > maxLen ? label.substring(0, maxLen) + '...' : label;
+                const displayLabel = formatLabelForDisplay(label);
+                let maxLen;
+                if (type === 'provision') maxLen = 10;
+                else if (type === 'question' || type === 'conclusion') maxLen = 14;
+                else if (isShortCode(label)) maxLen = 8;
+                else maxLen = 18;
+                return displayLabel.length > maxLen ? displayLabel.substring(0, maxLen) + '...' : displayLabel;
             }).update();
         } else {
             cy.style().selector('node').style('label', '').update();
@@ -1933,13 +2030,22 @@ document.addEventListener('DOMContentLoaded', function() {
         const node = evt.target;
         const data = node.data();
 
-        // Get node type colors - matches ENTITY_RESOLUTION_PLAN.md
+        // Type colors matching the node styling
         const typeColors = {
-            'provision': '#6c757d',  // Gray
+            'provision': '#495057',  // Darker gray
             'question': '#0dcaf0',   // Cyan
             'conclusion': '#198754', // Green
-            'action': '#212529',     // Dark
-            'event': '#adb5bd'       // Light gray
+            'action': '#374151',     // Dark gray
+            'event': '#6c757d',      // Medium gray
+            'R': '#1e40af',          // Dark blue
+            'P': '#7c3aed',          // Purple
+            'O': '#dc2626',          // Red
+            'S': '#0891b2',          // Teal
+            'Rs': '#d97706',         // Orange
+            'A': '#374151',          // Dark gray
+            'E': '#059669',          // Emerald
+            'Ca': '#7c2d12',         // Brown
+            'Cs': '#be185d'          // Pink
         };
 
         // Populate details panel
@@ -1949,18 +2055,19 @@ document.addEventListener('DOMContentLoaded', function() {
         const textEl = document.getElementById('cy-detail-text');
         const edgesEl = document.getElementById('cy-detail-edges');
 
-        labelEl.textContent = data.label;
-        labelEl.style.borderColor = typeColors[data.type] || '#0d6efd';
+        // Format label for display (full label, not truncated)
+        labelEl.textContent = formatLabelForDisplay(data.label);
+        labelEl.style.borderColor = typeColors[data.type] || '#1d4ed8';
 
         typeEl.textContent = data.nodeType || data.type;
-        typeEl.style.backgroundColor = typeColors[data.type] || '#0d6efd';
-        typeEl.style.color = (data.type === 'question' || data.type === 'event') ? '#212529' : '#fff';
+        typeEl.style.backgroundColor = typeColors[data.type] || '#1d4ed8';
+        typeEl.style.color = (data.type === 'question') ? '#212529' : '#fff';
 
         // Show full text (definition)
         const fullText = data.fullText || data.definition || data.reasoning || '';
         textEl.textContent = fullText || 'No details available';
 
-        // Show connected edges
+        // Show connected edges with formatted labels
         const connectedEdges = node.connectedEdges();
         edgesEl.innerHTML = '';
         if (connectedEdges.length === 0) {
@@ -1970,8 +2077,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 const isSource = edge.source().id() === node.id();
                 const otherNode = isSource ? edge.target() : edge.source();
                 const arrow = isSource ? '→' : '←';
+                const otherLabel = formatLabelForDisplay(otherNode.data('label'));
                 const li = document.createElement('li');
-                li.innerHTML = `<span style="color:${typeColors[otherNode.data('type')] || '#0d6efd'}">${arrow}</span> ${otherNode.data('label')} <small class="text-muted">(${edge.data('label') || 'related'})</small>`;
+                li.innerHTML = `<span style="color:${typeColors[otherNode.data('type')] || '#1d4ed8'}">${arrow}</span> ${otherLabel} <small class="text-muted">(${edge.data('label') || 'related'})</small>`;
                 edgesEl.appendChild(li);
             });
         }
@@ -1988,6 +2096,54 @@ document.addEventListener('DOMContentLoaded', function() {
     cy.on('tap', function(evt) {
         if (evt.target === cy) {
             document.getElementById('cy-details-panel').style.display = 'none';
+        }
+    });
+
+    // Zoom controls for Flow graph
+    document.getElementById('cy-zoom-in').addEventListener('click', function() {
+        cy.zoom(cy.zoom() * 1.3);
+        cy.center();
+    });
+
+    document.getElementById('cy-zoom-out').addEventListener('click', function() {
+        cy.zoom(cy.zoom() * 0.7);
+        cy.center();
+    });
+
+    document.getElementById('cy-zoom-fit').addEventListener('click', function() {
+        cy.fit();
+    });
+
+    // Fullscreen controls for Flow graph
+    document.getElementById('cy-fullscreen-btn').addEventListener('click', function() {
+        const card = document.getElementById('cy-graph-card');
+        card.classList.add('fullscreen');
+        this.style.display = 'none';
+        document.getElementById('cy-exit-fullscreen-btn').style.display = 'inline-block';
+        setTimeout(function() {
+            cy.resize();
+            cy.fit();
+        }, 100);
+    });
+
+    document.getElementById('cy-exit-fullscreen-btn').addEventListener('click', function() {
+        const card = document.getElementById('cy-graph-card');
+        card.classList.remove('fullscreen');
+        this.style.display = 'none';
+        document.getElementById('cy-fullscreen-btn').style.display = 'inline-block';
+        setTimeout(function() {
+            cy.resize();
+            cy.fit();
+        }, 100);
+    });
+
+    // ESC key to exit fullscreen for Flow graph
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            const card = document.getElementById('cy-graph-card');
+            if (card.classList.contains('fullscreen')) {
+                document.getElementById('cy-exit-fullscreen-btn').click();
+            }
         }
     });
 
