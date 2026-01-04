@@ -112,14 +112,16 @@
                 </div>
             </a>
         </div>
+        {% if entity_tabs and entity_tabs|sum(attribute='count') > 0 %}
         <div class="col-md-4">
             <div class="card text-center h-100">
                 <div class="card-body">
-                    <h2 class="text-primary">{{ entity_tabs|sum(attribute='count') if entity_tabs else 0 }}</h2>
+                    <h2 class="text-primary">{{ entity_tabs|sum(attribute='count') }}</h2>
                     <p class="text-muted mb-0">Ontology Entities</p>
                 </div>
             </div>
         </div>
+        {% endif %}
     </div>
 
     <!-- Domain Management Section -->
