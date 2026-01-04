@@ -10,29 +10,29 @@ Many technical specialists who serve on ethics review boards lack formal trainin
 
 The current implementation demonstrates feasibility through engineering ethics cases from the NSPE Board of Ethical Review. Validation of the methodology and extension to operational use will require involvement of domain experts and empirical assessment against professional judgment.
 
-## Nine-Concept Framework
+## Nine-Component Framework
 
 The system extracts nine types of components from case text and scenario descriptions, organized into three functional dimensions:
 
 | Component | Symbol | Description | Dimension |
 |-----------|--------|-------------|-----------|
-| [Roles](concepts/nine-concepts.md#roles-r) | R | Professional positions with associated duties and decision-making authority | Contextual |
-| [States](concepts/nine-concepts.md#states-s) | S | Situational context including facts and environmental conditions | Contextual |
-| [Resources](concepts/nine-concepts.md#resources-rs) | Rs | Accumulated professional knowledge including codes and precedents | Contextual |
-| [Principles](concepts/nine-concepts.md#principles-p) | P | High-level ethical guidelines that establish professional ideals | Normative |
-| [Obligations](concepts/nine-concepts.md#obligations-o) | O | Specific requirements for action or restraint | Normative |
-| [Constraints](concepts/nine-concepts.md#constraints-cs) | Cs | Inviolable boundaries on professional conduct | Normative |
-| [Capabilities](concepts/nine-concepts.md#capabilities-ca) | Ca | Competencies for professional practice | Normative |
-| [Actions](concepts/nine-concepts.md#actions-a) | A | Volitional professional interventions | Temporal |
-| [Events](concepts/nine-concepts.md#events-e) | E | Occurrences outside agent control | Temporal |
+| [Roles](concepts/nine-components.md#roles-r) | R | Professional positions with associated duties and decision-making authority | Contextual |
+| [States](concepts/nine-components.md#states-s) | S | Situational context including facts and environmental conditions | Contextual |
+| [Resources](concepts/nine-components.md#resources-rs) | Rs | Accumulated professional knowledge including codes and precedents | Contextual |
+| [Principles](concepts/nine-components.md#principles-p) | P | High-level ethical guidelines that establish professional ideals | Normative |
+| [Obligations](concepts/nine-components.md#obligations-o) | O | Specific requirements for action or restraint | Normative |
+| [Constraints](concepts/nine-components.md#constraints-cs) | Cs | Inviolable boundaries on professional conduct | Normative |
+| [Capabilities](concepts/nine-components.md#capabilities-ca) | Ca | Competencies for professional practice | Normative |
+| [Actions](concepts/nine-components.md#actions-a) | A | Volitional professional interventions | Temporal |
+| [Events](concepts/nine-components.md#events-e) | E | Occurrences outside agent control | Temporal |
 
-Domain-specific ontologies provide precise definitions that constrain LLM output to match the formal concept specifications shown above. See [Nine-Concept Framework](concepts/nine-concepts.md) for detailed definitions and theoretical foundations.
+Domain-specific ontologies provide precise definitions that constrain LLM output to match the formal component specifications shown above. See [Nine-Component Framework](concepts/nine-components.md) for detailed definitions and theoretical foundations.
 
 ## Quick Links
 
 - [Getting Started](getting-started/welcome.md) - Introduction to ProEthica
 - [Interface Overview](getting-started/first-login.md) - Navigation and UI elements
-- [Nine-Concept Framework](concepts/nine-concepts.md) - Understanding the formal methodology
+- [Nine-Component Framework](concepts/nine-components.md) - Understanding the formal methodology
 - [FAQ](faq.md) - Frequently asked questions
 
 ## Analysis Workflow

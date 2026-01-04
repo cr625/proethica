@@ -12,36 +12,47 @@ ProEthica has three graph visualizations:
 | Reasoning Flow | step4_review.html (Flow tab) | Cytoscape.js | Provisions -> Questions -> Conclusions |
 | Similarity Network | similarity_network.html | D3.js v7 | Case-to-case precedent similarity |
 
-## Entity Types (9-Concept Formalism)
+## Entity Types (9-Component Formalism)
 
-ProEthica uses a formal ontology with 9 core entity types extracted across 4 passes:
+ProEthica uses a formal ontology with 9 core entity types extracted across 4 passes.
 
-### Pass 1 - Foundation Entities
-| Type | Code | Color | Description |
-|------|------|-------|-------------|
-| Roles | R | `#2196F3` (blue) | Actors and stakeholders |
-| States | S | `#4CAF50` (green) | Conditions and situations |
-| Resources | Rs | `#FF9800` (orange) | Assets and materials |
+See [Color Scheme Reference](../../docs/reference/color-scheme.md) for the canonical color definitions.
 
-### Pass 2 - Normative Entities
-| Type | Code | Color | Description |
-|------|------|-------|-------------|
-| Principles | P | `#9C27B0` (purple) | Ethical principles |
-| Obligations | O | `#F44336` (red) | Duties and requirements |
-| Constraints | Cs | `#795548` (brown) | Limitations and restrictions |
-| Capabilities | Ca | `#3F51B5` (indigo) | Abilities and skills |
+### Pass 1 - Context (Foundation)
+| Type | Code | Color | CSS Class | Description |
+|------|------|-------|-----------|-------------|
+| Roles | R | `#0d6efd` (blue) | `.onto-type-role` | Actors and stakeholders |
+| States | S | `#6f42c1` (purple) | `.onto-type-state` | Conditions and situations |
+| Resources | Rs | `#20c997` (teal) | `.onto-type-resource` | Assets and materials |
 
-### Pass 3 - Temporal Entities
-| Type | Code | Color | Description |
-|------|------|-------|-------------|
-| Actions/Events | A/E | `#009688` (teal) | Temporal dynamics |
+### Pass 2 - Normative (Requirements)
+| Type | Code | Color | CSS Class | Description |
+|------|------|-------|-----------|-------------|
+| Principles | P | `#fd7e14` (orange) | `.onto-type-principle` | Ethical principles |
+| Obligations | O | `#dc3545` (red) | `.onto-type-obligation` | Duties and requirements |
+| Constraints | Cs | `#6c757d` (gray) | `.onto-type-constraint` | Limitations and restrictions |
+| Capabilities | Ca | `#0dcaf0` (cyan) | `.onto-type-capability` | Abilities and skills |
 
-### Step 4 - Analysis Entities
-| Type | Code | Color | Description |
-|------|------|-------|-------------|
-| Code Provisions | - | `#E91E63` (pink) | NSPE Code references |
-| Ethical Questions | - | `#00BCD4` (cyan) | Board questions |
-| Ethical Conclusions | - | `#CDDC39` (lime) | Board conclusions |
+### Pass 3 - Temporal (Dynamics)
+| Type | Code | Color | CSS Class | Description |
+|------|------|-------|-----------|-------------|
+| Actions | A | `#198754` (green) | `.onto-type-action` | Actions taken |
+| Events | E | `#ffc107` (yellow) | `.onto-type-event` | Events that occurred |
+
+### Step 4 - Synthesis (Analysis)
+| Type | Color | Description |
+|------|-------|-------------|
+| Code Provisions | `#6c757d` (gray) | NSPE Code references |
+| Ethical Questions | `#0dcaf0` (cyan) | Board questions |
+| Ethical Conclusions | `#198754` (green) | Board conclusions |
+
+### Pass Filter Colors (Semantically Neutral)
+| Pass | Name | Color | Entities |
+|------|------|-------|----------|
+| 1 | Context | `#3b82f6` | R, S, Rs |
+| 2 | Normative | `#8b5cf6` | P, O, Cs, Ca |
+| 3 | Temporal | `#14b8a6` | A, E |
+| 4 | Synthesis | `#64748b` | Provisions, Q, C |
 
 ## Graph Data Schemas
 
@@ -56,7 +67,7 @@ ProEthica uses a formal ontology with 9 core entity types extracted across 4 pas
   "definition": "Environmental engineer at firm",
   "pass": 1,
   "section": "facts",
-  "color": "#2196F3",
+  "color": "#0d6efd",
   "is_published": false,
   "is_selected": true,
   "is_hub": false
@@ -112,7 +123,7 @@ ProEthica uses a formal ontology with 9 core entity types extracted across 4 pas
 
 ### Entity Graph API
 - **Endpoint**: `GET /scenario_pipeline/case/<id>/entity_graph`
-- **Query params**: `?type_hubs=true` adds 9-concept hub nodes
+- **Query params**: `?type_hubs=true` adds 9-component hub nodes
 - **File**: [app/routes/scenario_pipeline/step4.py](app/routes/scenario_pipeline/step4.py#L367)
 
 ### Similarity Network API
@@ -255,19 +266,19 @@ const cy = cytoscape({
 ### Outcome Colors (Similarity Network)
 ```javascript
 const outcomeColors = {
-    'ethical': '#4CAF50',    // Green
-    'unethical': '#F44336',  // Red
-    'mixed': '#FF9800',      // Orange
-    'unclear': '#9E9E9E'     // Gray
+    'ethical': '#198754',    // Green
+    'unethical': '#dc3545',  // Red
+    'mixed': '#fd7e14',      // Orange
+    'unclear': '#adb5bd'     // Gray
 };
 ```
 
 ### Edge Strength Colors
 ```javascript
 const edgeColors = {
-    strong: '#4CAF50',  // > 0.5 similarity
-    medium: '#FFC107',  // 0.3-0.5 similarity
-    weak: '#F44336'     // < 0.3 similarity
+    strong: '#198754',  // > 0.5 similarity
+    medium: '#ffc107',  // 0.3-0.5 similarity
+    weak: '#dc3545'     // < 0.3 similarity
 };
 ```
 

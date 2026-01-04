@@ -68,7 +68,7 @@ nav:
       - Welcome: getting-started/welcome.md
       - Interface Overview: getting-started/first-login.md
   - Concepts:
-      - Nine-Concept Framework: concepts/nine-concepts.md
+      - Nine-Component Framework: concepts/nine-components.md
   - How-To Guides:
       - Upload Cases: how-to/upload-cases.md
       - View Cases: how-to/view-cases.md
@@ -83,7 +83,7 @@ nav:
   - Reference:
       - System Architecture: reference/architecture.md
       - Ontology Integration: reference/ontology-integration.md
-      - Transformation Types: reference/transformation-types.md
+      - Color Scheme: reference/color-scheme.md
       - Installation & Deployment: reference/installation.md
   - FAQ: faq.md
   - "Back to ProEthica": "/"

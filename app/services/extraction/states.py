@@ -1,7 +1,7 @@
 """
 States Extractor - Extraction of states, conditions, and circumstances from guidelines.
 
-This implements Checkpoint 2 of the 9-concept extraction plan:
+This implements Checkpoint 2 of the 9-component extraction plan:
 States (S) - Relevant states and conditions that affect ethical decisions.
 """
 

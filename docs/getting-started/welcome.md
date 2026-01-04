@@ -6,9 +6,9 @@ ProEthica is an ethical decision analysis platform that uses large language mode
 
 ## What ProEthica Does
 
-ProEthica analyzes ethics cases from professional boards (such as the NSPE Board of Ethical Review) using a formal nine-concept framework. The system:
+ProEthica analyzes ethics cases from professional boards (such as the NSPE Board of Ethical Review) using a formal nine-component framework. The system:
 
-- Extracts [structured entities](../concepts/nine-concepts.md) from case narratives (Roles, States, Resources, Principles, Obligations, Constraints, Capabilities, Actions, Events)
+- Extracts [structured entities](../concepts/nine-components.md) from case narratives (Roles, States, Resources, Principles, Obligations, Constraints, Capabilities, Actions, Events)
 - Maps relationships between ethical concepts using ontology-based representation
 - Discovers precedents by finding semantically similar cases
 - Generates scenarios for understanding case dynamics and transformation patterns (coming soon)
@@ -65,7 +65,7 @@ Use the folder icon to browse cases within a domain.
 
 The right panel provides access to the underlying ontologies:
 
-- **ProEthica Core** - The nine-concept framework for ethical analysis
+- **ProEthica Core** - The nine-component framework for ethical analysis
 - **ProEthica Intermediate** - Professional role definitions and relationships
 - **Engineering Ethics** - Domain-specific codes and precedents
 
@@ -84,4 +84,4 @@ These ontologies are managed by OntServe and provide the semantic foundation for
 
 - [Interface Overview](first-login.md) - Learn the navigation and UI elements
 - [Upload Cases](../how-to/upload-cases.md) - Add new cases for analysis
-- [Nine-Concept Framework](../concepts/nine-concepts.md) - Understand the methodology
+- [Nine-Component Framework](../concepts/nine-components.md) - Understand the methodology

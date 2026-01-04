@@ -1,7 +1,7 @@
 """
 Events Extractor - Extraction of triggering events from guidelines.
 
-This implements the Events component of the 9-concept formalism:
+This implements the Events component of the 9-component formalism:
 Events (E) - Events or situations that give rise to ethical relevance or require decision-making.
 """
 

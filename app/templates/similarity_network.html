@@ -339,27 +339,27 @@
             <div class="d-flex flex-wrap align-items-center">
                 <span class="me-3 text-muted small"><strong>Nodes:</strong></span>
                 <span class="legend-item">
-                    <span class="legend-dot" style="background-color: #4CAF50;"></span>Ethical
+                    <span class="legend-dot" style="background-color: #198754;"></span>Ethical
                 </span>
                 <span class="legend-item">
-                    <span class="legend-dot" style="background-color: #F44336;"></span>Unethical
+                    <span class="legend-dot" style="background-color: #dc3545;"></span>Unethical
                 </span>
                 <span class="legend-item">
-                    <span class="legend-dot" style="background-color: #FF9800;"></span>Mixed
+                    <span class="legend-dot" style="background-color: #fd7e14;"></span>Mixed
                 </span>
                 <span class="legend-item">
-                    <span class="legend-dot" style="background-color: #9E9E9E;"></span>Unclear
+                    <span class="legend-dot" style="background-color: #adb5bd;"></span>Unclear
                 </span>
                 <span class="mx-3 text-muted">|</span>
                 <span class="me-3 text-muted small"><strong>Edges:</strong></span>
                 <span class="legend-item">
-                    <span class="legend-dot" style="background-color: #4CAF50;"></span>Strong (&gt;0.5)
+                    <span class="legend-dot" style="background-color: #198754;"></span>Strong (&gt;0.5)
                 </span>
                 <span class="legend-item">
-                    <span class="legend-dot" style="background-color: #FFC107;"></span>Medium
+                    <span class="legend-dot" style="background-color: #ffc107;"></span>Medium
                 </span>
                 <span class="legend-item">
-                    <span class="legend-dot" style="background-color: #F44336;"></span>Weak
+                    <span class="legend-dot" style="background-color: #dc3545;"></span>Weak
                 </span>
             </div>
         </div>
@@ -435,7 +435,7 @@
                     <i class="bi bi-x-lg"></i> Clear
                 </button>
             </div>
-            <!-- Entity Type Filters (ProEthica 9-concept formalism) -->
+            <!-- Entity Type Filters (ProEthica 9-component formalism) -->
             <div class="d-flex flex-wrap align-items-center gap-1">
                 <span class="text-muted small me-1">Entity overlap:</span>
                 <button class="btn btn-sm btn-outline-secondary entity-filter-btn" data-entity="Roles" title="Roles - Actors and stakeholders">
@@ -597,7 +597,7 @@
                     <div class="col-md-4">
                         <strong class="small">Entity Overlap Filters (R, P, O, S, Rs, A, E, Ca, Cs)</strong>
                         <p class="small text-muted mb-0" style="font-size: 0.8rem;">
-                            Show cases sharing extracted entities from the ProEthica 9-concept formalism.
+                            Show cases sharing extracted entities from the ProEthica 9-component formalism.
                             For example, <strong>R</strong> shows cases sharing Role entities.
                             Edge darkness indicates shared entity count.
                         </p>
@@ -656,13 +656,13 @@ document.addEventListener('DOMContentLoaded', function() {
         loadingOverlay.classList.add('hidden');
     }
 
-    // Color scales
+    // Color scales - matches docs/reference/color-scheme.md
     const outcomeColors = {
-        'ethical': '#4CAF50',
-        'unethical': '#F44336',
-        'mixed': '#FF9800',
-        'unclear': '#9E9E9E',
-        'unknown': '#9E9E9E'
+        'ethical': '#198754',
+        'unethical': '#dc3545',
+        'mixed': '#fd7e14',
+        'unclear': '#adb5bd',
+        'unknown': '#adb5bd'
     };
 
     // Component-specific edge colors
@@ -691,9 +691,9 @@ document.addEventListener('DOMContentLoaded', function() {
             return d3.color(componentColors[currentFilter]).darker(1);
         }
         // Default: color by overall similarity
-        if (edge.similarity >= 0.5) return '#4CAF50';
-        if (edge.similarity >= 0.3) return '#FFC107';
-        return '#F44336';
+        if (edge.similarity >= 0.5) return '#198754';
+        if (edge.similarity >= 0.3) return '#ffc107';
+        return '#dc3545';
     }
 
     function loadNetwork() {
@@ -1047,7 +1047,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             for (const [key, label] of Object.entries(componentLabels)) {
                 const score = d.components[key] || 0;
-                const color = score >= 0.5 ? '#4CAF50' : (score >= 0.3 ? '#FFC107' : '#F44336');
+                const color = score >= 0.5 ? '#198754' : (score >= 0.3 ? '#ffc107' : '#dc3545');
 
                 compDiv.innerHTML += `
                     <div class="component-row-mini">

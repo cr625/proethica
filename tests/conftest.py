@@ -1,7 +1,6 @@
 import os
 import sys
 import pytest
-import subprocess
 from datetime import datetime
 from app import create_app, db
 from app.models.world import World
@@ -18,42 +17,40 @@ from app.models.user import User
 
 @pytest.fixture(scope="session")
 def setup_test_database():
-    """Set up the test database for all tests."""
-    # Note: Path updated for new test directory structure
-    # scripts/ is in .gitignore, script may not exist in all environments
-    script_path = os.path.join(os.path.dirname(__file__), '..', 'utils', 'scripts', 'manage_test_db.py')
-    
-    # Run the script to reset the test database
-    print("Setting up test database...")
-    # Note: We're modifying this to be more tolerant of warnings
-    # Some warnings from libraries like LangChain and sentence_transformers
-    # shouldn't prevent tests from running
-    try:
-        result = subprocess.run(['python', script_path, '--reset'], capture_output=True, text=True)
-        
-        # Print any output for debugging purposes
-        if result.stdout:
-            print(f"Database setup output: {result.stdout}")
-        if result.stderr:
-            print(f"Database setup warnings/errors: {result.stderr}")
-        
-        # Do not exit on non-zero return code, warnings are likely causing this
-        # but the database is probably still created successfully
-    except Exception as e:
-        print(f"Exception during database setup: {e}")
-        # Continue anyway, database might still be usable
-    
+    """Set up the test database for all tests.
+
+    Creates all tables using SQLAlchemy's db.create_all() to ensure
+    the test database schema matches the production models.
+    Uses PostgreSQL (ai_ethical_dm_test) for production parity.
+    """
+    os.environ['FLASK_ENV'] = 'testing'
+
+    # Create app to get database connection
+    app = create_app('testing')
+
+    print("Setting up test database with db.create_all()...")
+
+    with app.app_context():
+        # Drop all tables first to ensure clean slate
+        # This handles schema changes between test runs
+        try:
+            db.drop_all()
+            print("Dropped existing tables.")
+        except Exception as e:
+            print(f"Note: Could not drop tables (may not exist): {e}")
+
+        # Create all tables from models
+        db.create_all()
+        print("Created all tables from SQLAlchemy models.")
+
+        # Commit to ensure tables are created
+        db.session.commit()
+
     print("Test database setup complete.")
-    
+
     yield
-    
-    # We don't need to drop the database after tests since it's a dedicated test database
-    # If you want to clean up after tests, uncomment the following:
-    # 
-    # print("Cleaning up test database...")
-    # result = subprocess.run(['python', script_path, '--drop'], capture_output=True, text=True)
-    # if result.returncode != 0:
-    #     print(f"Error cleaning up test database: {result.stderr}")
+
+    # Tables persist after tests for debugging; drop_all() runs on next test session
 
 
 @pytest.fixture

@@ -1,7 +1,7 @@
 """
 Enhanced Events Extractor - Pass 3 Temporal Dynamics Implementation
 
-This implements the Events component of the ProEthica 9-concept formalism with comprehensive
+This implements the Events component of the ProEthica 9-component formalism with comprehensive
 Pass integration showing how Events trigger state changes and activate obligations.
 
 Events (E) - Temporal occurrences that trigger ethical considerations, including both

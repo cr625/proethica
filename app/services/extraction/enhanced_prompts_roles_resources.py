@@ -360,7 +360,7 @@ def get_enhanced_pass1_entities_prompt(text: str, include_mcp_context: bool = Fa
             resources_context = f"\nExisting Resources: {len(existing_resources)} resource concepts already in ontology"
     
     return f"""
-You are performing Pass 1 (Entities - WHO and WHAT) of the ProEthica 9-concept extraction framework.
+You are performing Pass 1 (Entities - WHO and WHAT) of the ProEthica 9-component extraction framework.
 {roles_context}{resources_context}
 
 THEORETICAL FOUNDATION:

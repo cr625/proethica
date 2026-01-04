@@ -34,7 +34,7 @@ class OntServeMCPClient:
             timeout: Request timeout in seconds
             max_retries: Maximum number of retry attempts
         """
-        self.mcp_url = mcp_url or os.environ.get('ONTSERVE_MCP_URL', 'http://localhost:8083')
+        self.mcp_url = mcp_url or os.environ.get('ONTSERVE_MCP_URL', 'http://localhost:8082')
         self.timeout = timeout
         self.max_retries = max_retries
         self.session = None

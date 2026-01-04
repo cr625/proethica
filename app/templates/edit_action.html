@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Action - AI Ethical Decision-Making Simulator{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Edit Action</h1>
+        <a href="/scenarios/{{ scenario.id }}" class="btn btn-secondary">Back to Scenario</a>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3>Action Details</h3>
+        </div>
+        <div class="card-body">
+            <form id="edit-action-form">
+                <div class="mb-3">
+                    <label for="action_time" class="form-label">Action Time</label>
+                    <input type="datetime-local" class="form-control" id="action_time" name="action_time"
+                        value="{{ action.action_time.strftime('%Y-%m-%dT%H:%M') }}" required>
+                    <div class="form-text">When does this action occur in the scenario timeline?</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="action_type" class="form-label">Action Type</label>
+                    <select class="form-select" id="action_type" name="action_type">
+                        <option value="">-- Select Action Type --</option>
+                        {% for action_type in action_types %}
+                        <option value="{{ action_type.id }}" data-description="{{ action_type.description }}" {% if
+                            action_type.id==action.action_type %}selected{% endif %}>
+                            {{ action_type.label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text">Select the type of action from the ontology.</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="name" class="form-label">Name</label>
+                    <input type="text" class="form-control" id="name" name="name" value="{{ action.name }}" required>
+                    <div class="form-text">A short name for this action.</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="description" class="form-label">Description</label>
+                    <textarea class="form-control" id="description" name="description" rows="4"
+                        required>{{ action.description }}</textarea>
+                    <div class="form-text">Describe what happens during this action.</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="character" class="form-label">Related Character (Optional)</label>
+                    <select class="form-select" id="character" name="character_id">
+                        <option value="">None</option>
+                        {% for character in scenario.characters %}
+                        <option value="{{ character.id }}" {% if character.id==action.character_id %}selected{% endif
+                            %}>
+                            {{ character.name }} ({{ character.role }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text">Select a character involved in this action, if applicable.</div>
+                </div>
+
+                <div class="mb-3 form-check">
+                    <input type="checkbox" class="form-check-input" id="is_decision" name="is_decision" {% if
+                        action.is_decision %}checked{% endif %}>
+                    <label class="form-check-label" for="is_decision">This is a decision point</label>
+                    <div class="form-text">Check if this action requires a decision to be made.</div>
+                </div>
+
+                <div id="decision-options" style="display: {% if action.is_decision %}block{% else %}none{% endif %};">
+                    <div class="mb-3">
+                        <label class="form-label">Decision Options</label>
+                        <div id="options-container">
+                            <!-- Existing options will be loaded here -->
+                            {% if action.options %}
+                            {% for option in action.options %}
+                            <div class="input-group mb-2 option-group">
+                                <span class="input-group-text">Option {{ loop.index }}</span>
+                                <input type="text" class="form-control option-text" value="{{ option }}">
+                                {% if loop.index > 2 %}
+                                <button class="btn btn-outline-danger remove-option-btn" type="button">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                            {% else %}
+                            <div class="input-group mb-2 option-group">
+                                <span class="input-group-text">Option 1</span>
+                                <input type="text" class="form-control option-text">
+                            </div>
+                            <div class="input-group mb-2 option-group">
+                                <span class="input-group-text">Option 2</span>
+                                <input type="text" class="form-control option-text">
+                            </div>
+                            {% endif %}
+                        </div>
+                        <button type="button" class="btn btn-outline-secondary mt-2" id="add-option-btn">
+                            <i class="bi bi-plus-circle"></i> Add Option
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="parameters" class="form-label">Additional Parameters (Optional)</label>
+                    <textarea class="form-control" id="parameters" name="parameters"
+                        rows="3">{{ action.parameters|tojson }}</textarea>
+                    <div class="form-text">Any additional parameters for this action (JSON format).</div>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary">Update Action</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Auto-populate name and description fields when action type is selected
+    document.getElementById('action_type').addEventListener('change', function () {
+        const selectedOption = this.options[this.selectedIndex];
+        if (selectedOption.value) {
+            // Auto-populate name field with the label
+            document.getElementById('name').value = selectedOption.text;
+
+            // Auto-populate description field with the description
+            const description = selectedOption.getAttribute('data-description');
+            if (description) {
+                document.getElementById('description').value = description;
+            }
+        }
+    });
+
+    // Toggle decision options based on checkbox
+    document.getElementById('is_decision').addEventListener('change', function () {
+        const decisionOptions = document.getElementById('decision-options');
+        decisionOptions.style.display = this.checked ? 'block' : 'none';
+
+        // Make option fields required if this is a decision
+        const optionInputs = document.querySelectorAll('.option-text');
+        optionInputs.forEach(input => {
+            input.required = this.checked;
+        });
+    });
+
+    // Add option functionality
+    let optionCount = document.querySelectorAll('.option-group').length || 2;
+    document.getElementById('add-option-btn').addEventListener('click', function () {
+        optionCount++;
+        const container = document.getElementById('options-container');
+        const newOption = document.createElement('div');
+        newOption.className = 'input-group mb-2 option-group';
+        newOption.innerHTML = `
+            <span class="input-group-text">Option ${optionCount}</span>
+            <input type="text" class="form-control option-text" ${document.getElementById('is_decision').checked ? 'required' : ''}>
+            <button class="btn btn-outline-danger remove-option-btn" type="button">
+                <i class="bi bi-trash"></i>
+            </button>
+        `;
+
+        // Add event listener to remove button
+        newOption.querySelector('.remove-option-btn').addEventListener('click', function () {
+            newOption.remove();
+            // Renumber options
+            document.querySelectorAll('.option-group').forEach((group, index) => {
+                group.querySelector('.input-group-text').textContent = `Option ${index + 1}`;
+            });
+            optionCount = document.querySelectorAll('.option-group').length;
+        });
+
+        container.appendChild(newOption);
+    });
+
+    // Add event listeners to existing remove buttons
+    document.querySelectorAll('.remove-option-btn').forEach(button => {
+        button.addEventListener('click', function () {
+            const optionGroup = this.closest('.option-group');
+            optionGroup.remove();
+            // Renumber options
+            document.querySelectorAll('.option-group').forEach((group, index) => {
+                group.querySelector('.input-group-text').textContent = `Option ${index + 1}`;
+            });
+            optionCount = document.querySelectorAll('.option-group').length;
+        });
+    });
+
+    // Form submission
+    document.getElementById('edit-action-form').addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        // Format parameters as JSON if provided
+        let parameters = {};
+        const parametersText = document.getElementById('parameters').value.trim();
+        if (parametersText) {
+            try {
+                parameters = JSON.parse(parametersText);
+            } catch (error) {
+                alert('Invalid JSON format in Additional Parameters field. Please correct and try again.');
+                return;
+            }
+        }
+
+        // Gather options if this is a decision
+        const isDecision = document.getElementById('is_decision').checked;
+        let options = [];
+        if (isDecision) {
+            document.querySelectorAll('.option-text').forEach(input => {
+                if (input.value.trim()) {
+                    options.push(input.value.trim());
+                }
+            });
+
+            if (options.length < 2) {
+                alert('Please provide at least two options for this decision.');
+                return;
+            }
+        }
+
+        const formData = {
+            action_time: document.getElementById('action_time').value,
+            name: document.getElementById('name').value,
+            description: document.getElementById('description').value,
+            character_id: document.getElementById('character').value || null,
+            action_type: document.getElementById('action_type').value || null,
+            is_decision: isDecision,
+            options: isDecision ? options : null,
+            parameters: parameters
+        };
+
+        fetch('/scenarios/{{ scenario.id }}/actions/{{ action.id }}/update', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = `/scenarios/{{ scenario.id }}`;
+                } else {
+                    alert('Error updating action: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while updating the action.');
+            });
+    });
+</script>
+{% endblock %}

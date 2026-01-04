@@ -101,7 +101,7 @@ When asked to "fix tests":
 tests/
   conftest.py                    # Shared fixtures
   unit/
-    test_extraction_*.py         # 9-concept extractors
+    test_extraction_*.py         # 9-component extractors
     test_entity_analysis_*.py    # E1-F3 pipeline
     test_case_synthesizer.py     # Case synthesis
     test_interactive_*.py        # Step 5 interactive

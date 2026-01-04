@@ -13,18 +13,18 @@ ProEthica uses OntServe as its central ontology repository. The integration prov
 
 ## Architecture
 
-```
-ProEthica                          OntServe
-┌────────────┐                    ┌────────────┐
-│ MCP Client │──── JSON-RPC ────▶│ MCP Server │
-│            │◀───────────────────│   :8082    │
-└────────────┘                    └─────┬──────┘
-                                        │
-                                        ▼
-                                 ┌────────────┐
-                                 │ PostgreSQL │
-                                 │ (ontologies)│
-                                 └────────────┘
+```text
+ProEthica                            OntServe
++------------+                      +------------+
+| MCP Client |---- JSON-RPC ------->| MCP Server |
+|            |<---------------------|   :8082    |
++------------+                      +------+-----+
+                                           |
+                                           v
+                                    +------------+
+                                    | PostgreSQL |
+                                    | (ontologies|
+                                    +------------+
 ```
 
 ## Model Context Protocol (MCP)
@@ -44,10 +44,10 @@ ProEthica connects to OntServe via MCP (JSON-RPC 2.0):
 Environment variables:
 
 ```bash
-ONTSERVE_MCP_ENABLED=true
 ONTSERVE_MCP_URL=http://localhost:8082
-ENABLE_EXTERNAL_MCP_ACCESS=true
 ```
+
+ProEthica auto-detects OntServe availability on startup and sets `ONTSERVE_MCP_ENABLED` accordingly.
 
 ## MCP Client
 
@@ -76,12 +76,18 @@ async with OntServeMCPClient() as client:
 
 Retrieves entities of a specific type from the ontology.
 
-**Request:**
+**Request** (MCP call_tool format):
 ```json
 {
   "jsonrpc": "2.0",
-  "method": "get_entities_by_category",
-  "params": {"category": "Role"},
+  "method": "call_tool",
+  "params": {
+    "name": "get_entities_by_category",
+    "arguments": {
+      "category": "Role",
+      "domain_id": "proethica-intermediate"
+    }
+  },
   "id": 1
 }
 ```
@@ -91,10 +97,10 @@ Retrieves entities of a specific type from the ontology.
 {
   "jsonrpc": "2.0",
   "result": {
-    "entities": [
-      {"uri": "proeth:Engineer", "label": "Engineer", "definition": "..."},
-      {"uri": "proeth:Client", "label": "Client", "definition": "..."}
-    ]
+    "content": [{
+      "type": "text",
+      "text": "{\"entities\": [{\"uri\": \"proeth:Engineer\", \"label\": \"Engineer\"}]}"
+    }]
   },
   "id": 1
 }
@@ -108,22 +114,13 @@ Executes SPARQL queries against the ontology.
 ```json
 {
   "jsonrpc": "2.0",
-  "method": "sparql_query",
+  "method": "call_tool",
   "params": {
-    "query": "SELECT ?s ?p ?o WHERE { ?s ?p ?o } LIMIT 10"
-  },
-  "id": 2
-}
-```
-
-**Response:**
-```json
-{
-  "jsonrpc": "2.0",
-  "result": {
-    "bindings": [
-      {"s": "...", "p": "...", "o": "..."}
-    ]
+    "name": "sparql_query",
+    "arguments": {
+      "query": "SELECT ?s ?p ?o WHERE { ?s ?p ?o } LIMIT 10",
+      "domain_id": "proethica-intermediate"
+    }
   },
   "id": 2
 }
@@ -137,12 +134,16 @@ Submits new concept for ontology review.
 ```json
 {
   "jsonrpc": "2.0",
-  "method": "submit_candidate_concept",
+  "method": "call_tool",
   "params": {
-    "label": "AI Verification",
-    "category": "Capability",
-    "definition": "Ability to verify AI-generated outputs",
-    "source": "Case 24-2"
+    "name": "submit_candidate_concept",
+    "arguments": {
+      "label": "AI Verification",
+      "category": "Capability",
+      "definition": "Ability to verify AI-generated outputs",
+      "source": "Case 24-2",
+      "domain_id": "proethica-intermediate"
+    }
   },
   "id": 3
 }

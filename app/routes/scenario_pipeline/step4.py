@@ -396,21 +396,21 @@ def get_entity_graph_api(case_id):
             'code_provision_reference': 4, 'ethical_question': 4, 'ethical_conclusion': 4
         }
 
-        # Entity type colors - matches ENTITY_RESOLUTION_PLAN.md
+        # Entity type colors - matches docs/reference/color-scheme.md
         type_colors = {
-            'roles': '#0d6efd',              # Blue - Pass 1
-            'states': '#6f42c1',             # Purple - Pass 1
-            'resources': '#0dcaf0',          # Cyan - Pass 1
-            'principles': '#198754',         # Green - Pass 2
-            'obligations': '#dc3545',        # Red - Pass 2
-            'constraints': '#6c757d',        # Gray - Pass 2
-            'capabilities': '#ffc107',       # Yellow - Pass 2
-            'temporal_dynamics_enhanced': '#212529',  # Dark - Pass 3
-            'actions': '#212529',            # Dark - Pass 3
-            'events': '#adb5bd',             # Light gray - Pass 3
-            'code_provision_reference': '#6c757d',  # Gray - Provisions
-            'ethical_question': '#0dcaf0',   # Cyan - Pass 4
-            'ethical_conclusion': '#198754'  # Green - Pass 4
+            'roles': '#0d6efd',              # Blue - Pass 1 Context
+            'states': '#6f42c1',             # Purple - Pass 1 Context
+            'resources': '#20c997',          # Teal - Pass 1 Context
+            'principles': '#fd7e14',         # Orange - Pass 2 Normative
+            'obligations': '#dc3545',        # Red - Pass 2 Normative
+            'constraints': '#6c757d',        # Gray - Pass 2 Normative
+            'capabilities': '#0dcaf0',       # Cyan - Pass 2 Normative
+            'temporal_dynamics_enhanced': '#14b8a6',  # Teal - Pass 3 Temporal
+            'actions': '#198754',            # Green - Pass 3 Temporal
+            'events': '#ffc107',             # Yellow - Pass 3 Temporal
+            'code_provision_reference': '#6c757d',  # Gray - Step 4 Synthesis
+            'ethical_question': '#0dcaf0',   # Cyan - Step 4 Synthesis
+            'ethical_conclusion': '#198754'  # Green - Step 4 Synthesis
         }
 
         for entity in entities:
@@ -623,12 +623,14 @@ def get_entity_graph_api(case_id):
         # OPTIONAL: Add type hub nodes if requested via query param
         show_type_hubs = request.args.get('type_hubs', 'false').lower() == 'true'
         if show_type_hubs:
+            # Hub colors - brighter variants for visual distinction from entity nodes
             type_hub_colors = {
-                'roles': '#2196F3', 'states': '#4CAF50', 'resources': '#FF9800',
-                'principles': '#9C27B0', 'obligations': '#F44336', 'constraints': '#795548',
-                'capabilities': '#3F51B5', 'temporal_dynamics_enhanced': '#009688',
-                'code_provision_reference': '#E91E63', 'ethical_question': '#00BCD4',
-                'ethical_conclusion': '#CDDC39'
+                'roles': '#3b82f6', 'states': '#8b5cf6', 'resources': '#2dd4bf',
+                'principles': '#f97316', 'obligations': '#ef4444', 'constraints': '#9ca3af',
+                'capabilities': '#22d3ee', 'temporal_dynamics_enhanced': '#14b8a6',
+                'actions': '#22c55e', 'events': '#facc15',
+                'code_provision_reference': '#9ca3af', 'ethical_question': '#22d3ee',
+                'ethical_conclusion': '#22c55e'
             }
             type_labels = {
                 'roles': 'R (Roles)', 'states': 'S (States)', 'resources': 'Rs (Resources)',

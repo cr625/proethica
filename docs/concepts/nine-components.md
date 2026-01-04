@@ -1,4 +1,4 @@
-# Nine-Concept Framework
+# Nine-Component Framework
 
 ProEthica employs a nine-component formal framework to capture the essential elements of professional ethical evaluation. This framework, defined as **D = (R, P, O, S, Rs, A, E, Ca, Cs)**, synthesizes concepts from computational ethics literature into a unified structure.
 
@@ -48,7 +48,7 @@ Roles filter which principles and obligations apply based on professional identi
 
 **Ontology Source**: Defined in [proethica-core.ttl](https://ontserve.ontorealm.net/ontology/proethica-core) as `proeth-core:Role`, subclass of BFO:role. Subclasses in [proethica-intermediate.ttl](https://ontserve.ontorealm.net/ontology/proethica-intermediate) include `ProfessionalRole`, `InstitutionalRole`, `StakeholderRole`.
 
-**Key Literature**: Oakley & Cocking (2001) on role-generated obligations; Kong et al. (2020) on identity virtues; Doernberg & Truog (2023) on sphere-based roles. [Full references](/tools/references#nine-concept)
+**Key Literature**: Oakley & Cocking (2001) on role-generated obligations; Kong et al. (2020) on identity virtues; Doernberg & Truog (2023) on sphere-based roles. [Full references](/tools/references#nine-component)
 
 ---
 
@@ -67,7 +67,7 @@ States capture the specific circumstances that affect ethical evaluation. Identi
 
 **Ontology Source**: Defined in [proethica-core.ttl](https://ontserve.ontorealm.net/ontology/proethica-core) as `proeth-core:State`, subclass of BFO:quality. Represents time-varying properties (fluents) that affect ethical assessment.
 
-**Key Literature**: Almpani et al. (2023) on Event Calculus for state representation; Berreby et al. (2017) on fluents; Sarmiento et al. (2023) on causal chains. [Full references](/tools/references#nine-concept)
+**Key Literature**: Jones (1991) on moral intensity; Almpani et al. (2023) on Event Calculus; Berreby et al. (2017) on fluents; Sarmiento et al. (2023) on causal chains. [Full references](/tools/references#nine-component)
 
 ---
 
@@ -86,7 +86,7 @@ Resources supply the established wisdom and standards of the profession. McLaren
 
 **Ontology Source**: Defined in [proethica-core.ttl](https://ontserve.ontorealm.net/ontology/proethica-core) as `proeth-core:Resource`, subclass of BFO:independent continuant. Linked to IAO documents via `refersToDocument` property.
 
-**Key Literature**: McLaren (2003) on precedents; Davis (1991) and Frankel (1989) on code structure; Anderson & Anderson (2018) on learning from expert examples. [Full references](/tools/references#nine-concept)
+**Key Literature**: McLaren (2003) on precedents; Davis (1991) and Frankel (1989) on codes; Harris et al. (2018) on decision procedures; Anderson & Anderson (2018) on GenEth learning. [Full references](/tools/references#nine-component)
 
 ---
 
@@ -109,7 +109,7 @@ Principles provide abstract guidance that must be interpreted through precedents
 
 **Ontology Source**: Defined in [proethica-core.ttl](https://ontserve.ontorealm.net/ontology/proethica-core) as `proeth-core:Principle`, subclass of IAO:information content entity. Subclasses in [proethica-intermediate.ttl](https://ontserve.ontorealm.net/ontology/proethica-intermediate) include `FundamentalEthicalPrinciple`, `ProfessionalVirtuePrinciple`, `RelationalPrinciple`, `DomainSpecificPrinciple`.
 
-**Key Literature**: McLaren (2003) on extensional definition; Hallamaa & Kalliokoski (2022) on context-sensitivity; Taddeo et al. (2024) on operationalization. [Full references](/tools/references#nine-concept)
+**Key Literature**: McLaren (2003) on extensional definition; Prem (2023) on abstract nature; Taddeo et al. (2024) on constitutional interpretation. [Full references](/tools/references#nine-component)
 
 ---
 
@@ -128,7 +128,7 @@ Obligations transform principles into concrete, evaluable professional requireme
 
 **Ontology Source**: Defined in [proethica-core.ttl](https://ontserve.ontorealm.net/ontology/proethica-core) as `proeth-core:Obligation`, subclass of IAO:information content entity. Extracted from NSPE Code provisions and case narratives.
 
-**Key Literature**: Dennis et al. (2016) on specification requirements; Anderson & Anderson (2006, 2007, 2011) on duty quantification; Almpani et al. (2023) on dynamic priorities. [Full references](/tools/references#nine-concept)
+**Key Literature**: Dennis et al. (2016) on specification requirements; Anderson & Anderson (2006, 2007, 2011) on duty quantification; Almpani et al. (2023) on dynamic priorities. [Full references](/tools/references#nine-component)
 
 ---
 
@@ -147,7 +147,7 @@ Constraints establish hard limits on professional behavior, defining what must n
 
 **Ontology Source**: Defined in [proethica-core.ttl](https://ontserve.ontorealm.net/ontology/proethica-core) as `proeth-core:Constraint`, subclass of IAO:information content entity. Distinguished from Obligations by expressing prohibitions rather than requirements.
 
-**Key Literature**: Ganascia (2007) on defeasible logic; Dennis et al. (2016) on hierarchical management; Arkin (2008) on ethical governors. [Full references](/tools/references#nine-concept)
+**Key Literature**: Ganascia (2007) on defeasible logic; Dennis et al. (2016) on hierarchical management; Arkin (2008) on ethical governors. [Full references](/tools/references#nine-component)
 
 ---
 
@@ -166,7 +166,7 @@ Capabilities ensure sufficient expertise for professional practice. Tolmeijer et
 
 **Ontology Source**: Defined in [proethica-core.ttl](https://ontserve.ontorealm.net/ontology/proethica-core) as `proeth-core:Capability`, subclass of BFO:realizable entity. Represents what professionals *may* do (permissions).
 
-**Key Literature**: Tolmeijer et al. (2021) on four essential types; Berreby et al. (2017) on Action Model; Epstein & Hundert (2002) on domain-specific judgment. [Full references](/tools/references#nine-concept)
+**Key Literature**: Narvaez & Rest (1995) on Four Component Model; Tolmeijer et al. (2021) on four requirements; Berreby et al. (2017) on Action Model; Epstein & Hundert (2002) on domain-specific judgment. [Full references](/tools/references#nine-component)
 
 ---
 
@@ -189,7 +189,7 @@ Actions represent deliberate choices with professional responsibility. Systems m
 
 **Ontology Source**: Defined in [proethica-core.ttl](https://ontserve.ontorealm.net/ontology/proethica-core) as `proeth-core:Action`, subclass of BFO:process. Distinguished from Events by volitional nature.
 
-**Key Literature**: Sarmiento et al. (2023) on volitional nature; Bonnemains et al. (2018) on multi-framework evaluation; Govindarajulu & Bringsjord (2017) on intentional status. [Full references](/tools/references#nine-concept)
+**Key Literature**: Sarmiento et al. (2023) on volitional nature; Bonnemains et al. (2018) on multi-framework evaluation; Govindarajulu & Bringsjord (2017) on intentional status. [Full references](/tools/references#nine-component)
 
 ---
 
@@ -208,7 +208,7 @@ Events capture temporal dynamics and external triggers. The Event Calculus frame
 
 **Ontology Source**: Defined in [proethica-core.ttl](https://ontserve.ontorealm.net/ontology/proethica-core) as `proeth-core:Event`, subclass of BFO:process. Represents external occurrences distinct from volitional Actions.
 
-**Key Literature**: Berreby et al. (2017) on exogenous occurrences; Event Calculus formalism; Arkin (2008) on emergency overrides. [Full references](/tools/references#nine-concept)
+**Key Literature**: Berreby et al. (2017) on exogenous occurrences; Event Calculus formalism; Arkin (2008) on emergency overrides. [Full references](/tools/references#nine-component)
 
 ---
 
@@ -259,7 +259,7 @@ The framework synthesizes three foundational works:
 | **Berreby et al. (2017)** | Modular architecture for temporal ethical reasoning | S, A, E, O |
 | **Tolmeijer et al. (2021)** | Essential capabilities for ethical agents | Ca, Cs |
 
-For complete academic references with DOIs and citations, see [References](/tools/references#nine-concept).
+For complete academic references with DOIs and citations, see [References](/tools/references#nine-component).
 
 ---
 
