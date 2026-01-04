@@ -262,3 +262,102 @@ For major changes, also run integration tests:
 ```bash
 PYTHONPATH=/home/chris/onto:$PYTHONPATH pytest tests/ -v --tb=short
 ```
+
+## Production Server Testing
+
+### Environment Differences
+
+| Aspect | Development | Production (DigitalOcean) |
+|--------|-------------|---------------------------|
+| Database | ai_ethical_dm_test | ai_ethical_dm (NO test DB) |
+| Auth | Permissive (bypassed) | Enforced |
+| FLASK_ENV | testing/development | production |
+| Server | Flask dev server | gunicorn via nginx |
+| Path | /home/chris/onto/proethica | /opt/proethica |
+
+### What Tests CAN Run on Production
+
+1. **Smoke Tests** - External HTTP checks via curl (SAFE)
+```bash
+# From production server
+curl -s -o /dev/null -w '%{http_code}' https://proethica.org/
+curl -s -o /dev/null -w '%{http_code}' https://proethica.org/cases/
+curl -s -o /dev/null -w '%{http_code}' https://proethica.org/scenario_pipeline/case/7/overview
+curl -s -o /dev/null -w '%{http_code}' https://proethica.org/health/status
+```
+
+2. **Unit Tests** - No database dependency (SAFE if careful)
+```bash
+# These tests use mock LLM clients and don't touch the database
+ssh digitalocean "cd /opt/proethica && source venv/bin/activate && \
+    FLASK_ENV=testing pytest tests/unit/test_extraction_*.py -v --ignore=tests/integration"
+```
+
+### What Tests CANNOT Run on Production
+
+1. **Integration Tests** - These use `ai_ethical_dm_test` database which doesn't exist on production
+2. **Any test that calls `db.drop_all()`** - Would destroy production data
+3. **Tests that create/modify database records** - Contaminates production data
+
+### Setting Up a Test Database on Production (Optional)
+
+If you need to run integration tests on production:
+
+```bash
+# 1. Create test database (one-time)
+ssh digitalocean
+sudo -u postgres createdb ai_ethical_dm_test
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE ai_ethical_dm_test TO proethica_user;"
+
+# 2. Export TEST_DATABASE_URL
+export TEST_DATABASE_URL="postgresql://proethica_user:ProEthicaSecure2025@localhost:5432/ai_ethical_dm_test"
+
+# 3. Run tests with test database
+cd /opt/proethica && source venv/bin/activate
+FLASK_ENV=testing TEST_DATABASE_URL=$TEST_DATABASE_URL pytest tests/integration/ -v
+```
+
+### Production Smoke Test Script
+
+Create `/opt/proethica/smoke_test_prod.sh`:
+```bash
+#!/bin/bash
+# Production smoke tests - safe HTTP-only checks
+
+DOMAIN="https://proethica.org"
+FAILED=0
+
+check_url() {
+    local url=$1
+    local expected=${2:-200}
+    local code=$(curl -s -o /dev/null -w '%{http_code}' "$url")
+    if [ "$code" = "$expected" ]; then
+        echo "[PASS] $url -> $code"
+    else
+        echo "[FAIL] $url -> $code (expected $expected)"
+        FAILED=$((FAILED + 1))
+    fi
+}
+
+echo "=== ProEthica Production Smoke Tests ==="
+check_url "$DOMAIN/"
+check_url "$DOMAIN/cases/"
+check_url "$DOMAIN/scenario_pipeline/case/7/overview"
+check_url "$DOMAIN/cases/precedents/"
+check_url "$DOMAIN/health/status" 302
+
+if [ $FAILED -eq 0 ]; then
+    echo "=== All smoke tests passed ==="
+    exit 0
+else
+    echo "=== $FAILED smoke test(s) failed ==="
+    exit 1
+fi
+```
+
+### Recommended Testing Strategy
+
+1. **Development**: Run all tests (unit + integration) against `ai_ethical_dm_test`
+2. **Pre-Deployment**: Run unit tests and integration tests locally
+3. **Post-Deployment**: Run smoke tests via HTTP to verify deployment
+4. **Production Debugging**: If needed, set up isolated test database
