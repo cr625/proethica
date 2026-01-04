@@ -115,6 +115,8 @@ pending_delete/
 # Archive directories
 archive/
 */archive/
+# Exception: keep test archives for documentation
+!tests/archive/
 
 # Cache directories
 cache/
