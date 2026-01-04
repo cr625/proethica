@@ -33,7 +33,6 @@ Domain-specific ontologies provide precise definitions that constrain LLM output
 - [Getting Started](getting-started/welcome.md) - Introduction to ProEthica
 - [Interface Overview](getting-started/first-login.md) - Navigation and UI elements
 - [Nine-Component Framework](concepts/nine-components.md) - Understanding the formal methodology
-- [FAQ](faq.md) - Frequently asked questions
 
 ## Analysis Workflow
 
