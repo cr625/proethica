@@ -176,7 +176,14 @@
                     </div>
                 </div>
 
-                <!-- World Entities - Tabbed Interface -->
+                <!-- World Entities - Tabbed Interface (only show if entities exist) -->
+                {% set has_entities = entities and entities.entities and (
+                    entities.entities.roles or entities.entities.principles or
+                    entities.entities.obligations or entities.entities.conditions or
+                    entities.entities.resources or entities.entities.actions or
+                    entities.entities.events or entities.entities.capabilities
+                ) %}
+                {% if has_entities %}
                 <div class="card mb-4">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h3>Domain Entities</h3>
@@ -442,6 +449,7 @@
                         </div>
                     </div>
                 </div>
+                {% endif %}
 
                 <div class="row">
                     <div class="col-md-12">
