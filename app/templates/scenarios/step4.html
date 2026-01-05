@@ -2622,7 +2622,15 @@ function loadSavedPrompts() {
 
                     if (promptSection && promptText) {
                         promptSection.style.display = 'block';
-                        promptText.textContent = data.prompt_text;
+                        // Format prompt like streaming completion does
+                        let html = '<div class="alert alert-success mb-2 py-2">';
+                        html += '<strong><i class="bi bi-check-circle-fill me-1"></i> Saved Extraction:</strong>';
+                        if (data.timestamp) {
+                            html += `<small class="text-muted ms-2">${new Date(data.timestamp).toLocaleString()}</small>`;
+                        }
+                        html += '</div>';
+                        html += `<pre class="prompt-text-content">${escapeHtml(data.prompt_text)}</pre>`;
+                        promptText.innerHTML = html;
                     }
 
                     if (resultsSection && resultsContent && data.raw_response) {

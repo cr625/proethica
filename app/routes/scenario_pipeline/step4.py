@@ -2852,6 +2852,10 @@ def get_step4_prompts(case_id):
             'code_provision_reference',
             'ethical_question',
             'ethical_conclusion',
+            'transformation_classification',
+            'rich_analysis',
+            'phase3_decision_synthesis',
+            'phase4_narrative',
             'whole_case_synthesis',
             'decision_point',
             'decision_argument'
