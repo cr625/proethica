@@ -83,12 +83,25 @@ def register_phase4_routes(bp, build_entity_foundation, load_canonical_points, l
             # Save extraction prompt for provenance
             # raw_response gets full data for Step 5, results_summary gets counts for display
             session_id = str(uuid.uuid4())
+
+            # Extract actual LLM prompts from llm_traces
+            actual_prompts = []
+            if hasattr(result, 'llm_traces') and result.llm_traces:
+                for trace in result.llm_traces:
+                    if isinstance(trace, dict) and trace.get('prompt'):
+                        stage = trace.get('stage', 'UNKNOWN')
+                        actual_prompts.append(f"=== {stage} ===\n{trace['prompt']}")
+
+            prompt_text = "\n\n".join(actual_prompts) if actual_prompts else f"Phase 4 Narrative Construction - {len(result.stages_completed)} stages"
+            if len(prompt_text) > 10000:
+                prompt_text = prompt_text[:9950] + "\n... [truncated]"
+
             extraction_prompt = ExtractionPrompt(
                 case_id=case_id,
                 concept_type='phase4_narrative',
                 step_number=4,
                 section_type='synthesis',
-                prompt_text=f"Phase 4 Narrative Construction - {len(result.stages_completed)} stages",
+                prompt_text=prompt_text,
                 llm_model='claude-sonnet-4-20250514',
                 extraction_session_id=session_id,
                 raw_response=json.dumps(result.to_dict()),
@@ -338,12 +351,23 @@ def register_phase4_routes(bp, build_entity_foundation, load_canonical_points, l
                 # Save provenance
                 # raw_response gets full data for Step 5, results_summary gets counts for display
                 try:
+                    # Extract actual LLM prompts from accumulated llm_traces
+                    actual_prompts = []
+                    for trace in llm_traces:
+                        if isinstance(trace, dict) and trace.get('prompt'):
+                            stage = trace.get('stage', 'UNKNOWN')
+                            actual_prompts.append(f"=== {stage} ===\n{trace['prompt']}")
+
+                    prompt_text = "\n\n".join(actual_prompts) if actual_prompts else "Phase 4 Narrative Construction - streaming"
+                    if len(prompt_text) > 10000:
+                        prompt_text = prompt_text[:9950] + "\n... [truncated]"
+
                     extraction_prompt = ExtractionPrompt(
                         case_id=case_id,
                         concept_type='phase4_narrative',
                         step_number=4,
                         section_type='synthesis',
-                        prompt_text=f"Phase 4 Narrative Construction - streaming",
+                        prompt_text=prompt_text,
                         llm_model='claude-sonnet-4-20250514',
                         extraction_session_id=session_id,
                         raw_response=json.dumps(result.to_dict()),

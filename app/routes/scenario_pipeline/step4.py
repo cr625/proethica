@@ -4399,6 +4399,14 @@ def extract_qc_unified_streaming(case_id):
                 f"Linked {len(qc_links)} Q-C pairs"
             ]
 
+            # Capture actual LLM prompts from analyzers
+            actual_prompts = []
+            if question_analyzer.last_prompt:
+                actual_prompts.append("=== QUESTIONS EXTRACTION PROMPT ===\n" + question_analyzer.last_prompt)
+            if conclusion_analyzer.last_prompt:
+                actual_prompts.append("=== CONCLUSIONS EXTRACTION PROMPT ===\n" + conclusion_analyzer.last_prompt)
+            combined_prompt = "\n\n".join(actual_prompts) if actual_prompts else "No prompts captured"
+
             yield sse_msg({
                 'stage': 'COMPLETE',
                 'progress': 100,
@@ -4409,7 +4417,7 @@ def extract_qc_unified_streaming(case_id):
                     f'Links: {len(qc_links)}'
                 ],
                 'status_messages': status_messages,
-                'prompt': 'LLM extraction from Questions and Conclusions sections with entity grounding',
+                'prompt': combined_prompt,
                 'raw_llm_response': results_text,
                 'result': {
                     'questions': len(questions),
