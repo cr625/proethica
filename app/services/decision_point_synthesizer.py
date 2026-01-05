@@ -125,6 +125,7 @@ class CanonicalDecisionPoint:
     source: str = "unified"  # 'algorithmic', 'llm', 'unified'
     source_candidate_ids: List[str] = field(default_factory=list)  # Original IDs from E3
     synthesis_method: str = "algorithmic+llm"
+    algorithmic_focus_id: Optional[str] = None  # Original focus ID from algorithmic synthesis
 
     # LLM refinement
     llm_refined_description: Optional[str] = None

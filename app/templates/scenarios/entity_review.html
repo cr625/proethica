@@ -216,22 +216,18 @@
                             {% set facts_url = url_for('entity_review.review_case_entities', case_id=case.id, section_type='facts') if facts_complete else url_for('scenario_pipeline.step1', case_id=case.id) %}
                             {% set discussion_url = url_for('entity_review.review_case_entities', case_id=case.id, section_type='discussion') if discussion_complete else url_for('scenario_pipeline.step1b', case_id=case.id) %}
 
+                            {# Facts button - always clickable, goes to review if complete, extraction if not #}
                             <a href="{{ facts_url }}"
                                class="btn btn-sm {% if section_type == 'facts' %}btn-primary{% else %}btn-outline-primary{% endif %}">
                                 Facts
                                 {% if facts_complete %}<i class="bi bi-check-sm"></i>{% endif %}
                             </a>
-                            {% if facts_complete %}
+                            {# Discussion button - independently accessible based on its own completion status #}
                             <a href="{{ discussion_url }}"
                                class="btn btn-sm {% if section_type == 'discussion' %}btn-primary{% else %}btn-outline-primary{% endif %}">
                                 Discussion
                                 {% if discussion_complete %}<i class="bi bi-check-sm"></i>{% endif %}
                             </a>
-                            {% else %}
-                            <span class="btn btn-sm btn-outline-secondary disabled" title="Complete Facts first">
-                                Discussion <i class="bi bi-lock-fill"></i>
-                            </span>
-                            {% endif %}
                         </div>
                         {% endif %}
                     </div>

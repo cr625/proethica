@@ -85,7 +85,6 @@ nav:
       - Ontology Integration: reference/ontology-integration.md
       - Color Scheme: reference/color-scheme.md
       - Installation & Deployment: reference/installation.md
-  - FAQ: faq.md
   - "Back to ProEthica": "/"
 
 extra_css:
