@@ -259,6 +259,71 @@ rsync -avz --delete site/ digitalocean:/opt/proethica/site/
 curl -s -o /dev/null -w '%{http_code}' https://proethica.org/docs/
 ```
 
+### Case-Specific Database Sync
+
+When syncing a specific case (e.g., after re-running a pipeline), sync BOTH tables:
+
+**Tables Required for Complete Case Sync:**
+- `temporary_rdf_storage` - Entity data (roles, states, arguments, etc.)
+- `extraction_prompts` - Step completion tracking and LLM prompts/responses
+
+```bash
+# 1. Export case data from local (replace CASE_ID with actual ID)
+PGPASSWORD=PASS psql -h localhost -U postgres -d ai_ethical_dm -c "
+COPY (SELECT * FROM temporary_rdf_storage WHERE case_id = CASE_ID) TO STDOUT WITH CSV HEADER" > /tmp/case_entities.csv
+
+PGPASSWORD=PASS psql -h localhost -U postgres -d ai_ethical_dm -c "
+COPY (SELECT * FROM extraction_prompts WHERE case_id = CASE_ID) TO STDOUT WITH CSV HEADER" > /tmp/case_prompts.csv
+
+# 2. Transfer to production
+scp /tmp/case_entities.csv /tmp/case_prompts.csv digitalocean:/tmp/
+
+# 3. On production: Delete old case data and import new
+ssh digitalocean "cd /opt/proethica && source venv/bin/activate && python3 << 'PYEOF'
+from app import create_app
+from app.models import TemporaryRDFStorage, ExtractionPrompt, db
+import csv
+
+CASE_ID = 7  # Replace with actual case ID
+
+app = create_app()
+with app.app_context():
+    # Delete old data
+    old_entities = TemporaryRDFStorage.query.filter_by(case_id=CASE_ID).delete()
+    old_prompts = ExtractionPrompt.query.filter_by(case_id=CASE_ID).delete()
+    db.session.commit()
+    print(f'Deleted {old_entities} entities, {old_prompts} prompts')
+
+    # Import entities
+    with open('/tmp/case_entities.csv', 'r') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            # ... import logic for TemporaryRDFStorage
+            pass
+
+    # Import prompts
+    with open('/tmp/case_prompts.csv', 'r') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            ep = ExtractionPrompt(
+                case_id=int(row['case_id']),
+                concept_type=row['concept_type'],
+                step_number=int(row['step_number']),
+                section_type=row['section_type'] if row['section_type'] else None,
+                # ... other fields
+            )
+            db.session.add(ep)
+    db.session.commit()
+PYEOF
+"
+```
+
+**Why Both Tables Are Required:**
+- `temporary_rdf_storage`: Contains the actual extracted entities (roles, states, arguments, etc.)
+- `extraction_prompts`: Tracks which extraction steps are complete (facts_complete, discussion_complete)
+- The pipeline status service checks `extraction_prompts` to determine step completion
+- Without syncing `extraction_prompts`, production may show "Please complete Step X" messages even when entities exist
+
 ## Pre-Deployment Checklist
 
 - [ ] All local changes committed
