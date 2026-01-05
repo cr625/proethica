@@ -1671,9 +1671,9 @@ function handlePhase3StreamingData(data) {
                                 <span class="text-muted">DATA: ${escapeHtml(dp.toulmin.data_summary || '-')}</span>
                             </div>
                         ` : ''}
-                        ${dp.addresses_questions && dp.addresses_questions.length > 0 ? `
+                        ${dp.addresses_questions && dp.addresses_questions.filter(q => q).length > 0 ? `
                             <div class="mt-1 small text-primary">
-                                Addresses: ${dp.addresses_questions.join(', ')}
+                                Addresses: ${dp.addresses_questions.filter(q => q).join(', ')}
                             </div>
                         ` : ''}
                     </div>
@@ -2466,9 +2466,9 @@ function loadPhase3Results() {
                                     <span class="text-muted">DATA: ${escapeHtml(dp.toulmin.data_summary || '-')}</span>
                                 </div>
                             ` : ''}
-                            ${dp.addresses_questions && dp.addresses_questions.length > 0 ? `
+                            ${dp.addresses_questions && dp.addresses_questions.filter(q => q).length > 0 ? `
                                 <div class="mt-1 small text-primary">
-                                    Addresses: ${dp.addresses_questions.join(', ')}
+                                    Addresses: ${dp.addresses_questions.filter(q => q).join(', ')}
                                 </div>
                             ` : ''}
                         </div>

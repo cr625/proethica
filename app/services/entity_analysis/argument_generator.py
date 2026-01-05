@@ -982,8 +982,21 @@ class ArgumentGenerator:
         option: DecisionPointOption
     ) -> str:
         """Generate PRO argument claim text."""
-        action_phrase = self._make_action_phrase(option.description)
-        return f"{dp.grounding.role_label} should {action_phrase}"
+        desc = option.description
+        desc_lower = desc.lower()
+        role = dp.grounding.role_label
+
+        # Handle options that are already negative ("Do not X")
+        # PRO for "Do not X" = "should not X"
+        if desc_lower.startswith('do not '):
+            positive_action = desc[7:]  # Strip "Do not "
+            return f"{role} should not {positive_action[0].lower()}{positive_action[1:]}"
+        elif desc_lower.startswith("don't "):
+            positive_action = desc[6:]  # Strip "Don't "
+            return f"{role} should not {positive_action[0].lower()}{positive_action[1:]}"
+
+        action_phrase = self._make_action_phrase(desc)
+        return f"{role} should {action_phrase}"
 
     def _generate_con_claim(
         self,
@@ -991,8 +1004,21 @@ class ArgumentGenerator:
         option: DecisionPointOption
     ) -> str:
         """Generate CON argument claim text."""
-        action_phrase = self._make_action_phrase(option.description)
-        return f"{dp.grounding.role_label} should NOT {action_phrase}"
+        desc = option.description
+        desc_lower = desc.lower()
+        role = dp.grounding.role_label
+
+        # Handle options that are already negative ("Do not X")
+        # CON for "Do not X" = "should X" (opposing the negative)
+        if desc_lower.startswith('do not '):
+            positive_action = desc[7:]  # Strip "Do not "
+            return f"{role} should {positive_action[0].lower()}{positive_action[1:]}"
+        elif desc_lower.startswith("don't "):
+            positive_action = desc[6:]  # Strip "Don't "
+            return f"{role} should {positive_action[0].lower()}{positive_action[1:]}"
+
+        action_phrase = self._make_action_phrase(desc)
+        return f"{role} should NOT {action_phrase}"
 
     def _make_action_phrase(self, description: str) -> str:
         """Convert a noun phrase description into a grammatical action phrase.
@@ -1029,6 +1055,11 @@ class ArgumentGenerator:
                 condition = parts[-1] if len(parts) > 2 else parts[1]
                 return f"proceed with {action_part} only when {condition}"
 
+        # Check for "Do not" prefix (negated verb phrase)
+        if desc_lower.startswith('do not ') or desc_lower.startswith("don't "):
+            # Already a complete action phrase, just lowercase first letter
+            return description[0].lower() + description[1:]
+
         # Check if it already starts with a verb
         action_verbs = [
             'disclose', 'report', 'review', 'verify', 'check', 'inform',
@@ -1042,7 +1073,7 @@ class ArgumentGenerator:
             'acknowledge', 'consent', 'honor', 'recommend', 'decline',
             'proceed', 'attempt', 'lobby', 'award', 'require',
             'proactively', 'immediately', 'continue', 'strictly',
-            'thoroughly', 'fully'
+            'thoroughly', 'fully', 'transfer', 'rely'
         ]
 
         for verb in action_verbs:
