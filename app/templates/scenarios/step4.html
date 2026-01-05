@@ -917,7 +917,7 @@ function extractTask(taskType) {
 
                 // Show the prompt
                 if (data.prompt) {
-                    promptHtml += `<div class="prompt-text-content">${escapeHtml(data.prompt)}</div>`;
+                    promptHtml += `<pre class="prompt-text-content">${escapeHtml(data.prompt)}</pre>`;
                 }
 
                 promptText.innerHTML = promptHtml;
@@ -1285,7 +1285,7 @@ function handleStreamingExtraction(taskType, data, promptText, resultsSection, r
 
             // Show the prompt if available
             if (data.prompt) {
-                html += `<div class="prompt-text-content">${escapeHtml(data.prompt)}</div>`;
+                html += `<pre class="prompt-text-content">${escapeHtml(data.prompt)}</pre>`;
             }
 
             promptText.innerHTML = html;
@@ -2183,7 +2183,7 @@ function showLLMTrace(stage, trace) {
         promptSection.style.display = 'block';
         // Add the actual prompt
         const promptHtml = `<div class="alert alert-success mb-2 py-1 small">LLM call: ${stage}</div>
-            <div class="prompt-text-content">${escapeHtml(trace.prompt)}</div>`;
+            <pre class="prompt-text-content">${escapeHtml(trace.prompt)}</pre>`;
         promptText.innerHTML = promptHtml;
     }
 
