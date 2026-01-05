@@ -301,12 +301,25 @@ def register_complete_synthesis_routes(bp, build_entity_foundation, load_canonic
 
                 # Save Phase 4 extraction prompt for provenance
                 session_id = str(uuid.uuid4())
+
+                # Extract actual LLM prompts from llm_traces
+                actual_prompts = []
+                if hasattr(phase4_result, 'llm_traces') and phase4_result.llm_traces:
+                    for trace in phase4_result.llm_traces:
+                        if isinstance(trace, dict) and trace.get('prompt'):
+                            stage = trace.get('stage', 'UNKNOWN')
+                            actual_prompts.append(f"=== {stage} ===\n{trace['prompt']}")
+
+                prompt_text = "\n\n".join(actual_prompts) if actual_prompts else "Complete Synthesis - Phase 4 Narrative Construction"
+                if len(prompt_text) > 10000:
+                    prompt_text = prompt_text[:9950] + "\n... [truncated]"
+
                 extraction_prompt = ExtractionPrompt(
                     case_id=case_id,
                     concept_type='phase4_narrative',
                     step_number=4,
                     section_type='synthesis',
-                    prompt_text=f"Complete Synthesis - Phase 4 Narrative Construction",
+                    prompt_text=prompt_text,
                     llm_model='claude-sonnet-4-20250514',
                     extraction_session_id=session_id,
                     raw_response=json.dumps(phase4_result.to_dict()),
