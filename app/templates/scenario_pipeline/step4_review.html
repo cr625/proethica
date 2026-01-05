@@ -3327,6 +3327,38 @@ function renderPromptContents() {
         setContent('conclusionsPromptContent', '<p class="text-muted mb-0">No prompt data available. Run synthesis first.</p>');
     }
 
+    // Transformation Classification (Phase 2)
+    const transformationPrompt = step4PromptsData['transformation_classification'];
+    if (transformationPrompt) {
+        setContent('transformationPromptContent', formatPromptDisplay(transformationPrompt, 'Transformation Classification'));
+    } else {
+        setContent('transformationPromptContent', '<p class="text-muted mb-0">No prompt data available.</p>');
+    }
+
+    // Rich Analysis (Phase 2)
+    const richAnalysisPrompt = step4PromptsData['rich_analysis'];
+    if (richAnalysisPrompt) {
+        setContent('richAnalysisPromptContent', formatPromptDisplay(richAnalysisPrompt, 'Rich Analysis'));
+    } else {
+        setContent('richAnalysisPromptContent', '<p class="text-muted mb-0">No prompt data available.</p>');
+    }
+
+    // Phase 3 Decision Synthesis
+    const phase3Prompt = step4PromptsData['phase3_decision_synthesis'];
+    if (phase3Prompt) {
+        setContent('phase3PromptContent', formatPromptDisplay(phase3Prompt, 'Phase 3: Decision Synthesis'));
+    } else {
+        setContent('phase3PromptContent', '<p class="text-muted mb-0">No prompt data available.</p>');
+    }
+
+    // Phase 4 Narrative Construction
+    const phase4Prompt = step4PromptsData['phase4_narrative'];
+    if (phase4Prompt) {
+        setContent('phase4PromptContent', formatPromptDisplay(phase4Prompt, 'Phase 4: Narrative Construction'));
+    } else {
+        setContent('phase4PromptContent', '<p class="text-muted mb-0">No prompt data available.</p>');
+    }
+
     // Decision Points (4e)
     const decisionPointsPrompt = step4PromptsData['decision_point'];
     if (decisionPointsPrompt) {
