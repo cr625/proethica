@@ -179,7 +179,10 @@ class OntServeCommitService:
             for entity, rdf_data in classes:
                 # Use entity attributes directly
                 label = entity.entity_label or 'UnknownClass'
+                # Sanitize label for valid URI: remove quotes, parens, and other special chars
                 safe_label = label.replace(" ", "").replace("(", "").replace(")", "")
+                safe_label = safe_label.replace('"', '').replace("'", "").replace(",", "")
+                safe_label = safe_label.replace("<", "").replace(">", "").replace("&", "")
                 class_uri = PROETHICA[safe_label]
 
                 # Check if class already exists
@@ -328,9 +331,25 @@ class OntServeCommitService:
 
             count = 0
             for entity, rdf_data in individuals:
-                # Use entity attributes directly
-                label = entity.entity_label or 'UnknownIndividual'
+                extraction_type = entity.extraction_type or ''
+
+                # Determine label - use short IDs for certain entity types
+                if extraction_type == 'canonical_decision_point' and rdf_data and rdf_data.get('focus_id'):
+                    # Use focus_id (e.g., "DP1") as label for decision points
+                    label = rdf_data['focus_id']
+                    full_description = entity.entity_label  # Store full description separately
+                elif extraction_type in ('ethical_question', 'question_generated') and rdf_data and rdf_data.get('questionNumber'):
+                    # Use Question_N format for questions
+                    label = f"Question_{rdf_data['questionNumber']}"
+                    full_description = entity.entity_label
+                else:
+                    label = entity.entity_label or 'UnknownIndividual'
+                    full_description = None
+
+                # Sanitize label for valid URI: remove quotes, parens, and other special chars
                 safe_label = label.replace(" ", "_").replace("(", "").replace(")", "")
+                safe_label = safe_label.replace('"', '').replace("'", "").replace(",", "")
+                safe_label = safe_label.replace("<", "").replace(">", "").replace("&", "")
                 individual_uri = case_ns[safe_label]
 
                 # Check if individual already exists
@@ -341,6 +360,10 @@ class OntServeCommitService:
                 # Add individual as NamedIndividual
                 g.add((individual_uri, RDF.type, OWL.NamedIndividual))
                 g.add((individual_uri, RDFS.label, Literal(label)))
+
+                # Add full description if we used a short label
+                if full_description:
+                    g.add((individual_uri, RDFS.comment, Literal(full_description)))
 
                 # Add type based on the class from rdf_json_ld
                 if rdf_data and rdf_data.get('types'):
@@ -354,23 +377,180 @@ class OntServeCommitService:
                         class_uri = PROETHICA[safe_class]
                         g.add((individual_uri, RDF.type, class_uri))
 
-                # Add properties from rdf_json_ld
-                if rdf_data and rdf_data.get('properties'):
+                # Check if this is an argument entity (Toulmin structure)
+                extraction_type = entity.extraction_type or ''
+                if extraction_type == 'argument_generated' and rdf_data:
+                    # Add Argument type
+                    g.add((individual_uri, RDF.type, PROETHICA_CASES.Argument))
+
+                    # Serialize Toulmin structure
+                    if rdf_data.get('argument_type'):
+                        g.add((individual_uri, PROETHICA['argumentType'], Literal(rdf_data['argument_type'])))
+                    if rdf_data.get('decision_point_id'):
+                        g.add((individual_uri, PROETHICA['decisionPointId'], Literal(rdf_data['decision_point_id'])))
+                    if rdf_data.get('option_description'):
+                        g.add((individual_uri, PROETHICA['optionDescription'], Literal(rdf_data['option_description'])))
+                    if rdf_data.get('confidence_score'):
+                        g.add((individual_uri, PROETHICA['confidenceScore'], Literal(float(rdf_data['confidence_score']), datatype=XSD.decimal)))
+
+                    # Claim
+                    claim = rdf_data.get('claim', {})
+                    if isinstance(claim, dict) and claim.get('text'):
+                        g.add((individual_uri, PROETHICA['claimText'], Literal(claim['text'])))
+                        if claim.get('entity_label'):
+                            g.add((individual_uri, PROETHICA['claimEntity'], Literal(claim['entity_label'])))
+
+                    # Warrant(s)
+                    warrant = rdf_data.get('warrant', {})
+                    if isinstance(warrant, dict) and warrant.get('entity_label'):
+                        g.add((individual_uri, PROETHICA['warrantEntity'], Literal(warrant['entity_label'])))
+                        if warrant.get('entity_type'):
+                            g.add((individual_uri, PROETHICA['warrantType'], Literal(warrant['entity_type'])))
+
+                    # Backing (code provision)
+                    backing = rdf_data.get('backing', {})
+                    if isinstance(backing, dict) and backing.get('entity_label'):
+                        g.add((individual_uri, PROETHICA['backingProvision'], Literal(backing['entity_label'])))
+
+                    # Qualifier (constraint)
+                    qualifier = rdf_data.get('qualifier', {})
+                    if isinstance(qualifier, dict) and qualifier.get('entity_label'):
+                        g.add((individual_uri, PROETHICA['qualifierConstraint'], Literal(qualifier['entity_label'])))
+
+                    # Role
+                    if rdf_data.get('role_label'):
+                        g.add((individual_uri, PROETHICA['roleLabel'], Literal(rdf_data['role_label'])))
+
+                    # Founding good analysis
+                    if rdf_data.get('founding_good_analysis'):
+                        g.add((individual_uri, PROETHICA['foundingGoodAnalysis'], Literal(rdf_data['founding_good_analysis'])))
+
+                # Check if this is an argument validation entity
+                elif extraction_type == 'argument_validation' and rdf_data:
+                    # Add ArgumentValidation type
+                    g.add((individual_uri, RDF.type, PROETHICA_CASES.ArgumentValidation))
+
+                    # Link to the argument being validated
+                    if rdf_data.get('argument_id'):
+                        arg_id = rdf_data['argument_id']
+                        argument_uri = case_ns[arg_id]
+                        g.add((individual_uri, PROETHICA['validatesArgument'], argument_uri))
+                        g.add((individual_uri, PROETHICA['argumentId'], Literal(arg_id)))
+
+                    # Basic argument context
+                    if rdf_data.get('decision_point_id'):
+                        g.add((individual_uri, PROETHICA['decisionPointId'], Literal(rdf_data['decision_point_id'])))
+                    if rdf_data.get('argument_type'):
+                        g.add((individual_uri, PROETHICA['argumentType'], Literal(rdf_data['argument_type'])))
+
+                    # Overall validation results
+                    if 'is_valid' in rdf_data:
+                        g.add((individual_uri, PROETHICA['isValid'], Literal(rdf_data['is_valid'], datatype=XSD.boolean)))
+                    if rdf_data.get('validation_score') is not None:
+                        g.add((individual_uri, PROETHICA['validationScore'], Literal(float(rdf_data['validation_score']), datatype=XSD.decimal)))
+
+                    # Validation notes
+                    notes = rdf_data.get('validation_notes', [])
+                    if notes:
+                        for i, note in enumerate(notes):
+                            g.add((individual_uri, PROETHICA[f'validationNote{i+1}'], Literal(note)))
+
+                    # Entity validation results
+                    entity_val = rdf_data.get('entity_validation', {})
+                    if entity_val:
+                        if 'is_valid' in entity_val:
+                            g.add((individual_uri, PROETHICA['entityValidationPassed'], Literal(entity_val['is_valid'], datatype=XSD.boolean)))
+                        missing = entity_val.get('missing_entities', [])
+                        for i, m in enumerate(missing):
+                            g.add((individual_uri, PROETHICA[f'missingEntity{i+1}'], Literal(m)))
+
+                    # Founding value validation
+                    founding_val = rdf_data.get('founding_value_validation', {})
+                    if founding_val:
+                        if 'is_compliant' in founding_val:
+                            g.add((individual_uri, PROETHICA['foundingValueCompliant'], Literal(founding_val['is_compliant'], datatype=XSD.boolean)))
+                        if founding_val.get('founding_good'):
+                            g.add((individual_uri, PROETHICA['foundingGood'], Literal(founding_val['founding_good'])))
+                        if founding_val.get('analysis'):
+                            g.add((individual_uri, PROETHICA['foundingValueAnalysis'], Literal(founding_val['analysis'])))
+
+                    # Virtue validation
+                    virtue_val = rdf_data.get('virtue_validation', {})
+                    if virtue_val:
+                        if 'is_valid' in virtue_val:
+                            g.add((individual_uri, PROETHICA['virtueValidationPassed'], Literal(virtue_val['is_valid'], datatype=XSD.boolean)))
+                        missing_virtues = virtue_val.get('missing_virtues', [])
+                        for i, v in enumerate(missing_virtues):
+                            g.add((individual_uri, PROETHICA[f'missingVirtue{i+1}'], Literal(v)))
+
+                # Check if this is a decision point
+                elif extraction_type == 'canonical_decision_point' and rdf_data:
+                    g.add((individual_uri, RDF.type, PROETHICA_CASES.DecisionPoint))
+                    # Add decision point ID
+                    if rdf_data.get('focus_id'):
+                        g.add((individual_uri, PROETHICA['decisionPointId'], Literal(rdf_data['focus_id'])))
+                    # Use 'description' field as focus (the full text description)
+                    if rdf_data.get('description'):
+                        g.add((individual_uri, PROETHICA['focus'], Literal(rdf_data['description'])))
+                    elif rdf_data.get('focus'):
+                        g.add((individual_uri, PROETHICA['focus'], Literal(rdf_data['focus'])))
+                    # Decision question
+                    if rdf_data.get('decision_question'):
+                        g.add((individual_uri, PROETHICA['decisionQuestion'], Literal(rdf_data['decision_question'])))
+                    if rdf_data.get('context'):
+                        g.add((individual_uri, PROETHICA['context'], Literal(rdf_data['context'])))
+                    # Role involved
+                    if rdf_data.get('role_label'):
+                        g.add((individual_uri, PROETHICA['roleLabel'], Literal(rdf_data['role_label'])))
+                    # Serialize options
+                    options = rdf_data.get('options', [])
+                    for i, opt in enumerate(options):
+                        if isinstance(opt, dict) and opt.get('description'):
+                            g.add((individual_uri, PROETHICA[f'option{i+1}'], Literal(opt['description'])))
+
+                # Check if this is an ethical conclusion
+                elif extraction_type == 'ethical_conclusion' and rdf_data:
+                    g.add((individual_uri, RDF.type, PROETHICA_CASES.EthicalConclusion))
+                    if rdf_data.get('conclusionText'):
+                        g.add((individual_uri, PROETHICA['conclusionText'], Literal(rdf_data['conclusionText'])))
+                    if rdf_data.get('conclusionType'):
+                        g.add((individual_uri, PROETHICA['conclusionType'], Literal(rdf_data['conclusionType'])))
+                    if rdf_data.get('conclusionNumber'):
+                        g.add((individual_uri, PROETHICA['conclusionNumber'], Literal(int(rdf_data['conclusionNumber']), datatype=XSD.integer)))
+                    if rdf_data.get('extractionReasoning'):
+                        g.add((individual_uri, PROETHICA['extractionReasoning'], Literal(rdf_data['extractionReasoning'])))
+                    # Cited provisions
+                    cited = rdf_data.get('citedProvisions', [])
+                    for i, prov in enumerate(cited):
+                        g.add((individual_uri, PROETHICA[f'citedProvision{i+1}'], Literal(prov)))
+                    # Answers questions
+                    answers = rdf_data.get('answersQuestions', [])
+                    for i, q in enumerate(answers):
+                        g.add((individual_uri, PROETHICA[f'answersQuestion{i+1}'], Literal(str(q))))
+
+                # Check if this is an ethical question
+                elif extraction_type == 'ethical_question' and rdf_data:
+                    g.add((individual_uri, RDF.type, PROETHICA_CASES.EthicalQuestion))
+                    if rdf_data.get('questionText'):
+                        g.add((individual_uri, PROETHICA['questionText'], Literal(rdf_data['questionText'])))
+                    if rdf_data.get('questionType'):
+                        g.add((individual_uri, PROETHICA['questionType'], Literal(rdf_data['questionType'])))
+                    if rdf_data.get('questionNumber'):
+                        g.add((individual_uri, PROETHICA['questionNumber'], Literal(int(rdf_data['questionNumber']), datatype=XSD.integer)))
+                    if rdf_data.get('emergence'):
+                        g.add((individual_uri, PROETHICA['emergence'], Literal(rdf_data['emergence'])))
+
+                # Standard properties handling for other entity types
+                elif rdf_data and rdf_data.get('properties'):
                     properties = rdf_data['properties']
-                else:
-                    properties = {}
-
-                for prop_name, prop_values in properties.items():
-                    if not isinstance(prop_values, list):
-                        prop_values = [prop_values]
-
-                    # Convert property name to URI
-                    safe_prop = self._camelCase(prop_name)
-                    prop_uri = PROETHICA[safe_prop]
-
-                    for value in prop_values:
-                        if value:
-                            g.add((individual_uri, prop_uri, Literal(value)))
+                    for prop_name, prop_values in properties.items():
+                        if not isinstance(prop_values, list):
+                            prop_values = [prop_values]
+                        safe_prop = self._camelCase(prop_name)
+                        prop_uri = PROETHICA[safe_prop]
+                        for value in prop_values:
+                            if value:
+                                g.add((individual_uri, prop_uri, Literal(value)))
 
                 # Add provenance
                 g.add((individual_uri, PROV.generatedAtTime, Literal(datetime.utcnow())))
