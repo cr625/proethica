@@ -334,14 +334,19 @@ class OntServeCommitService:
                 extraction_type = entity.extraction_type or ''
 
                 # Determine label - use short IDs for certain entity types
+                # For types with dedicated property fields (focus, questionText, etc.), skip rdfs:comment
                 if extraction_type == 'canonical_decision_point' and rdf_data and rdf_data.get('focus_id'):
-                    # Use focus_id (e.g., "DP1") as label for decision points
+                    # Use focus_id (e.g., "DP1") - full text goes in proeth:focus
                     label = rdf_data['focus_id']
-                    full_description = entity.entity_label  # Store full description separately
+                    full_description = None
                 elif extraction_type in ('ethical_question', 'question_generated') and rdf_data and rdf_data.get('questionNumber'):
-                    # Use Question_N format for questions
+                    # Use Question_N - full text goes in proeth:questionText
                     label = f"Question_{rdf_data['questionNumber']}"
-                    full_description = entity.entity_label
+                    full_description = None
+                elif extraction_type == 'ethical_conclusion' and rdf_data and rdf_data.get('conclusionNumber'):
+                    # Use Conclusion_N - full text goes in proeth:conclusionText
+                    label = f"Conclusion_{rdf_data['conclusionNumber']}"
+                    full_description = None
                 else:
                     label = entity.entity_label or 'UnknownIndividual'
                     full_description = None
