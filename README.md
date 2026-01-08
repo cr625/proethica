@@ -1,7 +1,5 @@
 # ProEthica
 
-AI-powered platform for analyzing professional ethics cases using formal ontological methods.
-
 **Live Demo:** https://proethica.org
 
 **Documentation:** https://proethica.org/docs
@@ -16,10 +14,11 @@ ProEthica extracts and analyzes ethical concepts from professional ethics case s
 - PostgreSQL 14+
 - Redis (for async task queue)
 - Celery (background workers)
+- [OntServe](https://github.com/cr625/OntServe) MCP server (port 8082) - ontology management
 
 ## Deployment
 
-This application has a complex deployment stack requiring PostgreSQL, Redis, and Celery workers. A Docker Compose setup is planned for simplified deployment.
+This application has a complex deployment stack requiring PostgreSQL, Redis, Celery workers, and the OntServe MCP server. A Docker Compose setup is planned for simplified deployment.
 
 For manual deployment, see the installation guide in the documentation.
 
@@ -43,4 +42,4 @@ python run.py
 
 ## License
 
-MIT License - See LICENSE file for details.
+GPL-3.0 License - See LICENSE file for details.
