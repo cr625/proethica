@@ -78,11 +78,11 @@ scenario_demo.html
 
 # Lock files
 *.lock
-!uv.lock  # Exception: uv lock file should be committed
 tmp/
 
-# Node.js
+# Node.js (not used - Python project)
 node_modules/
+package.json
 package-lock.json
 
 # External Repositories
