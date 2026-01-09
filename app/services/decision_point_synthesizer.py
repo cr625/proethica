@@ -29,6 +29,9 @@ from app.services.entity_analysis import (
     EntityGroundedDecisionPoint
 )
 
+# MCP Entity Enrichment
+from app.services.mcp_entity_enrichment_service import enrich_prompt_with_entities
+
 logger = logging.getLogger(__name__)
 
 PROETHICA_CASE_NS = "http://proethica.org/ontology/case-{case_id}#"
@@ -529,6 +532,13 @@ class DecisionPointSynthesizer:
             resolution_patterns
         )
 
+        # Enrich prompt with entity definitions from OntServe MCP
+        try:
+            prompt = enrich_prompt_with_entities(prompt, mode="glossary")
+            logger.debug("Enriched refinement prompt with MCP entity definitions")
+        except Exception as e:
+            logger.warning(f"MCP enrichment failed, using unenriched prompt: {e}")
+
         try:
             response = self.llm_client.messages.create(
                 model="claude-sonnet-4-20250514",
@@ -658,6 +668,13 @@ Return as JSON array:
 ]
 ```
 """
+
+        # Enrich prompt with entity definitions from OntServe MCP
+        try:
+            prompt = enrich_prompt_with_entities(prompt, mode="glossary")
+            logger.debug("Enriched causal link prompt with MCP entity definitions")
+        except Exception as e:
+            logger.warning(f"MCP enrichment failed, using unenriched prompt: {e}")
 
         try:
             response = self.llm_client.messages.create(
