@@ -413,6 +413,20 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse" data-bs-target="#phase3TraceCollapse">
+                                    <i class="bi bi-diagram-3 text-info me-2"></i> Synthesis Provenance
+                                </button>
+                            </h2>
+                            <div id="phase3TraceCollapse" class="accordion-collapse collapse" data-bs-parent="#phase3LLMAccordion">
+                                <div class="accordion-body p-2">
+                                    <div id="phase3SynthesisTrace">
+                                        <p class="text-muted small mb-0">No provenance trace available</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -2540,6 +2554,11 @@ function loadPhase3Results() {
                     }
                 }
 
+                // Show synthesis trace (MCP resolution info) if available
+                if (data.synthesis_trace) {
+                    displaySynthesisTrace(data.synthesis_trace);
+                }
+
                 // Mark phase indicator as complete
                 const phase3Indicator = document.getElementById('phase3-indicator');
                 if (phase3Indicator) phase3Indicator.classList.add('phase-complete');
@@ -2575,6 +2594,100 @@ function enablePhase4() {
         phase4Btn.innerHTML = '<i class="bi bi-play-fill"></i> Construct';
         phase4Btn.title = '';
     }
+}
+
+// Display synthesis trace/provenance information
+function displaySynthesisTrace(trace) {
+    const container = document.getElementById('phase3SynthesisTrace');
+    if (!container || !trace) return;
+
+    let html = '<div class="small">';
+
+    // Timing info
+    if (trace.synthesis_started || trace.synthesis_completed) {
+        html += '<div class="mb-2"><strong><i class="bi bi-clock me-1"></i>Timing</strong>';
+        if (trace.synthesis_started) html += `<br>Started: ${trace.synthesis_started}`;
+        if (trace.synthesis_completed) html += `<br>Completed: ${trace.synthesis_completed}`;
+        html += '</div>';
+    }
+
+    // Entity Resolution (MCP info)
+    if (trace.entity_resolution) {
+        const er = trace.entity_resolution;
+        html += '<div class="mb-2 p-2 bg-light rounded">';
+        html += '<strong><i class="bi bi-link-45deg me-1"></i>Entity Resolution (MCP)</strong>';
+        html += `<div class="mt-1">`;
+        html += `<span class="badge bg-success me-1">${er.mcp_resolved_count || 0} from MCP</span>`;
+        html += `<span class="badge bg-warning me-1">${er.local_resolved_count || 0} from local</span>`;
+        html += `<span class="badge bg-secondary">${er.entities_not_found || 0} not found</span>`;
+        html += `</div>`;
+        if (er.mcp_server_url) {
+            html += `<small class="text-muted">Server: ${er.mcp_server_url}</small>`;
+        }
+
+        // Show resolved entities
+        if (er.entities_resolved && er.entities_resolved.length > 0) {
+            html += '<details class="mt-2"><summary class="text-primary" style="cursor: pointer;">Resolved Entities</summary>';
+            html += '<ul class="list-unstyled mt-1 ms-2">';
+            er.entities_resolved.forEach(e => {
+                const srcBadge = e.source === 'mcp' ? 'success' : e.source === 'local' ? 'warning' : 'secondary';
+                const icon = e.found ? 'check-circle' : 'x-circle';
+                html += `<li class="mb-1">
+                    <i class="bi bi-${icon} text-${e.found ? 'success' : 'danger'} me-1"></i>
+                    <span class="badge bg-${srcBadge} me-1">${e.source}</span>
+                    <strong>${e.label}</strong> <small class="text-muted">(${e.entity_type})</small>
+                </li>`;
+            });
+            html += '</ul></details>';
+        }
+        html += '</div>';
+    }
+
+    // Algorithmic Composition
+    if (trace.algorithmic_composition) {
+        const ac = trace.algorithmic_composition;
+        html += '<div class="mb-2">';
+        html += '<strong><i class="bi bi-gear me-1"></i>Algorithmic Composition</strong>';
+        html += `<br>Method: ${ac.method || 'E1-E3'}`;
+        html += `<br>Candidates: ${ac.candidates_count || 0}`;
+        html += '</div>';
+    }
+
+    // Q&C Alignment
+    if (trace.qc_alignment) {
+        const qc = trace.qc_alignment;
+        html += '<div class="mb-2">';
+        html += '<strong><i class="bi bi-check2-square me-1"></i>Q&C Alignment</strong>';
+        html += `<br>High alignment (&gt;0.5): ${qc.high_alignment_count || 0}`;
+        if (qc.top_scores && qc.top_scores.length > 0) {
+            html += '<br>Top scores: ';
+            qc.top_scores.slice(0, 3).forEach(s => {
+                html += `<span class="badge bg-info me-1">${s.candidate_id}: ${(s.score * 100).toFixed(0)}%</span>`;
+            });
+        }
+        html += '</div>';
+    }
+
+    // LLM Refinement
+    if (trace.llm_refinement && trace.llm_refinement.model) {
+        const llm = trace.llm_refinement;
+        html += '<div class="mb-2">';
+        html += '<strong><i class="bi bi-robot me-1"></i>LLM Refinement</strong>';
+        html += `<br>Model: ${llm.model}`;
+        html += `<br>Prompt: ${llm.prompt_length || 0} chars, Response: ${llm.response_length || 0} chars`;
+        html += '</div>';
+    }
+
+    // Output
+    if (trace.output) {
+        html += '<div class="mb-2">';
+        html += '<strong><i class="bi bi-box-arrow-right me-1"></i>Output</strong>';
+        html += `<br>Decision points produced: <span class="badge bg-primary">${trace.output.canonical_points_produced || 0}</span>`;
+        html += '</div>';
+    }
+
+    html += '</div>';
+    container.innerHTML = html;
 }
 
 // Load saved Phase 4 results via API

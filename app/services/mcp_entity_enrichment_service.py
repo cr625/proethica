@@ -23,6 +23,7 @@ import logging
 import requests
 from typing import List, Dict, Optional, Set, Tuple
 from functools import lru_cache
+from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
@@ -335,3 +336,83 @@ def enrich_prompt_with_entities(prompt: str, mode: str = "glossary") -> str:
     """
     service = get_enrichment_service()
     return service.enrich_text_with_definitions(prompt, mode=mode)
+
+
+@dataclass
+class EnrichmentResult:
+    """Result of entity enrichment with metadata for provenance tracking."""
+    enriched_text: str
+    entities_resolved: Dict[str, Dict]  # URI -> entity data
+    mcp_resolved_count: int
+    local_resolved_count: int
+    not_found_count: int
+    resolution_log: List[Dict]  # Detailed log of each resolution
+
+
+def enrich_prompt_with_metadata(prompt: str, mode: str = "glossary") -> EnrichmentResult:
+    """
+    Enrich a prompt and return metadata about entity resolution for provenance.
+
+    Args:
+        prompt: The LLM prompt text
+        mode: "glossary" or "inline"
+
+    Returns:
+        EnrichmentResult with enriched text and resolution metadata
+    """
+    service = get_enrichment_service()
+
+    # Extract URIs
+    uris = service.extract_uris(prompt)
+
+    if not uris:
+        return EnrichmentResult(
+            enriched_text=prompt,
+            entities_resolved={},
+            mcp_resolved_count=0,
+            local_resolved_count=0,
+            not_found_count=0,
+            resolution_log=[]
+        )
+
+    # Look up entities
+    entities = service.lookup_entities(uris)
+
+    # Build resolution log with source tracking
+    resolution_log = []
+    mcp_count = 0
+    local_count = 0
+    not_found_count = 0
+
+    for uri, entity in entities.items():
+        source = entity.get("source", "unknown")
+        found = entity.get("found", True)
+
+        log_entry = {
+            "uri": uri,
+            "label": entity.get("label", uri.split("#")[-1]),
+            "source": source,
+            "found": found,
+            "has_definition": bool(entity.get("definition")),
+            "entity_type": entity.get("entity_type", "Unknown")
+        }
+        resolution_log.append(log_entry)
+
+        if not found:
+            not_found_count += 1
+        elif source == "mcp":
+            mcp_count += 1
+        elif source == "local":
+            local_count += 1
+
+    # Build enriched text
+    enriched_text = service.enrich_text_with_definitions(prompt, mode=mode)
+
+    return EnrichmentResult(
+        enriched_text=enriched_text,
+        entities_resolved=entities,
+        mcp_resolved_count=mcp_count,
+        local_resolved_count=local_count,
+        not_found_count=not_found_count,
+        resolution_log=resolution_log
+    )

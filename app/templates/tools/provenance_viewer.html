@@ -274,30 +274,48 @@ function displayProvenanceData(data) {
 function displayTimeline(timeline) {
     const container = document.getElementById('timeline-content');
     container.innerHTML = '';
-    
+
+    // Icon and color mapping for activity types
+    const activityStyles = {
+        'composition': { icon: 'bi-gear', color: 'primary', label: 'Algorithmic' },
+        'alignment': { icon: 'bi-check2-square', color: 'info', label: 'Alignment' },
+        'enrichment': { icon: 'bi-link-45deg', color: 'success', label: 'MCP Resolution' },
+        'synthesis': { icon: 'bi-robot', color: 'warning', label: 'LLM Synthesis' },
+        'storage': { icon: 'bi-database', color: 'secondary', label: 'Storage' },
+        'extraction': { icon: 'bi-file-earmark-text', color: 'primary', label: 'Extraction' },
+        'analysis': { icon: 'bi-graph-up', color: 'info', label: 'Analysis' },
+        'llm_query': { icon: 'bi-chat-left-text', color: 'warning', label: 'LLM Query' }
+    };
+
     timeline.forEach(item => {
         const timelineItem = document.createElement('div');
-        timelineItem.className = 'timeline-item mb-3 p-3 border rounded';
-        
-        const statusBadge = item.status === 'completed' ? 'success' : 
+        const style = activityStyles[item.activity_type] || { icon: 'bi-circle', color: 'secondary', label: item.activity_type };
+
+        // Determine border color based on activity type
+        timelineItem.className = `timeline-item mb-3 p-3 border rounded border-${style.color}`;
+
+        const statusBadge = item.status === 'completed' ? 'success' :
                            item.status === 'failed' ? 'danger' : 'warning';
-        
+
         const duration = item.duration_ms ? `${item.duration_ms}ms` : 'N/A';
-        
+
+        // Format activity name for display
+        const displayName = formatActivityName(item.name);
+
         timelineItem.innerHTML = `
             <div class="d-flex justify-content-between align-items-start">
                 <div>
-                    <h6>${item.name}</h6>
+                    <h6><i class="bi ${style.icon} text-${style.color} me-2"></i>${displayName}</h6>
                     <p class="mb-1">
                         <span class="badge bg-${statusBadge}">${item.status}</span>
-                        <span class="badge bg-secondary">${item.activity_type}</span>
+                        <span class="badge bg-${style.color}">${style.label}</span>
                     </p>
                     <small class="text-muted">
-                        Agent: ${item.agent ? item.agent.name : 'Unknown'} | 
+                        Agent: ${item.agent ? item.agent.name : 'Unknown'} |
                         Duration: ${duration}
                     </small>
                 </div>
-                <button class="btn btn-sm btn-outline-primary" onclick="showActivityDetails(${item.id})">
+                <button class="btn btn-sm btn-outline-${style.color}" onclick="showActivityDetails(${item.id})">
                     <i class="bi bi-info-circle"></i> Details
                 </button>
             </div>
@@ -305,9 +323,28 @@ function displayTimeline(timeline) {
                 ${new Date(item.started_at).toLocaleString()}
             </small>
         `;
-        
+
         container.appendChild(timelineItem);
     });
+}
+
+function formatActivityName(name) {
+    // Convert snake_case activity names to readable format
+    const nameMap = {
+        'phase3_e1e3_algorithmic': 'Phase 3: E1-E3 Algorithmic Composition',
+        'phase3_qc_alignment': 'Phase 3: Q&C Alignment Scoring',
+        'phase3_mcp_entity_resolution': 'Phase 3: MCP Entity Resolution',
+        'phase3_llm_refinement': 'Phase 3: LLM Refinement',
+        'phase3_decision_points_stored': 'Phase 3: Decision Points Stored',
+        'step4_phase3_decision': 'Step 4 Phase 3: Decision Point Synthesis',
+        'step4_provisions': 'Step 4: Code Provisions',
+        'step4_questions': 'Step 4: Ethical Questions',
+        'step4_conclusions': 'Step 4: Board Conclusions',
+        'step4_transformation': 'Step 4: Transformation Analysis',
+        'step4_rich_analysis': 'Step 4: Rich Analysis',
+        'step4_phase4_narrative': 'Step 4 Phase 4: Narrative Construction'
+    };
+    return nameMap[name] || name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 }
 
 function displayEntities(entities) {
@@ -463,11 +500,18 @@ function showActivityDetails(activityId) {
         .then(response => response.json())
         .then(data => {
             const modal = document.getElementById('activity-modal-content');
-            
+
             const duration = data.activity.duration_ms ? `${data.activity.duration_ms}ms` : 'N/A';
-            
+            const displayName = formatActivityName(data.activity.name);
+
+            // Format execution plan for display
+            let executionPlanHtml = '';
+            if (data.activity.execution_plan && Object.keys(data.activity.execution_plan).length > 0) {
+                executionPlanHtml = formatExecutionPlan(data.activity.execution_plan, data.activity.name);
+            }
+
             modal.innerHTML = `
-                <h6>Activity: ${data.activity.name}</h6>
+                <h6>Activity: ${displayName}</h6>
                 <table class="table table-sm">
                     <tr><th>Type:</th><td>${data.activity.type}</td></tr>
                     <tr><th>Status:</th><td><span class="badge bg-${data.activity.status === 'completed' ? 'success' : 'danger'}">${data.activity.status}</span></td></tr>
@@ -476,29 +520,79 @@ function showActivityDetails(activityId) {
                     ${data.activity.ended_at ? `<tr><th>Ended:</th><td>${new Date(data.activity.ended_at).toLocaleString()}</td></tr>` : ''}
                     ${data.activity.error_message ? `<tr><th>Error:</th><td class="text-danger">${data.activity.error_message}</td></tr>` : ''}
                 </table>
-                
+
                 ${data.agent ? `
                     <h6>Agent</h6>
-                    <p>${data.agent.name} (${data.agent.type})</p>
+                    <p><i class="bi bi-cpu me-1"></i> ${data.agent.name} <span class="badge bg-secondary">${data.agent.type}</span></p>
                 ` : ''}
-                
+
+                ${executionPlanHtml}
+
                 ${data.generated.length > 0 ? `
                     <h6>Generated Entities</h6>
-                    <ul>
-                        ${data.generated.map(e => `<li>${e.entity_name} (${e.entity_type})</li>`).join('')}
+                    <ul class="list-unstyled">
+                        ${data.generated.map(e => `<li><i class="bi bi-arrow-right-circle text-success me-1"></i> ${e.entity_name} <span class="badge bg-info">${e.entity_type}</span></li>`).join('')}
                     </ul>
                 ` : ''}
-                
+
                 ${data.used.length > 0 ? `
                     <h6>Used Entities</h6>
-                    <ul>
-                        ${data.used.map(e => `<li>${e.entity_name} (${e.usage_role})</li>`).join('')}
+                    <ul class="list-unstyled">
+                        ${data.used.map(e => `<li><i class="bi bi-arrow-left-circle text-primary me-1"></i> ${e.entity_name} <span class="badge bg-secondary">${e.usage_role}</span></li>`).join('')}
                     </ul>
                 ` : ''}
             `;
-            
+
             new bootstrap.Modal(document.getElementById('activityModal')).show();
         });
+}
+
+function formatExecutionPlan(plan, activityName) {
+    // Special formatting for different activity types
+    let html = '<h6><i class="bi bi-clipboard-data me-1"></i> Execution Details</h6><div class="bg-light p-2 rounded small">';
+
+    if (activityName.includes('mcp_entity_resolution')) {
+        // MCP resolution specific formatting
+        html += '<div class="mb-2"><strong>Entity Resolution:</strong></div>';
+        html += `<div class="ms-2">
+            <span class="badge bg-success me-1">${plan.mcp_resolved || 0} from MCP</span>
+            <span class="badge bg-warning me-1">${plan.local_resolved || 0} from Local</span>
+            <span class="badge bg-secondary">${plan.not_found || 0} not found</span>
+        </div>`;
+        if (plan.total_uris) {
+            html += `<div class="ms-2 mt-1">Total URIs processed: ${plan.total_uris}</div>`;
+        }
+    } else if (activityName.includes('e1e3')) {
+        // E1-E3 composition formatting
+        html += '<div class="mb-1"><strong>E1 Obligations:</strong> ' + (plan.e1_obligations || 0) + ' (' + (plan.e1_decision_relevant || 0) + ' decision-relevant)</div>';
+        html += '<div class="mb-1"><strong>E2 Action Sets:</strong> ' + (plan.e2_action_sets || 0) + '</div>';
+        html += '<div class="mb-1"><strong>E3 Candidates:</strong> ' + (plan.e3_candidates || 0) + '</div>';
+        if (plan.e1_used_llm_fallback) {
+            html += '<div class="text-info"><i class="bi bi-robot me-1"></i> Used LLM fallback for E1</div>';
+        }
+    } else if (activityName.includes('qc_alignment')) {
+        // Q&C alignment formatting
+        html += '<div class="mb-1"><strong>Candidates Scored:</strong> ' + (plan.candidates_scored || 0) + '</div>';
+        html += '<div class="mb-1"><strong>High Alignment (>0.5):</strong> <span class="badge bg-success">' + (plan.high_alignment_count || 0) + '</span></div>';
+    } else if (activityName.includes('llm_refinement')) {
+        // LLM refinement formatting
+        html += '<div class="mb-1"><strong>Input Candidates:</strong> ' + (plan.input_candidates || 0) + '</div>';
+        html += '<div class="mb-1"><strong>High Alignment:</strong> ' + (plan.high_alignment_candidates || 0) + '</div>';
+        html += '<div class="mb-1"><strong>Output Decision Points:</strong> <span class="badge bg-primary">' + (plan.output_decision_points || 0) + '</span></div>';
+    } else if (activityName.includes('stored')) {
+        // Storage formatting
+        html += '<div class="mb-1"><strong>Decision Points Stored:</strong> <span class="badge bg-primary">' + (plan.canonical_count || 0) + '</span></div>';
+        html += '<div class="mb-1"><strong>Storage Target:</strong> ' + (plan.stored_to || 'database') + '</div>';
+    } else {
+        // Generic formatting
+        for (const [key, value] of Object.entries(plan)) {
+            const formattedKey = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            html += `<div class="mb-1"><strong>${formattedKey}:</strong> ${JSON.stringify(value)}</div>`;
+        }
+    }
+
+    html += '</div>';
+    return html;
 }
 
 function escapeHtml(text) {

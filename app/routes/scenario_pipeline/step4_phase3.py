@@ -8,6 +8,7 @@ Handles decision point synthesis with Q&C alignment:
 
 import json
 import logging
+import os
 import uuid
 from datetime import datetime
 from flask import jsonify, Response, stream_with_context
@@ -19,9 +20,11 @@ from app.utils.environment_auth import auth_required_for_llm
 from app.services.decision_point_synthesizer import (
     DecisionPointSynthesizer,
     synthesize_decision_points,
-    Phase3SynthesisResult
+    Phase3SynthesisResult,
+    SynthesisTrace
 )
 from app.domains import get_domain_config
+from app.services.provenance_service import get_provenance_service
 
 logger = logging.getLogger(__name__)
 
@@ -248,6 +251,31 @@ def register_phase3_routes(bp, get_all_case_entities, load_phase2_data):
                     'e3_result': f'{candidates_count} candidates'
                 })
 
+                # Track E1-E3 composition in PROV-O timeline
+                prov = get_provenance_service()
+                e1e3_session = f"phase3_e1e3_{case_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                with prov.track_activity(
+                    activity_type='composition',
+                    activity_name='phase3_e1e3_algorithmic',
+                    case_id=case_id,
+                    session_id=e1e3_session,
+                    agent_type='algorithmic',
+                    agent_name='e1_e3_composer',
+                    execution_plan={
+                        'e1_obligations': obl_count,
+                        'e1_decision_relevant': decision_relevant,
+                        'e1_used_llm_fallback': coverage.used_llm_fallback if hasattr(coverage, 'used_llm_fallback') else False,
+                        'e2_action_sets': action_sets,
+                        'e3_candidates': candidates_count
+                    }
+                ) as e1e3_activity:
+                    prov.record_extraction_results(
+                        results={'candidates': candidates_count, 'method': 'E1-E3 algorithmic'},
+                        activity=e1e3_activity,
+                        entity_type='algorithmic_candidates',
+                        metadata={'obligations': obl_count, 'action_sets': action_sets}
+                    )
+
                 if candidates_count == 0:
                     # LLM fallback using causal_normative_links (unified with synthesize_decision_points)
                     yield sse_msg({
@@ -360,6 +388,33 @@ def register_phase3_routes(bp, get_all_case_entities, load_phase2_data):
                     'alignment_result': f'{high_alignment}/{len(alignment_scores)} high alignment'
                 })
 
+                # Track Q&C alignment in PROV-O timeline
+                qc_session = f"phase3_qc_{case_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                with prov.track_activity(
+                    activity_type='alignment',
+                    activity_name='phase3_qc_alignment',
+                    case_id=case_id,
+                    session_id=qc_session,
+                    agent_type='algorithmic',
+                    agent_name='toulmin_alignment_scorer',
+                    execution_plan={
+                        'candidates_scored': len(alignment_scores),
+                        'high_alignment_count': high_alignment,
+                        'threshold': 0.5
+                    }
+                ) as qc_activity:
+                    top_scores = sorted(alignment_scores, key=lambda x: x.total_score, reverse=True)[:5]
+                    prov.record_extraction_results(
+                        results={
+                            'high_alignment': high_alignment,
+                            'total_scored': len(alignment_scores),
+                            'top_scores': [{'id': s.candidate_id, 'score': s.total_score} for s in top_scores]
+                        },
+                        activity=qc_activity,
+                        entity_type='alignment_scores',
+                        metadata={'method': 'Toulmin analysis'}
+                    )
+
                 # Stage 3.3: LLM Refinement
                 yield sse_msg({
                     'stage': 'STAGE_3_3',
@@ -367,7 +422,7 @@ def register_phase3_routes(bp, get_all_case_entities, load_phase2_data):
                     'messages': ['Stage 3.3: Running LLM refinement with Toulmin structure...']
                 })
 
-                canonical_points, llm_prompt, llm_response = synthesizer._llm_refine(
+                canonical_points, llm_prompt, llm_response, enrichment_result = synthesizer._llm_refine(
                     case_id,
                     candidates.decision_points,
                     alignment_scores,
@@ -377,11 +432,22 @@ def register_phase3_routes(bp, get_all_case_entities, load_phase2_data):
                     resolution_patterns
                 )
 
+                # Build enrichment info for provenance
+                mcp_info = {}
+                if enrichment_result:
+                    mcp_info = {
+                        'mcp_resolved': enrichment_result.mcp_resolved_count,
+                        'local_resolved': enrichment_result.local_resolved_count,
+                        'not_found': enrichment_result.not_found_count,
+                        'entities': [e['label'] for e in enrichment_result.resolution_log if e.get('found')]
+                    }
+
                 yield sse_msg({
                     'stage': 'STAGE_3_3_DONE',
                     'progress': 85,
                     'messages': [f'Stage 3.3 complete: {len(canonical_points)} decision points'],
-                    'llm_result': f'{len(canonical_points)} decision points'
+                    'llm_result': f'{len(canonical_points)} decision points',
+                    'mcp_enrichment': mcp_info
                 })
 
                 # Stage 3.4: Storage
@@ -392,9 +458,106 @@ def register_phase3_routes(bp, get_all_case_entities, load_phase2_data):
                 })
 
                 session_id = f"phase3_{case_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-                synthesizer._store_canonical_points(case_id, canonical_points, session_id)
 
-                # Save extraction prompt for provenance
+                # Build synthesis trace for provenance_metadata
+                synthesis_trace = SynthesisTrace(
+                    synthesis_started=datetime.now().isoformat(),
+                    synthesis_completed=datetime.now().isoformat(),
+                    algorithmic_candidates_count=candidates_count,
+                    high_alignment_count=high_alignment,
+                    canonical_points_produced=len(canonical_points),
+                    llm_model="claude-sonnet-4-20250514",
+                    llm_prompt_length=len(llm_prompt) if llm_prompt else 0,
+                    llm_response_length=len(llm_response) if llm_response else 0,
+                    mcp_server_url=os.environ.get("ONTSERVE_MCP_URL", "http://localhost:8082")
+                )
+                if enrichment_result:
+                    synthesis_trace.entities_resolved = enrichment_result.resolution_log
+                    synthesis_trace.mcp_resolved_count = enrichment_result.mcp_resolved_count
+                    synthesis_trace.local_resolved_count = enrichment_result.local_resolved_count
+                    synthesis_trace.entities_not_found = enrichment_result.not_found_count
+                synthesis_trace.alignment_scores_summary = [
+                    {"candidate_id": s.candidate_id, "score": s.total_score}
+                    for s in sorted(alignment_scores, key=lambda x: x.total_score, reverse=True)[:5]
+                ]
+
+                synthesizer._store_canonical_points(case_id, canonical_points, session_id, synthesis_trace)
+
+                # Track provenance - one activity per stage for clear timeline
+                prov = get_provenance_service()
+
+                # Track MCP Entity Resolution as separate activity
+                if enrichment_result and (enrichment_result.mcp_resolved_count > 0 or enrichment_result.local_resolved_count > 0):
+                    with prov.track_activity(
+                        activity_type='enrichment',
+                        activity_name='phase3_mcp_entity_resolution',
+                        case_id=case_id,
+                        session_id=session_id,
+                        agent_type='mcp_service',
+                        agent_name='ontserve_mcp',
+                        execution_plan={
+                            'mcp_resolved': enrichment_result.mcp_resolved_count,
+                            'local_resolved': enrichment_result.local_resolved_count,
+                            'not_found': enrichment_result.not_found_count,
+                            'total_uris': len(enrichment_result.resolution_log)
+                        }
+                    ) as mcp_activity:
+                        # Record resolved entities as extraction results
+                        prov.record_extraction_results(
+                            results={
+                                'resolved_entities': [
+                                    {'uri': e['uri'], 'label': e['label'], 'source': e['source']}
+                                    for e in enrichment_result.resolution_log if e.get('found')
+                                ]
+                            },
+                            activity=mcp_activity,
+                            entity_type='mcp_resolved_entities',
+                            metadata={'mcp_server': os.environ.get("ONTSERVE_MCP_URL", "http://localhost:8082")}
+                        )
+
+                # Track LLM Refinement as separate activity
+                with prov.track_activity(
+                    activity_type='synthesis',
+                    activity_name='phase3_llm_refinement',
+                    case_id=case_id,
+                    session_id=session_id,
+                    agent_type='llm_model',
+                    agent_name='claude-sonnet-4-20250514',
+                    execution_plan={
+                        'input_candidates': candidates_count,
+                        'high_alignment_candidates': high_alignment,
+                        'output_decision_points': len(canonical_points)
+                    }
+                ) as llm_activity:
+                    if llm_prompt:
+                        prompt_entity = prov.record_prompt(llm_prompt[:5000], llm_activity, entity_name='phase3_refinement_prompt')
+                        if llm_response:
+                            prov.record_response(llm_response[:5000], llm_activity, derived_from=prompt_entity, entity_name='phase3_refinement_response')
+
+                # Track final storage as separate activity
+                with prov.track_activity(
+                    activity_type='storage',
+                    activity_name='phase3_decision_points_stored',
+                    case_id=case_id,
+                    session_id=session_id,
+                    agent_type='system',
+                    agent_name='decision_point_synthesizer',
+                    execution_plan={
+                        'canonical_count': len(canonical_points),
+                        'stored_to': 'temporary_rdf_storage'
+                    }
+                ) as storage_activity:
+                    prov.record_extraction_results(
+                        results={
+                            'decision_points': [dp.focus_id for dp in canonical_points],
+                            'total_stored': len(canonical_points)
+                        },
+                        activity=storage_activity,
+                        entity_type='canonical_decision_points',
+                        metadata={'session_id': session_id}
+                    )
+
+                # Save extraction prompt for UI
                 if llm_prompt:
                     extraction_prompt = ExtractionPrompt(
                         case_id=case_id,
@@ -436,7 +599,8 @@ def register_phase3_routes(bp, get_all_case_entities, load_phase2_data):
                     'llm_trace': {
                         'prompt': llm_prompt if llm_prompt else None,
                         'response': llm_response if llm_response else None
-                    }
+                    },
+                    'synthesis_trace': synthesis_trace.to_dict() if synthesis_trace else None
                 })
 
             except Exception as e:
@@ -499,6 +663,12 @@ def register_phase3_routes(bp, get_all_case_entities, load_phase2_data):
                     'response': last_prompt.raw_response
                 }
 
+            # Get synthesis trace from provenance_metadata of first decision point
+            synthesis_trace = None
+            first_dp = decision_points[0] if decision_points else None
+            if first_dp and first_dp.provenance_metadata:
+                synthesis_trace = first_dp.provenance_metadata
+
             return jsonify({
                 'success': True,
                 'canonical_count': len(results),
@@ -507,6 +677,7 @@ def register_phase3_routes(bp, get_all_case_entities, load_phase2_data):
                 'high_alignment_count': summary.get('high_alignment_count', 0),
                 'last_synthesis': last_prompt.created_at.isoformat() if last_prompt else None,
                 'llm_trace': llm_trace,
+                'synthesis_trace': synthesis_trace,
                 # E1-E3 intermediate results for UI badges
                 'e1_obligations': summary.get('e1_obligations', 0),
                 'e1_decision_relevant': summary.get('e1_decision_relevant', 0),

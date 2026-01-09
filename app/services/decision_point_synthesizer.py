@@ -12,6 +12,7 @@ Reference: docs-internal/PHASE3_DECISION_POINT_SYNTHESIS_PLAN.md
 
 import json
 import logging
+import os
 import re
 from datetime import datetime
 from typing import List, Dict, Optional, Tuple, Any
@@ -30,7 +31,11 @@ from app.services.entity_analysis import (
 )
 
 # MCP Entity Enrichment
-from app.services.mcp_entity_enrichment_service import enrich_prompt_with_entities
+from app.services.mcp_entity_enrichment_service import (
+    enrich_prompt_with_entities,
+    enrich_prompt_with_metadata,
+    EnrichmentResult
+)
 
 logger = logging.getLogger(__name__)
 
@@ -176,6 +181,75 @@ class Phase3SynthesisResult:
         }
 
 
+@dataclass
+class SynthesisTrace:
+    """
+    Detailed provenance trace for a decision point synthesis.
+
+    Captures the full reasoning path including:
+    - Entity resolution via MCP/local
+    - Algorithmic composition results
+    - LLM refinement interaction
+    """
+    # Timestamps
+    synthesis_started: Optional[str] = None
+    synthesis_completed: Optional[str] = None
+
+    # Entity Resolution (MCP enrichment)
+    entities_resolved: List[Dict] = field(default_factory=list)  # Resolution log
+    mcp_resolved_count: int = 0
+    local_resolved_count: int = 0
+    entities_not_found: int = 0
+    mcp_server_url: str = ""
+
+    # Stage 3.1: Algorithmic Composition
+    algorithmic_candidates_count: int = 0
+    algorithmic_method: str = "E1-E3"
+
+    # Stage 3.2: Q&C Alignment
+    alignment_scores_summary: List[Dict] = field(default_factory=list)  # Top scores
+    high_alignment_count: int = 0
+
+    # Stage 3.3: LLM Refinement
+    llm_model: str = ""
+    llm_prompt_length: int = 0
+    llm_response_length: int = 0
+    llm_temperature: float = 0.2
+
+    # Stage 3.4: Output
+    canonical_points_produced: int = 0
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'synthesis_started': self.synthesis_started,
+            'synthesis_completed': self.synthesis_completed,
+            'entity_resolution': {
+                'entities_resolved': self.entities_resolved,
+                'mcp_resolved_count': self.mcp_resolved_count,
+                'local_resolved_count': self.local_resolved_count,
+                'entities_not_found': self.entities_not_found,
+                'mcp_server_url': self.mcp_server_url
+            },
+            'algorithmic_composition': {
+                'candidates_count': self.algorithmic_candidates_count,
+                'method': self.algorithmic_method
+            },
+            'qc_alignment': {
+                'top_scores': self.alignment_scores_summary,
+                'high_alignment_count': self.high_alignment_count
+            },
+            'llm_refinement': {
+                'model': self.llm_model,
+                'prompt_length': self.llm_prompt_length,
+                'response_length': self.llm_response_length,
+                'temperature': self.llm_temperature
+            },
+            'output': {
+                'canonical_points_produced': self.canonical_points_produced
+            }
+        }
+
+
 # =============================================================================
 # DECISION POINT SYNTHESIZER
 # =============================================================================
@@ -249,7 +323,7 @@ class DecisionPointSynthesizer:
             logger.warning("No algorithmic candidates - trying LLM fallback with causal links")
             # LLM fallback: generate decision points from causal_normative_links
             if not skip_llm:
-                canonical_points, llm_prompt, llm_response = self._llm_generate_from_causal_links(
+                canonical_points, llm_prompt, llm_response, fallback_enrichment = self._llm_generate_from_causal_links(
                     case_id, questions, conclusions, question_emergence, resolution_patterns
                 )
                 if canonical_points:
@@ -258,8 +332,27 @@ class DecisionPointSynthesizer:
                     result.llm_prompt = llm_prompt
                     result.llm_response = llm_response
                     logger.info(f"LLM fallback generated {result.canonical_count} decision points")
+
+                    # Build minimal synthesis trace for fallback path
+                    fallback_trace = SynthesisTrace(
+                        synthesis_started=result.synthesis_timestamp.isoformat() if result.synthesis_timestamp else None,
+                        synthesis_completed=datetime.now().isoformat(),
+                        algorithmic_candidates_count=0,
+                        algorithmic_method="causal_links_fallback",
+                        canonical_points_produced=result.canonical_count,
+                        llm_model="claude-sonnet-4-20250514",
+                        llm_prompt_length=len(llm_prompt),
+                        llm_response_length=len(llm_response),
+                        mcp_server_url=os.environ.get("ONTSERVE_MCP_URL", "http://localhost:8082")
+                    )
+                    if fallback_enrichment:
+                        fallback_trace.entities_resolved = fallback_enrichment.resolution_log
+                        fallback_trace.mcp_resolved_count = fallback_enrichment.mcp_resolved_count
+                        fallback_trace.local_resolved_count = fallback_enrichment.local_resolved_count
+                        fallback_trace.entities_not_found = fallback_enrichment.not_found_count
+
                     # Store the generated points
-                    self._store_canonical_points(case_id, canonical_points, session_id)
+                    self._store_canonical_points(case_id, canonical_points, session_id, fallback_trace)
                     return result
             logger.warning("No decision points generated - returning empty result")
             return result
@@ -277,6 +370,7 @@ class DecisionPointSynthesizer:
         logger.info(f"Stage 3.2: {result.high_alignment_count}/{len(alignment_scores)} candidates scored > 0.5")
 
         # Stage 3.3: LLM Refinement
+        enrichment_result = None
         if skip_llm:
             logger.info("Stage 3.3: Skipping LLM refinement (skip_llm=True)")
             canonical_points = self._convert_to_canonical_without_llm(
@@ -289,7 +383,7 @@ class DecisionPointSynthesizer:
             )
         else:
             logger.info("Stage 3.3: Running LLM refinement")
-            canonical_points, llm_prompt, llm_response = self._llm_refine(
+            canonical_points, llm_prompt, llm_response, enrichment_result = self._llm_refine(
                 case_id,
                 candidates.decision_points,
                 alignment_scores,
@@ -305,9 +399,36 @@ class DecisionPointSynthesizer:
         result.canonical_count = len(canonical_points)
         logger.info(f"Stage 3.3: {result.canonical_count} canonical decision points")
 
+        # Build synthesis trace for provenance
+        synthesis_trace = SynthesisTrace(
+            synthesis_started=result.synthesis_timestamp.isoformat() if result.synthesis_timestamp else None,
+            synthesis_completed=datetime.now().isoformat(),
+            algorithmic_candidates_count=result.candidates_count,
+            high_alignment_count=result.high_alignment_count,
+            canonical_points_produced=result.canonical_count,
+            llm_model="claude-sonnet-4-20250514" if not skip_llm else "",
+            llm_prompt_length=len(result.llm_prompt or ""),
+            llm_response_length=len(result.llm_response or ""),
+            llm_temperature=0.2,
+            mcp_server_url=os.environ.get("ONTSERVE_MCP_URL", "http://localhost:8082")
+        )
+
+        # Add enrichment info if available
+        if enrichment_result:
+            synthesis_trace.entities_resolved = enrichment_result.resolution_log
+            synthesis_trace.mcp_resolved_count = enrichment_result.mcp_resolved_count
+            synthesis_trace.local_resolved_count = enrichment_result.local_resolved_count
+            synthesis_trace.entities_not_found = enrichment_result.not_found_count
+
+        # Add top alignment scores summary
+        synthesis_trace.alignment_scores_summary = [
+            {"candidate_id": s.candidate_id, "score": s.total_score}
+            for s in sorted(alignment_scores, key=lambda x: x.total_score, reverse=True)[:5]
+        ]
+
         # Stage 3.4: Storage
         logger.info("Stage 3.4: Storing canonical decision points")
-        self._store_canonical_points(case_id, canonical_points, session_id)
+        self._store_canonical_points(case_id, canonical_points, session_id, synthesis_trace)
 
         logger.info(f"Phase 3 complete: {result.canonical_count} decision points synthesized")
         return result
@@ -502,12 +623,12 @@ class DecisionPointSynthesizer:
         conclusions: List[Dict],
         question_emergence: List[Dict],
         resolution_patterns: List[Dict]
-    ) -> Tuple[List[CanonicalDecisionPoint], str, str]:
+    ) -> Tuple[List[CanonicalDecisionPoint], str, str, Optional[EnrichmentResult]]:
         """
         Use LLM to refine top-scoring candidates into canonical decision points.
 
         Returns:
-            Tuple of (canonical_points, prompt, response)
+            Tuple of (canonical_points, prompt, response, enrichment_result)
         """
         # Select top candidates (score > 0.3 or top 8)
         score_map = {s.candidate_id: s for s in alignment_scores}
@@ -533,9 +654,13 @@ class DecisionPointSynthesizer:
         )
 
         # Enrich prompt with entity definitions from OntServe MCP
+        enrichment_result = None
         try:
-            prompt = enrich_prompt_with_entities(prompt, mode="glossary")
-            logger.debug("Enriched refinement prompt with MCP entity definitions")
+            enrichment_result = enrich_prompt_with_metadata(prompt, mode="glossary")
+            prompt = enrichment_result.enriched_text
+            logger.info(f"Enriched refinement prompt: {enrichment_result.mcp_resolved_count} from MCP, "
+                       f"{enrichment_result.local_resolved_count} from local, "
+                       f"{enrichment_result.not_found_count} not found")
         except Exception as e:
             logger.warning(f"MCP enrichment failed, using unenriched prompt: {e}")
 
@@ -557,7 +682,7 @@ class DecisionPointSynthesizer:
                 resolution_patterns
             )
 
-            return canonical_points, prompt, response_text
+            return canonical_points, prompt, response_text, enrichment_result
 
         except Exception as e:
             logger.error(f"LLM refinement failed: {e}")
@@ -566,7 +691,7 @@ class DecisionPointSynthesizer:
                 candidates, alignment_scores, questions, conclusions,
                 question_emergence, resolution_patterns
             )
-            return canonical_points, prompt, f"ERROR: {e}"
+            return canonical_points, prompt, f"ERROR: {e}", enrichment_result
 
     def _llm_generate_from_causal_links(
         self,
@@ -575,7 +700,7 @@ class DecisionPointSynthesizer:
         conclusions: List[Dict],
         question_emergence: List[Dict],
         resolution_patterns: List[Dict]
-    ) -> Tuple[List[CanonicalDecisionPoint], str, str]:
+    ) -> Tuple[List[CanonicalDecisionPoint], str, str, Optional[EnrichmentResult]]:
         """
         LLM fallback: Generate decision points from causal_normative_links when E1-E3 finds 0 candidates.
 
@@ -583,7 +708,7 @@ class DecisionPointSynthesizer:
         meaningful decision points via LLM.
 
         Returns:
-            Tuple of (canonical_points, prompt, response)
+            Tuple of (canonical_points, prompt, response, enrichment_result)
         """
         logger.info(f"LLM fallback: Loading causal links for case {case_id}")
 
@@ -595,7 +720,7 @@ class DecisionPointSynthesizer:
 
         if not causal_links:
             logger.warning("No causal links found for LLM fallback")
-            return [], "", ""
+            return [], "", "", None
 
         # Format causal links for the prompt
         causal_links_text = []
@@ -670,9 +795,13 @@ Return as JSON array:
 """
 
         # Enrich prompt with entity definitions from OntServe MCP
+        enrichment_result = None
         try:
-            prompt = enrich_prompt_with_entities(prompt, mode="glossary")
-            logger.debug("Enriched causal link prompt with MCP entity definitions")
+            enrichment_result = enrich_prompt_with_metadata(prompt, mode="glossary")
+            prompt = enrichment_result.enriched_text
+            logger.info(f"Enriched causal link prompt: {enrichment_result.mcp_resolved_count} from MCP, "
+                       f"{enrichment_result.local_resolved_count} from local, "
+                       f"{enrichment_result.not_found_count} not found")
         except Exception as e:
             logger.warning(f"MCP enrichment failed, using unenriched prompt: {e}")
 
@@ -691,11 +820,11 @@ Return as JSON array:
             )
 
             logger.info(f"LLM fallback generated {len(canonical_points)} decision points")
-            return canonical_points, prompt, response_text
+            return canonical_points, prompt, response_text, enrichment_result
 
         except Exception as e:
             logger.error(f"LLM fallback failed: {e}")
-            return [], prompt, f"ERROR: {e}"
+            return [], prompt, f"ERROR: {e}", enrichment_result
 
     def _parse_causal_link_response(
         self,
@@ -1064,15 +1193,19 @@ Produce 4-6 decision points capturing the key ethical issues.
         self,
         case_id: int,
         canonical_points: List[CanonicalDecisionPoint],
-        session_id: str
+        session_id: str,
+        synthesis_trace: Optional[SynthesisTrace] = None
     ) -> None:
-        """Store canonical decision points to database."""
+        """Store canonical decision points to database with provenance."""
         try:
             # Clear existing canonical decision points
             TemporaryRDFStorage.query.filter_by(
                 case_id=case_id,
                 extraction_type='canonical_decision_point'
             ).delete(synchronize_session=False)
+
+            # Build provenance metadata from synthesis trace
+            provenance = synthesis_trace.to_dict() if synthesis_trace else {}
 
             for dp in canonical_points:
                 entity = TemporaryRDFStorage(
@@ -1085,6 +1218,7 @@ Produce 4-6 decision points capturing the key ethical issues.
                     entity_uri=f"{PROETHICA_CASE_NS.format(case_id=case_id)}{dp.focus_id}",
                     entity_definition=dp.decision_question,
                     rdf_json_ld=dp.to_dict(),
+                    provenance_metadata=provenance,
                     is_selected=True,
                     extraction_model='claude-sonnet-4-20250514',
                     ontology_target=f'proethica-case-{case_id}'
@@ -1092,7 +1226,7 @@ Produce 4-6 decision points capturing the key ethical issues.
                 db.session.add(entity)
 
             db.session.commit()
-            logger.info(f"Stored {len(canonical_points)} canonical decision points for case {case_id}")
+            logger.info(f"Stored {len(canonical_points)} canonical decision points for case {case_id} with provenance")
 
         except Exception as e:
             logger.error(f"Failed to store canonical decision points: {e}")
