@@ -63,10 +63,12 @@
             <button type="button" id="run-complete-synthesis-btn" class="btn {% if step4_complete %}btn-success{% else %}btn-primary{% endif %} btn-lg" onclick="runCompleteSynthesis()">
                 <i class="bi bi-{% if step4_complete %}arrow-clockwise{% else %}play-circle{% endif %}"></i> {% if step4_complete %}Re-run Synthesis{% else %}Run Complete Synthesis{% endif %}
             </button>
+            {% if step4_complete %}
             <a href="{{ url_for('step4.step4_review', case_id=case.id) }}" class="btn btn-outline-secondary btn-lg ms-2">
                 <i class="bi bi-eye"></i> Review Results
             </a>
-            <button type="button" id="clear-step4-btn" class="btn btn-outline-danger btn-lg ms-2" onclick="clearStep4Data()">
+            {% endif %}
+            <button type="button" id="clear-step4-btn" class="btn btn-outline-danger btn-lg ms-2 {% if not step4_complete %}d-none{% endif %}" onclick="clearStep4Data()">
                 <i class="bi bi-trash"></i> Clear Step 4
             </button>
             {% else %}
@@ -526,11 +528,14 @@
 </div>
 
 <!-- Navigation buttons -->
+{% set step4_complete = pipeline_status.step4.complete if pipeline_status else false %}
+{% if step4_complete %}
 <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4">
     <a href="{{ url_for('step4.step4_review', case_id=case.id) }}" class="btn btn-primary btn-lg">
         <i class="bi bi-eye"></i> Review Step 4 Results
     </a>
 </div>
+{% endif %}
 
 {% endblock %}
 
@@ -672,6 +677,16 @@
 {% block step_scripts %}
 <script>
 const currentCaseId = {{ case.id }};
+let isProcessing = false;
+
+// Warn user if they try to navigate away during processing
+window.addEventListener('beforeunload', function(e) {
+    if (isProcessing) {
+        e.preventDefault();
+        e.returnValue = 'Processing is in progress. If you leave, the extraction may be incomplete and you may need to clear and re-run Step 4.';
+        return e.returnValue;
+    }
+});
 
 function getCsrfToken() {
     return document.querySelector('meta[name="csrf-token"]')?.content || '';
@@ -1376,10 +1391,13 @@ async function runCompleteSynthesis() {
     const button = document.getElementById('run-complete-synthesis-btn');
     const progressText = document.getElementById('synthesis-progress-text');
 
+    // Set processing flag to warn on navigation
+    isProcessing = true;
+
     // Show processing state
     button.disabled = true;
     button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Running Complete Synthesis...';
-    progressText.textContent = 'Running all phases sequentially. This may take several minutes...';
+    progressText.textContent = 'Running all phases sequentially. This may take several minutes. Do not navigate away from this page.';
 
     // Show a simple interstitial message
     document.getElementById('provisionsPromptSection').style.display = 'block';
@@ -1412,7 +1430,8 @@ async function runCompleteSynthesis() {
         const result = await response.json();
 
         if (result.success) {
-            // Success - show completion and refresh
+            // Success - clear processing flag and refresh
+            isProcessing = false;
             progressText.textContent = 'Complete! Refreshing page...';
             button.innerHTML = '<i class="bi bi-check-circle"></i> Synthesis Complete';
             button.classList.remove('btn-primary');
@@ -1428,7 +1447,8 @@ async function runCompleteSynthesis() {
                 window.location.reload();
             }, 1000);
         } else {
-            // Error
+            // Error - clear processing flag
+            isProcessing = false;
             progressText.textContent = `Error: ${result.error || 'Unknown error'}`;
             button.disabled = false;
             button.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Retry';
@@ -1441,6 +1461,8 @@ async function runCompleteSynthesis() {
             `;
         }
     } catch (error) {
+        // Clear processing flag on error
+        isProcessing = false;
         console.error('Synthesis error:', error);
         progressText.textContent = `Error: ${error.message}`;
         button.disabled = false;

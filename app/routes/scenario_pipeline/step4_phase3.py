@@ -482,10 +482,14 @@ def register_phase3_routes(bp, get_all_case_entities, load_phase2_data):
 
             summary = {}
             if last_prompt and last_prompt.results_summary:
-                try:
-                    summary = json.loads(last_prompt.results_summary)
-                except json.JSONDecodeError:
-                    pass
+                # results_summary is a JSON column - already a dict
+                if isinstance(last_prompt.results_summary, dict):
+                    summary = last_prompt.results_summary
+                elif isinstance(last_prompt.results_summary, str):
+                    try:
+                        summary = json.loads(last_prompt.results_summary)
+                    except json.JSONDecodeError:
+                        pass
 
             # Build LLM trace if available
             llm_trace = None

@@ -24,6 +24,7 @@ from flask import jsonify
 from app.models import Document, TemporaryRDFStorage, ExtractionPrompt, db
 from app.utils.environment_auth import auth_required_for_llm
 from app.utils.llm_utils import get_llm_client
+from app.services.provenance_service import get_provenance_service
 
 logger = logging.getLogger(__name__)
 
@@ -232,6 +233,8 @@ def _run_provisions(case_id: int, llm_client, get_all_case_entities) -> dict:
     from app.services.provision_group_validator import ProvisionGroupValidator
     from app.services.code_provision_linker import CodeProvisionLinker
 
+    prov = get_provenance_service()
+
     try:
         case = Document.query.get_or_404(case_id)
 
@@ -320,30 +323,53 @@ def _run_provisions(case_id: int, llm_client, get_all_case_entities) -> dict:
         total_links = sum(len(p.get('applies_to', [])) for p in provisions)
         logger.info(f"[RunAll] Linked provisions to {total_links} entities")
 
-        # Store provisions
+        # Store provisions with provenance tracking
         session_id = str(uuid.uuid4())
-        for provision in provisions:
-            rdf_entity = TemporaryRDFStorage(
-                case_id=case_id,
-                extraction_session_id=session_id,
-                extraction_type='code_provision_reference',
-                storage_type='individual',
-                entity_type='provisions',
-                entity_label=provision.get('code_provision', 'Unknown'),
-                entity_definition=provision.get('provision_text', ''),
-                rdf_json_ld={
-                    '@type': 'proeth-case:CodeProvisionReference',
-                    'codeProvision': provision.get('code_provision', ''),
-                    'provisionText': provision.get('provision_text', ''),
-                    'relevantExcerpts': provision.get('relevant_excerpts', []),
-                    'appliesTo': provision.get('applies_to', [])
-                },
-                is_selected=True
-            )
-            db.session.add(rdf_entity)
 
-        db.session.commit()
-        logger.info(f"[RunAll] Stored {len(provisions)} provisions")
+        with prov.track_activity(
+            activity_type='extraction',
+            activity_name='step4_provisions',
+            case_id=case_id,
+            session_id=session_id,
+            agent_type='extraction_service',
+            agent_name='provisions_extractor',
+            execution_plan={'provisions_count': len(provisions), 'entity_links': total_links}
+        ) as activity:
+            # Record the extraction results
+            prov.record_extraction_results(
+                results=[{
+                    'code_provision': p.get('code_provision'),
+                    'provision_text': p.get('provision_text'),
+                    'excerpts_count': len(p.get('relevant_excerpts', [])),
+                    'entity_links_count': len(p.get('applies_to', []))
+                } for p in provisions],
+                activity=activity,
+                entity_type='extracted_provisions',
+                metadata={'total_links': total_links}
+            )
+
+            for provision in provisions:
+                rdf_entity = TemporaryRDFStorage(
+                    case_id=case_id,
+                    extraction_session_id=session_id,
+                    extraction_type='code_provision_reference',
+                    storage_type='individual',
+                    entity_type='provisions',
+                    entity_label=provision.get('code_provision', 'Unknown'),
+                    entity_definition=provision.get('provision_text', ''),
+                    rdf_json_ld={
+                        '@type': 'proeth-case:CodeProvisionReference',
+                        'codeProvision': provision.get('code_provision', ''),
+                        'provisionText': provision.get('provision_text', ''),
+                        'relevantExcerpts': provision.get('relevant_excerpts', []),
+                        'appliesTo': provision.get('applies_to', [])
+                    },
+                    is_selected=True
+                )
+                db.session.add(rdf_entity)
+
+            db.session.commit()
+            logger.info(f"[RunAll] Stored {len(provisions)} provisions with provenance")
 
         return {
             'provisions_count': len(provisions),
@@ -364,6 +390,8 @@ def _run_qc_unified(case_id: int, llm_client, get_all_case_entities) -> dict:
     from app.services.question_analyzer import QuestionAnalyzer
     from app.services.conclusion_analyzer import ConclusionAnalyzer
     from app.services.question_conclusion_linker import QuestionConclusionLinker
+
+    prov = get_provenance_service()
 
     try:
         case = Document.query.get_or_404(case_id)
@@ -458,58 +486,122 @@ def _run_qc_unified(case_id: int, llm_client, get_all_case_entities) -> dict:
         conclusions = linker.apply_links_to_conclusions(conclusions, qc_links)
         logger.info(f"[RunAll] Created {len(qc_links)} Q-C links")
 
-        # Store everything
+        # Store everything with provenance tracking
         session_id = str(uuid.uuid4())
 
-        # Store questions
-        for question in questions:
-            rdf_entity = TemporaryRDFStorage(
-                case_id=case_id,
-                extraction_session_id=session_id,
-                extraction_type='ethical_question',
-                storage_type='individual',
-                entity_type='questions',
-                entity_label=f"Question_{question['question_number']}",
-                entity_definition=question['question_text'],
-                rdf_json_ld={
-                    '@type': 'proeth-case:EthicalQuestion',
-                    'questionNumber': question['question_number'],
-                    'questionText': question['question_text'],
-                    'questionType': question.get('question_type', 'unknown'),
-                    'mentionedEntities': question.get('mentioned_entities', {}),
-                    'relatedProvisions': question.get('related_provisions', []),
-                    'extractionReasoning': question.get('extraction_reasoning', '')
-                },
-                is_selected=True
-            )
-            db.session.add(rdf_entity)
+        # Track questions extraction
+        with prov.track_activity(
+            activity_type='extraction',
+            activity_name='step4_questions',
+            case_id=case_id,
+            session_id=session_id,
+            agent_type='llm_model',
+            agent_name='question_analyzer',
+            execution_plan={'board_count': board_q_count, 'analytical_count': len(questions) - board_q_count}
+        ) as q_activity:
+            # Record prompt and response if available
+            q_prompt_text = getattr(question_analyzer, 'last_prompt', None)
+            q_response_text = getattr(question_analyzer, 'last_response', None)
 
-        # Store conclusions
-        for conclusion in conclusions:
-            rdf_entity = TemporaryRDFStorage(
-                case_id=case_id,
-                extraction_session_id=session_id,
-                extraction_type='ethical_conclusion',
-                storage_type='individual',
-                entity_type='conclusions',
-                entity_label=f"Conclusion_{conclusion['conclusion_number']}",
-                entity_definition=conclusion['conclusion_text'],
-                rdf_json_ld={
-                    '@type': 'proeth-case:EthicalConclusion',
-                    'conclusionNumber': conclusion['conclusion_number'],
-                    'conclusionText': conclusion['conclusion_text'],
-                    'conclusionType': conclusion.get('conclusion_type', 'unknown'),
-                    'mentionedEntities': conclusion.get('mentioned_entities', {}),
-                    'citedProvisions': conclusion.get('cited_provisions', []),
-                    'answersQuestions': conclusion.get('answers_questions', []),
-                    'extractionReasoning': conclusion.get('extraction_reasoning', '')
-                },
-                is_selected=True
+            prompt_entity = None
+            if q_prompt_text:
+                prompt_entity = prov.record_prompt(q_prompt_text[:10000], q_activity, entity_name='questions_extraction_prompt')
+            if q_response_text:
+                prov.record_response(q_response_text[:10000], q_activity, derived_from=prompt_entity, entity_name='questions_extraction_response')
+
+            # Record extraction results
+            prov.record_extraction_results(
+                results=[{
+                    'question_number': q['question_number'],
+                    'question_type': q.get('question_type', 'unknown'),
+                    'question_text': q['question_text'][:200]
+                } for q in questions],
+                activity=q_activity,
+                entity_type='extracted_questions',
+                metadata={'total': len(questions), 'board_explicit': board_q_count}
             )
-            db.session.add(rdf_entity)
+
+            # Store questions
+            for question in questions:
+                rdf_entity = TemporaryRDFStorage(
+                    case_id=case_id,
+                    extraction_session_id=session_id,
+                    extraction_type='ethical_question',
+                    storage_type='individual',
+                    entity_type='questions',
+                    entity_label=f"Question_{question['question_number']}",
+                    entity_definition=question['question_text'],
+                    rdf_json_ld={
+                        '@type': 'proeth-case:EthicalQuestion',
+                        'questionNumber': question['question_number'],
+                        'questionText': question['question_text'],
+                        'questionType': question.get('question_type', 'unknown'),
+                        'mentionedEntities': question.get('mentioned_entities', {}),
+                        'relatedProvisions': question.get('related_provisions', []),
+                        'extractionReasoning': question.get('extraction_reasoning', '')
+                    },
+                    is_selected=True
+                )
+                db.session.add(rdf_entity)
+
+        # Track conclusions extraction
+        with prov.track_activity(
+            activity_type='extraction',
+            activity_name='step4_conclusions',
+            case_id=case_id,
+            session_id=session_id,
+            agent_type='llm_model',
+            agent_name='conclusion_analyzer',
+            execution_plan={'board_count': board_c_count, 'analytical_count': len(conclusions) - board_c_count}
+        ) as c_activity:
+            # Record prompt and response if available
+            c_prompt_text = getattr(conclusion_analyzer, 'last_prompt', None)
+            c_response_text = getattr(conclusion_analyzer, 'last_response', None)
+
+            prompt_entity = None
+            if c_prompt_text:
+                prompt_entity = prov.record_prompt(c_prompt_text[:10000], c_activity, entity_name='conclusions_extraction_prompt')
+            if c_response_text:
+                prov.record_response(c_response_text[:10000], c_activity, derived_from=prompt_entity, entity_name='conclusions_extraction_response')
+
+            # Record extraction results
+            prov.record_extraction_results(
+                results=[{
+                    'conclusion_number': c['conclusion_number'],
+                    'conclusion_type': c.get('conclusion_type', 'unknown'),
+                    'conclusion_text': c['conclusion_text'][:200]
+                } for c in conclusions],
+                activity=c_activity,
+                entity_type='extracted_conclusions',
+                metadata={'total': len(conclusions), 'board_explicit': board_c_count, 'qc_links': len(qc_links)}
+            )
+
+            # Store conclusions
+            for conclusion in conclusions:
+                rdf_entity = TemporaryRDFStorage(
+                    case_id=case_id,
+                    extraction_session_id=session_id,
+                    extraction_type='ethical_conclusion',
+                    storage_type='individual',
+                    entity_type='conclusions',
+                    entity_label=f"Conclusion_{conclusion['conclusion_number']}",
+                    entity_definition=conclusion['conclusion_text'],
+                    rdf_json_ld={
+                        '@type': 'proeth-case:EthicalConclusion',
+                        'conclusionNumber': conclusion['conclusion_number'],
+                        'conclusionText': conclusion['conclusion_text'],
+                        'conclusionType': conclusion.get('conclusion_type', 'unknown'),
+                        'mentionedEntities': conclusion.get('mentioned_entities', {}),
+                        'citedProvisions': conclusion.get('cited_provisions', []),
+                        'answersQuestions': conclusion.get('answers_questions', []),
+                        'extractionReasoning': conclusion.get('extraction_reasoning', '')
+                    },
+                    is_selected=True
+                )
+                db.session.add(rdf_entity)
 
         db.session.commit()
-        logger.info(f"[RunAll] Stored {len(questions)} questions and {len(conclusions)} conclusions")
+        logger.info(f"[RunAll] Stored {len(questions)} questions and {len(conclusions)} conclusions with provenance")
 
         # Save ExtractionPrompts for UI display (questions and conclusions)
         # Capture actual LLM prompts from analyzers
@@ -580,6 +672,8 @@ def _run_transformation(case_id: int, llm_client) -> dict:
     """
     from app.services.case_analysis.transformation_classifier import TransformationClassifier
 
+    prov = get_provenance_service()
+
     try:
         case = Document.query.get_or_404(case_id)
 
@@ -639,25 +733,63 @@ def _run_transformation(case_id: int, llm_client) -> dict:
 
         logger.info(f"[RunAll] Transformation type: {result.transformation_type} (confidence: {result.confidence})")
 
-        # Save ExtractionPrompt
+        # Save with provenance tracking
         session_id = str(uuid.uuid4())
-        if hasattr(classifier, 'last_prompt') and classifier.last_prompt:
-            try:
-                transformation_prompt = ExtractionPrompt(
-                    case_id=case_id,
-                    concept_type='transformation_classification',
-                    step_number=4,
-                    section_type='synthesis',
-                    prompt_text=classifier.last_prompt,
-                    llm_model='claude-sonnet-4-20250514',
-                    extraction_session_id=session_id,
-                    raw_response=getattr(classifier, 'last_response', ''),
-                    results_summary=json.dumps({'transformation_type': result.transformation_type, 'confidence': result.confidence})
+
+        with prov.track_activity(
+            activity_type='analysis',
+            activity_name='step4_transformation',
+            case_id=case_id,
+            session_id=session_id,
+            agent_type='llm_model',
+            agent_name='transformation_classifier',
+            execution_plan={'questions_count': len(q_list), 'conclusions_count': len(c_list)}
+        ) as activity:
+            # Record prompt and response if available
+            prompt_entity = None
+            if hasattr(classifier, 'last_prompt') and classifier.last_prompt:
+                prompt_entity = prov.record_prompt(
+                    classifier.last_prompt[:10000],
+                    activity,
+                    entity_name='transformation_prompt'
                 )
-                db.session.add(transformation_prompt)
-                db.session.commit()
-            except Exception as e:
-                logger.warning(f"[RunAll] Could not save transformation prompt: {e}")
+            if hasattr(classifier, 'last_response') and classifier.last_response:
+                prov.record_response(
+                    classifier.last_response[:10000],
+                    activity,
+                    derived_from=prompt_entity,
+                    entity_name='transformation_response'
+                )
+
+            # Record classification result
+            prov.record_extraction_results(
+                results={
+                    'transformation_type': result.transformation_type,
+                    'confidence': result.confidence
+                },
+                activity=activity,
+                entity_type='transformation_classification',
+                metadata={'transformation_type': result.transformation_type}
+            )
+
+            # Save ExtractionPrompt for UI
+            if hasattr(classifier, 'last_prompt') and classifier.last_prompt:
+                try:
+                    transformation_prompt = ExtractionPrompt(
+                        case_id=case_id,
+                        concept_type='transformation_classification',
+                        step_number=4,
+                        section_type='synthesis',
+                        prompt_text=classifier.last_prompt,
+                        llm_model='claude-sonnet-4-20250514',
+                        extraction_session_id=session_id,
+                        raw_response=getattr(classifier, 'last_response', ''),
+                        results_summary=json.dumps({'transformation_type': result.transformation_type, 'confidence': result.confidence})
+                    )
+                    db.session.add(transformation_prompt)
+                    db.session.commit()
+                except Exception as e:
+                    logger.warning(f"[RunAll] Could not save transformation prompt: {e}")
 
         return {
             'transformation_type': result.transformation_type,
@@ -676,6 +808,8 @@ def _run_rich_analysis(case_id: int) -> dict:
     Run rich analysis - SAME code as extract_rich_analysis_streaming.
     """
     from app.services.case_synthesizer import CaseSynthesizer
+
+    prov = get_provenance_service()
 
     try:
         case = Document.query.get_or_404(case_id)
@@ -714,31 +848,74 @@ def _run_rich_analysis(case_id: int) -> dict:
         )
         logger.info(f"[RunAll] Resolution patterns: {len(resolution_patterns)}")
 
-        # Store rich analysis
-        synthesizer._store_rich_analysis(case_id, causal_links, question_emergence, resolution_patterns)
-
-        # Save prompts for UI display
+        # Store rich analysis with provenance tracking
         session_id = str(uuid.uuid4())
-        combined_prompt = ""
-        combined_response = ""
-        for trace in llm_traces:
-            combined_prompt += f"\n--- {trace.stage.upper()} ---\n{trace.prompt}\n"
-            combined_response += f"\n--- {trace.stage.upper()} ---\n{trace.response}\n"
 
-        try:
-            saved_prompt = ExtractionPrompt.save_prompt(
-                case_id=case_id,
-                concept_type='rich_analysis',
-                prompt_text=combined_prompt,
-                raw_response=combined_response,
-                step_number=4,
-                section_type='synthesis',
-                llm_model='claude-sonnet-4-20250514',
-                extraction_session_id=session_id
+        with prov.track_activity(
+            activity_type='analysis',
+            activity_name='step4_rich_analysis',
+            case_id=case_id,
+            session_id=session_id,
+            agent_type='llm_model',
+            agent_name='case_synthesizer',
+            execution_plan={
+                'causal_links': len(causal_links),
+                'question_emergence': len(question_emergence),
+                'resolution_patterns': len(resolution_patterns)
+            }
+        ) as activity:
+            # Record combined prompts and responses from LLM traces
+            combined_prompt = ""
+            combined_response = ""
+            for trace in llm_traces:
+                combined_prompt += f"\n--- {trace.stage.upper()} ---\n{trace.prompt}\n"
+                combined_response += f"\n--- {trace.stage.upper()} ---\n{trace.response}\n"
+
+            prompt_entity = None
+            if combined_prompt:
+                prompt_entity = prov.record_prompt(
+                    combined_prompt[:10000],
+                    activity,
+                    entity_name='rich_analysis_prompt'
+                )
+            if combined_response:
+                prov.record_response(
+                    combined_response[:10000],
+                    activity,
+                    derived_from=prompt_entity,
+                    entity_name='rich_analysis_response'
+                )
+
+            # Record analysis results
+            prov.record_extraction_results(
+                results={
+                    'causal_links': len(causal_links),
+                    'question_emergence': len(question_emergence),
+                    'resolution_patterns': len(resolution_patterns)
+                },
+                activity=activity,
+                entity_type='rich_analysis_results',
+                metadata={'llm_traces_count': len(llm_traces)}
             )
-            logger.info(f"[RunAll] Saved rich analysis prompt id={saved_prompt.id}")
-        except Exception as e:
-            logger.warning(f"[RunAll] Could not save rich analysis prompt: {e}")
+
+            # Store the actual rich analysis data
+            synthesizer._store_rich_analysis(case_id, causal_links, question_emergence, resolution_patterns)
+
+            # Save ExtractionPrompt for UI display
+            try:
+                saved_prompt = ExtractionPrompt.save_prompt(
+                    case_id=case_id,
+                    concept_type='rich_analysis',
+                    prompt_text=combined_prompt,
+                    raw_response=combined_response,
+                    step_number=4,
+                    section_type='synthesis',
+                    llm_model='claude-sonnet-4-20250514',
+                    extraction_session_id=session_id
+                )
+                logger.info(f"[RunAll] Saved rich analysis prompt id={saved_prompt.id} with provenance")
+            except Exception as e:
+                logger.warning(f"[RunAll] Could not save rich analysis prompt: {e}")
 
         return {
             'causal_links': len(causal_links),
@@ -759,6 +936,10 @@ def _run_phase3(case_id: int) -> dict:
     """
     from app.services.decision_point_synthesizer import synthesize_decision_points
     from app.services.case_synthesizer import CaseSynthesizer
+    from app.services.entity_analysis.obligation_coverage_analyzer import get_obligation_coverage
+    from app.services.entity_analysis.action_option_mapper import get_action_option_map
+
+    prov = get_provenance_service()
 
     try:
         case = Document.query.get_or_404(case_id)
@@ -776,6 +957,22 @@ def _run_phase3(case_id: int) -> dict:
         qe_dicts = [qe.to_dict() if hasattr(qe, 'to_dict') else vars(qe) for qe in question_emergence]
         rp_dicts = [rp.to_dict() if hasattr(rp, 'to_dict') else vars(rp) for rp in resolution_patterns]
 
+        # Run E1-E2 separately to capture intermediate values for UI display
+        e1_obligations = 0
+        e1_decision_relevant = 0
+        e2_action_sets = 0
+        try:
+            coverage = get_obligation_coverage(case_id, 'engineering')
+            e1_obligations = len(coverage.obligations)
+            e1_decision_relevant = coverage.decision_relevant_count
+            logger.info(f"[RunAll] E1: {e1_obligations} obligations, {e1_decision_relevant} decision-relevant")
+
+            action_map = get_action_option_map(case_id, 'engineering')
+            e2_action_sets = len(action_map.action_sets)
+            logger.info(f"[RunAll] E2: {e2_action_sets} action sets")
+        except Exception as e:
+            logger.warning(f"[RunAll] Could not get E1-E2 values: {e}")
+
         # Run Phase 3 synthesis
         result = synthesize_decision_points(
             case_id=case_id,
@@ -789,43 +986,85 @@ def _run_phase3(case_id: int) -> dict:
 
         logger.info(f"[RunAll] Phase 3: {result.canonical_count} canonical decision points")
 
-        # Save extraction prompt for provenance (always save, even with 0 candidates)
+        # Save with provenance tracking
         session_id = result.extraction_session_id or str(uuid.uuid4())
-        try:
+
+        with prov.track_activity(
+            activity_type='synthesis',
+            activity_name='step4_phase3_decision',
+            case_id=case_id,
+            session_id=session_id,
+            agent_type='llm_model' if result.llm_prompt else 'algorithmic',
+            agent_name='decision_point_synthesizer',
+            execution_plan={
+                'questions_count': len(questions),
+                'conclusions_count': len(conclusions),
+                'question_emergence': len(qe_dicts),
+                'resolution_patterns': len(rp_dicts)
+            }
+        ) as activity:
             # Build description of what Phase 3 did
             if result.llm_prompt:
                 prompt_text = result.llm_prompt[:10000]
                 raw_response = result.llm_response[:10000] if result.llm_response else ''
             else:
-                # No LLM output (E1-E3 found 0 AND LLM fallback didn't produce results)
                 prompt_text = f'Phase 3 Decision Point Synthesis (E1-E3 Algorithmic Composition)\n\nInput:\n- Questions: {len(questions)}\n- Conclusions: {len(conclusions)}\n- Question Emergence: {len(qe_dicts)}\n- Resolution Patterns: {len(rp_dicts)}\n\nE1-E3 Algorithm found 0 matching candidates.\nLLM fallback using causal_normative_links was attempted but produced no results.'
-                raw_response = f'Phase 3 Result:\n- Algorithmic candidates: 0\n- Canonical decision points: {result.canonical_count}\n\nThe E1-E3 composition algorithm requires actions to be matched with obligations and constraints. No matches were found for this case.\n\nLLM fallback was attempted using causal_normative_links from Phase 2 rich analysis, but no decision points could be generated.'
+                raw_response = f'Phase 3 Result:\n- Algorithmic candidates: 0\n- Canonical decision points: {result.canonical_count}'
 
-            extraction_prompt = ExtractionPrompt(
-                case_id=case_id,
-                concept_type='phase3_decision_synthesis',
-                step_number=4,
-                section_type='synthesis',
-                prompt_text=prompt_text,
-                llm_model='claude-sonnet-4-20250514' if result.llm_prompt else 'algorithmic',
-                extraction_session_id=session_id,
-                raw_response=raw_response,
-                results_summary=json.dumps({
+            # Record prompt and response
+            prompt_entity = None
+            if prompt_text:
+                prompt_entity = prov.record_prompt(prompt_text, activity, entity_name='phase3_prompt')
+            if raw_response:
+                prov.record_response(raw_response, activity, derived_from=prompt_entity, entity_name='phase3_response')
+
+            # Record synthesis results
+            prov.record_extraction_results(
+                results={
                     'canonical_count': result.canonical_count,
                     'candidates_count': result.candidates_count,
                     'high_alignment_count': result.high_alignment_count
-                })
+                },
+                activity=activity,
+                entity_type='decision_synthesis_results',
+                metadata={'used_llm': bool(result.llm_prompt)}
             )
-            db.session.add(extraction_prompt)
-            db.session.commit()
-            logger.info(f"[RunAll] Saved Phase 3 prompt (candidates: {result.candidates_count})")
-        except Exception as e:
-            logger.warning(f"[RunAll] Could not save Phase 3 prompt: {e}")
+
+            # Save ExtractionPrompt for UI
+            try:
+                extraction_prompt = ExtractionPrompt(
+                    case_id=case_id,
+                    concept_type='phase3_decision_synthesis',
+                    step_number=4,
+                    section_type='synthesis',
+                    prompt_text=prompt_text,
+                    llm_model='claude-sonnet-4-20250514' if result.llm_prompt else 'algorithmic',
+                    extraction_session_id=session_id,
+                    raw_response=raw_response,
+                    results_summary=json.dumps({
+                        'canonical_count': result.canonical_count,
+                        'candidates_count': result.candidates_count,
+                        'high_alignment_count': result.high_alignment_count,
+                        'e1_obligations': e1_obligations,
+                        'e1_decision_relevant': e1_decision_relevant,
+                        'e2_action_sets': e2_action_sets,
+                        'e3_candidates': result.candidates_count
+                    })
+                )
+                db.session.add(extraction_prompt)
+                db.session.commit()
+                logger.info(f"[RunAll] Saved Phase 3 prompt with provenance (candidates: {result.candidates_count})")
+            except Exception as e:
+                logger.warning(f"[RunAll] Could not save Phase 3 prompt: {e}")
 
         return {
             'canonical_count': result.canonical_count,
             'candidates_count': result.candidates_count,
-            'high_alignment_count': result.high_alignment_count
+            'high_alignment_count': result.high_alignment_count,
+            'e1_obligations': e1_obligations,
+            'e1_decision_relevant': e1_decision_relevant,
+            'e2_action_sets': e2_action_sets,
+            'e3_candidates': result.candidates_count
         }
 
     except Exception as e:
@@ -842,6 +1081,8 @@ def _run_phase4(case_id: int) -> dict:
     from app.services.narrative import construct_phase4_narrative
     from app.services.precedent import update_precedent_features_from_phase4
     from app.services.case_synthesizer import CaseSynthesizer
+
+    prov = get_provenance_service()
 
     try:
         case = Document.query.get_or_404(case_id)
@@ -897,54 +1138,96 @@ def _run_phase4(case_id: int) -> dict:
 
         logger.info(f"[RunAll] Phase 4: {len(result.narrative_elements.characters)} characters, {len(result.timeline.events)} events")
 
-        # Save extraction prompt for provenance
+        # Save with provenance tracking
         session_id = str(uuid.uuid4())
 
-        # Extract actual LLM prompts from llm_traces
-        actual_prompts = []
-        if hasattr(result, 'llm_traces') and result.llm_traces:
-            for trace in result.llm_traces:
-                if isinstance(trace, dict) and trace.get('prompt'):
-                    stage = trace.get('stage', 'UNKNOWN')
-                    actual_prompts.append(f"=== {stage} ===\n{trace['prompt']}")
-
-        prompt_text = "\n\n".join(actual_prompts) if actual_prompts else f"Phase 4 Narrative Construction - {len(result.stages_completed)} stages"
-        # Truncate to fit database field (10000 chars)
-        if len(prompt_text) > 10000:
-            prompt_text = prompt_text[:9950] + "\n... [truncated]"
-
-        extraction_prompt = ExtractionPrompt(
+        with prov.track_activity(
+            activity_type='synthesis',
+            activity_name='step4_phase4_narrative',
             case_id=case_id,
-            concept_type='phase4_narrative',
-            step_number=4,
-            section_type='synthesis',
-            prompt_text=prompt_text,
-            llm_model='claude-sonnet-4-20250514',
-            extraction_session_id=session_id,
-            raw_response=json.dumps(result.to_dict()),
-            results_summary=json.dumps(result.summary())
-        )
-        db.session.add(extraction_prompt)
+            session_id=session_id,
+            agent_type='llm_model',
+            agent_name='narrative_constructor',
+            execution_plan={
+                'canonical_points': len(canonical_points),
+                'causal_links': len(causal_links),
+                'transformation_type': transformation_type
+            }
+        ) as activity:
+            # Extract actual LLM prompts from llm_traces
+            actual_prompts = []
+            actual_responses = []
+            if hasattr(result, 'llm_traces') and result.llm_traces:
+                for trace in result.llm_traces:
+                    if isinstance(trace, dict):
+                        if trace.get('prompt'):
+                            stage = trace.get('stage', 'UNKNOWN')
+                            actual_prompts.append(f"=== {stage} ===\n{trace['prompt']}")
+                        if trace.get('response'):
+                            stage = trace.get('stage', 'UNKNOWN')
+                            actual_responses.append(f"=== {stage} ===\n{trace['response']}")
 
-        # Save whole_case_synthesis to mark as complete
-        synthesis_summary = {
-            'characters_count': len(result.narrative_elements.characters),
-            'timeline_events_count': len(result.timeline.events),
-            'scenario_branches_count': len(result.scenario_seeds.branches)
-        }
-        whole_case_prompt = ExtractionPrompt(
-            case_id=case_id,
-            concept_type='whole_case_synthesis',
-            step_number=4,
-            section_type='synthesis',
-            prompt_text='Complete Four-Phase Synthesis',
-            llm_model='claude-sonnet-4-20250514',
-            extraction_session_id=session_id,
-            raw_response=json.dumps(synthesis_summary),
-            results_summary=json.dumps(synthesis_summary)
-        )
-        db.session.add(whole_case_prompt)
-        db.session.commit()
+            prompt_text = "\n\n".join(actual_prompts) if actual_prompts else f"Phase 4 Narrative Construction - {len(result.stages_completed)} stages"
+            response_text = "\n\n".join(actual_responses) if actual_responses else ""
+
+            # Truncate to fit database field (10000 chars)
+            if len(prompt_text) > 10000:
+                prompt_text = prompt_text[:9950] + "\n... [truncated]"
+
+            # Record prompt and response
+            prompt_entity = None
+            if prompt_text:
+                prompt_entity = prov.record_prompt(prompt_text, activity, entity_name='phase4_prompt')
+            if response_text:
+                prov.record_response(response_text[:10000], activity, derived_from=prompt_entity, entity_name='phase4_response')
+
+            # Record narrative results
+            prov.record_extraction_results(
+                results={
+                    'characters_count': len(result.narrative_elements.characters),
+                    'timeline_events_count': len(result.timeline.events),
+                    'scenario_branches_count': len(result.scenario_seeds.branches),
+                    'stages_completed': result.stages_completed
+                },
+                activity=activity,
+                entity_type='narrative_construction_results',
+                metadata={'transformation_type': transformation_type}
+            )
+
+            # Save ExtractionPrompt for UI
+            extraction_prompt = ExtractionPrompt(
+                case_id=case_id,
+                concept_type='phase4_narrative',
+                step_number=4,
+                section_type='synthesis',
+                prompt_text=prompt_text,
+                llm_model='claude-sonnet-4-20250514',
+                extraction_session_id=session_id,
+                raw_response=json.dumps(result.to_dict()),
+                results_summary=json.dumps(result.summary())
+            )
+            db.session.add(extraction_prompt)
+
+            # Save whole_case_synthesis to mark as complete
+            synthesis_summary = {
+                'characters_count': len(result.narrative_elements.characters),
+                'timeline_events_count': len(result.timeline.events),
+                'scenario_branches_count': len(result.scenario_seeds.branches)
+            }
+            whole_case_prompt = ExtractionPrompt(
+                case_id=case_id,
+                concept_type='whole_case_synthesis',
+                step_number=4,
+                section_type='synthesis',
+                prompt_text='Complete Four-Phase Synthesis',
+                llm_model='claude-sonnet-4-20250514',
+                extraction_session_id=session_id,
+                raw_response=json.dumps(synthesis_summary),
+                results_summary=json.dumps(synthesis_summary)
+            )
+            db.session.add(whole_case_prompt)
+            db.session.commit()
+            logger.info(f"[RunAll] Saved Phase 4 prompts with provenance")
 
         # Update precedent features
         try:

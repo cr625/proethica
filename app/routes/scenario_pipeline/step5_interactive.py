@@ -12,6 +12,7 @@ Routes:
 """
 
 import logging
+import uuid
 from datetime import datetime
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
 
@@ -19,6 +20,7 @@ from app.models import db, Document
 from app.models.scenario_exploration import ScenarioExplorationSession, ScenarioExplorationChoice
 from app.services.interactive_scenario_service import interactive_scenario_service
 from app.services.pipeline_status_service import PipelineStatusService
+from app.services.provenance_service import get_provenance_service
 from app.utils.environment_auth import auth_required_for_llm, auth_optional
 
 logger = logging.getLogger(__name__)
@@ -146,6 +148,8 @@ def register_interactive_routes(bp):
     @auth_required_for_llm
     def make_choice(case_id, session_uuid):
         """Process a user's choice at the current decision point."""
+        prov = get_provenance_service()
+
         try:
             session = interactive_scenario_service.get_session(session_uuid)
 
@@ -161,12 +165,39 @@ def register_interactive_routes(bp):
             time_spent = data.get('time_spent_seconds')
             time_spent = int(time_spent) if time_spent else None
 
-            # Process the choice
-            result = interactive_scenario_service.process_choice(
-                session=session,
-                chosen_option_index=chosen_option_index,
-                time_spent_seconds=time_spent
-            )
+            # Process the choice with provenance tracking
+            prov_session_id = str(uuid.uuid4())
+
+            with prov.track_activity(
+                activity_type='interaction',
+                activity_name='step5_user_choice',
+                case_id=case_id,
+                session_id=prov_session_id,
+                agent_type='user_interaction',
+                agent_name='interactive_scenario',
+                execution_plan={
+                    'session_uuid': session_uuid,
+                    'chosen_option_index': chosen_option_index,
+                    'decision_number': session.current_decision_index + 1
+                }
+            ) as activity:
+                result = interactive_scenario_service.process_choice(
+                    session=session,
+                    chosen_option_index=chosen_option_index,
+                    time_spent_seconds=time_spent
+                )
+
+                # Record the choice and consequence
+                prov.record_extraction_results(
+                    results={
+                        'chosen_option_index': chosen_option_index,
+                        'consequence_preview': result.get('consequence', '')[:500] if result.get('consequence') else '',
+                        'is_complete': result.get('is_complete', False)
+                    },
+                    activity=activity,
+                    entity_type='interactive_choice_result',
+                    metadata={'exploration_session': session_uuid}
+                )
 
             # Return JSON for AJAX or redirect for form submission
             if request.is_json:
@@ -204,6 +235,8 @@ def register_interactive_routes(bp):
     @auth_optional
     def interactive_analysis(case_id, session_uuid):
         """View final analysis comparing user choices to board choices."""
+        prov = get_provenance_service()
+
         try:
             case = Document.query.get_or_404(case_id)
             session = interactive_scenario_service.get_session(session_uuid)
@@ -215,7 +248,33 @@ def register_interactive_routes(bp):
             # Generate analysis if not already done
             if not session.final_analysis:
                 if session.status == 'completed':
-                    analysis = interactive_scenario_service.generate_final_analysis(session)
+                    # Track the analysis generation with provenance
+                    prov_session_id = str(uuid.uuid4())
+
+                    with prov.track_activity(
+                        activity_type='synthesis',
+                        activity_name='step5_final_analysis',
+                        case_id=case_id,
+                        session_id=prov_session_id,
+                        agent_type='llm_model',
+                        agent_name='analysis_generator',
+                        execution_plan={
+                            'exploration_session': session_uuid,
+                            'total_choices': len(session.choices)
+                        }
+                    ) as activity:
+                        analysis = interactive_scenario_service.generate_final_analysis(session)
+
+                        # Record analysis results
+                        prov.record_extraction_results(
+                            results={
+                                'analysis_summary': str(analysis)[:1000] if analysis else '',
+                                'choices_count': len(session.choices)
+                            },
+                            activity=activity,
+                            entity_type='exploration_analysis_results',
+                            metadata={'exploration_session': session_uuid}
+                        )
                 else:
                     # Session not complete - redirect back
                     flash('Complete all decisions before viewing analysis', 'warning')

@@ -185,10 +185,14 @@ def _load_phase4_data(case_id: int):
     if not prompt or not prompt.results_summary:
         return None
 
-    try:
-        summary = json.loads(prompt.results_summary)
-    except (json.JSONDecodeError, TypeError):
-        return None
+    # results_summary is a JSON column - may already be a dict
+    if isinstance(prompt.results_summary, dict):
+        summary = prompt.results_summary
+    else:
+        try:
+            summary = json.loads(prompt.results_summary)
+        except (json.JSONDecodeError, TypeError):
+            return None
 
     # Load the full narrative elements from raw_response if available
     full_data = None
