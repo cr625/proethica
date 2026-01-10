@@ -50,14 +50,9 @@
         <div class="d-flex gap-2">
             {% if case.document_id %}
             <div class="btn-group" role="group">
-                <a href="{{ url_for('cases.view_case_structure', id=case.id) }}" class="btn btn-primary" title="View document sections, embeddings, and structure">
-                    <i class="bi bi-diagram-3"></i> Structure
+                <a href="{{ url_for('provenance.provenance_cases', selected=case.id) }}" class="btn btn-primary" title="View provenance and processing history">
+                    <i class="bi bi-diagram-3"></i> Provenance
                 </a>
-                {% if case.source %}
-                <a href="{{ case.source }}" class="btn btn-info" target="_blank">
-                    <i class="bi bi-box-arrow-up-right"></i> Source
-                </a>
-                {% endif %}
                 {% if current_user.is_authenticated %}
                 <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
                     <i class="bi bi-trash"></i>

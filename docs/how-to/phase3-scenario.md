@@ -1,13 +1,13 @@
-# Phase 3: Interactive Scenario
+# Step 5: Interactive Scenario
 
 !!! note "Planned Feature"
     Step 5 (Interactive Scenario) is planned for future development. This documentation describes the intended functionality. The current implementation displays a placeholder page.
 
-Phase 3 generates interactive scenarios with participant mapping, decision points, and provenance tracking.
+Step 5 generates interactive scenarios with participant mapping, decision points, and provenance tracking.
 
 ## Overview
 
-Phase 3 (Step 5) executes six stages to create an interactive visualization:
+Step 5 executes six stages to create an interactive visualization:
 
 | Stage | Name | Output |
 |-------|------|--------|
@@ -24,8 +24,8 @@ Phase 3 (Step 5) executes six stages to create an interactive visualization:
 
 Before Step 5:
 
-- Complete Phase 1 extraction (Steps 1-3)
-- Complete Phase 2 analysis (Step 4)
+- Complete Steps 1-3 entity extraction (Pass 1 and Pass 2 for each)
+- Complete Step 4 synthesis (all phases)
 - All entities committed
 
 ### Access Step 5
@@ -149,8 +149,8 @@ Displays cause-effect relationships:
 ### Chain Structure
 
 ```
-Condition → Action → Outcome
-    ↓
+Condition -> Action -> Outcome
+    |
 Obligation Status
 ```
 
@@ -158,11 +158,11 @@ Obligation Status
 
 ```
 Lacks AI verification competence
-    ↓
+    |
 Uses AI without verification
-    ↓
+    |
 Certifies AI-generated design
-    ↓
+    |
 Violates NSPE Code II.1.a
 ```
 
@@ -279,14 +279,14 @@ Scenario data stored in:
 If generation stalls:
 
 1. Check LLM API status
-2. Verify Phase 2 completion
+2. Verify Step 4 completion
 3. Retry generation
 
 ### Missing Participants
 
 If participants incomplete:
 
-1. Check Pass 1 Role extraction
+1. Check Step 1 Role extraction
 2. Verify entity commits
 3. Re-run Stage 2
 
@@ -300,6 +300,6 @@ If network doesn't render:
 
 ## Related Guides
 
-- [Phase 2 Analysis](phase2-analysis.md) - Prerequisite analysis
+- [Step 4 Synthesis](phase2-analysis.md) - Prerequisite analysis
 - [Precedent Discovery](precedent-discovery.md) - Finding similar cases
 - [Entity Review](entity-review.md) - Validating entities

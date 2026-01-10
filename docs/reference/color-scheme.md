@@ -38,6 +38,37 @@ ProEthica extracts 9 entity types organized into 4 passes. Each type has a disti
 | Ethical Question | <span style="display:inline-block;width:80px;height:24px;background:#0dcaf0;border-radius:4px;vertical-align:middle;color:#212529;text-align:center;line-height:24px;font-size:12px;">Cyan</span> |
 | Ethical Conclusion | <span style="display:inline-block;width:80px;height:24px;background:#198754;border-radius:4px;vertical-align:middle;color:white;text-align:center;line-height:24px;font-size:12px;">Green</span> |
 
+## Pipeline Step Colors (Standardized Terminology)
+
+The extraction pipeline uses consistent colors for each step. Each step contains Pass 1 (Facts) and Pass 2 (Discussion) extractions.
+
+| Step | Name | Hex | Entities Extracted |
+|------|------|-----|-------------------|
+| Step 1 | Contextual Framework | #3b82f6 (Blue) | Roles (R), States (S), Resources (Rs) |
+| Step 2 | Normative Framework | #8b5cf6 (Purple) | Principles (P), Obligations (O), Constraints (Cs), Capabilities (Ca) |
+| Step 3 | Temporal Framework | #14b8a6 (Teal) | Actions (A), Events (E) |
+| Step 4 | Synthesis & Analysis | #64748b (Slate) | Provisions, Questions, Conclusions, Decision Points |
+
+### Terminology Reference
+
+| Term | Meaning |
+|------|---------|
+| **Step** | Major pipeline stage (1-4) |
+| **Pass 1** | Facts section extraction within a step |
+| **Pass 2** | Discussion section extraction within a step |
+| **Phase** | Sub-stages within Step 4 (2A, 2B, 2C, 2D, 3, 4) |
+
+### Step 4 Phases
+
+| Phase | Name | Description |
+|-------|------|-------------|
+| 2A | Code Provisions | NSPE code references |
+| 2B | Questions & Conclusions | Ethical questions and board conclusions |
+| 2C | Transformation | Case transformation analysis |
+| 2D | Rich Analysis | Arguments and causal links |
+| 3 | Decision Points | E1-E3 algorithmic synthesis |
+| 4 | Narrative | Case narrative construction |
+
 ## Pass Filter Colors
 
 The graph filter buttons use neutral colors that group entity types by their extraction pass.

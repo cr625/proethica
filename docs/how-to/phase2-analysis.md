@@ -1,17 +1,17 @@
-# Phase 2: Case Synthesis
+# Step 4: Case Synthesis
 
 This guide covers Step 4 case synthesis, which analyzes extracted entities to produce structured case analysis with decision points, arguments, and narrative structures.
 
 ## Overview
 
-Step 4 performs four-phase synthesis on the entities extracted during Phase 1 (Steps 1-3). The synthesis pipeline transforms the nine extracted entity types (Roles, Principles, Obligations, States, Resources, Actions, Events, Capabilities, Constraints) into actionable analysis.
+Step 4 performs multi-phase synthesis on the entities extracted during Steps 1-3. The synthesis pipeline transforms the nine extracted entity types (Roles, Principles, Obligations, States, Resources, Actions, Events, Capabilities, Constraints) into actionable analysis.
 
-| Phase | Name | Output |
-|-------|------|--------|
-| 1 | Entity Foundation | Prepared entity data for analysis |
-| 2 | Analytical Extraction | Provisions, questions, conclusions, rich analysis |
-| 3 | Decision Point Synthesis | Entity-grounded decision points with alignment scores |
-| 4 | Narrative Construction | Characters, timeline, moral intensity assessment |
+| Step 4 Phase | Name | Output |
+|--------------|------|--------|
+| Phase 1 | Entity Foundation | Prepared entity data for analysis |
+| Phase 2A-2D | Analytical Extraction | Provisions, questions, conclusions, rich analysis |
+| Phase 3 | Decision Point Synthesis | Entity-grounded decision points with alignment scores |
+| Phase 4 | Narrative Construction | Characters, timeline, moral intensity assessment |
 
 ## Prerequisites
 
@@ -39,23 +39,23 @@ After Step 4 completes, the review page displays seven tabs:
 
 ![Entities Tab](../assets/images/screenshots/step4-entities-content.png)
 
-The Entities tab displays an interactive D3.js graph showing all extracted entities from Passes 1-3 and Step 4 synthesis results.
+The Entities tab displays an interactive D3.js graph showing all extracted entities from Steps 1-3 and Step 4 synthesis results.
 
 **Features:**
 
-- Filter by pass number (1, 2, 3, 4) using the button group
+- Filter by step number (1, 2, 3, 4) using the button group
 - Search entities by label
 - Click nodes to view entity details and relationships
 - Color-coded by entity type
 
-**Pass Assignment:**
+**Step Assignment:**
 
-| Pass | Entity Types |
+| Step | Entity Types |
 |------|--------------|
-| 1 | Roles, States, Resources |
-| 2 | Principles, Obligations, Constraints, Capabilities |
-| 3 | Actions, Events |
-| 4 | Provisions, Questions, Conclusions, Decision Points |
+| Step 1 | Roles, States, Resources |
+| Step 2 | Principles, Obligations, Constraints, Capabilities |
+| Step 3 | Actions, Events |
+| Step 4 | Provisions, Questions, Conclusions, Decision Points |
 
 ---
 
@@ -82,7 +82,7 @@ The Flow tab shows the Provision to Question to Conclusion chain using a Cytosca
 
 ---
 
-## Tab 3: Provisions (Stage 2A)
+## Tab 3: Provisions (Phase 2A)
 
 ![Provisions Tab](../assets/images/screenshots/step4-provisions-content.png)
 
@@ -108,7 +108,7 @@ The Provisions tab displays NSPE code provisions extracted from the case Referen
 
 ---
 
-## Tab 4: Questions & Conclusions (Stage 2B)
+## Tab 4: Questions & Conclusions (Phase 2B)
 
 ![Q&C Tab](../assets/images/screenshots/step4-qc-content.png)
 
@@ -134,7 +134,7 @@ The Q&C tab displays extracted ethical questions and board conclusions.
 
 ---
 
-## Tab 5: Analysis (Stage 2D)
+## Tab 5: Analysis (Phase 2D)
 
 ![Analysis Tab](../assets/images/screenshots/step4-analysis-content.png)
 
@@ -159,7 +159,7 @@ The Analysis tab displays rich analysis results using the Toulmin argumentation 
 
 ---
 
-## Tab 6: Decisions (Stage 3)
+## Tab 6: Decisions (Phase 3)
 
 ![Decisions Tab](../assets/images/screenshots/step4-decisions-content.png)
 
@@ -186,7 +186,7 @@ Each decision point shows alignment with the board's actual questions and conclu
 
 ---
 
-## Tab 7: Narrative (Stage 4)
+## Tab 7: Narrative (Phase 4)
 
 ![Narrative Tab](../assets/images/screenshots/step4-narrative-content.png)
 
@@ -224,7 +224,7 @@ The Narrative tab displays the constructed case narrative for scenario generatio
 
 ## Transformation Types
 
-Step 4 classifies the case transformation pattern based on Marchais-Roubelat and Roubelat (2015):
+Step 4 Phase 2C classifies the case transformation pattern based on Marchais-Roubelat and Roubelat (2015):
 
 | Type | Description |
 |------|-------------|
@@ -239,6 +239,6 @@ See [References: Transformation Classification](/tools/references#transformation
 
 ## Related Guides
 
-- [Phase 1 Extraction](phase1-extraction.md) - Steps 1-3 extraction
+- [Steps 1-3 Extraction](phase1-extraction.md) - Entity extraction
 - [Entity Review](entity-review.md) - Validating extracted entities
 - [References: Transformation Classification](/tools/references#transformation) - Classification reference

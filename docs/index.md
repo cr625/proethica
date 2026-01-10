@@ -46,7 +46,7 @@ ProEthica guides case analysis through a structured workflow. The current implem
 | 4 | Case Synthesis | Four-phase analysis: provisions, questions, decision points, narrative | Implemented |
 | 5 | Scenario Exploration | Interactive decision-making with consequence generation | Planned |
 
-See [Phase 1 Extraction](how-to/phase1-extraction.md) for Steps 1-3 and [Phase 2 Analysis](how-to/phase2-analysis.md) for Step 4.
+Each step (1-3) has two passes: Pass 1 (Facts section) and Pass 2 (Discussion section). See [Steps 1-3 Extraction](how-to/phase1-extraction.md) for entity extraction and [Step 4 Synthesis](how-to/phase2-analysis.md) for case analysis.
 
 ### Pipeline Navigation
 
@@ -70,7 +70,7 @@ Each step extracts from both Facts and Discussion sections, with Discussion unlo
 ![Step 1 Extraction](assets/images/screenshots/step1-extraction-content.png)
 *Extraction page showing LLM prompt configuration and entity type selection*
 
-See [Phase 1 Extraction](how-to/phase1-extraction.md) for details.
+See [Steps 1-3 Extraction](how-to/phase1-extraction.md) for details.
 
 ### Entity Review
 After extraction completes, the review interface displays extracted entities organized by type:

@@ -214,9 +214,9 @@ Events capture temporal dynamics and external triggers. The Event Calculus frame
 
 ## Extraction Process
 
-ProEthica extracts these nine concepts through three passes:
+ProEthica extracts these nine concepts through three steps. Each step extracts from both Pass 1 (Facts section) and Pass 2 (Discussion section):
 
-### Pass 1: Contextual Framework
+### Step 1: Contextual Framework
 
 Extracts foundational elements that establish the scenario context:
 
@@ -226,7 +226,7 @@ Extracts foundational elements that establish the scenario context:
 | States | 10-20 | Situational conditions |
 | Resources | 15-30 | Referenced standards and codes |
 
-### Pass 2: Normative Requirements
+### Step 2: Normative Requirements
 
 Extracts ethical framework elements:
 
@@ -237,7 +237,7 @@ Extracts ethical framework elements:
 | Constraints | 15-20 | Prohibitions and limits |
 | Capabilities | 15-25 | Permissions and options |
 
-### Pass 3: Temporal Dynamics
+### Step 3: Temporal Dynamics
 
 Extracts action and event sequences:
 
@@ -246,6 +246,10 @@ Extracts action and event sequences:
 | Events | 3-8 | Precipitating occurrences |
 | Actions | 5-12 | Professional responses |
 | Relations | 10-20 | Temporal and causal links |
+
+### Step 4: Synthesis
+
+Analyzes extracted entities to produce decision points, arguments, and narrative structures. See [Step 4 Synthesis](../how-to/phase2-analysis.md) for details.
 
 ---
 
@@ -265,7 +269,8 @@ For complete academic references with DOIs and citations, see [References](/tool
 
 ## Related Guides
 
-- [Phase 1 Extraction](../how-to/phase1-extraction.md) - Extracting concepts
+- [Steps 1-3 Extraction](../how-to/phase1-extraction.md) - Extracting concepts
+- [Step 4 Synthesis](../how-to/phase2-analysis.md) - Case analysis
 - [Entity Review](../how-to/entity-review.md) - Validating extracted concepts
 - [Ontology Integration](../reference/ontology-integration.md) - Concept definitions
 - [Academic References](/tools/references) - Full citations and sources

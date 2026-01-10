@@ -1,16 +1,18 @@
-# Phase 1: Multi-Pass Extraction
+# Steps 1-3: Entity Extraction
 
-Phase 1 performs multi-pass concept extraction using ontology-validated definitions via MCP queries to OntServe. This guide covers the three extraction passes.
+Steps 1-3 perform multi-pass concept extraction using ontology-validated definitions via MCP queries to OntServe. This guide covers the three extraction steps and their passes.
 
 ## Overview
 
-Phase 1 extracts the nine concepts across three passes:
+Steps 1-3 extract the nine concepts. Each step has two passes:
+- **Pass 1 (Facts)**: Extracts from the Facts section
+- **Pass 2 (Discussion)**: Extracts from the Discussion section
 
-| Pass | Name | Concepts | Section |
-|------|------|----------|---------|
-| Pass 1 | Contextual Framework | Roles, States, Resources | Facts |
-| Pass 2 | Normative Requirements | Principles, Obligations, Constraints, Capabilities | Discussion |
-| Pass 3 | Temporal Dynamics | Actions, Events, Causal Relationships | Full Case |
+| Step | Name | Concepts | Passes |
+|------|------|----------|--------|
+| Step 1 | Contextual Framework | Roles, States, Resources | Pass 1 (Facts), Pass 2 (Discussion) |
+| Step 2 | Normative Requirements | Principles, Obligations, Constraints, Capabilities | Pass 1 (Facts), Pass 2 (Discussion) |
+| Step 3 | Temporal Dynamics | Actions, Events | Pass 1 (Facts), Pass 2 (Discussion) |
 
 ## Starting Extraction
 
@@ -20,7 +22,7 @@ Navigate to any case detail page. The numbered step buttons appear at the top of
 
 ![Case Step Buttons](../assets/images/screenshots/case-step-buttons-content.png)
 
-Steps must be processed in sequence. Completed steps display as green; incomplete steps show the step number. Click any available step to begin extraction for that pass.
+Steps must be processed in sequence. Completed steps display as green; incomplete steps show the step number. Click any available step to begin extraction for that step.
 
 ### Pipeline Steps
 
@@ -28,14 +30,14 @@ Steps must be processed in sequence. Completed steps display as green; incomplet
 |------|------|-------------------|
 | Step 1 | Contextual Framework | Roles, States, Resources |
 | Step 2 | Normative Requirements | Principles, Obligations, Constraints, Capabilities |
-| Step 3 | Temporal Dynamics | Actions, Events, Causal Relationships |
+| Step 3 | Temporal Dynamics | Actions, Events |
 | Step 4 | Synthesis | Provisions, Questions, Decision Points, Narrative |
 
-Each step extracts from both Facts and Discussion sections. The Discussion section becomes available after Facts extraction completes for that step.
+Each step extracts from both Facts and Discussion sections (Pass 1 and Pass 2). Pass 2 (Discussion) becomes available after Pass 1 (Facts) extraction completes for that step.
 
-## Pass 1: Contextual Framework
+## Step 1: Contextual Framework
 
-### Step 1: Facts Section
+### Pass 1 (Facts)
 
 1. Click the **Step 1** button on the case page
 2. The extraction page displays the Facts section text
@@ -54,24 +56,24 @@ After extraction completes for each type:
 
 ### Entity Review
 
-Click **Review Pass 1 Entities (Facts)** to access the review page:
+Click **Review Step 1 Entities (Facts)** to access the review page:
 
 1. Entities displayed in cards organized by concept type
 2. Available OntServe classes shown for matching
 3. Remove incorrect entities using the delete button
-4. Use the **Facts/Discussion** toggle to switch between sections
+4. Use the **Facts/Discussion** toggle to switch between passes
 
-### Discussion Section
+### Pass 2 (Discussion)
 
-After completing Facts extraction:
+After completing Pass 1 (Facts) extraction:
 
 1. Click **Discussion Section** on the extraction page
 2. Extract concepts from the Discussion section using the same buttons
-3. Review using **Review Pass 1 Entities** with the Discussion toggle active
+3. Review using **Review Step 1 Entities** with the Discussion toggle active
 
-## Pass 2: Normative Requirements
+## Step 2: Normative Requirements
 
-### Step 2: Facts Section
+### Pass 1 (Facts)
 
 1. Click the **Step 2** button on the case page
 2. Click individual extraction buttons:
@@ -89,16 +91,16 @@ Expected entity counts:
 | **Constraints** | Prohibitions and limits | 15-20 entities |
 | **Capabilities** | Permissions and options | 15-25 entities |
 
-### Discussion Section
+### Pass 2 (Discussion)
 
-Click **Discussion Section** after completing Facts extraction to extract normative concepts from the Discussion section.
+Click **Discussion Section** after completing Pass 1 (Facts) extraction to extract normative concepts from the Discussion section.
 
-## Pass 3: Temporal Dynamics
+## Step 3: Temporal Dynamics
 
-### Step 3
+### Pass 1 (Facts) and Pass 2 (Discussion)
 
 1. Click the **Step 3** button on the case page
-2. Step 3 extracts temporal concepts from the full case:
+2. Step 3 extracts temporal concepts from both passes:
 
 | Concept | Description | Typical Count |
 |---------|-------------|---------------|
@@ -149,7 +151,7 @@ When the LLM identifies a concept not matching existing ontology classes, it app
 
 ## Extraction Metrics
 
-After each pass, metrics show:
+After each step, metrics show:
 
 | Metric | Description |
 |--------|-------------|
@@ -162,18 +164,18 @@ After each pass, metrics show:
 
 For NSPE Case 24-2 (AI in Engineering Practice):
 
-**Pass 1 Results**:
+**Step 1 Results**:
 - Roles (4): Engineer, Client, Employer, State Board
 - States (16): Engineer lacks AI competence, Project uses AI tools, etc.
 - Resources (29): NSPE Code II.1.a, State licensing requirements, etc.
 
-**Pass 2 Results**:
+**Step 2 Results**:
 - Principles (18): Hold paramount public safety, Practice competence, etc.
 - Obligations (18): Verify AI-generated designs, Disclose limitations, etc.
 - Constraints (18): Cannot certify beyond competence, etc.
 - Capabilities (20): Can hire specialists, Can request extensions, etc.
 
-**Pass 3 Results**:
+**Step 3 Results**:
 - Actions (7): Uses AI without verification, Certifies design, etc.
 - Events (3): Client requests AI design, Board receives complaint, etc.
 
@@ -207,4 +209,4 @@ LLM may extract duplicates:
 
 - [Entity Review](entity-review.md) - Detailed entity validation
 - [Nine-Component Framework](../concepts/nine-components.md) - Understanding components
-- [Phase 2 Analysis](phase2-analysis.md) - Next phase
+- [Step 4 Synthesis](step4-synthesis.md) - Next step
