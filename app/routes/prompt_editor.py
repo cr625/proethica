@@ -33,8 +33,18 @@ prompt_editor_bp = Blueprint('prompt_editor', __name__)
 @login_required
 def index():
     """Main prompt editor page showing pipeline structure."""
-    # Get all active templates
-    templates = ExtractionPromptTemplate.query.filter_by(is_active=True).all()
+    # Get domain filter from query params
+    selected_domain = request.args.get('domain', 'engineering')
+
+    # Get available domains
+    domains = db.session.query(ExtractionPromptTemplate.domain).distinct().all()
+    available_domains = sorted(set(d[0] for d in domains if d[0])) or ['engineering']
+
+    # Get all active templates for selected domain
+    templates = ExtractionPromptTemplate.query.filter_by(
+        is_active=True,
+        domain=selected_domain
+    ).all()
 
     # Organize templates by step and concept
     templates_by_concept = {t.concept_type: t for t in templates}
@@ -58,7 +68,7 @@ def index():
             })
         pipeline_data.append(step_data)
 
-    # Get statistics
+    # Get statistics for selected domain
     stats = {
         'total_templates': len(templates),
         'total_versions': ExtractionPromptTemplateVersion.query.count(),
@@ -67,22 +77,44 @@ def index():
     return render_template('tools/prompt_editor.html',
                           pipeline_data=pipeline_data,
                           stats=stats,
-                          concept_colors=CONCEPT_COLORS)
+                          concept_colors=CONCEPT_COLORS,
+                          available_domains=available_domains,
+                          selected_domain=selected_domain)
 
 
 @prompt_editor_bp.route('/tools/prompts/<int:step>/<concept>')
 @login_required
 def edit_template(step, concept):
     """Edit a specific template."""
-    # Get the template
+    # Get domain from query params
+    selected_domain = request.args.get('domain', 'engineering')
+
+    # Get available domains - handle case where table might be empty
+    try:
+        domains = db.session.query(ExtractionPromptTemplate.domain).distinct().all()
+        available_domains = sorted(set(d[0] for d in domains if d[0])) or ['engineering']
+    except Exception as e:
+        logger.warning(f"Could not get domains: {e}")
+        available_domains = ['engineering']
+
+    # Get the template for this domain
     template = ExtractionPromptTemplate.query.filter_by(
         step_number=step,
         concept_type=concept,
+        domain=selected_domain,
         is_active=True
     ).first()
 
     if not template:
-        # Try to find any template for this concept
+        # Try to find any template for this concept in this domain
+        template = ExtractionPromptTemplate.query.filter_by(
+            concept_type=concept,
+            domain=selected_domain,
+            is_active=True
+        ).first()
+
+    if not template:
+        # Fall back to any domain
         template = ExtractionPromptTemplate.query.filter_by(
             concept_type=concept,
             is_active=True
@@ -92,20 +124,24 @@ def edit_template(step, concept):
     step_info = next((s for s in PIPELINE_STEPS if s['step'] == step), None)
 
     # Get cases that have extraction prompts for this concept
-    cases_with_extractions = db.session.query(
-        Document.id,
-        Document.title,
-        func.count(ExtractionPrompt.id).label('extraction_count'),
-        func.max(ExtractionPrompt.created_at).label('last_extraction')
-    ).join(
-        ExtractionPrompt, ExtractionPrompt.case_id == Document.id
-    ).filter(
-        ExtractionPrompt.concept_type == concept
-    ).group_by(
-        Document.id, Document.title
-    ).order_by(
-        func.max(ExtractionPrompt.created_at).desc()
-    ).limit(20).all()
+    try:
+        cases_with_extractions = db.session.query(
+            Document.id,
+            Document.title,
+            func.count(ExtractionPrompt.id).label('extraction_count'),
+            func.max(ExtractionPrompt.created_at).label('last_extraction')
+        ).join(
+            ExtractionPrompt, ExtractionPrompt.case_id == Document.id
+        ).filter(
+            ExtractionPrompt.concept_type == concept
+        ).group_by(
+            Document.id, Document.title
+        ).order_by(
+            func.max(ExtractionPrompt.created_at).desc()
+        ).limit(20).all()
+    except Exception as e:
+        logger.warning(f"Could not get cases with extractions: {e}")
+        cases_with_extractions = []
 
     # Get version history
     versions = []
@@ -125,7 +161,9 @@ def edit_template(step, concept):
                           cases_with_extractions=cases_with_extractions,
                           versions=versions,
                           pipeline_steps=PIPELINE_STEPS,
-                          concept_colors=CONCEPT_COLORS)
+                          concept_colors=CONCEPT_COLORS,
+                          available_domains=available_domains,
+                          selected_domain=selected_domain)
 
 
 # ============================================================================
@@ -258,10 +296,10 @@ def get_template_examples(template_id):
         # Get case info
         case = Document.query.get(extraction.case_id)
 
-        # Count extracted entities
+        # Count extracted entities (TemporaryRDFStorage uses extraction_type, not concept_type)
         entity_count = TemporaryRDFStorage.query.filter_by(
             case_id=extraction.case_id,
-            concept_type=template.concept_type
+            extraction_type=template.concept_type
         ).count()
 
         examples.append({
@@ -310,6 +348,155 @@ def preview_template(template_id):
             'success': False,
             'error': str(e)
         }), 400
+
+
+@prompt_editor_bp.route('/api/prompts/template/<int:template_id>/render', methods=['POST'])
+@login_required
+def render_template_with_case(template_id):
+    """Render a template with auto-resolved variables from case context.
+
+    Expects JSON body:
+        case_id: int - Document ID
+        section_type: str - 'facts' or 'discussion'
+
+    Returns:
+        rendered_prompt: str - The fully rendered prompt
+        variables_used: dict - Variables that were resolved
+    """
+    template = ExtractionPromptTemplate.query.get_or_404(template_id)
+
+    data = request.get_json()
+    case_id = data.get('case_id')
+    section_type = data.get('section_type', 'facts')
+
+    if not case_id:
+        return jsonify({
+            'success': False,
+            'error': 'case_id is required'
+        }), 400
+
+    try:
+        from app.services.prompt_variable_resolver import get_prompt_variable_resolver
+
+        # Resolve variables from case context
+        resolver = get_prompt_variable_resolver()
+        variables = resolver.resolve_variables(
+            case_id=case_id,
+            section_type=section_type,
+            concept_type=template.concept_type
+        )
+
+        # Render the template
+        rendered = template.render(**variables)
+
+        # Get case info for display
+        case = Document.query.get(case_id)
+        case_title = case.title if case else f'Case {case_id}'
+
+        return jsonify({
+            'success': True,
+            'rendered_prompt': rendered,
+            'variables_used': {k: str(v)[:200] + '...' if len(str(v)) > 200 else str(v)
+                              for k, v in variables.items()},
+            'case_title': case_title,
+            'section_type': section_type,
+            'character_count': len(rendered)
+        })
+
+    except Exception as e:
+        logger.error(f"Error rendering template {template_id}: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@prompt_editor_bp.route('/api/prompts/template/<int:template_id>/test-run', methods=['POST'])
+@login_required
+def test_run_template(template_id):
+    """Execute a test extraction with the template.
+
+    Expects JSON body:
+        case_id: int - Document ID
+        section_type: str - 'facts' or 'discussion'
+
+    Returns:
+        rendered_prompt: str - The prompt sent to LLM
+        raw_response: str - Raw LLM response
+        entities: dict - Parsed entities
+        duration_ms: int - Execution time
+    """
+    import time
+    template = ExtractionPromptTemplate.query.get_or_404(template_id)
+
+    data = request.get_json()
+    case_id = data.get('case_id')
+    section_type = data.get('section_type', 'facts')
+
+    if not case_id:
+        return jsonify({
+            'success': False,
+            'error': 'case_id is required'
+        }), 400
+
+    try:
+        from app.services.prompt_variable_resolver import get_prompt_variable_resolver
+
+        start_time = time.time()
+
+        # Resolve variables from case context
+        resolver = get_prompt_variable_resolver()
+        variables = resolver.resolve_variables(
+            case_id=case_id,
+            section_type=section_type,
+            concept_type=template.concept_type
+        )
+
+        # Render the template
+        rendered_prompt = template.render(**variables)
+
+        # Call the LLM
+        from app.services.llm_utils import call_llm
+        from models import ModelConfig
+        import json as json_module
+
+        model_name = ModelConfig.get_claude_model("powerful")
+        raw_response = call_llm(rendered_prompt, model=model_name)
+
+        # Try to parse as JSON
+        entities = {}
+        try:
+            # Clean response if it has markdown code blocks
+            response_text = raw_response
+            if '```json' in response_text:
+                response_text = response_text.split('```json')[1].split('```')[0]
+            elif '```' in response_text:
+                response_text = response_text.split('```')[1].split('```')[0]
+
+            entities = json_module.loads(response_text.strip())
+        except json_module.JSONDecodeError as e:
+            logger.warning(f"Could not parse LLM response as JSON: {e}")
+            entities = {'parse_error': str(e), 'raw_text': raw_response[:500]}
+
+        duration_ms = int((time.time() - start_time) * 1000)
+
+        return jsonify({
+            'success': True,
+            'rendered_prompt': rendered_prompt,
+            'raw_response': raw_response,
+            'entities': entities,
+            'duration_ms': duration_ms,
+            'model': model_name
+        })
+
+    except Exception as e:
+        logger.error(f"Error running test extraction for template {template_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 
 @prompt_editor_bp.route('/api/prompts/template/<int:template_id>/versions')
@@ -419,6 +606,72 @@ def get_cases_with_extractions(concept):
     })
 
 
+@prompt_editor_bp.route('/api/prompts/template/<int:template_id>/resolve-variables', methods=['POST'])
+@login_required
+def resolve_template_variables(template_id):
+    """Resolve all template variables for a given case.
+
+    Expects JSON body:
+        case_id: int - Document ID
+        section_type: str - 'facts' or 'discussion' (optional, defaults to 'facts')
+
+    Returns:
+        variables: dict - All resolved variables with their values
+    """
+    template = ExtractionPromptTemplate.query.get_or_404(template_id)
+
+    data = request.get_json()
+    case_id = data.get('case_id')
+    section_type = data.get('section_type', 'facts')
+
+    if not case_id:
+        return jsonify({
+            'success': False,
+            'error': 'case_id is required'
+        }), 400
+
+    try:
+        from app.services.prompt_variable_resolver import get_prompt_variable_resolver
+
+        resolver = get_prompt_variable_resolver()
+        variables = resolver.resolve_variables(
+            case_id=case_id,
+            section_type=section_type,
+            concept_type=template.concept_type
+        )
+
+        # Get case info
+        case = Document.query.get(case_id)
+        case_title = case.title if case else f'Case {case_id}'
+
+        # Format variables for display - include metadata
+        formatted_vars = {}
+        for key, value in variables.items():
+            str_value = str(value)
+            formatted_vars[key] = {
+                'value': str_value,
+                'length': len(str_value),
+                'preview': str_value[:500] + '...' if len(str_value) > 500 else str_value,
+                'type': type(value).__name__
+            }
+
+        return jsonify({
+            'success': True,
+            'case_id': case_id,
+            'case_title': case_title,
+            'section_type': section_type,
+            'concept_type': template.concept_type,
+            'variables': formatted_vars
+        })
+
+    except Exception as e:
+        logger.error(f"Error resolving variables for template {template_id}: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 # ============================================================================
 # CSRF Exemption
 # ============================================================================
@@ -429,3 +682,6 @@ def init_prompt_editor_csrf_exemption(app):
         app.csrf.exempt(update_template)
         app.csrf.exempt(preview_template)
         app.csrf.exempt(revert_template)
+        app.csrf.exempt(render_template_with_case)
+        app.csrf.exempt(test_run_template)
+        app.csrf.exempt(resolve_template_variables)

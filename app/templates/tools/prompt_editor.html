@@ -2,7 +2,7 @@
 
 {% block title %}Extraction Prompt Editor - ProEthica{% endblock %}
 
-{% block head %}
+{% block styles %}
 <style>
 /* Pipeline step cards */
 .step-card {
@@ -97,12 +97,20 @@
                         Edit prompt templates for the 9-concept extraction pipeline
                     </p>
                 </div>
-                <div>
-                    <a href="{{ url_for('provenance.provenance_cases') }}" class="btn btn-outline-info me-2">
+                <div class="d-flex align-items-center">
+                    <!-- Domain Selector -->
+                    <div class="me-3">
+                        <label for="domainSelect" class="form-label mb-0 me-2 text-muted small">Domain:</label>
+                        <select id="domainSelect" class="form-select form-select-sm" style="width: auto; display: inline-block;" onchange="changeDomain(this.value)">
+                            {% for domain in available_domains %}
+                            <option value="{{ domain }}" {% if domain == selected_domain %}selected{% endif %}>
+                                {{ domain | title }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <a href="{{ url_for('provenance.provenance_cases') }}" class="btn btn-outline-info">
                         <i class="bi bi-diagram-3"></i> Provenance Viewer
-                    </a>
-                    <a href="{{ url_for('prompt_builder.registry') }}" class="btn btn-outline-secondary">
-                        <i class="bi bi-list-check"></i> Prompt Registry
                     </a>
                 </div>
             </div>
@@ -114,7 +122,10 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-body">
-                    <h5 class="card-title"><i class="bi bi-bar-chart"></i> Template Statistics</h5>
+                    <h5 class="card-title">
+                        <i class="bi bi-bar-chart"></i> Template Statistics
+                        <span class="badge bg-primary ms-2">{{ selected_domain | title }}</span>
+                    </h5>
                     <div class="stats-grid">
                         <div class="stat-item">
                             <h4>{{ stats.total_templates }}</h4>
@@ -154,7 +165,7 @@
                 <div class="card-body p-0">
                     {% for concept in step.concepts %}
                     <div class="concept-item">
-                        <a href="{{ url_for('prompt_editor.edit_template', step=step.step, concept=concept.type) }}">
+                        <a href="{{ url_for('prompt_editor.edit_template', step=step.step, concept=concept.type, domain=selected_domain) }}">
                             <div>
                                 <span class="concept-badge" style="background-color: {{ concept.color }};"></span>
                                 <span class="concept-name">{{ concept.type | title }}</span>
@@ -222,4 +233,12 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function changeDomain(domain) {
+    window.location.href = '{{ url_for("prompt_editor.index") }}?domain=' + domain;
+}
+</script>
 {% endblock %}

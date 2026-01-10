@@ -2,242 +2,447 @@
 
 {% block title %}Edit {{ concept | title }} Template - ProEthica{% endblock %}
 
-{% block head %}
+{% block styles %}
 <style>
-/* Layout */
-.editor-container {
-    display: grid;
-    grid-template-columns: 200px 1fr 400px;
-    gap: 1rem;
-    height: calc(100vh - 180px);
+/* ============================================
+   PROMPT EDITOR - 3-COLUMN LAYOUT
+   ============================================ */
+
+/* Main grid container */
+div.editor-container {
+    display: grid !important;
+    grid-template-columns: 160px 1fr 280px !important;
+    grid-template-areas: "sidebar main reference" !important;
+    gap: 10px !important;
+    height: calc(100vh - 110px) !important;
+    min-height: 500px !important;
+    width: 100% !important;
 }
 
-/* Sidebar */
-.sidebar {
-    background: #f8f9fa;
-    border-radius: 0.5rem;
-    padding: 1rem;
-    overflow-y: auto;
+/* Responsive: narrower columns */
+@media (max-width: 1200px) {
+    div.editor-container {
+        grid-template-columns: 140px 1fr 240px !important;
+    }
 }
+
+/* Mobile: stack vertically */
+@media (max-width: 900px) {
+    div.editor-container {
+        grid-template-columns: 1fr !important;
+        grid-template-areas: "sidebar" "main" "reference" !important;
+        height: auto !important;
+    }
+    .sidebar { max-height: 100px; overflow: hidden; }
+}
+
+/* ============================================
+   SIDEBAR - Left Column
+   ============================================ */
+div.sidebar {
+    grid-area: sidebar !important;
+    display: block !important;
+    background: #f8f9fa !important;
+    border: 1px solid #dee2e6 !important;
+    border-radius: 8px !important;
+    padding: 10px !important;
+    overflow-y: auto !important;
+}
+/* Sidebar step groups */
 .sidebar-step {
-    margin-bottom: 1rem;
+    display: block !important;
+    margin-bottom: 12px !important;
 }
 .sidebar-step-header {
-    font-weight: 600;
-    font-size: 0.85rem;
-    padding: 0.5rem;
-    border-radius: 0.25rem;
-    margin-bottom: 0.5rem;
+    display: block !important;
+    font-weight: 600 !important;
+    font-size: 0.7rem !important;
+    padding: 4px 8px !important;
+    border-radius: 4px !important;
+    margin-bottom: 4px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
 }
-.sidebar-concept {
-    display: flex;
-    align-items: center;
-    padding: 0.4rem 0.5rem;
-    border-radius: 0.25rem;
-    margin-bottom: 0.2rem;
-    text-decoration: none;
-    color: #333;
-    font-size: 0.9rem;
+/* Sidebar concept links - MUST be block to stack vertically */
+a.sidebar-concept {
+    display: flex !important;
+    align-items: center !important;
+    padding: 5px 8px !important;
+    border-radius: 4px !important;
+    margin-bottom: 2px !important;
+    text-decoration: none !important;
+    color: #333 !important;
+    font-size: 0.8rem !important;
+    width: 100% !important;
 }
-.sidebar-concept:hover {
-    background: #e9ecef;
-}
-.sidebar-concept.active {
-    background: #007bff;
-    color: white;
-}
+a.sidebar-concept:hover { background: #e9ecef !important; color: #333 !important; }
+a.sidebar-concept.active { background: #007bff !important; color: white !important; }
+a.sidebar-concept.active:hover { background: #0056b3 !important; }
 .sidebar-concept-dot {
-    width: 8px;
-    height: 8px;
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
-    margin-right: 0.5rem;
+    margin-right: 0.4rem;
 }
 
-/* Main editor panel */
-.editor-panel {
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
+/* ============================================
+   MAIN PANEL - Center Column
+   ============================================ */
+div.main-panel {
+    grid-area: main !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    border-radius: 8px !important;
+    border: 1px solid #dee2e6 !important;
+    background: white !important;
+    min-height: 0 !important;
 }
-.editor-header {
-    padding: 1rem;
-    background: #f8f9fa;
-    border-radius: 0.5rem 0.5rem 0 0;
+.main-header {
+    padding: 0.5rem 0.75rem;
+    background: linear-gradient(90deg, {{ concept_color }}15 0%, #f8f9fa 100%);
     border-bottom: 1px solid #dee2e6;
 }
-.editor-body {
+.main-tabs {
+    display: flex;
+    background: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+}
+.main-tab {
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 500;
+    border-bottom: 2px solid transparent;
+    color: #6c757d;
+}
+.main-tab:hover { background: #e9ecef; }
+.main-tab.active {
+    color: #007bff;
+    border-bottom-color: #007bff;
+    background: white;
+}
+.main-body {
     flex-grow: 1;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
 }
+.tab-content {
+    flex-grow: 1;
+    overflow: hidden;
+    display: none;
+}
+.tab-content.active {
+    display: flex;
+    flex-direction: column;
+}
+.main-footer {
+    padding: 0.4rem 0.75rem;
+    background: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.75rem;
+}
+
+/* Template editor */
 .template-textarea {
     flex-grow: 1;
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     line-height: 1.5;
-    padding: 1rem;
+    padding: 0.75rem;
     border: none;
     resize: none;
     background: #1e1e1e;
     color: #d4d4d4;
 }
-.template-textarea:focus {
-    outline: none;
-    box-shadow: inset 0 0 0 2px #007bff;
-}
+.template-textarea:focus { outline: none; }
 
-/* Variables panel */
-.variables-panel {
-    padding: 0.75rem 1rem;
+/* Preview panel */
+.preview-controls {
+    padding: 0.5rem 0.75rem;
     background: #f8f9fa;
-    border-top: 1px solid #dee2e6;
-    font-size: 0.85rem;
-}
-.variable-tag {
-    display: inline-block;
-    padding: 0.2rem 0.5rem;
-    background: #e9ecef;
-    border-radius: 0.25rem;
-    margin-right: 0.5rem;
-    margin-bottom: 0.25rem;
-    font-family: monospace;
-}
-
-/* Examples panel */
-.examples-panel {
-    background: #f8f9fa;
-    border-radius: 0.5rem;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-}
-.examples-header {
-    padding: 1rem;
     border-bottom: 1px solid #dee2e6;
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
 }
-.examples-body {
+.preview-select { font-size: 0.8rem; }
+.preview-body {
     flex-grow: 1;
     overflow-y: auto;
-    padding: 1rem;
+    padding: 0.75rem;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    background: #fafafa;
+    white-space: pre-wrap;
 }
-.example-select {
-    width: 100%;
-}
-.example-content {
-    margin-top: 1rem;
-}
-.example-section {
-    margin-bottom: 1rem;
-}
-.example-section-header {
+.preview-placeholder {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 0.5rem;
-    background: #e9ecef;
-    border-radius: 0.25rem;
-    cursor: pointer;
-    font-weight: 500;
-    font-size: 0.9rem;
+    justify-content: center;
+    height: 100%;
+    color: #6c757d;
+    flex-direction: column;
 }
-.example-section-header:hover {
-    background: #dee2e6;
+
+/* Test panel */
+.test-controls {
+    padding: 0.5rem 0.75rem;
+    background: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
 }
-.example-section-body {
+.test-results {
+    flex-grow: 1;
+    overflow-y: auto;
     padding: 0.75rem;
-    background: white;
+}
+.test-section {
+    margin-bottom: 0.75rem;
     border: 1px solid #dee2e6;
-    border-top: none;
-    border-radius: 0 0 0.25rem 0.25rem;
-    font-family: monospace;
+    border-radius: 0.25rem;
+}
+.test-section-header {
+    padding: 0.4rem 0.6rem;
+    background: #f8f9fa;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     font-size: 0.8rem;
+    font-weight: 500;
+}
+.test-section-body {
+    padding: 0.5rem;
+    font-family: monospace;
+    font-size: 0.75rem;
+    background: #1e1e1e;
+    color: #d4d4d4;
     white-space: pre-wrap;
-    max-height: 300px;
+    max-height: 200px;
     overflow-y: auto;
 }
-.collapsed .example-section-body {
-    display: none;
+.test-section.collapsed .test-section-body { display: none; }
+.entity-card {
+    padding: 0.4rem 0.6rem;
+    background: #f8f9fa;
+    border-radius: 0.25rem;
+    margin-bottom: 0.25rem;
+    font-size: 0.8rem;
 }
 
-/* Version history */
-.version-item {
+/* ============================================
+   REFERENCE PANEL - Right Column
+   ============================================ */
+div.reference-panel {
+    grid-area: reference !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    background: #f8f9fa !important;
+    border-radius: 8px !important;
+    border: 1px solid #dee2e6 !important;
+    min-height: 0 !important;
+}
+.reference-header {
+    padding: 0.4rem 0.6rem;
+    background: #e9ecef;
+    font-weight: 600;
+    font-size: 0.8rem;
+    border-bottom: 1px solid #dee2e6;
+}
+.reference-body {
+    flex-grow: 1;
+    overflow-y: auto;
     padding: 0.5rem;
+}
+.ref-section {
+    margin-bottom: 0.75rem;
+}
+.ref-section-title {
+    font-weight: 600;
+    font-size: 0.75rem;
+    color: #6c757d;
+    margin-bottom: 0.3rem;
+    text-transform: uppercase;
+}
+.var-item {
+    padding: 0.4rem;
+    background: white;
+    border-radius: 0.25rem;
+    margin-bottom: 0.25rem;
+    border: 1px solid #dee2e6;
+}
+.var-name {
+    font-family: monospace;
+    font-weight: 600;
+    color: #0d6efd;
+    font-size: 0.8rem;
+}
+.var-desc {
+    color: #6c757d;
+    font-size: 0.75rem;
+    margin-top: 0.15rem;
+}
+.var-meta {
+    font-size: 0.7rem;
+    color: #adb5bd;
+    margin-top: 0.15rem;
+}
+.schema-group {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+    margin-bottom: 0.25rem;
+}
+.schema-group-header {
+    padding: 0.3rem 0.4rem;
+    background: #f8f9fa;
+    font-weight: 500;
+    font-size: 0.75rem;
     border-bottom: 1px solid #eee;
-    font-size: 0.85rem;
 }
-.version-item:last-child {
-    border-bottom: none;
-}
-.version-item:hover {
-    background: #f8f9fa;
-}
-
-/* Footer */
-.editor-footer {
-    padding: 1rem;
-    background: #f8f9fa;
-    border-radius: 0 0 0.5rem 0.5rem;
-    border-top: 1px solid #dee2e6;
+.schema-field {
+    padding: 0.2rem 0.4rem;
+    font-size: 0.75rem;
+    font-family: monospace;
     display: flex;
     justify-content: space-between;
+}
+.schema-type { color: #6c757d; }
+
+/* Pipeline visualization */
+.pipeline-viz {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+    padding: 0.4rem;
+}
+.pipeline-step {
+    display: flex;
     align-items: center;
+    padding: 0.2rem 0;
+    font-size: 0.7rem;
+}
+.pipeline-step::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    background: #28a745;
+    border-radius: 50%;
+    margin-right: 0.4rem;
+}
+.pipeline-arrow {
+    text-align: center;
+    color: #6c757d;
+    font-size: 0.6rem;
+    padding: 0.1rem 0;
 }
 
-/* Status indicators */
+/* Status */
 .status-indicator {
     display: inline-flex;
     align-items: center;
-    font-size: 0.85rem;
+    font-size: 0.75rem;
 }
 .status-dot {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
-    margin-right: 0.5rem;
+    margin-right: 0.3rem;
 }
 .status-saved { background: #28a745; }
 .status-unsaved { background: #ffc107; }
 .status-saving { background: #17a2b8; }
+
+/* Extractor info */
+.extractor-badge {
+    font-size: 0.7rem;
+    color: #6c757d;
+    background: #e9ecef;
+    padding: 0.15rem 0.4rem;
+    border-radius: 0.2rem;
+    font-family: monospace;
+}
+
+/* Clickable variables */
+.var-clickable {
+    cursor: pointer;
+    transition: background-color 0.15s;
+}
+.var-clickable:hover {
+    background: #e3f2fd !important;
+}
+
+/* Extra small button */
+.btn-xs {
+    padding: 0.1rem 0.3rem;
+    font-size: 0.7rem;
+    line-height: 1.2;
+}
+
+/* Variable preview modal */
+.var-preview-content {
+    background: #1e1e1e;
+    color: #d4d4d4;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    font-family: monospace;
+    font-size: 0.8rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 400px;
+    overflow-y: auto;
+}
+.var-preview-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+.var-preview-meta {
+    font-size: 0.75rem;
+    color: #6c757d;
+}
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid mt-3">
-    <!-- Header -->
-    <div class="row mb-3">
-        <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <nav aria-label="breadcrumb">
-                        <ol class="breadcrumb mb-0">
-                            <li class="breadcrumb-item"><a href="{{ url_for('prompt_editor.index') }}">Prompt Editor</a></li>
-                            <li class="breadcrumb-item">Step {{ step }}: {{ step_info.name if step_info else 'Unknown' }}</li>
-                            <li class="breadcrumb-item active">{{ concept | title }}</li>
-                        </ol>
-                    </nav>
-                    <h3 class="mb-0 mt-2">
-                        <span class="badge me-2" style="background-color: {{ concept_color }};">
-                            {{ concept | title }}
-                        </span>
-                        Extraction Template
-                        {% if template %}
-                        <small class="text-muted">v{{ template.version }}</small>
-                        {% endif %}
-                    </h3>
-                </div>
-                <div>
-                    <button class="btn btn-success" id="saveBtn" onclick="saveTemplate()" disabled>
-                        <i class="bi bi-check-lg"></i> Save Changes
-                    </button>
-                </div>
-            </div>
+<div class="container-fluid px-3 py-2">
+    <!-- Compact Header -->
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <div class="d-flex align-items-center gap-2">
+            <a href="{{ url_for('prompt_editor.index') }}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+            <h5 class="mb-0">
+                <span class="badge" style="background-color: {{ concept_color }};">{{ concept | title }}</span>
+                {% if template %}v{{ template.version }}{% endif %}
+            </h5>
+            {% if template and template.extractor_file %}
+            <span class="extractor-badge">{{ template.extractor_file.split('/')[-1] }}</span>
+            {% endif %}
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-primary" onclick="previewTemplate()" title="Preview with case">
+                <i class="bi bi-eye"></i> Preview
+            </button>
+            <button class="btn btn-sm btn-success" id="saveBtn" onclick="saveTemplate()" disabled>
+                <i class="bi bi-check-lg"></i> Save
+            </button>
         </div>
     </div>
 
-    <!-- Editor Layout -->
+    <!-- Main Editor Layout -->
     <div class="editor-container">
-        <!-- Left Sidebar: Pipeline Navigation -->
+        <!-- Left: Concept Navigation -->
         <div class="sidebar">
             {% for step_item in pipeline_steps %}
             <div class="sidebar-step">
@@ -245,7 +450,7 @@
                     Step {{ step_item.step }}
                 </div>
                 {% for c in step_item.concepts %}
-                <a href="{{ url_for('prompt_editor.edit_template', step=step_item.step, concept=c) }}"
+                <a href="{{ url_for('prompt_editor.edit_template', step=step_item.step, concept=c, domain=selected_domain) }}"
                    class="sidebar-concept {% if c == concept %}active{% endif %}">
                     <span class="sidebar-concept-dot" style="background: {{ concept_colors.get(c, '#6c757d') }};"></span>
                     {{ c | title }}
@@ -255,131 +460,243 @@
             {% endfor %}
         </div>
 
-        <!-- Main Editor Panel -->
-        <div class="editor-panel">
+        <!-- Center: Editor with Tabs -->
+        <div class="main-panel">
             {% if template %}
-            <div class="editor-header">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <h5 class="mb-1">{{ template.name }}</h5>
-                        <p class="text-muted mb-0 small">{{ template.description or 'No description' }}</p>
+            <div class="main-tabs">
+                <div class="main-tab active" onclick="switchMainTab('template')">
+                    <i class="bi bi-code-slash"></i> Template
+                </div>
+                <div class="main-tab" onclick="switchMainTab('preview')">
+                    <i class="bi bi-eye"></i> Preview
+                </div>
+                <div class="main-tab" onclick="switchMainTab('test')">
+                    <i class="bi bi-play-circle"></i> Test
+                </div>
+                <div class="main-tab" onclick="switchMainTab('history')">
+                    <i class="bi bi-clock-history"></i> History
+                </div>
+            </div>
+            <div class="main-body">
+                <!-- Template Tab -->
+                <div class="tab-content active" id="tab-template">
+                    <textarea class="template-textarea" id="templateText"
+                              onchange="markUnsaved()" oninput="markUnsaved()">{{ template.template_text }}</textarea>
+                </div>
+
+                <!-- Preview Tab -->
+                <div class="tab-content" id="tab-preview">
+                    <div class="preview-controls">
+                        <select class="form-select form-select-sm preview-select" id="previewCaseSelect" style="width: 250px;">
+                            <option value="">Select case to preview...</option>
+                            {% for case in cases_with_extractions %}
+                            <option value="{{ case.id }}">{{ case.title[:50] }}</option>
+                            {% endfor %}
+                        </select>
+                        <select class="form-select form-select-sm preview-select" id="previewSectionSelect" style="width: 120px;">
+                            <option value="facts">facts</option>
+                            <option value="discussion">discussion</option>
+                        </select>
+                        <button class="btn btn-sm btn-primary" onclick="renderPreview()">
+                            <i class="bi bi-arrow-repeat"></i> Render
+                        </button>
                     </div>
-                    <div class="status-indicator" id="statusIndicator">
-                        <span class="status-dot status-saved"></span>
-                        <span id="statusText">Saved</span>
+                    <div class="preview-body" id="previewBody">
+                        <div class="preview-placeholder">
+                            <i class="bi bi-file-earmark-text" style="font-size: 2rem;"></i>
+                            <p class="mt-2 mb-0">Select a case and click Render to preview the prompt</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Test Tab -->
+                <div class="tab-content" id="tab-test">
+                    <div class="test-controls">
+                        <select class="form-select form-select-sm" id="testCaseSelect" style="width: 250px;">
+                            <option value="">Select case to test...</option>
+                            {% for case in cases_with_extractions %}
+                            <option value="{{ case.id }}">{{ case.title[:50] }}</option>
+                            {% endfor %}
+                        </select>
+                        <select class="form-select form-select-sm" id="testSectionSelect" style="width: 120px;">
+                            <option value="facts">facts</option>
+                            <option value="discussion">discussion</option>
+                        </select>
+                        <button class="btn btn-sm btn-warning" onclick="runTest()" id="testBtn">
+                            <i class="bi bi-lightning"></i> Run Test
+                        </button>
+                        <span class="text-muted small" id="testStatus"></span>
+                    </div>
+                    <div class="test-results" id="testResults">
+                        <div class="preview-placeholder">
+                            <i class="bi bi-lightning" style="font-size: 2rem;"></i>
+                            <p class="mt-2 mb-0">Select a case and run a test extraction</p>
+                            <small class="text-muted">This will execute the prompt with the LLM</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- History Tab -->
+                <div class="tab-content" id="tab-history">
+                    <div style="padding: 0.75rem; overflow-y: auto; height: 100%;">
+                        <h6>Version History</h6>
+                        {% if versions %}
+                        {% for version in versions %}
+                        <div class="d-flex justify-content-between align-items-center p-2 border-bottom">
+                            <div>
+                                <strong>v{{ version.version_number }}</strong>
+                                <small class="text-muted ms-2">{{ version.changed_at.strftime('%Y-%m-%d %H:%M') if version.changed_at else '' }}</small>
+                                {% if version.change_description %}
+                                <div class="small text-muted">{{ version.change_description }}</div>
+                                {% endif %}
+                            </div>
+                            <button class="btn btn-sm btn-outline-warning" onclick="revertToVersion({{ version.version_number }})">
+                                Revert
+                            </button>
+                        </div>
+                        {% endfor %}
+                        {% else %}
+                        <p class="text-muted">No version history yet. Save changes to create versions.</p>
+                        {% endif %}
                     </div>
                 </div>
             </div>
-            <div class="editor-body">
-                <textarea class="template-textarea" id="templateText"
-                          onchange="markUnsaved()" oninput="markUnsaved()">{{ template.template_text }}</textarea>
-            </div>
-            <div class="variables-panel">
-                <strong>Template Variables:</strong>
-                {% if template.variables_schema %}
-                {% for var_name, var_info in template.variables_schema.items() %}
-                <span class="variable-tag" title="{{ var_info.description or '' }}">
-                    {{ "{{ " ~ var_name ~ " }}" }}
-                    {% if var_info.get('optional') %}<small class="text-muted">(optional)</small>{% endif %}
-                </span>
-                {% endfor %}
-                {% else %}
-                <span class="variable-tag">{{ "{{ text }}" }}</span>
-                <span class="variable-tag">{{ "{{ mcp_context }}" }}</span>
-                {% endif %}
-            </div>
-            <div class="editor-footer">
-                <div>
-                    <span class="text-muted small">
-                        Last updated: {{ template.updated_at.strftime('%Y-%m-%d %H:%M') if template.updated_at else 'Never' }}
-                    </span>
+            <div class="main-footer">
+                <div class="status-indicator" id="statusIndicator">
+                    <span class="status-dot status-saved"></span>
+                    <span id="statusText">Saved</span>
                 </div>
                 <div>
-                    <button class="btn btn-sm btn-outline-secondary me-2" data-bs-toggle="modal" data-bs-target="#versionModal">
-                        <i class="bi bi-clock-history"></i> Version History
-                    </button>
-                    <button class="btn btn-sm btn-outline-warning" onclick="resetTemplate()">
-                        <i class="bi bi-arrow-counterclockwise"></i> Reset
-                    </button>
+                    <span class="text-muted" id="charCount">{{ template.template_text | length }} chars</span>
                 </div>
             </div>
             {% else %}
             <div class="d-flex align-items-center justify-content-center h-100">
                 <div class="text-center text-muted">
-                    <i class="bi bi-file-earmark-x" style="font-size: 4rem;"></i>
-                    <h4 class="mt-3">No Template Found</h4>
-                    <p>No template configured for {{ concept | title }} extraction.</p>
-                    <a href="{{ url_for('prompt_editor.index') }}" class="btn btn-primary">
-                        Back to Prompt Editor
-                    </a>
+                    <i class="bi bi-file-earmark-x" style="font-size: 3rem;"></i>
+                    <h5 class="mt-2">No Template Found</h5>
                 </div>
             </div>
             {% endif %}
         </div>
 
-        <!-- Right Panel: Examples -->
-        <div class="examples-panel">
-            <div class="examples-header">
-                <h6 class="mb-2"><i class="bi bi-collection"></i> Extraction Examples</h6>
-                <select class="form-select example-select" id="caseSelect" onchange="loadExample()">
-                    <option value="">Select a case...</option>
-                    {% for case in cases_with_extractions %}
-                    <option value="{{ case.id }}">
-                        {{ case.id }}. {{ case.title }} ({{ case.extraction_count }} extractions)
-                    </option>
-                    {% endfor %}
-                </select>
+        <!-- Right: Reference Panel -->
+        <div class="reference-panel">
+            <div class="reference-header">
+                <i class="bi bi-info-circle"></i> Reference
             </div>
-            <div class="examples-body" id="examplesBody">
-                <div class="text-center text-muted py-5">
-                    <i class="bi bi-arrow-up-circle" style="font-size: 2rem;"></i>
-                    <p class="mt-2">Select a case to see how this prompt was used in extraction</p>
+            <div class="reference-body">
+                <!-- Variable Preview -->
+                <div class="ref-section">
+                    <div class="ref-section-title d-flex justify-content-between align-items-center">
+                        <span>Template Variables</span>
+                        <button class="btn btn-xs btn-outline-primary" onclick="previewVariables()" title="Preview resolved values">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </div>
+                    <select class="form-select form-select-sm mb-2" id="varPreviewCaseSelect">
+                        <option value="">Select case for preview...</option>
+                        {% for case in cases_with_extractions %}
+                        <option value="{{ case.id }}">{{ case.title[:30] }}{% if case.title|length > 30 %}...{% endif %}</option>
+                        {% endfor %}
+                    </select>
+                    <div id="detectedVariables">
+                        {% if template %}
+                        {% set detected_vars = template.get_template_variables() %}
+                        {% if detected_vars %}
+                        {% for var_name in detected_vars %}
+                        <div class="var-item var-clickable" onclick="previewSingleVariable('{{ var_name }}')" title="Click to preview value">
+                            <div class="var-name d-flex justify-content-between">
+                                <span>{{ "{{ " ~ var_name ~ " }}" }}</span>
+                                <i class="bi bi-box-arrow-up-right text-muted" style="font-size: 0.7rem;"></i>
+                            </div>
+                            {% if template.variable_builders and var_name in template.variable_builders %}
+                            <div class="var-desc">{{ template.variable_builders[var_name].get('description', '') }}</div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                        {% else %}
+                        <p class="text-muted small">No variables detected in template</p>
+                        {% endif %}
+                        {% endif %}
+                    </div>
                 </div>
+
+                <!-- Output Schema -->
+                <div class="ref-section">
+                    <div class="ref-section-title">Output Schema</div>
+                    {% if template and template.output_schema and template.output_schema is mapping %}
+                    {% for key, schema_info in template.output_schema.items() %}
+                    <div class="schema-group">
+                        <div class="schema-group-header">
+                            {{ key }}
+                            {% if schema_info.get('dataclass') %}<small class="text-muted">({{ schema_info.get('dataclass') }})</small>{% endif %}
+                        </div>
+                        {% if schema_info.get('fields') and schema_info.get('fields') is mapping %}
+                        {% for field_name, field_info in schema_info.get('fields').items() %}
+                        <div class="schema-field">
+                            <span>{{ field_name }}{% if field_info.get('required') %}<span class="text-danger">*</span>{% endif %}</span>
+                            <span class="schema-type">{{ field_info.get('type', '') }}</span>
+                        </div>
+                        {% endfor %}
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <p class="text-muted small">No schema documented</p>
+                    {% endif %}
+                </div>
+
+                <!-- Pipeline -->
+                <div class="ref-section">
+                    <div class="ref-section-title">Processing Pipeline</div>
+                    <div class="pipeline-viz">
+                        <div class="pipeline-step">Template + Variables</div>
+                        <div class="pipeline-arrow">↓ Jinja2 render</div>
+                        <div class="pipeline-step">Rendered Prompt</div>
+                        <div class="pipeline-arrow">↓ LLM API</div>
+                        <div class="pipeline-step">JSON Response</div>
+                        <div class="pipeline-arrow">↓ Dataclass parse</div>
+                        <div class="pipeline-step">Entities</div>
+                        <div class="pipeline-arrow">↓ RDF convert</div>
+                        <div class="pipeline-step">Storage</div>
+                    </div>
+                </div>
+
             </div>
         </div>
     </div>
 </div>
 
-<!-- Version History Modal -->
-<div class="modal fade" id="versionModal" tabindex="-1">
+<!-- Variable Preview Modal -->
+<div class="modal fade" id="varPreviewModal" tabindex="-1" aria-labelledby="varPreviewModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">
-                    <i class="bi bi-clock-history"></i> Version History
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <div class="modal-header py-2">
+                <h6 class="modal-title" id="varPreviewModalLabel">Variable Preview</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <div id="versionsList">
-                    {% if versions %}
-                    {% for version in versions %}
-                    <div class="version-item d-flex justify-content-between align-items-center">
-                        <div>
-                            <strong>Version {{ version.version_number }}</strong>
-                            <br>
-                            <small class="text-muted">
-                                {{ version.changed_at.strftime('%Y-%m-%d %H:%M') if version.changed_at else 'Unknown' }}
-                                {% if version.changed_by %} by {{ version.changed_by }}{% endif %}
-                            </small>
-                            {% if version.change_description %}
-                            <br><small>{{ version.change_description }}</small>
-                            {% endif %}
-                        </div>
-                        <div>
-                            <button class="btn btn-sm btn-outline-primary" onclick="previewVersion({{ version.version_number }})">
-                                Preview
-                            </button>
-                            <button class="btn btn-sm btn-outline-warning" onclick="revertToVersion({{ version.version_number }})">
-                                Revert
-                            </button>
-                        </div>
+                <div id="varPreviewLoading" class="text-center py-4" style="display: none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
                     </div>
-                    {% endfor %}
-                    {% else %}
-                    <p class="text-muted text-center">No version history available yet.</p>
-                    {% endif %}
+                    <div class="mt-2">Resolving variables...</div>
                 </div>
+                <div id="varPreviewError" class="alert alert-danger" style="display: none;"></div>
+                <div id="varPreviewResults" style="display: none;">
+                    <div class="var-preview-header">
+                        <span id="varPreviewCaseTitle"></span>
+                        <span class="var-preview-meta" id="varPreviewMeta"></span>
+                    </div>
+                    <div id="varPreviewList"></div>
+                </div>
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-sm btn-primary" onclick="copyAllVariables()">
+                    <i class="bi bi-clipboard"></i> Copy All
+                </button>
             </div>
         </div>
     </div>
@@ -390,35 +707,31 @@ const templateId = {{ template.id if template else 'null' }};
 let originalText = document.getElementById('templateText')?.value || '';
 let hasUnsavedChanges = false;
 
+function switchMainTab(tabName) {
+    document.querySelectorAll('.main-tab').forEach((t, i) => {
+        t.classList.toggle('active', ['template', 'preview', 'test', 'history'][i] === tabName);
+    });
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.getElementById('tab-' + tabName).classList.add('active');
+}
+
 function markUnsaved() {
-    const currentText = document.getElementById('templateText').value;
-    hasUnsavedChanges = currentText !== originalText;
-
-    const statusDot = document.querySelector('#statusIndicator .status-dot');
-    const statusText = document.getElementById('statusText');
-    const saveBtn = document.getElementById('saveBtn');
-
-    if (hasUnsavedChanges) {
-        statusDot.className = 'status-dot status-unsaved';
-        statusText.textContent = 'Unsaved changes';
-        saveBtn.disabled = false;
-    } else {
-        statusDot.className = 'status-dot status-saved';
-        statusText.textContent = 'Saved';
-        saveBtn.disabled = true;
-    }
+    const text = document.getElementById('templateText').value;
+    hasUnsavedChanges = text !== originalText;
+    document.querySelector('#statusIndicator .status-dot').className =
+        'status-dot ' + (hasUnsavedChanges ? 'status-unsaved' : 'status-saved');
+    document.getElementById('statusText').textContent = hasUnsavedChanges ? 'Unsaved' : 'Saved';
+    document.getElementById('saveBtn').disabled = !hasUnsavedChanges;
+    document.getElementById('charCount').textContent = text.length + ' chars';
 }
 
 async function saveTemplate() {
     if (!templateId) return;
-
     const statusDot = document.querySelector('#statusIndicator .status-dot');
     const statusText = document.getElementById('statusText');
-    const saveBtn = document.getElementById('saveBtn');
-
     statusDot.className = 'status-dot status-saving';
     statusText.textContent = 'Saving...';
-    saveBtn.disabled = true;
+    document.getElementById('saveBtn').disabled = true;
 
     try {
         const response = await fetch(`/api/prompts/template/${templateId}`, {
@@ -429,106 +742,130 @@ async function saveTemplate() {
                 change_description: 'Updated via web editor'
             })
         });
-
         const data = await response.json();
-
         if (data.success) {
             originalText = document.getElementById('templateText').value;
             hasUnsavedChanges = false;
             statusDot.className = 'status-dot status-saved';
             statusText.textContent = `Saved (v${data.template.version})`;
-        } else {
-            throw new Error(data.error || 'Save failed');
-        }
+        } else throw new Error(data.error);
     } catch (error) {
         statusDot.className = 'status-dot status-unsaved';
-        statusText.textContent = 'Save failed';
-        saveBtn.disabled = false;
-        alert('Error saving template: ' + error.message);
+        statusText.textContent = 'Failed';
+        document.getElementById('saveBtn').disabled = false;
+        alert('Error: ' + error.message);
     }
 }
 
-function resetTemplate() {
-    if (confirm('Reset to last saved version? Unsaved changes will be lost.')) {
-        document.getElementById('templateText').value = originalText;
-        markUnsaved();
-    }
+function previewTemplate() {
+    switchMainTab('preview');
 }
 
-async function loadExample() {
-    const caseId = document.getElementById('caseSelect').value;
-    const examplesBody = document.getElementById('examplesBody');
+async function renderPreview() {
+    const caseId = document.getElementById('previewCaseSelect').value;
+    const section = document.getElementById('previewSectionSelect').value;
+    const body = document.getElementById('previewBody');
 
-    if (!caseId || !templateId) {
-        examplesBody.innerHTML = `
-            <div class="text-center text-muted py-5">
-                <i class="bi bi-arrow-up-circle" style="font-size: 2rem;"></i>
-                <p class="mt-2">Select a case to see how this prompt was used in extraction</p>
-            </div>
-        `;
+    if (!caseId) {
+        body.innerHTML = '<div class="preview-placeholder"><p>Please select a case</p></div>';
         return;
     }
 
-    examplesBody.innerHTML = '<div class="text-center py-4"><div class="spinner-border"></div></div>';
+    body.innerHTML = '<div class="preview-placeholder"><div class="spinner-border spinner-border-sm"></div></div>';
 
     try {
-        const response = await fetch(`/api/prompts/template/${templateId}/examples?case_id=${caseId}`);
+        const response = await fetch(`/api/prompts/template/${templateId}/render`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ case_id: parseInt(caseId), section_type: section })
+        });
         const data = await response.json();
-
-        if (data.success && data.examples.length > 0) {
-            const example = data.examples[0];
-            examplesBody.innerHTML = `
-                <div class="example-content">
-                    <div class="mb-3">
-                        <strong>${example.case_title}</strong>
-                        <br><small class="text-muted">
-                            ${example.entities_extracted} entities | ${example.section_type} | ${example.llm_model || 'Unknown model'}
-                        </small>
-                    </div>
-
-                    <div class="example-section">
-                        <div class="example-section-header" onclick="toggleSection(this)">
-                            <span><i class="bi bi-chat-square-text"></i> Prompt Used</span>
-                            <i class="bi bi-chevron-down"></i>
-                        </div>
-                        <div class="example-section-body">${escapeHtml(example.prompt_text || 'No prompt recorded')}</div>
-                    </div>
-
-                    <div class="example-section collapsed">
-                        <div class="example-section-header" onclick="toggleSection(this)">
-                            <span><i class="bi bi-robot"></i> LLM Response</span>
-                            <i class="bi bi-chevron-right"></i>
-                        </div>
-                        <div class="example-section-body">${escapeHtml(example.raw_response || 'No response recorded')}</div>
-                    </div>
-                </div>
-            `;
+        if (data.success) {
+            body.textContent = data.rendered_prompt;
         } else {
-            examplesBody.innerHTML = `
-                <div class="text-center text-muted py-5">
-                    <i class="bi bi-inbox" style="font-size: 2rem;"></i>
-                    <p class="mt-2">No extraction examples found for this case</p>
-                </div>
-            `;
+            body.innerHTML = `<div class="preview-placeholder text-danger">${data.error || 'Render failed'}</div>`;
         }
     } catch (error) {
-        examplesBody.innerHTML = `
-            <div class="text-center text-danger py-5">
-                <i class="bi bi-exclamation-triangle" style="font-size: 2rem;"></i>
-                <p class="mt-2">Error loading examples: ${error.message}</p>
-            </div>
-        `;
+        body.innerHTML = `<div class="preview-placeholder text-danger">Error: ${error.message}</div>`;
     }
 }
 
-function toggleSection(header) {
-    const section = header.parentElement;
-    section.classList.toggle('collapsed');
-    const icon = header.querySelector('.bi-chevron-down, .bi-chevron-right');
-    if (icon) {
-        icon.className = section.classList.contains('collapsed') ? 'bi bi-chevron-right' : 'bi bi-chevron-down';
+async function runTest() {
+    const caseId = document.getElementById('testCaseSelect').value;
+    const section = document.getElementById('testSectionSelect').value;
+    const results = document.getElementById('testResults');
+    const status = document.getElementById('testStatus');
+
+    if (!caseId) {
+        alert('Please select a case');
+        return;
     }
+
+    document.getElementById('testBtn').disabled = true;
+    status.textContent = 'Running...';
+    results.innerHTML = '<div class="preview-placeholder"><div class="spinner-border"></div><p class="mt-2">Executing extraction...</p></div>';
+
+    try {
+        const response = await fetch(`/api/prompts/template/${templateId}/test-run`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ case_id: parseInt(caseId), section_type: section })
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            status.textContent = `Completed in ${data.duration_ms}ms`;
+            results.innerHTML = `
+                <div class="test-section">
+                    <div class="test-section-header" onclick="this.parentElement.classList.toggle('collapsed')">
+                        <span><i class="bi bi-chat-text"></i> Rendered Prompt</span>
+                        <i class="bi bi-chevron-down"></i>
+                    </div>
+                    <div class="test-section-body">${escapeHtml(data.rendered_prompt)}</div>
+                </div>
+                <div class="test-section collapsed">
+                    <div class="test-section-header" onclick="this.parentElement.classList.toggle('collapsed')">
+                        <span><i class="bi bi-robot"></i> LLM Response</span>
+                        <i class="bi bi-chevron-right"></i>
+                    </div>
+                    <div class="test-section-body">${escapeHtml(data.raw_response)}</div>
+                </div>
+                <div class="test-section">
+                    <div class="test-section-header">
+                        <span><i class="bi bi-diagram-3"></i> Extracted Entities</span>
+                    </div>
+                    <div style="padding: 0.5rem;">
+                        ${data.entities ? formatEntities(data.entities) : '<p class="text-muted small">No entities extracted</p>'}
+                    </div>
+                </div>`;
+        } else {
+            status.textContent = 'Failed';
+            results.innerHTML = `<div class="preview-placeholder text-danger"><i class="bi bi-exclamation-triangle"></i><p>${data.error}</p></div>`;
+        }
+    } catch (error) {
+        status.textContent = 'Error';
+        results.innerHTML = `<div class="preview-placeholder text-danger">Error: ${error.message}</div>`;
+    }
+    document.getElementById('testBtn').disabled = false;
 }
+
+function formatEntities(entities) {
+    let html = '';
+    if (entities.new_classes && entities.new_classes.length > 0) {
+        html += `<div class="mb-2"><strong>New Classes (${entities.new_classes.length})</strong></div>`;
+        entities.new_classes.forEach(e => {
+            html += `<div class="entity-card"><strong>${e.label}</strong><br><small class="text-muted">${e.definition?.substring(0, 100) || ''}...</small></div>`;
+        });
+    }
+    if (entities.individuals && entities.individuals.length > 0) {
+        html += `<div class="mb-2 mt-2"><strong>Individuals (${entities.individuals.length})</strong></div>`;
+        entities.individuals.forEach(e => {
+            html += `<div class="entity-card"><strong>${e.name || e.label}</strong> → ${e.role_class || e.class_label || ''}</div>`;
+        });
+    }
+    return html || '<p class="text-muted small">No entities in response</p>';
+}
+
 
 function escapeHtml(text) {
     if (!text) return '';
@@ -538,34 +875,106 @@ function escapeHtml(text) {
 }
 
 async function revertToVersion(versionNumber) {
-    if (!confirm(`Revert to version ${versionNumber}? This will create a new version.`)) {
+    if (!confirm(`Revert to v${versionNumber}?`)) return;
+    try {
+        const response = await fetch(`/api/prompts/template/${templateId}/revert/${versionNumber}`, { method: 'POST' });
+        const data = await response.json();
+        if (data.success) location.reload();
+        else throw new Error(data.error);
+    } catch (error) { alert('Error: ' + error.message); }
+}
+
+// Variable preview storage
+let resolvedVariables = {};
+
+async function previewVariables() {
+    const caseId = document.getElementById('varPreviewCaseSelect').value;
+    if (!caseId) {
+        alert('Please select a case first');
+        return;
+    }
+    if (!templateId) {
+        alert('No template loaded');
         return;
     }
 
-    try {
-        const response = await fetch(`/api/prompts/template/${templateId}/revert/${versionNumber}`, {
-            method: 'POST'
-        });
+    const modal = new bootstrap.Modal(document.getElementById('varPreviewModal'));
+    document.getElementById('varPreviewLoading').style.display = 'block';
+    document.getElementById('varPreviewError').style.display = 'none';
+    document.getElementById('varPreviewResults').style.display = 'none';
+    modal.show();
 
+    try {
+        const response = await fetch(`/api/prompts/template/${templateId}/resolve-variables`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ case_id: parseInt(caseId), section_type: 'facts' })
+        });
         const data = await response.json();
 
+        document.getElementById('varPreviewLoading').style.display = 'none';
+
         if (data.success) {
-            alert('Template reverted successfully');
-            location.reload();
+            resolvedVariables = data.variables;
+            document.getElementById('varPreviewCaseTitle').textContent = data.case_title;
+            document.getElementById('varPreviewMeta').textContent = `${Object.keys(data.variables).length} variables | ${data.concept_type}`;
+
+            let html = '';
+            for (const [varName, varInfo] of Object.entries(data.variables)) {
+                html += `
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <strong class="text-primary">${"{{ " + varName + " }}"}</strong>
+                            <span class="badge bg-secondary">${varInfo.length} chars</span>
+                        </div>
+                        <div class="var-preview-content">${escapeHtml(varInfo.value)}</div>
+                    </div>`;
+            }
+            document.getElementById('varPreviewList').innerHTML = html || '<p class="text-muted">No variables resolved</p>';
+            document.getElementById('varPreviewResults').style.display = 'block';
         } else {
-            throw new Error(data.error || 'Revert failed');
+            document.getElementById('varPreviewError').textContent = data.error || 'Unknown error';
+            document.getElementById('varPreviewError').style.display = 'block';
         }
     } catch (error) {
-        alert('Error reverting template: ' + error.message);
+        document.getElementById('varPreviewLoading').style.display = 'none';
+        document.getElementById('varPreviewError').textContent = error.message;
+        document.getElementById('varPreviewError').style.display = 'block';
     }
 }
 
-// Warn before leaving with unsaved changes
-window.addEventListener('beforeunload', function(e) {
-    if (hasUnsavedChanges) {
-        e.preventDefault();
-        e.returnValue = '';
+async function previewSingleVariable(varName) {
+    const caseId = document.getElementById('varPreviewCaseSelect').value;
+    if (!caseId) {
+        alert('Please select a case first to preview variable values');
+        return;
     }
+    // Use previewVariables but highlight the specific variable
+    await previewVariables();
+    // Scroll to the variable in the modal (if needed)
+}
+
+function copyAllVariables() {
+    if (!resolvedVariables || Object.keys(resolvedVariables).length === 0) {
+        alert('No variables to copy');
+        return;
+    }
+    let text = '';
+    for (const [varName, varInfo] of Object.entries(resolvedVariables)) {
+        text += `=== ${varName} ===\n${varInfo.value}\n\n`;
+    }
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = event.target.closest('button');
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="bi bi-check"></i> Copied!';
+        setTimeout(() => { btn.innerHTML = originalHtml; }, 1500);
+    }).catch(err => {
+        alert('Failed to copy: ' + err);
+    });
+}
+
+window.addEventListener('beforeunload', e => {
+    if (hasUnsavedChanges) { e.preventDefault(); e.returnValue = ''; }
 });
 </script>
 {% endblock %}

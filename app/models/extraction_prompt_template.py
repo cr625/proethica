@@ -40,6 +40,13 @@ class ExtractionPromptTemplate(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     created_by = db.Column(db.String(100))
 
+    # Extractor metadata (added 2026-01-10)
+    extractor_file = db.Column(db.String(200))  # Source Python file path
+    prompt_method = db.Column(db.String(100))   # Method name that builds the prompt
+    variable_builders = db.Column(db.JSON)      # Maps variables to builder methods
+    output_schema = db.Column(db.JSON)          # Expected output dataclasses and fields
+    domain = db.Column(db.String(50), default='engineering')  # Domain variant
+
     # Relationships
     versions = db.relationship('ExtractionPromptTemplateVersion', back_populates='template',
                                lazy='dynamic', cascade='all, delete-orphan')
@@ -155,8 +162,72 @@ class ExtractionPromptTemplate(db.Model):
             'source_file': self.source_file,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
-            'created_by': self.created_by
+            'created_by': self.created_by,
+            # Extractor metadata
+            'extractor_file': self.extractor_file,
+            'prompt_method': self.prompt_method,
+            'variable_builders': self.variable_builders,
+            'output_schema': self.output_schema,
+            'domain': self.domain
         }
+
+    def get_template_variables(self) -> list:
+        """Extract variable names from the Jinja2 template.
+
+        Returns:
+            List of variable names found in {{ variable }} placeholders
+        """
+        import re
+        # Match {{ variable_name }} patterns, handling whitespace
+        pattern = r'\{\{\s*(\w+)\s*\}\}'
+        return list(set(re.findall(pattern, self.template_text)))
+
+    def to_langchain_prompt(self):
+        """Convert to LangChain PromptTemplate format.
+
+        Converts Jinja2 {{ variable }} syntax to LangChain { variable } syntax
+        and returns a LangChain PromptTemplate object.
+
+        Returns:
+            langchain_core.prompts.PromptTemplate instance
+        """
+        import re
+        from langchain_core.prompts import PromptTemplate
+
+        # Convert Jinja2 {{ var }} to LangChain { var }
+        langchain_text = re.sub(r'\{\{\s*(\w+)\s*\}\}', r'{\1}', self.template_text)
+
+        # Extract variable names from converted template
+        variables = list(set(re.findall(r'\{(\w+)\}', langchain_text)))
+
+        return PromptTemplate(
+            template=langchain_text,
+            input_variables=variables,
+            metadata={
+                'proethica_template_id': self.id,
+                'version': self.version,
+                'concept_type': self.concept_type,
+                'step_number': self.step_number
+            }
+        )
+
+    def to_langchain_chat_prompt(self):
+        """Convert to LangChain ChatPromptTemplate format.
+
+        For use with chat models. Creates a system message with the prompt.
+
+        Returns:
+            langchain_core.prompts.ChatPromptTemplate instance
+        """
+        import re
+        from langchain_core.prompts import ChatPromptTemplate
+
+        # Convert Jinja2 {{ var }} to LangChain { var }
+        langchain_text = re.sub(r'\{\{\s*(\w+)\s*\}\}', r'{\1}', self.template_text)
+
+        return ChatPromptTemplate.from_messages([
+            ("system", langchain_text)
+        ])
 
 
 class ExtractionPromptTemplateVersion(db.Model):
