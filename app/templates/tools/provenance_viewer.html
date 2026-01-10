@@ -5,37 +5,23 @@
 {% block content %}
 <div class="container-fluid mt-4">
     <!-- Header -->
-    <div class="row mb-4">
+    <div class="row mb-3">
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
-                    <h1 class="mb-1">
+                    <h1 class="mb-0">
                         <i class="bi bi-diagram-3"></i> Pipeline Provenance
                     </h1>
-                    <div id="case-subtitle">
-                        {% if selected_case %}
-                        <p class="mb-0">
-                            <a href="{{ url_for('cases.view_case', id=selected_case.id) }}" class="text-decoration-none">
-                                {{ selected_case.title }}
-                            </a>
-                        </p>
-                        {% if selected_case.source %}
-                        <p class="text-muted small mb-0">
-                            <i class="bi bi-link-45deg"></i>
-                            <a href="{{ selected_case.source }}" target="_blank" class="text-muted">{{ selected_case.source }}</a>
-                            <a href="{{ url_for('cases.view_case_structure', id=selected_case.id) }}" class="ms-2" title="View source structure">
-                                <i class="bi bi-box-arrow-in-up-right"></i>
-                            </a>
-                        </p>
-                        {% endif %}
-                        {% else %}
-                        <p class="text-muted mb-0">
-                            View complete provenance tracking for LLM interactions and extraction operations.
-                        </p>
-                        {% endif %}
-                    </div>
+                    {% if not selected_case %}
+                    <p class="text-muted mb-0">
+                        View complete provenance tracking for LLM interactions and extraction operations.
+                    </p>
+                    {% endif %}
                 </div>
                 <div>
+                    <a href="{{ url_for('prompt_editor.index') }}" class="btn btn-outline-secondary me-2">
+                        <i class="bi bi-pencil-square"></i> Edit Templates
+                    </a>
                     <button class="btn btn-outline-info me-2" data-bs-toggle="modal" data-bs-target="#activityLogModal" id="activityLogBtn" {% if not selected_case_id %}disabled{% endif %}>
                         <i class="bi bi-clock-history"></i> Activity Log
                     </button>
@@ -70,16 +56,7 @@
                             <a href="#" class="list-group-item list-group-item-action py-2{% if case.activity_count == 0 %} text-muted{% endif %}{% if selected_case_id == case.id %} active{% endif %}"
                                onclick="loadCasePipeline({{ case.id }}); return false;"
                                id="case-{{ case.id }}">
-                                <div class="d-flex w-100 justify-content-between">
-                                    <span class="text-truncate" style="max-width: 180px;">{{ case.id }}. {{ case.title }}</span>
-                                </div>
-                                <small class="{% if selected_case_id == case.id %}text-white-50{% else %}text-muted{% endif %}">
-                                    {% if case.last_activity %}
-                                    {{ case.last_activity.strftime('%Y-%m-%d') }}
-                                    {% else %}
-                                    No data
-                                    {% endif %}
-                                </small>
+                                <span class="text-truncate d-block">{{ case.id }}. {{ case.title }}</span>
                             </a>
                             {% endfor %}
                         </div>
@@ -104,6 +81,31 @@
 
             <!-- Pipeline Content -->
             <div id="pipeline-content" {% if not selected_case_id %}style="display: none;"{% endif %}>
+                <!-- Case Header Card -->
+                <div id="case-header-card" class="card mb-3 case-header-card">
+                    <div class="card-body py-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h4 id="case-title" class="mb-0">
+                                {% if selected_case %}{{ selected_case.title }}{% endif %}
+                            </h4>
+                            <div id="case-source-links" class="d-flex align-items-center gap-3">
+                                {% if selected_case and selected_case.source %}
+                                <a href="{{ selected_case.source }}" target="_blank" class="text-decoration-none" title="Original source (external)">
+                                    <i class="bi bi-box-arrow-up-right me-1"></i>
+                                    <span class="small text-muted">Source</span>
+                                </a>
+                                {% endif %}
+                                {% if selected_case %}
+                                <a href="{{ url_for('cases.view_case_structure', id=selected_case.id) }}" class="text-decoration-none" title="Document structure and embeddings">
+                                    <i class="bi bi-diagram-2 me-1"></i>
+                                    <span class="small text-muted">Structure</span>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Pipeline Timeline Container -->
                 <div id="pipeline-timeline" class="pipeline-timeline">
                     {% if selected_case_id %}
@@ -141,6 +143,25 @@
 </div>
 
 <style>
+/* Case header card */
+.case-header-card {
+    border-left: 4px solid #0d6efd;
+    background: linear-gradient(90deg, #f8f9ff 0%, white 100%);
+}
+
+.case-header-card a {
+    color: #6c757d;
+    transition: color 0.2s;
+}
+
+.case-header-card a:hover {
+    color: #0d6efd;
+}
+
+.case-header-card a i {
+    font-size: 1.1rem;
+}
+
 /* Sidebar styles */
 #sidebar-container {
     transition: all 0.3s ease;
@@ -476,7 +497,7 @@ function loadCasePipeline(caseId) {
         .then(data => {
             currentPipelineData = data;
             displayPipeline(data);
-            updateCaseSubtitle(data.case);
+            updateCaseHeader(data.case);
         })
         .catch(error => {
             console.error('Error loading pipeline:', error);
@@ -484,14 +505,24 @@ function loadCasePipeline(caseId) {
         });
 }
 
-function updateCaseSubtitle(caseData) {
-    const subtitle = document.getElementById('case-subtitle');
-    let html = `<p class="mb-0"><a href="/cases/${caseData.id}" class="text-decoration-none">${escapeHtml(caseData.title)}</a></p>`;
+function updateCaseHeader(caseData) {
+    // Update case title
+    document.getElementById('case-title').textContent = caseData.title;
+
+    // Update source links
+    const linksContainer = document.getElementById('case-source-links');
+    let linksHtml = '';
     if (caseData.source) {
-        html += `<p class="text-muted small mb-0"><i class="bi bi-link-45deg"></i> <a href="${escapeHtml(caseData.source)}" target="_blank" class="text-muted">${escapeHtml(caseData.source)}</a>`;
-        html += ` <a href="/cases/${caseData.id}/structure" class="ms-2" title="View source structure"><i class="bi bi-box-arrow-in-up-right"></i></a></p>`;
+        linksHtml += `<a href="${escapeHtml(caseData.source)}" target="_blank" class="text-decoration-none" title="Original source (external)">
+            <i class="bi bi-box-arrow-up-right me-1"></i>
+            <span class="small text-muted">Source</span>
+        </a>`;
     }
-    subtitle.innerHTML = html;
+    linksHtml += `<a href="/cases/${caseData.id}/structure" class="text-decoration-none" title="Document structure and embeddings">
+        <i class="bi bi-diagram-2 me-1"></i>
+        <span class="small text-muted">Structure</span>
+    </a>`;
+    linksContainer.innerHTML = linksHtml;
 }
 
 function displayPipeline(data) {

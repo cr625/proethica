@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+
+{% block title %}Extraction Prompt Editor - ProEthica{% endblock %}
+
+{% block head %}
+<style>
+/* Pipeline step cards */
+.step-card {
+    border-left: 4px solid #6c757d;
+    margin-bottom: 1.5rem;
+    transition: transform 0.2s ease-in-out;
+}
+.step-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+/* Concept badges */
+.concept-item {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #eee;
+    transition: background-color 0.2s;
+}
+.concept-item:last-child {
+    border-bottom: none;
+}
+.concept-item:hover {
+    background-color: #f8f9fa;
+}
+.concept-item a {
+    text-decoration: none;
+    color: inherit;
+    flex-grow: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.concept-badge {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 0.75rem;
+}
+
+.concept-name {
+    font-weight: 500;
+}
+
+.version-badge {
+    font-size: 0.75rem;
+    padding: 0.2rem 0.5rem;
+}
+
+/* Stats grid */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 1rem;
+}
+.stat-item {
+    text-align: center;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 0.5rem;
+}
+.stat-item h4 {
+    margin: 0;
+    font-size: 1.5rem;
+}
+.stat-item small {
+    color: #6c757d;
+}
+
+/* No template state */
+.no-template {
+    color: #6c757d;
+    font-style: italic;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="mb-0">
+                        <i class="bi bi-pencil-square"></i> Extraction Prompt Editor
+                    </h1>
+                    <p class="text-muted mb-0">
+                        Edit prompt templates for the 9-concept extraction pipeline
+                    </p>
+                </div>
+                <div>
+                    <a href="{{ url_for('provenance.provenance_cases') }}" class="btn btn-outline-info me-2">
+                        <i class="bi bi-diagram-3"></i> Provenance Viewer
+                    </a>
+                    <a href="{{ url_for('prompt_builder.registry') }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-list-check"></i> Prompt Registry
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="bi bi-bar-chart"></i> Template Statistics</h5>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <h4>{{ stats.total_templates }}</h4>
+                            <small>Active Templates</small>
+                        </div>
+                        <div class="stat-item">
+                            <h4>{{ stats.total_versions }}</h4>
+                            <small>Version History</small>
+                        </div>
+                        <div class="stat-item">
+                            <h4>9</h4>
+                            <small>Concept Types</small>
+                        </div>
+                        <div class="stat-item">
+                            <h4>3</h4>
+                            <small>Pipeline Steps</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pipeline Steps -->
+    <div class="row">
+        {% for step in pipeline_data %}
+        <div class="col-lg-4 mb-4">
+            <div class="card step-card" style="border-left-color: {{ step.color }};">
+                <div class="card-header" style="background: linear-gradient(90deg, {{ step.color }}15 0%, transparent 100%);">
+                    <h5 class="mb-0">
+                        <span class="badge me-2" style="background-color: {{ step.color }};">
+                            Step {{ step.step }}
+                        </span>
+                        {{ step.name }}
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    {% for concept in step.concepts %}
+                    <div class="concept-item">
+                        <a href="{{ url_for('prompt_editor.edit_template', step=step.step, concept=concept.type) }}">
+                            <div>
+                                <span class="concept-badge" style="background-color: {{ concept.color }};"></span>
+                                <span class="concept-name">{{ concept.type | title }}</span>
+                            </div>
+                            <div>
+                                {% if concept.has_template %}
+                                <span class="badge version-badge bg-success">
+                                    v{{ concept.template.version }}
+                                </span>
+                                {% else %}
+                                <span class="badge version-badge bg-secondary no-template">
+                                    Not configured
+                                </span>
+                                {% endif %}
+                            </div>
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Help Section -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card border-info">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="bi bi-info-circle"></i> About Extraction Prompts</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <h6>Step 1: Contextual Framework</h6>
+                            <p class="small text-muted">
+                                WHO-WHEN-WHAT: Extract Roles (professional relationships),
+                                States (fluents), and Resources (ethical knowledge sources).
+                            </p>
+                        </div>
+                        <div class="col-md-4">
+                            <h6>Step 2: Normative Framework</h6>
+                            <p class="small text-muted">
+                                Abstract to Concrete: Extract Principles, Obligations,
+                                Constraints, and Capabilities.
+                            </p>
+                        </div>
+                        <div class="col-md-4">
+                            <h6>Step 3: Temporal Framework</h6>
+                            <p class="small text-muted">
+                                Event Calculus: Extract Actions (volitional choices)
+                                and Events (occurrences) with temporal relationships.
+                            </p>
+                        </div>
+                    </div>
+                    <hr>
+                    <p class="mb-0 small">
+                        <strong>Template Variables:</strong> Use Jinja2 syntax like
+                        <code>{{ "{{ text }}" }}</code> for the guideline text,
+                        <code>{{ "{{ mcp_context }}" }}</code> for ontology context.
+                        Changes create new versions - previous versions can be restored.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

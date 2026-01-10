@@ -190,6 +190,8 @@ def create_app(config_name=None):
     from app.routes.reasoning import reasoning_bp
     # PROV-O provenance viewer routes
     from app.routes.provenance import provenance_bp
+    # Extraction prompt editor routes
+    from app.routes.prompt_editor import prompt_editor_bp
     # Tools routes (references, etc.)
     from app.routes.tools import tools_bp
     # Precedent discovery routes
@@ -243,6 +245,7 @@ def create_app(config_name=None):
     app.register_blueprint(api_document_annotations_bp)  # Register unified document annotation API
     app.register_blueprint(reasoning_bp)  # Register reasoning inspector routes
     app.register_blueprint(provenance_bp)  # Register PROV-O provenance viewer routes
+    app.register_blueprint(prompt_editor_bp)  # Extraction prompt template editor
     app.register_blueprint(tools_bp)  # Register tools routes (references, etc.)
     app.register_blueprint(precedents_bp)  # Register precedent discovery routes
     app.register_blueprint(pipeline_bp)  # Pipeline automation dashboard
@@ -284,6 +287,10 @@ def create_app(config_name=None):
     # Exempt entity review API routes from CSRF protection
     from app.routes.scenario_pipeline.entity_review import init_entity_review_csrf_exemption
     init_entity_review_csrf_exemption(app)
+
+    # Exempt prompt editor API routes from CSRF protection
+    from app.routes.prompt_editor import init_prompt_editor_csrf_exemption
+    init_prompt_editor_csrf_exemption(app)
 
 
     # Make db accessible at app level for imports in other modules
