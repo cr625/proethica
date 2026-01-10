@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Extraction Prompt Editor - ProEthica{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="text-center">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-2 text-muted">Loading prompt editor...</p>
+    </div>
+</div>
+
+<script>
+(function() {
+    const TEMPLATE_STORAGE_KEY = 'proethica_prompt_editor_template';
+    const DEFAULT_URL = '{{ url_for("prompt_editor.edit_template", step=1, concept="roles", domain="engineering") }}';
+
+    try {
+        const saved = localStorage.getItem(TEMPLATE_STORAGE_KEY);
+        if (saved) {
+            const { url } = JSON.parse(saved);
+            if (url && url.startsWith('/tools/prompts/')) {
+                window.location.replace(url);
+                return;
+            }
+        }
+    } catch (e) {
+        console.warn('Failed to restore template location:', e);
+    }
+
+    // Default redirect
+    window.location.replace(DEFAULT_URL);
+})();
+</script>
+{% endblock %}

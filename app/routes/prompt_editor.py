@@ -32,54 +32,10 @@ prompt_editor_bp = Blueprint('prompt_editor', __name__)
 @prompt_editor_bp.route('/tools/prompts')
 @login_required
 def index():
-    """Main prompt editor page showing pipeline structure."""
-    # Get domain filter from query params
-    selected_domain = request.args.get('domain', 'engineering')
-
-    # Get available domains
-    domains = db.session.query(ExtractionPromptTemplate.domain).distinct().all()
-    available_domains = sorted(set(d[0] for d in domains if d[0])) or ['engineering']
-
-    # Get all active templates for selected domain
-    templates = ExtractionPromptTemplate.query.filter_by(
-        is_active=True,
-        domain=selected_domain
-    ).all()
-
-    # Organize templates by step and concept
-    templates_by_concept = {t.concept_type: t for t in templates}
-
-    # Build pipeline data structure for UI
-    pipeline_data = []
-    for step in PIPELINE_STEPS:
-        step_data = {
-            'step': step['step'],
-            'name': step['name'],
-            'color': step['color'],
-            'concepts': []
-        }
-        for concept in step['concepts']:
-            template = templates_by_concept.get(concept)
-            step_data['concepts'].append({
-                'type': concept,
-                'color': CONCEPT_COLORS.get(concept, '#6c757d'),
-                'template': template,
-                'has_template': template is not None
-            })
-        pipeline_data.append(step_data)
-
-    # Get statistics for selected domain
-    stats = {
-        'total_templates': len(templates),
-        'total_versions': ExtractionPromptTemplateVersion.query.count(),
-    }
-
-    return render_template('tools/prompt_editor.html',
-                          pipeline_data=pipeline_data,
-                          stats=stats,
-                          concept_colors=CONCEPT_COLORS,
-                          available_domains=available_domains,
-                          selected_domain=selected_domain)
+    """Redirect to the prompt editor - uses localStorage to restore last viewed template."""
+    # This renders a minimal page that checks localStorage for the last viewed template
+    # and redirects appropriately. Default is step 1 roles.
+    return render_template('tools/prompt_editor_redirect.html')
 
 
 @prompt_editor_bp.route('/tools/prompts/<int:step>/<concept>')
@@ -456,12 +412,34 @@ def test_run_template(template_id):
         rendered_prompt = template.render(**variables)
 
         # Call the LLM
-        from app.services.llm_utils import call_llm
+        from app.utils.llm_utils import get_llm_client
         from models import ModelConfig
         import json as json_module
 
         model_name = ModelConfig.get_claude_model("powerful")
-        raw_response = call_llm(rendered_prompt, model=model_name)
+
+        # Get LLM client
+        client = get_llm_client()
+        if client is None:
+            raise RuntimeError("No LLM client available - check API key configuration")
+
+        # Call LLM using messages API
+        response = client.messages.create(
+            model=model_name,
+            max_tokens=4000,
+            temperature=0.3,
+            messages=[{
+                "role": "user",
+                "content": rendered_prompt
+            }]
+        )
+
+        # Extract text from response
+        content = getattr(response, 'content', None)
+        if content and isinstance(content, list) and len(content) > 0:
+            raw_response = getattr(content[0], 'text', None) or str(content[0])
+        else:
+            raw_response = str(response)
 
         # Try to parse as JSON
         entities = {}

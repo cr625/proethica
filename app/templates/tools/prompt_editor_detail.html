@@ -440,6 +440,22 @@ div.reference-panel {
         </div>
     </div>
 
+    <!-- Global Case Selector -->
+    <div class="d-flex align-items-center gap-3 mb-2 p-2 bg-light rounded border">
+        <label class="form-label mb-0 text-muted small fw-bold">Test Case:</label>
+        <select class="form-select form-select-sm" id="globalCaseSelect" style="width: 300px;" onchange="onGlobalCaseChange()">
+            <option value="">Select a case...</option>
+            {% for case in cases_with_extractions %}
+            <option value="{{ case.id }}">{{ case.title[:60] }}{% if case.title|length > 60 %}...{% endif %}</option>
+            {% endfor %}
+        </select>
+        <select class="form-select form-select-sm" id="globalSectionSelect" style="width: 130px;" onchange="onSectionChange()">
+            <option value="facts">Facts</option>
+            <option value="discussion">Discussion</option>
+        </select>
+        <span class="text-muted small" id="caseStatus"></span>
+    </div>
+
     <!-- Main Editor Layout -->
     <div class="editor-container">
         <!-- Left: Concept Navigation -->
@@ -487,24 +503,15 @@ div.reference-panel {
                 <!-- Preview Tab -->
                 <div class="tab-content" id="tab-preview">
                     <div class="preview-controls">
-                        <select class="form-select form-select-sm preview-select" id="previewCaseSelect" style="width: 250px;">
-                            <option value="">Select case to preview...</option>
-                            {% for case in cases_with_extractions %}
-                            <option value="{{ case.id }}">{{ case.title[:50] }}</option>
-                            {% endfor %}
-                        </select>
-                        <select class="form-select form-select-sm preview-select" id="previewSectionSelect" style="width: 120px;">
-                            <option value="facts">facts</option>
-                            <option value="discussion">discussion</option>
-                        </select>
                         <button class="btn btn-sm btn-primary" onclick="renderPreview()">
-                            <i class="bi bi-arrow-repeat"></i> Render
+                            <i class="bi bi-arrow-repeat"></i> Render Preview
                         </button>
+                        <span class="text-muted small" id="previewStatus"></span>
                     </div>
                     <div class="preview-body" id="previewBody">
                         <div class="preview-placeholder">
                             <i class="bi bi-file-earmark-text" style="font-size: 2rem;"></i>
-                            <p class="mt-2 mb-0">Select a case and click Render to preview the prompt</p>
+                            <p class="mt-2 mb-0">Select a case above, then click Render Preview</p>
                         </div>
                     </div>
                 </div>
@@ -512,25 +519,15 @@ div.reference-panel {
                 <!-- Test Tab -->
                 <div class="tab-content" id="tab-test">
                     <div class="test-controls">
-                        <select class="form-select form-select-sm" id="testCaseSelect" style="width: 250px;">
-                            <option value="">Select case to test...</option>
-                            {% for case in cases_with_extractions %}
-                            <option value="{{ case.id }}">{{ case.title[:50] }}</option>
-                            {% endfor %}
-                        </select>
-                        <select class="form-select form-select-sm" id="testSectionSelect" style="width: 120px;">
-                            <option value="facts">facts</option>
-                            <option value="discussion">discussion</option>
-                        </select>
                         <button class="btn btn-sm btn-warning" onclick="runTest()" id="testBtn">
-                            <i class="bi bi-lightning"></i> Run Test
+                            <i class="bi bi-lightning"></i> Run Test Extraction
                         </button>
                         <span class="text-muted small" id="testStatus"></span>
                     </div>
                     <div class="test-results" id="testResults">
                         <div class="preview-placeholder">
                             <i class="bi bi-lightning" style="font-size: 2rem;"></i>
-                            <p class="mt-2 mb-0">Select a case and run a test extraction</p>
+                            <p class="mt-2 mb-0">Select a case above, then run a test extraction</p>
                             <small class="text-muted">This will execute the prompt with the LLM</small>
                         </div>
                     </div>
@@ -590,16 +587,10 @@ div.reference-panel {
                 <div class="ref-section">
                     <div class="ref-section-title d-flex justify-content-between align-items-center">
                         <span>Template Variables</span>
-                        <button class="btn btn-xs btn-outline-primary" onclick="previewVariables()" title="Preview resolved values">
+                        <button class="btn btn-xs btn-outline-primary" onclick="previewVariables()" title="Preview all resolved values">
                             <i class="bi bi-eye"></i>
                         </button>
                     </div>
-                    <select class="form-select form-select-sm mb-2" id="varPreviewCaseSelect">
-                        <option value="">Select case for preview...</option>
-                        {% for case in cases_with_extractions %}
-                        <option value="{{ case.id }}">{{ case.title[:30] }}{% if case.title|length > 30 %}...{% endif %}</option>
-                        {% endfor %}
-                    </select>
                     <div id="detectedVariables">
                         {% if template %}
                         {% set detected_vars = template.get_template_variables() %}
@@ -668,12 +659,12 @@ div.reference-panel {
     </div>
 </div>
 
-<!-- Variable Preview Modal -->
+<!-- Variable Preview Modal (All Variables) -->
 <div class="modal fade" id="varPreviewModal" tabindex="-1" aria-labelledby="varPreviewModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header py-2">
-                <h6 class="modal-title" id="varPreviewModalLabel">Variable Preview</h6>
+                <h6 class="modal-title" id="varPreviewModalLabel">All Template Variables</h6>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -696,6 +687,34 @@ div.reference-panel {
                 <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
                 <button type="button" class="btn btn-sm btn-primary" onclick="copyAllVariables()">
                     <i class="bi bi-clipboard"></i> Copy All
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Single Variable Preview Modal -->
+<div class="modal fade" id="singleVarModal" tabindex="-1" aria-labelledby="singleVarModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title" id="singleVarModalLabel">
+                    <code id="singleVarName"></code>
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div id="singleVarLoading" class="text-center py-4">
+                    <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                    <span class="ms-2">Loading...</span>
+                </div>
+                <div id="singleVarContent" class="var-preview-content" style="display: none; max-height: 500px;"></div>
+            </div>
+            <div class="modal-footer py-2">
+                <small class="text-muted me-auto" id="singleVarMeta"></small>
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-sm btn-primary" onclick="copySingleVariable()">
+                    <i class="bi bi-clipboard"></i> Copy
                 </button>
             </div>
         </div>
@@ -761,16 +780,99 @@ function previewTemplate() {
     switchMainTab('preview');
 }
 
+// Helper to get global case selection
+function getGlobalCase() {
+    return {
+        caseId: document.getElementById('globalCaseSelect').value,
+        section: document.getElementById('globalSectionSelect').value
+    };
+}
+
+// LocalStorage key for persisting case selection across pages
+const CASE_STORAGE_KEY = 'proethica_prompt_editor_case';
+
+// Called when global case selection changes
+function onGlobalCaseChange() {
+    const { caseId, section } = getGlobalCase();
+    const statusEl = document.getElementById('caseStatus');
+    if (caseId) {
+        statusEl.textContent = 'Case selected - use Preview or Test tabs';
+        // Clear cached variables when case changes
+        resolvedVariables = {};
+        // Persist selection to localStorage
+        localStorage.setItem(CASE_STORAGE_KEY, JSON.stringify({ caseId, section }));
+    } else {
+        statusEl.textContent = '';
+        localStorage.removeItem(CASE_STORAGE_KEY);
+    }
+}
+
+// Called when section selection changes
+function onSectionChange() {
+    const { caseId, section } = getGlobalCase();
+    if (caseId) {
+        // Clear cached variables when section changes
+        resolvedVariables = {};
+        // Update persisted selection
+        localStorage.setItem(CASE_STORAGE_KEY, JSON.stringify({ caseId, section }));
+    }
+}
+
+// Restore case selection from localStorage on page load
+function restoreCaseSelection() {
+    try {
+        const saved = localStorage.getItem(CASE_STORAGE_KEY);
+        if (saved) {
+            const { caseId, section } = JSON.parse(saved);
+            const caseSelect = document.getElementById('globalCaseSelect');
+            const sectionSelect = document.getElementById('globalSectionSelect');
+
+            // Check if the saved case exists in the dropdown
+            if (caseId && caseSelect.querySelector(`option[value="${caseId}"]`)) {
+                caseSelect.value = caseId;
+                if (section && sectionSelect.querySelector(`option[value="${section}"]`)) {
+                    sectionSelect.value = section;
+                }
+                // Update status without triggering storage save
+                document.getElementById('caseStatus').textContent = 'Case restored - use Preview or Test tabs';
+            }
+        }
+    } catch (e) {
+        console.warn('Failed to restore case selection:', e);
+    }
+}
+
+// LocalStorage key for persisting last viewed template
+const TEMPLATE_STORAGE_KEY = 'proethica_prompt_editor_template';
+
+// Save current template location for redirect from index
+function saveTemplateLocation() {
+    try {
+        localStorage.setItem(TEMPLATE_STORAGE_KEY, JSON.stringify({
+            url: window.location.pathname + window.location.search
+        }));
+    } catch (e) {
+        console.warn('Failed to save template location:', e);
+    }
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    restoreCaseSelection();
+    saveTemplateLocation();
+});
+
 async function renderPreview() {
-    const caseId = document.getElementById('previewCaseSelect').value;
-    const section = document.getElementById('previewSectionSelect').value;
+    const { caseId, section } = getGlobalCase();
     const body = document.getElementById('previewBody');
+    const status = document.getElementById('previewStatus');
 
     if (!caseId) {
-        body.innerHTML = '<div class="preview-placeholder"><p>Please select a case</p></div>';
+        body.innerHTML = '<div class="preview-placeholder"><p>Please select a case above first</p></div>';
         return;
     }
 
+    status.textContent = 'Rendering...';
     body.innerHTML = '<div class="preview-placeholder"><div class="spinner-border spinner-border-sm"></div></div>';
 
     try {
@@ -782,22 +884,24 @@ async function renderPreview() {
         const data = await response.json();
         if (data.success) {
             body.textContent = data.rendered_prompt;
+            status.textContent = `Rendered (${section})`;
         } else {
             body.innerHTML = `<div class="preview-placeholder text-danger">${data.error || 'Render failed'}</div>`;
+            status.textContent = 'Failed';
         }
     } catch (error) {
         body.innerHTML = `<div class="preview-placeholder text-danger">Error: ${error.message}</div>`;
+        status.textContent = 'Error';
     }
 }
 
 async function runTest() {
-    const caseId = document.getElementById('testCaseSelect').value;
-    const section = document.getElementById('testSectionSelect').value;
+    const { caseId, section } = getGlobalCase();
     const results = document.getElementById('testResults');
     const status = document.getElementById('testStatus');
 
     if (!caseId) {
-        alert('Please select a case');
+        alert('Please select a case above first');
         return;
     }
 
@@ -888,9 +992,9 @@ async function revertToVersion(versionNumber) {
 let resolvedVariables = {};
 
 async function previewVariables() {
-    const caseId = document.getElementById('varPreviewCaseSelect').value;
+    const { caseId, section } = getGlobalCase();
     if (!caseId) {
-        alert('Please select a case first');
+        alert('Please select a case above first');
         return;
     }
     if (!templateId) {
@@ -908,7 +1012,7 @@ async function previewVariables() {
         const response = await fetch(`/api/prompts/template/${templateId}/resolve-variables`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ case_id: parseInt(caseId), section_type: 'facts' })
+            body: JSON.stringify({ case_id: parseInt(caseId), section_type: section })
         });
         const data = await response.json();
 
@@ -917,7 +1021,7 @@ async function previewVariables() {
         if (data.success) {
             resolvedVariables = data.variables;
             document.getElementById('varPreviewCaseTitle').textContent = data.case_title;
-            document.getElementById('varPreviewMeta').textContent = `${Object.keys(data.variables).length} variables | ${data.concept_type}`;
+            document.getElementById('varPreviewMeta').textContent = `${Object.keys(data.variables).length} variables | ${data.concept_type} | ${section}`;
 
             let html = '';
             for (const [varName, varInfo] of Object.entries(data.variables)) {
@@ -943,15 +1047,77 @@ async function previewVariables() {
     }
 }
 
+let currentSingleVarName = '';
+
 async function previewSingleVariable(varName) {
-    const caseId = document.getElementById('varPreviewCaseSelect').value;
+    const { caseId, section } = getGlobalCase();
     if (!caseId) {
-        alert('Please select a case first to preview variable values');
+        alert('Please select a case above first');
         return;
     }
-    // Use previewVariables but highlight the specific variable
-    await previewVariables();
-    // Scroll to the variable in the modal (if needed)
+
+    currentSingleVarName = varName;
+    const modal = new bootstrap.Modal(document.getElementById('singleVarModal'));
+    document.getElementById('singleVarName').textContent = '{{ ' + varName + ' }}';
+    document.getElementById('singleVarLoading').style.display = 'block';
+    document.getElementById('singleVarContent').style.display = 'none';
+    document.getElementById('singleVarMeta').textContent = '';
+    modal.show();
+
+    // Check if we already have this variable cached
+    if (resolvedVariables && resolvedVariables[varName]) {
+        showSingleVariable(varName, resolvedVariables[varName]);
+        return;
+    }
+
+    // Otherwise fetch all variables
+    try {
+        const response = await fetch(`/api/prompts/template/${templateId}/resolve-variables`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ case_id: parseInt(caseId), section_type: section })
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            resolvedVariables = data.variables;
+            if (resolvedVariables[varName]) {
+                showSingleVariable(varName, resolvedVariables[varName]);
+            } else {
+                document.getElementById('singleVarLoading').style.display = 'none';
+                document.getElementById('singleVarContent').textContent = '[Variable not found in resolved data]';
+                document.getElementById('singleVarContent').style.display = 'block';
+            }
+        } else {
+            document.getElementById('singleVarLoading').style.display = 'none';
+            document.getElementById('singleVarContent').textContent = 'Error: ' + (data.error || 'Unknown error');
+            document.getElementById('singleVarContent').style.display = 'block';
+        }
+    } catch (error) {
+        document.getElementById('singleVarLoading').style.display = 'none';
+        document.getElementById('singleVarContent').textContent = 'Error: ' + error.message;
+        document.getElementById('singleVarContent').style.display = 'block';
+    }
+}
+
+function showSingleVariable(varName, varInfo) {
+    document.getElementById('singleVarLoading').style.display = 'none';
+    document.getElementById('singleVarContent').textContent = varInfo.value || varInfo;
+    document.getElementById('singleVarContent').style.display = 'block';
+    const length = (varInfo.value || varInfo).length;
+    document.getElementById('singleVarMeta').textContent = `${length.toLocaleString()} characters`;
+}
+
+function copySingleVariable() {
+    const content = document.getElementById('singleVarContent').textContent;
+    navigator.clipboard.writeText(content).then(() => {
+        const btn = event.target.closest('button');
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="bi bi-check"></i> Copied!';
+        setTimeout(() => { btn.innerHTML = originalHtml; }, 1500);
+    }).catch(err => {
+        alert('Failed to copy: ' + err);
+    });
 }
 
 function copyAllVariables() {
