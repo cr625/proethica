@@ -2,74 +2,150 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://proethica.org/docs/</loc>
-         <lastmod>2026-01-04</lastmod>
+         <lastmod>2026-01-10</lastmod>
+    </url>
+    <url>
+         <loc>https://proethica.org/docs/admin-guide/</loc>
+         <lastmod>2026-01-10</lastmod>
+    </url>
+    <url>
+         <loc>https://proethica.org/docs/admin-guide/architecture/</loc>
+         <lastmod>2026-01-10</lastmod>
+    </url>
+    <url>
+         <loc>https://proethica.org/docs/admin-guide/installation/</loc>
+         <lastmod>2026-01-10</lastmod>
+    </url>
+    <url>
+         <loc>https://proethica.org/docs/admin-guide/ontology-integration/</loc>
+         <lastmod>2026-01-10</lastmod>
+    </url>
+    <url>
+         <loc>https://proethica.org/docs/admin-guide/pipeline-management/</loc>
+         <lastmod>2026-01-10</lastmod>
+    </url>
+    <url>
+         <loc>https://proethica.org/docs/admin-guide/prompt-editor/</loc>
+         <lastmod>2026-01-10</lastmod>
+    </url>
+    <url>
+         <loc>https://proethica.org/docs/admin-guide/settings/</loc>
+         <lastmod>2026-01-10</lastmod>
+    </url>
+    <url>
+         <loc>https://proethica.org/docs/admin-guide/user-management/</loc>
+         <lastmod>2026-01-10</lastmod>
+    </url>
+    <url>
+         <loc>https://proethica.org/docs/admin-guide/validation-studies/</loc>
+         <lastmod>2026-01-10</lastmod>
+    </url>
+    <url>
+         <loc>https://proethica.org/docs/analysis/entity-review/</loc>
+         <lastmod>2026-01-10</lastmod>
+    </url>
+    <url>
+         <loc>https://proethica.org/docs/analysis/pipeline-automation/</loc>
+         <lastmod>2026-01-10</lastmod>
+    </url>
+    <url>
+         <loc>https://proethica.org/docs/analysis/running-extractions/</loc>
+         <lastmod>2026-01-10</lastmod>
+    </url>
+    <url>
+         <loc>https://proethica.org/docs/analysis/uploading-cases/</loc>
+         <lastmod>2026-01-10</lastmod>
+    </url>
+    <url>
+         <loc>https://proethica.org/docs/concepts/color-scheme/</loc>
+         <lastmod>2026-01-10</lastmod>
     </url>
     <url>
          <loc>https://proethica.org/docs/concepts/nine-components/</loc>
-         <lastmod>2026-01-04</lastmod>
+         <lastmod>2026-01-10</lastmod>
+    </url>
+    <url>
+         <loc>https://proethica.org/docs/domain-setup/</loc>
+         <lastmod>2026-01-10</lastmod>
     </url>
     <url>
          <loc>https://proethica.org/docs/getting-started/first-login/</loc>
-         <lastmod>2026-01-04</lastmod>
+         <lastmod>2026-01-10</lastmod>
     </url>
     <url>
          <loc>https://proethica.org/docs/getting-started/welcome/</loc>
-         <lastmod>2026-01-04</lastmod>
+         <lastmod>2026-01-10</lastmod>
     </url>
     <url>
          <loc>https://proethica.org/docs/how-to/entity-review/</loc>
-         <lastmod>2026-01-04</lastmod>
+         <lastmod>2026-01-10</lastmod>
     </url>
     <url>
          <loc>https://proethica.org/docs/how-to/guidelines/</loc>
-         <lastmod>2026-01-04</lastmod>
+         <lastmod>2026-01-10</lastmod>
     </url>
     <url>
          <loc>https://proethica.org/docs/how-to/phase1-extraction/</loc>
-         <lastmod>2026-01-04</lastmod>
+         <lastmod>2026-01-10</lastmod>
     </url>
     <url>
          <loc>https://proethica.org/docs/how-to/phase2-analysis/</loc>
-         <lastmod>2026-01-04</lastmod>
+         <lastmod>2026-01-10</lastmod>
     </url>
     <url>
          <loc>https://proethica.org/docs/how-to/phase3-scenario/</loc>
-         <lastmod>2026-01-04</lastmod>
+         <lastmod>2026-01-10</lastmod>
     </url>
     <url>
          <loc>https://proethica.org/docs/how-to/pipeline-automation/</loc>
-         <lastmod>2026-01-04</lastmod>
+         <lastmod>2026-01-10</lastmod>
     </url>
     <url>
          <loc>https://proethica.org/docs/how-to/precedent-discovery/</loc>
-         <lastmod>2026-01-04</lastmod>
+         <lastmod>2026-01-10</lastmod>
     </url>
     <url>
          <loc>https://proethica.org/docs/how-to/settings/</loc>
-         <lastmod>2026-01-04</lastmod>
+         <lastmod>2026-01-10</lastmod>
     </url>
     <url>
          <loc>https://proethica.org/docs/how-to/upload-cases/</loc>
-         <lastmod>2026-01-04</lastmod>
+         <lastmod>2026-01-10</lastmod>
     </url>
     <url>
          <loc>https://proethica.org/docs/how-to/view-cases/</loc>
-         <lastmod>2026-01-04</lastmod>
+         <lastmod>2026-01-10</lastmod>
     </url>
     <url>
          <loc>https://proethica.org/docs/reference/architecture/</loc>
-         <lastmod>2026-01-04</lastmod>
+         <lastmod>2026-01-10</lastmod>
     </url>
     <url>
          <loc>https://proethica.org/docs/reference/color-scheme/</loc>
-         <lastmod>2026-01-04</lastmod>
+         <lastmod>2026-01-10</lastmod>
     </url>
     <url>
          <loc>https://proethica.org/docs/reference/installation/</loc>
-         <lastmod>2026-01-04</lastmod>
+         <lastmod>2026-01-10</lastmod>
     </url>
     <url>
          <loc>https://proethica.org/docs/reference/ontology-integration/</loc>
-         <lastmod>2026-01-04</lastmod>
+         <lastmod>2026-01-10</lastmod>
+    </url>
+    <url>
+         <loc>https://proethica.org/docs/viewing/browsing-cases/</loc>
+         <lastmod>2026-01-10</lastmod>
+    </url>
+    <url>
+         <loc>https://proethica.org/docs/viewing/guidelines/</loc>
+         <lastmod>2026-01-10</lastmod>
+    </url>
+    <url>
+         <loc>https://proethica.org/docs/viewing/precedent-network/</loc>
+         <lastmod>2026-01-10</lastmod>
+    </url>
+    <url>
+         <loc>https://proethica.org/docs/viewing/viewing-extractions/</loc>
+         <lastmod>2026-01-10</lastmod>
     </url>
 </urlset>

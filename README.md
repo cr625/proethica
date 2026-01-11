@@ -6,7 +6,7 @@
 
 ## Overview
 
-ProEthica extracts and analyzes ethical concepts from professional ethics case studies using a 9-concept formal methodology (Roles, Principles, Obligations, Sanctions, Responses, Actions, Events, Causes, Consequences). The system generates structured scenarios with decision points, arguments, and outcome analysis.
+ProEthica extracts and analyzes ethical concepts from professional ethics case studies using a 9-component formal methodology (Roles, Principles, Obligations, States, Resources, Constraints, Capabilities, Actions, Events). The system generates structured scenarios with decision points, arguments, and outcome analysis.
 
 ## Requirements
 

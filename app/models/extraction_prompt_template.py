@@ -1,7 +1,7 @@
 """
 Model for extraction prompt templates.
 
-Stores editable templates for the 9-concept extraction pipeline,
+Stores editable templates for the 9-component extraction pipeline,
 allowing prompt editing through the web UI.
 """
 

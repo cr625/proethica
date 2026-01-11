@@ -69,22 +69,29 @@ nav:
       - Interface Overview: getting-started/first-login.md
   - Concepts:
       - Nine-Component Framework: concepts/nine-components.md
-  - How-To Guides:
-      - Upload Cases: how-to/upload-cases.md
-      - View Cases: how-to/view-cases.md
-      - Guidelines: how-to/guidelines.md
-      - "Phase 1: Extraction": how-to/phase1-extraction.md
-      - "Phase 2: Analysis": how-to/phase2-analysis.md
-      - "Phase 3: Scenario": how-to/phase3-scenario.md
-      - Entity Review: how-to/entity-review.md
-      - Precedent Discovery: how-to/precedent-discovery.md
-      - Pipeline Automation: how-to/pipeline-automation.md
-      - Settings: how-to/settings.md
-  - Reference:
-      - System Architecture: reference/architecture.md
-      - Ontology Integration: reference/ontology-integration.md
-      - Color Scheme: reference/color-scheme.md
-      - Installation & Deployment: reference/installation.md
+      - Color Scheme: concepts/color-scheme.md
+  - Viewing:
+      - Browsing Cases: viewing/browsing-cases.md
+      - Viewing Extractions: viewing/viewing-extractions.md
+      - Precedent Network: viewing/precedent-network.md
+      - Guidelines: viewing/guidelines.md
+  - Analysis:
+      - Running Extractions: analysis/running-extractions.md
+      - Entity Review: analysis/entity-review.md
+      - Pipeline Automation: analysis/pipeline-automation.md
+      - Uploading Cases: analysis/uploading-cases.md
+  - Administration:
+      - Overview: admin-guide/index.md
+      - Prompt Editor: admin-guide/prompt-editor.md
+      - Validation Studies: admin-guide/validation-studies.md
+      - Pipeline Management: admin-guide/pipeline-management.md
+      - User Management: admin-guide/user-management.md
+      - Architecture: admin-guide/architecture.md
+      - Installation: admin-guide/installation.md
+      - Ontology Integration: admin-guide/ontology-integration.md
+      - Settings: admin-guide/settings.md
+  - Domain Setup:
+      - Overview: domain-setup/index.md
   - "Back to ProEthica": "/"
 
 extra_css:
