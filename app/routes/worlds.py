@@ -663,58 +663,25 @@ def world_guidelines(id):
 
 @worlds_bp.route('/<int:id>/guidelines/<int:document_id>/sections')
 def view_guideline_sections(id, document_id):
-    """Display extracted sections from a guideline document."""
-    logger.info(f"Accessing guideline sections route: world_id={id}, document_id={document_id}")
-    
+    """Display extracted provisions/sections from a guideline."""
     world = World.query.get_or_404(id)
-    
-    from app.models import Document
+
+    from app.models.guideline import Guideline
     from app.models.guideline_section import GuidelineSection
-    
-    document = Document.query.get_or_404(document_id)
-    logger.info(f"Found document: {document.title}, type: {document.document_type}")
-    
-    # Check if document belongs to this world
-    if document.world_id != world.id:
-        flash('Document does not belong to this world', 'error')
+
+    # Use Guideline model directly (consistent with view_guideline route)
+    guideline = Guideline.query.get_or_404(document_id)
+
+    # Check if guideline belongs to this world
+    if guideline.world_id != world.id:
+        flash('Guideline does not belong to this world', 'error')
         return redirect(url_for('worlds.world_guidelines', id=world.id))
-    
-    # Check if document is a guideline
-    if document.document_type != "guideline":
-        flash('Document is not a guideline', 'error')
-        return redirect(url_for('worlds.world_guidelines', id=world.id))
-    
-    # Get the associated guideline ID if exists
-    actual_guideline_id = None
-    logger.info(f"Document metadata keys: {list(document.guideline_metadata.keys()) if document.guideline_metadata else 'No metadata'}")
-    
-    if document.guideline_metadata and 'guideline_structure' in document.guideline_metadata:
-        guideline_structure = document.guideline_metadata['guideline_structure']
-        logger.info(f"Guideline structure keys: {list(guideline_structure.keys())}")
-        actual_guideline_id = guideline_structure.get('guideline_id')
-        logger.info(f"Found guideline_id: {actual_guideline_id}")
-    else:
-        logger.info("No guideline_structure found in metadata")
-    
-    # Get guideline sections
-    sections = []
-    if actual_guideline_id:
-        sections = GuidelineSection.query.filter_by(guideline_id=actual_guideline_id).order_by(GuidelineSection.section_code).all()
-        logger.info(f"Found {len(sections)} sections for guideline_id {actual_guideline_id}")
-    else:
-        # Fallback: check if there are sections for any guideline
-        all_sections = GuidelineSection.query.all()
-        logger.info(f"No guideline_id found. Total sections in DB: {len(all_sections)}")
-        if all_sections:
-            available_guideline_ids = list(set([s.guideline_id for s in all_sections]))
-            logger.info(f"Available guideline IDs: {available_guideline_ids}")
-            # Use the most recent guideline ID as fallback
-            if available_guideline_ids:
-                fallback_guideline_id = max(available_guideline_ids)
-                logger.info(f"Using fallback guideline_id: {fallback_guideline_id}")
-                sections = GuidelineSection.query.filter_by(guideline_id=fallback_guideline_id).order_by(GuidelineSection.section_code).all()
-                actual_guideline_id = fallback_guideline_id
-    
+
+    # Get guideline sections directly by guideline ID
+    sections = GuidelineSection.query.filter_by(
+        guideline_id=guideline.id
+    ).order_by(GuidelineSection.section_order, GuidelineSection.section_code).all()
+
     # Group sections by category with proper display names
     category_display_names = {
         'fundamental_canons': 'Fundamental Canons',
@@ -744,45 +711,46 @@ def view_guideline_sections(id, document_id):
             'category_label': cat_label,
             'subcategory': section.section_subcategory or '',
             'establishes': (section.section_metadata or {}).get('establishes', []),
-            'source_guideline': document.title
+            'source_guideline': guideline.title
         }
 
     return render_template('guideline_sections_view.html',
                          world=world,
-                         document=document,
+                         document=guideline,
                          sections=sections,
                          sections_by_category=sections_by_category,
                          provision_lookup=provision_lookup,
-                         guideline_id=actual_guideline_id)
+                         guideline_id=guideline.id)
 
 @worlds_bp.route('/<int:id>/guidelines/<int:document_id>/sections/regenerate', methods=['POST'])
 @login_required
 def regenerate_guideline_sections(id, document_id):
-    """Regenerate extracted sections for a guideline document via background processing."""
+    """Regenerate extracted sections for a guideline."""
     world = World.query.get_or_404(id)
 
-    from app.models import Document
-    document = Document.query.get_or_404(document_id)
+    from app.models.guideline import Guideline
+    from app.services.guideline_structure_annotation_step import GuidelineStructureAnnotationStep
 
-    # Validate ownership and type
-    if document.world_id != world.id:
-        flash('Document does not belong to this world', 'error')
-        return redirect(url_for('worlds.world_guidelines', id=world.id))
-    if document.document_type != 'guideline':
-        flash('Document is not a guideline', 'error')
+    guideline = Guideline.query.get_or_404(document_id)
+
+    # Validate ownership
+    if guideline.world_id != world.id:
+        flash('Guideline does not belong to this world', 'error')
         return redirect(url_for('worlds.world_guidelines', id=world.id))
 
     try:
-        from app.services.task_queue import BackgroundTaskQueue
-        task_queue = BackgroundTaskQueue.get_instance()
-        # Re-run processing which includes guideline structure annotation when content exists
-        task_queue.process_document_async(document.id)
-        flash('Section regeneration started. This may take a moment; refresh to see results.', 'info')
+        # Run section extraction directly on the guideline
+        annotator = GuidelineStructureAnnotationStep()
+        result = annotator.process(guideline)
+        if result.get('success'):
+            flash(f'Successfully extracted {result.get("sections_created", 0)} provisions.', 'success')
+        else:
+            flash(f'Section extraction failed: {result.get("error", "Unknown error")}', 'error')
     except Exception as e:
-        logger.error(f"Error starting section regeneration: {e}")
-        flash(f'Error starting section regeneration: {str(e)}', 'error')
+        logger.error(f"Error regenerating sections: {e}")
+        flash(f'Error regenerating sections: {str(e)}', 'error')
 
-    return redirect(url_for('worlds.view_guideline_sections', id=world.id, document_id=document.id))
+    return redirect(url_for('worlds.view_guideline_sections', id=world.id, document_id=guideline.id))
 
 @worlds_bp.route('/<int:id>/guidelines/<int:document_id>', methods=['GET'])
 def view_guideline(id, document_id):
