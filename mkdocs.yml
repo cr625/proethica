@@ -69,6 +69,7 @@ nav:
       - Interface Overview: getting-started/first-login.md
   - Concepts:
       - Nine-Component Framework: concepts/nine-components.md
+      - Pipeline Terminology: concepts/terminology.md
       - Color Scheme: concepts/color-scheme.md
   - Viewing:
       - Browsing Cases: viewing/browsing-cases.md

@@ -374,13 +374,14 @@ CONCEPT_COLORS = {
     'capabilities': '#0dcaf0',
     'actions': '#198754',
     'events': '#ffc107',
-    # Step 4 phases
-    'provisions': '#f97316',
-    'questions': '#3b82f6',
-    'conclusions': '#10b981',
-    'transformation': '#8b5cf6',
-    'rich_analysis': '#06b6d4',
-    'decision_synthesis': '#ec4899'
+    # Step 4 entities - matches docs/concepts/color-scheme.md
+    'provisions': '#6c757d',         # Gray (same as Constraints)
+    'questions': '#0dcaf0',          # Cyan (same as Capabilities)
+    'conclusions': '#198754',        # Green (same as Actions)
+    # Step 4 internal phases (not user-facing entity colors)
+    'transformation': '#64748b',     # Slate (Step 4 color)
+    'rich_analysis': '#64748b',      # Slate (Step 4 color)
+    'decision_synthesis': '#64748b'  # Slate (Step 4 color)
 }
 
 CONCEPT_SOURCE_FILES = {

@@ -51,16 +51,16 @@
 .transformation-oscillation { color: #2196F3; }
 .transformation-phase-lag { color: #9C27B0; }
 
-/* Concept type colors */
-.concept-role { color: #E91E63; }
-.concept-principle { color: #9C27B0; }
-.concept-obligation { color: #673AB7; }
-.concept-state { color: #3F51B5; }
-.concept-resource { color: #2196F3; }
-.concept-action { color: #009688; }
-.concept-event { color: #4CAF50; }
-.concept-capability { color: #8BC34A; }
-.concept-constraint { color: #FF5722; }
+/* Concept type colors - matches docs/concepts/color-scheme.md */
+.concept-role { color: #0d6efd; }        /* Blue - Step 1 */
+.concept-state { color: #6f42c1; }       /* Purple - Step 1 */
+.concept-resource { color: #20c997; }    /* Teal - Step 1 */
+.concept-principle { color: #fd7e14; }   /* Orange - Step 2 */
+.concept-obligation { color: #dc3545; }  /* Red - Step 2 */
+.concept-constraint { color: #6c757d; }  /* Gray - Step 2 */
+.concept-capability { color: #0dcaf0; }  /* Cyan - Step 2 */
+.concept-action { color: #198754; }      /* Green - Step 3 */
+.concept-event { color: #ffc107; }       /* Yellow - Step 3 */
 
 /* Phase indicators */
 .phase-1 { border-left: 4px solid #4CAF50; }

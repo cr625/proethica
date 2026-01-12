@@ -4,9 +4,9 @@ This document defines the color scheme used throughout ProEthica visualizations 
 
 ## Entity Type Colors
 
-ProEthica extracts 9 entity types organized into 4 passes. Each type has a distinct color for easy identification.
+ProEthica extracts 9 entity types organized into 4 steps. Each type has a distinct color for easy identification.
 
-### Pass 1 - Context (Foundation)
+### Step 1 - Context (Foundation)
 
 | Type | Code | Color |
 |------|------|-------|
@@ -14,7 +14,7 @@ ProEthica extracts 9 entity types organized into 4 passes. Each type has a disti
 | State | S | <span style="display:inline-block;width:80px;height:24px;background:#6f42c1;border-radius:4px;vertical-align:middle;color:white;text-align:center;line-height:24px;font-size:12px;">Purple</span> |
 | Resource | Rs | <span style="display:inline-block;width:80px;height:24px;background:#20c997;border-radius:4px;vertical-align:middle;color:white;text-align:center;line-height:24px;font-size:12px;">Teal</span> |
 
-### Pass 2 - Normative (Requirements)
+### Step 2 - Normative (Requirements)
 
 | Type | Code | Color |
 |------|------|-------|
@@ -23,7 +23,7 @@ ProEthica extracts 9 entity types organized into 4 passes. Each type has a disti
 | Constraint | Cs | <span style="display:inline-block;width:80px;height:24px;background:#6c757d;border-radius:4px;vertical-align:middle;color:white;text-align:center;line-height:24px;font-size:12px;">Gray</span> |
 | Capability | Ca | <span style="display:inline-block;width:80px;height:24px;background:#0dcaf0;border-radius:4px;vertical-align:middle;color:#212529;text-align:center;line-height:24px;font-size:12px;">Cyan</span> |
 
-### Pass 3 - Temporal (Dynamics)
+### Step 3 - Temporal (Dynamics)
 
 | Type | Code | Color |
 |------|------|-------|
@@ -53,10 +53,13 @@ The extraction pipeline uses consistent colors for each step. Each step contains
 
 | Term | Meaning |
 |------|---------|
-| **Step** | Major pipeline stage (1-4) |
+| **Step** | Major pipeline stage (1-5) |
 | **Pass 1** | Facts section extraction within a step |
 | **Pass 2** | Discussion section extraction within a step |
 | **Phase** | Sub-stages within Step 4 (2A, 2B, 2C, 2D, 3, 4) |
+| **View** | Interface tabs within Step 5 (1-3) |
+
+See [Pipeline Terminology](terminology.md) for complete definitions.
 
 ### Step 4 Phases
 
@@ -69,11 +72,11 @@ The extraction pipeline uses consistent colors for each step. Each step contains
 | 3 | Decision Points | E1-E3 algorithmic synthesis |
 | 4 | Narrative | Case narrative construction |
 
-## Pass Filter Colors
+## Step Filter Colors
 
-The graph filter buttons use neutral colors that group entity types by their extraction pass.
+The graph filter buttons use neutral colors that group entity types by their extraction step.
 
-| Pass | Name | Color | Includes |
+| Step | Name | Color | Includes |
 |------|------|-------|----------|
 | 1 | Context | <span style="display:inline-block;width:80px;height:24px;background:#3b82f6;border-radius:4px;vertical-align:middle;color:white;text-align:center;line-height:24px;font-size:12px;">Blue</span> | R, S, Rs |
 | 2 | Normative | <span style="display:inline-block;width:80px;height:24px;background:#8b5cf6;border-radius:4px;vertical-align:middle;color:white;text-align:center;line-height:24px;font-size:12px;">Purple</span> | P, O, Cs, Ca |

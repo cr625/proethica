@@ -15,7 +15,7 @@ Completed steps show a green filled button. Click any completed step to view its
 
 ## Entity Review Display
 
-![Entity Review - Pass 1 Facts](../assets/images/screenshots/entity-review-pass1-facts-content.png)
+![Entity Review - Step 1 Facts](../assets/images/screenshots/entity-review-pass1-facts-content.png)
 *Extraction results showing entities from the Facts section*
 
 ### Interface Layout
@@ -47,7 +47,7 @@ Each extraction step processes two case sections:
 
 Toggle between sections to view entities extracted from each.
 
-![Entity Review - Pass 1 Discussion](../assets/images/screenshots/entity-review-pass1-discussion-content.png)
+![Entity Review - Step 1 Discussion](../assets/images/screenshots/entity-review-pass1-discussion-content.png)
 *Discussion section extractions showing different entity distribution*
 
 ## Extraction Steps
@@ -73,7 +73,7 @@ Identifies ethical guidance elements:
 | **Constraints** | Cs | Inviolable boundaries on conduct |
 | **Capabilities** | Ca | Competencies for professional practice |
 
-![Pass 2 Entity Review](../assets/images/screenshots/entity-review-pass2-discussion-content.png)
+![Step 2 Entity Review](../assets/images/screenshots/entity-review-pass2-discussion-content.png)
 *Normative requirements extracted from case discussion*
 
 ### Step 3: Temporal Dynamics
@@ -85,7 +85,7 @@ Identifies action and event elements:
 | **Actions** | A | Volitional professional interventions |
 | **Events** | E | Occurrences outside agent control |
 
-![Pass 3 Entity Review](../assets/images/screenshots/entity-review-pass3-content.png)
+![Step 3 Entity Review](../assets/images/screenshots/entity-review-pass3-content.png)
 *Temporal dynamics with actions and events*
 
 ## View Extraction Details
