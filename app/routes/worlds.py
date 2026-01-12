@@ -715,19 +715,44 @@ def view_guideline_sections(id, document_id):
                 sections = GuidelineSection.query.filter_by(guideline_id=fallback_guideline_id).order_by(GuidelineSection.section_code).all()
                 actual_guideline_id = fallback_guideline_id
     
-    # Group sections by category
+    # Group sections by category with proper display names
+    category_display_names = {
+        'fundamental_canons': 'Fundamental Canons',
+        'rules_of_practice': 'Rules of Practice',
+        'professional_obligations': 'Professional Obligations',
+        'generic': 'General Provisions'
+    }
+
     sections_by_category = {}
     for section in sections:
-        category = section.section_category
-        if category not in sections_by_category:
-            sections_by_category[category] = []
-        sections_by_category[category].append(section)
-    
-    return render_template('guideline_sections_view.html', 
-                         world=world, 
+        category = section.section_category or 'generic'
+        display_name = category_display_names.get(category, category.replace('_', ' ').title())
+        if display_name not in sections_by_category:
+            sections_by_category[display_name] = []
+        sections_by_category[display_name].append(section)
+
+    # Build provision lookup dictionary for tooltips
+    provision_lookup = {}
+    for section in sections:
+        cat = section.section_category or 'generic'
+        cat_label = category_display_names.get(cat, cat.replace('_', ' ').title())
+        provision_lookup[section.section_code] = {
+            'code': section.section_code,
+            'title': section.section_title or f'Section {section.section_code}',
+            'text': section.section_text,
+            'category': cat,
+            'category_label': cat_label,
+            'subcategory': section.section_subcategory or '',
+            'establishes': (section.section_metadata or {}).get('establishes', []),
+            'source_guideline': document.title
+        }
+
+    return render_template('guideline_sections_view.html',
+                         world=world,
                          document=document,
                          sections=sections,
                          sections_by_category=sections_by_category,
+                         provision_lookup=provision_lookup,
                          guideline_id=actual_guideline_id)
 
 @worlds_bp.route('/<int:id>/guidelines/<int:document_id>/sections/regenerate', methods=['POST'])

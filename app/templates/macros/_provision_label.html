@@ -1,0 +1,255 @@
+{#
+Provision Label Macro - Reusable component for displaying guideline provisions with rich popovers
+
+Usage:
+    {% from 'macros/_provision_label.html' import provision_label, provision_label_styles, provision_label_init_script %}
+
+    {# In your styles block: #}
+    {{ provision_label_styles() }}
+
+    {# In your content: #}
+    {{ provision_label("II.1.c", provision_lookup) }}
+    {{ provision_label("I.1", provision_lookup, show_category=true) }}
+
+    {# In your scripts block: #}
+    {{ provision_label_init_script() }}
+
+Parameters:
+    code: The provision code (e.g., "I.1", "II.1.c", "III.2.a")
+    provision_lookup: Dict mapping code -> provision metadata dict
+    show_category: Whether to show category badge (default: false)
+    link_format: Format for clickable code - 'badge', 'bracket', or 'plain' (default: 'bracket')
+
+Provision lookup dict structure:
+    {
+        'II.1.c': {
+            'code': 'II.1.c',
+            'title': 'Rules of Practice II.1.c',
+            'text': 'Do not disclose client/employer information without consent...',
+            'category': 'rules_of_practice',
+            'category_label': 'Rules of Practice',
+            'subcategory': 'confidentiality',
+            'establishes': ['Confidentiality', 'Client Privacy'],
+            'source_guideline': 'NSPE Code of Ethics'
+        }
+    }
+#}
+
+{% macro provision_label_styles() %}
+<style>
+/* Provision Label Base */
+.provision-label {
+    cursor: help;
+    font-weight: 500;
+    color: #495057;
+    text-decoration: none;
+    border-bottom: 1px dotted #6c757d;
+}
+.provision-label:hover {
+    background-color: rgba(108, 117, 125, 0.15);
+    border-radius: 2px;
+}
+
+/* Provision badge style */
+.provision-badge {
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.2rem 0.5rem;
+    border-radius: 0.25rem;
+    cursor: help;
+}
+.provision-badge:hover {
+    opacity: 0.85;
+}
+
+/* Unknown provision styling */
+.provision-unknown {
+    color: #adb5bd;
+    font-style: italic;
+    border-bottom-style: dotted;
+}
+
+/* Popover content styling */
+.provision-popover {
+    max-width: 450px;
+}
+.provision-popover .provision-header {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    flex-wrap: wrap;
+}
+.provision-popover .provision-text {
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: #212529;
+    margin-bottom: 0.75rem;
+    padding: 0.5rem;
+    background: #f8f9fa;
+    border-radius: 4px;
+    border-left: 3px solid #6c757d;
+}
+.provision-popover .provision-establishes {
+    font-size: 0.85rem;
+    margin-top: 0.5rem;
+}
+.provision-popover .provision-establishes-label {
+    color: #6c757d;
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+}
+.provision-popover .provision-concept-badge {
+    font-size: 0.75rem;
+    margin-right: 0.25rem;
+    margin-bottom: 0.25rem;
+}
+.provision-popover .provision-source {
+    font-size: 0.75rem;
+    color: #6c757d;
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid #dee2e6;
+}
+
+/* Category colors */
+.provision-cat-fundamental { background-color: #198754; color: white; }
+.provision-cat-rules { background-color: #0dcaf0; color: #000; }
+.provision-cat-obligations { background-color: #ffc107; color: #000; }
+.provision-cat-generic { background-color: #6c757d; color: white; }
+
+/* Subcategory badge */
+.provision-subcat {
+    font-size: 0.7rem;
+    background-color: #e9ecef;
+    color: #495057;
+}
+
+/* Concept type colors in establishes section */
+.concept-principle { background-color: #fd7e14; color: white; }
+.concept-obligation { background-color: #dc3545; color: white; }
+.concept-constraint { background-color: #6c757d; color: white; }
+.concept-default { background-color: #e9ecef; color: #495057; }
+</style>
+{% endmacro %}
+
+{% macro provision_label(code, provision_lookup, show_category=false, link_format='bracket') %}
+{% set provision = provision_lookup.get(code) if provision_lookup else none %}
+
+{% if provision %}
+    {# Provision found in lookup - render with popover #}
+    {% set cat = provision.category|default('generic') %}
+    {% set cat_class = 'provision-cat-fundamental' if 'canon' in cat else ('provision-cat-rules' if 'rules' in cat else ('provision-cat-obligations' if 'obligation' in cat else 'provision-cat-generic')) %}
+    {% set cat_label = provision.category_label|default(cat|replace('_', ' ')|title) %}
+
+    {# Build establishes HTML #}
+    {% set establishes_html = '' %}
+    {% if provision.establishes and provision.establishes|length > 0 %}
+        {% set concepts = [] %}
+        {% for concept in provision.establishes %}
+            {% set concept_type = concept.type|default('default') if concept is mapping else 'default' %}
+            {% set concept_label = concept.label if concept is mapping else concept %}
+            {% set _ = concepts.append('<span class=\"badge concept-' ~ concept_type ~ ' provision-concept-badge\">' ~ concept_label ~ '</span>') %}
+        {% endfor %}
+        {% set establishes_html = '<div class=\"provision-establishes\"><div class=\"provision-establishes-label\">Establishes:</div>' ~ concepts|join('') ~ '</div>' %}
+    {% endif %}
+
+    {# Build popover content #}
+    {% set popover_content %}
+<div class="provision-popover">
+    <div class="provision-header">
+        <span class="badge {{ cat_class }}">{{ cat_label }}</span>
+        {% if provision.subcategory %}
+        <span class="badge provision-subcat">{{ provision.subcategory|replace('_', ' ')|title }}</span>
+        {% endif %}
+    </div>
+    <div class="provision-text">{{ provision.text|e|truncate(350) }}</div>
+    {{ establishes_html|safe }}
+    {% if provision.source_guideline %}
+    <div class="provision-source">
+        <i class="bi bi-book"></i> {{ provision.source_guideline }}
+    </div>
+    {% endif %}
+</div>
+    {% endset %}
+
+    {% if link_format == 'badge' %}
+    <span class="badge provision-badge {{ cat_class }}"
+          tabindex="0"
+          data-bs-toggle="popover"
+          data-bs-trigger="hover focus"
+          data-bs-html="true"
+          data-bs-placement="top"
+          data-bs-content="{{ popover_content|e }}"
+          title="{{ provision.title|default(code) }}">
+        {{ code }}
+    </span>
+    {% elif link_format == 'plain' %}
+    <span class="provision-label"
+          tabindex="0"
+          data-bs-toggle="popover"
+          data-bs-trigger="hover focus"
+          data-bs-html="true"
+          data-bs-placement="top"
+          data-bs-content="{{ popover_content|e }}"
+          title="{{ provision.title|default(code) }}">
+        {{ code }}
+    </span>
+    {% else %}
+    {# Default: bracket format #}
+    <span class="provision-label"
+          tabindex="0"
+          data-bs-toggle="popover"
+          data-bs-trigger="hover focus"
+          data-bs-html="true"
+          data-bs-placement="top"
+          data-bs-content="{{ popover_content|e }}"
+          title="{{ provision.title|default(code) }}">
+        [{{ code }}]
+    </span>
+    {% endif %}
+{% else %}
+    {# Provision not in lookup - render as unknown #}
+    {% if link_format == 'badge' %}
+    <span class="badge bg-light text-muted provision-unknown">{{ code }}</span>
+    {% elif link_format == 'plain' %}
+    <span class="provision-unknown">{{ code }}</span>
+    {% else %}
+    <span class="provision-unknown">[{{ code }}]</span>
+    {% endif %}
+{% endif %}
+{% endmacro %}
+
+{% macro provision_label_init_script() %}
+<script>
+// Initialize Bootstrap popovers for provision labels
+document.addEventListener('DOMContentLoaded', function() {
+    var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
+    var popoverList = popoverTriggerList.map(function(popoverTriggerEl) {
+        return new bootstrap.Popover(popoverTriggerEl, {
+            container: 'body',
+            sanitize: false
+        });
+    });
+});
+</script>
+{% endmacro %}
+
+{# Utility macro to build a provision lookup from GuidelineSection list #}
+{% macro build_provision_lookup_script(sections, guideline_title) %}
+<script>
+window.PROVISION_LOOKUP = {
+{% for section in sections %}
+    "{{ section.section_code }}": {
+        "code": "{{ section.section_code }}",
+        "title": "{{ section.section_title|e }}",
+        "text": "{{ section.section_text|e|replace('\n', ' ')|truncate(500) }}",
+        "category": "{{ section.section_category|default('generic') }}",
+        "category_label": "{% if 'canon' in section.section_category|default('') %}Fundamental Canons{% elif 'rules' in section.section_category|default('') %}Rules of Practice{% elif 'obligation' in section.section_category|default('') %}Professional Obligations{% else %}{{ section.section_category|default('Generic')|replace('_', ' ')|title }}{% endif %}",
+        "subcategory": "{{ section.section_subcategory|default('')|replace('_', ' ')|title }}",
+        "establishes": {{ section.section_metadata.establishes|default([])|tojson|safe }},
+        "source_guideline": "{{ guideline_title|e }}"
+    }{% if not loop.last %},{% endif %}
+{% endfor %}
+};
+</script>
+{% endmacro %}

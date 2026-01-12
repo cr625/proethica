@@ -1,10 +1,11 @@
 {% extends "base.html" %}
+{% from 'macros/_provision_label.html' import provision_label, provision_label_styles, provision_label_init_script, build_provision_lookup_script %}
 
 {% block title %}Guideline Sections - {{ document.title }}{% endblock %}
 
 {% block content %}
 <div class="container mt-5">
-  <h1>Guideline Sections</h1>
+  <h1>Guideline Provisions</h1>
 
   <nav aria-label="breadcrumb">
     <ol class="breadcrumb">
@@ -12,35 +13,34 @@
       <li class="breadcrumb-item"><a href="{{ url_for('worlds.view_world', id=world.id) }}">{{ world.name }}</a></li>
       <li class="breadcrumb-item"><a href="{{ url_for('worlds.world_guidelines', id=world.id) }}">Guidelines</a></li>
       <li class="breadcrumb-item"><a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=document.id) }}">{{ document.title }}</a></li>
-      <li class="breadcrumb-item active">Sections</li>
+      <li class="breadcrumb-item active">Provisions</li>
     </ol>
   </nav>
 
+  <!-- Header Card -->
   <div class="card mb-4">
     <div class="card-header bg-primary text-white">
-      <h5 class="mb-0">{{ document.title }}</h5>
+      <h5 class="mb-0"><i class="bi bi-book"></i> {{ document.title }}</h5>
     </div>
     <div class="card-body">
       <div class="row">
         <div class="col-md-8">
           <p class="text-muted mb-2">
-            <strong>Total Sections:</strong> {{ sections|length }}
+            <strong>Total Provisions:</strong> {{ sections|length }}
           </p>
-          {% if guideline_id %}
-          <p class="text-muted mb-0">
-            <strong>Guideline ID:</strong> {{ guideline_id }}
+          <p class="text-muted mb-0 small">
+            Hover over any provision code to see its full text and linked ethical concepts.
           </p>
-          {% endif %}
         </div>
         <div class="col-md-4 text-end">
           <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=document.id) }}" class="btn btn-outline-primary btn-sm">
-            <i class="fas fa-arrow-left"></i> Back to Guideline
+            <i class="bi bi-arrow-left"></i> Back to Guideline
           </a>
           <form action="{{ url_for('worlds.regenerate_guideline_sections', id=world.id, document_id=document.id) }}" method="post" class="d-inline ms-2">
             {% if csrf_token %}
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
             {% endif %}
-            <button type="submit" class="btn btn-outline-secondary btn-sm" title="Re-run section extraction in the background">
+            <button type="submit" class="btn btn-outline-secondary btn-sm" title="Re-run section extraction">
               <i class="bi bi-arrow-repeat"></i> Regenerate
             </button>
           </form>
@@ -50,100 +50,101 @@
   </div>
 
   {% if sections_by_category %}
+    <!-- Summary Statistics -->
+    <div class="row mb-4">
+      {% for category, category_sections in sections_by_category.items() %}
+      <div class="col-md-4 mb-3">
+        <div class="card h-100 {% if category == 'Fundamental Canons' %}border-success{% elif category == 'Rules of Practice' %}border-info{% elif category == 'Professional Obligations' %}border-warning{% endif %}">
+          <div class="card-body text-center">
+            <h3 class="{% if category == 'Fundamental Canons' %}text-success{% elif category == 'Rules of Practice' %}text-info{% elif category == 'Professional Obligations' %}text-warning{% endif %}">
+              {{ category_sections|length }}
+            </h3>
+            <p class="text-muted mb-0">{{ category }}</p>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Sections by Category -->
     {% for category, category_sections in sections_by_category.items() %}
     <div class="card mb-4">
       <div class="card-header {% if category == 'Fundamental Canons' %}bg-success{% elif category == 'Rules of Practice' %}bg-info{% elif category == 'Professional Obligations' %}bg-warning{% else %}bg-secondary{% endif %} text-white">
         <h5 class="mb-0">
+          <i class="bi {% if category == 'Fundamental Canons' %}bi-shield-check{% elif category == 'Rules of Practice' %}bi-journal-check{% elif category == 'Professional Obligations' %}bi-people{% else %}bi-list{% endif %}"></i>
           {{ category }}
-          <span class="badge bg-light text-dark ms-2">{{ category_sections|length }} sections</span>
+          <span class="badge bg-light text-dark ms-2">{{ category_sections|length }} provisions</span>
         </h5>
       </div>
       <div class="card-body p-0">
-        <div class="table-responsive">
-          <table class="table table-hover mb-0">
-            <thead class="table-light">
-              <tr>
-                <th style="width: 100px;">Code</th>
-                <th style="width: 40%;">Title</th>
-                <th>Text</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for section in category_sections %}
-              <tr>
-                <td>
-                  <span class="badge {% if category == 'Fundamental Canons' %}bg-success{% elif category == 'Rules of Practice' %}bg-info{% elif category == 'Professional Obligations' %}bg-warning{% else %}bg-secondary{% endif %}">
-                    {{ section.section_code }}
+        <div class="list-group list-group-flush">
+          {% for section in category_sections %}
+          <div class="list-group-item">
+            <div class="d-flex w-100 justify-content-between align-items-start">
+              <div class="flex-grow-1">
+                <div class="d-flex align-items-center mb-2">
+                  <!-- Provision code with tooltip -->
+                  {{ provision_label(section.section_code, provision_lookup, link_format='badge') }}
+
+                  {% if section.section_subcategory %}
+                  <span class="badge bg-light text-secondary ms-2">
+                    {{ section.section_subcategory|replace('_', ' ')|title }}
                   </span>
-                </td>
-                <td>
-                  {% if section.section_title %}
-                    <strong>{{ section.section_title }}</strong>
-                  {% else %}
-                    <em class="text-muted">No title</em>
                   {% endif %}
-                </td>
-                <td>
-                  <div class="section-text">
-                    {{ section.section_text }}
-                  </div>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+
+                  <!-- Show "establishes" concepts if present -->
+                  {% if section.section_metadata and section.section_metadata.establishes %}
+                  <span class="ms-3">
+                    <small class="text-muted">Establishes:</small>
+                    {% for concept in section.section_metadata.establishes %}
+                      {% set concept_label = concept.label if concept is mapping else concept %}
+                      {% set concept_type = concept.type|default('default') if concept is mapping else 'default' %}
+                      <span class="badge {% if concept_type == 'principle' %}bg-orange{% elif concept_type == 'obligation' %}bg-danger{% else %}bg-secondary{% endif %} ms-1" style="font-size: 0.7rem;">
+                        {{ concept_label }}
+                      </span>
+                    {% endfor %}
+                  </span>
+                  {% endif %}
+                </div>
+
+                <p class="mb-1 provision-text-display">{{ section.section_text }}</p>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
         </div>
       </div>
     </div>
     {% endfor %}
   {% else %}
     <div class="alert alert-warning">
-      <h4 class="alert-heading"><i class="fas fa-exclamation-triangle"></i> No Sections Found</h4>
-      <p>No guideline sections have been extracted for this document.</p>
+      <h4 class="alert-heading"><i class="bi bi-exclamation-triangle"></i> No Provisions Found</h4>
+      <p>No guideline provisions have been extracted from this document.</p>
       <hr>
       <p class="mb-0">
         This could happen if:
         <ul class="mb-0">
           <li>The guideline structure annotation step hasn't been run</li>
-          <li>The document format wasn't recognized</li>
+          <li>The document format wasn't recognized (currently NSPE format is fully supported)</li>
           <li>There was an error during section extraction</li>
         </ul>
       </p>
     </div>
   {% endif %}
 
-  <!-- Summary Statistics -->
-  {% if sections %}
-  <div class="card mt-4">
+  <!-- About This View -->
+  <div class="card mt-4 mb-4">
     <div class="card-header bg-light">
-      <h6 class="mb-0"><i class="fas fa-chart-bar"></i> Section Statistics</h6>
+      <h6 class="mb-0"><i class="bi bi-info-circle"></i> About Guideline Provisions</h6>
     </div>
     <div class="card-body">
-      <div class="row text-center">
-        {% for category, category_sections in sections_by_category.items() %}
-        <div class="col-md-4 mb-3">
-          <div class="border rounded p-3 h-100">
-            <h5 class="{% if category == 'Fundamental Canons' %}text-success{% elif category == 'Rules of Practice' %}text-info{% elif category == 'Professional Obligations' %}text-warning{% else %}text-secondary{% endif %}">
-              {{ category_sections|length }}
-            </h5>
-            <p class="text-muted small mb-0">{{ category }}</p>
-          </div>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-  </div>
-  {% endif %}
-
-  <!-- Reference Information -->
-  <div class="card mt-4">
-    <div class="card-header bg-light">
-      <h6 class="mb-0"><i class="fas fa-info-circle"></i> About These Sections</h6>
-    </div>
-    <div class="card-body">
+      <p class="small text-muted mb-2">
+        <strong>Provisions</strong> are the individual ethical requirements extracted from this code of ethics.
+        Each provision has a unique code (e.g., I.1, II.1.a, III.2.b) that can be referenced in case analysis.
+      </p>
       <p class="small text-muted mb-0">
-        These sections were automatically extracted from the guideline document using the Guideline Structure Annotation process. 
-        Each section has a unique code (e.g., I.1, II.1.a, III.2.b) that can be used for referencing in ethical analysis and case studies.
+        <strong>Establishes:</strong> When present, shows the ethical principles, obligations, or constraints
+        that this provision creates or reinforces. These connections help trace how guidelines inform ethical analysis.
       </p>
     </div>
   </div>
@@ -152,22 +153,40 @@
 
 {% block styles %}
 {{ super() }}
+{{ provision_label_styles() }}
 <style>
-  .section-text {
-    font-size: 0.9rem;
-    line-height: 1.4;
-    max-height: 150px;
-    overflow-y: auto;
+  .provision-text-display {
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: #495057;
   }
-  
-  .table td {
-    vertical-align: top;
-    padding: 0.75rem 0.5rem;
+
+  .list-group-item {
+    padding: 1rem 1.25rem;
   }
-  
-  .badge {
-    font-size: 0.85rem;
-    font-weight: 600;
+
+  .list-group-item:hover {
+    background-color: #f8f9fa;
+  }
+
+  /* Custom badge colors */
+  .bg-orange {
+    background-color: #fd7e14 !important;
+    color: white;
+  }
+
+  /* Category card hover effect */
+  .card.border-success:hover,
+  .card.border-info:hover,
+  .card.border-warning:hover {
+    box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1);
   }
 </style>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{# Build provision lookup from sections data #}
+{{ build_provision_lookup_script(sections, document.title) }}
+{{ provision_label_init_script() }}
 {% endblock %}
