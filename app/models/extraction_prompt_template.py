@@ -289,10 +289,82 @@ PIPELINE_STEPS = [
         'name': 'Temporal Framework',
         'color': '#14b8a6',
         'concepts': ['actions', 'events']
+    },
+    {
+        'step': 4,
+        'name': 'Synthesis',
+        'color': '#ec4899',
+        'concepts': ['provisions', 'questions', 'conclusions', 'transformation', 'rich_analysis', 'decision_synthesis'],
+        'read_only': True  # Step 4 prompts are read-only in the editor
     }
 ]
 
+# Step 4 phase metadata - describes the synthesis phases
+STEP4_PHASES = {
+    'provisions': {
+        'name': 'Provisions',
+        'description': 'NSPE code provision detection and entity linking',
+        'service_file': 'app/services/provision_group_validator.py',
+        'color': '#f97316',
+        'prompts': [
+            {'name': 'Provision Group Validator', 'method': '_create_validation_prompt'},
+            {'name': 'Code Provision Linker', 'method': '_create_linking_prompt', 'file': 'app/services/code_provision_linker.py'}
+        ]
+    },
+    'questions': {
+        'name': 'Questions',
+        'description': 'Board and analytical question extraction',
+        'service_file': 'app/services/question_analyzer.py',
+        'color': '#3b82f6',
+        'prompts': [
+            {'name': 'Board Question Extraction', 'method': '_create_board_extraction_prompt'},
+            {'name': 'Analytical Question Generation', 'method': '_create_analytical_prompt'}
+        ]
+    },
+    'conclusions': {
+        'name': 'Conclusions',
+        'description': 'Board and analytical conclusion extraction with Q-C linking',
+        'service_file': 'app/services/conclusion_analyzer.py',
+        'color': '#10b981',
+        'prompts': [
+            {'name': 'Board Conclusion Extraction', 'method': '_create_board_extraction_prompt'},
+            {'name': 'Analytical Conclusion Generation', 'method': '_create_analytical_prompt'}
+        ]
+    },
+    'transformation': {
+        'name': 'Transformation',
+        'description': 'Case transformation type classification',
+        'service_file': 'app/services/case_analysis/transformation_classifier.py',
+        'color': '#8b5cf6',
+        'prompts': [
+            {'name': 'Transformation Classification', 'method': 'classify'}
+        ]
+    },
+    'rich_analysis': {
+        'name': 'Rich Analysis',
+        'description': 'Causal-normative links, question emergence, resolution patterns',
+        'service_file': 'app/services/case_synthesizer.py',
+        'color': '#06b6d4',
+        'prompts': [
+            {'name': 'Causal-Normative Analysis', 'method': '_analyze_causal_normative_links'},
+            {'name': 'Question Emergence', 'method': '_analyze_question_emergence'},
+            {'name': 'Resolution Patterns', 'method': '_analyze_resolution_patterns'}
+        ]
+    },
+    'decision_synthesis': {
+        'name': 'Decision Synthesis',
+        'description': 'E1-E3 algorithmic composition + LLM refinement with Toulmin structure',
+        'service_file': 'app/services/decision_point_synthesizer.py',
+        'color': '#ec4899',
+        'prompts': [
+            {'name': 'Decision Refinement', 'method': '_build_refinement_prompt'}
+        ],
+        'algorithmic_stages': ['E1: Obligation Coverage', 'E2: Action-Option Mapping', 'E3: Decision Composition', 'Q&C Alignment Scoring']
+    }
+}
+
 CONCEPT_COLORS = {
+    # Steps 1-3 concepts
     'roles': '#0d6efd',
     'states': '#6f42c1',
     'resources': '#20c997',
@@ -301,7 +373,14 @@ CONCEPT_COLORS = {
     'constraints': '#6c757d',
     'capabilities': '#0dcaf0',
     'actions': '#198754',
-    'events': '#ffc107'
+    'events': '#ffc107',
+    # Step 4 phases
+    'provisions': '#f97316',
+    'questions': '#3b82f6',
+    'conclusions': '#10b981',
+    'transformation': '#8b5cf6',
+    'rich_analysis': '#06b6d4',
+    'decision_synthesis': '#ec4899'
 }
 
 CONCEPT_SOURCE_FILES = {

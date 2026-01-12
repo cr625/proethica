@@ -100,5 +100,8 @@ from app.models.entity_match_confirmation import EntityMatchConfirmation
 # Extraction prompt templates (added 2026-01-09)
 from app.models.extraction_prompt_template import (
     ExtractionPromptTemplate, ExtractionPromptTemplateVersion,
-    PIPELINE_STEPS, CONCEPT_COLORS, CONCEPT_SOURCE_FILES
+    PIPELINE_STEPS, CONCEPT_COLORS, CONCEPT_SOURCE_FILES, STEP4_PHASES
 )
+
+# Synthesis configuration (added 2026-01-10)
+from app.models.synthesis_config import SynthesisConfig, SYNTHESIS_PARAMETERS
