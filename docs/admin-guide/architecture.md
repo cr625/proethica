@@ -214,5 +214,5 @@ Production (proethica.org):
 
 - [Ontology Integration](ontology-integration.md) - OntServe MCP details
 - [Installation & Deployment](installation.md) - Setup instructions
-- [Pipeline Automation](../how-to/pipeline-automation.md) - Background processing
-- [Settings](../how-to/settings.md) - Configuration options
+- [Pipeline Automation](../analysis/pipeline-automation.md) - Background processing
+- [Settings](settings.md) - Configuration options

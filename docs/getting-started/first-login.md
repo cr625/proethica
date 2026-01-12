@@ -14,11 +14,6 @@ ProEthica operates in demo mode by default, allowing exploration of cases and ex
 
 Users exploring the demo will see view-only interfaces. Buttons for extraction, editing, and pipeline operations appear only for authenticated users. This documentation describes the full interface as seen by authenticated users.
 
-Future development will introduce additional access levels:
-
-- **Domain Expert**: Create and maintain domain ontologies, define guideline structures
-- **Professional User**: Run interactive scenarios, explore decision consequences
-
 ## Navigation Bar
 
 The top navigation provides access to main features:
@@ -80,7 +75,6 @@ The pipeline (`/scenario_pipeline/<case_id>`) provides step-by-step case analysi
 | 2 | Normative Requirements | Extract Principles, Obligations, Constraints, Capabilities | Implemented |
 | 3 | Temporal Dynamics | Extract Actions, Events, Causal Relationships | Implemented |
 | 4 | Case Synthesis | Four-phase analysis: provisions, questions, decision points, narrative | Implemented |
-| 5 | Scenario Exploration | Interactive decision-making with consequence generation | Planned |
 
 ### Pipeline Overview
 
@@ -162,8 +156,8 @@ Entities in review display their state:
 | `Ctrl+Enter` | Submit current form |
 | `Esc` | Close modal dialogs |
 
-## Next Steps
+## Related Documentation
 
-- [Upload Cases](../how-to/upload-cases.md) - Add cases for analysis
-- [Phase 1 Extraction](../how-to/phase1-extraction.md) - Start extracting concepts
-- [Precedent Discovery](../how-to/precedent-discovery.md) - Find similar cases
+- [Upload Cases](../analysis/uploading-cases.md) - Adding cases for analysis
+- [Running Extractions](../analysis/running-extractions.md) - Extraction process
+- [Precedent Network](../viewing/precedent-network.md) - Similarity search

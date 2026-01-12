@@ -389,5 +389,5 @@ async def health_check():
 ## Related Documentation
 
 - [System Architecture](architecture.md)
-- [Entity Review](../how-to/entity-review.md)
-- [Settings](../how-to/settings.md)
+- [Entity Review](../analysis/entity-review.md)
+- [Settings](settings.md)

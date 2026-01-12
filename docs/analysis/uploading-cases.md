@@ -4,16 +4,15 @@ This guide covers adding ethics cases to ProEthica for analysis.
 
 ## Import Methods
 
-ProEthica provides four methods for adding cases:
+ProEthica provides three methods for adding cases:
 
 ![Add New Case interface](../assets/images/screenshots/upload-case-content.png)
 
-| Method | Status | Description |
-|--------|--------|-------------|
-| **Enter URL** | Available | Import from NSPE website URLs |
-| Upload Document | Available | PDF, DOCX, TXT file upload |
-| Create Manually | Available | Manual entry of case details |
-| Language Model | Coming Soon | LLM-assisted case creation |
+| Method | Description |
+|--------|-------------|
+| **Enter URL** | Import from NSPE website URLs |
+| Upload Document | PDF, DOCX, TXT file upload |
+| Create Manually | Manual entry of case details |
 
 Currently, the **Enter URL** method is the primary way to add cases, optimized for importing NSPE Board of Ethical Review cases directly from the NSPE website.
 

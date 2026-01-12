@@ -2,9 +2,9 @@
 
 ProEthica is a research prototype demonstrating how case-based reasoning, ontology-supported validation, and large language models might be combined to support professional ethics review. The system provides a reference implementation for analyzing ethical scenarios against established standards and precedents.
 
-## Choose Your Path
+## Documentation by Access Level
 
-This documentation is organized by access level and task:
+The documentation is organized by access level and task:
 
 | Audience | Access | Documentation |
 |----------|--------|---------------|
@@ -86,20 +86,6 @@ Each step (1-3) processes both Facts and Discussion sections. Step 4 synthesizes
 
 ![Pipeline Overview](assets/images/screenshots/pipeline-overview-content.png)
 
-## Access Levels
-
-The production site operates in demo mode by default:
-
-| Level | Capabilities |
-|-------|--------------|
-| **Demo (no login)** | Browse cases, view extractions, explore precedent network |
-| **Authenticated** | Run extractions, edit entities, upload cases |
-| **Admin** | Edit prompt templates, manage users, system configuration |
-
-See [Interface Overview](getting-started/first-login.md#access-levels) for details.
-
-## Academic Citation
-
-If you use ProEthica in research, please cite:
+## Citation
 
 > Rauch, C. B., & Weber, R. O. (2026). ProEthica: A Professional Role-Based Ethical Analysis Tool Using LLM-Orchestrated, Ontology Supported Case-Based Reasoning. In *Proceedings of the AAAI Conference on Artificial Intelligence*. Singapore: AAAI Press.

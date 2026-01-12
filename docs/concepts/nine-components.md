@@ -249,7 +249,7 @@ Extracts action and event sequences:
 
 ### Step 4: Synthesis
 
-Analyzes extracted entities to produce decision points, arguments, and narrative structures. See [Step 4 Synthesis](../how-to/phase2-analysis.md) for details.
+Analyzes extracted entities to produce decision points, arguments, and narrative structures.
 
 ---
 
@@ -269,8 +269,7 @@ For complete academic references with DOIs and citations, see [References](/tool
 
 ## Related Guides
 
-- [Steps 1-3 Extraction](../how-to/phase1-extraction.md) - Extracting concepts
-- [Step 4 Synthesis](../how-to/phase2-analysis.md) - Case analysis
-- [Entity Review](../how-to/entity-review.md) - Validating extracted concepts
-- [Ontology Integration](../reference/ontology-integration.md) - Concept definitions
+- [Running Extractions](../analysis/running-extractions.md) - Extracting concepts
+- [Entity Review](../analysis/entity-review.md) - Validating extracted concepts
+- [Ontology Integration](../admin-guide/ontology-integration.md) - Concept definitions
 - [Academic References](/tools/references) - Full citations and sources
