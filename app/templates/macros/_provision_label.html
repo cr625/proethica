@@ -13,6 +13,12 @@ Parameters:
     provision_lookup: Dict mapping code -> provision metadata dict
     show_category: Whether to show category badge (default: false)
     link_format: Format for clickable code - 'badge', 'bracket', or 'plain' (default: 'bracket')
+    show_text_in_hover: Show provision text in hover (default: false for sections view where text is visible)
+    guideline_code: Guideline code for IRI generation (default: 'NSPE')
+
+IRI Standard (per ENTITY_RESOLUTION_PLAN.md):
+    Hovers show URI in small gray text. Pattern: http://proethica.org/ontology/provisions#{GUIDELINE}_{CODE}
+    where CODE has dots replaced with underscores (e.g., II.1.c -> NSPE_II_1_c)
 #}
 
 {% macro provision_label_styles() %}
@@ -83,12 +89,22 @@ Parameters:
     margin-right: 0.25rem;
     margin-bottom: 0.25rem;
 }
-.provision-popover .provision-source {
-    font-size: 0.75rem;
+.provision-popover .provision-iri {
+    font-size: 0.7rem;
     color: #6c757d;
+    font-family: monospace;
+    word-break: break-all;
     margin-top: 0.5rem;
     padding-top: 0.5rem;
     border-top: 1px solid #dee2e6;
+}
+.provision-popover .provision-iri a {
+    color: #6c757d;
+    text-decoration: none;
+}
+.provision-popover .provision-iri a:hover {
+    color: #0d6efd;
+    text-decoration: underline;
 }
 
 /* Category colors */
@@ -112,7 +128,32 @@ Parameters:
 </style>
 {% endmacro %}
 
-{% macro provision_label(code, provision_lookup, show_category=false, link_format='bracket') %}
+{# Generate provision IRI from code and guideline #}
+{% macro _generate_iri(code, guideline_code) %}
+{%- set normalized_code = code|replace('.', '_')|replace(' ', '_') -%}
+{%- set guideline_slug = guideline_code|upper|replace(' ', '_')|replace('-', '_') -%}
+http://proethica.org/ontology/provisions#{{ guideline_slug }}_{{ normalized_code }}
+{%- endmacro %}
+
+{# OntServe resolve endpoint base URL - uses config or defaults #}
+{% set ONTSERVE_RESOLVE_URL = config.get('ONTSERVE_URL', 'https://ontserve.ontorealm.net') ~ '/resolve?uri=' if config else 'https://ontserve.ontorealm.net/resolve?uri=' %}
+
+{# Build popover content based on context #}
+{% macro _popover_content(provision, code, cat_class, cat_label, show_text, guideline_code) %}
+{%- set iri = _generate_iri(code, guideline_code) -%}
+{%- set resolve_url = (config.get('ONTSERVE_URL', 'https://ontserve.ontorealm.net') if config else 'https://ontserve.ontorealm.net') ~ '/resolve?uri=' ~ iri|urlencode -%}
+<div class='provision-popover'>
+<div class='provision-header'>
+<span class='badge {{ cat_class }}'>{{ cat_label }}</span>
+{% if provision.subcategory %}<span class='badge provision-subcat'>{{ provision.subcategory|replace('_', ' ')|title }}</span>{% endif %}
+</div>
+{% if show_text %}<div class='provision-text'>{{ provision.text|e|truncate(350) }}</div>{% endif %}
+{% if provision.establishes and provision.establishes|length > 0 and show_text %}<div class='provision-establishes'><div class='provision-establishes-label'>Establishes:</div>{% for concept in provision.establishes %}{% set concept_type = concept.type|default('default') if concept is mapping else 'default' %}{% set concept_label = concept.label if concept is mapping else concept %}<span class='badge concept-{{ concept_type }} provision-concept-badge'>{{ concept_label }}</span>{% endfor %}</div>{% endif %}
+<div class='provision-iri'><i class='bi bi-link-45deg'></i> <a href='{{ resolve_url }}' target='_blank' title='View RDF'>{{ iri }}</a></div>
+</div>
+{%- endmacro %}
+
+{% macro provision_label(code, provision_lookup, show_category=false, link_format='bracket', show_text_in_hover=false, guideline_code='NSPE') %}
 {% set provision = provision_lookup.get(code) if provision_lookup else none %}
 
 {% if provision %}
@@ -127,7 +168,7 @@ Parameters:
           data-bs-trigger="hover focus"
           data-bs-html="true"
           data-bs-placement="top"
-          data-bs-content="<div class='provision-popover'><div class='provision-header'><span class='badge {{ cat_class }}'>{{ cat_label }}</span>{% if provision.subcategory %}<span class='badge provision-subcat'>{{ provision.subcategory|replace('_', ' ')|title }}</span>{% endif %}</div><div class='provision-text'>{{ provision.text|e|truncate(350) }}</div>{% if provision.establishes and provision.establishes|length > 0 %}<div class='provision-establishes'><div class='provision-establishes-label'>Establishes:</div>{% for concept in provision.establishes %}{% set concept_type = concept.type|default('default') if concept is mapping else 'default' %}{% set concept_label = concept.label if concept is mapping else concept %}<span class='badge concept-{{ concept_type }} provision-concept-badge'>{{ concept_label }}</span>{% endfor %}</div>{% endif %}{% if provision.source_guideline %}<div class='provision-source'><i class='bi bi-book'></i> {{ provision.source_guideline }}</div>{% endif %}</div>"
+          data-bs-content="{{ _popover_content(provision, code, cat_class, cat_label, show_text_in_hover, guideline_code)|e }}"
           title="{{ provision.title|default(code) }}">
         {{ code }}
     </span>
@@ -138,7 +179,7 @@ Parameters:
           data-bs-trigger="hover focus"
           data-bs-html="true"
           data-bs-placement="top"
-          data-bs-content="<div class='provision-popover'><div class='provision-header'><span class='badge {{ cat_class }}'>{{ cat_label }}</span>{% if provision.subcategory %}<span class='badge provision-subcat'>{{ provision.subcategory|replace('_', ' ')|title }}</span>{% endif %}</div><div class='provision-text'>{{ provision.text|e|truncate(350) }}</div>{% if provision.establishes and provision.establishes|length > 0 %}<div class='provision-establishes'><div class='provision-establishes-label'>Establishes:</div>{% for concept in provision.establishes %}{% set concept_type = concept.type|default('default') if concept is mapping else 'default' %}{% set concept_label = concept.label if concept is mapping else concept %}<span class='badge concept-{{ concept_type }} provision-concept-badge'>{{ concept_label }}</span>{% endfor %}</div>{% endif %}{% if provision.source_guideline %}<div class='provision-source'><i class='bi bi-book'></i> {{ provision.source_guideline }}</div>{% endif %}</div>"
+          data-bs-content="{{ _popover_content(provision, code, cat_class, cat_label, show_text_in_hover, guideline_code)|e }}"
           title="{{ provision.title|default(code) }}">
         {{ code }}
     </span>
@@ -149,7 +190,7 @@ Parameters:
           data-bs-trigger="hover focus"
           data-bs-html="true"
           data-bs-placement="top"
-          data-bs-content="<div class='provision-popover'><div class='provision-header'><span class='badge {{ cat_class }}'>{{ cat_label }}</span>{% if provision.subcategory %}<span class='badge provision-subcat'>{{ provision.subcategory|replace('_', ' ')|title }}</span>{% endif %}</div><div class='provision-text'>{{ provision.text|e|truncate(350) }}</div>{% if provision.establishes and provision.establishes|length > 0 %}<div class='provision-establishes'><div class='provision-establishes-label'>Establishes:</div>{% for concept in provision.establishes %}{% set concept_type = concept.type|default('default') if concept is mapping else 'default' %}{% set concept_label = concept.label if concept is mapping else concept %}<span class='badge concept-{{ concept_type }} provision-concept-badge'>{{ concept_label }}</span>{% endfor %}</div>{% endif %}{% if provision.source_guideline %}<div class='provision-source'><i class='bi bi-book'></i> {{ provision.source_guideline }}</div>{% endif %}</div>"
+          data-bs-content="{{ _popover_content(provision, code, cat_class, cat_label, show_text_in_hover, guideline_code)|e }}"
           title="{{ provision.title|default(code) }}">
         [{{ code }}]
     </span>
