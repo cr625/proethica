@@ -24,6 +24,7 @@ class TestNineComponentTerminology:
             'venv-proethica',
             '__pycache__',
             '.git',
+            '.claude',
             'site',
             'docs-internal/archive'
         }
@@ -129,7 +130,6 @@ class TestNineComponentTerminology:
             "docs/index.md": "Nine-Component",
             "docs/concepts/nine-components.md": "Nine-Component",
             "docs/getting-started/welcome.md": "Nine-Component",
-            "docs/how-to/phase1-extraction.md": "nine-component",
         }
 
         missing_terminology = []

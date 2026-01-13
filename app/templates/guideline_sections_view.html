@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from 'macros/_provision_label.html' import provision_label, provision_label_styles, provision_label_init_script, build_provision_lookup_script %}
+{% from 'macros/_concept_label.html' import concept_label, concept_label_styles %}
 
 {% block title %}Guideline Sections - {{ document.title }}{% endblock %}
 
@@ -97,11 +98,7 @@
                   <span class="ms-3">
                     <small class="text-muted">Establishes:</small>
                     {% for concept in section.section_metadata.establishes %}
-                      {% set concept_label = concept.label if concept is mapping else concept %}
-                      {% set concept_type = concept.type|default('default') if concept is mapping else 'default' %}
-                      <span class="badge {% if concept_type == 'principle' %}bg-orange{% elif concept_type == 'obligation' %}bg-danger{% else %}bg-secondary{% endif %} ms-1" style="font-size: 0.7rem;">
-                        {{ concept_label }}
-                      </span>
+                      {{ concept_label(concept, display_format='badge') }}
                     {% endfor %}
                   </span>
                   {% endif %}
@@ -154,6 +151,7 @@
 {% block styles %}
 {{ super() }}
 {{ provision_label_styles() }}
+{{ concept_label_styles() }}
 <style>
   .provision-text-display {
     font-size: 0.95rem;
@@ -167,12 +165,6 @@
 
   .list-group-item:hover {
     background-color: #f8f9fa;
-  }
-
-  /* Custom badge colors */
-  .bg-orange {
-    background-color: #fd7e14 !important;
-    color: white;
   }
 
   /* Category card hover effect */

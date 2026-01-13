@@ -505,6 +505,18 @@ div.reference-panel {
                 {% endfor %}
             </div>
             {% endfor %}
+
+            <!-- Guidelines Section -->
+            <div class="sidebar-step">
+                <div class="sidebar-step-header" style="background: #f9731620; color: #f97316;">
+                    Guidelines
+                </div>
+                <a href="{{ url_for('prompt_editor.edit_guideline_template', concept='provision_structure') }}"
+                   class="sidebar-concept">
+                    <span class="sidebar-concept-dot" style="background: #f97316;"></span>
+                    Provisions
+                </a>
+            </div>
         </div>
 
         <!-- Center: Editor with Tabs -->

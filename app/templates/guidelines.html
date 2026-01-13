@@ -21,7 +21,7 @@
           <h5 class="card-title mb-0">Ethical Guidelines</h5>
           <div>
             <a href="{{ url_for('worlds.add_guideline_form', id=world.id) }}" class="btn btn-sm btn-light">
-              <i class="fas fa-plus"></i> Add New Guideline
+              <i class="bi bi-plus-lg"></i> Add New Guideline
             </a>
           </div>
         </div>
@@ -57,20 +57,20 @@
           <h5 class="card-title mb-0">{{ guideline.title }}</h5>
         </div>
         <div class="card-body">
-          <p class="card-text">{{ guideline.get_content_excerpt(150) }}</p>
+          {% set section_count = guideline.sections.count() %}
+
+          <!-- Provisions badge -->
+          {% if section_count > 0 %}
+          <div class="mb-3">
+            <span class="badge bg-success">
+              <i class="bi bi-list-check"></i> {{ section_count }} Provisions
+            </span>
+          </div>
+          {% endif %}
 
           <div class="small text-muted mb-3">
             <div><strong>Created by:</strong> {{ get_creator_name(guideline) }}</div>
             <div><strong>Added:</strong> {{ guideline.created_at.strftime('%Y-%m-%d') }}</div>
-            <div><strong>Concepts:</strong>
-              {% if guideline.guideline_metadata and guideline.guideline_metadata.triples_created %}
-              {{ guideline.guideline_metadata.triples_created }}
-              {% elif guideline.entity_triples is defined %}
-              {{ guideline.entity_triples.count() }}
-              {% else %}
-              0
-              {% endif %}
-            </div>
             <div><strong>Source:</strong>
               {% if guideline.source %}
               <a href="{{ guideline.source }}" target="_blank">External URL</a>
@@ -87,10 +87,14 @@
           <div class="d-grid gap-2">
             <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}"
               class="btn btn-primary">
-              <i class="fas fa-book"></i> View
+              <i class="bi bi-book"></i> View Guideline
             </a>
-            
-            <!-- Only keep the View button -->
+            {% if section_count > 0 %}
+            <a href="{{ url_for('worlds.view_guideline_sections', id=world.id, document_id=guideline.id) }}"
+              class="btn btn-outline-secondary">
+              <i class="bi bi-list-ul"></i> View Provisions
+            </a>
+            {% endif %}
           </div>
         </div>
       </div>

@@ -12,7 +12,8 @@ from sqlalchemy import func
 from app.models import db
 from app.models.extraction_prompt_template import (
     ExtractionPromptTemplate, ExtractionPromptTemplateVersion,
-    PIPELINE_STEPS, CONCEPT_COLORS, CONCEPT_SOURCE_FILES, STEP4_PHASES
+    PIPELINE_STEPS, CONCEPT_COLORS, CONCEPT_SOURCE_FILES, STEP4_PHASES,
+    GUIDELINE_PIPELINE_STEPS, GUIDELINE_CONCEPTS
 )
 from app.models.extraction_prompt import ExtractionPrompt
 from app.models.document import Document
@@ -53,8 +54,9 @@ def edit_template(step, concept):
         logger.warning(f"Could not get domains: {e}")
         available_domains = ['engineering']
 
-    # Get the template for this domain
+    # Get the template for this domain (case extraction only)
     template = ExtractionPromptTemplate.query.filter_by(
+        extraction_type='case',
         step_number=step,
         concept_type=concept,
         domain=selected_domain,
@@ -64,6 +66,7 @@ def edit_template(step, concept):
     if not template:
         # Try to find any template for this concept in this domain
         template = ExtractionPromptTemplate.query.filter_by(
+            extraction_type='case',
             concept_type=concept,
             domain=selected_domain,
             is_active=True
@@ -72,6 +75,7 @@ def edit_template(step, concept):
     if not template:
         # Fall back to any domain
         template = ExtractionPromptTemplate.query.filter_by(
+            extraction_type='case',
             concept_type=concept,
             is_active=True
         ).first()
@@ -122,6 +126,68 @@ def edit_template(step, concept):
                           selected_domain=selected_domain)
 
 
+@prompt_editor_bp.route('/tools/prompts/guidelines/<concept>')
+@login_required
+def edit_guideline_template(concept):
+    """Edit a guideline extraction template."""
+    # Get domain from query params
+    selected_domain = request.args.get('domain', 'engineering')
+
+    # Get available domains
+    try:
+        domains = db.session.query(ExtractionPromptTemplate.domain).filter_by(
+            extraction_type='guideline'
+        ).distinct().all()
+        available_domains = sorted(set(d[0] for d in domains if d[0])) or ['engineering']
+    except Exception as e:
+        logger.warning(f"Could not get guideline domains: {e}")
+        available_domains = ['engineering']
+
+    # Get the guideline template
+    template = ExtractionPromptTemplate.query.filter_by(
+        extraction_type='guideline',
+        step_number=0,
+        concept_type=concept,
+        domain=selected_domain,
+        is_active=True
+    ).first()
+
+    if not template:
+        # Fall back to any domain
+        template = ExtractionPromptTemplate.query.filter_by(
+            extraction_type='guideline',
+            concept_type=concept,
+            is_active=True
+        ).first()
+
+    # Get concept info from GUIDELINE_CONCEPTS
+    concept_info = GUIDELINE_CONCEPTS.get(concept, {
+        'name': concept.replace('_', ' ').title(),
+        'description': '',
+        'color': '#f97316'
+    })
+
+    # Get version history
+    versions = []
+    if template:
+        versions = ExtractionPromptTemplateVersion.query.filter_by(
+            template_id=template.id
+        ).order_by(
+            ExtractionPromptTemplateVersion.version_number.desc()
+        ).limit(10).all()
+
+    return render_template('tools/prompt_editor_guideline.html',
+                          template=template,
+                          concept=concept,
+                          concept_info=concept_info,
+                          concept_color=concept_info.get('color', '#f97316'),
+                          versions=versions,
+                          guideline_steps=GUIDELINE_PIPELINE_STEPS,
+                          guideline_concepts=GUIDELINE_CONCEPTS,
+                          available_domains=available_domains,
+                          selected_domain=selected_domain)
+
+
 # ============================================================================
 # API Routes
 # ============================================================================
@@ -129,32 +195,68 @@ def edit_template(step, concept):
 @prompt_editor_bp.route('/api/prompts/templates')
 @login_required
 def get_templates():
-    """Get all templates organized by pipeline step."""
-    templates = ExtractionPromptTemplate.query.filter_by(is_active=True).all()
+    """Get all templates organized by pipeline step.
+
+    Query params:
+        extraction_type: 'case' (default), 'guideline', or 'all'
+    """
+    extraction_type = request.args.get('extraction_type', 'case')
+
+    query = ExtractionPromptTemplate.query.filter_by(is_active=True)
+    if extraction_type != 'all':
+        query = query.filter_by(extraction_type=extraction_type)
+
+    templates = query.all()
     templates_by_concept = {t.concept_type: t for t in templates}
 
     result = {
-        'steps': []
+        'extraction_type': extraction_type,
+        'steps': [],
+        'guideline_steps': []
     }
 
-    for step in PIPELINE_STEPS:
-        step_data = {
-            'step': step['step'],
-            'name': step['name'],
-            'color': step['color'],
-            'concepts': []
-        }
-        for concept in step['concepts']:
-            template = templates_by_concept.get(concept)
-            step_data['concepts'].append({
-                'type': concept,
-                'color': CONCEPT_COLORS.get(concept, '#6c757d'),
-                'template_id': template.id if template else None,
-                'has_active': template is not None,
-                'version': template.version if template else 0,
-                'name': template.name if template else f'{concept.title()} Extraction'
-            })
-        result['steps'].append(step_data)
+    # Add case extraction steps if requested
+    if extraction_type in ('case', 'all'):
+        for step in PIPELINE_STEPS:
+            step_data = {
+                'step': step['step'],
+                'name': step['name'],
+                'color': step['color'],
+                'concepts': []
+            }
+            for concept in step['concepts']:
+                template = templates_by_concept.get(concept)
+                step_data['concepts'].append({
+                    'type': concept,
+                    'color': CONCEPT_COLORS.get(concept, '#6c757d'),
+                    'template_id': template.id if template else None,
+                    'has_active': template is not None,
+                    'version': template.version if template else 0,
+                    'name': template.name if template else f'{concept.title()} Extraction'
+                })
+            result['steps'].append(step_data)
+
+    # Add guideline extraction steps if requested
+    if extraction_type in ('guideline', 'all'):
+        for step in GUIDELINE_PIPELINE_STEPS:
+            step_data = {
+                'step': step['step'],
+                'name': step['name'],
+                'color': step['color'],
+                'concepts': []
+            }
+            for concept in step['concepts']:
+                template = templates_by_concept.get(concept)
+                concept_info = GUIDELINE_CONCEPTS.get(concept, {})
+                step_data['concepts'].append({
+                    'type': concept,
+                    'color': concept_info.get('color', '#f97316'),
+                    'template_id': template.id if template else None,
+                    'has_active': template is not None,
+                    'version': template.version if template else 0,
+                    'name': template.name if template else concept_info.get('name', concept.title())
+                })
+            result['guideline_steps'].append(step_data)
 
     return jsonify(result)
 

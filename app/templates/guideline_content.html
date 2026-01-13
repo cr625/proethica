@@ -22,13 +22,13 @@
     <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
       <h5 class="mb-0">Guideline Content</h5>
       <div>
+{% set section_count = guideline.sections.count() %}
         <a href="{{ url_for('worlds.view_guideline_sections', id=world.id, document_id=guideline.id) }}"
           class="btn btn-sm btn-light">
           <i class="bi bi-list-ul"></i> View Provisions
-          {% if guideline.guideline_metadata and guideline.guideline_metadata.guideline_structure and
-          guideline.guideline_metadata.guideline_structure.sections_count %}
+          {% if section_count > 0 %}
           <span class="badge bg-success ms-1" title="Extracted provisions available">
-            {{ guideline.guideline_metadata.guideline_structure.sections_count }}
+            {{ section_count }}
           </span>
           {% endif %}
         </a>
@@ -70,20 +70,12 @@
       </div>
 
       <!-- Provisions info card (if sections exist) -->
-      {% if guideline.guideline_metadata and guideline.guideline_metadata.guideline_structure %}
-      {% set structure = guideline.guideline_metadata.guideline_structure %}
+      {% if section_count > 0 %}
       <div class="card bg-light border mb-4">
         <div class="card-body py-2">
           <div class="d-flex align-items-center justify-content-between">
             <div>
-              <strong>{{ structure.sections_count|default(0) }} provisions</strong> extracted
-              {% if structure.categories %}
-              <span class="text-muted ms-2">
-                {% for cat, count in structure.categories.items() %}
-                <span class="badge bg-secondary me-1">{{ cat|replace('_', ' ')|title }}: {{ count }}</span>
-                {% endfor %}
-              </span>
-              {% endif %}
+              <strong>{{ section_count }} provisions</strong> extracted
             </div>
             <a href="{{ url_for('worlds.view_guideline_sections', id=world.id, document_id=guideline.id) }}"
               class="btn btn-primary btn-sm">

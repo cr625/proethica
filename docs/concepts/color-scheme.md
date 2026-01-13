@@ -1,10 +1,10 @@
 # ProEthica Color Scheme
 
-This document defines the color scheme used throughout ProEthica visualizations for consistency and clarity.
+This document defines the color scheme used throughout ProEthica visualizations for consistency and clarity. Colors map directly to the Nine-Component Framework entity types and pipeline steps.
 
 ## Entity Type Colors
 
-ProEthica extracts 9 entity types organized into 4 steps. Each type has a distinct color for easy identification.
+ProEthica extracts 9 entity types (the Nine-Component Framework) organized into 4 steps. Each type has a distinct color for easy identification.
 
 ### Step 1 - Context (Foundation)
 

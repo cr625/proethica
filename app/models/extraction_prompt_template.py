@@ -17,9 +17,12 @@ class ExtractionPromptTemplate(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
 
+    # Extraction type - distinguishes case extraction from guideline extraction
+    extraction_type = db.Column(db.String(20), default='case', nullable=False)  # 'case' or 'guideline'
+
     # Pipeline position
-    step_number = db.Column(db.Integer, nullable=False)  # 1, 2, or 3
-    concept_type = db.Column(db.String(50), nullable=False)  # roles, states, etc.
+    step_number = db.Column(db.Integer, nullable=False)  # 1, 2, or 3 (case); 0 for guidelines
+    concept_type = db.Column(db.String(50), nullable=False)  # roles, states, etc. (case); provision_extraction, etc. (guideline)
     pass_type = db.Column(db.String(20), default='all')  # facts, discussion, all
 
     # Template content
@@ -52,28 +55,32 @@ class ExtractionPromptTemplate(db.Model):
                                lazy='dynamic', cascade='all, delete-orphan')
 
     __table_args__ = (
-        db.UniqueConstraint('step_number', 'concept_type', 'pass_type', 'version',
-                           name='uq_template_step_concept_pass_version'),
-        db.Index('idx_ept_active', 'step_number', 'concept_type', 'is_active'),
-        db.Index('idx_ept_concept_active', 'concept_type', 'is_active'),
+        db.UniqueConstraint('extraction_type', 'step_number', 'concept_type', 'pass_type', 'version',
+                           name='uq_template_type_step_concept_pass_version'),
+        db.Index('idx_ept_active', 'extraction_type', 'step_number', 'concept_type', 'is_active'),
+        db.Index('idx_ept_concept_active', 'extraction_type', 'concept_type', 'is_active'),
+        db.Index('idx_ept_type', 'extraction_type'),
     )
 
     def __repr__(self):
         return f'<ExtractionPromptTemplate step={self.step_number} concept={self.concept_type} v{self.version}>'
 
     @classmethod
-    def get_active_template(cls, step_number: int, concept_type: str, pass_type: str = None):
+    def get_active_template(cls, step_number: int, concept_type: str, pass_type: str = None,
+                           extraction_type: str = 'case'):
         """Get the active template for a given step and concept type.
 
         Args:
-            step_number: Pipeline step (1, 2, or 3)
+            step_number: Pipeline step (1, 2, or 3 for case; 0 for guidelines)
             concept_type: Concept type (roles, states, etc.)
             pass_type: Optional pass type filter (facts, discussion)
+            extraction_type: 'case' or 'guideline'
 
         Returns:
             Active ExtractionPromptTemplate or None
         """
         query = cls.query.filter_by(
+            extraction_type=extraction_type,
             step_number=step_number,
             concept_type=concept_type,
             is_active=True
@@ -89,10 +96,21 @@ class ExtractionPromptTemplate(db.Model):
         return query.filter_by(pass_type='all').first()
 
     @classmethod
-    def get_all_templates(cls):
-        """Get all active templates organized by step."""
-        templates = cls.query.filter_by(is_active=True).order_by(
-            cls.step_number, cls.concept_type
+    def get_all_templates(cls, extraction_type: str = None):
+        """Get all active templates organized by step.
+
+        Args:
+            extraction_type: Filter by 'case' or 'guideline'. If None, returns all.
+
+        Returns:
+            List of active ExtractionPromptTemplate instances
+        """
+        query = cls.query.filter_by(is_active=True)
+        if extraction_type:
+            query = query.filter_by(extraction_type=extraction_type)
+
+        templates = query.order_by(
+            cls.extraction_type, cls.step_number, cls.concept_type
         ).all()
 
         return templates
@@ -150,6 +168,7 @@ class ExtractionPromptTemplate(db.Model):
         """Convert to dictionary for API responses."""
         return {
             'id': self.id,
+            'extraction_type': self.extraction_type,
             'step_number': self.step_number,
             'concept_type': self.concept_type,
             'pass_type': self.pass_type,
@@ -298,6 +317,38 @@ PIPELINE_STEPS = [
         'read_only': True  # Step 4 prompts are read-only in the editor
     }
 ]
+
+# Guidelines extraction pipeline (separate from case extraction)
+GUIDELINE_PIPELINE_STEPS = [
+    {
+        'step': 0,
+        'name': 'Provision Extraction',
+        'color': '#f97316',  # Orange
+        'concepts': ['provision_structure', 'provision_concepts', 'provision_linkage']
+    }
+]
+
+# Guideline extraction concept metadata
+GUIDELINE_CONCEPTS = {
+    'provision_structure': {
+        'name': 'Provision Structure',
+        'description': 'Extract hierarchical provision structure (canons, rules, sections)',
+        'service_file': 'app/services/guideline_analysis_service.py',
+        'color': '#f97316'
+    },
+    'provision_concepts': {
+        'name': 'Provision Concepts',
+        'description': 'Identify principles, obligations, and constraints each provision establishes',
+        'service_file': 'app/services/guideline_concept_integration_service.py',
+        'color': '#fd7e14'
+    },
+    'provision_linkage': {
+        'name': 'Provision Linkage',
+        'description': 'Link provisions to ontology entities (Principles, Obligations, Constraints)',
+        'service_file': 'app/services/guideline_concept_type_mapper.py',
+        'color': '#ea580c'
+    }
+}
 
 # Step 4 phase metadata - describes the synthesis phases
 STEP4_PHASES = {

@@ -1,0 +1,200 @@
+{#
+Concept Label Macro - Reusable component for displaying ethical concepts (Principles, Obligations, Constraints)
+with rich popovers showing definitions and OntServe IRI links.
+
+Usage (in template):
+    from 'macros/_concept_label.html' import concept_label, concept_label_styles, concept_label_init_script
+
+    In styles block: concept_label_styles()
+    In content: concept_label(concept, concept_lookup)
+    In scripts block: concept_label_init_script()
+
+Parameters:
+    concept: Dict with keys {type, label, uri?} or string label
+    concept_lookup: Optional dict mapping URI -> concept metadata (definition, etc.)
+    show_type: Whether to show type in badge (default: true for badge, false for inline)
+    display_format: 'badge' or 'inline' (default: 'badge')
+
+IRI Standard (per ENTITY_RESOLUTION_PLAN.md):
+    Hovers show URI in small gray text. Pattern: http://proethica.org/ontology/{type}#{Normalized_Label}
+    Examples:
+    - http://proethica.org/ontology/principles#Public_Safety
+    - http://proethica.org/ontology/obligations#Duty_of_Care
+    - http://proethica.org/ontology/constraints#Conflict_of_Interest_Prohibition
+#}
+
+{% macro concept_label_styles() %}
+<style>
+/* Concept Label Base */
+.concept-label {
+    cursor: help;
+    font-weight: 500;
+    text-decoration: none;
+    border-bottom: 1px dotted currentColor;
+}
+.concept-label:hover {
+    background-color: rgba(var(--bs-primary-rgb), 0.1);
+    border-radius: 2px;
+}
+
+/* Concept badge styles */
+.concept-badge {
+    font-size: 0.8rem;
+    font-weight: 500;
+    padding: 0.2rem 0.5rem;
+    cursor: help;
+}
+.concept-badge:hover {
+    opacity: 0.85;
+}
+
+/* Concept type colors (per ENTITY_RESOLUTION_PLAN.md) */
+.concept-type-principle { background-color: #fd7e14; color: white; }
+.concept-type-obligation { background-color: #dc3545; color: white; }
+.concept-type-constraint { background-color: #6c757d; color: white; }
+.concept-type-default { background-color: #e9ecef; color: #495057; }
+
+/* Candidate concept indicator */
+.concept-candidate {
+    border: 2px dashed currentColor;
+    opacity: 0.8;
+}
+
+/* Popover content styling */
+.concept-popover {
+    max-width: 400px;
+}
+.concept-popover .concept-header {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.concept-popover .concept-type-badge {
+    font-size: 0.7rem;
+    padding: 0.15rem 0.4rem;
+}
+.concept-popover .concept-definition {
+    font-size: 0.85rem;
+    margin: 0.5rem 0;
+    color: #495057;
+    line-height: 1.4;
+}
+.concept-popover .concept-source {
+    font-size: 0.75rem;
+    color: #6c757d;
+    margin-top: 0.5rem;
+}
+.concept-popover .concept-iri {
+    font-size: 0.7rem;
+    color: #6c757d;
+    font-family: monospace;
+    word-break: break-all;
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid #dee2e6;
+}
+.concept-popover .concept-iri a {
+    color: #6c757d;
+    text-decoration: none;
+}
+.concept-popover .concept-iri a:hover {
+    color: #0d6efd;
+    text-decoration: underline;
+}
+</style>
+{% endmacro %}
+
+{# Generate concept IRI from label and type #}
+{% macro _generate_concept_iri(label, concept_type) %}
+{%- set normalized_label = label|replace(' ', '_')|replace('-', '_') -%}
+{%- set type_path = concept_type|lower ~ 's' if concept_type else 'concepts' -%}
+http://proethica.org/ontology/{{ type_path }}#{{ normalized_label }}
+{%- endmacro %}
+
+{# Get CSS class for concept type #}
+{% macro _type_class(concept_type) %}
+{%- if concept_type|lower == 'principle' -%}concept-type-principle
+{%- elif concept_type|lower == 'obligation' -%}concept-type-obligation
+{%- elif concept_type|lower == 'constraint' -%}concept-type-constraint
+{%- else -%}concept-type-default{%- endif -%}
+{% endmacro %}
+
+{# OntServe resolve endpoint base URL #}
+{% set ONTSERVE_RESOLVE_URL = config.get('ONTSERVE_URL', 'https://ontserve.ontorealm.net') ~ '/resolve?uri=' if config else 'https://ontserve.ontorealm.net/resolve?uri=' %}
+
+{# Build popover content for concept #}
+{% macro _concept_popover_content(label, concept_type, uri, definition, is_candidate) %}
+{%- set iri = uri if uri else _generate_concept_iri(label, concept_type) -%}
+{%- set resolve_url = (config.get('ONTSERVE_URL', 'https://ontserve.ontorealm.net') if config else 'https://ontserve.ontorealm.net') ~ '/resolve?uri=' ~ iri|urlencode -%}
+<div class='concept-popover'>
+<div class='concept-header'>
+<span class='badge {{ _type_class(concept_type) }} concept-type-badge'>{{ concept_type|title }}</span>
+{% if is_candidate %}<span class='badge bg-warning text-dark concept-type-badge'>Candidate</span>{% endif %}
+</div>
+{% if definition %}<div class='concept-definition'>{{ definition|e|truncate(250) }}</div>{% endif %}
+<div class='concept-iri'><i class='bi bi-link-45deg'></i> <a href='{{ resolve_url }}' target='_blank' title='View RDF'>{{ iri }}</a></div>
+</div>
+{%- endmacro %}
+
+{% macro concept_label(concept, concept_lookup=none, show_type=true, display_format='badge') %}
+{# Handle both dict and string formats #}
+{% if concept is mapping %}
+    {% set concept_type = concept.type|default('default') %}
+    {% set concept_label_text = concept.label %}
+    {% set concept_uri = concept.uri|default(none) %}
+    {% set is_candidate = concept.is_candidate|default(false) %}
+{% else %}
+    {% set concept_type = 'default' %}
+    {% set concept_label_text = concept %}
+    {% set concept_uri = none %}
+    {% set is_candidate = false %}
+{% endif %}
+
+{# Try to get additional metadata from lookup #}
+{% set lookup_data = none %}
+{% if concept_lookup and concept_uri %}
+    {% set lookup_data = concept_lookup.get(concept_uri) %}
+{% endif %}
+{% set definition = lookup_data.definition if lookup_data else none %}
+
+{% if display_format == 'badge' %}
+<span class="badge {{ _type_class(concept_type) }} concept-badge{% if is_candidate %} concept-candidate{% endif %}"
+      tabindex="0"
+      data-bs-toggle="popover"
+      data-bs-trigger="hover focus"
+      data-bs-html="true"
+      data-bs-placement="top"
+      data-bs-content="{{ _concept_popover_content(concept_label_text, concept_type, concept_uri, definition, is_candidate)|e }}"
+      title="{{ concept_label_text }}">
+    {{ concept_label_text }}
+</span>
+{% else %}
+<span class="concept-label {{ _type_class(concept_type)|replace('concept-type-', 'text-') }}"
+      tabindex="0"
+      data-bs-toggle="popover"
+      data-bs-trigger="hover focus"
+      data-bs-html="true"
+      data-bs-placement="top"
+      data-bs-content="{{ _concept_popover_content(concept_label_text, concept_type, concept_uri, definition, is_candidate)|e }}"
+      title="{{ concept_label_text }}">
+    {{ concept_label_text }}
+</span>
+{% endif %}
+{% endmacro %}
+
+{% macro concept_label_init_script() %}
+<script>
+// Initialize Bootstrap popovers for concept labels
+document.addEventListener('DOMContentLoaded', function() {
+    var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
+    var popoverList = popoverTriggerList.map(function(popoverTriggerEl) {
+        return new bootstrap.Popover(popoverTriggerEl, {
+            container: 'body',
+            sanitize: false
+        });
+    });
+});
+</script>
+{% endmacro %}

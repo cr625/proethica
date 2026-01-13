@@ -1,0 +1,440 @@
+{% extends "base.html" %}
+
+{% block title %}Edit {{ concept_info.name }} Template - Guidelines - ProEthica{% endblock %}
+
+{% block styles %}
+<style>
+/* Reuse prompt editor styles */
+div.editor-container {
+    display: grid !important;
+    grid-template-columns: 180px 1fr 280px !important;
+    grid-template-areas: "sidebar main reference" !important;
+    gap: 10px !important;
+    height: calc(100vh - 110px) !important;
+    min-height: 500px !important;
+    width: 100% !important;
+}
+
+@media (max-width: 1200px) {
+    div.editor-container {
+        grid-template-columns: 160px 1fr 240px !important;
+    }
+}
+
+@media (max-width: 900px) {
+    div.editor-container {
+        grid-template-columns: 1fr !important;
+        grid-template-areas: "sidebar" "main" "reference" !important;
+        height: auto !important;
+    }
+}
+
+div.sidebar {
+    grid-area: sidebar !important;
+    background: #f8f9fa !important;
+    border: 1px solid #dee2e6 !important;
+    border-radius: 8px !important;
+    padding: 10px !important;
+    overflow-y: auto !important;
+}
+
+.sidebar-section {
+    margin-bottom: 16px;
+}
+
+.sidebar-section-header {
+    font-weight: 600;
+    font-size: 0.75rem;
+    padding: 6px 8px;
+    border-radius: 4px;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+a.sidebar-concept {
+    display: flex !important;
+    align-items: center !important;
+    padding: 6px 10px !important;
+    border-radius: 4px !important;
+    margin-bottom: 3px !important;
+    text-decoration: none !important;
+    color: #333 !important;
+    font-size: 0.85rem !important;
+}
+a.sidebar-concept:hover { background: #e9ecef !important; }
+a.sidebar-concept.active { background: #f97316 !important; color: white !important; }
+a.sidebar-concept.active:hover { background: #ea580c !important; }
+.sidebar-concept-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 0.5rem;
+}
+
+div.main-panel {
+    grid-area: main !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    border-radius: 8px !important;
+    border: 1px solid #dee2e6 !important;
+    background: white !important;
+}
+
+.main-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid #dee2e6;
+    background: #f8f9fa;
+}
+
+.main-tabs {
+    display: flex;
+    border-bottom: 1px solid #dee2e6;
+    background: #fff;
+}
+
+.main-tab {
+    padding: 10px 16px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    font-size: 0.9rem;
+}
+.main-tab:hover { background: #f8f9fa; }
+.main-tab.active { border-bottom-color: #f97316; color: #f97316; font-weight: 500; }
+
+.main-body {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.tab-content {
+    display: none;
+    flex: 1;
+    overflow: auto;
+    padding: 12px;
+}
+.tab-content.active { display: flex; flex-direction: column; }
+
+.template-editor {
+    flex: 1;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    padding: 12px;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    resize: none;
+    background: #1e1e1e;
+    color: #d4d4d4;
+}
+
+div.reference-panel {
+    grid-area: reference !important;
+    background: #f8f9fa !important;
+    border: 1px solid #dee2e6 !important;
+    border-radius: 8px !important;
+    padding: 12px !important;
+    overflow-y: auto !important;
+}
+
+.ref-section { margin-bottom: 16px; }
+.ref-section-title {
+    font-weight: 600;
+    font-size: 0.8rem;
+    margin-bottom: 8px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.variable-chip {
+    display: inline-block;
+    background: #fff3e0;
+    color: #e65100;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.8rem;
+    margin: 2px;
+    border: 1px solid #ffe0b2;
+}
+
+.btn-guideline {
+    background: #f97316;
+    border-color: #f97316;
+    color: white;
+}
+.btn-guideline:hover {
+    background: #ea580c;
+    border-color: #ea580c;
+    color: white;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-2">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <div>
+            <h4 class="mb-0">
+                <span style="color: {{ concept_color }};">{{ concept_info.name }}</span>
+                <small class="text-muted ms-2">Guideline Extraction</small>
+            </h4>
+            <small class="text-muted">{{ concept_info.description }}</small>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('prompt_editor.index') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> Case Templates
+            </a>
+            {% if template %}
+            <button class="btn btn-guideline btn-sm" onclick="saveTemplate()">
+                <i class="bi bi-save"></i> Save
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Main Editor Layout -->
+    <div class="editor-container">
+        <!-- Left: Navigation -->
+        <div class="sidebar">
+            <!-- Guidelines Section -->
+            <div class="sidebar-section">
+                <div class="sidebar-section-header" style="background: #f9731620; color: #f97316;">
+                    Guidelines
+                </div>
+                {% for c_key, c_info in guideline_concepts.items() %}
+                <a href="{{ url_for('prompt_editor.edit_guideline_template', concept=c_key, domain=selected_domain) }}"
+                   class="sidebar-concept {% if c_key == concept %}active{% endif %}">
+                    <span class="sidebar-concept-dot" style="background: {{ c_info.color }};"></span>
+                    {{ c_info.name }}
+                </a>
+                {% endfor %}
+            </div>
+
+            <!-- Back to Case Extraction -->
+            <div class="sidebar-section">
+                <div class="sidebar-section-header" style="background: #3b82f620; color: #3b82f6;">
+                    Case Extraction
+                </div>
+                <a href="{{ url_for('prompt_editor.edit_template', step=1, concept='roles') }}"
+                   class="sidebar-concept">
+                    <span class="sidebar-concept-dot" style="background: #3b82f6;"></span>
+                    Go to Cases
+                </a>
+            </div>
+        </div>
+
+        <!-- Center: Editor -->
+        <div class="main-panel">
+            {% if template %}
+            <div class="main-tabs">
+                <div class="main-tab active" onclick="switchTab('template')">
+                    <i class="bi bi-code-slash"></i> Template
+                </div>
+                <div class="main-tab" onclick="switchTab('preview')">
+                    <i class="bi bi-eye"></i> Preview
+                </div>
+                <div class="main-tab" onclick="switchTab('history')">
+                    <i class="bi bi-clock-history"></i> History
+                </div>
+            </div>
+            <div class="main-body">
+                <!-- Template Tab -->
+                <div class="tab-content active" id="tab-template">
+                    <textarea class="template-editor" id="templateEditor">{{ template.template_text }}</textarea>
+                </div>
+
+                <!-- Preview Tab -->
+                <div class="tab-content" id="tab-preview">
+                    <div id="previewContent" class="p-3">
+                        <p class="text-muted">Click "Render Preview" to see the template with sample variables.</p>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="renderPreview()">
+                            <i class="bi bi-eye"></i> Render Preview
+                        </button>
+                    </div>
+                </div>
+
+                <!-- History Tab -->
+                <div class="tab-content" id="tab-history">
+                    {% if versions %}
+                    <div class="list-group list-group-flush">
+                        {% for v in versions %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>Version {{ v.version_number }}</strong>
+                                <small class="text-muted ms-2">{{ v.changed_at.strftime('%Y-%m-%d %H:%M') if v.changed_at else '' }}</small>
+                                {% if v.change_description %}
+                                <br><small class="text-muted">{{ v.change_description }}</small>
+                                {% endif %}
+                            </div>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="revertToVersion({{ v.version_number }})">
+                                Revert
+                            </button>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted p-3">No version history yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% else %}
+            <div class="d-flex align-items-center justify-content-center h-100">
+                <div class="text-center">
+                    <i class="bi bi-file-earmark-plus" style="font-size: 3rem; color: #ccc;"></i>
+                    <h5 class="mt-3">No Template Yet</h5>
+                    <p class="text-muted">Create a template for {{ concept_info.name }} extraction.</p>
+                    <button class="btn btn-guideline" onclick="createTemplate()">
+                        <i class="bi bi-plus-lg"></i> Create Template
+                    </button>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Right: Reference Panel -->
+        <div class="reference-panel">
+            <div class="ref-section">
+                <div class="ref-section-title">Template Variables</div>
+                <div>
+                    <span class="variable-chip">{{ '{{ guideline_text }}' }}</span>
+                    <span class="variable-chip">{{ '{{ guideline_title }}' }}</span>
+                    <span class="variable-chip">{{ '{{ existing_provisions }}' }}</span>
+                    <span class="variable-chip">{{ '{{ existing_principles }}' }}</span>
+                    <span class="variable-chip">{{ '{{ existing_obligations }}' }}</span>
+                </div>
+            </div>
+
+            <div class="ref-section">
+                <div class="ref-section-title">Output Schema</div>
+                <div class="small text-muted">
+                    <code>provision_code</code>: Section reference (e.g., "II.1.c")<br>
+                    <code>provision_text</code>: Full provision text<br>
+                    <code>provision_category</code>: fundamental_canons, rules_of_practice, etc.<br>
+                    <code>establishes</code>: List of Principle/Obligation IRIs
+                </div>
+            </div>
+
+            <div class="ref-section">
+                <div class="ref-section-title">Service File</div>
+                <div class="small">
+                    <code>{{ concept_info.service_file }}</code>
+                </div>
+            </div>
+
+            {% if template %}
+            <div class="ref-section">
+                <div class="ref-section-title">Version Info</div>
+                <div class="small text-muted">
+                    Version: {{ template.version }}<br>
+                    Updated: {{ template.updated_at.strftime('%Y-%m-%d %H:%M') if template.updated_at else 'Never' }}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const templateId = {{ template.id if template else 'null' }};
+const conceptType = '{{ concept }}';
+
+function switchTab(tabName) {
+    document.querySelectorAll('.main-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.querySelector(`.main-tab:has(i.bi-${tabName === 'template' ? 'code-slash' : tabName === 'preview' ? 'eye' : 'clock-history'})`).classList.add('active');
+    document.getElementById('tab-' + tabName).classList.add('active');
+}
+
+function saveTemplate() {
+    if (!templateId) return;
+
+    const templateText = document.getElementById('templateEditor').value;
+
+    fetch(`/api/prompts/template/${templateId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            template_text: templateText,
+            change_description: 'Updated via guideline editor'
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert('Template saved successfully!');
+            location.reload();
+        } else {
+            alert('Error saving: ' + data.error);
+        }
+    })
+    .catch(err => alert('Error: ' + err));
+}
+
+function renderPreview() {
+    if (!templateId) return;
+
+    const templateText = document.getElementById('templateEditor').value;
+
+    fetch(`/api/prompts/template/${templateId}/preview`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            template_text: templateText,
+            variables: {
+                guideline_text: '[Sample guideline text would appear here...]',
+                guideline_title: 'NSPE Code of Ethics',
+                existing_provisions: '- I.1: Hold paramount the safety...\n- II.1.a: Approve only work...',
+                existing_principles: '- Public Safety\n- Professional Competence',
+                existing_obligations: '- Maintain Confidentiality\n- Avoid Conflicts of Interest'
+            }
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('previewContent').innerHTML =
+                '<pre style="white-space: pre-wrap; font-size: 0.85rem;">' +
+                data.rendered_template.replace(/</g, '&lt;').replace(/>/g, '&gt;') +
+                '</pre>';
+        } else {
+            document.getElementById('previewContent').innerHTML =
+                '<div class="alert alert-danger">' + data.error + '</div>';
+        }
+    })
+    .catch(err => {
+        document.getElementById('previewContent').innerHTML =
+            '<div class="alert alert-danger">' + err + '</div>';
+    });
+}
+
+function revertToVersion(versionNumber) {
+    if (!confirm(`Revert to version ${versionNumber}?`)) return;
+
+    fetch(`/api/prompts/template/${templateId}/revert/${versionNumber}`, {
+        method: 'POST'
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error reverting: ' + data.error);
+        }
+    })
+    .catch(err => alert('Error: ' + err));
+}
+
+function createTemplate() {
+    // For now, just show an info message
+    alert('Template creation for guidelines coming soon. Please create templates manually via the API or database.');
+}
+</script>
+{% endblock %}
