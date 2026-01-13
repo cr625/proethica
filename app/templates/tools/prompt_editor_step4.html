@@ -285,6 +285,9 @@
             <span class="text-muted small">{{ phase_info.description }}</span>
         </div>
         <div class="d-flex gap-2">
+            <a href="{{ url_for('prompt_editor.edit_template', step=1, concept='roles') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> Back to Editor
+            </a>
             <select class="form-select form-select-sm" id="testCaseSelect" style="width: 250px;">
                 <option value="">Select case for testing...</option>
                 {% for case in cases %}
@@ -301,23 +304,29 @@
     <div class="prompt-layout">
         <!-- Sidebar -->
         <div class="sidebar">
-            {% for step in pipeline_steps %}
-            <div class="nav-step" style="color: {{ step.color }}">Step {{ step.step }}: {{ step.name }}</div>
-            {% for concept in step.concepts %}
-            {% if step.step == 4 %}
-            <a href="{{ url_for('prompt_editor.view_step4_phase', phase=concept) }}"
-               class="nav-item {% if concept == phase %}active{% endif %}"
-               style="{% if concept == phase %}color: {{ concept_colors.get(concept, '#6c757d') }}{% endif %}">
-                {{ step4_phases[concept].name if concept in step4_phases else concept|title }}
-            </a>
-            {% else %}
-            <a href="{{ url_for('prompt_editor.edit_template', step=step.step, concept=concept) }}"
-               class="nav-item">
-                {{ concept|title }}
-            </a>
-            {% endif %}
-            {% endfor %}
-            {% endfor %}
+            <!-- Step 4 Phases -->
+            <div class="sidebar-section">
+                <div class="sidebar-section-title" style="color: #64748b;">
+                    Step 4: Synthesis
+                </div>
+                {% for p_key, p_info in step4_phases.items() %}
+                <a href="{{ url_for('prompt_editor.view_step4_phase', phase=p_key) }}"
+                   class="nav-item {% if p_key == phase %}active{% endif %}"
+                   style="{% if p_key == phase %}color: {{ p_info.color }}; border-left-color: {{ p_info.color }};{% endif %}">
+                    {{ p_info.name }}
+                </a>
+                {% endfor %}
+            </div>
+
+            <!-- Back to Case Extraction -->
+            <div class="sidebar-section" style="margin-top: 1.5rem;">
+                <div class="sidebar-section-title" style="color: #3b82f6;">
+                    Case Extraction
+                </div>
+                <a href="{{ url_for('prompt_editor.edit_template', step=1, concept='roles') }}" class="nav-item">
+                    <i class="bi bi-arrow-left me-1"></i> Back to Editor
+                </a>
+            </div>
         </div>
 
         <!-- Main content -->

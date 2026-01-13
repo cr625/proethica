@@ -169,51 +169,20 @@
         <!-- Ontology Management -->
         <div class="col-md-6 mb-4">
             <div class="card h-100">
-                <div class="card-header">
+                <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="bi bi-diagram-3 me-2"></i>Linked Data</h5>
+                    <span class="badge {% if mcp_status %}bg-success{% else %}bg-danger{% endif %}">
+                        <i class="bi bi-circle-fill me-1" style="font-size: 0.5rem;"></i>
+                        {% if mcp_status %}MCP Connected{% else %}MCP Offline{% endif %}
+                    </span>
                 </div>
                 <div class="card-body">
-                    <!-- Static ontology links -->
-                    <div
-                        class="d-flex justify-content-between align-items-center mb-3 p-3 border rounded ontology-item">
-                        <div>
-                            <h6 class="mb-1">ProEthica Core</h6>
-                            <p class="mb-0 text-muted small">Nine-component framework for ethical analysis</p>
-                        </div>
-                        <div class="text-end">
-                            <a href="https://ontserve.ontorealm.net/ontology/proethica-core" target="_blank"
-                                class="btn btn-sm btn-outline-info">
-                                <i class="bi bi-box-arrow-up-right"></i>
-                            </a>
-                        </div>
-                    </div>
-                    <div
-                        class="d-flex justify-content-between align-items-center mb-3 p-3 border rounded ontology-item">
-                        <div>
-                            <h6 class="mb-1">ProEthica Intermediate</h6>
-                            <p class="mb-0 text-muted small">Professional role definitions and relationships</p>
-                        </div>
-                        <div class="text-end">
-                            <a href="https://ontserve.ontorealm.net/ontology/proethica-intermediate" target="_blank"
-                                class="btn btn-sm btn-outline-info">
-                                <i class="bi bi-box-arrow-up-right"></i>
-                            </a>
-                        </div>
-                    </div>
-                    <div
-                        class="d-flex justify-content-between align-items-center mb-3 p-3 border rounded ontology-item">
-                        <div>
-                            <h6 class="mb-1">Engineering Ethics</h6>
-                            <p class="mb-0 text-muted small">Domain-specific codes and precedents</p>
-                        </div>
-                        <div class="text-end">
-                            <a href="https://ontserve.ontorealm.net/ontology/engineering-ethics" target="_blank"
-                                class="btn btn-sm btn-outline-info">
-                                <i class="bi bi-box-arrow-up-right"></i>
-                            </a>
-                        </div>
-                    </div>
-
+                    <h6 class="mb-2">ProEthica Intermediate Ontology</h6>
+                    <p class="text-muted small mb-3">Nine-Component Framework for professional ethics analysis. Entities extracted from cases are linked to this ontology.</p>
+                    <a href="https://ontserve.ontorealm.net/ontology/proethica-intermediate" target="_blank"
+                        class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-box-arrow-up-right me-1"></i> View Ontology
+                    </a>
                 </div>
                 <div class="card-footer bg-transparent">
                     <small class="text-muted">

@@ -187,7 +187,7 @@ div.reference-panel {
             <small class="text-muted">{{ concept_info.description }}</small>
         </div>
         <div class="d-flex gap-2">
-            <a href="{{ url_for('prompt_editor.index') }}" class="btn btn-outline-secondary btn-sm">
+            <a href="{{ url_for('prompt_editor.edit_template', step=1, concept='roles') }}" class="btn btn-outline-secondary btn-sm">
                 <i class="bi bi-arrow-left"></i> Case Templates
             </a>
             {% if template %}

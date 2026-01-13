@@ -7,6 +7,7 @@ from app.models.world import World
 from app.models.scenario import Scenario
 from app.models.guideline import Guideline
 from app.models.document import Document
+from app.routes.health import check_mcp
 
 # Create a blueprint for the index routes
 index_bp = Blueprint('index', __name__)
@@ -82,8 +83,9 @@ def index():
         except:
             pass
 
-        # System status checks (mock for now)
-        mcp_status = True  # Could check actual MCP server
+        # System status checks
+        mcp_result = check_mcp()
+        mcp_status = mcp_result.get('status') == 'up'
         embedding_status = True  # Could check embedding service
         last_backup_time = "2024-06-07"  # Could check actual backup
 
