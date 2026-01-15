@@ -107,14 +107,9 @@ def api_get_scenario(id):
 
 # Web routes
 @scenarios_bp.route('/', methods=['GET'])
+@login_required
 def list_scenarios():
-    """Display all scenarios or coming soon page."""
-    from flask_login import current_user
-
-    # Show coming soon page for non-authenticated users
-    if not current_user.is_authenticated:
-        return render_template('scenarios_coming_soon.html')
-
+    """Display all scenarios. Requires login since feature is deprecated/WIP."""
     # Get world filter from query parameters
     world_id = request.args.get('world_id', type=int)
 
@@ -139,8 +134,9 @@ def new_scenario():
     return render_template('create_scenario.html', worlds=worlds, world=world)
 
 @scenarios_bp.route('/<int:id>', methods=['GET'])
+@login_required
 def view_scenario(id):
-    """Display a specific scenario."""
+    """Display a specific scenario. Requires login since feature is deprecated."""
     scenario = Scenario.query.get_or_404(id)
     return render_template('scenario_detail.html', scenario=scenario)
 
