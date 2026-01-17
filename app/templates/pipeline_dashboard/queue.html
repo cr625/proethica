@@ -67,7 +67,8 @@
                 </div>
                 <div class="card-footer">
                     <div class="row align-items-center mb-2">
-                        <div class="col-md-4">
+                        <!-- Hidden: Group and Priority selects (backend still supports them) -->
+                        <div class="col-md-4 d-none">
                             <select class="form-select form-select-sm" id="groupSelect">
                                 <option value="">No group</option>
                                 {% for group in group_names %}
@@ -76,13 +77,14 @@
                                 <option value="__new__">+ New group...</option>
                             </select>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-4 d-none">
                             <select class="form-select form-select-sm" id="prioritySelect">
                                 <option value="0">Normal priority</option>
                                 <option value="1">High priority</option>
                                 <option value="2">Urgent</option>
                             </select>
                         </div>
+                        <div class="col-md-8"></div>
                         <div class="col-md-4 text-end">
                             <button class="btn btn-primary" id="addToQueueBtn">
                                 Add to Queue (<span id="selectedCount">0</span>)
@@ -100,14 +102,14 @@
                             <div class="form-check form-check-inline">
                                 <input class="form-check-input" type="checkbox" id="includeStep4" checked>
                                 <label class="form-check-label" for="includeStep4">
-                                    Include Step 4 (Case Synthesis)
+                                    Include Step 4: Synthesis and Analysis
                                 </label>
                             </div>
                         </div>
                     </div>
                     <div class="row mt-1">
                         <div class="col-12">
-                            <small class="text-muted">Commit saves entities to OntServe. Step 4 runs narrative synthesis.</small>
+                            <small class="text-muted">Commit saves entities to OntServe. Step 4 runs synthesis phases (provisions, Q&C, transformation, decision points, narrative).</small>
                         </div>
                     </div>
                 </div>
@@ -136,7 +138,6 @@
                         <thead>
                             <tr>
                                 <th>Case</th>
-                                <th>Priority</th>
                                 <th>Steps</th>
                                 <th>Actions</th>
                             </tr>
@@ -146,22 +147,13 @@
                             <tr data-queue-id="{{ item.id }}">
                                 <td>Case {{ item.case_id }}</td>
                                 <td>
-                                    {% if item.priority == 2 %}
-                                    <span class="badge bg-danger">Urgent</span>
-                                    {% elif item.priority == 1 %}
-                                    <span class="badge bg-warning">High</span>
-                                    {% else %}
-                                    <span class="badge bg-secondary">Normal</span>
-                                    {% endif %}
-                                </td>
-                                <td>
                                     {% set config = item.config or {} %}
                                     {% set has_commit = config.get('commit_to_ontserve', true) %}
                                     {% set has_step4 = config.get('include_step4', true) %}
                                     {% if has_step4 %}
-                                    <span class="badge bg-info" title="Steps 1-4 (includes synthesis)">1-4</span>
+                                    <span class="badge bg-info" title="Contextual + Normative + Temporal + Synthesis">1-4</span>
                                     {% else %}
-                                    <span class="badge bg-light text-dark" title="Steps 1-3 only (extraction)">1-3</span>
+                                    <span class="badge bg-light text-dark" title="Contextual + Normative + Temporal (extraction only)">1-3</span>
                                     {% endif %}
                                     {% if has_commit %}
                                     <span class="badge bg-success" title="Commits to OntServe">C</span>
@@ -187,7 +179,7 @@
             <div class="card mt-3">
                 <div class="card-body">
                     <small class="text-muted">
-                        <strong>Processing order:</strong> Urgent > High > Normal, then by queue order.
+                        <strong>Processing:</strong> Cases are processed in queue order. Each case runs through all selected pipeline steps.
                     </small>
                 </div>
             </div>
@@ -423,25 +415,13 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             const data = await response.json();
             if (data.success) {
-                // Update button to show processing state
-                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Processing...';
+                // Update button to show redirect state
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Redirecting...';
                 btn.classList.remove('btn-success');
-                btn.classList.add('btn-warning');
+                btn.classList.add('btn-info');
 
-                // Show info message
-                const infoCard = document.querySelector('.card.mt-3 .card-body');
-                if (infoCard) {
-                    infoCard.innerHTML = `
-                        <div class="alert alert-info mb-0">
-                            <strong>Processing in progress</strong><br>
-                            <small>Cases are being processed in the background.
-                            <a href="/pipeline/dashboard">View progress on Dashboard</a></small>
-                        </div>
-                    `;
-                }
-
-                // Start polling for completion
-                startPolling();
+                // Redirect to dashboard to monitor progress
+                window.location.href = '/pipeline/dashboard';
             } else {
                 alert('Error: ' + data.error);
                 // Re-enable on error

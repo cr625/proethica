@@ -19,6 +19,8 @@ import logging
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 from app.services.external_mcp_client import get_external_mcp_client
+from app.services.extraction.mock_llm_provider import LLMResponseError
+from app.utils.llm_utils import extract_json_from_response
 from models import ModelConfig
 
 logger = logging.getLogger(__name__)
@@ -396,26 +398,36 @@ Respond with valid JSON in this format:
 
     def _format_existing_actions_for_prompt(self) -> str:
         """Format existing action classes for inclusion in prompt"""
+        # Defensive check - ensure we have a list
+        if self.existing_action_classes is None:
+            self.existing_action_classes = []
         if not self.existing_action_classes:
             return "No existing action classes loaded."
 
         formatted_actions = []
         for action in self.existing_action_classes[:10]:  # Limit to avoid prompt length issues
             label = action.get('label', 'Unknown')
-            description = action.get('description', action.get('comment', ''))[:150]
+            # Handle None values from OntServe entities
+            description = action.get('description') or action.get('comment') or ''
+            description = description[:150] if description else ''
             formatted_actions.append(f"- {label}: {description}")
 
         return "\n".join(formatted_actions)
 
     def _format_existing_events_for_prompt(self) -> str:
         """Format existing event classes for inclusion in prompt"""
+        # Defensive check - ensure we have a list
+        if self.existing_event_classes is None:
+            self.existing_event_classes = []
         if not self.existing_event_classes:
             return "No existing event classes loaded."
 
         formatted_events = []
         for event in self.existing_event_classes[:10]:  # Limit to avoid prompt length issues
             label = event.get('label', 'Unknown')
-            description = event.get('description', event.get('comment', ''))[:150]
+            # Handle None values from OntServe entities
+            description = event.get('description') or event.get('comment') or ''
+            description = description[:150] if description else ''
             formatted_events.append(f"- {label}: {description}")
 
         return "\n".join(formatted_events)
@@ -437,13 +449,9 @@ Respond with valid JSON in this format:
                 response_text = response.content if hasattr(response, 'content') else str(response)
                 self.last_raw_response = response_text
                 try:
-                    return json.loads(response_text)
-                except json.JSONDecodeError:
-                    import re
-                    json_match = re.search(r'\{[\s\S]*\}', response_text)
-                    if json_match:
-                        return json.loads(json_match.group())
-                    return {"new_action_classes": [], "action_individuals": [], "new_event_classes": [], "event_individuals": []}
+                    return extract_json_from_response(response_text)
+                except ValueError as e:
+                    raise LLMResponseError(f"Could not parse JSON from LLM response: {str(e)}")
 
             # Import the LLM client getter
             try:
@@ -468,25 +476,14 @@ Respond with valid JSON in this format:
             )
 
             # Store the raw response for RDF conversion
-            self.last_raw_response = response.content[0].text if response.content else ""
+            response_text = response.content[0].text if response.content else ""
+            self.last_raw_response = response_text
 
             # Parse JSON from response
-            response_text = response.content[0].text if response.content else ""
-
-            # Try to extract JSON from the response
             try:
-                result = json.loads(response_text)
-            except json.JSONDecodeError:
-                # Try to find JSON in the response
-                import re
-                json_match = re.search(r'\{[\s\S]*\}', response_text)
-                if json_match:
-                    result = json.loads(json_match.group())
-                else:
-                    logger.error("Could not extract JSON from LLM response")
-                    return {"new_action_classes": [], "action_individuals": [], "new_event_classes": [], "event_individuals": []}
-
-            return result
+                return extract_json_from_response(response_text)
+            except ValueError as e:
+                raise LLMResponseError(f"Could not parse JSON from LLM response: {str(e)}")
 
         except Exception as e:
             error_msg = str(e).lower()

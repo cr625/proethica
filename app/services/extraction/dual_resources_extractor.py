@@ -11,6 +11,8 @@ import logging
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 from app.services.external_mcp_client import get_external_mcp_client
+from app.services.extraction.mock_llm_provider import LLMResponseError
+from app.utils.llm_utils import extract_json_from_response
 from models import ModelConfig
 
 logger = logging.getLogger(__name__)
@@ -239,6 +241,9 @@ Focus on resources that:
 
     def _format_existing_resources_for_prompt(self) -> str:
         """Format existing resource classes for inclusion in prompt"""
+        # Defensive check - ensure we have a list
+        if self.existing_resource_classes is None:
+            self.existing_resource_classes = []
         if not self.existing_resource_classes:
             return "EXISTING RESOURCE CLASSES IN ONTOLOGY: None found. All resources you identify will be new."
 
@@ -269,13 +274,9 @@ Focus on resources that:
                 response_text = response.content if hasattr(response, 'content') else str(response)
                 self.last_raw_response = response_text
                 try:
-                    return json.loads(response_text)
-                except json.JSONDecodeError:
-                    import re
-                    json_match = re.search(r'\{[\s\S]*\}', response_text)
-                    if json_match:
-                        return json.loads(json_match.group())
-                    return {"new_resource_classes": [], "resource_individuals": []}
+                    return extract_json_from_response(response_text)
+                except ValueError as e:
+                    raise LLMResponseError(f"Could not parse JSON from LLM response: {str(e)}")
 
             from app.utils.llm_utils import get_llm_client
 
@@ -297,18 +298,9 @@ Focus on resources that:
 
                 # Parse JSON response
                 try:
-                    result = json.loads(response_text)
-                except json.JSONDecodeError:
-                    # Try to extract JSON from mixed response
-                    import re
-                    json_match = re.search(r'\{[\s\S]*\}', response_text)
-                    if json_match:
-                        result = json.loads(json_match.group())
-                    else:
-                        logger.error("Could not parse JSON from LLM response")
-                        return {}
-
-                return result
+                    return extract_json_from_response(response_text)
+                except ValueError as e:
+                    raise LLMResponseError(f"Could not parse JSON from LLM response: {str(e)}")
 
         except Exception as e:
             logger.error(f"Error calling LLM for dual resources extraction: {e}")

@@ -254,6 +254,20 @@ def api_add_to_queue():
             skipped.append({'case_id': case_id, 'reason': 'Already queued'})
             continue
 
+        # Check not currently processing (has active pipeline run)
+        active_run = PipelineRun.query\
+            .filter_by(case_id=case_id)\
+            .filter(PipelineRun.status.notin_([
+                PIPELINE_STATUS['COMPLETED'],
+                PIPELINE_STATUS['FAILED'],
+                PIPELINE_STATUS['EXTRACTED']
+            ]))\
+            .first()
+
+        if active_run:
+            skipped.append({'case_id': case_id, 'reason': f'Currently processing (status: {active_run.status})'})
+            continue
+
         # Add to queue
         queue_item = PipelineQueue(
             case_id=case_id,

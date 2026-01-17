@@ -11,6 +11,8 @@ import re
 from datetime import datetime
 from dataclasses import dataclass, field
 
+from app.services.extraction.mock_llm_provider import LLMResponseError
+from app.utils.llm_utils import extract_json_from_response
 from models import ModelConfig
 
 logger = logging.getLogger(__name__)
@@ -237,12 +239,9 @@ Return ONLY the JSON structure, no additional text."""
                 response_text = response.content if hasattr(response, 'content') else str(response)
                 self.last_raw_response = response_text
                 try:
-                    return json.loads(response_text)
-                except json.JSONDecodeError:
-                    json_match = re.search(r'\{[\s\S]*\}', response_text)
-                    if json_match:
-                        return json.loads(json_match.group())
-                    return {"new_capability_classes": [], "capability_individuals": []}
+                    return extract_json_from_response(response_text)
+                except ValueError as e:
+                    raise LLMResponseError(f"Could not parse JSON from LLM response: {str(e)}")
 
             # Import the LLM client getter
             try:
@@ -273,17 +272,9 @@ Return ONLY the JSON structure, no additional text."""
 
             # Parse JSON from response
             try:
-                result = json.loads(response_text)
-            except json.JSONDecodeError:
-                # Try to extract JSON from mixed text
-                json_match = re.search(r'\{[\s\S]*\}', response_text)
-                if json_match:
-                    result = json.loads(json_match.group())
-                else:
-                    logger.error("Could not parse JSON from LLM response")
-                    return {}
-
-            return result
+                return extract_json_from_response(response_text)
+            except ValueError as e:
+                raise LLMResponseError(f"Could not parse JSON from LLM response: {str(e)}")
 
         except Exception as e:
             logger.error(f"LLM extraction failed: {e}")

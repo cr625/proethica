@@ -11,6 +11,7 @@ import logging
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 from app.services.external_mcp_client import get_external_mcp_client
+from app.utils.llm_utils import extract_json_from_response
 from models import ModelConfig
 
 logger = logging.getLogger(__name__)
@@ -260,6 +261,9 @@ State Class: "Emergency Situation" with NO corresponding individual (INVALID - n
 
     def _format_existing_states_for_prompt(self) -> str:
         """Format existing state classes for inclusion in prompt"""
+        # Defensive check - ensure we have a list
+        if self.existing_state_classes is None:
+            self.existing_state_classes = []
         if not self.existing_state_classes:
             return "EXISTING STATE CLASSES IN ONTOLOGY: None found. All states you identify will be new."
 
@@ -323,13 +327,9 @@ State Class: "Emergency Situation" with NO corresponding individual (INVALID - n
             response_text = response.content if hasattr(response, 'content') else str(response)
             self.last_raw_response = response_text
             try:
-                return json.loads(response_text)
-            except json.JSONDecodeError:
-                import re
-                json_match = re.search(r'\{[\s\S]*\}', response_text)
-                if json_match:
-                    return json.loads(json_match.group())
-                raise LLMResponseError(f"Could not parse JSON from response (source: {self.data_source.value}): {response_text[:200]}")
+                return extract_json_from_response(response_text)
+            except ValueError as e:
+                raise LLMResponseError(f"Could not parse JSON from response (source: {self.data_source.value}): {str(e)}")
 
         # Real LLM mode - errors must propagate
         try:
@@ -356,18 +356,11 @@ State Class: "Emergency Situation" with NO corresponding individual (INVALID - n
         response_text = response.content[0].text if response.content else ""
         self.last_raw_response = response_text
 
-        # Parse JSON response
+        # Parse JSON response using utility that handles markdown code blocks
         try:
-            return json.loads(response_text)
-        except json.JSONDecodeError:
-            import re
-            json_match = re.search(r'\{[\s\S]*\}', response_text)
-            if json_match:
-                try:
-                    return json.loads(json_match.group())
-                except json.JSONDecodeError:
-                    pass
-            raise LLMResponseError(f"Could not parse JSON from LLM response: {response_text[:500]}")
+            return extract_json_from_response(response_text)
+        except ValueError as e:
+            raise LLMResponseError(f"Could not parse JSON from LLM response: {str(e)}")
 
     def _parse_candidate_state_classes(self, raw_classes: List[Dict], case_id: int) -> List[CandidateStateClass]:
         """Parse raw state class data into CandidateStateClass objects"""

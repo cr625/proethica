@@ -146,7 +146,9 @@ def run_step4_synthesis(
         if provisions_result.get('error'):
             result.error = f"Provisions failed: {provisions_result.get('error')}"
             return result
-        result.provisions_count = provisions_result.get('provisions_count', 0)
+        if provisions_result.get('skipped'):
+            notify('PROVISIONS', f"Skipped: {provisions_result.get('reason', 'no references')}")
+        result.provisions_count = provisions_result.get('provisions_count', len(provisions_result.get('provisions', [])))
         result.stages_completed.append('PROVISIONS')
 
         # =====================================================================
@@ -279,7 +281,15 @@ def _run_provisions(case_id: int, llm_client, get_all_case_entities) -> dict:
                 break
 
         if not references_html:
-            return {'error': 'No references section found'}
+            # No references section or empty - skip provisions extraction but don't fail
+            logger.info(f"[Step4Synthesis] No references content found for case {case_id} - skipping provisions")
+            return {
+                'provisions': [],
+                'all_mentions': [],
+                'validation_results': [],
+                'skipped': True,
+                'reason': 'No references section content'
+            }
 
         # Parse provisions
         parser = NSPEReferencesParser()

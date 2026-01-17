@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from app.services.external_mcp_client import get_external_mcp_client
 from app.services.candidate_role_validation_service import CandidateRoleValidationService
 from app.services.case_entity_storage_service import CaseEntityStorageService
+from app.utils.llm_utils import extract_json_from_response
 from models import ModelConfig
 
 logger = logging.getLogger(__name__)
@@ -203,13 +204,18 @@ Respond with valid JSON in this format:
 
     def _format_existing_roles_for_prompt(self) -> str:
         """Format existing role classes for inclusion in prompt"""
+        # Defensive check - ensure we have a list
+        if self.existing_role_classes is None:
+            self.existing_role_classes = []
         if not self.existing_role_classes:
             return "No existing role classes loaded."
 
         formatted_roles = []
         for role in self.existing_role_classes[:20]:  # Limit to avoid prompt length issues
             label = role.get('label', 'Unknown')
-            description = role.get('description', role.get('comment', ''))[:100]
+            # Handle None values from OntServe entities
+            description = role.get('description') or role.get('comment') or ''
+            description = description[:100] if description else ''
             formatted_roles.append(f"- {label}: {description}")
 
         return "\n".join(formatted_roles)
@@ -240,14 +246,9 @@ Respond with valid JSON in this format:
             response_text = response.content if hasattr(response, 'content') else str(response)
             self.last_raw_response = response_text
             try:
-                return json.loads(response_text)
-            except json.JSONDecodeError:
-                import re
-                json_match = re.search(r'\{[\s\S]*\}', response_text)
-                if json_match:
-                    return json.loads(json_match.group())
-                # For mock mode, this is a fixture configuration issue
-                raise LLMResponseError(f"Could not parse JSON from response (source: {self.data_source.value}): {response_text[:200]}")
+                return extract_json_from_response(response_text)
+            except ValueError as e:
+                raise LLMResponseError(f"Could not parse JSON from response (source: {self.data_source.value}): {str(e)}")
 
         # Real LLM mode - errors must propagate, not be silently converted to empty results
         try:
@@ -288,20 +289,11 @@ Respond with valid JSON in this format:
         # Store raw response for debugging
         self.last_raw_response = response_text
 
-        # Parse JSON response
+        # Parse JSON response using utility that handles markdown code blocks
         try:
-            return json.loads(response_text)
-        except json.JSONDecodeError:
-            # Try to extract JSON from mixed response
-            import re
-            json_match = re.search(r'\{[\s\S]*\}', response_text)
-            if json_match:
-                try:
-                    return json.loads(json_match.group())
-                except json.JSONDecodeError:
-                    pass
-            # Real LLM returned unparseable response - this is an error, not empty results
-            raise LLMResponseError(f"Could not parse JSON from LLM response: {response_text[:500]}")
+            return extract_json_from_response(response_text)
+        except ValueError as e:
+            raise LLMResponseError(f"Could not parse JSON from LLM response: {str(e)}")
 
     def _parse_candidate_role_classes(self, raw_classes: List[Dict], case_id: int) -> List[CandidateRoleClass]:
         """Parse and validate candidate role classes from LLM response"""

@@ -27,6 +27,7 @@ from celery_config import get_celery
 from app import db
 from app.models.pipeline_run import PipelineRun, PIPELINE_STATUS
 from app.models.document import Document
+from app.services.case_entity_storage_service import CaseEntityStorageService
 from datetime import datetime
 import logging
 import traceback
@@ -348,6 +349,22 @@ def run_step1_task(self, run_id: int, section_type: str = 'facts'):
         if not case_text:
             raise ValueError(f"No {section_type} section found for case {run.case_id}")
 
+        # Auto-clear uncommitted Pass 1 entities before running new extraction
+        # Only clear on 'facts' run (first run) to avoid clearing discussion results
+        if section_type == 'facts':
+            run.current_step = "Clearing previous pass1 extraction"
+            db.session.commit()
+            clear_result = CaseEntityStorageService.clear_extraction_pass(
+                case_id=run.case_id,
+                extraction_pass='pass1'
+            )
+            if clear_result.get('success'):
+                cleared_count = clear_result.get('entities_cleared', 0) + clear_result.get('prompts_cleared', 0)
+                if cleared_count > 0:
+                    logger.info(f"[Task {self.request.id}] Auto-cleared {cleared_count} uncommitted pass1 entities/prompts")
+            else:
+                logger.warning(f"[Task {self.request.id}] Auto-clear pass1 failed: {clear_result.get('error', 'Unknown')}")
+
         results = {}
         for entity_type in STEP1_ENTITY_TYPES:
             # Update granular status for UI
@@ -405,6 +422,22 @@ def run_step2_task(self, run_id: int, section_type: str = 'facts'):
 
         if not case_text:
             raise ValueError(f"No {section_type} section found for case {run.case_id}")
+
+        # Auto-clear uncommitted Pass 2 entities before running new extraction
+        # Only clear on 'facts' run (first run) to avoid clearing discussion results
+        if section_type == 'facts':
+            run.current_step = "Clearing previous pass2 extraction"
+            db.session.commit()
+            clear_result = CaseEntityStorageService.clear_extraction_pass(
+                case_id=run.case_id,
+                extraction_pass='pass2'
+            )
+            if clear_result.get('success'):
+                cleared_count = clear_result.get('entities_cleared', 0) + clear_result.get('prompts_cleared', 0)
+                if cleared_count > 0:
+                    logger.info(f"[Task {self.request.id}] Auto-cleared {cleared_count} uncommitted pass2 entities/prompts")
+            else:
+                logger.warning(f"[Task {self.request.id}] Auto-clear pass2 failed: {clear_result.get('error', 'Unknown')}")
 
         results = {}
         for entity_type in STEP2_ENTITY_TYPES:
