@@ -43,8 +43,9 @@ def login():
         
         # Check if user exists and password is correct
         if user and user.check_password(form.password.data):
-            # Update last login timestamp
+            # Update login tracking
             user.last_login = datetime.now(timezone.utc)
+            user.login_count = (user.login_count or 0) + 1
             db.session.commit()
 
             login_user(user, remember=form.remember_me.data)
