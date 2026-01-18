@@ -344,7 +344,7 @@ State Class: "Emergency Situation" with NO corresponding individual (INVALID - n
         try:
             response = llm_client.messages.create(
                 model=self.model_name,
-                max_tokens=4000,
+                max_tokens=8000,
                 temperature=0.3,
                 messages=[
                     {"role": "user", "content": prompt}

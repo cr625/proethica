@@ -6,6 +6,11 @@ Handles committing extracted entities from temporary storage to permanent OntSer
 - Individuals are saved to case-specific ontologies (proethica-case-N.ttl)
 - Synchronizes with OntServe database via refresh scripts
 
+Versioning Strategy (January 2026):
+- Case TTL files are OVERWRITTEN on re-extraction (single file, no accumulation)
+- OntServe DB preserves historical versions via concepts.is_current and concept_versions
+- Classes are versioned individually (same class from different cases = new version)
+
 Note: Current architecture stores new classes in proethica-intermediate-extracted.ttl
 for testing purposes. Alternative approach would be to store both classes and
 individuals in case-specific ontologies (proethica-case-N.ttl) and have
@@ -17,10 +22,12 @@ import os
 import json
 import logging
 from typing import List, Dict, Any, Tuple, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import subprocess
 from pathlib import Path
 import requests
+import psycopg2
+from psycopg2.extras import Json
 
 from rdflib import Graph, Namespace, URIRef, Literal, RDF, RDFS, OWL, XSD
 from rdflib.namespace import SKOS, DCTERMS
@@ -28,6 +35,15 @@ from rdflib.namespace import SKOS, DCTERMS
 from app.models.temporary_rdf_storage import TemporaryRDFStorage
 
 logger = logging.getLogger(__name__)
+
+# OntServe database connection (for versioned commits)
+ONTSERVE_DB_CONFIG = {
+    'dbname': 'ontserve',
+    'user': 'postgres',
+    'password': 'PASS',
+    'host': 'localhost',
+    'port': 5432
+}
 
 # Namespaces
 PROETHICA = Namespace("http://proethica.org/ontology/intermediate#")
@@ -791,4 +807,502 @@ class OntServeCommitService:
             return {
                 'error': str(e)
             }
+
+    # ========== VERSIONED COMMIT METHODS ==========
+
+    def commit_case_versioned(self, case_id: int, entity_ids: Optional[List[int]] = None) -> Dict[str, Any]:
+        """
+        Commit entities with versioning support.
+
+        This method:
+        1. Marks existing OntServe concepts for this case as superseded (is_current=false)
+        2. Creates new concept records with incremented extraction_run_version
+        3. OVERWRITES the case TTL file (no merging)
+        4. For classes, creates individual class versions
+
+        Args:
+            case_id: The case ID
+            entity_ids: Optional list of specific entity IDs to commit. If None, commits all.
+
+        Returns:
+            Dictionary with commit results including version info
+        """
+        try:
+            # Fetch entities to commit
+            if entity_ids:
+                entities = TemporaryRDFStorage.query.filter(
+                    TemporaryRDFStorage.id.in_(entity_ids),
+                    TemporaryRDFStorage.case_id == case_id
+                ).all()
+            else:
+                # Commit all entities for this case
+                entities = TemporaryRDFStorage.query.filter_by(case_id=case_id).all()
+
+            if not entities:
+                return {
+                    'success': False,
+                    'error': 'No entities found to commit'
+                }
+
+            # Separate classes and individuals
+            classes_to_commit = []
+            individuals_to_commit = []
+
+            for entity in entities:
+                rdf_data = entity.rdf_json_ld if entity.rdf_json_ld else {}
+                if entity.storage_type == 'class':
+                    classes_to_commit.append((entity, rdf_data))
+                elif entity.storage_type == 'individual':
+                    individuals_to_commit.append((entity, rdf_data))
+
+            results = {
+                'success': True,
+                'case_id': case_id,
+                'classes_committed': 0,
+                'individuals_committed': 0,
+                'versions_superseded': 0,
+                'new_version': None,
+                'errors': []
+            }
+
+            # Connect to OntServe database
+            conn = psycopg2.connect(**ONTSERVE_DB_CONFIG)
+            try:
+                # Get the next extraction run version for this case
+                new_version = self._get_next_extraction_version(conn, case_id)
+                results['new_version'] = new_version
+
+                # Supersede existing current versions for this case
+                superseded = self._supersede_case_versions(conn, case_id)
+                results['versions_superseded'] = superseded
+
+                # Commit individuals to OntServe concepts table
+                if individuals_to_commit:
+                    ind_result = self._commit_individuals_versioned(
+                        conn, case_id, new_version, individuals_to_commit
+                    )
+                    results['individuals_committed'] = ind_result['count']
+                    if ind_result.get('error'):
+                        results['errors'].append(ind_result['error'])
+
+                # Commit classes with individual versioning
+                if classes_to_commit:
+                    class_result = self._commit_classes_versioned(
+                        conn, case_id, new_version, classes_to_commit
+                    )
+                    results['classes_committed'] = class_result['count']
+                    results['class_versions_created'] = class_result.get('versions_created', 0)
+                    if class_result.get('error'):
+                        results['errors'].append(class_result['error'])
+
+                conn.commit()
+
+            except Exception as e:
+                conn.rollback()
+                raise
+            finally:
+                conn.close()
+
+            # Write TTL files (overwrites existing)
+            if individuals_to_commit:
+                ttl_result = self._write_case_ttl_fresh(case_id, individuals_to_commit)
+                if ttl_result.get('error'):
+                    results['errors'].append(ttl_result['error'])
+                results['ttl_file'] = ttl_result.get('file')
+
+            if classes_to_commit:
+                # For classes, we still append to intermediate-extracted.ttl
+                # but with version metadata
+                class_ttl_result = self._commit_classes_to_intermediate(classes_to_commit)
+                if class_ttl_result.get('error'):
+                    results['errors'].append(class_ttl_result['error'])
+
+            # Mark entities as published in ProEthica
+            for entity in entities:
+                entity.is_published = True
+
+            from app import db
+            db.session.commit()
+
+            # Sync with OntServe (register + refresh)
+            if individuals_to_commit:
+                register_result = self._register_case_ontology(case_id)
+                if register_result.get('success'):
+                    refresh_result = self._refresh_case_ontology(case_id)
+                    if refresh_result.get('success'):
+                        results['ontserve_synced'] = True
+                    else:
+                        results['errors'].append(f"Refresh warning: {refresh_result.get('error')}")
+                else:
+                    results['errors'].append(f"Register warning: {register_result.get('error')}")
+
+            logger.info(f"Versioned commit for case {case_id}: v{new_version}, "
+                       f"{results['individuals_committed']} individuals, "
+                       f"{results['classes_committed']} classes")
+
+            return results
+
+        except Exception as e:
+            logger.error(f"Error in versioned commit: {e}", exc_info=True)
+            return {
+                'success': False,
+                'error': str(e)
+            }
+
+    def _get_next_extraction_version(self, conn, case_id: int) -> int:
+        """Get the next extraction run version for a case."""
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT COALESCE(MAX(extraction_run_version), 0) + 1
+                FROM concepts
+                WHERE case_id = %s
+            """, (case_id,))
+            result = cur.fetchone()
+            return result[0] if result else 1
+
+    def _supersede_case_versions(self, conn, case_id: int) -> int:
+        """Mark all current versions for a case as superseded."""
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE concepts
+                SET is_current = false,
+                    superseded_at = %s
+                WHERE case_id = %s AND is_current = true
+            """, (datetime.now(timezone.utc), case_id))
+            return cur.rowcount
+
+    def _commit_individuals_versioned(self, conn, case_id: int, version: int,
+                                      individuals: List[Tuple[Any, Dict]]) -> Dict[str, Any]:
+        """Commit individuals to OntServe concepts table with versioning."""
+        try:
+            count = 0
+            with conn.cursor() as cur:
+                # Get domain ID for engineering-ethics
+                cur.execute("SELECT id FROM domains WHERE name = 'engineering-ethics'")
+                domain_row = cur.fetchone()
+                domain_id = domain_row[0] if domain_row else None
+
+                for entity, rdf_data in individuals:
+                    label = entity.entity_label or 'UnknownIndividual'
+                    safe_label = label.replace(" ", "_").replace("(", "").replace(")", "")
+                    safe_label = safe_label.replace('"', '').replace("'", "").replace(",", "")
+                    safe_label = safe_label.replace("<", "").replace(">", "").replace("&", "")
+
+                    uri = f"http://proethica.org/ontology/case/{case_id}#{safe_label}"
+
+                    cur.execute("""
+                        INSERT INTO concepts (
+                            uuid, domain_id, uri, label, primary_type, description,
+                            status, case_id, extraction_run_version, is_current,
+                            entity_class, extraction_method, source_document,
+                            confidence_score, created_by, metadata
+                        )
+                        VALUES (
+                            gen_random_uuid(), %s, %s, %s, %s, %s,
+                            'candidate', %s, %s, true,
+                            'individual', 'llm_extraction', %s,
+                            %s, 'proethica-pipeline', %s
+                        )
+                    """, (
+                        domain_id,
+                        uri,
+                        label,
+                        entity.extraction_type or 'Unknown',
+                        entity.entity_definition,
+                        case_id,
+                        version,
+                        f'case:{case_id}',
+                        0.7,  # Default confidence
+                        Json(rdf_data or {})
+                    ))
+                    count += 1
+
+            return {'count': count}
+
+        except Exception as e:
+            logger.error(f"Error committing individuals versioned: {e}")
+            return {'count': 0, 'error': str(e)}
+
+    def _commit_classes_versioned(self, conn, case_id: int, version: int,
+                                  classes: List[Tuple[Any, Dict]]) -> Dict[str, Any]:
+        """
+        Commit classes with individual versioning.
+
+        If a class already exists (by URI), creates a new version entry.
+        If new, creates the class as current version.
+        """
+        try:
+            count = 0
+            versions_created = 0
+
+            with conn.cursor() as cur:
+                # Get domain ID
+                cur.execute("SELECT id FROM domains WHERE name = 'engineering-ethics'")
+                domain_row = cur.fetchone()
+                domain_id = domain_row[0] if domain_row else None
+
+                for entity, rdf_data in classes:
+                    label = entity.entity_label or 'UnknownClass'
+                    safe_label = label.replace(" ", "").replace("(", "").replace(")", "")
+                    safe_label = safe_label.replace('"', '').replace("'", "").replace(",", "")
+                    safe_label = safe_label.replace("<", "").replace(">", "").replace("&", "")
+
+                    uri = f"http://proethica.org/ontology/intermediate#{safe_label}"
+
+                    # Check if class already exists
+                    cur.execute("""
+                        SELECT id, version_number FROM concepts
+                        WHERE uri = %s AND entity_class = 'class' AND is_current = true
+                    """, (uri,))
+                    existing = cur.fetchone()
+
+                    if existing:
+                        # Class exists - create version history and update
+                        concept_id, old_version = existing
+
+                        # Create version entry for the old version
+                        cur.execute("""
+                            INSERT INTO concept_versions (
+                                concept_id, version_number, uri, label, semantic_label,
+                                primary_type, description, status, metadata,
+                                changed_fields, change_reason, changed_by
+                            )
+                            SELECT id, version_number, uri, label, semantic_label,
+                                   primary_type, description, status, metadata,
+                                   %s, %s, %s
+                            FROM concepts WHERE id = %s
+                        """, (
+                            Json(['description', 'case_id']),
+                            f'Re-extracted from case {case_id}',
+                            'proethica-pipeline',
+                            concept_id
+                        ))
+
+                        # Update existing concept with new version
+                        cur.execute("""
+                            UPDATE concepts
+                            SET description = %s,
+                                version_number = version_number + 1,
+                                case_id = %s,
+                                extraction_run_version = %s,
+                                updated_at = %s,
+                                updated_by = 'proethica-pipeline',
+                                metadata = %s
+                            WHERE id = %s
+                        """, (
+                            entity.entity_definition,
+                            case_id,
+                            version,
+                            datetime.now(timezone.utc),
+                            Json(rdf_data or {}),
+                            concept_id
+                        ))
+                        versions_created += 1
+                    else:
+                        # New class - create fresh
+                        cur.execute("""
+                            INSERT INTO concepts (
+                                uuid, domain_id, uri, label, primary_type, description,
+                                status, case_id, extraction_run_version, is_current,
+                                entity_class, extraction_method, source_document,
+                                created_by, metadata
+                            )
+                            VALUES (
+                                gen_random_uuid(), %s, %s, %s, %s, %s,
+                                'candidate', %s, %s, true,
+                                'class', 'llm_extraction', %s,
+                                'proethica-pipeline', %s
+                            )
+                        """, (
+                            domain_id,
+                            uri,
+                            label,
+                            entity.extraction_type or 'Unknown',
+                            entity.entity_definition,
+                            case_id,
+                            version,
+                            f'case:{case_id}',
+                            Json(rdf_data or {})
+                        ))
+
+                    count += 1
+
+            return {'count': count, 'versions_created': versions_created}
+
+        except Exception as e:
+            logger.error(f"Error committing classes versioned: {e}")
+            return {'count': 0, 'error': str(e)}
+
+    def _write_case_ttl_fresh(self, case_id: int, individuals: List[Tuple[Any, Dict]]) -> Dict[str, Any]:
+        """
+        Write a fresh case TTL file (overwrites any existing file).
+
+        This is the versioned approach - each extraction completely replaces the previous TTL.
+        """
+        try:
+            case_file = self.ontologies_dir / f"proethica-case-{case_id}.ttl"
+
+            # Create new graph (don't load existing)
+            g = Graph()
+
+            # Add ontology declaration
+            case_ontology_uri = URIRef(f"http://proethica.org/ontology/case/{case_id}")
+            g.add((case_ontology_uri, RDF.type, OWL.Ontology))
+            g.add((case_ontology_uri, RDFS.label, Literal(f"ProEthica Case {case_id} Ontology")))
+            g.add((case_ontology_uri, OWL.imports, URIRef("http://proethica.org/ontology/cases")))
+            g.add((case_ontology_uri, OWL.imports, URIRef("http://proethica.org/ontology/intermediate")))
+            g.add((case_ontology_uri, DCTERMS.created, Literal(datetime.now(timezone.utc))))
+
+            # Bind namespaces
+            case_ns = Namespace(f"http://proethica.org/ontology/case/{case_id}#")
+            g.bind(f"case{case_id}", case_ns)
+            g.bind("proeth", PROETHICA)
+            g.bind("proeth-core", PROETHICA_CORE)
+            g.bind("proeth-cases", PROETHICA_CASES)
+            g.bind("bfo", BFO)
+            g.bind("iao", IAO)
+            g.bind("prov", PROV)
+
+            count = 0
+            for entity, rdf_data in individuals:
+                # Use the existing individual serialization logic
+                extraction_type = entity.extraction_type or ''
+
+                # Determine label
+                if extraction_type == 'canonical_decision_point' and rdf_data and rdf_data.get('focus_id'):
+                    label = rdf_data['focus_id']
+                elif extraction_type in ('ethical_question', 'question_generated') and rdf_data and rdf_data.get('questionNumber'):
+                    label = f"Question_{rdf_data['questionNumber']}"
+                elif extraction_type == 'ethical_conclusion' and rdf_data and rdf_data.get('conclusionNumber'):
+                    label = f"Conclusion_{rdf_data['conclusionNumber']}"
+                else:
+                    label = entity.entity_label or 'UnknownIndividual'
+
+                safe_label = label.replace(" ", "_").replace("(", "").replace(")", "")
+                safe_label = safe_label.replace('"', '').replace("'", "").replace(",", "")
+                safe_label = safe_label.replace("<", "").replace(">", "").replace("&", "")
+                individual_uri = case_ns[safe_label]
+
+                # Add individual
+                g.add((individual_uri, RDF.type, OWL.NamedIndividual))
+                g.add((individual_uri, RDFS.label, Literal(label)))
+
+                # Add type based on rdf_json_ld types
+                if rdf_data and rdf_data.get('types'):
+                    for type_uri in rdf_data['types']:
+                        if '#' in type_uri:
+                            class_name = type_uri.split('#')[-1]
+                        else:
+                            class_name = type_uri.split('/')[-1]
+                        safe_class = class_name.replace(" ", "").replace("(", "").replace(")", "")
+                        class_uri = PROETHICA[safe_class]
+                        g.add((individual_uri, RDF.type, class_uri))
+
+                # Add type-specific properties (reuse existing logic)
+                self._add_individual_properties(g, individual_uri, entity, rdf_data, case_ns)
+
+                # Provenance
+                g.add((individual_uri, PROV.generatedAtTime, Literal(datetime.now(timezone.utc))))
+                g.add((individual_uri, PROV.wasGeneratedBy, Literal(f"ProEthica Case {case_id} Extraction")))
+
+                count += 1
+
+            # Write file (overwrites existing)
+            g.serialize(destination=case_file, format='turtle')
+            logger.info(f"Wrote fresh TTL file with {count} individuals to {case_file}")
+
+            return {'count': count, 'file': str(case_file)}
+
+        except Exception as e:
+            logger.error(f"Error writing fresh case TTL: {e}")
+            return {'count': 0, 'error': str(e)}
+
+    def _add_individual_properties(self, g: Graph, uri: URIRef, entity: Any,
+                                   rdf_data: Dict, case_ns: Namespace):
+        """Add type-specific properties to an individual in the graph."""
+        extraction_type = entity.extraction_type or ''
+
+        if extraction_type == 'argument_generated' and rdf_data:
+            g.add((uri, RDF.type, PROETHICA_CASES.Argument))
+            if rdf_data.get('argument_type'):
+                g.add((uri, PROETHICA['argumentType'], Literal(rdf_data['argument_type'])))
+            if rdf_data.get('decision_point_id'):
+                g.add((uri, PROETHICA['decisionPointId'], Literal(rdf_data['decision_point_id'])))
+            # ... (other argument properties handled similarly)
+
+        elif extraction_type == 'canonical_decision_point' and rdf_data:
+            g.add((uri, RDF.type, PROETHICA_CASES.DecisionPoint))
+            if rdf_data.get('focus_id'):
+                g.add((uri, PROETHICA['decisionPointId'], Literal(rdf_data['focus_id'])))
+            if rdf_data.get('description'):
+                g.add((uri, PROETHICA['focus'], Literal(rdf_data['description'])))
+            elif rdf_data.get('focus'):
+                g.add((uri, PROETHICA['focus'], Literal(rdf_data['focus'])))
+
+        elif extraction_type == 'ethical_conclusion' and rdf_data:
+            g.add((uri, RDF.type, PROETHICA_CASES.EthicalConclusion))
+            if rdf_data.get('conclusionText'):
+                g.add((uri, PROETHICA['conclusionText'], Literal(rdf_data['conclusionText'])))
+            if rdf_data.get('conclusionType'):
+                g.add((uri, PROETHICA['conclusionType'], Literal(rdf_data['conclusionType'])))
+
+        elif extraction_type == 'ethical_question' and rdf_data:
+            g.add((uri, RDF.type, PROETHICA_CASES.EthicalQuestion))
+            if rdf_data.get('questionText'):
+                g.add((uri, PROETHICA['questionText'], Literal(rdf_data['questionText'])))
+            if rdf_data.get('questionType'):
+                g.add((uri, PROETHICA['questionType'], Literal(rdf_data['questionType'])))
+
+        # Generic properties fallback
+        elif rdf_data and rdf_data.get('properties'):
+            for prop_name, prop_values in rdf_data['properties'].items():
+                if not isinstance(prop_values, list):
+                    prop_values = [prop_values]
+                safe_prop = self._camelCase(prop_name)
+                prop_uri = PROETHICA[safe_prop]
+                for value in prop_values:
+                    if value:
+                        g.add((uri, prop_uri, Literal(value)))
+
+    def get_case_version_history(self, case_id: int) -> Dict[str, Any]:
+        """
+        Get version history for a case's extractions.
+
+        Returns:
+            Dictionary with version history and current state
+        """
+        try:
+            conn = psycopg2.connect(**ONTSERVE_DB_CONFIG)
+            try:
+                with conn.cursor() as cur:
+                    # Get all versions for this case
+                    cur.execute("""
+                        SELECT extraction_run_version, COUNT(*) as entity_count,
+                               MIN(created_at) as extracted_at, is_current
+                        FROM concepts
+                        WHERE case_id = %s
+                        GROUP BY extraction_run_version, is_current
+                        ORDER BY extraction_run_version DESC
+                    """, (case_id,))
+
+                    versions = []
+                    for row in cur.fetchall():
+                        versions.append({
+                            'version': row[0],
+                            'entity_count': row[1],
+                            'extracted_at': row[2].isoformat() if row[2] else None,
+                            'is_current': row[3]
+                        })
+
+                    return {
+                        'case_id': case_id,
+                        'versions': versions,
+                        'total_versions': len(set(v['version'] for v in versions))
+                    }
+            finally:
+                conn.close()
+
+        except Exception as e:
+            logger.error(f"Error getting version history: {e}")
+            return {'error': str(e)}
 

@@ -80,7 +80,8 @@ class AutoCommitService:
         # Cache for OntServe classes (loaded on demand)
         self._ontserve_classes_cache: Optional[Dict[str, Dict]] = None
 
-    def commit_case_entities(self, case_id: int, force: bool = False) -> CommitSummary:
+    def commit_case_entities(self, case_id: int, force: bool = False,
+                              versioned: bool = True) -> CommitSummary:
         """
         Main entry point - commit all uncommitted entities for a case.
 
@@ -90,6 +91,8 @@ class AutoCommitService:
         Args:
             case_id: The case ID to process
             force: If True, re-commit already committed entities
+            versioned: If True (default), overwrites TTL file and versions in OntServe DB.
+                       If False, merges with existing TTL file (legacy behavior).
 
         Returns:
             CommitSummary with results of the operation
@@ -114,6 +117,9 @@ class AutoCommitService:
                 )
 
             logger.info(f"Found {len(entities)} entities to process for case {case_id}")
+
+            # Store versioned flag for use in TTL generation
+            self._versioned_commit = versioned
 
             # 2. Process each entity - validate matches and determine action
             results = []
@@ -416,12 +422,19 @@ class AutoCommitService:
         try:
             case_file = self.ontologies_dir / f"proethica-case-{case_id}.ttl"
 
-            # Create or load existing graph
+            # Check if using versioned commits (overwrites TTL) or legacy (merges)
+            versioned = getattr(self, '_versioned_commit', True)
+
+            # Create graph - for versioned commits, always start fresh
             g = Graph()
-            if case_file.exists():
+            if not versioned and case_file.exists():
+                # Legacy: load existing and merge
                 g.parse(case_file, format='turtle')
+                logger.info(f"Legacy mode: merging with existing TTL for case {case_id}")
             else:
-                # Add ontology declaration
+                # Versioned: always create fresh ontology declaration
+                if versioned and case_file.exists():
+                    logger.info(f"Versioned mode: overwriting TTL for case {case_id}")
                 case_ontology_uri = URIRef(f"http://proethica.org/ontology/case/{case_id}")
                 g.add((case_ontology_uri, RDF.type, OWL.Ontology))
                 g.add((case_ontology_uri, RDFS.label, Literal(f"ProEthica Case {case_id} Ontology")))
@@ -730,6 +743,7 @@ class AutoCommitService:
         """
         Sync the case TTL file to OntServe's database for visualization and MCP.
 
+        For versioned commits, also stores version history in OntServe concepts table.
         Calls OntServe scripts via subprocess to register/update the case ontology.
         """
         import subprocess
@@ -738,9 +752,36 @@ class AutoCommitService:
         register_script = "/home/chris/onto/OntServe/scripts/register_case_ontologies.py"
         refresh_script = "/home/chris/onto/OntServe/scripts/refresh_entity_extraction.py"
 
+        versioned = getattr(self, '_versioned_commit', True)
+
         try:
+            # For versioned commits, also update OntServe concepts table with version info
+            if versioned:
+                try:
+                    from app.services.ontserve_commit_service import OntServeCommitService
+                    commit_service = OntServeCommitService()
+
+                    # Get entities that were just committed
+                    entities = TemporaryRDFStorage.query.filter_by(
+                        case_id=case_id,
+                        is_published=True
+                    ).all()
+
+                    if entities:
+                        entity_ids = [e.id for e in entities]
+                        # Use versioned commit to store in OntServe DB with version history
+                        result = commit_service.commit_case_versioned(case_id, entity_ids)
+                        if result.get('success'):
+                            logger.info(f"Versioned commit to OntServe DB: v{result.get('new_version')}, "
+                                       f"{result.get('versions_superseded')} superseded")
+                        else:
+                            logger.warning(f"Versioned commit warning: {result.get('error')}")
+                except Exception as e:
+                    logger.warning(f"Versioned commit to OntServe DB failed: {e}")
+                    # Continue with TTL sync even if DB commit fails
+
             # Run the registration script (handles both new and existing ontologies)
-            logger.info(f"Syncing case {case_id} to OntServe...")
+            logger.info(f"Syncing case {case_id} TTL to OntServe...")
 
             # First, refresh entity extraction for this specific case
             result = subprocess.run(
@@ -752,7 +793,7 @@ class AutoCommitService:
             )
 
             if result.returncode == 0:
-                logger.info(f"OntServe sync successful for case {case_id}")
+                logger.info(f"OntServe TTL sync successful for case {case_id}")
             else:
                 logger.warning(f"OntServe sync returned non-zero: {result.stderr}")
 
