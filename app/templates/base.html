@@ -324,6 +324,15 @@
         });
     </script>
 
+    <!-- Human visitor tracking for Umami (bots don't execute JS or stay 3+ seconds) -->
+    <script>
+        setTimeout(function() {
+            if (typeof umami !== 'undefined') {
+                umami.track('human-visitor');
+            }
+        }, 3000);
+    </script>
+
     {% block scripts %}
     <script>
         function toggleDescription(worldId) {
