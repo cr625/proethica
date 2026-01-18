@@ -13,13 +13,62 @@
                         <i class="fas fa-shield-alt text-primary me-2"></i>
                         Admin Dashboard
                     </h1>
-                    <p class="text-muted mb-0">System management and user administration</p>
+                    <p class="text-muted mb-0">System management and monitoring</p>
                 </div>
-                <div>
-                    <span class="badge bg-success">
-                        <i class="fas fa-check-circle me-1"></i>
-                        System Operational
+                <div class="d-flex align-items-center gap-2">
+                    <span id="overallHealth" class="badge bg-secondary">
+                        <i class="fas fa-circle me-1"></i>
+                        Checking...
                     </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Service Status Row -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center py-2">
+                    <h6 class="mb-0">
+                        <i class="fas fa-heartbeat me-2"></i>
+                        Service Status
+                    </h6>
+                    <a href="{{ url_for('health.status_page') }}" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-expand-alt me-1"></i>Full Status
+                    </a>
+                </div>
+                <div class="card-body py-3">
+                    <div class="row text-center">
+                        <div class="col-md-3 col-6 mb-2 mb-md-0">
+                            <div class="d-flex align-items-center justify-content-center">
+                                <i class="fas fa-database me-2 text-primary"></i>
+                                <span>PostgreSQL</span>
+                                <span id="postgresqlStatus" class="badge bg-secondary ms-2">...</span>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6 mb-2 mb-md-0">
+                            <div class="d-flex align-items-center justify-content-center">
+                                <i class="fas fa-server me-2 text-danger"></i>
+                                <span>Redis</span>
+                                <span id="redisStatus" class="badge bg-secondary ms-2">...</span>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <div class="d-flex align-items-center justify-content-center">
+                                <i class="fas fa-cogs me-2 text-warning"></i>
+                                <span>Celery</span>
+                                <span id="celeryStatus" class="badge bg-secondary ms-2">...</span>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <div class="d-flex align-items-center justify-content-center">
+                                <i class="fas fa-project-diagram me-2 text-info"></i>
+                                <span>OntServe</span>
+                                <span id="mcpStatus" class="badge bg-secondary ms-2">...</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -29,7 +78,7 @@
     <div class="row mb-4">
         <!-- Users Statistics -->
         <div class="col-md-3 mb-3">
-            <div class="card border-primary">
+            <div class="card border-primary h-100">
                 <div class="card-body">
                     <div class="d-flex justify-content-between">
                         <div>
@@ -39,7 +88,7 @@
                             </h6>
                             <h3 class="mb-0">{{ stats.users.total }}</h3>
                             <small class="text-muted">
-                                {{ stats.users.admin }} admin, {{ stats.users.test_users }} test users
+                                {{ stats.users.admin }} admin, {{ stats.users.test_users }} test
                             </small>
                         </div>
                         <div class="text-primary">
@@ -52,17 +101,17 @@
 
         <!-- Data Statistics -->
         <div class="col-md-3 mb-3">
-            <div class="card border-info">
+            <div class="card border-info h-100">
                 <div class="card-body">
                     <div class="d-flex justify-content-between">
                         <div>
                             <h6 class="card-title text-info mb-1">
                                 <i class="fas fa-database me-1"></i>
-                                Total Data
+                                Data Items
                             </h6>
                             <h3 class="mb-0">{{ stats.data.total_worlds + stats.data.total_documents + stats.data.total_guidelines }}</h3>
                             <small class="text-muted">
-                                {{ stats.data.total_worlds }} worlds, {{ stats.data.total_documents }} docs, {{ stats.data.total_guidelines }} guidelines
+                                {{ stats.data.total_cases }} cases, {{ stats.data.total_guidelines }} guidelines
                             </small>
                         </div>
                         <div class="text-info">
@@ -73,46 +122,46 @@
             </div>
         </div>
 
-        <!-- System Data -->
+        <!-- Ontology Data -->
         <div class="col-md-3 mb-3">
-            <div class="card border-success">
+            <div class="card border-success h-100">
                 <div class="card-body">
                     <div class="d-flex justify-content-between">
                         <div>
                             <h6 class="card-title text-success mb-1">
-                                <i class="fas fa-lock me-1"></i>
-                                System Data
+                                <i class="fas fa-project-diagram me-1"></i>
+                                Ontology
                             </h6>
-                            <h3 class="mb-0">{{ stats.data.system_worlds + stats.data.system_documents + stats.data.system_guidelines }}</h3>
+                            <h3 class="mb-0">{{ stats.ontology.entity_triples }}</h3>
                             <small class="text-muted">
-                                Protected from resets
+                                entity triples extracted
                             </small>
                         </div>
                         <div class="text-success">
-                            <i class="fas fa-shield-alt fa-2x opacity-50"></i>
+                            <i class="fas fa-project-diagram fa-2x opacity-50"></i>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- User Data -->
+        <!-- Processing Stats -->
         <div class="col-md-3 mb-3">
-            <div class="card border-warning">
+            <div class="card border-warning h-100">
                 <div class="card-body">
                     <div class="d-flex justify-content-between">
                         <div>
                             <h6 class="card-title text-warning mb-1">
-                                <i class="fas fa-user-edit me-1"></i>
-                                User Data
+                                <i class="fas fa-microchip me-1"></i>
+                                Processing
                             </h6>
-                            <h3 class="mb-0">{{ stats.data.user_worlds + stats.data.user_documents + stats.data.user_guidelines }}</h3>
+                            <h3 class="mb-0">{{ stats.processing.deconstructed_cases }}</h3>
                             <small class="text-muted">
-                                Can be reset
+                                cases analyzed
                             </small>
                         </div>
                         <div class="text-warning">
-                            <i class="fas fa-user-edit fa-2x opacity-50"></i>
+                            <i class="fas fa-microchip fa-2x opacity-50"></i>
                         </div>
                     </div>
                 </div>
@@ -120,10 +169,11 @@
         </div>
     </div>
 
-    <!-- Quick Actions -->
+    <!-- Quick Actions and External Monitoring -->
     <div class="row mb-4">
-        <div class="col-12">
-            <div class="card">
+        <!-- Quick Actions -->
+        <div class="col-md-6 mb-3">
+            <div class="card h-100">
                 <div class="card-header">
                     <h5 class="card-title mb-0">
                         <i class="fas fa-bolt me-2"></i>
@@ -131,44 +181,73 @@
                     </h5>
                 </div>
                 <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-3 mb-2">
+                    <div class="row g-2">
+                        <div class="col-6">
                             <a href="{{ url_for('admin.users') }}" class="btn btn-outline-primary w-100">
                                 <i class="fas fa-users me-2"></i>
                                 Manage Users
                             </a>
                         </div>
-                        <div class="col-md-3 mb-2">
+                        <div class="col-6">
                             <a href="{{ url_for('admin.data_overview') }}" class="btn btn-outline-info w-100">
                                 <i class="fas fa-chart-bar me-2"></i>
                                 Data Overview
                             </a>
                         </div>
-                        <div class="col-md-3 mb-2">
+                        <div class="col-6">
                             <a href="{{ url_for('health.status_page') }}" class="btn btn-outline-success w-100">
                                 <i class="fas fa-heartbeat me-2"></i>
-                                System Status
+                                Full Status
                             </a>
                         </div>
-                        <div class="col-md-3 mb-2">
-                            <button class="btn btn-outline-secondary w-100 disabled" disabled title="Coming soon">
-                                <i class="fas fa-magic me-2"></i>
-                                Prompt Builder
-                            </button>
+                        <div class="col-6">
+                            <a href="{{ url_for('admin.audit_log') }}" class="btn btn-outline-secondary w-100">
+                                <i class="fas fa-history me-2"></i>
+                                Audit Log
+                            </a>
                         </div>
                     </div>
-                    <div class="row mt-2">
-                        <div class="col-md-3 mb-2">
-                            <button class="btn btn-outline-secondary w-100 disabled" disabled title="Coming soon">
-                                <i class="fas fa-file-alt me-2"></i>
-                                Prompt Templates
-                            </button>
-                        </div>
-                        <div class="col-md-3 mb-2">
-                            <a href="{{ url_for('admin.validation_dashboard') }}" class="btn btn-outline-primary w-100">
-                                <i class="fas fa-clipboard-check me-2"></i>
-                                Validation Studies
+                </div>
+            </div>
+        </div>
+
+        <!-- External Monitoring -->
+        <div class="col-md-6 mb-3">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-external-link-alt me-2"></i>
+                        External Monitoring
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <a href="https://cloud.umami.is" target="_blank" class="btn btn-outline-dark w-100">
+                                <i class="fas fa-chart-line me-2"></i>
+                                Umami Analytics
+                                <i class="fas fa-external-link-alt ms-1 small"></i>
                             </a>
+                        </div>
+                        <div class="col-6">
+                            <a href="https://healthchecks.io/projects/8d51be65-2ad7-464b-aafa-b61ad3d81f95/checks/" target="_blank" class="btn btn-outline-dark w-100">
+                                <i class="fas fa-heart me-2"></i>
+                                Healthchecks.io
+                                <i class="fas fa-external-link-alt ms-1 small"></i>
+                            </a>
+                        </div>
+                        <div class="col-6">
+                            <a href="https://ontserve.ontorealm.net" target="_blank" class="btn btn-outline-dark w-100">
+                                <i class="fas fa-server me-2"></i>
+                                OntServe Web
+                                <i class="fas fa-external-link-alt ms-1 small"></i>
+                            </a>
+                        </div>
+                        <div class="col-6">
+                            <button id="testAlertBtn" class="btn btn-outline-warning w-100">
+                                <i class="fas fa-bell me-2"></i>
+                                Test Alert
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -190,7 +269,7 @@
                 <div class="card-body">
                     {% if recent_users %}
                         <div class="list-group list-group-flush">
-                            {% for user in recent_users %}
+                            {% for user in recent_users[:5] %}
                             <div class="list-group-item d-flex justify-content-between align-items-center px-0">
                                 <div>
                                     <strong>{{ user.username }}</strong>
@@ -226,7 +305,7 @@
                 <div class="card-header">
                     <h5 class="card-title mb-0">
                         <i class="fas fa-history me-2"></i>
-                        Recent Reset History
+                        Reset History
                     </h5>
                 </div>
                 <div class="card-body">
@@ -258,4 +337,92 @@
     </div>
 </div>
 
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Fetch service status on page load
+document.addEventListener('DOMContentLoaded', function() {
+    fetchServiceStatus();
+
+    // Test alert button
+    document.getElementById('testAlertBtn').addEventListener('click', function() {
+        this.disabled = true;
+        this.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Sending...';
+
+        fetch('/health/test-alert', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    this.innerHTML = '<i class="fas fa-check me-2"></i>Sent!';
+                    this.classList.remove('btn-outline-warning');
+                    this.classList.add('btn-success');
+                } else {
+                    this.innerHTML = '<i class="fas fa-times me-2"></i>' + (data.message || 'Failed');
+                    this.classList.remove('btn-outline-warning');
+                    this.classList.add('btn-danger');
+                }
+                setTimeout(() => {
+                    this.innerHTML = '<i class="fas fa-bell me-2"></i>Test Alert';
+                    this.classList.remove('btn-success', 'btn-danger');
+                    this.classList.add('btn-outline-warning');
+                    this.disabled = false;
+                }, 3000);
+            })
+            .catch(err => {
+                this.innerHTML = '<i class="fas fa-times me-2"></i>Error';
+                this.classList.add('btn-danger');
+                this.disabled = false;
+            });
+    });
+});
+
+function fetchServiceStatus() {
+    fetch('/health/ready')
+        .then(response => response.json())
+        .then(data => {
+            updateServiceBadge('postgresql', data.checks?.database);
+            updateServiceBadge('redis', data.checks?.redis);
+            updateServiceBadge('celery', data.checks?.celery);
+            updateServiceBadge('mcp', data.checks?.mcp);
+
+            // Update overall health badge
+            const overallBadge = document.getElementById('overallHealth');
+            if (data.status === 'healthy') {
+                overallBadge.className = 'badge bg-success';
+                overallBadge.innerHTML = '<i class="fas fa-check-circle me-1"></i>All Systems Operational';
+            } else if (data.status === 'degraded') {
+                overallBadge.className = 'badge bg-warning';
+                overallBadge.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Degraded';
+            } else {
+                overallBadge.className = 'badge bg-danger';
+                overallBadge.innerHTML = '<i class="fas fa-times-circle me-1"></i>Issues Detected';
+            }
+        })
+        .catch(err => {
+            console.error('Failed to fetch health status:', err);
+            document.getElementById('overallHealth').className = 'badge bg-danger';
+            document.getElementById('overallHealth').innerHTML = '<i class="fas fa-times-circle me-1"></i>Connection Error';
+        });
+}
+
+function updateServiceBadge(service, check) {
+    const badge = document.getElementById(service + 'Status');
+    if (!badge) return;
+
+    if (!check) {
+        badge.className = 'badge bg-secondary ms-2';
+        badge.textContent = '?';
+        return;
+    }
+
+    if (check.status === 'up') {
+        badge.className = 'badge bg-success ms-2';
+        badge.textContent = 'OK';
+    } else {
+        badge.className = 'badge bg-danger ms-2';
+        badge.textContent = 'DOWN';
+    }
+}
+</script>
 {% endblock %}
