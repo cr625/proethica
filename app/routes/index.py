@@ -104,11 +104,22 @@ def index():
         current_app.logger.error(f"Error rendering index: {e}")
         return redirect(url_for('worlds.list_worlds'))
 
+@index_bp.route('/demo')
+def demo():
+    """
+    Demo landing page for AAAI-26 conference attendees.
+
+    Returns:
+        Rendered demo template with video, docs links, and references
+    """
+    return render_template('demo.html')
+
+
 @index_bp.route('/about')
 def about():
     """
     Render the about page.
-    
+
     Returns:
         Rendered about template
     """

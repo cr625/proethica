@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+
+{% block title %}Demo - ProEthica{% endblock %}
+
+{% block styles %}
+<style>
+    .demo-section {
+        margin-bottom: 2rem;
+    }
+    .video-container {
+        position: relative;
+        width: 100%;
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    .video-placeholder {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 8px;
+        padding: 3rem;
+        text-align: center;
+        color: white;
+    }
+    .resource-card {
+        transition: all 0.2s;
+        border-left: 4px solid #0d6efd;
+    }
+    .resource-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        transform: translateY(-2px);
+    }
+    .reference-item {
+        padding: 1rem;
+        border-left: 3px solid #6c757d;
+        margin-bottom: 1rem;
+        background: #f8f9fa;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Header -->
+    <div class="text-center mb-5">
+        <h1 class="display-5 fw-normal">ProEthica Demo</h1>
+        <p class="lead text-muted">AAAI-26 Conference Demonstration</p>
+        <p class="text-muted">
+            Semantic extraction of professional ethics concepts using large language models
+        </p>
+    </div>
+
+    <!-- Video Section -->
+    <div class="demo-section">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-play-circle me-2"></i>System Walkthrough</h5>
+            </div>
+            <div class="card-body">
+                <div class="video-container">
+                    <div class="video-placeholder">
+                        <i class="bi bi-camera-video display-1 mb-3"></i>
+                        <h4>ProEthica Demo Video</h4>
+                        <p class="mb-4">Watch a complete walkthrough of the 9-concept extraction pipeline</p>
+                        <a href="https://app.screencast.com/0s5AFuDhbn4q3?conversation=CFm9sbb6mjW9ws62zdaxcI"
+                           target="_blank"
+                           class="btn btn-light btn-lg">
+                            <i class="bi bi-box-arrow-up-right me-2"></i>Watch Demo Video
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Links -->
+    <div class="demo-section">
+        <h4 class="mb-3"><i class="bi bi-lightning me-2"></i>Try It Now</h4>
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                <a href="{{ url_for('cases.view_case', case_id=7) }}" class="text-decoration-none">
+                    <div class="card h-100 resource-card">
+                        <div class="card-body text-center py-4">
+                            <i class="bi bi-file-earmark-text display-4 text-primary mb-3"></i>
+                            <h5 class="card-title">Case 7: AI in Engineering</h5>
+                            <p class="card-text text-muted small">
+                                Featured demo case analyzing AI tool use in professional practice
+                            </p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-md-4 mb-3">
+                <a href="{{ url_for('cases.list_cases') }}" class="text-decoration-none">
+                    <div class="card h-100 resource-card">
+                        <div class="card-body text-center py-4">
+                            <i class="bi bi-folder2-open display-4 text-primary mb-3"></i>
+                            <h5 class="card-title">Browse All Cases</h5>
+                            <p class="card-text text-muted small">
+                                Explore 104 NSPE ethics cases with extracted concepts
+                            </p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-md-4 mb-3">
+                <a href="https://ontserve.ontorealm.net/ontology/proethica-case-7" target="_blank" class="text-decoration-none">
+                    <div class="card h-100 resource-card">
+                        <div class="card-body text-center py-4">
+                            <i class="bi bi-diagram-3 display-4 text-primary mb-3"></i>
+                            <h5 class="card-title">Case 7 Ontology</h5>
+                            <p class="card-text text-muted small">
+                                View extracted entities in OntServe (192 Named Individuals)
+                            </p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Documentation -->
+    <div class="demo-section">
+        <h4 class="mb-3"><i class="bi bi-book me-2"></i>Documentation</h4>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <a href="{{ url_for('docs.index') }}" class="text-decoration-none">
+                    <div class="card h-100 resource-card">
+                        <div class="card-body">
+                            <h5><i class="bi bi-file-text me-2"></i>User Guide</h5>
+                            <p class="text-muted small mb-0">
+                                Complete documentation including methodology, 9-concept formalism, and API reference
+                            </p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-md-6 mb-3">
+                <a href="https://github.com/cr625/proethica" target="_blank" class="text-decoration-none">
+                    <div class="card h-100 resource-card">
+                        <div class="card-body">
+                            <h5><i class="bi bi-github me-2"></i>Source Code</h5>
+                            <p class="text-muted small mb-0">
+                                Open source repository with full extraction pipeline and ontology tools
+                            </p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Academic References -->
+    <div class="demo-section">
+        <h4 class="mb-3"><i class="bi bi-mortarboard me-2"></i>Academic References</h4>
+
+        <div class="reference-item">
+            <strong>ProEthica: Ontology-Based Case Analysis</strong>
+            <br>
+            <span class="text-muted">
+                Rauch, C. (2026). ProEthica: Semantic Extraction of Professional Ethics Concepts
+                Using Large Language Models. <em>AAAI-26 Conference</em>.
+            </span>
+        </div>
+
+        <div class="reference-item">
+            <strong>9-Concept Formalism Foundation</strong>
+            <br>
+            <span class="text-muted">
+                Based on the theoretical framework for modeling professional ethical reasoning
+                through Roles (R), Principles (P), Obligations (O), States (S), Resources (Rs),
+                Actions (A), Events (E), Causal Structures (Ca), and Constraints (Cs).
+            </span>
+        </div>
+
+        <div class="reference-item">
+            <strong>Related Work: OntExtract</strong>
+            <br>
+            <span class="text-muted">
+                Rauch, C. (2025). OntExtract: Language Model Guided Document Analysis
+                with Provenance Tracking. <em>JCDL 2025</em>.
+                <a href="https://ontextract.ontorealm.net/static/papers/OntExtract_JCDL2025.pdf" target="_blank">
+                    [PDF]
+                </a>
+            </span>
+        </div>
+    </div>
+
+    <!-- Related Systems -->
+    <div class="demo-section">
+        <h4 class="mb-3"><i class="bi bi-grid me-2"></i>Related Systems</h4>
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h6><i class="bi bi-server me-2 text-primary"></i>OntServe</h6>
+                        <p class="text-muted small">Unified ontology server with MCP integration</p>
+                        <a href="https://ontserve.ontorealm.net" target="_blank" class="btn btn-sm btn-outline-primary">
+                            Visit <i class="bi bi-box-arrow-up-right ms-1"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h6><i class="bi bi-file-earmark-arrow-up me-2 text-primary"></i>OntExtract</h6>
+                        <p class="text-muted small">Document analysis with semantic drift tracking</p>
+                        <a href="https://ontextract.ontorealm.net" target="_blank" class="btn btn-sm btn-outline-primary">
+                            Visit <i class="bi bi-box-arrow-up-right ms-1"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h6><i class="bi bi-building me-2 text-primary"></i>NSPE BER</h6>
+                        <p class="text-muted small">Source ethics cases from NSPE Board of Ethical Review</p>
+                        <a href="https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases" target="_blank" class="btn btn-sm btn-outline-primary">
+                            Visit <i class="bi bi-box-arrow-up-right ms-1"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contact -->
+    <div class="demo-section text-center">
+        <hr class="my-4">
+        <p class="text-muted">
+            Questions? Contact: <a href="mailto:christopher.b.rauch@gmail.com">christopher.b.rauch@gmail.com</a>
+        </p>
+    </div>
+</div>
+{% endblock %}
