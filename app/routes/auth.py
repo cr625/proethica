@@ -75,28 +75,9 @@ def login():
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
-    """Handle user registration."""
-    # Redirect if user is already logged in
-    if current_user.is_authenticated:
-        return redirect(url_for('index.index'))
-    
-    form = RegistrationForm()
-    if form.validate_on_submit():
-        # Create new user
-        user = User(
-            username=form.username.data,
-            email=form.email.data,
-            password=form.password.data
-        )
-        
-        # Add user to database
-        db.session.add(user)
-        db.session.commit()
-        
-        flash('Registration successful! You can now log in.', 'success')
-        return redirect(url_for('auth.login'))
-    
-    return render_template('register.html', form=form)
+    """Registration is disabled - accounts are created by admin."""
+    flash('Registration is currently closed. Please contact the administrator for an account.', 'info')
+    return redirect(url_for('auth.login'))
 
 @auth_bp.route('/logout')
 @login_required
