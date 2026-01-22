@@ -665,7 +665,7 @@ def register_phase3_routes(bp, get_all_case_entities, load_phase2_data):
 
             # Get synthesis trace from provenance_metadata of first decision point
             synthesis_trace = None
-            first_dp = decision_points[0] if decision_points else None
+            first_dp = canonical_points[0] if canonical_points else None
             if first_dp and first_dp.provenance_metadata:
                 synthesis_trace = first_dp.provenance_metadata
 
