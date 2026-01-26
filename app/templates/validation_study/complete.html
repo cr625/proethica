@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Study Complete - View Utility Study{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card border-success">
+                <div class="card-body text-center py-5">
+                    <div class="mb-4">
+                        <i class="bi bi-check-circle-fill text-success" style="font-size: 5rem;"></i>
+                    </div>
+
+                    <h1 class="h2 mb-3">Thank You!</h1>
+                    <p class="lead text-muted">
+                        You have successfully completed the View Utility Study.
+                    </p>
+
+                    <hr class="my-4">
+
+                    <div class="mb-4">
+                        <p><strong>Participant ID:</strong> {{ participant_id }}</p>
+                        <p class="text-muted small">
+                            Please save this ID for your records. Your responses have been recorded anonymously.
+                        </p>
+                    </div>
+
+                    <div class="alert alert-info text-start">
+                        <h6><i class="bi bi-info-circle me-2"></i>What happens next?</h6>
+                        <ul class="mb-0 small">
+                            <li>Your evaluations will be analyzed along with other participants</li>
+                            <li>Results will inform improvements to the ProEthica synthesis system</li>
+                            <li>Aggregate findings may be published in academic research</li>
+                            <li>Individual responses remain anonymous</li>
+                        </ul>
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-center mt-4">
+                        <a href="{{ url_for('study.index') }}" class="btn btn-outline-primary">
+                            <i class="bi bi-arrow-left me-1"></i> Return to Dashboard
+                        </a>
+                        <a href="{{ url_for('index.home') }}" class="btn btn-primary">
+                            <i class="bi bi-house me-1"></i> Return to Home
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center mt-4 text-muted small">
+                <p>
+                    Questions about this study? Contact: <a href="mailto:cr625@drexel.edu">cr625@drexel.edu</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

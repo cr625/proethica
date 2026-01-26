@@ -18,7 +18,6 @@ from app.models.scenario_template import ScenarioTemplate
 from app.models.scenario import Scenario
 from app.services.case_deconstruction.base_adapter import BaseCaseDeconstructionAdapter
 from app.services.case_deconstruction.engineering_ethics_adapter import EngineeringEthicsAdapter
-from app.services.case_deconstruction.enhanced_engineering_ethics_adapter import EnhancedEngineeringEthicsAdapter
 from app.services.task_queue import BackgroundTaskQueue
 from app import db
 
@@ -35,8 +34,7 @@ class CaseToScenarioService:
     
     # Adapter registry for different domains
     ADAPTERS = {
-        'engineering': EnhancedEngineeringEthicsAdapter,  # Use enhanced adapter with MCP integration
-        'engineering_legacy': EngineeringEthicsAdapter,   # Keep legacy for fallback if needed
+        'engineering': EngineeringEthicsAdapter,
     }
     
     # Confidence thresholds for auto-approval

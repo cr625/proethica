@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block title %}View Utility Study - View Utility Assessment{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h2 mb-0">
+                        <i class="bi bi-clipboard-check text-primary me-2"></i>
+                        View Utility Study
+                    </h1>
+                    <p class="text-muted mb-0">Evaluate structured synthesis views for professional ethics cases</p>
+                </div>
+                <div>
+                    <span class="badge bg-secondary fs-6">{{ participant_id }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Progress Card -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card border-primary">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-bar-chart me-2"></i>Your Progress</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Cases Completed</span>
+                        <strong>{{ completed_count }} / {{ total_count }}</strong>
+                    </div>
+                    <div class="progress mb-3" style="height: 25px;">
+                        <div class="progress-bar" role="progressbar"
+                             style="width: {{ (completed_count / total_count * 100) if total_count > 0 else 0 }}%;">
+                            {{ session.progress_percent }}%
+                        </div>
+                    </div>
+
+                    {% if session.is_complete %}
+                    <div class="alert alert-success mb-0">
+                        <i class="bi bi-check-circle me-2"></i>
+                        All cases evaluated! Please complete the retrospective reflection.
+                    </div>
+                    {% elif next_case %}
+                    <a href="{{ url_for('study.evaluate_case', case_id=next_case.id) }}" class="btn btn-primary btn-lg w-100">
+                        <i class="bi bi-play-fill me-2"></i>
+                        Continue: {{ next_case.title|truncate(40) }}
+                    </a>
+                    {% else %}
+                    <p class="text-muted mb-0">No cases available for evaluation.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Study Instructions</h5>
+                </div>
+                <div class="card-body">
+                    <p>This validation study assesses whether structured synthesis views help you understand professional ethics cases.</p>
+
+                    <h6>For each case, you will:</h6>
+                    <ol class="small">
+                        <li>Review case facts (board conclusions withheld)</li>
+                        <li>Examine four synthesis views</li>
+                        <li>Rate how helpful each view was</li>
+                        <li>Answer comprehension questions</li>
+                        <li>Compare your answers to board conclusions</li>
+                        <li>Reflect on alignment</li>
+                    </ol>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Domain Selection -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-mortarboard me-2"></i>Your Domain</h5>
+                </div>
+                <div class="card-body">
+                    <div class="btn-group" role="group">
+                        <a href="{{ url_for('study.index', domain='engineering') }}"
+                           class="btn btn-{% if domain == 'engineering' %}primary{% else %}outline-primary{% endif %}">
+                            <i class="bi bi-gear me-1"></i> Engineering
+                        </a>
+                        <a href="{{ url_for('study.index', domain='education') }}"
+                           class="btn btn-{% if domain == 'education' %}primary{% else %}outline-primary{% endif %}">
+                            <i class="bi bi-book me-1"></i> Education
+                        </a>
+                    </div>
+                    <p class="text-muted small mt-2 mb-0">
+                        Currently viewing: <strong>{{ domain|title }} Ethics</strong> cases
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Available Cases -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-folder me-2"></i>Available Cases</h5>
+                    <span class="badge bg-info">{{ evaluable_cases|length }} cases</span>
+                </div>
+                <div class="card-body">
+                    {% if evaluable_cases %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Case</th>
+                                    <th>Provisions</th>
+                                    <th>Questions</th>
+                                    <th>Decisions</th>
+                                    <th>Status</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for case in evaluable_cases %}
+                                {% set is_completed = case.id in (session.completed_cases or []) %}
+                                <tr class="{% if is_completed %}table-success{% endif %}">
+                                    <td>
+                                        <strong>{{ case.title|truncate(50) }}</strong>
+                                        {% if case.case_number %}
+                                        <br><small class="text-muted">Case #{{ case.case_number }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td><span class="badge bg-primary">{{ case.provision_count }}</span></td>
+                                    <td><span class="badge bg-purple" style="background: #6f42c1;">{{ case.question_count }}</span></td>
+                                    <td><span class="badge" style="background: #fd7e14;">{{ case.decision_count }}</span></td>
+                                    <td>
+                                        {% if is_completed %}
+                                        <span class="badge bg-success"><i class="bi bi-check"></i> Complete</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">Pending</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('study.evaluate_case', case_id=case.id) }}"
+                                           class="btn btn-sm btn-{% if is_completed %}outline-{% endif %}primary">
+                                            {% if is_completed %}Review{% else %}Evaluate{% endif %}
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="bi bi-inbox display-4 text-muted"></i>
+                        <p class="text-muted mt-2">No cases available for evaluation in this domain.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Retrospective Link -->
+    {% if completed_count > 0 %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card border-warning">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0">
+                                <i class="bi bi-journal-text me-2"></i>
+                                Retrospective Reflection
+                            </h6>
+                            <small class="text-muted">Complete after evaluating all cases (or at least 5)</small>
+                        </div>
+                        <a href="{{ url_for('study.retrospective') }}"
+                           class="btn btn-{% if session.is_complete %}warning{% else %}outline-warning{% endif %}">
+                            {% if session.is_complete %}Complete Retrospective{% else %}View Retrospective{% endif %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

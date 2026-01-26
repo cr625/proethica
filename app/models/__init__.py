@@ -105,3 +105,8 @@ from app.models.extraction_prompt_template import (
 
 # Synthesis configuration (added 2026-01-10)
 from app.models.synthesis_config import SynthesisConfig, SYNTHESIS_PARAMETERS
+
+# Chapter 4 validation models (added 2026-01-24)
+from app.models.view_utility_evaluation import (
+    ValidationSession, ViewUtilityEvaluation, RetrospectiveReflection
+)

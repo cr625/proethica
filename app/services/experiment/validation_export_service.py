@@ -368,3 +368,335 @@ class ValidationExportService:
             })
 
         return progress
+
+    # =========================================================================
+    # Chapter 4 View Utility Export Methods
+    # =========================================================================
+
+    VIEW_UTILITY_METRICS = {
+        'PROVISIONS': [
+            'prov_standards_identified',
+            'prov_connections_clear',
+            'prov_normative_foundation'
+        ],
+        'QUESTIONS': [
+            'ques_issues_visible',
+            'ques_structure_aided',
+            'ques_deliberation_needs'
+        ],
+        'DECISIONS': [
+            'decs_choices_understood',
+            'decs_alternatives_context',
+            'decs_actions_obligations'
+        ],
+        'NARRATIVE': [
+            'narr_situation_understood',
+            'narr_relationships_clear',
+            'narr_sequence_clear'
+        ],
+        'OVERALL': [
+            'overall_helped_understand',
+            'overall_surfaced_considerations',
+            'overall_useful_deliberation'
+        ]
+    }
+
+    def get_chapter4_evaluation_data(
+        self,
+        domain: Optional[str] = None
+    ) -> List[Dict]:
+        """
+        Fetch Chapter 4 view utility evaluation data.
+
+        Args:
+            domain: Filter by evaluator domain ('engineering' or 'education')
+
+        Returns:
+            List of view utility evaluation records
+        """
+        from app.models.view_utility_evaluation import ViewUtilityEvaluation
+
+        query = ViewUtilityEvaluation.query
+
+        if domain:
+            query = query.join(
+                ViewUtilityEvaluation.session
+            ).filter_by(evaluator_domain=domain)
+
+        evaluations = query.all()
+
+        results = []
+        for e in evaluations:
+            results.append({
+                'evaluation_id': e.id,
+                'evaluator_id': e.evaluator_id,
+                'case_id': e.case_id,
+                # Provisions View
+                'prov_standards_identified': e.prov_standards_identified,
+                'prov_connections_clear': e.prov_connections_clear,
+                'prov_normative_foundation': e.prov_normative_foundation,
+                'provisions_view_mean': e.provisions_view_mean,
+                # Questions View
+                'ques_issues_visible': e.ques_issues_visible,
+                'ques_structure_aided': e.ques_structure_aided,
+                'ques_deliberation_needs': e.ques_deliberation_needs,
+                'questions_view_mean': e.questions_view_mean,
+                # Decisions View
+                'decs_choices_understood': e.decs_choices_understood,
+                'decs_alternatives_context': e.decs_alternatives_context,
+                'decs_actions_obligations': e.decs_actions_obligations,
+                'decisions_view_mean': e.decisions_view_mean,
+                # Narrative View
+                'narr_situation_understood': e.narr_situation_understood,
+                'narr_relationships_clear': e.narr_relationships_clear,
+                'narr_sequence_clear': e.narr_sequence_clear,
+                'narrative_view_mean': e.narrative_view_mean,
+                # Overall Utility
+                'overall_helped_understand': e.overall_helped_understand,
+                'overall_surfaced_considerations': e.overall_surfaced_considerations,
+                'overall_useful_deliberation': e.overall_useful_deliberation,
+                'overall_utility_mean': e.overall_utility_mean,
+                # Alignment
+                'alignment_self_rating': e.alignment_self_rating,
+                # Timestamps
+                'completed_at': e.completed_at.isoformat() if e.completed_at else None
+            })
+
+        return results
+
+    def export_chapter4_for_krippendorff(
+        self,
+        domain: Optional[str] = None,
+        use_means: bool = True,
+        format: str = 'csv'
+    ) -> Tuple[str, str]:
+        """
+        Export Chapter 4 view utility data for Krippendorff's alpha calculation.
+
+        Output format:
+        - Rows = evaluators
+        - Columns = case_id + view metric
+        - Values = 1-7 Likert scores
+
+        Args:
+            domain: Filter by evaluator domain
+            use_means: If True, export view means; if False, export all items
+            format: 'csv' or 'json'
+
+        Returns:
+            Tuple of (content_string, filename)
+        """
+        evaluations = self.get_chapter4_evaluation_data(domain)
+
+        if not evaluations:
+            if format == 'json':
+                return json.dumps({'error': 'No evaluation data found', 'data': []}), 'empty_export.json'
+            return 'No evaluation data found', 'empty_export.csv'
+
+        # Organize by evaluator
+        evaluator_data = defaultdict(dict)
+        all_columns = set()
+
+        for eval_record in evaluations:
+            evaluator_id = eval_record['evaluator_id']
+            case_id = eval_record['case_id']
+
+            if use_means:
+                # Export view means
+                for view in ['PROVISIONS', 'QUESTIONS', 'DECISIONS', 'NARRATIVE', 'OVERALL']:
+                    col_name = f"case_{case_id:03d}_{view}"
+                    mean_key = f"{view.lower()}_view_mean" if view != 'OVERALL' else 'overall_utility_mean'
+                    value = eval_record.get(mean_key)
+                    evaluator_data[evaluator_id][col_name] = value
+                    all_columns.add(col_name)
+
+                # Alignment rating
+                align_col = f"case_{case_id:03d}_ALIGNMENT"
+                evaluator_data[evaluator_id][align_col] = eval_record.get('alignment_self_rating')
+                all_columns.add(align_col)
+            else:
+                # Export all individual items
+                for view, items in self.VIEW_UTILITY_METRICS.items():
+                    for item in items:
+                        col_name = f"case_{case_id:03d}_{item}"
+                        evaluator_data[evaluator_id][col_name] = eval_record.get(item)
+                        all_columns.add(col_name)
+
+                # Alignment rating
+                align_col = f"case_{case_id:03d}_alignment_self_rating"
+                evaluator_data[evaluator_id][align_col] = eval_record.get('alignment_self_rating')
+                all_columns.add(align_col)
+
+        sorted_columns = sorted(all_columns)
+
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        domain_suffix = f"_{domain}" if domain else ""
+        level_suffix = "_means" if use_means else "_items"
+
+        if format == 'json':
+            output = {
+                'metadata': {
+                    'export_date': datetime.now().isoformat(),
+                    'study_type': 'chapter4_view_utility',
+                    'domain': domain,
+                    'level': 'means' if use_means else 'items',
+                    'n_evaluators': len(evaluator_data),
+                    'n_items': len(sorted_columns)
+                },
+                'columns': sorted_columns,
+                'data': []
+            }
+
+            for evaluator_id in sorted(evaluator_data.keys()):
+                row = {'evaluator_id': evaluator_id}
+                for col in sorted_columns:
+                    row[col] = evaluator_data[evaluator_id].get(col)
+                output['data'].append(row)
+
+            filename = f"chapter4_krippendorff{domain_suffix}{level_suffix}_{timestamp}.json"
+            return json.dumps(output, indent=2), filename
+
+        else:  # CSV
+            output = io.StringIO()
+            writer = csv.writer(output)
+
+            header = ['evaluator_id'] + sorted_columns
+            writer.writerow(header)
+
+            for evaluator_id in sorted(evaluator_data.keys()):
+                row = [evaluator_id]
+                for col in sorted_columns:
+                    value = evaluator_data[evaluator_id].get(col)
+                    row.append(value if value is not None else '')
+                writer.writerow(row)
+
+            filename = f"chapter4_krippendorff{domain_suffix}{level_suffix}_{timestamp}.csv"
+            return output.getvalue(), filename
+
+    def export_chapter4_summary(
+        self,
+        domain: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Generate summary statistics for Chapter 4 view utility study.
+
+        Returns:
+            Dictionary with summary statistics per view
+        """
+        evaluations = self.get_chapter4_evaluation_data(domain)
+
+        if not evaluations:
+            return {'error': 'No evaluation data found'}
+
+        view_scores = {
+            'PROVISIONS': [],
+            'QUESTIONS': [],
+            'DECISIONS': [],
+            'NARRATIVE': [],
+            'OVERALL': [],
+            'ALIGNMENT': []
+        }
+
+        for eval_record in evaluations:
+            if eval_record.get('provisions_view_mean') is not None:
+                view_scores['PROVISIONS'].append(eval_record['provisions_view_mean'])
+            if eval_record.get('questions_view_mean') is not None:
+                view_scores['QUESTIONS'].append(eval_record['questions_view_mean'])
+            if eval_record.get('decisions_view_mean') is not None:
+                view_scores['DECISIONS'].append(eval_record['decisions_view_mean'])
+            if eval_record.get('narrative_view_mean') is not None:
+                view_scores['NARRATIVE'].append(eval_record['narrative_view_mean'])
+            if eval_record.get('overall_utility_mean') is not None:
+                view_scores['OVERALL'].append(eval_record['overall_utility_mean'])
+            if eval_record.get('alignment_self_rating') is not None:
+                view_scores['ALIGNMENT'].append(eval_record['alignment_self_rating'])
+
+        def compute_stats(scores: List[float]) -> Dict:
+            if not scores:
+                return {'n': 0, 'mean': None, 'std': None, 'min': None, 'max': None}
+            n = len(scores)
+            mean = sum(scores) / n
+            variance = sum((x - mean) ** 2 for x in scores) / n if n > 1 else 0
+            std = variance ** 0.5
+            return {
+                'n': n,
+                'mean': round(mean, 2),
+                'std': round(std, 2),
+                'min': min(scores),
+                'max': max(scores)
+            }
+
+        return {
+            'metadata': {
+                'export_date': datetime.now().isoformat(),
+                'study_type': 'chapter4_view_utility',
+                'domain': domain,
+                'total_evaluations': len(evaluations)
+            },
+            'view_utility': {view: compute_stats(scores) for view, scores in view_scores.items()}
+        }
+
+    def get_chapter4_retrospective_summary(
+        self,
+        domain: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Get summary of retrospective reflections including view rankings.
+
+        Returns:
+            Dictionary with retrospective summary data
+        """
+        from app.models.view_utility_evaluation import RetrospectiveReflection
+
+        query = RetrospectiveReflection.query
+
+        if domain:
+            query = query.filter_by(evaluator_domain=domain)
+
+        reflections = query.all()
+
+        if not reflections:
+            return {'error': 'No retrospective data found'}
+
+        # Aggregate rankings (lower = more valuable)
+        rank_totals = {
+            'PROVISIONS': [],
+            'QUESTIONS': [],
+            'DECISIONS': [],
+            'NARRATIVE': []
+        }
+
+        surfaced_count = {'yes': 0, 'no': 0}
+
+        for r in reflections:
+            if r.rank_provisions_view is not None:
+                rank_totals['PROVISIONS'].append(r.rank_provisions_view)
+            if r.rank_questions_view is not None:
+                rank_totals['QUESTIONS'].append(r.rank_questions_view)
+            if r.rank_decisions_view is not None:
+                rank_totals['DECISIONS'].append(r.rank_decisions_view)
+            if r.rank_narrative_view is not None:
+                rank_totals['NARRATIVE'].append(r.rank_narrative_view)
+
+            if r.surfaced_missed_considerations is True:
+                surfaced_count['yes'] += 1
+            elif r.surfaced_missed_considerations is False:
+                surfaced_count['no'] += 1
+
+        def mean_rank(ranks):
+            return round(sum(ranks) / len(ranks), 2) if ranks else None
+
+        return {
+            'metadata': {
+                'domain': domain,
+                'total_reflections': len(reflections)
+            },
+            'view_rankings': {
+                view: {
+                    'mean_rank': mean_rank(ranks),
+                    'n': len(ranks)
+                }
+                for view, ranks in rank_totals.items()
+            },
+            'surfaced_considerations': surfaced_count
+        }

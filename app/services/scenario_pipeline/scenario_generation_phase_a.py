@@ -56,14 +56,6 @@ except ImportError as e:
     logging.getLogger(__name__).warning(f"❌ EnhancedLLMScenarioService import failed: {e}")
 
 try:
-    from shared.llm_orchestration.integrations.mcp_context import MCPContextManager
-    enhanced_services['mcp_ontology'] = True
-    logging.getLogger(__name__).info("✅ MCP Context Manager imported successfully")
-except ImportError as e:
-    enhanced_services['mcp_ontology'] = False
-    logging.getLogger(__name__).warning(f"❌ MCP Context Manager import failed: {e}")
-
-try:
     from .enhanced_scenario_model_generator import EnhancedScenarioModelGenerator
     enhanced_services['model_generator'] = True
     logging.getLogger(__name__).info("✅ EnhancedScenarioModelGenerator imported successfully")

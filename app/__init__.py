@@ -164,6 +164,7 @@ def create_app(config_name=None):
     from app.routes.document_structure import doc_structure_bp
     from app.routes.test_routes import test_bp
     from app.routes.experiment import experiment_bp
+    from app.routes.chapter4_validation import study_bp
     from app.routes.type_management import type_management_bp
     from app.routes.debug_env import debug_env_bp
     from app.routes.wizard import wizard_bp
@@ -226,6 +227,7 @@ def create_app(config_name=None):
     app.register_blueprint(cases_bp, url_prefix='/cases')
     app.register_blueprint(doc_structure_bp)
     app.register_blueprint(experiment_bp, url_prefix='/experiment')
+    app.register_blueprint(study_bp, url_prefix='/validation')
     app.register_blueprint(type_management_bp)
     app.register_blueprint(debug_env_bp)
     app.register_blueprint(wizard_bp)

@@ -1,0 +1,1007 @@
+{% extends "base.html" %}
+
+{% block title %}Case Evaluation - View Utility Study{% endblock %}
+
+{% block styles %}
+<style>
+    .step-indicator {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 2rem;
+    }
+    .step {
+        display: flex;
+        align-items: center;
+        padding: 0.5rem 1rem;
+        margin: 0 0.25rem;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        background: #f8f9fa;
+        color: #6c757d;
+    }
+    .step.active {
+        background: #0d6efd;
+        color: white;
+    }
+    .step.completed {
+        background: #198754;
+        color: white;
+    }
+    .step-number {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 0.5rem;
+        font-weight: bold;
+        background: rgba(255,255,255,0.2);
+    }
+    .view-card {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+    }
+    .view-card .card-header {
+        font-weight: 600;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .view-content {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    .likert-group {
+        margin-bottom: 1.5rem;
+    }
+    .likert-item {
+        margin-bottom: 1rem;
+    }
+    .likert-label {
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+    }
+    .likert-scale {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.25rem;
+    }
+    .likert-scale label {
+        flex: 1;
+        text-align: center;
+    }
+    .likert-scale input[type="radio"] {
+        display: none;
+    }
+    .likert-scale .scale-btn {
+        display: block;
+        padding: 0.5rem;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s;
+        background: #fff;
+    }
+    .likert-scale .scale-btn:hover {
+        border-color: #0d6efd;
+        background: #e7f1ff;
+    }
+    .likert-scale input[type="radio"]:checked + .scale-btn {
+        background: #0d6efd;
+        color: white;
+        border-color: #0d6efd;
+    }
+    .scale-endpoints {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.75rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+    }
+    .comprehension-question {
+        margin-bottom: 1.5rem;
+    }
+    .comprehension-question label {
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+    }
+    .withheld-notice {
+        background: #fff3cd;
+        border: 1px solid #ffc107;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    .reveal-section {
+        background: #d1e7dd;
+        border: 1px solid #198754;
+        border-radius: 8px;
+        padding: 1rem;
+    }
+    .entity-badge {
+        font-size: 0.75rem;
+        padding: 0.2rem 0.5rem;
+        margin-right: 0.25rem;
+        margin-bottom: 0.25rem;
+        display: inline-block;
+    }
+    .provision-item {
+        border-left: 3px solid #0d6efd;
+        padding-left: 1rem;
+        margin-bottom: 1rem;
+    }
+    .question-item {
+        border-left: 3px solid #6f42c1;
+        padding-left: 1rem;
+        margin-bottom: 1rem;
+    }
+    .decision-item {
+        border-left: 3px solid #fd7e14;
+        padding-left: 1rem;
+        margin-bottom: 1rem;
+    }
+    .hidden-step {
+        display: none;
+    }
+    /* Facts section readability */
+    .facts-section .case-text-content {
+        line-height: 1.8;
+        font-size: 0.95rem;
+    }
+    .facts-section .case-text-content p {
+        text-align: justify;
+        hyphens: auto;
+        margin-bottom: 1rem;
+    }
+    .facts-section .case-text-content .card {
+        margin-bottom: 1rem;
+    }
+    .facts-section .case-text-content .card-header {
+        font-weight: 600;
+    }
+    /* Collapsible content styling */
+    .facts-expand-btn {
+        color: #6c757d;
+        text-decoration: none;
+        font-size: 0.875rem;
+    }
+    .facts-expand-btn:hover {
+        color: #0d6efd;
+    }
+    /* Board conclusions styling */
+    .board-content {
+        line-height: 1.7;
+    }
+    .board-content p {
+        margin-bottom: 0.75rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="mb-0">{{ document.title }}</h2>
+                    <p class="text-muted mb-0">Case #{{ document.case_number or document.id }} | {{ domain|title }} Ethics</p>
+                </div>
+                <div>
+                    <span class="badge bg-secondary me-2">{{ participant_id }}</span>
+                    <a href="{{ url_for('study.index') }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step Indicator -->
+    <div class="step-indicator">
+        <div class="step {% if current_step == 'facts' %}active{% elif current_step in ['views', 'utility', 'comprehension', 'reveal', 'alignment'] %}completed{% endif %}" data-step="facts">
+            <span class="step-number">1</span> Facts
+        </div>
+        <div class="step {% if current_step == 'views' %}active{% elif current_step in ['utility', 'comprehension', 'reveal', 'alignment'] %}completed{% endif %}" data-step="views">
+            <span class="step-number">2</span> Views
+        </div>
+        <div class="step {% if current_step == 'utility' %}active{% elif current_step in ['comprehension', 'reveal', 'alignment'] %}completed{% endif %}" data-step="utility">
+            <span class="step-number">3</span> Utility
+        </div>
+        <div class="step {% if current_step == 'comprehension' %}active{% elif current_step in ['reveal', 'alignment'] %}completed{% endif %}" data-step="comprehension">
+            <span class="step-number">4</span> Questions
+        </div>
+        <div class="step {% if current_step == 'reveal' %}active{% elif current_step == 'alignment' %}completed{% endif %}" data-step="reveal">
+            <span class="step-number">5</span> Reveal
+        </div>
+        <div class="step {% if current_step == 'alignment' %}active{% endif %}" data-step="alignment">
+            <span class="step-number">6</span> Alignment
+        </div>
+    </div>
+
+    <form id="evaluationForm" method="POST" action="{{ url_for('study.submit_evaluation', case_id=document.id) }}">
+        <!-- Hidden time tracking fields -->
+        <input type="hidden" name="time_facts_review" id="time_facts_review" value="0">
+        <input type="hidden" name="time_views_review" id="time_views_review" value="0">
+        <input type="hidden" name="time_utility_rating" id="time_utility_rating" value="0">
+        <input type="hidden" name="time_comprehension" id="time_comprehension" value="0">
+        <input type="hidden" name="time_alignment" id="time_alignment" value="0">
+
+        <!-- STEP 1: FACTS -->
+        <div id="step-facts" class="step-content {% if current_step != 'facts' %}hidden-step{% endif %}">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-file-text me-2"></i>Case Facts</h5>
+                </div>
+                <div class="card-body">
+                    <div class="withheld-notice">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Note:</strong> {{ case_facts.withheld_notice }}
+                    </div>
+
+                    {% for section in case_facts.facts %}
+                    <div class="mb-4 facts-section" data-section-type="{{ section.type }}">
+                        <div class="case-text-content" {% if not section.is_html %}style="white-space: pre-wrap;"{% endif %}>
+                            {% if section.is_html %}
+                            {{ section.content|safe }}
+                            {% else %}
+                            {{ section.content }}
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="card-footer">
+                    <button type="button" class="btn btn-primary" onclick="goToStep('views')">
+                        Continue to Synthesis Views <i class="bi bi-arrow-right ms-1"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 2: VIEWS -->
+        <div id="step-views" class="step-content {% if current_step != 'views' %}hidden-step{% endif %}">
+            <div class="row">
+                <div class="col-12 mb-3">
+                    <p class="lead">Review the four synthesis views below. These views present the case analysis in different structured formats.</p>
+                </div>
+            </div>
+
+            <!-- View Tabs -->
+            <ul class="nav nav-tabs mb-3" id="viewTabs" role="tablist">
+                <li class="nav-item">
+                    <button class="nav-link active" id="provisions-tab" data-bs-toggle="tab" data-bs-target="#provisions-pane" type="button">
+                        <i class="bi bi-book me-1"></i> Provisions ({{ views.provisions.count }})
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" id="questions-tab" data-bs-toggle="tab" data-bs-target="#questions-pane" type="button">
+                        <i class="bi bi-question-circle me-1"></i> Questions ({{ views.questions.count }})
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" id="decisions-tab" data-bs-toggle="tab" data-bs-target="#decisions-pane" type="button">
+                        <i class="bi bi-signpost-split me-1"></i> Decisions ({{ views.decisions.count }})
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" id="narrative-tab" data-bs-toggle="tab" data-bs-target="#narrative-pane" type="button">
+                        <i class="bi bi-journal-text me-1"></i> Narrative
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content" id="viewTabsContent">
+                <!-- Provisions View -->
+                <div class="tab-pane fade show active" id="provisions-pane">
+                    <div class="view-card card">
+                        <div class="card-header">
+                            <span>Provisions View</span>
+                            <span class="badge bg-primary">{{ views.provisions.count }} provisions</span>
+                        </div>
+                        <div class="card-body view-content">
+                            <p class="text-muted small">{{ views.provisions.description }}</p>
+                            {% for prov in views.provisions.provisions %}
+                            <div class="provision-item">
+                                <strong>{{ prov.code_section }}</strong>
+                                {% if prov.iao_label %}<span class="text-muted ms-2">{{ prov.iao_label }}</span>{% endif %}
+                                <p class="mb-1">{{ prov.provision_text }}</p>
+                                {% if prov.case_excerpt %}
+                                <div class="small text-muted fst-italic">"{{ prov.case_excerpt|truncate(200) }}"</div>
+                                {% endif %}
+                                {% if prov.applies_to %}
+                                <div class="mt-1">
+                                    {% for entity in prov.applies_to %}
+                                    <span class="entity-badge badge bg-light text-dark">{{ entity }}</span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% else %}
+                            <p class="text-muted">No provisions extracted for this case.</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Questions View -->
+                <div class="tab-pane fade" id="questions-pane">
+                    <div class="view-card card">
+                        <div class="card-header">
+                            <span>Questions View</span>
+                            <span class="badge bg-purple" style="background: #6f42c1;">{{ views.questions.count }} questions</span>
+                        </div>
+                        <div class="card-body view-content">
+                            <p class="text-muted small">{{ views.questions.description }}</p>
+                            {% for q in views.questions.questions %}
+                            <div class="question-item">
+                                <strong>{{ q.number }}</strong>
+                                <span class="badge bg-secondary ms-2">{{ q.question_type }}</span>
+                                <p class="mb-1">{{ q.question_text }}</p>
+                                {% if q.linked_conclusions %}
+                                <div class="mt-2 ps-3 border-start border-success">
+                                    <small class="text-muted">Linked Conclusions:</small>
+                                    {% for c in q.linked_conclusions %}
+                                    <p class="mb-1 small">{{ c.text|truncate(200) }}</p>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% else %}
+                            <p class="text-muted">No questions extracted for this case.</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Decisions View -->
+                <div class="tab-pane fade" id="decisions-pane">
+                    <div class="view-card card">
+                        <div class="card-header">
+                            <span>Decisions View</span>
+                            <span class="badge" style="background: #fd7e14;">{{ views.decisions.count }} decision points</span>
+                        </div>
+                        <div class="card-body view-content">
+                            <p class="text-muted small">{{ views.decisions.description }}</p>
+                            {% for dec in views.decisions.decisions %}
+                            <div class="decision-item">
+                                <strong>{{ dec.focus_id or 'Decision Point' }}</strong>
+                                <p class="mb-1">{{ dec.description or dec.decision_question }}</p>
+                                {% if dec.obligations_in_tension %}
+                                <div class="mt-1">
+                                    <small class="text-muted">Obligations in tension:</small>
+                                    {% for ob in dec.obligations_in_tension %}
+                                    <span class="entity-badge badge bg-warning text-dark">{{ ob }}</span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                                {% if dec.alternatives %}
+                                <div class="mt-2">
+                                    <small class="text-muted">Alternatives:</small>
+                                    <ul class="mb-0 small">
+                                        {% for alt in dec.alternatives %}
+                                        {% if loop.index <= 3 %}
+                                        <li>{{ alt if alt is string else alt.description }}</li>
+                                        {% endif %}
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% else %}
+                            <p class="text-muted">No decision points extracted for this case.</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Narrative View -->
+                <div class="tab-pane fade" id="narrative-pane">
+                    <div class="view-card card">
+                        <div class="card-header">
+                            <span>Narrative View</span>
+                        </div>
+                        <div class="card-body view-content">
+                            <p class="text-muted small">{{ views.narrative.description }}</p>
+
+                            {% if views.narrative.has_content %}
+                            {% if views.narrative.characters %}
+                            <h6>Characters</h6>
+                            <div class="mb-3">
+                                {% for char in views.narrative.characters %}
+                                <div class="mb-2 ps-3 border-start">
+                                    <strong>{{ char.name or char.role }}</strong>
+                                    {% if char.role_type %}<span class="badge bg-info">{{ char.role_type }}</span>{% endif %}
+                                    {% if char.motivation %}<p class="small mb-0">{{ char.motivation }}</p>{% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+
+                            {% if views.narrative.timeline %}
+                            <h6>Timeline</h6>
+                            <div class="mb-3">
+                                {% for event in views.narrative.timeline %}
+                                {% if loop.index <= 5 %}
+                                <div class="mb-2 ps-3 border-start">
+                                    {% if event.time %}<small class="text-muted">{{ event.time }}</small>{% endif %}
+                                    <p class="mb-0 small">{{ event.description or event.event }}</p>
+                                </div>
+                                {% endif %}
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+
+                            {% if views.narrative.scenarios %}
+                            <h6>Scenario Seeds</h6>
+                            <div class="mb-3">
+                                {% for scenario in views.narrative.scenarios %}
+                                {% if loop.index <= 2 %}
+                                <div class="mb-2 p-2 bg-light rounded small">{{ scenario.description or scenario }}</div>
+                                {% endif %}
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                            {% else %}
+                            <p class="text-muted">No narrative data extracted for this case.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-3">
+                <button type="button" class="btn btn-outline-secondary" onclick="goToStep('facts')">
+                    <i class="bi bi-arrow-left me-1"></i> Back
+                </button>
+                <button type="button" class="btn btn-primary" onclick="goToStep('utility')">
+                    Continue to Utility Rating <i class="bi bi-arrow-right ms-1"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- STEP 3: UTILITY RATING -->
+        <div id="step-utility" class="step-content {% if current_step != 'utility' %}hidden-step{% endif %}">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-star me-2"></i>View Utility Assessment</h5>
+                </div>
+                <div class="card-body">
+                    <p>Rate how well each synthesis view helped you understand this case. Use the scale from 1 (Strongly Disagree) to 7 (Strongly Agree).</p>
+
+                    <!-- Provisions View Utility -->
+                    <div class="likert-group">
+                        <h6 class="border-bottom pb-2"><i class="bi bi-book me-2"></i>Provisions View Utility</h6>
+
+                        <div class="likert-item">
+                            <div class="likert-label">The code provision mapping helped me identify which professional standards apply to this case</div>
+                            <div class="likert-scale">
+                                {% for i in range(1, 8) %}
+                                <label>
+                                    <input type="radio" name="prov_standards_identified" value="{{ i }}" {% if existing_eval and existing_eval.prov_standards_identified == i %}checked{% endif %} required>
+                                    <span class="scale-btn">{{ i }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
+                        </div>
+
+                        <div class="likert-item">
+                            <div class="likert-label">The connections between provisions and case facts were clear</div>
+                            <div class="likert-scale">
+                                {% for i in range(1, 8) %}
+                                <label>
+                                    <input type="radio" name="prov_connections_clear" value="{{ i }}" {% if existing_eval and existing_eval.prov_connections_clear == i %}checked{% endif %} required>
+                                    <span class="scale-btn">{{ i }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
+                        </div>
+
+                        <div class="likert-item">
+                            <div class="likert-label">This view helped me understand the normative foundation for evaluating the case</div>
+                            <div class="likert-scale">
+                                {% for i in range(1, 8) %}
+                                <label>
+                                    <input type="radio" name="prov_normative_foundation" value="{{ i }}" {% if existing_eval and existing_eval.prov_normative_foundation == i %}checked{% endif %} required>
+                                    <span class="scale-btn">{{ i }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Questions View Utility -->
+                    <div class="likert-group">
+                        <h6 class="border-bottom pb-2"><i class="bi bi-question-circle me-2"></i>Questions View Utility</h6>
+
+                        <div class="likert-item">
+                            <div class="likert-label">The extracted questions helped me see the ethical issues at stake</div>
+                            <div class="likert-scale">
+                                {% for i in range(1, 8) %}
+                                <label>
+                                    <input type="radio" name="ques_issues_visible" value="{{ i }}" {% if existing_eval and existing_eval.ques_issues_visible == i %}checked{% endif %} required>
+                                    <span class="scale-btn">{{ i }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
+                        </div>
+
+                        <div class="likert-item">
+                            <div class="likert-label">The structure of questions aided my understanding</div>
+                            <div class="likert-scale">
+                                {% for i in range(1, 8) %}
+                                <label>
+                                    <input type="radio" name="ques_structure_aided" value="{{ i }}" {% if existing_eval and existing_eval.ques_structure_aided == i %}checked{% endif %} required>
+                                    <span class="scale-btn">{{ i }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
+                        </div>
+
+                        <div class="likert-item">
+                            <div class="likert-label">This view helped me identify what a committee would need to deliberate</div>
+                            <div class="likert-scale">
+                                {% for i in range(1, 8) %}
+                                <label>
+                                    <input type="radio" name="ques_deliberation_needs" value="{{ i }}" {% if existing_eval and existing_eval.ques_deliberation_needs == i %}checked{% endif %} required>
+                                    <span class="scale-btn">{{ i }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Decisions View Utility -->
+                    <div class="likert-group">
+                        <h6 class="border-bottom pb-2"><i class="bi bi-signpost-split me-2"></i>Decisions View Utility</h6>
+
+                        <div class="likert-item">
+                            <div class="likert-label">The decision points helped me understand the choices the professional faced</div>
+                            <div class="likert-scale">
+                                {% for i in range(1, 8) %}
+                                <label>
+                                    <input type="radio" name="decs_choices_understood" value="{{ i }}" {% if existing_eval and existing_eval.decs_choices_understood == i %}checked{% endif %} required>
+                                    <span class="scale-btn">{{ i }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
+                        </div>
+
+                        <div class="likert-item">
+                            <div class="likert-label">The alternatives presented gave useful context for evaluation</div>
+                            <div class="likert-scale">
+                                {% for i in range(1, 8) %}
+                                <label>
+                                    <input type="radio" name="decs_alternatives_context" value="{{ i }}" {% if existing_eval and existing_eval.decs_alternatives_context == i %}checked{% endif %} required>
+                                    <span class="scale-btn">{{ i }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
+                        </div>
+
+                        <div class="likert-item">
+                            <div class="likert-label">This view helped me trace how the professional's actions related to their obligations</div>
+                            <div class="likert-scale">
+                                {% for i in range(1, 8) %}
+                                <label>
+                                    <input type="radio" name="decs_actions_obligations" value="{{ i }}" {% if existing_eval and existing_eval.decs_actions_obligations == i %}checked{% endif %} required>
+                                    <span class="scale-btn">{{ i }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Narrative View Utility -->
+                    <div class="likert-group">
+                        <h6 class="border-bottom pb-2"><i class="bi bi-journal-text me-2"></i>Narrative View Utility</h6>
+
+                        <div class="likert-item">
+                            <div class="likert-label">The character profiles and timeline helped me understand the situation</div>
+                            <div class="likert-scale">
+                                {% for i in range(1, 8) %}
+                                <label>
+                                    <input type="radio" name="narr_situation_understood" value="{{ i }}" {% if existing_eval and existing_eval.narr_situation_understood == i %}checked{% endif %} required>
+                                    <span class="scale-btn">{{ i }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
+                        </div>
+
+                        <div class="likert-item">
+                            <div class="likert-label">The relationship information clarified who was involved and how</div>
+                            <div class="likert-scale">
+                                {% for i in range(1, 8) %}
+                                <label>
+                                    <input type="radio" name="narr_relationships_clear" value="{{ i }}" {% if existing_eval and existing_eval.narr_relationships_clear == i %}checked{% endif %} required>
+                                    <span class="scale-btn">{{ i }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
+                        </div>
+
+                        <div class="likert-item">
+                            <div class="likert-label">The sequence of events and decisions was clear</div>
+                            <div class="likert-scale">
+                                {% for i in range(1, 8) %}
+                                <label>
+                                    <input type="radio" name="narr_sequence_clear" value="{{ i }}" {% if existing_eval and existing_eval.narr_sequence_clear == i %}checked{% endif %} required>
+                                    <span class="scale-btn">{{ i }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Overall Utility -->
+                    <div class="likert-group">
+                        <h6 class="border-bottom pb-2"><i class="bi bi-check-circle me-2"></i>Overall Utility</h6>
+
+                        <div class="likert-item">
+                            <div class="likert-label">The structured presentation helped me understand this case</div>
+                            <div class="likert-scale">
+                                {% for i in range(1, 8) %}
+                                <label>
+                                    <input type="radio" name="overall_helped_understand" value="{{ i }}" {% if existing_eval and existing_eval.overall_helped_understand == i %}checked{% endif %} required>
+                                    <span class="scale-btn">{{ i }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
+                        </div>
+
+                        <div class="likert-item">
+                            <div class="likert-label">The presentation surfaced considerations I might have missed reading only the facts</div>
+                            <div class="likert-scale">
+                                {% for i in range(1, 8) %}
+                                <label>
+                                    <input type="radio" name="overall_surfaced_considerations" value="{{ i }}" {% if existing_eval and existing_eval.overall_surfaced_considerations == i %}checked{% endif %} required>
+                                    <span class="scale-btn">{{ i }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
+                        </div>
+
+                        <div class="likert-item">
+                            <div class="likert-label">This type of structured synthesis would be useful for professional ethics deliberation</div>
+                            <div class="likert-scale">
+                                {% for i in range(1, 8) %}
+                                <label>
+                                    <input type="radio" name="overall_useful_deliberation" value="{{ i }}" {% if existing_eval and existing_eval.overall_useful_deliberation == i %}checked{% endif %} required>
+                                    <span class="scale-btn">{{ i }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <button type="button" class="btn btn-outline-secondary" onclick="goToStep('views')">
+                        <i class="bi bi-arrow-left me-1"></i> Back
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="goToStep('comprehension')">
+                        Continue to Comprehension Questions <i class="bi bi-arrow-right ms-1"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 4: COMPREHENSION QUESTIONS -->
+        <div id="step-comprehension" class="step-content {% if current_step != 'comprehension' %}hidden-step{% endif %}">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="bi bi-chat-text me-2"></i>Comprehension Questions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="withheld-notice mb-4">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>Important:</strong> Answer these questions based on your understanding from the case facts and synthesis views. The board's actual conclusions will be revealed after you submit your answers.
+                    </div>
+
+                    <div class="comprehension-question">
+                        <label for="comp_main_tensions">What were the main ethical tensions in this case?</label>
+                        <textarea class="form-control" id="comp_main_tensions" name="comp_main_tensions" rows="3" required>{{ existing_eval.comp_main_tensions if existing_eval else '' }}</textarea>
+                    </div>
+
+                    <div class="comprehension-question">
+                        <label for="comp_relevant_provisions">Which code provisions are most relevant to this case?</label>
+                        <textarea class="form-control" id="comp_relevant_provisions" name="comp_relevant_provisions" rows="3" required>{{ existing_eval.comp_relevant_provisions if existing_eval else '' }}</textarea>
+                    </div>
+
+                    <div class="comprehension-question">
+                        <label for="comp_decision_points">What decision points did the professional face?</label>
+                        <textarea class="form-control" id="comp_decision_points" name="comp_decision_points" rows="3" required>{{ existing_eval.comp_decision_points if existing_eval else '' }}</textarea>
+                    </div>
+
+                    <div class="comprehension-question">
+                        <label for="comp_deliberation_factors">What factors would be most important for a committee deliberating this case?</label>
+                        <textarea class="form-control" id="comp_deliberation_factors" name="comp_deliberation_factors" rows="3" required>{{ existing_eval.comp_deliberation_factors if existing_eval else '' }}</textarea>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <button type="button" class="btn btn-outline-secondary" onclick="goToStep('utility')">
+                        <i class="bi bi-arrow-left me-1"></i> Back
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="goToStep('reveal')">
+                        Reveal Board Conclusions <i class="bi bi-arrow-right ms-1"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 5: REVEAL -->
+        <div id="step-reveal" class="step-content {% if current_step != 'reveal' %}hidden-step{% endif %}">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-eye me-2"></i>Board Conclusions Revealed</h5>
+                </div>
+                <div class="card-body">
+                    <div class="reveal-section mb-4" id="board-conclusions-container">
+                        <p class="text-muted">Loading board conclusions...</p>
+                    </div>
+
+                    <p class="lead">Compare your comprehension answers with the board's actual reasoning. How well did your understanding align?</p>
+                </div>
+                <div class="card-footer">
+                    <button type="button" class="btn btn-outline-secondary" onclick="goToStep('comprehension')">
+                        <i class="bi bi-arrow-left me-1"></i> Back
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="goToStep('alignment')">
+                        Continue to Alignment Assessment <i class="bi bi-arrow-right ms-1"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 6: ALIGNMENT -->
+        <div id="step-alignment" class="step-content {% if current_step != 'alignment' %}hidden-step{% endif %}">
+            <div class="card">
+                <div class="card-header bg-warning">
+                    <h5 class="mb-0"><i class="bi bi-bullseye me-2"></i>Alignment Self-Assessment</h5>
+                </div>
+                <div class="card-body">
+                    <p>After reviewing the board's conclusions, rate how well your comprehension aligned with their reasoning.</p>
+
+                    <div class="likert-item mb-4">
+                        <div class="likert-label fw-bold">How well did your answers align with the board's reasoning?</div>
+                        <div class="likert-scale">
+                            {% for i in range(1, 8) %}
+                            <label>
+                                <input type="radio" name="alignment_self_rating" value="{{ i }}" {% if existing_eval and existing_eval.alignment_self_rating == i %}checked{% endif %} required>
+                                <span class="scale-btn">{{ i }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                        <div class="scale-endpoints"><span>Not at all aligned</span><span>Fully aligned</span></div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="alignment_reflection" class="form-label fw-bold">Reflect on any differences between your understanding and the board's conclusions:</label>
+                        <textarea class="form-control" id="alignment_reflection" name="alignment_reflection" rows="4">{{ existing_eval.alignment_reflection if existing_eval else '' }}</textarea>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <button type="button" class="btn btn-outline-secondary" onclick="goToStep('reveal')">
+                        <i class="bi bi-arrow-left me-1"></i> Back
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-check-lg me-1"></i> Submit Evaluation
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Time tracking
+    let stepStartTime = Date.now();
+    let currentStepName = '{{ current_step }}';
+
+    function updateTimeTracking(fromStep) {
+        const elapsed = Date.now() - stepStartTime;
+        const fieldMap = {
+            'facts': 'time_facts_review',
+            'views': 'time_views_review',
+            'utility': 'time_utility_rating',
+            'comprehension': 'time_comprehension',
+            'alignment': 'time_alignment'
+        };
+        const field = document.getElementById(fieldMap[fromStep]);
+        if (field) {
+            const current = parseInt(field.value) || 0;
+            field.value = current + elapsed;
+        }
+        stepStartTime = Date.now();
+    }
+
+    function goToStep(stepName) {
+        // Update time tracking
+        updateTimeTracking(currentStepName);
+
+        // Hide all steps
+        document.querySelectorAll('.step-content').forEach(el => {
+            el.classList.add('hidden-step');
+        });
+
+        // Show target step
+        document.getElementById('step-' + stepName).classList.remove('hidden-step');
+
+        // Update step indicators
+        const steps = ['facts', 'views', 'utility', 'comprehension', 'reveal', 'alignment'];
+        const targetIndex = steps.indexOf(stepName);
+
+        document.querySelectorAll('.step-indicator .step').forEach((el, idx) => {
+            el.classList.remove('active', 'completed');
+            if (idx < targetIndex) {
+                el.classList.add('completed');
+            } else if (idx === targetIndex) {
+                el.classList.add('active');
+            }
+        });
+
+        currentStepName = stepName;
+
+        // Load board conclusions when reaching reveal step
+        if (stepName === 'reveal') {
+            loadBoardConclusions();
+        }
+
+        // Scroll to top
+        window.scrollTo(0, 0);
+    }
+
+    function loadBoardConclusions() {
+        const container = document.getElementById('board-conclusions-container');
+        fetch('{{ url_for("study.reveal_conclusions", case_id=document.id) }}')
+            .then(response => response.json())
+            .then(data => {
+                let html = '';
+                // Use pre-wrap only if content is not HTML
+                const contentStyle = data.is_html ? '' : 'style="white-space: pre-wrap;"';
+
+                if (data.discussion) {
+                    html += '<h6>Discussion</h6>';
+                    html += '<div class="mb-3 p-3 bg-white rounded board-content" ' + contentStyle + '>' + data.discussion + '</div>';
+                }
+
+                if (data.conclusion) {
+                    html += '<h6>Conclusion</h6>';
+                    html += '<div class="mb-3 p-3 bg-white rounded board-content" ' + contentStyle + '>' + data.conclusion + '</div>';
+                }
+
+                if (data.cited_provisions && data.cited_provisions.length > 0) {
+                    html += '<h6>Cited Provisions</h6>';
+                    html += '<ul class="mb-0">';
+                    data.cited_provisions.forEach(p => {
+                        const truncatedText = p.text.length > 100 ? p.text.substring(0, 100) + '...' : p.text;
+                        html += '<li><strong>' + p.code_section + '</strong>: ' + truncatedText + '</li>';
+                    });
+                    html += '</ul>';
+                }
+
+                if (!html) {
+                    html = '<p class="text-muted">Board conclusions not available for this case.</p>';
+                }
+
+                container.innerHTML = html;
+            })
+            .catch(err => {
+                container.innerHTML = '<p class="text-danger">Error loading conclusions: ' + err.message + '</p>';
+            });
+    }
+
+    // Format long facts paragraphs into readable chunks with expand/collapse
+    function setupFactsChunking() {
+        document.querySelectorAll('.facts-section .case-text-content').forEach(function(container) {
+            // Check if content is long enough to chunk (more than 800 chars)
+            const textContent = container.textContent || container.innerText;
+            if (textContent.length < 800) return;
+
+            // For HTML content, look for long paragraphs
+            const paragraphs = container.querySelectorAll('p');
+            if (paragraphs.length > 0) {
+                // If there are multiple paragraphs, show first few
+                if (paragraphs.length > 3) {
+                    const expandId = 'factsExpand_' + Math.random().toString(36).substr(2, 9);
+
+                    // Wrap paragraphs after the third in a collapse div
+                    const collapseDiv = document.createElement('div');
+                    collapseDiv.className = 'collapse';
+                    collapseDiv.id = expandId;
+
+                    for (let i = 3; i < paragraphs.length; i++) {
+                        collapseDiv.appendChild(paragraphs[i].cloneNode(true));
+                        paragraphs[i].remove();
+                    }
+
+                    container.appendChild(collapseDiv);
+
+                    // Add expand button
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'btn btn-sm btn-link facts-expand-btn p-0 mt-2';
+                    btn.setAttribute('data-bs-toggle', 'collapse');
+                    btn.setAttribute('data-bs-target', '#' + expandId);
+                    btn.innerHTML = '<i class="bi bi-chevron-down"></i> Show more (' + (paragraphs.length - 3) + ' more paragraphs)';
+                    container.appendChild(btn);
+
+                    // Toggle button text
+                    collapseDiv.addEventListener('show.bs.collapse', function() {
+                        btn.innerHTML = '<i class="bi bi-chevron-up"></i> Show less';
+                    });
+                    collapseDiv.addEventListener('hide.bs.collapse', function() {
+                        btn.innerHTML = '<i class="bi bi-chevron-down"></i> Show more (' + (paragraphs.length - 3) + ' more paragraphs)';
+                    });
+                }
+            } else {
+                // For plain text without paragraphs, split on sentences
+                const html = container.innerHTML;
+                const sentences = html.split(/\.(?=\s+[A-Z])/);
+                if (sentences.length > 5) {
+                    const expandId = 'factsExpand_' + Math.random().toString(36).substr(2, 9);
+                    const previewSentences = sentences.slice(0, 4).join('. ') + '.';
+                    const remainingSentences = sentences.slice(4);
+
+                    // Group remaining sentences into paragraphs
+                    const remainingParagraphs = [];
+                    for (let i = 0; i < remainingSentences.length; i += 3) {
+                        const chunk = remainingSentences.slice(i, i + 3).join('. ');
+                        remainingParagraphs.push(chunk + (chunk.endsWith('.') ? '' : '.'));
+                    }
+
+                    container.innerHTML = `
+                        <p class="mb-2">${previewSentences.trim()}</p>
+                        <div class="collapse" id="${expandId}">
+                            ${remainingParagraphs.map(p => '<p class="mb-3">' + p.trim() + '</p>').join('')}
+                        </div>
+                        <button class="btn btn-sm btn-link facts-expand-btn p-0" type="button"
+                                data-bs-toggle="collapse" data-bs-target="#${expandId}">
+                            <i class="bi bi-chevron-down"></i> Show more (${remainingSentences.length} more sentences)
+                        </button>
+                    `;
+
+                    const collapseEl = document.getElementById(expandId);
+                    if (collapseEl) {
+                        const btn = container.querySelector('button');
+                        collapseEl.addEventListener('show.bs.collapse', function() {
+                            btn.innerHTML = '<i class="bi bi-chevron-up"></i> Show less';
+                        });
+                        collapseEl.addEventListener('hide.bs.collapse', function() {
+                            btn.innerHTML = '<i class="bi bi-chevron-down"></i> Show more (' + remainingSentences.length + ' more sentences)';
+                        });
+                    }
+                }
+            }
+        });
+    }
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        // Set initial step
+        goToStep('{{ current_step }}');
+
+        // Set up facts chunking for readability
+        setupFactsChunking();
+    });
+</script>
+{% endblock %}

@@ -54,6 +54,34 @@ class Document(db.Model):
     # Define relationships
     world = db.relationship('World', backref='documents')
     creator = db.relationship('User', backref='created_documents')
+
+    # Aliases for domain terminology (world == domain in ProEthica context)
+    @property
+    def domain_id(self):
+        """Alias for world_id - domain and world are synonymous."""
+        return self.world_id
+
+    @property
+    def domain(self):
+        """Alias for world relationship - domain and world are synonymous."""
+        return self.world
+
+    @property
+    def case_number(self):
+        """Extract case number from metadata or title."""
+        # Check metadata first
+        if self.doc_metadata and isinstance(self.doc_metadata, dict):
+            if 'case_number' in self.doc_metadata:
+                return self.doc_metadata['case_number']
+
+        # Try to extract from title (e.g., "BER Case 57-8")
+        if self.title:
+            import re
+            match = re.search(r'(?:Case|BER)\s*(\d+[-\d]*)', self.title, re.IGNORECASE)
+            if match:
+                return match.group(1)
+
+        return None
     
     def get_content(self):
         """Get document content from file if not already loaded"""

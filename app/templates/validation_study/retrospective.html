@@ -1,0 +1,296 @@
+{% extends "base.html" %}
+
+{% block title %}Retrospective Reflection - View Utility Study{% endblock %}
+
+{% block styles %}
+<style>
+    .rank-item {
+        padding: 1rem;
+        margin-bottom: 0.5rem;
+        border: 2px solid #dee2e6;
+        border-radius: 8px;
+        background: #fff;
+        cursor: grab;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    .rank-item:active {
+        cursor: grabbing;
+    }
+    .rank-item .rank-number {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: #0d6efd;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+    }
+    .rank-item.dragging {
+        opacity: 0.5;
+        border-color: #0d6efd;
+    }
+    .rank-item .view-icon {
+        font-size: 1.5rem;
+        width: 40px;
+        text-align: center;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="h2 mb-0">
+                <i class="bi bi-journal-text text-warning me-2"></i>
+                Retrospective Reflection
+            </h1>
+            <p class="text-muted">Share your overall impressions after evaluating all cases</p>
+        </div>
+    </div>
+
+    {% if existing %}
+    <div class="alert alert-success">
+        <i class="bi bi-check-circle me-2"></i>
+        You have already submitted your retrospective reflection.
+        <a href="{{ url_for('study.complete') }}">View completion page</a>
+    </div>
+    {% endif %}
+
+    <form method="POST" action="{{ url_for('study.retrospective') }}">
+        <div class="row">
+            <div class="col-lg-8">
+                <!-- View Ranking -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-sort-numeric-down me-2"></i>View Ranking</h5>
+                    </div>
+                    <div class="card-body">
+                        <p>Rank the four synthesis views from most valuable (1) to least valuable (4) for understanding cases.</p>
+
+                        <div id="rankContainer">
+                            <div class="rank-item" data-view="provisions">
+                                <span class="rank-number">1</span>
+                                <span class="view-icon text-primary"><i class="bi bi-book"></i></span>
+                                <div>
+                                    <strong>Provisions View</strong>
+                                    <br><small class="text-muted">Code provisions mapped to case elements</small>
+                                </div>
+                                <input type="hidden" name="rank_provisions_view" value="1">
+                            </div>
+
+                            <div class="rank-item" data-view="questions">
+                                <span class="rank-number">2</span>
+                                <span class="view-icon" style="color: #6f42c1;"><i class="bi bi-question-circle"></i></span>
+                                <div>
+                                    <strong>Questions View</strong>
+                                    <br><small class="text-muted">Ethical questions and their structure</small>
+                                </div>
+                                <input type="hidden" name="rank_questions_view" value="2">
+                            </div>
+
+                            <div class="rank-item" data-view="decisions">
+                                <span class="rank-number">3</span>
+                                <span class="view-icon" style="color: #fd7e14;"><i class="bi bi-signpost-split"></i></span>
+                                <div>
+                                    <strong>Decisions View</strong>
+                                    <br><small class="text-muted">Decision points and alternatives</small>
+                                </div>
+                                <input type="hidden" name="rank_decisions_view" value="3">
+                            </div>
+
+                            <div class="rank-item" data-view="narrative">
+                                <span class="rank-number">4</span>
+                                <span class="view-icon text-success"><i class="bi bi-journal-text"></i></span>
+                                <div>
+                                    <strong>Narrative View</strong>
+                                    <br><small class="text-muted">Timeline, characters, scenarios</small>
+                                </div>
+                                <input type="hidden" name="rank_narrative_view" value="4">
+                            </div>
+                        </div>
+
+                        <small class="text-muted">Drag and drop to reorder</small>
+                    </div>
+                </div>
+
+                <!-- Surfaced Considerations -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-lightbulb me-2"></i>Surfaced Considerations</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">
+                                Did the structured presentation surface considerations you might have missed reading only the facts?
+                            </label>
+                            <div class="btn-group w-100" role="group">
+                                <input type="radio" class="btn-check" name="surfaced_missed_considerations" id="surfaced_yes" value="yes" required
+                                       {% if existing and existing.surfaced_missed_considerations %}checked{% endif %}>
+                                <label class="btn btn-outline-success" for="surfaced_yes">
+                                    <i class="bi bi-check-lg me-1"></i> Yes
+                                </label>
+
+                                <input type="radio" class="btn-check" name="surfaced_missed_considerations" id="surfaced_no" value="no"
+                                       {% if existing and not existing.surfaced_missed_considerations %}checked{% endif %}>
+                                <label class="btn btn-outline-secondary" for="surfaced_no">
+                                    <i class="bi bi-x-lg me-1"></i> No
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="mb-0" id="surfacedTextContainer" style="display: none;">
+                            <label for="surfaced_considerations_text" class="form-label">
+                                If yes, what considerations did the presentation help you identify?
+                            </label>
+                            <textarea class="form-control" id="surfaced_considerations_text" name="surfaced_considerations_text"
+                                      rows="3">{{ existing.surfaced_considerations_text if existing else '' }}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Open Feedback -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-chat-dots me-2"></i>Open Feedback</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="missing_elements" class="form-label fw-bold">
+                                What information or structure was missing that would have helped your analysis?
+                            </label>
+                            <textarea class="form-control" id="missing_elements" name="missing_elements"
+                                      rows="3">{{ existing.missing_elements if existing else '' }}</textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="improvement_suggestions" class="form-label fw-bold">
+                                What changes would make this type of synthesis more useful?
+                            </label>
+                            <textarea class="form-control" id="improvement_suggestions" name="improvement_suggestions"
+                                      rows="3">{{ existing.improvement_suggestions if existing else '' }}</textarea>
+                        </div>
+
+                        <div class="mb-0">
+                            <label for="general_comments" class="form-label fw-bold">
+                                Any other comments or observations?
+                            </label>
+                            <textarea class="form-control" id="general_comments" name="general_comments"
+                                      rows="3">{{ existing.general_comments if existing else '' }}</textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <!-- Summary Card -->
+                <div class="card sticky-top" style="top: 20px;">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="bi bi-check-square me-2"></i>Summary</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-3">
+                            <strong>Participant:</strong> {{ participant_id }}<br>
+                            <strong>Domain:</strong> {{ domain|title }}<br>
+                            <strong>Cases Evaluated:</strong> {{ session.completed_cases|length if session.completed_cases else 0 }}
+                        </p>
+
+                        <hr>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="bi bi-check-lg me-2"></i>
+                                Submit Retrospective
+                            </button>
+                            <a href="{{ url_for('study.index') }}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Show/hide surfaced considerations text based on radio selection
+    const surfacedRadios = document.querySelectorAll('input[name="surfaced_missed_considerations"]');
+    const surfacedTextContainer = document.getElementById('surfacedTextContainer');
+
+    surfacedRadios.forEach(radio => {
+        radio.addEventListener('change', function() {
+            surfacedTextContainer.style.display = this.value === 'yes' ? 'block' : 'none';
+        });
+    });
+
+    // Check initial state
+    const checkedRadio = document.querySelector('input[name="surfaced_missed_considerations"]:checked');
+    if (checkedRadio && checkedRadio.value === 'yes') {
+        surfacedTextContainer.style.display = 'block';
+    }
+
+    // Drag and drop ranking
+    const container = document.getElementById('rankContainer');
+    const items = container.querySelectorAll('.rank-item');
+    let draggedItem = null;
+
+    items.forEach(item => {
+        item.setAttribute('draggable', 'true');
+
+        item.addEventListener('dragstart', function(e) {
+            draggedItem = this;
+            this.classList.add('dragging');
+        });
+
+        item.addEventListener('dragend', function() {
+            this.classList.remove('dragging');
+            updateRankNumbers();
+        });
+
+        item.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            const afterElement = getDragAfterElement(container, e.clientY);
+            if (afterElement == null) {
+                container.appendChild(draggedItem);
+            } else {
+                container.insertBefore(draggedItem, afterElement);
+            }
+        });
+    });
+
+    function getDragAfterElement(container, y) {
+        const draggableElements = [...container.querySelectorAll('.rank-item:not(.dragging)')];
+        return draggableElements.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+            if (offset < 0 && offset > closest.offset) {
+                return { offset: offset, element: child };
+            } else {
+                return closest;
+            }
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+
+    function updateRankNumbers() {
+        const items = container.querySelectorAll('.rank-item');
+        items.forEach((item, index) => {
+            const rankNum = index + 1;
+            item.querySelector('.rank-number').textContent = rankNum;
+
+            const view = item.dataset.view;
+            const input = item.querySelector('input[type="hidden"]');
+            input.value = rankNum;
+        });
+    }
+});
+</script>
+{% endblock %}

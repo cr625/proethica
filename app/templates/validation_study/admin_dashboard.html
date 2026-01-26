@@ -125,7 +125,7 @@
     <!-- Chapter 4 View Utility Statistics -->
     <div class="row mb-4">
         <div class="col-12">
-            <h5 class="text-success mb-3"><i class="bi bi-clipboard-check me-2"></i>Chapter 4 View Utility Study</h5>
+            <h5 class="text-success mb-3"><i class="bi bi-clipboard-check me-2"></i>View Utility Study</h5>
         </div>
         <div class="col-md-3 mb-3">
             <div class="card border-success h-100">
@@ -232,21 +232,21 @@
                                 </button>
                                 <ul class="dropdown-menu">
                                     <li><h6 class="dropdown-header">Krippendorff's Alpha Format</h6></li>
-                                    <li><a class="dropdown-item" href="{{ url_for('admin.validation_export', format='csv', level='means') }}">
+                                    <li><a class="dropdown-item" href="{{ url_for('study.admin_export', format='csv', level='means') }}">
                                         <i class="bi bi-filetype-csv me-2"></i>CSV (Metric Means)
                                     </a></li>
-                                    <li><a class="dropdown-item" href="{{ url_for('admin.validation_export', format='csv', level='subitems') }}">
+                                    <li><a class="dropdown-item" href="{{ url_for('study.admin_export', format='csv', level='subitems') }}">
                                         <i class="bi bi-filetype-csv me-2"></i>CSV (All Sub-items)
                                     </a></li>
-                                    <li><a class="dropdown-item" href="{{ url_for('admin.validation_export', format='json', level='means') }}">
+                                    <li><a class="dropdown-item" href="{{ url_for('study.admin_export', format='json', level='means') }}">
                                         <i class="bi bi-filetype-json me-2"></i>JSON (Metric Means)
                                     </a></li>
                                     <li><hr class="dropdown-divider"></li>
                                     <li><h6 class="dropdown-header">By Domain</h6></li>
-                                    <li><a class="dropdown-item" href="{{ url_for('admin.validation_export', format='csv', domain='engineering') }}">
+                                    <li><a class="dropdown-item" href="{{ url_for('study.admin_export', format='csv', domain='engineering') }}">
                                         <i class="bi bi-gear me-2"></i>Engineering Only
                                     </a></li>
-                                    <li><a class="dropdown-item" href="{{ url_for('admin.validation_export', format='csv', domain='education') }}">
+                                    <li><a class="dropdown-item" href="{{ url_for('study.admin_export', format='csv', domain='education') }}">
                                         <i class="bi bi-mortarboard me-2"></i>Education Only
                                     </a></li>
                                     <li><hr class="dropdown-divider"></li>
@@ -334,7 +334,8 @@
                 <div class="card-body">
                     {% if cases_with_predictions %}
                         <div class="list-group list-group-flush">
-                            {% for case in cases_with_predictions[:5] %}
+                            {% for case in cases_with_predictions %}
+                            {% if loop.index <= 5 %}
                             <div class="list-group-item d-flex justify-content-between align-items-center px-0">
                                 <div>
                                     <strong>{{ case.title|truncate(40) }}</strong>
@@ -355,6 +356,7 @@
                                     </a>
                                 </div>
                             </div>
+                            {% endif %}
                             {% endfor %}
                         </div>
                         {% if cases_with_predictions|length > 5 %}
@@ -418,14 +420,14 @@
         </div>
     </div>
 
-    <!-- Chapter 4 View Utility Study -->
+    <!-- View Utility Study -->
     <div class="row mb-4">
         <div class="col-12">
             <div class="card border-success">
                 <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
                     <h5 class="card-title mb-0">
                         <i class="bi bi-clipboard-check me-2"></i>
-                        Chapter 4 View Utility Study
+                        View Utility Study
                     </h5>
                     <a href="{{ url_for('study.index') }}" class="btn btn-light btn-sm">
                         <i class="bi bi-box-arrow-up-right me-1"></i> Open Study Interface
@@ -553,7 +555,7 @@ function generatePredictions() {
 }
 
 function viewSummary() {
-    fetch('{{ url_for("admin.validation_summary") }}')
+    fetch('{{ url_for("study.admin_summary") }}')
         .then(response => response.json())
         .then(data => {
             if (data.error) {
@@ -595,7 +597,7 @@ function viewSummary() {
                             </div>
                             <div class="modal-body">${summaryHtml}</div>
                             <div class="modal-footer">
-                                <a href="{{ url_for('admin.validation_export', format='csv') }}" class="btn btn-primary">
+                                <a href="{{ url_for('study.admin_export', format='csv') }}" class="btn btn-primary">
                                     <i class="bi bi-download me-1"></i>Export CSV
                                 </a>
                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>

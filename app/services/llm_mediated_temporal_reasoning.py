@@ -30,9 +30,18 @@ from app.services.temporal_reasoning_service import (
     TemporalBoundaryType
 )
 
-# Import LLM orchestration
-from shared.llm_orchestration.core.orchestrator import get_llm_orchestrator
-from shared.llm_orchestration.providers import GenerationRequest, GenerationResponse
+# Import LLM orchestration (optional - graceful fallback if shared module unavailable)
+LLM_ORCHESTRATION_AVAILABLE = False
+get_llm_orchestrator = None
+GenerationRequest = None
+GenerationResponse = None
+
+try:
+    from shared.llm_orchestration.core.orchestrator import get_llm_orchestrator
+    from shared.llm_orchestration.providers import GenerationRequest, GenerationResponse
+    LLM_ORCHESTRATION_AVAILABLE = True
+except ImportError:
+    pass  # Service will operate in degraded mode without LLM orchestration
 
 # Import validation tracker
 from app.services.llm_validation_tracker import get_llm_validation_tracker
@@ -59,6 +68,9 @@ class LLMMediatedTemporalReasoningService:
         
     def _initialize_llm_integration(self):
         """Initialize LLM orchestrator and MCP client."""
+        if not LLM_ORCHESTRATION_AVAILABLE:
+            logger.info("LLM orchestration not available - temporal reasoning will use algorithmic fallback")
+            return
         try:
             self.llm_orchestrator = get_llm_orchestrator()
             # Initialize MCP client for ontology validation

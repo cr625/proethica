@@ -50,7 +50,10 @@
         <div class="d-flex gap-2">
             {% if case.document_id %}
             <div class="btn-group" role="group">
-                <a href="{{ url_for('provenance.provenance_cases', selected=case.id) }}" class="btn btn-primary" title="View provenance and processing history">
+                <a href="{{ url_for('cases.view_case_structure', id=case.id) }}" class="btn btn-outline-primary" title="View document sections, embeddings, and structure">
+                    <i class="bi bi-layers"></i> Structure
+                </a>
+                <a href="{{ url_for('provenance.provenance_cases', selected=case.id) }}" class="btn btn-outline-primary" title="View provenance and processing history">
                     <i class="bi bi-diagram-3"></i> Provenance
                 </a>
                 {% if current_user.is_authenticated %}
