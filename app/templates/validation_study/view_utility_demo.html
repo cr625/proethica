@@ -1,0 +1,634 @@
+{% extends "base.html" %}
+
+{% block title %}View Utility Assessment - {{ view_name|title }} View{% endblock %}
+
+{% block styles %}
+<style>
+    /* Clean research instrument aesthetic */
+    .study-container {
+        max-width: 900px;
+        margin: 0 auto;
+    }
+
+    .study-header {
+        border-bottom: 2px solid #dee2e6;
+        padding-bottom: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .study-header h1 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #212529;
+    }
+
+    .study-header .case-ref {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+
+    /* Synthesis View Card */
+    .synthesis-view-card {
+        background: #fff;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        margin-bottom: 2rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    .view-header {
+        background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 8px 8px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .view-header.provisions { background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%); }
+    .view-header.questions { background: linear-gradient(135deg, #6f42c1 0%, #5a32a3 100%); }
+    .view-header.decisions { background: linear-gradient(135deg, #fd7e14 0%, #e06b0a 100%); }
+    .view-header.narrative { background: linear-gradient(135deg, #20c997 0%, #198754 100%); }
+
+    .view-header h2 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .view-count-badge {
+        background: rgba(255,255,255,0.2);
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+    }
+
+    .view-description {
+        padding: 0.75rem 1.5rem;
+        background: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+        color: #6c757d;
+        font-size: 0.875rem;
+        font-style: italic;
+    }
+
+    .view-content {
+        padding: 1.5rem;
+        max-height: 350px;
+        overflow-y: auto;
+    }
+
+    /* View-specific item styling */
+    .view-item {
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border-radius: 6px;
+        background: #f8f9fa;
+        border-left: 4px solid;
+    }
+
+    .view-item.provision { border-left-color: #0d6efd; }
+    .view-item.question { border-left-color: #6f42c1; }
+    .view-item.decision { border-left-color: #fd7e14; }
+
+    .view-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .item-label {
+        font-weight: 600;
+        color: #495057;
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .item-text {
+        color: #212529;
+        line-height: 1.6;
+    }
+
+    .item-meta {
+        margin-top: 0.5rem;
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+
+    .entity-tag {
+        display: inline-block;
+        background: #e9ecef;
+        color: #495057;
+        padding: 0.15rem 0.5rem;
+        border-radius: 3px;
+        font-size: 0.75rem;
+        margin-right: 0.25rem;
+        margin-top: 0.25rem;
+    }
+
+    /* Utility Assessment Section */
+    .utility-assessment {
+        background: #fff;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    .utility-header {
+        background: #f8f9fa;
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #dee2e6;
+        border-radius: 8px 8px 0 0;
+    }
+
+    .utility-header h3 {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #495057;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .utility-content {
+        padding: 1.5rem;
+    }
+
+    /* Likert Scale Styling */
+    .likert-question {
+        margin-bottom: 1.75rem;
+    }
+
+    .likert-question:last-child {
+        margin-bottom: 0;
+    }
+
+    .likert-statement {
+        font-size: 0.95rem;
+        color: #212529;
+        margin-bottom: 0.75rem;
+        line-height: 1.5;
+    }
+
+    .likert-scale-container {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .likert-option {
+        flex: 1;
+        text-align: center;
+    }
+
+    .likert-option input[type="radio"] {
+        display: none;
+    }
+
+    .likert-option label {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.25rem;
+        cursor: pointer;
+    }
+
+    .likert-circle {
+        width: 40px;
+        height: 40px;
+        border: 2px solid #dee2e6;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: #6c757d;
+        transition: all 0.2s ease;
+        background: #fff;
+    }
+
+    .likert-option:hover .likert-circle {
+        border-color: #0d6efd;
+        color: #0d6efd;
+        transform: scale(1.05);
+    }
+
+    .likert-option input[type="radio"]:checked + label .likert-circle {
+        background: #0d6efd;
+        border-color: #0d6efd;
+        color: white;
+        transform: scale(1.1);
+    }
+
+    /* Gradient coloring for selected state based on value */
+    .likert-option input[type="radio"][value="1"]:checked + label .likert-circle,
+    .likert-option input[type="radio"][value="2"]:checked + label .likert-circle {
+        background: #dc3545;
+        border-color: #dc3545;
+    }
+
+    .likert-option input[type="radio"][value="3"]:checked + label .likert-circle {
+        background: #fd7e14;
+        border-color: #fd7e14;
+    }
+
+    .likert-option input[type="radio"][value="4"]:checked + label .likert-circle {
+        background: #ffc107;
+        border-color: #ffc107;
+        color: #212529;
+    }
+
+    .likert-option input[type="radio"][value="5"]:checked + label .likert-circle {
+        background: #20c997;
+        border-color: #20c997;
+    }
+
+    .likert-option input[type="radio"][value="6"]:checked + label .likert-circle,
+    .likert-option input[type="radio"][value="7"]:checked + label .likert-circle {
+        background: #198754;
+        border-color: #198754;
+    }
+
+    .scale-anchors {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.75rem;
+        color: #6c757d;
+        padding: 0 0.5rem;
+    }
+
+    /* Study context badge */
+    .study-badge {
+        background: #e7f1ff;
+        color: #0d6efd;
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    /* Navigation */
+    .nav-footer {
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid #dee2e6;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .step-indicator-mini {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .step-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #dee2e6;
+    }
+
+    .step-dot.active {
+        background: #0d6efd;
+    }
+
+    .step-dot.completed {
+        background: #198754;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4 study-container">
+    <!-- Study Header -->
+    <div class="study-header">
+        <div class="d-flex justify-content-between align-items-start">
+            <div>
+                <h1>View Utility Assessment</h1>
+                <p class="case-ref mb-0">{{ document.title }} (Case #{{ document.case_number or document.id }})</p>
+            </div>
+            <div class="study-badge">
+                <i class="bi bi-clipboard-check"></i>
+                Step 3 of 6: Rate View Utility
+            </div>
+        </div>
+    </div>
+
+    <!-- Synthesis View Display -->
+    <div class="synthesis-view-card">
+        <div class="view-header {{ view_type }}">
+            <h2>
+                {% if view_type == 'provisions' %}
+                <i class="bi bi-book"></i> Provisions View
+                {% elif view_type == 'questions' %}
+                <i class="bi bi-question-circle"></i> Questions View
+                {% elif view_type == 'decisions' %}
+                <i class="bi bi-signpost-split"></i> Decisions View
+                {% elif view_type == 'narrative' %}
+                <i class="bi bi-journal-text"></i> Narrative View
+                {% endif %}
+            </h2>
+            <span class="view-count-badge">{{ view_data.count }} items</span>
+        </div>
+
+        <div class="view-description">
+            {{ view_data.description }}
+        </div>
+
+        <div class="view-content">
+            {% if view_type == 'provisions' %}
+                {% for prov in view_data.provisions[:4] %}
+                <div class="view-item provision">
+                    <div class="item-label">{{ prov.code_section }}</div>
+                    <div class="item-text">{{ prov.provision_text }}</div>
+                    {% if prov.applies_to %}
+                    <div class="item-meta">
+                        Applies to:
+                        {% for entity in prov.applies_to %}
+                        <span class="entity-tag">{{ entity }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                {% if view_data.provisions|length > 4 %}
+                <p class="text-muted text-center small mt-2">+ {{ view_data.provisions|length - 4 }} more provisions</p>
+                {% endif %}
+
+            {% elif view_type == 'questions' %}
+                {% for q in view_data.questions[:4] %}
+                <div class="view-item question">
+                    <div class="item-label">{{ q.number }}</div>
+                    <div class="item-text">{{ q.question_text }}</div>
+                    {% if q.question_type %}
+                    <div class="item-meta">Type: {{ q.question_type }}</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                {% if view_data.questions|length > 4 %}
+                <p class="text-muted text-center small mt-2">+ {{ view_data.questions|length - 4 }} more questions</p>
+                {% endif %}
+
+            {% elif view_type == 'decisions' %}
+                {% for dec in view_data.decisions[:3] %}
+                <div class="view-item decision">
+                    <div class="item-label">{{ dec.focus_id or 'Decision Point' }}</div>
+                    <div class="item-text">{{ dec.description or dec.decision_question }}</div>
+                    {% if dec.alternatives %}
+                    <div class="item-meta">
+                        Alternatives:
+                        {% for alt in dec.alternatives[:2] %}
+                        <span class="entity-tag">{{ alt if alt is string else alt.description|truncate(40) }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                {% if view_data.decisions|length > 3 %}
+                <p class="text-muted text-center small mt-2">+ {{ view_data.decisions|length - 3 }} more decision points</p>
+                {% endif %}
+
+            {% elif view_type == 'narrative' %}
+                {% if view_data.characters %}
+                <h6 class="text-muted small mb-2">Characters</h6>
+                {% for char in view_data.characters[:3] %}
+                <div class="view-item" style="border-left-color: #20c997;">
+                    <div class="item-label">{{ char.name or char.role }}</div>
+                    {% if char.motivation %}
+                    <div class="item-text small">{{ char.motivation }}</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                {% endif %}
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Utility Assessment -->
+    <div class="utility-assessment">
+        <div class="utility-header">
+            <h3>
+                <i class="bi bi-star"></i>
+                Rate This View's Utility
+            </h3>
+        </div>
+
+        <div class="utility-content">
+            <form id="utilityForm">
+                {% if view_type == 'provisions' %}
+                <div class="likert-question">
+                    <div class="likert-statement">
+                        The code provision mapping helped me identify which professional standards apply to this case.
+                    </div>
+                    <div class="likert-scale-container">
+                        {% for i in range(1, 8) %}
+                        <div class="likert-option">
+                            <input type="radio" name="prov_standards" id="prov_standards_{{ i }}" value="{{ i }}">
+                            <label for="prov_standards_{{ i }}">
+                                <span class="likert-circle">{{ i }}</span>
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="scale-anchors">
+                        <span>Strongly Disagree</span>
+                        <span>Strongly Agree</span>
+                    </div>
+                </div>
+
+                <div class="likert-question">
+                    <div class="likert-statement">
+                        The connections between provisions and case facts were clear and useful.
+                    </div>
+                    <div class="likert-scale-container">
+                        {% for i in range(1, 8) %}
+                        <div class="likert-option">
+                            <input type="radio" name="prov_connections" id="prov_connections_{{ i }}" value="{{ i }}">
+                            <label for="prov_connections_{{ i }}">
+                                <span class="likert-circle">{{ i }}</span>
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="scale-anchors">
+                        <span>Strongly Disagree</span>
+                        <span>Strongly Agree</span>
+                    </div>
+                </div>
+
+                <div class="likert-question">
+                    <div class="likert-statement">
+                        This view helped me understand the normative foundation for evaluating the case.
+                    </div>
+                    <div class="likert-scale-container">
+                        {% for i in range(1, 8) %}
+                        <div class="likert-option">
+                            <input type="radio" name="prov_normative" id="prov_normative_{{ i }}" value="{{ i }}">
+                            <label for="prov_normative_{{ i }}">
+                                <span class="likert-circle">{{ i }}</span>
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="scale-anchors">
+                        <span>Strongly Disagree</span>
+                        <span>Strongly Agree</span>
+                    </div>
+                </div>
+
+                {% elif view_type == 'questions' %}
+                <div class="likert-question">
+                    <div class="likert-statement">
+                        The extracted questions helped me see the ethical issues at stake.
+                    </div>
+                    <div class="likert-scale-container">
+                        {% for i in range(1, 8) %}
+                        <div class="likert-option">
+                            <input type="radio" name="ques_issues" id="ques_issues_{{ i }}" value="{{ i }}">
+                            <label for="ques_issues_{{ i }}">
+                                <span class="likert-circle">{{ i }}</span>
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="scale-anchors">
+                        <span>Strongly Disagree</span>
+                        <span>Strongly Agree</span>
+                    </div>
+                </div>
+
+                <div class="likert-question">
+                    <div class="likert-statement">
+                        The structure of questions aided my understanding of the case.
+                    </div>
+                    <div class="likert-scale-container">
+                        {% for i in range(1, 8) %}
+                        <div class="likert-option">
+                            <input type="radio" name="ques_structure" id="ques_structure_{{ i }}" value="{{ i }}">
+                            <label for="ques_structure_{{ i }}">
+                                <span class="likert-circle">{{ i }}</span>
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="scale-anchors">
+                        <span>Strongly Disagree</span>
+                        <span>Strongly Agree</span>
+                    </div>
+                </div>
+
+                <div class="likert-question">
+                    <div class="likert-statement">
+                        This view helped me identify what a committee would need to deliberate.
+                    </div>
+                    <div class="likert-scale-container">
+                        {% for i in range(1, 8) %}
+                        <div class="likert-option">
+                            <input type="radio" name="ques_deliberation" id="ques_deliberation_{{ i }}" value="{{ i }}">
+                            <label for="ques_deliberation_{{ i }}">
+                                <span class="likert-circle">{{ i }}</span>
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="scale-anchors">
+                        <span>Strongly Disagree</span>
+                        <span>Strongly Agree</span>
+                    </div>
+                </div>
+
+                {% elif view_type == 'decisions' %}
+                <div class="likert-question">
+                    <div class="likert-statement">
+                        The decision points helped me understand the choices the professional faced.
+                    </div>
+                    <div class="likert-scale-container">
+                        {% for i in range(1, 8) %}
+                        <div class="likert-option">
+                            <input type="radio" name="decs_choices" id="decs_choices_{{ i }}" value="{{ i }}">
+                            <label for="decs_choices_{{ i }}">
+                                <span class="likert-circle">{{ i }}</span>
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="scale-anchors">
+                        <span>Strongly Disagree</span>
+                        <span>Strongly Agree</span>
+                    </div>
+                </div>
+
+                <div class="likert-question">
+                    <div class="likert-statement">
+                        The alternatives presented gave useful context for evaluation.
+                    </div>
+                    <div class="likert-scale-container">
+                        {% for i in range(1, 8) %}
+                        <div class="likert-option">
+                            <input type="radio" name="decs_alternatives" id="decs_alternatives_{{ i }}" value="{{ i }}">
+                            <label for="decs_alternatives_{{ i }}">
+                                <span class="likert-circle">{{ i }}</span>
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="scale-anchors">
+                        <span>Strongly Disagree</span>
+                        <span>Strongly Agree</span>
+                    </div>
+                </div>
+
+                <div class="likert-question">
+                    <div class="likert-statement">
+                        This view helped me trace how the professional's actions related to their obligations.
+                    </div>
+                    <div class="likert-scale-container">
+                        {% for i in range(1, 8) %}
+                        <div class="likert-option">
+                            <input type="radio" name="decs_actions" id="decs_actions_{{ i }}" value="{{ i }}">
+                            <label for="decs_actions_{{ i }}">
+                                <span class="likert-circle">{{ i }}</span>
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="scale-anchors">
+                        <span>Strongly Disagree</span>
+                        <span>Strongly Agree</span>
+                    </div>
+                </div>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+
+    <!-- Navigation Footer -->
+    <div class="nav-footer">
+        <div class="step-indicator-mini">
+            <span class="step-dot completed"></span>
+            <span class="step-dot completed"></span>
+            <span class="step-dot active"></span>
+            <span class="step-dot"></span>
+            <span class="step-dot"></span>
+            <span class="step-dot"></span>
+        </div>
+
+        <div>
+            <button type="button" class="btn btn-outline-secondary me-2">
+                <i class="bi bi-arrow-left"></i> Previous View
+            </button>
+            <button type="button" class="btn btn-primary">
+                Next View <i class="bi bi-arrow-right"></i>
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}

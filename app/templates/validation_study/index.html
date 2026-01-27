@@ -150,10 +150,16 @@
                                         {% endif %}
                                     </td>
                                     <td>
-                                        <a href="{{ url_for('study.evaluate_case', case_id=case.id) }}"
-                                           class="btn btn-sm btn-{% if is_completed %}outline-{% endif %}primary">
-                                            {% if is_completed %}Review{% else %}Evaluate{% endif %}
-                                        </a>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{{ url_for('study.evaluate_case', case_id=case.id) }}"
+                                               class="btn btn-{% if is_completed %}outline-{% endif %}primary">
+                                                {% if is_completed %}Review{% else %}Evaluate{% endif %}
+                                            </a>
+                                            <a href="{{ url_for('study.view_synthesis', case_id=case.id) }}"
+                                               class="btn btn-outline-info" title="View synthesis with demo panel">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                        </div>
                                     </td>
                                 </tr>
                                 {% endfor %}

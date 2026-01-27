@@ -585,3 +585,75 @@ def admin_evaluator_progress():
     )
 
     return jsonify({'evaluators': progress})
+
+
+# =============================================================================
+# STUDY FLOW ROUTES
+# =============================================================================
+
+@study_bp.route('/view-synthesis/<int:case_id>')
+@login_required
+def view_synthesis(case_id):
+    """Redirect to Step 4 Review in validation study mode.
+
+    Sets session flag so the validation demo panel is visible on Step 4.
+    Used when study participants need to examine synthesis views.
+    """
+    # Set session flag for validation mode
+    session['validation_study_mode'] = True
+
+    # Redirect to Step 4 review with validation_mode query param (belt & suspenders)
+    return redirect(url_for('step4.step4_review', case_id=case_id, validation_mode='1'))
+
+
+@study_bp.route('/exit-validation-mode')
+@login_required
+def exit_validation_mode():
+    """Clear validation study mode from session.
+
+    Called when user wants to exit validation mode and return to normal Step 4 view.
+    """
+    session.pop('validation_study_mode', None)
+    flash('Exited validation study mode.', 'info')
+    return redirect(url_for('main.home'))
+
+
+# =============================================================================
+# DEMO ROUTES (for screenshots and presentation)
+# =============================================================================
+
+@study_bp.route('/demo/view/<view_type>')
+@login_required
+def demo_view_utility(view_type):
+    """Demo page showing a single synthesis view with Likert ratings.
+
+    For presentation screenshots - shows combined view + rating interface.
+    """
+    if view_type not in ['provisions', 'questions', 'decisions', 'narrative']:
+        view_type = 'provisions'
+
+    # Get first evaluable case for demo
+    view_builder = SynthesisViewBuilder()
+    evaluable_cases = view_builder.get_evaluable_cases()
+
+    if not evaluable_cases:
+        flash('No cases with complete synthesis available for demo.', 'warning')
+        return redirect(url_for('study.index'))
+
+    # Use Case 7 (AI in Engineering) if available, otherwise first case
+    case_id = 7
+    case_exists = any(c['id'] == 7 for c in evaluable_cases)
+    if not case_exists:
+        case_id = evaluable_cases[0]['id']
+
+    document = Document.query.get_or_404(case_id)
+    views = view_builder.get_all_views(case_id)
+
+    # Map view type to data
+    view_data = views.get(view_type, views['provisions'])
+
+    return render_template('validation_study/view_utility_demo.html',
+                           document=document,
+                           view_type=view_type,
+                           view_name=view_type,
+                           view_data=view_data)

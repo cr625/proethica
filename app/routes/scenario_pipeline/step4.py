@@ -14,7 +14,7 @@ import logging
 import uuid
 from datetime import datetime
 from typing import Dict, List, Tuple, Optional
-from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
+from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash, session
 
 from app.models import Document, TemporaryRDFStorage, ExtractionPrompt, db
 from app.services.pipeline_status_service import PipelineStatusService
@@ -1254,6 +1254,15 @@ def step4_review(case_id):
         entity_lookup = resolver.get_lookup_dict()
         entity_lookup_by_label = resolver.get_label_index()
 
+        # Check for validation study mode (from session or query param)
+        validation_study_mode = (
+            session.get('validation_study_mode') or
+            request.args.get('validation_mode') == '1'
+        )
+        # Also set session flag if query param present (for persistence)
+        if request.args.get('validation_mode') == '1':
+            session['validation_study_mode'] = True
+
         context = {
             'case': case,
             'saved_synthesis': saved_synthesis,
@@ -1285,7 +1294,9 @@ def step4_review(case_id):
             'narrative_data': _load_narrative_for_review(case_id),
             # Entity lookup for ontology label macro
             'entity_lookup': entity_lookup,
-            'entity_lookup_by_label': entity_lookup_by_label
+            'entity_lookup_by_label': entity_lookup_by_label,
+            # Validation study mode (for demo panel visibility)
+            'validation_study_mode': validation_study_mode
         }
 
         return render_template('scenario_pipeline/step4_review.html', **context)
