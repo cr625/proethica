@@ -15,6 +15,7 @@ import re
 import logging
 import numpy as np
 from typing import Dict, List, Optional, Tuple
+from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -22,9 +23,52 @@ from sqlalchemy import text
 from app import db
 from app.models import Document
 from app.models.document_section import DocumentSection
+from app.models.temporary_rdf_storage import TemporaryRDFStorage
 from app.services.embedding_service import EmbeddingService
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# Nine-Component Embedding Aggregation Constants
+# =============================================================================
+# Maps database extraction_type values to canonical component codes.
+# These codes correspond to the ProEthica nine-component framework:
+#   R=Roles, S=States, Rs=Resources, P=Principles, O=Obligations,
+#   Cs=Constraints, Ca=Capabilities, A=Actions, E=Events
+#
+# See: proethica/docs/concepts/nine-components.md for full definitions
+# =============================================================================
+
+EXTRACTION_TYPE_TO_COMPONENT = {
+    'roles': 'R',
+    'states': 'S',
+    'resources': 'Rs',
+    'principles': 'P',
+    'obligations': 'O',
+    'constraints': 'Cs',
+    'capabilities': 'Ca',
+    # Note: Actions and Events use temporal_dynamics_enhanced + entity_type
+}
+
+# For temporal_dynamics_enhanced, map entity_type to component code
+ENTITY_TYPE_TO_COMPONENT = {
+    'actions': 'A',
+    'events': 'E',
+}
+
+# Weights for component aggregation based on ethical reasoning importance
+# Sum = 1.0 for proper normalization
+COMPONENT_WEIGHTS = {
+    'R': 0.12,   # Roles - professional positions determine applicable norms
+    'S': 0.10,   # States - situational context affects ethical assessment
+    'Rs': 0.10,  # Resources - accumulated knowledge and precedents
+    'P': 0.20,   # Principles - highest weight, core ethical reasoning
+    'O': 0.15,   # Obligations - specific requirements for action
+    'Cs': 0.08,  # Constraints - inviolable boundaries
+    'Ca': 0.07,  # Capabilities - competencies and permissions
+    'A': 0.10,   # Actions - volitional interventions
+    'E': 0.08,   # Events - external occurrences
+}
 
 
 @dataclass
@@ -562,3 +606,215 @@ class CaseFeatureExtractor:
             logger.warning(f"Could not retrieve Step 4 data for case {case_id}: {e}")
 
         return principle_tensions, obligation_conflicts, transformation_type, transformation_pattern
+
+    # =========================================================================
+    # Component-Level Embedding Aggregation
+    # =========================================================================
+
+    def _get_local_embedding(self, text: str) -> np.ndarray:
+        """
+        Get a 384-dimensional embedding using the local SentenceTransformer model.
+
+        Forces local model usage to ensure consistent 384-dim embeddings for
+        pgvector storage, bypassing the EmbeddingService provider priority.
+
+        Args:
+            text: Text to embed
+
+        Returns:
+            numpy array of shape (384,)
+        """
+        if not text or not text.strip():
+            return np.zeros(384)
+
+        # Access the local model directly from the embedding service
+        embedding_service = self.embedding_service
+        if 'local' not in embedding_service.providers:
+            raise RuntimeError("Local embedding provider not available")
+
+        local_provider = embedding_service.providers['local']
+        if not local_provider.get('available'):
+            raise RuntimeError(
+                f"Local embedding provider not available: {local_provider.get('reason')}"
+            )
+
+        model = local_provider['model']
+        embedding = model.encode(text)
+
+        # Ensure it's a numpy array
+        if not isinstance(embedding, np.ndarray):
+            embedding = np.array(embedding)
+
+        return embedding
+
+    def generate_component_aggregated_embedding(
+        self,
+        case_id: int,
+        min_components: int = 3,
+        weights: Optional[Dict[str, float]] = None
+    ) -> Optional[np.ndarray]:
+        """
+        Generate a weighted aggregation of component-level embeddings.
+
+        Queries the nine-component entities from temporary_rdf_storage,
+        generates embeddings for each component type, and aggregates them
+        using configurable weights.
+
+        This preserves case structure through the embedding process rather
+        than losing it to section-level averaging.
+
+        Args:
+            case_id: Database ID of the case document
+            min_components: Minimum number of component types required (default: 3)
+            weights: Optional custom weights dict. If None, uses COMPONENT_WEIGHTS.
+
+        Returns:
+            L2-normalized 384-dim numpy array, or None if insufficient components
+        """
+        if weights is None:
+            weights = COMPONENT_WEIGHTS
+
+        # Query all entities for this case from temporary_rdf_storage
+        entities = TemporaryRDFStorage.query.filter_by(case_id=case_id).all()
+
+        if not entities:
+            logger.warning(f"Case {case_id}: No components found in temporary_rdf_storage")
+            return None
+
+        # Group entities by component type
+        # IMPORTANT: Handle temporal_dynamics_enhanced specially for Actions/Events
+        components_by_type: Dict[str, List[str]] = defaultdict(list)
+
+        for entity in entities:
+            comp_code = None
+
+            # Check for standard extraction types first
+            if entity.extraction_type in EXTRACTION_TYPE_TO_COMPONENT:
+                comp_code = EXTRACTION_TYPE_TO_COMPONENT[entity.extraction_type]
+
+            # Special handling for temporal_dynamics_enhanced (Actions and Events)
+            elif entity.extraction_type == 'temporal_dynamics_enhanced':
+                if entity.entity_type:
+                    comp_code = ENTITY_TYPE_TO_COMPONENT.get(entity.entity_type.lower())
+
+            if comp_code:
+                # Combine label and definition for richer semantic content
+                text = entity.entity_label or ''
+                if entity.entity_definition:
+                    text = f"{text}: {entity.entity_definition}"
+                if text.strip():
+                    components_by_type[comp_code].append(text)
+
+        if len(components_by_type) < min_components:
+            logger.warning(
+                f"Case {case_id}: Only {len(components_by_type)} component types found "
+                f"({list(components_by_type.keys())}), need at least {min_components}"
+            )
+            return None
+
+        # Generate embedding for each component type
+        component_embeddings: Dict[str, np.ndarray] = {}
+        for comp_code, texts in components_by_type.items():
+            # Concatenate all texts for this component type
+            combined_text = ' '.join(texts)
+
+            # Truncate if very long (SentenceTransformer typically has 512 token limit)
+            # Rough estimate: 4 chars per token
+            max_chars = 2000
+            if len(combined_text) > max_chars:
+                combined_text = combined_text[:max_chars]
+                logger.debug(
+                    f"Case {case_id}: Truncated {comp_code} text from "
+                    f"{len(' '.join(texts))} to {max_chars} chars"
+                )
+
+            try:
+                embedding = self._get_local_embedding(combined_text)
+                component_embeddings[comp_code] = embedding
+            except Exception as e:
+                logger.error(f"Case {case_id}: Failed to embed {comp_code}: {e}")
+                continue
+
+        if not component_embeddings:
+            logger.error(f"Case {case_id}: No component embeddings generated")
+            return None
+
+        # Compute weighted aggregation
+        # Only use weights for components that actually exist
+        aggregated = np.zeros(384)
+        total_weight = 0.0
+
+        for comp_code, embedding in component_embeddings.items():
+            weight = weights.get(comp_code, 0.0)
+            aggregated += weight * embedding
+            total_weight += weight
+
+        # Normalize by actual weight sum (in case some components are missing)
+        if total_weight > 0:
+            aggregated = aggregated / total_weight
+
+        # L2 normalize the final embedding for cosine similarity
+        norm = np.linalg.norm(aggregated)
+        if norm > 0:
+            aggregated = aggregated / norm
+
+        logger.info(
+            f"Case {case_id}: Generated component-aggregated embedding from "
+            f"{len(component_embeddings)} components: {list(component_embeddings.keys())}"
+        )
+
+        return aggregated
+
+    def extract_and_save_component_embedding(self, case_id: int) -> bool:
+        """
+        Generate and save the component-aggregated embedding for a case.
+
+        Updates the combined_embedding column in case_precedent_features.
+
+        Args:
+            case_id: Database ID of the case document
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            embedding = self.generate_component_aggregated_embedding(case_id)
+
+            if embedding is None:
+                logger.warning(f"Case {case_id}: Could not generate component embedding")
+                return False
+
+            # Convert to list for database storage
+            embedding_list = embedding.tolist()
+
+            # Update the case_precedent_features table
+            query = text("""
+                UPDATE case_precedent_features
+                SET combined_embedding = :embedding,
+                    extraction_method = 'component_aggregation',
+                    extracted_at = :now
+                WHERE case_id = :case_id
+            """)
+
+            result = db.session.execute(query, {
+                'case_id': case_id,
+                'embedding': embedding_list,
+                'now': datetime.utcnow()
+            })
+
+            db.session.commit()
+
+            if result.rowcount == 0:
+                logger.warning(
+                    f"Case {case_id}: No case_precedent_features row to update. "
+                    "Run extract_precedent_features first."
+                )
+                return False
+
+            logger.info(f"Case {case_id}: Saved component-aggregated embedding")
+            return True
+
+        except Exception as e:
+            logger.error(f"Case {case_id}: Error saving component embedding: {e}")
+            db.session.rollback()
+            return False

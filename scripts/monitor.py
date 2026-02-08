@@ -327,16 +327,26 @@ def process_results(results: Dict[str, Dict[str, Any]]) -> bool:
     return all_healthy
 
 
-def ping_healthchecks_io():
-    """Ping Healthchecks.io to signal the monitor is running."""
+def ping_healthchecks_io(success: bool = True):
+    """
+    Ping Healthchecks.io to signal monitor status.
+
+    Args:
+        success: True if all checks passed, False if any failed.
+                 Appends /fail to URL on failure so Healthchecks.io alerts.
+    """
     url = os.environ.get('HEALTHCHECKS_PING_URL')
     if not url:
         return
 
+    # Append /fail for failures so Healthchecks.io sends alerts
+    if not success:
+        url = url.rstrip('/') + '/fail'
+
     try:
         import urllib.request
         urllib.request.urlopen(url, timeout=10)
-        logger.debug("Healthchecks.io ping sent")
+        logger.debug(f"Healthchecks.io ping sent (success={success})")
     except Exception as e:
         logger.warning(f"Failed to ping Healthchecks.io: {e}")
 
@@ -408,8 +418,8 @@ def main():
         print(f"Duration: {results['_summary']['duration_ms']}ms")
         print()
 
-    # Ping Healthchecks.io to signal we're running
-    ping_healthchecks_io()
+    # Ping Healthchecks.io - sends /fail on failure so it alerts
+    ping_healthchecks_io(success=all_healthy)
 
     # Exit with appropriate code
     sys.exit(0 if all_healthy else 1)

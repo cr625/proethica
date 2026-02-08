@@ -14,7 +14,7 @@ References:
 import logging
 import numpy as np
 from typing import Dict, List, Optional, Tuple
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from sqlalchemy import text
 
 from app import db
@@ -32,28 +32,40 @@ class SimilarityResult:
     matching_provisions: List[str]
     outcome_match: bool
     weights_used: Dict[str, float]
+    method: str = 'section'  # 'section' or 'component'
 
 
 class PrecedentSimilarityService:
     """
     Calculates multi-factor similarity between cases for precedent discovery.
 
-    Similarity formula:
+    Two similarity modes:
+    1. Section-based (default): Uses facts + discussion embeddings separately
+    2. Component-based: Uses combined_embedding (weighted aggregation of 9 components)
+
+    Section-based formula:
         Score = w1*facts_sim + w2*discussion_sim + w3*provision_overlap +
                 w4*outcome_alignment + w5*tag_overlap + w6*principle_overlap
 
-    Default weights (configurable):
-        - facts_similarity: 0.15
-        - discussion_similarity: 0.25
-        - provision_overlap: 0.25
-        - outcome_alignment: 0.15
-        - tag_overlap: 0.10
-        - principle_overlap: 0.10
+    Component-based formula:
+        Score = w1*component_sim + w2*provision_overlap +
+                w3*outcome_alignment + w4*tag_overlap + w5*principle_overlap
     """
 
+    # Original section-based weights
     DEFAULT_WEIGHTS = {
         'facts_similarity': 0.15,
         'discussion_similarity': 0.25,
+        'provision_overlap': 0.25,
+        'outcome_alignment': 0.15,
+        'tag_overlap': 0.10,
+        'principle_overlap': 0.10
+    }
+
+    # Component-aware weights - uses combined_embedding which aggregates
+    # all 9 components with their ethical importance weights
+    COMPONENT_AWARE_WEIGHTS = {
+        'component_similarity': 0.40,  # Uses combined_embedding (9-component weighted)
         'provision_overlap': 0.25,
         'outcome_alignment': 0.15,
         'tag_overlap': 0.10,
@@ -73,7 +85,8 @@ class PrecedentSimilarityService:
         self,
         source_case_id: int,
         target_case_id: int,
-        weights: Optional[Dict[str, float]] = None
+        weights: Optional[Dict[str, float]] = None,
+        use_component_embedding: bool = False
     ) -> SimilarityResult:
         """
         Calculate multi-factor similarity between two cases.
@@ -81,13 +94,17 @@ class PrecedentSimilarityService:
         Args:
             source_case_id: ID of the source case
             target_case_id: ID of the target case
-            weights: Optional custom weights. Uses DEFAULT_WEIGHTS if not provided.
+            weights: Optional custom weights. Uses DEFAULT_WEIGHTS or
+                     COMPONENT_AWARE_WEIGHTS based on use_component_embedding.
+            use_component_embedding: If True, use combined_embedding (9-component
+                     weighted aggregation) instead of separate section embeddings.
 
         Returns:
             SimilarityResult with overall score and component breakdown
         """
+        # Select appropriate default weights
         if weights is None:
-            weights = self.DEFAULT_WEIGHTS
+            weights = self.COMPONENT_AWARE_WEIGHTS if use_component_embedding else self.DEFAULT_WEIGHTS
 
         # Normalize weights to sum to 1.0
         total_weight = sum(weights.values())
@@ -98,6 +115,8 @@ class PrecedentSimilarityService:
         source_features = self._get_case_features(source_case_id)
         target_features = self._get_case_features(target_case_id)
 
+        method = 'component' if use_component_embedding else 'section'
+
         if source_features is None or target_features is None:
             return SimilarityResult(
                 source_case_id=source_case_id,
@@ -106,22 +125,29 @@ class PrecedentSimilarityService:
                 component_scores={},
                 matching_provisions=[],
                 outcome_match=False,
-                weights_used=weights
+                weights_used=weights,
+                method=method
             )
 
         # Calculate component similarities
         component_scores = {}
 
-        # Embedding similarities (cosine)
-        component_scores['facts_similarity'] = self._cosine_similarity(
-            source_features.get('facts_embedding'),
-            target_features.get('facts_embedding')
-        )
-
-        component_scores['discussion_similarity'] = self._cosine_similarity(
-            source_features.get('discussion_embedding'),
-            target_features.get('discussion_embedding')
-        )
+        if use_component_embedding:
+            # Component-aware mode: use combined_embedding
+            component_scores['component_similarity'] = self._cosine_similarity(
+                source_features.get('combined_embedding'),
+                target_features.get('combined_embedding')
+            )
+        else:
+            # Section-based mode: use separate embeddings
+            component_scores['facts_similarity'] = self._cosine_similarity(
+                source_features.get('facts_embedding'),
+                target_features.get('facts_embedding')
+            )
+            component_scores['discussion_similarity'] = self._cosine_similarity(
+                source_features.get('discussion_embedding'),
+                target_features.get('discussion_embedding')
+            )
 
         # Provision overlap (Jaccard)
         component_scores['provision_overlap'], matching_provisions = self._calculate_provision_overlap(
@@ -162,7 +188,8 @@ class PrecedentSimilarityService:
             component_scores=component_scores,
             matching_provisions=matching_provisions,
             outcome_match=outcome_match,
-            weights_used=weights
+            weights_used=weights,
+            method=method
         )
 
     def find_similar_cases(
@@ -171,7 +198,8 @@ class PrecedentSimilarityService:
         limit: int = 10,
         min_score: float = 0.0,
         weights: Optional[Dict[str, float]] = None,
-        exclude_self: bool = True
+        exclude_self: bool = True,
+        use_component_embedding: bool = False
     ) -> List[SimilarityResult]:
         """
         Find cases most similar to the source case.
@@ -186,6 +214,8 @@ class PrecedentSimilarityService:
             min_score: Minimum similarity score threshold
             weights: Optional custom weights
             exclude_self: Whether to exclude the source case from results
+            use_component_embedding: If True, use combined_embedding (9-component
+                     weighted aggregation) instead of separate section embeddings.
 
         Returns:
             List of SimilarityResult objects, sorted by overall_similarity
@@ -200,7 +230,10 @@ class PrecedentSimilarityService:
         results = []
         for target_case_id in all_case_ids:
             try:
-                result = self.calculate_similarity(source_case_id, target_case_id, weights)
+                result = self.calculate_similarity(
+                    source_case_id, target_case_id, weights,
+                    use_component_embedding=use_component_embedding
+                )
                 if result.overall_similarity >= min_score:
                     results.append(result)
             except Exception as e:
