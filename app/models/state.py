@@ -27,7 +27,7 @@ class State(db.Model):
     previous_value = db.Column(db.String(255))  # Previous state value
     
     # BFO Ontology classification fields
-    bfo_class = db.Column(db.String(255), default='BFO_0000019')  # quality
+    bfo_class = db.Column(db.String(255), default='BFO_0000020')  # specifically dependent continuant
     proethica_category = db.Column(db.String(50), default='state')
     ontology_uri = db.Column(db.String(500))
     
