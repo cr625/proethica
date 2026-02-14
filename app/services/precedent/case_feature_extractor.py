@@ -327,6 +327,88 @@ class CaseFeatureExtractor:
 
         return sorted(list(provisions), key=provision_sort_key)
 
+    def llm_extract_features(self, discussion_text: str, conclusion_text: str) -> dict:
+        """
+        Extract provisions, outcome, and subject tags using Claude API.
+
+        Uses Haiku for cost-efficient structured extraction from case text.
+        Identifies NSPE Code provisions even when not explicitly cited by number.
+
+        Args:
+            discussion_text: The discussion section text
+            conclusion_text: The conclusion section text
+
+        Returns:
+            Dict with keys: provisions_cited, outcome_type, outcome_reasoning, subject_tags
+        """
+        from app.services.llm.manager import LLMManager
+        from app.data.nspe_provisions_reference import NSPE_PROVISIONS_TEXT, NSPE_TAG_VOCABULARY
+        from app.utils.llm_utils import extract_json_from_response
+
+        llm = LLMManager(model="claude-haiku-4-5-20251001")
+
+        tag_list = '\n'.join(f'- {t}' for t in NSPE_TAG_VOCABULARY)
+
+        system_prompt = f"""You are analyzing an NSPE Board of Ethical Review case. Extract structured data from the case discussion and conclusion.
+
+NSPE Code of Ethics provisions:
+{NSPE_PROVISIONS_TEXT}
+
+Available subject tags (use ONLY these exact labels):
+{tag_list}
+
+Extract three things:
+
+1. provisions_cited: Which NSPE Code provisions are discussed, applied, or relevant to this case. Use the code format (e.g., "I.1", "II.3.a", "III.4"). Include provisions that are explicitly cited AND provisions that are implicitly referenced through discussion of the ethical duties they describe.
+
+2. outcome_type: The Board's ethical determination about the engineer's conduct. Must be exactly one of: "ethical", "unethical", "mixed". Base this on the Board's conclusion about whether the conduct was ethical or not. If the Board finds the conduct acceptable or not in violation, classify as "ethical". If the Board finds the conduct unacceptable or in violation, classify as "unethical". If the Board addresses multiple questions with different determinations, classify as "mixed".
+
+3. subject_tags: Which subject categories from the vocabulary above apply to this case. Select all that are relevant.
+
+Return ONLY valid JSON in this format:
+{{"provisions_cited": ["I.1", "II.3.a"], "outcome_type": "unethical", "outcome_reasoning": "one sentence explanation", "subject_tags": ["Duty to the Public", "Competence"]}}"""
+
+        user_msg = ""
+        if discussion_text:
+            user_msg += f"Discussion:\n{discussion_text[:3000]}\n\n"
+        if conclusion_text:
+            user_msg += f"Conclusion:\n{conclusion_text[:1500]}"
+
+        if not user_msg.strip():
+            return {
+                'provisions_cited': [],
+                'outcome_type': 'unclear',
+                'outcome_reasoning': 'No discussion or conclusion text available',
+                'subject_tags': [],
+            }
+
+        response = llm.complete(
+            messages=[{"role": "user", "content": user_msg}],
+            system=system_prompt,
+            max_tokens=500,
+            temperature=0.0,
+        )
+
+        result = extract_json_from_response(response.text)
+
+        # Validate and normalize provisions
+        valid_provisions = []
+        provision_pattern = re.compile(r'^(I{1,3}|IV)\.\d+(\.[a-z])?$')
+        for p in result.get('provisions_cited', []):
+            if provision_pattern.match(p):
+                valid_provisions.append(p)
+        result['provisions_cited'] = valid_provisions
+
+        # Validate outcome
+        if result.get('outcome_type') not in ('ethical', 'unethical', 'mixed'):
+            result['outcome_type'] = 'unclear'
+
+        # Validate tags against vocabulary
+        tag_set = set(NSPE_TAG_VOCABULARY)
+        result['subject_tags'] = [t for t in result.get('subject_tags', []) if t in tag_set]
+
+        return result
+
     def generate_hierarchical_embeddings(
         self,
         case_id: int,
@@ -652,16 +734,13 @@ class CaseFeatureExtractor:
         case_id: int,
         min_components: int = 3,
         weights: Optional[Dict[str, float]] = None
-    ) -> Optional[np.ndarray]:
+    ) -> Optional[Tuple[np.ndarray, Dict[str, np.ndarray]]]:
         """
-        Generate a weighted aggregation of component-level embeddings.
+        Generate per-component embeddings and their weighted aggregation.
 
         Queries the nine-component entities from temporary_rdf_storage,
         generates embeddings for each component type, and aggregates them
         using configurable weights.
-
-        This preserves case structure through the embedding process rather
-        than losing it to section-level averaging.
 
         Args:
             case_id: Database ID of the case document
@@ -669,7 +748,8 @@ class CaseFeatureExtractor:
             weights: Optional custom weights dict. If None, uses COMPONENT_WEIGHTS.
 
         Returns:
-            L2-normalized 384-dim numpy array, or None if insufficient components
+            Tuple of (L2-normalized aggregated 384-dim array, dict of per-component
+            L2-normalized 384-dim arrays), or None if insufficient components.
         """
         if weights is None:
             weights = COMPONENT_WEIGHTS
@@ -758,18 +838,29 @@ class CaseFeatureExtractor:
         if norm > 0:
             aggregated = aggregated / norm
 
+        # L2 normalize individual component embeddings for cosine similarity
+        normalized_components: Dict[str, np.ndarray] = {}
+        for comp_code, emb in component_embeddings.items():
+            comp_norm = np.linalg.norm(emb)
+            if comp_norm > 0:
+                normalized_components[comp_code] = emb / comp_norm
+            else:
+                normalized_components[comp_code] = emb
+
         logger.info(
             f"Case {case_id}: Generated component-aggregated embedding from "
             f"{len(component_embeddings)} components: {list(component_embeddings.keys())}"
         )
 
-        return aggregated
+        return aggregated, normalized_components
 
     def extract_and_save_component_embedding(self, case_id: int) -> bool:
         """
-        Generate and save the component-aggregated embedding for a case.
+        Generate and save component embeddings for a case.
 
-        Updates the combined_embedding column in case_precedent_features.
+        Stores both the aggregated combined_embedding and nine individual
+        per-component embeddings (embedding_R, embedding_P, etc.) in
+        case_precedent_features.
 
         Args:
             case_id: Database ID of the case document
@@ -778,30 +869,44 @@ class CaseFeatureExtractor:
             True if successful, False otherwise
         """
         try:
-            embedding = self.generate_component_aggregated_embedding(case_id)
+            gen_result = self.generate_component_aggregated_embedding(case_id)
 
-            if embedding is None:
+            if gen_result is None:
                 logger.warning(f"Case {case_id}: Could not generate component embedding")
                 return False
 
-            # Convert to list for database storage
-            embedding_list = embedding.tolist()
+            aggregated, component_embeddings = gen_result
 
-            # Update the case_precedent_features table
+            # Build parameter dict with aggregated and per-component embeddings
+            params = {
+                'case_id': case_id,
+                'combined': aggregated.tolist(),
+                'now': datetime.utcnow(),
+            }
+
+            # Add per-component embeddings (None for missing components)
+            for comp_code in ['R', 'P', 'O', 'S', 'Rs', 'A', 'E', 'Ca', 'Cs']:
+                emb = component_embeddings.get(comp_code)
+                params[f'emb_{comp_code}'] = emb.tolist() if emb is not None else None
+
             query = text("""
                 UPDATE case_precedent_features
-                SET combined_embedding = :embedding,
+                SET combined_embedding = :combined,
+                    embedding_R = :emb_R,
+                    embedding_P = :emb_P,
+                    embedding_O = :emb_O,
+                    embedding_S = :emb_S,
+                    embedding_Rs = :emb_Rs,
+                    embedding_A = :emb_A,
+                    embedding_E = :emb_E,
+                    embedding_Ca = :emb_Ca,
+                    embedding_Cs = :emb_Cs,
                     extraction_method = 'component_aggregation',
                     extracted_at = :now
                 WHERE case_id = :case_id
             """)
 
-            result = db.session.execute(query, {
-                'case_id': case_id,
-                'embedding': embedding_list,
-                'now': datetime.utcnow()
-            })
-
+            result = db.session.execute(query, params)
             db.session.commit()
 
             if result.rowcount == 0:
@@ -811,7 +916,11 @@ class CaseFeatureExtractor:
                 )
                 return False
 
-            logger.info(f"Case {case_id}: Saved component-aggregated embedding")
+            comp_list = sorted(component_embeddings.keys())
+            logger.info(
+                f"Case {case_id}: Saved {len(comp_list)} component embeddings "
+                f"({', '.join(comp_list)}) + aggregated"
+            )
             return True
 
         except Exception as e:

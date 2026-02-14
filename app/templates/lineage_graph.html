@@ -1,0 +1,710 @@
+{% extends "base.html" %}
+
+{% block title %}Precedent Lineage - ProEthica{% endblock %}
+
+{% block styles %}
+<style>
+    #lineage-container {
+        width: 100%;
+        height: 800px;
+        border: 1px solid #dee2e6;
+        border-radius: 0.25rem;
+        background: #fafafa;
+        position: relative;
+    }
+
+    #lineage-svg {
+        width: 100%;
+        height: 100%;
+    }
+
+    .node {
+        cursor: pointer;
+    }
+
+    .node circle {
+        stroke: #fff;
+        stroke-width: 2px;
+        transition: all 0.2s ease;
+    }
+
+    .node.focus circle {
+        stroke: #ffc107;
+        stroke-width: 4px;
+    }
+
+    .node:hover circle {
+        stroke: #333;
+        stroke-width: 3px;
+        filter: brightness(1.1);
+    }
+
+    .node text {
+        font-size: 10px;
+        font-family: 'Segoe UI', sans-serif;
+        pointer-events: none;
+        text-anchor: middle;
+        fill: #333;
+    }
+
+    .citation-link {
+        fill: none;
+        stroke: #999;
+        stroke-opacity: 0.4;
+        transition: all 0.2s ease;
+    }
+
+    .citation-link.highlighted {
+        stroke-opacity: 0.9;
+        stroke-width: 3px !important;
+    }
+
+    .year-label {
+        font-size: 11px;
+        fill: #aaa;
+        font-family: 'Segoe UI', sans-serif;
+    }
+
+    .year-gridline {
+        stroke: #eee;
+        stroke-width: 1;
+        stroke-dasharray: 4,4;
+    }
+
+    #details-panel {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        width: 320px;
+        max-height: 550px;
+        overflow-y: auto;
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 0.25rem;
+        padding: 15px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        display: none;
+        z-index: 100;
+    }
+
+    #details-panel.visible {
+        display: block;
+    }
+
+    #details-panel h6 {
+        margin-bottom: 10px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid;
+    }
+
+    .citation-list-item {
+        padding: 4px 0;
+        font-size: 0.85rem;
+        cursor: pointer;
+        color: #0d6efd;
+    }
+
+    .citation-list-item:hover {
+        text-decoration: underline;
+    }
+
+    .legend-item {
+        display: inline-flex;
+        align-items: center;
+        margin-right: 15px;
+        margin-bottom: 5px;
+        font-size: 12px;
+    }
+
+    .legend-dot {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        margin-right: 6px;
+        border: 2px solid #fff;
+        box-shadow: 0 0 3px rgba(0,0,0,0.3);
+    }
+
+    #zoom-controls {
+        position: absolute;
+        bottom: 10px;
+        left: 10px;
+        z-index: 100;
+    }
+
+    #zoom-controls button {
+        width: 36px;
+        height: 36px;
+        margin: 2px;
+    }
+
+    .loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255,255,255,0.85);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 200;
+    }
+
+    .loading-overlay.hidden {
+        display: none;
+    }
+
+    .fullscreen #lineage-container {
+        height: calc(100vh - 60px);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-3 fullscreen-hide">
+        <div class="col">
+            <h1 class="h3">Precedent Lineage</h1>
+            <p class="text-muted mb-0">Directed citation graph. Arrows point from citing case to cited precedent.</p>
+        </div>
+        <div class="col-auto d-flex align-items-start">
+            <a href="/cases/precedents/network{% if selected_domain_id %}?world_id={{ selected_domain_id }}{% endif %}"
+               class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-diagram-3 me-1"></i>Similarity Network
+            </a>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-body py-2">
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <span class="legend-item">
+                    <span class="legend-dot" style="background: #198754;"></span> Ethical
+                </span>
+                <span class="legend-item">
+                    <span class="legend-dot" style="background: #dc3545;"></span> Unethical
+                </span>
+                <span class="legend-item">
+                    <span class="legend-dot" style="background: #fd7e14;"></span> Mixed
+                </span>
+                <span class="text-muted mx-2">|</span>
+                <span class="small text-muted">Node size = citation count (in-degree)</span>
+                <span class="text-muted mx-2">|</span>
+                <span class="small text-muted">Older cases at top</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="card" id="lineage-card">
+        <div class="card-header py-2">
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                <div class="d-flex align-items-center">
+                    <label class="form-label mb-0 me-2 small">Focus:</label>
+                    <select id="case-selector" class="form-select form-select-sm" style="width: 260px;">
+                        <option value="">All cases</option>
+                        {% for c in cases %}
+                        <option value="{{ c.id }}" {% if focus_case_id == c.id %}selected{% endif %}>
+                            {{ c.case_number }} - {{ c.title[:45] }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-check form-check-inline mb-0">
+                    <input class="form-check-input" type="checkbox" id="show-labels" checked>
+                    <label class="form-check-label small" for="show-labels">Labels</label>
+                </div>
+
+                <div class="form-check form-check-inline mb-0">
+                    <input class="form-check-input" type="checkbox" id="show-all">
+                    <label class="form-check-label small" for="show-all">Show uncited</label>
+                </div>
+
+                <span class="text-muted small ms-auto">
+                    <span id="node-count">0</span> cases,
+                    <span id="edge-count">0</span> citations
+                </span>
+
+                <div>
+                    <button class="btn btn-sm btn-outline-secondary" id="fullscreen-btn" title="Fullscreen">
+                        <i class="bi bi-fullscreen"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div id="lineage-container">
+                <svg id="lineage-svg"></svg>
+
+                <div id="loading-overlay" class="loading-overlay">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary mb-2" role="status"></div>
+                        <div class="text-muted" id="loading-text">Loading lineage data...</div>
+                    </div>
+                </div>
+
+                <div id="details-panel">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <h6 id="detail-title" style="border-color: #666;"></h6>
+                        <button class="btn btn-sm btn-light" id="close-details">&times;</button>
+                    </div>
+                    <div id="detail-content"></div>
+                </div>
+
+                <div id="zoom-controls">
+                    <button class="btn btn-sm btn-light" id="zoom-in" title="Zoom in"><i class="bi bi-plus-lg"></i></button>
+                    <button class="btn btn-sm btn-light" id="zoom-out" title="Zoom out"><i class="bi bi-dash-lg"></i></button>
+                    <button class="btn btn-sm btn-light" id="zoom-fit" title="Fit to view"><i class="bi bi-arrows-fullscreen"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const container = document.getElementById('lineage-container');
+    const svg = d3.select('#lineage-svg');
+    let graphData = null;
+    let simulation = null;
+    let currentZoom = null;
+
+    const outcomeColors = {
+        'ethical': '#198754',
+        'unethical': '#dc3545',
+        'mixed': '#fd7e14',
+        'unknown': '#adb5bd',
+        'unclear': '#adb5bd'
+    };
+
+    function showLoading(msg) {
+        document.getElementById('loading-overlay').classList.remove('hidden');
+        document.getElementById('loading-text').textContent = msg || 'Loading...';
+    }
+
+    function hideLoading() {
+        document.getElementById('loading-overlay').classList.add('hidden');
+    }
+
+    function loadGraph() {
+        showLoading('Fetching citation data...');
+
+        const caseId = document.getElementById('case-selector').value;
+        const showAll = document.getElementById('show-all').checked;
+
+        let url = '/cases/precedents/api/lineage_graph?';
+        if (caseId) url += `case_id=${caseId}&`;
+        if (showAll) url += 'show_all=true&';
+
+        fetch(url)
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) {
+                    hideLoading();
+                    return;
+                }
+                graphData = data;
+                document.getElementById('node-count').textContent = data.nodes.length;
+                document.getElementById('edge-count').textContent = data.edges.length;
+                showLoading('Rendering ' + data.nodes.length + ' cases...');
+                setTimeout(() => {
+                    renderGraph(data);
+                    hideLoading();
+                }, 50);
+            })
+            .catch(err => {
+                console.error('Failed to load lineage graph:', err);
+                hideLoading();
+            });
+    }
+
+    function renderGraph(data) {
+        const width = container.clientWidth;
+        const height = container.clientHeight;
+        svg.selectAll('*').remove();
+
+        if (!data.nodes.length) {
+            svg.append('text')
+                .attr('x', width / 2)
+                .attr('y', height / 2)
+                .attr('text-anchor', 'middle')
+                .attr('fill', '#999')
+                .text('No citation data to display');
+            return;
+        }
+
+        const nodes = data.nodes;
+        const edges = data.edges;
+        const showLabels = document.getElementById('show-labels').checked;
+
+        // Year scale: older at top, newer at bottom
+        const years = nodes.map(n => n.year).filter(y => y > 0);
+        const minYear = Math.min(...years);
+        const maxYear = Math.max(...years);
+        const topMargin = 60;
+        const bottomMargin = 60;
+        const leftMargin = 65;
+
+        const yScale = d3.scaleLinear()
+            .domain([minYear, maxYear])
+            .range([topMargin, height - bottomMargin]);
+
+        // Pin Y to year
+        nodes.forEach(n => {
+            n.fy = n.year > 0 ? yScale(n.year) : topMargin;
+            // Initialize X near center with some jitter
+            if (n.x === undefined) {
+                n.x = leftMargin + (width - leftMargin) / 2 + (Math.random() - 0.5) * 200;
+            }
+        });
+
+        // Node radius scale by in-degree
+        const maxInDegree = Math.max(1, d3.max(nodes, n => n.in_degree));
+        const radiusScale = d3.scaleSqrt()
+            .domain([0, maxInDegree])
+            .range([7, 22]);
+
+        // Zoom
+        const zoom = d3.zoom()
+            .scaleExtent([0.2, 5])
+            .on('zoom', (event) => {
+                g.attr('transform', event.transform);
+                currentZoom = event.transform;
+            });
+        svg.call(zoom);
+        const g = svg.append('g');
+
+        // Arrow marker
+        svg.append('defs').append('marker')
+            .attr('id', 'arrowhead')
+            .attr('viewBox', '0 -5 10 10')
+            .attr('refX', 10)
+            .attr('refY', 0)
+            .attr('markerWidth', 7)
+            .attr('markerHeight', 7)
+            .attr('orient', 'auto')
+            .append('path')
+            .attr('d', 'M0,-4L8,0L0,4')
+            .attr('fill', '#999');
+
+        svg.select('defs').append('marker')
+            .attr('id', 'arrowhead-hl')
+            .attr('viewBox', '0 -5 10 10')
+            .attr('refX', 10)
+            .attr('refY', 0)
+            .attr('markerWidth', 7)
+            .attr('markerHeight', 7)
+            .attr('orient', 'auto')
+            .append('path')
+            .attr('d', 'M0,-4L8,0L0,4')
+            .attr('fill', '#0d6efd');
+
+        // Year gridlines and labels
+        const decades = [];
+        for (let y = Math.ceil(minYear / 10) * 10; y <= maxYear; y += 10) {
+            decades.push(y);
+        }
+
+        g.selectAll('.year-gridline')
+            .data(decades)
+            .enter().append('line')
+            .attr('class', 'year-gridline')
+            .attr('x1', leftMargin)
+            .attr('y1', d => yScale(d))
+            .attr('x2', width)
+            .attr('y2', d => yScale(d));
+
+        g.selectAll('.year-label')
+            .data(decades)
+            .enter().append('text')
+            .attr('class', 'year-label')
+            .attr('x', leftMargin - 8)
+            .attr('y', d => yScale(d) + 4)
+            .attr('text-anchor', 'end')
+            .text(d => d);
+
+        // Force simulation (X only, Y is pinned)
+        const edgeCount = edges.length;
+        const chargeStr = edgeCount < 80 ? -300 : -150;
+
+        simulation = d3.forceSimulation(nodes)
+            .force('link', d3.forceLink(edges)
+                .id(d => d.id)
+                .strength(0.03))
+            .force('charge', d3.forceManyBody().strength(chargeStr))
+            .force('x', d3.forceX((leftMargin + width) / 2).strength(0.04))
+            .force('collision', d3.forceCollide().radius(d => radiusScale(d.in_degree) + 8))
+            .alphaDecay(0.03)
+            .on('tick', ticked);
+
+        // Edges
+        const link = g.append('g')
+            .selectAll('path')
+            .data(edges)
+            .enter().append('path')
+            .attr('class', 'citation-link')
+            .attr('stroke-width', 1.5)
+            .attr('marker-end', 'url(#arrowhead)');
+
+        // Nodes
+        const node = g.append('g')
+            .selectAll('g')
+            .data(nodes)
+            .enter().append('g')
+            .attr('class', d => 'node' + (d.is_focus ? ' focus' : ''))
+            .call(d3.drag()
+                .on('start', dragstarted)
+                .on('drag', dragged)
+                .on('end', dragended))
+            .on('click', showNodeDetails)
+            .on('mouseover', highlightLineage)
+            .on('mouseout', resetHighlight);
+
+        node.append('circle')
+            .attr('r', d => d.is_focus ? radiusScale(d.in_degree) + 4 : radiusScale(d.in_degree))
+            .attr('fill', d => outcomeColors[d.outcome] || outcomeColors['unknown']);
+
+        node.append('text')
+            .attr('dy', d => radiusScale(d.in_degree) + 14)
+            .attr('visibility', showLabels ? 'visible' : 'hidden')
+            .text(d => d.label);
+
+        node.append('title')
+            .text(d => `${d.label}: ${d.full_title}\nYear: ${d.year} | Outcome: ${d.outcome}\nCites: ${d.out_degree} | Cited by: ${d.in_degree}`);
+
+        function ticked() {
+            // Clamp X to visible area
+            nodes.forEach(n => {
+                const r = radiusScale(n.in_degree);
+                n.x = Math.max(leftMargin + r, Math.min(width - r, n.x));
+            });
+
+            link.attr('d', d => {
+                const sx = d.source.x, sy = d.source.y;
+                const tx = d.target.x, ty = d.target.y;
+                const r = radiusScale(d.target.in_degree) + 4;
+
+                // Shorten path to stop at node edge
+                const dx = tx - sx, dy = ty - sy;
+                const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                const ex = tx - (dx / dist) * r;
+                const ey = ty - (dy / dist) * r;
+
+                // Slight curve
+                const mx = (sx + ex) / 2 + (dy * 0.08);
+                const my = (sy + ey) / 2 - (dx * 0.08);
+
+                return `M${sx},${sy} Q${mx},${my} ${ex},${ey}`;
+            });
+
+            node.attr('transform', d => `translate(${d.x},${d.y})`);
+        }
+
+        function dragstarted(event, d) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+        }
+
+        function dragged(event, d) {
+            d.fx = event.x;
+            // Keep Y pinned to year
+        }
+
+        function dragended(event, d) {
+            if (!event.active) simulation.alphaTarget(0);
+            d.fx = null;
+        }
+
+        // Auto-fit after simulation settles
+        simulation.on('end', () => {
+            fitToView();
+        });
+        setTimeout(() => fitToView(), 2000);
+
+        function fitToView() {
+            if (!nodes.length) return;
+            const bounds = g.node().getBBox();
+            if (bounds.width === 0 || bounds.height === 0) return;
+
+            const fullWidth = container.clientWidth;
+            const fullHeight = container.clientHeight;
+            const scale = Math.min(
+                fullWidth / (bounds.width + 40),
+                fullHeight / (bounds.height + 40),
+                1.5
+            );
+            const tx = (fullWidth - bounds.width * scale) / 2 - bounds.x * scale;
+            const ty = (fullHeight - bounds.height * scale) / 2 - bounds.y * scale;
+
+            svg.transition().duration(500).call(
+                zoom.transform,
+                d3.zoomIdentity.translate(tx, ty).scale(scale)
+            );
+        }
+
+        // Zoom controls
+        document.getElementById('zoom-in').onclick = () => svg.transition().call(zoom.scaleBy, 1.3);
+        document.getElementById('zoom-out').onclick = () => svg.transition().call(zoom.scaleBy, 0.7);
+        document.getElementById('zoom-fit').onclick = fitToView;
+    }
+
+    // Interaction: highlight lineage on hover
+    function highlightLineage(event, d) {
+        const outgoing = new Set();
+        const incoming = new Set();
+
+        graphData.edges.forEach(e => {
+            const sid = e.source.id !== undefined ? e.source.id : e.source;
+            const tid = e.target.id !== undefined ? e.target.id : e.target;
+            if (sid === d.id) outgoing.add(tid);
+            if (tid === d.id) incoming.add(sid);
+        });
+
+        d3.selectAll('.node').attr('opacity', n =>
+            n.id === d.id || outgoing.has(n.id) || incoming.has(n.id) ? 1 : 0.12
+        );
+
+        d3.selectAll('.citation-link').each(function(e) {
+            const sid = e.source.id !== undefined ? e.source.id : e.source;
+            const tid = e.target.id !== undefined ? e.target.id : e.target;
+            const connected = sid === d.id || tid === d.id;
+            d3.select(this)
+                .attr('stroke-opacity', connected ? 0.9 : 0.04)
+                .attr('stroke-width', connected ? 3 : 1.5)
+                .attr('stroke', connected ? '#0d6efd' : '#999')
+                .attr('marker-end', connected ? 'url(#arrowhead-hl)' : 'url(#arrowhead)');
+        });
+    }
+
+    function resetHighlight() {
+        d3.selectAll('.node').attr('opacity', 1);
+        d3.selectAll('.citation-link')
+            .attr('stroke-opacity', 0.4)
+            .attr('stroke-width', 1.5)
+            .attr('stroke', '#999')
+            .attr('marker-end', 'url(#arrowhead)');
+    }
+
+    // Details panel
+    function showNodeDetails(event, d) {
+        event.stopPropagation();
+        const panel = document.getElementById('details-panel');
+        const title = document.getElementById('detail-title');
+        const content = document.getElementById('detail-content');
+
+        const color = outcomeColors[d.outcome] || outcomeColors['unknown'];
+        title.style.borderColor = color;
+        title.textContent = d.label;
+
+        // Build citation lists from edges
+        const cites = [];
+        const citedBy = [];
+        const nodeMap = {};
+        graphData.nodes.forEach(n => { nodeMap[n.id] = n; });
+
+        graphData.edges.forEach(e => {
+            const sid = e.source.id !== undefined ? e.source.id : e.source;
+            const tid = e.target.id !== undefined ? e.target.id : e.target;
+            if (sid === d.id && nodeMap[tid]) cites.push(nodeMap[tid]);
+            if (tid === d.id && nodeMap[sid]) citedBy.push(nodeMap[sid]);
+        });
+
+        let html = `
+            <div class="mb-2"><strong>${d.full_title}</strong></div>
+            <div class="small text-muted mb-2">
+                Year: ${d.year} &middot;
+                Outcome: <span style="color:${color}; font-weight:600">${d.outcome}</span>
+            </div>
+            <div class="mb-1">
+                <a href="/cases/${d.id}" class="small" target="_blank">View case detail <i class="bi bi-box-arrow-up-right"></i></a>
+            </div>
+            <hr class="my-2">
+        `;
+
+        if (cites.length > 0) {
+            html += `<div class="small text-muted mb-1"><strong>Cites ${cites.length} precedent${cites.length > 1 ? 's' : ''}:</strong></div>`;
+            cites.sort((a, b) => a.year - b.year);
+            cites.forEach(c => {
+                html += `<div class="citation-list-item" data-case-id="${c.id}">
+                    <span style="color:${outcomeColors[c.outcome]||'#999'}">&#9679;</span>
+                    ${c.label} (${c.year}) - ${c.full_title.substring(0, 50)}${c.full_title.length > 50 ? '...' : ''}
+                </div>`;
+            });
+        } else {
+            html += `<div class="small text-muted mb-1">Does not cite any precedents in the database.</div>`;
+        }
+
+        if (citedBy.length > 0) {
+            html += `<hr class="my-2"><div class="small text-muted mb-1"><strong>Cited by ${citedBy.length} case${citedBy.length > 1 ? 's' : ''}:</strong></div>`;
+            citedBy.sort((a, b) => a.year - b.year);
+            citedBy.forEach(c => {
+                html += `<div class="citation-list-item" data-case-id="${c.id}">
+                    <span style="color:${outcomeColors[c.outcome]||'#999'}">&#9679;</span>
+                    ${c.label} (${c.year}) - ${c.full_title.substring(0, 50)}${c.full_title.length > 50 ? '...' : ''}
+                </div>`;
+            });
+        } else {
+            html += `<hr class="my-2"><div class="small text-muted mb-1">Not cited by any case in the database.</div>`;
+        }
+
+        content.innerHTML = html;
+        panel.classList.add('visible');
+
+        // Click handler for citation list items to focus that node
+        content.querySelectorAll('.citation-list-item').forEach(el => {
+            el.addEventListener('click', () => {
+                const targetId = parseInt(el.dataset.caseId);
+                const targetNode = graphData.nodes.find(n => n.id === targetId);
+                if (targetNode) showNodeDetails({stopPropagation: () => {}}, targetNode);
+            });
+        });
+    }
+
+    // Close details
+    document.getElementById('close-details').addEventListener('click', () => {
+        document.getElementById('details-panel').classList.remove('visible');
+    });
+
+    // Click on empty space closes panel
+    svg.on('click', () => {
+        document.getElementById('details-panel').classList.remove('visible');
+    });
+
+    // Controls
+    document.getElementById('case-selector').addEventListener('change', function() {
+        const val = this.value;
+        if (val) {
+            window.history.replaceState({}, '', `/cases/precedents/lineage?case_id=${val}`);
+        } else {
+            window.history.replaceState({}, '', '/cases/precedents/lineage');
+        }
+        loadGraph();
+    });
+
+    document.getElementById('show-labels').addEventListener('change', function() {
+        d3.selectAll('.node text').attr('visibility', this.checked ? 'visible' : 'hidden');
+    });
+
+    document.getElementById('show-all').addEventListener('change', loadGraph);
+
+    // Fullscreen
+    document.getElementById('fullscreen-btn').addEventListener('click', function() {
+        const card = document.getElementById('lineage-card');
+        card.classList.toggle('fullscreen');
+        document.querySelectorAll('.fullscreen-hide').forEach(el => {
+            el.style.display = card.classList.contains('fullscreen') ? 'none' : '';
+        });
+        if (graphData) {
+            setTimeout(() => renderGraph(graphData), 100);
+        }
+    });
+
+    // Initial load
+    loadGraph();
+});
+</script>
+{% endblock %}

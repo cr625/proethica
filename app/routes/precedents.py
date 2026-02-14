@@ -759,6 +759,178 @@ def api_pending_precedents():
     })
 
 
+@precedents_bp.route('/lineage', methods=['GET'])
+@auth_optional
+def lineage_graph_view():
+    """Display the precedent citation lineage graph."""
+    focus_case_id = request.args.get('case_id', type=int)
+
+    focus_case = None
+    if focus_case_id:
+        focus_case = Document.query.get(focus_case_id)
+
+    # Case list for the focus selector dropdown
+    cases_query = text("""
+        SELECT d.id, d.title, d.doc_metadata->>'case_number' as case_number
+        FROM documents d
+        JOIN case_precedent_features cpf ON cpf.case_id = d.id
+        ORDER BY d.doc_metadata->>'case_number'
+    """)
+    rows = db.session.execute(cases_query).fetchall()
+    case_list = [
+        {'id': r[0], 'title': r[1], 'case_number': r[2] or ''}
+        for r in rows
+    ]
+
+    return render_template(
+        'lineage_graph.html',
+        focus_case=focus_case,
+        focus_case_id=focus_case_id,
+        cases=case_list
+    )
+
+
+@precedents_bp.route('/api/lineage_graph', methods=['GET'])
+@auth_optional
+def api_lineage_graph():
+    """
+    API endpoint for directed citation lineage graph.
+
+    Returns nodes (cases) and directed edges (citing case -> cited precedent).
+    """
+    focus_case_id = request.args.get('case_id', type=int)
+    show_all = request.args.get('show_all', 'false').lower() == 'true'
+
+    try:
+        query = text("""
+            SELECT
+                cpf.case_id,
+                d.title,
+                d.doc_metadata->>'case_number' as case_number,
+                COALESCE(
+                    (d.doc_metadata->'date_parts'->>'year')::int,
+                    (d.doc_metadata->>'year')::int
+                ) as year,
+                cpf.outcome_type,
+                cpf.cited_case_ids
+            FROM case_precedent_features cpf
+            JOIN documents d ON cpf.case_id = d.id
+            ORDER BY year NULLS FIRST, cpf.case_id
+        """)
+        rows = db.session.execute(query).fetchall()
+
+        # Build node lookup and edge list
+        all_nodes = {}
+        all_edges = []
+        valid_ids = {r[0] for r in rows}
+
+        for case_id, title, case_number, year, outcome, cited_ids in rows:
+            label = f"Case {case_number}" if case_number else title[:30]
+            all_nodes[case_id] = {
+                'id': case_id,
+                'label': label,
+                'full_title': title,
+                'case_number': case_number or '',
+                'year': year or 0,
+                'outcome': outcome or 'unknown',
+                'in_degree': 0,
+                'out_degree': 0,
+                'cites': [],
+                'cited_by': [],
+                'is_focus': case_id == focus_case_id
+            }
+
+            if cited_ids:
+                for cited_id in cited_ids:
+                    if cited_id in valid_ids and cited_id != case_id:
+                        all_edges.append({
+                            'source': case_id,
+                            'target': cited_id
+                        })
+
+        # Compute degrees and build adjacency lists
+        for edge in all_edges:
+            src = edge['source']
+            tgt = edge['target']
+            if src in all_nodes:
+                all_nodes[src]['out_degree'] += 1
+                all_nodes[src]['cites'].append(tgt)
+            if tgt in all_nodes:
+                all_nodes[tgt]['in_degree'] += 1
+                all_nodes[tgt]['cited_by'].append(src)
+
+        # Focus mode: BFS to collect ego-network
+        if focus_case_id and focus_case_id in all_nodes:
+            reachable = {focus_case_id}
+            # BFS forward (descendants: cases that cite the focus, transitively)
+            queue = [focus_case_id]
+            while queue:
+                current = queue.pop(0)
+                for neighbor in all_nodes[current].get('cited_by', []):
+                    if neighbor not in reachable:
+                        reachable.add(neighbor)
+                        queue.append(neighbor)
+            # BFS backward (ancestors: cases the focus cites, transitively)
+            queue = [focus_case_id]
+            visited_back = {focus_case_id}
+            while queue:
+                current = queue.pop(0)
+                for neighbor in all_nodes[current].get('cites', []):
+                    if neighbor not in visited_back:
+                        visited_back.add(neighbor)
+                        reachable.add(neighbor)
+                        queue.append(neighbor)
+
+            all_edges = [e for e in all_edges
+                         if e['source'] in reachable and e['target'] in reachable]
+            all_nodes = {k: v for k, v in all_nodes.items() if k in reachable}
+
+        elif not show_all:
+            # Filter to only cases involved in at least one citation
+            connected = set()
+            for edge in all_edges:
+                connected.add(edge['source'])
+                connected.add(edge['target'])
+            all_nodes = {k: v for k, v in all_nodes.items() if k in connected}
+
+        # Strip adjacency lists from response (used only for BFS)
+        nodes_out = []
+        for node in all_nodes.values():
+            n = dict(node)
+            del n['cites']
+            del n['cited_by']
+            nodes_out.append(n)
+
+        years = [n['year'] for n in nodes_out if n['year'] > 0]
+
+        return jsonify({
+            'success': True,
+            'nodes': nodes_out,
+            'edges': all_edges,
+            'focus_case_id': focus_case_id,
+            'metadata': {
+                'total_nodes': len(nodes_out),
+                'total_edges': len(all_edges),
+                'year_range': [min(years), max(years)] if years else [0, 0],
+                'outcome_distribution': {
+                    outcome: sum(1 for n in nodes_out if n['outcome'] == outcome)
+                    for outcome in set(n['outcome'] for n in nodes_out)
+                }
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"Error building lineage graph: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'nodes': [],
+            'edges': []
+        }), 500
+
+
 @precedents_bp.route('/api/ingest', methods=['POST'])
 @auth_optional
 def api_ingest_pending():

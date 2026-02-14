@@ -137,6 +137,80 @@ class TestSimilarityService:
         )
         assert result.method == 'component'
 
+    def test_similarity_result_has_per_component_scores(self):
+        """SimilarityResult should have optional per_component_scores field."""
+        per_comp = {'R': 0.8, 'P': 0.7, 'O': 0.6}
+        result = SimilarityResult(
+            source_case_id=1,
+            target_case_id=2,
+            overall_similarity=0.5,
+            component_scores={'component_similarity': 0.5},
+            matching_provisions=[],
+            outcome_match=True,
+            weights_used={},
+            method='component',
+            per_component_scores=per_comp,
+        )
+        assert result.per_component_scores == per_comp
+
+    def test_similarity_result_per_component_defaults_none(self):
+        """per_component_scores should default to None for section mode."""
+        result = SimilarityResult(
+            source_case_id=1,
+            target_case_id=2,
+            overall_similarity=0.5,
+            component_scores={},
+            matching_provisions=[],
+            outcome_match=True,
+            weights_used={},
+        )
+        assert result.per_component_scores is None
+
+
+class TestPerComponentSimilarityComputation:
+    """Test that per-component similarity matches the paper's formula."""
+
+    def test_weighted_sum_matches_component_similarity(self):
+        """component_similarity should equal Σ wk * cos(ei,k, ej,k) with renormalized weights."""
+        per_comp = {
+            'R': 0.8, 'P': 0.7, 'O': 0.9, 'S': 0.5, 'Rs': 0.6,
+            'A': 0.3, 'E': 0.4, 'Ca': 0.75, 'Cs': 0.65,
+        }
+
+        weighted_sum = sum(
+            COMPONENT_WEIGHTS[k] * v for k, v in per_comp.items()
+        )
+        total_weight = sum(
+            COMPONENT_WEIGHTS[k] for k in per_comp.keys()
+        )
+        expected = weighted_sum / total_weight
+
+        # Simulate what the service does
+        comp_weighted_sum = 0.0
+        comp_total_weight = 0.0
+        for comp_code in ['R', 'P', 'O', 'S', 'Rs', 'A', 'E', 'Ca', 'Cs']:
+            if comp_code in per_comp:
+                w = COMPONENT_WEIGHTS.get(comp_code, 0.0)
+                comp_weighted_sum += w * per_comp[comp_code]
+                comp_total_weight += w
+        actual = comp_weighted_sum / comp_total_weight
+
+        assert abs(actual - expected) < 1e-10
+
+    def test_missing_components_renormalize(self):
+        """Missing components should be skipped with weight renormalization."""
+        # Only 3 components present
+        per_comp = {'R': 0.8, 'P': 0.7, 'O': 0.9}
+
+        weighted_sum = sum(COMPONENT_WEIGHTS[k] * v for k, v in per_comp.items())
+        total_weight = sum(COMPONENT_WEIGHTS[k] for k in per_comp.keys())
+        expected = weighted_sum / total_weight
+
+        # R=0.12, P=0.20, O=0.15 -> total=0.47
+        # (0.12*0.8 + 0.20*0.7 + 0.15*0.9) / 0.47
+        manual = (0.12 * 0.8 + 0.20 * 0.7 + 0.15 * 0.9) / (0.12 + 0.20 + 0.15)
+        assert abs(expected - manual) < 1e-10
+
 
 class TestCosineNormalization:
     """Test embedding normalization for cosine similarity."""

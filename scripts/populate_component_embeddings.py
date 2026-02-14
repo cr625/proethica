@@ -2,8 +2,9 @@
 """
 Populate component-aggregated embeddings for cases.
 
-This script generates weighted embeddings from the nine-component structure
-(R, P, O, S, Rs, A, E, Ca, Cs) and stores them in case_precedent_features.combined_embedding.
+This script generates per-component embeddings from the nine-component structure
+(R, P, O, S, Rs, A, E, Ca, Cs) and stores them in case_precedent_features
+(embedding_R through embedding_Cs columns, plus aggregated combined_embedding).
 
 Usage:
     python scripts/populate_component_embeddings.py --case 7
@@ -104,7 +105,7 @@ def process_case(case_id: int, extractor: CaseFeatureExtractor, dry_run: bool = 
 
     if success:
         result['success'] = True
-        result['message'] = f"Saved embedding from {len(counts)} component types"
+        result['message'] = f"Saved {len(counts)} per-component + aggregated embeddings"
     else:
         result['message'] = "Failed to generate or save embedding"
 
@@ -175,7 +176,7 @@ def main():
         print(f"Processed: {success_count}/{len(results)} cases")
 
         if not args.dry_run:
-            print(f"\nEmbeddings stored in case_precedent_features.combined_embedding")
+            print(f"\nEmbeddings stored in case_precedent_features (embedding_R..Cs + combined_embedding)")
 
 
 if __name__ == '__main__':

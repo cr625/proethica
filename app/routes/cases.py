@@ -911,6 +911,9 @@ def process_url_pipeline():
             features = feature_extractor.extract_precedent_features(document.id)
             feature_extractor.save_features(features)
             logger.info(f"Extracted precedent features for case {document.id}: outcome={features.outcome_type}, provisions={len(features.provisions_cited)}")
+            # Sync section embeddings from document_sections into case_precedent_features
+            # (save_features sets section embedding columns to NULL; this restores them)
+            _sync_embeddings_to_precedent_features(document.id)
         except Exception as e:
             logger.warning(f"Error extracting precedent features: {str(e)}")
             # Continue anyway - features can be extracted later
@@ -1341,6 +1344,9 @@ def create_from_url():
             features = feature_extractor.extract_precedent_features(document.id)
             feature_extractor.save_features(features)
             logger.info(f"Extracted precedent features for case {document.id}: outcome={features.outcome_type}")
+            # Sync section embeddings from document_sections into case_precedent_features
+            # (save_features sets section embedding columns to NULL; this restores them)
+            _sync_embeddings_to_precedent_features(document.id)
         except Exception as e:
             logger.warning(f"Error extracting precedent features: {str(e)}")
 

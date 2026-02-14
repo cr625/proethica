@@ -33,6 +33,7 @@ class SimilarityResult:
     outcome_match: bool
     weights_used: Dict[str, float]
     method: str = 'section'  # 'section' or 'component'
+    per_component_scores: Optional[Dict[str, float]] = None  # D-tuple component cosine similarities
 
 
 class PrecedentSimilarityService:
@@ -131,12 +132,27 @@ class PrecedentSimilarityService:
 
         # Calculate component similarities
         component_scores = {}
+        per_comp = None
 
         if use_component_embedding:
-            # Component-aware mode: use combined_embedding
-            component_scores['component_similarity'] = self._cosine_similarity(
-                source_features.get('combined_embedding'),
-                target_features.get('combined_embedding')
+            # Component-aware mode: per-component cosine similarities
+            from app.services.precedent.case_feature_extractor import COMPONENT_WEIGHTS
+            per_comp = {}
+            comp_weighted_sum = 0.0
+            comp_total_weight = 0.0
+
+            for comp_code in ['R', 'P', 'O', 'S', 'Rs', 'A', 'E', 'Ca', 'Cs']:
+                src_emb = source_features.get(f'embedding_{comp_code}')
+                tgt_emb = target_features.get(f'embedding_{comp_code}')
+                if src_emb is not None and tgt_emb is not None:
+                    sim = self._cosine_similarity(src_emb, tgt_emb)
+                    per_comp[comp_code] = sim
+                    w = COMPONENT_WEIGHTS.get(comp_code, 0.0)
+                    comp_weighted_sum += w * sim
+                    comp_total_weight += w
+
+            component_scores['component_similarity'] = (
+                comp_weighted_sum / comp_total_weight if comp_total_weight > 0 else 0.0
             )
         else:
             # Section-based mode: use separate embeddings
@@ -189,7 +205,8 @@ class PrecedentSimilarityService:
             matching_provisions=matching_provisions,
             outcome_match=outcome_match,
             weights_used=weights,
-            method=method
+            method=method,
+            per_component_scores=per_comp,
         )
 
     def find_similar_cases(
@@ -363,7 +380,16 @@ class PrecedentSimilarityService:
                 facts_embedding,
                 discussion_embedding,
                 conclusion_embedding,
-                combined_embedding
+                combined_embedding,
+                embedding_R,
+                embedding_P,
+                embedding_O,
+                embedding_S,
+                embedding_Rs,
+                embedding_A,
+                embedding_E,
+                embedding_Ca,
+                embedding_Cs
             FROM case_precedent_features
             WHERE case_id = :case_id
         """)
@@ -385,7 +411,16 @@ class PrecedentSimilarityService:
             'facts_embedding': self._parse_embedding(result[8]),
             'discussion_embedding': self._parse_embedding(result[9]),
             'conclusion_embedding': self._parse_embedding(result[10]),
-            'combined_embedding': self._parse_embedding(result[11])
+            'combined_embedding': self._parse_embedding(result[11]),
+            'embedding_R': self._parse_embedding(result[12]),
+            'embedding_P': self._parse_embedding(result[13]),
+            'embedding_O': self._parse_embedding(result[14]),
+            'embedding_S': self._parse_embedding(result[15]),
+            'embedding_Rs': self._parse_embedding(result[16]),
+            'embedding_A': self._parse_embedding(result[17]),
+            'embedding_E': self._parse_embedding(result[18]),
+            'embedding_Ca': self._parse_embedding(result[19]),
+            'embedding_Cs': self._parse_embedding(result[20]),
         }
 
     def _get_all_case_ids_with_features(self) -> List[int]:

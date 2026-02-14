@@ -1,0 +1,46 @@
+{
+  "description": "25 BER cases cited as precedents in existing cases but not yet in our database. All available on NSPE website.",
+  "created": "2026-02-13",
+  "base_url": "https://www.nspe.org/career-growth/ethics/board-ethical-review-cases/",
+  "cases": [
+    {"ber": "82-5", "title": "Whistleblowing", "slug": "whistleblowing", "cited_by": [79, 85, 139], "citations": 3},
+    {"ber": "85-3", "title": "PE Requirement - County Surveyor Position", "slug": "pe-requirement-county-surveyor-position", "cited_by": [74, 109, 110], "citations": 3},
+    {"ber": "96-8", "title": "Conflict of Interest - Peer Reviewer", "slug": "conflict-interest-peer-reviewer-participating", "cited_by": [15, 93, 96], "citations": 3},
+    {"ber": "65-12", "title": "Participation in Production of Unsafe Equipment", "slug": "participation-production-unsafe-equipment", "cited_by": [79, 139], "citations": 2},
+    {"ber": "71-2", "title": "Brokerage of Engineering Services", "slug": "brokerage-engineering-services", "cited_by": [110, 121], "citations": 2},
+    {"ber": "78-5", "title": "Post Interview Change in Joint Venture Team", "slug": "post-lnterview-change-joint-venture-team", "cited_by": [110, 121], "citations": 2},
+    {"ber": "86-2", "title": "Signing/Sealing Plans Not Prepared by Engineer", "slug": "signing-sealing-plans-not-prepared-engineer", "cited_by": [111, 120], "citations": 2},
+    {"ber": "01-11", "title": "Conflict of Interest - Consultant Serving as City Engineer", "slug": "conflict-interest-consultant-serving-city-engineer", "cited_by": [105], "citations": 1},
+    {"ber": "09-6", "title": "Two PEs Assigned to Same Project", "slug": "two-professional-engineers-assigned-same-project", "cited_by": [111], "citations": 1},
+    {"ber": "16-5", "title": "Public Health Safety Welfare - Driverless/Autonomous Vehicles", "slug": "public-health-safety-welfare-driverlessautonomous", "cited_by": [73], "citations": 1},
+    {"ber": "72-11", "title": "Statements in Employee Resume", "slug": "statements-employee-resume", "cited_by": [134], "citations": 1},
+    {"ber": "76-6", "title": "Gifts to Foreign Officials", "slug": "gifts-foreign-officials", "cited_by": [91], "citations": 1},
+    {"ber": "77-11", "title": "Supplanting - Promotion of Work by Former Employees", "slug": "supplanting-promotion-work-former-employees", "cited_by": [127], "citations": 1},
+    {"ber": "79-7", "title": "Review of Original Engineer's Design", "slug": "review-original-engineers-design", "cited_by": [126], "citations": 1},
+    {"ber": "82-6", "title": "Conflict of Interest - Expert Witness Contractor", "slug": "conflict-interest-expert-witness-contractor", "cited_by": [106], "citations": 1},
+    {"ber": "83-1", "title": "Conflict of Interest - Duty/Loyalty Terminated Employee", "slug": "conflict-interest-duty-loyalty-terminated-employed", "cited_by": [131], "citations": 1},
+    {"ber": "85-4", "title": "Objectivity - Engineer Retained as Expert", "slug": "objectivity-engineer-retained-expert", "cited_by": [106], "citations": 1},
+    {"ber": "86-4", "title": "Modification of Signed/Sealed Plans", "slug": "modification-signed-sealed-plans-other-responsible", "cited_by": [108], "citations": 1},
+    {"ber": "90-4", "title": "Misrepresentation of Firm's Staff", "slug": "misrepresentation-firms-staff", "cited_by": [131], "citations": 1},
+    {"ber": "92-4", "title": "Public Welfare - Duty of Government Engineer", "slug": "public-welfare-duty-government-engineer", "cited_by": [79], "citations": 1},
+    {"ber": "93-4", "title": "Engineer's Duty as Interpreter of Contract Documents", "slug": "engineers-duty-interpreter-contract-documents", "cited_by": [98], "citations": 1},
+    {"ber": "94-5", "title": "Conflict of Interest - City Engineer and Inspection", "slug": "conflict-interest-providing-both-city-engineer", "cited_by": [96], "citations": 1},
+    {"ber": "96-5", "title": "Consulting Engineer Working US and Abroad", "slug": "gifts-foreign-officials-application-code-ethics", "cited_by": [91], "citations": 1},
+    {"ber": "97-2", "title": "Former Employer Establishing New Firm - Soliciting", "slug": "former-employer-establishing-new-firm-soliciting", "cited_by": [127], "citations": 1},
+    {"ber": "98-4", "title": "Expert Witness Testimony - Serving Plaintiffs and Defendants", "slug": "expert-witness-testimony-serving-plaintiffs", "cited_by": [75], "citations": 1}
+  ],
+  "ingestion_plan": {
+    "steps": [
+      "1. Build script to ingest each URL using CitedCaseIngestor.ingest_from_url()",
+      "2. Run populate_section_embeddings.py on new cases",
+      "3. Run llm_extract_features.py on new cases",
+      "4. Run update_resolved_citations() to link citing cases to new precedents",
+      "5. Verify with coverage query"
+    ],
+    "key_files": {
+      "ingestor": "app/services/precedent/cited_case_ingestor.py",
+      "section_embeddings": "scripts/populate_section_embeddings.py",
+      "llm_features": "scripts/llm_extract_features.py"
+    }
+  }
+}
