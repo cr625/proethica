@@ -2699,31 +2699,105 @@ def view_case_structure(id):
     dimensions = set(s['embed_dim'] for s in section_stats if s['embed_dim'])
     has_dimension_issue = len(dimensions) > 1 or (dimensions and 1536 in dimensions)
 
-    # Get precedent preview (top 3 similar cases by discussion section)
-    similar_cases = []
+    # Get similar cases preview: discussion-based and component-based
+    similar_by_discussion = []
+    similar_by_component = []
+
+    # Discussion section embedding similarity
     if sections_with_embeddings > 0:
         try:
-            # Find cases with similar discussion sections
             service = SectionEmbeddingService()
             discussion_section = next((s for s in sections if s.section_type == 'discussion' and s.embedding), None)
             if discussion_section:
-                # Query for similar sections from OTHER documents
                 similar = service.find_similar_sections(
                     discussion_section.content,
                     section_type='discussion',
-                    limit=10  # Get more to filter out same document
+                    limit=10
                 )
-                # Filter out current document and take top 3
                 for s in similar:
-                    if s['document_id'] != id and len(similar_cases) < 3:
-                        similar_cases.append({
+                    if s['document_id'] != id and len(similar_by_discussion) < 3:
+                        similar_by_discussion.append({
                             'case_id': s['document_id'],
                             'title': s['document_title'],
                             'similarity': s['similarity'],
-                            'section_type': s['section_type']
                         })
         except Exception as e:
-            logger.warning(f"Error finding similar cases: {e}")
+            logger.warning(f"Error finding similar cases by discussion: {e}")
+
+    # Component-aggregated (D-tuple) embedding similarity via pgvector
+    try:
+        component_similar = db.session.execute(db.text("""
+            SELECT t.case_id, d.title,
+                   1 - (s.combined_embedding <=> t.combined_embedding) as similarity
+            FROM case_precedent_features s, case_precedent_features t
+            JOIN documents d ON d.id = t.case_id
+            WHERE s.case_id = :case_id
+              AND t.case_id != :case_id
+              AND s.combined_embedding IS NOT NULL
+              AND t.combined_embedding IS NOT NULL
+            ORDER BY s.combined_embedding <=> t.combined_embedding
+            LIMIT 3
+        """), {'case_id': id}).fetchall()
+        for row in component_similar:
+            similar_by_component.append({
+                'case_id': row[0],
+                'title': row[1],
+                'similarity': float(row[2]),
+            })
+    except Exception as e:
+        logger.warning(f"Error finding similar cases by component: {e}")
+
+    # Get D-tuple component breakdown from extracted entities
+    from app.models.temporary_rdf_storage import TemporaryRDFStorage
+    from app.services.precedent.case_feature_extractor import (
+        EXTRACTION_TYPE_TO_COMPONENT, ENTITY_TYPE_TO_COMPONENT, COMPONENT_WEIGHTS
+    )
+
+    COMPONENT_LABELS = {
+        'R': 'Roles', 'P': 'Principles', 'O': 'Obligations',
+        'S': 'States', 'Rs': 'Resources', 'A': 'Actions',
+        'E': 'Events', 'Ca': 'Capabilities', 'Cs': 'Constraints',
+    }
+    COMPONENT_ORDER = ['R', 'P', 'O', 'S', 'Rs', 'A', 'E', 'Ca', 'Cs']
+
+    entities = TemporaryRDFStorage.query.filter_by(case_id=id).all()
+    component_data = {code: {'label': COMPONENT_LABELS[code], 'weight': COMPONENT_WEIGHTS[code],
+                             'entities': [], 'has_embedding': False}
+                      for code in COMPONENT_ORDER}
+
+    for entity in entities:
+        comp_code = None
+        if entity.extraction_type in EXTRACTION_TYPE_TO_COMPONENT:
+            comp_code = EXTRACTION_TYPE_TO_COMPONENT[entity.extraction_type]
+        elif entity.extraction_type == 'temporal_dynamics_enhanced' and entity.entity_type:
+            comp_code = ENTITY_TYPE_TO_COMPONENT.get(entity.entity_type.lower())
+        if comp_code and entity.entity_label:
+            component_data[comp_code]['entities'].append({
+                'label': entity.entity_label,
+                'definition': entity.entity_definition,
+                'uri': entity.entity_uri,
+            })
+
+    # Check which components have embeddings
+    try:
+        embed_cols = ', '.join(f'embedding_{code} IS NOT NULL as has_{code}' for code in COMPONENT_ORDER)
+        embed_result = db.session.execute(
+            db.text(f"SELECT combined_embedding IS NOT NULL as has_combined, {embed_cols} "
+                    f"FROM case_precedent_features WHERE case_id = :case_id"),
+            {'case_id': id}
+        ).fetchone()
+        if embed_result:
+            has_combined_embedding = embed_result[0]
+            for i, code in enumerate(COMPONENT_ORDER):
+                component_data[code]['has_embedding'] = embed_result[i + 1]
+        else:
+            has_combined_embedding = False
+    except Exception:
+        has_combined_embedding = False
+
+    total_entities = sum(len(c['entities']) for c in component_data.values())
+    components_populated = sum(1 for c in component_data.values() if c['entities'])
+    components_with_embeddings = sum(1 for c in component_data.values() if c['has_embedding'])
 
     return render_template('case_structure.html',
         case=case,
@@ -2734,7 +2808,14 @@ def view_case_structure(id):
         embedding_coverage=embedding_coverage,
         has_dimension_issue=has_dimension_issue,
         dimensions=list(dimensions),
-        similar_cases=similar_cases
+        similar_by_discussion=similar_by_discussion,
+        similar_by_component=similar_by_component,
+        component_data=component_data,
+        component_order=COMPONENT_ORDER,
+        total_entities=total_entities,
+        components_populated=components_populated,
+        components_with_embeddings=components_with_embeddings,
+        has_combined_embedding=has_combined_embedding
     )
 
 

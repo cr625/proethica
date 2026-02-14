@@ -137,11 +137,14 @@ def _get_case_year(case):
 
 def _find_precedents_for_case(case_id, limit=10, min_score=0.1):
     """
-    Find precedent cases using multi-factor similarity.
+    Find similar cases using multi-factor similarity.
 
     Uses weighted combination approach from CBR-RAG (Wiratunga et al., 2024):
     Score = w1*facts_sim + w2*discussion_sim + w3*provision_overlap +
             w4*outcome_alignment + w5*tag_overlap + w6*principle_overlap
+
+    Results include is_cited_precedent/is_cited_by flags to distinguish
+    explicitly cited precedent relationships from similarity-only matches.
     """
     from app.services.precedent import PrecedentDiscoveryService
 
@@ -158,6 +161,7 @@ def _find_precedents_for_case(case_id, limit=10, min_score=0.1):
         # Get source case's features for overlap calculation
         source_features = _get_case_features(case_id)
         source_cited = set(source_features.get('cited_case_numbers', []) or []) if source_features else set()
+        source_cited_ids = set(source_features.get('cited_case_ids', []) or []) if source_features else set()
         source_transformation = source_features.get('transformation_type') if source_features else None
 
         # Get source case's subject tags and outcome from doc_metadata
@@ -196,6 +200,11 @@ def _find_precedents_for_case(case_id, limit=10, min_score=0.1):
                 source_transformation == match.target_transformation
             )
 
+            # Check if target is an explicitly cited precedent (or cites the source)
+            target_cited_ids = set(features.get('cited_case_ids', []) or []) if features else set()
+            is_cited_precedent = match.target_case_id in source_cited_ids
+            is_cited_by = case_id in target_cited_ids
+
             results.append({
                 'case_id': match.target_case_id,
                 'title': match.target_case_title,
@@ -213,6 +222,8 @@ def _find_precedents_for_case(case_id, limit=10, min_score=0.1):
                 'target_transformation': match.target_transformation,
                 'overlapping_tags': overlapping_tags,
                 'overlapping_citations': overlapping_citations,
+                'is_cited_precedent': is_cited_precedent,
+                'is_cited_by': is_cited_by,
             })
 
         return {
@@ -683,7 +694,7 @@ def _get_case_features(case_id):
     try:
         query = text("""
             SELECT principle_tensions, obligation_conflicts,
-                   transformation_type, cited_case_numbers
+                   transformation_type, cited_case_numbers, cited_case_ids
             FROM case_precedent_features
             WHERE case_id = :case_id
         """)
@@ -693,7 +704,8 @@ def _get_case_features(case_id):
                 'principle_tensions': result[0],
                 'obligation_conflicts': result[1],
                 'transformation_type': result[2],
-                'cited_case_numbers': result[3]
+                'cited_case_numbers': result[3],
+                'cited_case_ids': result[4]
             }
     except Exception as e:
         logger.warning(f"Error getting case features for {case_id}: {e}")

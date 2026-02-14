@@ -245,42 +245,91 @@
             </div>
         </div>
 
-        <!-- Precedent Preview Sidebar -->
+        <!-- Similar Cases Sidebar -->
         <div class="col-md-4">
             <div class="card">
-                <div class="card-header bg-info text-white">
+                <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="bi bi-link-45deg"></i> Similar Cases</h5>
+                    {% if similar_by_discussion or similar_by_component %}
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button" class="btn btn-light btn-sm active" id="btn-discussion" onclick="toggleSimilarMethod('discussion')">Discussion</button>
+                        <button type="button" class="btn btn-outline-light btn-sm" id="btn-component" onclick="toggleSimilarMethod('component')">D-tuple</button>
+                    </div>
+                    {% endif %}
                 </div>
                 <div class="card-body">
-                    {% if similar_cases %}
-                    <p class="small text-muted mb-3">
-                        Cases with similar discussion sections (by embedding similarity)
-                    </p>
-                    {% for sim_case in similar_cases %}
-                    <div class="card similar-case-card mb-3">
-                        <div class="card-body py-2">
-                            <div class="d-flex justify-content-between align-items-start">
-                                <div>
-                                    <a href="{{ url_for('cases.view_case', id=sim_case.case_id) }}" class="text-decoration-none">
-                                        <strong>{{ sim_case.title|truncate(50) }}</strong>
-                                    </a>
-                                    <div class="small text-muted">Case {{ sim_case.case_id }}</div>
+                    {% if similar_by_discussion or similar_by_component %}
+
+                    <!-- Discussion-based results -->
+                    <div id="similar-discussion">
+                        <p class="small text-muted mb-3">
+                            By discussion section embedding (cosine similarity)
+                        </p>
+                        {% if similar_by_discussion %}
+                        {% for sim_case in similar_by_discussion %}
+                        <div class="card similar-case-card mb-3">
+                            <div class="card-body py-2">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <a href="{{ url_for('cases.view_case', id=sim_case.case_id) }}" class="text-decoration-none">
+                                            <strong>{{ sim_case.title|truncate(50) }}</strong>
+                                        </a>
+                                        <div class="small text-muted">Case {{ sim_case.case_id }}</div>
+                                    </div>
+                                    <span class="badge bg-info">{{ (sim_case.similarity * 100)|round|int }}%</span>
                                 </div>
-                                <span class="badge bg-info">{{ (sim_case.similarity * 100)|round|int }}%</span>
-                            </div>
-                            <div class="similarity-bar mt-2">
-                                <div class="similarity-fill" style="width: {{ sim_case.similarity * 100 }}%"></div>
+                                <div class="similarity-bar mt-2">
+                                    <div class="similarity-fill" style="width: {{ sim_case.similarity * 100 }}%"></div>
+                                </div>
                             </div>
                         </div>
+                        {% endfor %}
+                        {% else %}
+                        <div class="text-center py-3">
+                            <small class="text-muted">No discussion embedding available</small>
+                        </div>
+                        {% endif %}
                     </div>
-                    {% endfor %}
+
+                    <!-- Component-based results -->
+                    <div id="similar-component" style="display: none;">
+                        <p class="small text-muted mb-3">
+                            By 9-component weighted embedding (cosine similarity)
+                        </p>
+                        {% if similar_by_component %}
+                        {% for sim_case in similar_by_component %}
+                        <div class="card similar-case-card mb-3">
+                            <div class="card-body py-2">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <a href="{{ url_for('cases.view_case', id=sim_case.case_id) }}" class="text-decoration-none">
+                                            <strong>{{ sim_case.title|truncate(50) }}</strong>
+                                        </a>
+                                        <div class="small text-muted">Case {{ sim_case.case_id }}</div>
+                                    </div>
+                                    <span class="badge bg-info">{{ (sim_case.similarity * 100)|round|int }}%</span>
+                                </div>
+                                <div class="similarity-bar mt-2">
+                                    <div class="similarity-fill" style="width: {{ sim_case.similarity * 100 }}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        {% else %}
+                        <div class="text-center py-3">
+                            <small class="text-muted">No component embedding available</small>
+                        </div>
+                        {% endif %}
+                    </div>
+
                     <a href="{{ url_for('precedents.find_precedents', case_id=case.id) }}" class="btn btn-outline-info btn-sm w-100">
-                        <i class="bi bi-search"></i> Find More Precedents
+                        <i class="bi bi-search"></i> Full Similarity Analysis
                     </a>
+
                     {% elif sections_with_embeddings == 0 %}
                     <div class="text-center py-4">
                         <i class="bi bi-lightning text-muted" style="font-size: 2rem;"></i>
-                        <p class="text-muted mt-2 mb-0">Generate embeddings to enable precedent matching</p>
+                        <p class="text-muted mt-2 mb-0">Generate embeddings to enable similarity matching</p>
                     </div>
                     {% else %}
                     <div class="text-center py-4">
@@ -291,22 +340,120 @@
                     {% endif %}
                 </div>
             </div>
+        </div>
+    </div>
 
-            <!-- Embedding Info Card -->
-            <div class="card mt-3">
-                <div class="card-header">
-                    <h6 class="mb-0"><i class="bi bi-info-circle"></i> About Embeddings</h6>
+    <!-- D-tuple Component Breakdown -->
+    <h4 class="mt-5 mb-4"><i class="bi bi-grid-3x3"></i> D-tuple Component Breakdown</h4>
+
+    <!-- Component Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body py-3">
+                    <h3 class="mb-0 text-primary">{{ total_entities }}</h3>
+                    <small class="text-muted">Total Entities</small>
                 </div>
-                <div class="card-body">
-                    <small class="text-muted">
-                        <p class="mb-2"><strong>Model:</strong> all-MiniLM-L6-v2 (local)</p>
-                        <p class="mb-2"><strong>Dimension:</strong> 384</p>
-                        <p class="mb-2"><strong>Use:</strong> Semantic similarity for precedent matching</p>
-                        <p class="mb-0"><strong>Storage:</strong> pgvector (PostgreSQL)</p>
-                    </small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body py-3">
+                    <h3 class="mb-0 {% if components_populated == 9 %}text-success{% elif components_populated > 0 %}text-warning{% else %}text-muted{% endif %}">
+                        {{ components_populated }}/9
+                    </h3>
+                    <small class="text-muted">Components Populated</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body py-3">
+                    <h3 class="mb-0 {% if components_with_embeddings == 9 %}text-success{% elif components_with_embeddings > 0 %}text-warning{% else %}text-muted{% endif %}">
+                        {{ components_with_embeddings }}/9
+                    </h3>
+                    <small class="text-muted">With Embeddings</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body py-3">
+                    {% if has_combined_embedding %}
+                    <h3 class="mb-0 text-success"><i class="bi bi-check-circle"></i></h3>
+                    <small class="text-muted">Combined Embedding</small>
+                    {% else %}
+                    <h3 class="mb-0 text-muted"><i class="bi bi-x-circle"></i></h3>
+                    <small class="text-muted">No Combined Embedding</small>
+                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Component Cards -->
+    <div class="row">
+        {% for code in component_order %}
+        {% set comp = component_data[code] %}
+        <div class="col-md-4 mb-3">
+            <div class="card h-100 {% if not comp.entities %}border-secondary{% endif %}">
+                <div class="card-header d-flex justify-content-between align-items-center py-2">
+                    <div>
+                        <strong>{{ comp.label }}</strong>
+                        <span class="badge bg-secondary ms-1" style="font-size: 0.65rem;">{{ code }}</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="text-muted" style="font-size: 0.75rem;" title="Component weight in aggregation">w={{ comp.weight }}</span>
+                        {% if comp.has_embedding %}
+                        <span class="badge bg-success" style="font-size: 0.65rem;">384D</span>
+                        {% elif comp.entities %}
+                        <span class="badge bg-warning text-dark" style="font-size: 0.65rem;">No Emb</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body py-2">
+                    {% if comp.entities %}
+                    <div style="max-height: 200px; overflow-y: auto;">
+                        {% for entity in comp.entities %}
+                        <div class="{% if not loop.last %}border-bottom{% endif %} py-1">
+                            <div class="d-flex justify-content-between">
+                                <strong style="font-size: 0.85rem;">{{ entity.label }}</strong>
+                            </div>
+                            {% if entity.definition %}
+                            <div class="text-muted" style="font-size: 0.75rem;">{{ entity.definition|truncate(120) }}</div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="text-end mt-1">
+                        <small class="text-muted">{{ comp.entities|length }} entit{{ 'y' if comp.entities|length == 1 else 'ies' }}</small>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-3">
+                        <small class="text-muted">No entities extracted</small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Embedding Info -->
+    <div class="text-muted small mt-4 mb-2">
+        <i class="bi bi-info-circle"></i>
+        Embeddings: all-MiniLM-L6-v2 (384D, local) | Storage: pgvector (PostgreSQL) | Used for section and component similarity matching
+    </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleSimilarMethod(method) {
+    document.getElementById('similar-discussion').style.display = method === 'discussion' ? '' : 'none';
+    document.getElementById('similar-component').style.display = method === 'component' ? '' : 'none';
+    document.getElementById('btn-discussion').className = 'btn btn-sm ' + (method === 'discussion' ? 'btn-light active' : 'btn-outline-light');
+    document.getElementById('btn-component').className = 'btn btn-sm ' + (method === 'component' ? 'btn-light active' : 'btn-outline-light');
+}
+</script>
 {% endblock %}
