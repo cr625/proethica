@@ -60,8 +60,8 @@ def extract_entity_type(entity_type: str, section_text: str, case_id: int,
 
     try:
         if entity_type == 'roles':
-            from app.services.extraction.dual_role_extractor import DualRoleExtractor
-            extractor = DualRoleExtractor()
+            from app.services.extraction.unified_dual_extractor import UnifiedDualExtractor
+            extractor = UnifiedDualExtractor('roles')
 
             # Track extraction with provenance if available
             if prov_service:
@@ -71,10 +71,10 @@ def extract_entity_type(entity_type: str, section_text: str, case_id: int,
                     case_id=case_id,
                     session_id=session_id,
                     agent_type='extraction_service',
-                    agent_name='DualRoleExtractor'
+                    agent_name='UnifiedDualExtractor'
                 ) as activity:
                     candidate_classes, individuals = extract_with_retry(
-                        extractor.extract_dual_roles,
+                        extractor.extract,
                         case_text=section_text,
                         case_id=case_id,
                         section_type='facts'
@@ -85,7 +85,7 @@ def extract_entity_type(entity_type: str, section_text: str, case_id: int,
                         results=[{
                             'label': c.label,
                             'definition': c.definition,
-                            'confidence': c.discovery_confidence,
+                            'confidence': c.confidence,
                             'type': 'role_class'
                         } for c in candidate_classes],
                         activity=activity,
@@ -94,7 +94,7 @@ def extract_entity_type(entity_type: str, section_text: str, case_id: int,
                     )
             else:
                 candidate_classes, individuals = extract_with_retry(
-                    extractor.extract_dual_roles,
+                    extractor.extract,
                     case_text=section_text,
                     case_id=case_id,
                     section_type='facts'
@@ -104,6 +104,8 @@ def extract_entity_type(entity_type: str, section_text: str, case_id: int,
                 'classes': [serialize_role_class(c) for c in candidate_classes],
                 'individuals': [serialize_role_individual(i) for i in individuals]
             }
+            result['prompt_text'] = getattr(extractor, 'last_prompt', None)
+            result['raw_response'] = getattr(extractor, 'last_raw_response', None)
             result['success'] = True
 
         elif entity_type == 'resources':
@@ -139,38 +141,51 @@ def extract_entity_type(entity_type: str, section_text: str, case_id: int,
             result['success'] = True
 
         elif entity_type == 'states':
-            from app.services.extraction.enhanced_prompts_states_capabilities import EnhancedStatesExtractor
-            from app.utils.llm_utils import get_llm_client
+            from app.services.extraction.unified_dual_extractor import UnifiedDualExtractor
 
-            llm_client = get_llm_client()
-            extractor = EnhancedStatesExtractor(llm_client=llm_client, provenance_service=prov_service)
+            extractor = UnifiedDualExtractor('states')
 
             if prov_service:
                 with prov_service.track_activity(
                     activity_type='llm_query',
-                    activity_name='states_extraction',
+                    activity_name='dual_states_extraction',
                     case_id=case_id,
                     session_id=session_id,
                     agent_type='extraction_service',
-                    agent_name='EnhancedStatesExtractor'
+                    agent_name='UnifiedDualExtractor'
                 ) as activity:
-                    candidates = extract_with_retry(
+                    candidate_classes, individuals = extract_with_retry(
                         extractor.extract,
-                        section_text,
-                        context={'case_id': case_id},
-                        activity=activity
+                        case_text=section_text,
+                        case_id=case_id,
+                        section_type='facts'
+                    )
+
+                    prov_service.record_extraction_results(
+                        results=[{
+                            'label': c.label,
+                            'definition': c.definition,
+                            'confidence': c.confidence,
+                            'type': 'state_class'
+                        } for c in candidate_classes],
+                        activity=activity,
+                        entity_type='extracted_state_classes',
+                        metadata={'count': len(candidate_classes)}
                     )
             else:
-                candidates = extract_with_retry(
+                candidate_classes, individuals = extract_with_retry(
                     extractor.extract,
-                    section_text,
-                    context={'case_id': case_id},
-                    activity=None
+                    case_text=section_text,
+                    case_id=case_id,
+                    section_type='facts'
                 )
 
             result['data'] = {
-                'states': [serialize_state(c) for c in candidates]
+                'classes': [serialize_state_class(c) for c in candidate_classes],
+                'individuals': [serialize_state_individual(i) for i in individuals]
             }
+            result['prompt_text'] = getattr(extractor, 'last_prompt', None)
+            result['raw_response'] = getattr(extractor, 'last_raw_response', None)
             result['success'] = True
 
     except Exception as e:
@@ -184,31 +199,41 @@ def extract_entity_type(entity_type: str, section_text: str, case_id: int,
     return result
 
 
+def _serialize_field(obj, field, default=None):
+    """Get a field from a Pydantic model or dataclass, converting nested models to dicts."""
+    val = getattr(obj, field, default)
+    if hasattr(val, 'model_dump'):
+        return val.model_dump()
+    if hasattr(val, 'value'):  # Enum
+        return val.value
+    return val
+
+
 def serialize_role_class(candidate):
     """Serialize a role class candidate to dict"""
     return {
         'label': candidate.label,
-        'definition': candidate.definition,
+        'definition': getattr(candidate, 'definition', ''),
         'type': 'role_class',
-        'confidence': candidate.discovery_confidence,
-        'distinguishing_features': candidate.distinguishing_features,
-        'professional_scope': candidate.professional_scope,
-        'typical_qualifications': candidate.typical_qualifications,
-        'examples_from_case': candidate.examples_from_case,
-        'is_novel': candidate.is_novel
+        'confidence': getattr(candidate, 'confidence', 0.0),
+        'role_category': _serialize_field(candidate, 'role_category'),
+        'distinguishing_features': getattr(candidate, 'distinguishing_features', []),
+        'professional_scope': getattr(candidate, 'professional_scope', None),
+        'obligations_generated': getattr(candidate, 'obligations_generated', []),
+        'text_references': getattr(candidate, 'text_references', getattr(candidate, 'examples_from_case', [])),
+        'match_decision': _serialize_field(candidate, 'match_decision'),
     }
 
 
 def serialize_role_individual(individual):
     """Serialize a role individual to dict"""
     return {
-        'name': individual.name,
-        'role_class': individual.role_class,
-        'confidence': individual.confidence,
-        'is_new_role_class': individual.is_new_role_class,
-        'attributes': individual.attributes,
-        'relationships': individual.relationships,
-        'case_section': individual.case_section,
+        'name': getattr(individual, 'name', ''),
+        'role_class': getattr(individual, 'role_class', ''),
+        'confidence': getattr(individual, 'confidence', 0.0),
+        'attributes': getattr(individual, 'attributes', {}),
+        'relationships': getattr(individual, 'relationships', []),
+        'case_involvement': getattr(individual, 'case_involvement', None),
         'type': 'role_individual'
     }
 
@@ -230,7 +255,7 @@ def serialize_resource(candidate):
 
 
 def serialize_state(candidate):
-    """Serialize a state candidate to dict"""
+    """Serialize a state candidate to dict (legacy EnhancedStatesExtractor format)"""
     debug_data = candidate.debug or {}
     return {
         'label': candidate.label,
@@ -240,6 +265,41 @@ def serialize_state(candidate):
         'state_category': debug_data.get('state_category'),
         'persistence_type': debug_data.get('persistence_type'),
         'temporal_aspect': debug_data.get('temporal_aspect')
+    }
+
+
+def serialize_state_class(candidate):
+    """Serialize a CandidateStateClass Pydantic model to dict."""
+    return {
+        'label': candidate.label,
+        'definition': candidate.definition,
+        'type': 'state_class',
+        'confidence': candidate.confidence,
+        'state_category': candidate.state_category.value if candidate.state_category else None,
+        'persistence_type': candidate.persistence_type.value if candidate.persistence_type else 'inertial',
+        'activation_conditions': candidate.activation_conditions,
+        'termination_conditions': candidate.termination_conditions,
+        'obligation_activation': candidate.obligation_activation,
+        'action_constraints': candidate.action_constraints,
+        'text_references': candidate.text_references,
+        'importance': candidate.importance,
+    }
+
+
+def serialize_state_individual(individual):
+    """Serialize a StateIndividual Pydantic model to dict."""
+    return {
+        'label': individual.identifier or individual.name,
+        'definition': getattr(individual, 'definition', '') or '',
+        'type': 'state_individual',
+        'confidence': individual.confidence,
+        'state_class': individual.state_class,
+        'subject': individual.subject,
+        'active_period': individual.active_period,
+        'triggering_event': individual.triggering_event,
+        'terminated_by': individual.terminated_by,
+        'affected_parties': individual.affected_parties,
+        'urgency_level': individual.urgency_level.value if individual.urgency_level else None,
     }
 
 

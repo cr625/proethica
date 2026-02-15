@@ -549,11 +549,18 @@
                                             <td>
                                                 <div class="rdf-properties" style="font-size: 0.85rem;">
                                                     {% if cls.rdf_json_ld and cls.rdf_json_ld.properties %}
+                                                        {% set quote_props = ['textReferences', 'hasExample', 'sourceText'] %}
                                                         {% for prop_name, prop_values in cls.rdf_json_ld.properties.items() if prop_name not in ['wasGeneratedAt', 'wasAttributedTo', 'discoveredInCase'] and prop_values %}
                                                             <div class="mb-1 property-item" data-property="{{ prop_name }}">
                                                                 <strong class="property-name">
                                                                     {{ prop_name | camel_to_readable }}:
                                                                 </strong>
+                                                                {% if prop_name in quote_props %}
+                                                                    {# Display quoted case text with quote styling #}
+                                                                    {% for val in prop_values if val %}
+                                                                    <br/><small class="text-info"><i class="bi bi-quote"></i> "{{ val[:200] }}{% if val|length > 200 %}...{% endif %}"</small>
+                                                                    {% endfor %}
+                                                                {% else %}
                                                                 <span class="property-value">
                                                                     {% if prop_values is string %}
                                                                         {{ prop_values }}
@@ -580,6 +587,7 @@
                                                                         {{ prop_values }}
                                                                     {% endif %}
                                                                 </span>
+                                                                {% endif %}
                                                             </div>
                                                         {% endfor %}
                                                     {% else %}
@@ -800,6 +808,7 @@
                                                     {# Display properties - same approach as classes #}
                                                     {# Use namespace to persist variable across loops #}
                                                     {% set ns = namespace(has_content=false) %}
+                                                    {% set quote_props = ['textReferences', 'hasExample', 'sourceText'] %}
                                                     {% if indiv.rdf_json_ld and indiv.rdf_json_ld.properties %}
                                                         {% for prop_name, prop_values in indiv.rdf_json_ld.properties.items() if prop_name not in ['wasGeneratedAt', 'wasAttributedTo', 'discoveredInCase'] and prop_values %}
                                                             {% set ns.has_content = true %}
@@ -807,6 +816,12 @@
                                                                 <strong class="property-name">
                                                                     {{ prop_name | camel_to_readable }}:
                                                                 </strong>
+                                                                {% if prop_name in quote_props %}
+                                                                    {# Display quoted case text with quote styling #}
+                                                                    {% for val in prop_values if val %}
+                                                                    <br/><small class="text-info"><i class="bi bi-quote"></i> "{{ val[:200] }}{% if val|length > 200 %}...{% endif %}"</small>
+                                                                    {% endfor %}
+                                                                {% else %}
                                                                 <span class="property-value">
                                                                     {% if prop_values is string %}
                                                                         {{ prop_values }}
@@ -833,6 +848,7 @@
                                                                         {{ prop_values }}
                                                                     {% endif %}
                                                                 </span>
+                                                                {% endif %}
                                                             </div>
                                                         {% endfor %}
                                                     {% endif %}

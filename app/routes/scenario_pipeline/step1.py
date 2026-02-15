@@ -2331,33 +2331,20 @@ def extract_individual_concept(case_id):
         extraction_prompt = None
 
         if concept_type == 'roles':
-            from app.services.extraction.dual_role_extractor import DualRoleExtractor
+            from app.services.extraction.unified_dual_extractor import UnifiedDualExtractor
 
-            extractor = DualRoleExtractor()
+            extractor = UnifiedDualExtractor('roles')
 
-            # Generate the prompt for display (dual extraction)
-            extraction_prompt = extractor._create_dual_role_extraction_prompt(section_text, section_type)
-            logger.info(f"DEBUG: Generated extraction prompt (first 200 chars): {extraction_prompt[:200] if extraction_prompt else 'None'}")
+            # Perform extraction (prompt is built internally from DB template)
+            candidate_role_classes, role_individuals = extractor.extract(
+                case_text=section_text,
+                case_id=case_id,
+                section_type=section_type
+            )
 
-            # Use dual extraction to get both classes and individuals
-            # Skip complex provenance tracking for individual extraction to avoid session issues
-            try:
-                logger.info(f"DEBUG: About to call extract_dual_roles with case_id={case_id}, section_type={section_type}")
-                logger.info(f"DEBUG: section_text length: {len(section_text)}")
-                candidate_role_classes, role_individuals = extractor.extract_dual_roles(
-                    case_text=section_text,
-                    case_id=case_id,
-                    section_type=section_type  # Use the section_type parameter
-                )
-                logger.info(f"DEBUG: extract_dual_roles completed successfully")
-            except Exception as e:
-                logger.error(f"DEBUG: extract_dual_roles failed with error: {e}")
-                import traceback
-                logger.error(f"DEBUG: Full traceback: {traceback.format_exc()}")
-                raise
-
-            # Get the raw LLM response for debugging
-            raw_llm_response = extractor.get_last_raw_response()
+            # Get the prompt and raw response for display/saving
+            extraction_prompt = extractor.last_prompt
+            raw_llm_response = extractor.last_raw_response
 
             # Save the prompt and raw response to database
             from app.models import ExtractionPrompt, db
@@ -2379,73 +2366,49 @@ def extract_individual_concept(case_id):
                 logger.error(traceback.format_exc())
             logger.info(f"DEBUG RDF: raw_llm_response available: {raw_llm_response is not None}, length: {len(raw_llm_response) if raw_llm_response else 0}")
 
-            # Convert the raw response to RDF if we have it
-            if raw_llm_response:
-                try:
-                    import json
-                    from app.services.rdf_extraction_converter import RDFExtractionConverter
-                    from app.models import TemporaryRDFStorage
+            # Store Pydantic results directly (bypasses old RDFExtractionConverter)
+            try:
+                from app.services.extraction.extraction_graph import pydantic_to_rdf_data
+                from app.models import TemporaryRDFStorage
 
-                    logger.info(f"DEBUG RDF: Starting RDF conversion for case {case_id}")
+                model_used = ModelConfig.get_claude_model("powerful") if llm_client else "fallback"
 
-                    # Parse the raw response - handle mixed text/JSON
-                    try:
-                        raw_data = json.loads(raw_llm_response)
-                    except json.JSONDecodeError:
-                        # Try to extract JSON from mixed response
-                        import re
-                        json_match = re.search(r'\{[\s\S]*\}', raw_llm_response)
-                        if json_match:
-                            raw_data = json.loads(json_match.group())
-                            logger.info(f"DEBUG RDF: Extracted JSON from mixed response")
-                        else:
-                            logger.error(f"DEBUG RDF: Could not extract JSON from response")
-                            raise ValueError("Could not extract JSON from LLM response")
+                rdf_data = pydantic_to_rdf_data(
+                    classes=candidate_role_classes,
+                    individuals=role_individuals,
+                    concept_type='roles',
+                    case_id=case_id,
+                    section_type=section_type,
+                    pass_number=1,
+                )
+                logger.info(
+                    f"Converted Pydantic to rdf_data: "
+                    f"{len(rdf_data['new_classes'])} classes, "
+                    f"{len(rdf_data['new_individuals'])} individuals"
+                )
 
-                    logger.info(f"DEBUG RDF: Parsed JSON with keys: {list(raw_data.keys())}")
-                    logger.info(f"DEBUG RDF: new_role_classes count: {len(raw_data.get('new_role_classes', []))}")
-                    logger.info(f"DEBUG RDF: role_individuals count: {len(raw_data.get('role_individuals', []))}")
+                provenance_data = {
+                    'section_type': section_type,
+                    'extracted_at': datetime.datetime.utcnow().isoformat(),
+                    'model_used': model_used,
+                    'extraction_pass': 'contextual_framework',
+                    'concept_type': 'roles'
+                }
 
-                    # Convert to RDF with provenance (Phase 1 Architecture)
-                    rdf_converter = RDFExtractionConverter()
-                    class_graph, individual_graph = rdf_converter.convert_extraction_to_rdf(
-                        raw_data, case_id,
-                        section_type=section_type,
-                        pass_number=1  # Pass 1: Contextual Framework
-                    )
-                    logger.info(f"DEBUG RDF: Converted to RDF graphs - classes: {len(class_graph)}, individuals: {len(individual_graph)}")
+                stored_entities = TemporaryRDFStorage.store_extraction_results(
+                    case_id=case_id,
+                    extraction_session_id=session_id,
+                    extraction_type='roles',
+                    rdf_data=rdf_data,
+                    extraction_model=model_used,
+                    provenance_data=provenance_data
+                )
+                logger.info(f"Stored {len(stored_entities)} roles entities for case {case_id}")
 
-                    # Get temporary triples for storage
-                    rdf_data = rdf_converter.get_temporary_triples()
-                    logger.info(f"DEBUG RDF: Got temporary triples - new_classes: {len(rdf_data.get('new_classes', []))}, new_individuals: {len(rdf_data.get('new_individuals', []))}")
-
-                    # Prepare provenance metadata for entity storage
-                    provenance_data = {
-                        'section_type': section_type,
-                        'extracted_at': datetime.datetime.utcnow().isoformat(),
-                        'model_used': 'claude-opus-4-1-20250805',
-                        'extraction_pass': 'contextual_framework',
-                        'concept_type': 'roles'
-                    }
-
-                    # Store in temporary RDF storage with provenance
-                    stored_entities = TemporaryRDFStorage.store_extraction_results(
-                        case_id=case_id,
-                        extraction_session_id=session_id,
-                        extraction_type='roles',
-                        rdf_data=rdf_data,
-                        extraction_model='claude-opus-4-1-20250805',
-                        provenance_data=provenance_data
-                    )
-
-                    logger.info(f"✅ DEBUG RDF: Stored {len(stored_entities)} RDF entities in temporary storage for case {case_id}")
-
-                except Exception as e:
-                    logger.error(f"❌ DEBUG RDF: Failed to convert and store RDF: {e}")
-                    import traceback
-                    logger.error(f"DEBUG RDF Traceback: {traceback.format_exc()}")
-            else:
-                logger.warning(f"DEBUG RDF: No raw_llm_response available for RDF conversion")
+            except Exception as e:
+                logger.error(f"Failed to store roles entities: {e}")
+                import traceback
+                logger.error(traceback.format_exc())
 
             # Convert to format expected by the response
             candidates = []
@@ -2488,23 +2451,22 @@ def extract_individual_concept(case_id):
                 })
 
         elif concept_type == 'states':
-            from app.services.extraction.dual_states_extractor import DualStatesExtractor
+            from app.services.extraction.unified_dual_extractor import UnifiedDualExtractor
 
-            extractor = DualStatesExtractor()
+            extractor = UnifiedDualExtractor('states')
 
-            # Generate the prompt for display (dual extraction)
-            extraction_prompt = extractor._create_dual_states_extraction_prompt(section_text, section_type)
+            candidate_state_classes, state_individuals = extractor.extract(
+                case_text=section_text,
+                case_id=case_id,
+                section_type=section_type
+            )
 
-            # Perform dual extraction (classes + individuals)
-            # Skip provenance tracking for now - focusing on extraction functionality
-            candidate_state_classes, state_individuals = extractor.extract_dual_states(section_text, case_id, section_type)
+            extraction_prompt = extractor.last_prompt
+            raw_llm_response = extractor.last_raw_response
 
-            logger.info(f"Dual states extraction for case {case_id}: {len(candidate_state_classes)} new classes, {len(state_individuals)} individuals")
+            logger.info(f"States extraction for case {case_id}: {len(candidate_state_classes)} classes, {len(state_individuals)} individuals")
 
-            # Get the raw LLM response for RDF conversion and display
-            raw_llm_response = extractor.get_last_raw_response()
-
-            # Save the prompt and raw response to database
+            # Save prompt and raw response
             from app.models import ExtractionPrompt, db
             try:
                 saved_prompt = ExtractionPrompt.save_prompt(
@@ -2517,78 +2479,57 @@ def extract_individual_concept(case_id):
                     llm_model=ModelConfig.get_claude_model("powerful") if llm_client else "fallback",
                     extraction_session_id=session_id
                 )
-                logger.info(f"Saved states extraction prompt id={saved_prompt.id} for case {case_id}, section_type={section_type}")
+                logger.info(f"Saved states extraction prompt id={saved_prompt.id}")
             except Exception as e:
                 import traceback
-                logger.error(f"Error saving states extraction prompt for case {case_id}: {e}")
+                logger.error(f"Error saving states extraction prompt: {e}")
                 logger.error(traceback.format_exc())
-            logger.info(f"DEBUG RDF: raw_llm_response available: {raw_llm_response is not None}, length: {len(raw_llm_response) if raw_llm_response else 0}")
 
-            # Convert the raw response to RDF if we have it
-            if raw_llm_response:
-                try:
-                    import json
-                    from app.services.rdf_extraction_converter import RDFExtractionConverter
-                    from app.models import TemporaryRDFStorage
+            # Store Pydantic results directly via pydantic_to_rdf_data
+            try:
+                from app.services.extraction.extraction_graph import pydantic_to_rdf_data
+                from app.models import TemporaryRDFStorage
 
-                    logger.info(f"DEBUG RDF: Starting RDF conversion for states in case {case_id}")
+                model_used = ModelConfig.get_claude_model("powerful") if llm_client else "fallback"
 
-                    # Parse the raw response - handle mixed text/JSON
-                    try:
-                        raw_data = json.loads(raw_llm_response)
-                    except json.JSONDecodeError:
-                        # Try to extract JSON from mixed response
-                        import re
-                        json_match = re.search(r'\{[\s\S]*\}', raw_llm_response)
-                        if json_match:
-                            raw_data = json.loads(json_match.group())
-                            logger.info(f"DEBUG RDF: Extracted JSON from mixed response")
-                        else:
-                            logger.error(f"DEBUG RDF: Could not extract JSON from response")
-                            raise ValueError("Could not extract JSON from LLM response")
+                rdf_data = pydantic_to_rdf_data(
+                    classes=candidate_state_classes,
+                    individuals=state_individuals,
+                    concept_type='states',
+                    case_id=case_id,
+                    section_type=section_type,
+                    pass_number=1,
+                )
+                logger.info(
+                    f"Converted Pydantic to rdf_data: "
+                    f"{len(rdf_data['new_classes'])} classes, "
+                    f"{len(rdf_data['new_individuals'])} individuals"
+                )
 
-                    logger.info(f"DEBUG RDF: Parsed JSON with keys: {list(raw_data.keys())}")
-                    logger.info(f"DEBUG RDF: new_state_classes count: {len(raw_data.get('new_state_classes', []))}")
-                    logger.info(f"DEBUG RDF: state_individuals count: {len(raw_data.get('state_individuals', []))}")
+                provenance_data = {
+                    'section_type': section_type,
+                    'extracted_at': datetime.datetime.utcnow().isoformat(),
+                    'model_used': model_used,
+                    'extraction_pass': 'contextual_framework',
+                    'concept_type': 'states'
+                }
 
-                    # Convert to RDF using states-specific conversion with provenance (Phase 1 Architecture)
-                    rdf_converter = RDFExtractionConverter()
-                    class_graph, individual_graph = rdf_converter.convert_states_extraction_to_rdf(
-                        raw_data, case_id,
-                        section_type=section_type,
-                        pass_number=1  # Pass 1: Contextual Framework
-                    )
-                    logger.info(f"DEBUG RDF: Converted to RDF graphs - classes: {len(class_graph)}, individuals: {len(individual_graph)}")
+                stored_entities = TemporaryRDFStorage.store_extraction_results(
+                    case_id=case_id,
+                    extraction_session_id=session_id,
+                    extraction_type='states',
+                    rdf_data=rdf_data,
+                    extraction_model=model_used,
+                    provenance_data=provenance_data
+                )
+                logger.info(f"Stored {len(stored_entities)} states entities for case {case_id}")
 
-                    # Get temporary triples for storage
-                    rdf_data = rdf_converter.get_temporary_triples()
-                    logger.info(f"DEBUG RDF: Got temporary triples - new_classes: {len(rdf_data.get('new_classes', []))}, new_individuals: {len(rdf_data.get('new_individuals', []))}")
+            except Exception as e:
+                logger.error(f"Failed to store states entities: {e}")
+                import traceback
+                logger.error(traceback.format_exc())
 
-                    # Prepare provenance metadata for entity storage
-                    provenance_data = {
-                        'section_type': section_type,
-                        'extracted_at': datetime.datetime.utcnow().isoformat(),
-                        'model_used': 'claude-opus-4-1-20250805',
-                        'extraction_pass': 'contextual_framework',
-                        'concept_type': 'states'
-                    }
-
-                    # Store in temporary RDF storage using the same method as Roles
-                    stored_entities = TemporaryRDFStorage.store_extraction_results(
-                        case_id=case_id,
-                        extraction_session_id=session_id,
-                        extraction_type='states',  # Mark as states extraction
-                        rdf_data=rdf_data,
-                        extraction_model='claude-opus-4-1-20250805',
-                        provenance_data=provenance_data
-                    )
-
-                    logger.info(f"✅ DEBUG RDF: Stored {len(stored_entities)} RDF entities in temporary storage for case {case_id}")
-
-                except Exception as e:
-                    logger.error(f"Error converting states to RDF: {e}", exc_info=True)
-
-            # Convert to common format for storage
+            # Convert to common format for response
             candidates = []
             for state_class in candidate_state_classes:
                 candidates.append({
@@ -2597,11 +2538,10 @@ def extract_individual_concept(case_id):
                     'type': 'state_class',
                     'confidence': state_class.confidence,
                     'activation_conditions': state_class.activation_conditions,
-                    'persistence_type': state_class.persistence_type,
+                    'persistence_type': state_class.persistence_type.value if state_class.persistence_type else 'inertial',
                     'primary_type': 'State'
                 })
 
-            # Add individuals
             for individual in state_individuals:
                 candidates.append({
                     'label': individual.identifier,

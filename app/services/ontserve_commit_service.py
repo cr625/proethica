@@ -33,6 +33,7 @@ from rdflib import Graph, Namespace, URIRef, Literal, RDF, RDFS, OWL, XSD
 from rdflib.namespace import SKOS, DCTERMS
 
 from app.models.temporary_rdf_storage import TemporaryRDFStorage
+from app.services.extraction.schemas import CATEGORY_TO_ONTOLOGY_IRI
 
 logger = logging.getLogger(__name__)
 
@@ -215,32 +216,11 @@ class OntServeCommitService:
                     g.add((class_uri, RDFS.comment, Literal(entity.entity_definition)))
                     g.add((class_uri, SKOS.definition, Literal(entity.entity_definition)))
 
-                # Add subclass relationship based on extraction_type or entity_type
-                # For temporal dynamics enhanced extraction, use entity_type instead
-                concept_type = (entity.extraction_type or '').lower()
-                entity_type_lower = (entity.entity_type or '').lower()
-
-                # Check entity_type first (for temporal dynamics), then fall back to extraction_type
-                type_to_check = entity_type_lower if 'temporal_dynamics' in concept_type else concept_type
-
-                if 'role' in type_to_check:
-                    g.add((class_uri, RDFS.subClassOf, PROETHICA_CORE.Role))
-                elif 'state' in type_to_check:
-                    g.add((class_uri, RDFS.subClassOf, PROETHICA_CORE.State))
-                elif 'resource' in type_to_check:
-                    g.add((class_uri, RDFS.subClassOf, PROETHICA_CORE.Resource))
-                elif 'principle' in type_to_check:
-                    g.add((class_uri, RDFS.subClassOf, PROETHICA_CORE.Principle))
-                elif 'obligation' in type_to_check:
-                    g.add((class_uri, RDFS.subClassOf, PROETHICA_CORE.Obligation))
-                elif 'action' in type_to_check:
-                    g.add((class_uri, RDFS.subClassOf, PROETHICA_CORE.Action))
-                elif 'event' in type_to_check:
-                    g.add((class_uri, RDFS.subClassOf, PROETHICA_CORE.Event))
-                elif 'capability' in type_to_check:
-                    g.add((class_uri, RDFS.subClassOf, PROETHICA_CORE.Capability))
-                elif 'constraint' in type_to_check:
-                    g.add((class_uri, RDFS.subClassOf, PROETHICA_CORE.Constraint))
+                # Add subclass relationship using CATEGORY_TO_ONTOLOGY_IRI when
+                # category info is available, otherwise fall back to core class.
+                subclass_uris = self._resolve_subclass_uris(entity, rdf_data)
+                for sc_uri in subclass_uris:
+                    g.add((class_uri, RDFS.subClassOf, URIRef(sc_uri)))
 
                 # Add provenance from rdf_json_ld if available
                 if rdf_data and 'properties' in rdf_data:
@@ -758,6 +738,91 @@ class OntServeCommitService:
         except Exception as e:
             logger.error(f"Error refreshing case ontology: {e}")
             return {'success': False, 'error': str(e)}
+
+    # Maps extraction_type (or entity_type for temporal_dynamics) to:
+    #   (category_field_name, CATEGORY_TO_ONTOLOGY_IRI key, fallback core class URI)
+    # Multi-axis concepts (obligations, constraints) have a second entry for the
+    # orthogonal axis (enforcement_level, flexibility).
+    _CONCEPT_CATEGORY_CONFIG = {
+        'roles':        [('role_category',       'roles',                  f'{PROETHICA_CORE}Role')],
+        'principles':   [('principle_category',  'principles',             f'{PROETHICA_CORE}Principle')],
+        'obligations':  [('obligation_type',     'obligations',            f'{PROETHICA_CORE}Obligation'),
+                         ('enforcement_level',   'obligation_enforcement', None)],
+        'states':       [('state_category',      'states',                 f'{PROETHICA_CORE}State')],
+        'resources':    [('resource_category',   'resources',              f'{PROETHICA_CORE}Resource')],
+        'actions':      [('action_category',     'actions',                f'{PROETHICA_CORE}Action')],
+        'events':       [('event_category',      'events',                 f'{PROETHICA_CORE}Event')],
+        'capabilities': [('capability_category', 'capabilities',           f'{PROETHICA_CORE}Capability')],
+        'constraints':  [('constraint_type',     'constraints',            f'{PROETHICA_CORE}Constraint'),
+                         ('flexibility',         'constraint_flexibility', None)],
+    }
+
+    def _resolve_subclass_uris(self, entity, rdf_data: Dict) -> list[str]:
+        """
+        Resolve the rdfs:subClassOf target(s) for a class entity.
+
+        Checks rdf_json_ld for category fields from the unified Pydantic schemas
+        and looks them up in CATEGORY_TO_ONTOLOGY_IRI.  Falls back to the core
+        concept class (e.g. proethica-core#Role) for legacy data without category.
+
+        Multi-axis concepts (obligations, constraints) can produce two subclass
+        URIs -- one per axis.
+        """
+        concept_type = (entity.extraction_type or '').lower()
+        entity_type_lower = (entity.entity_type or '').lower()
+
+        # For temporal_dynamics_enhanced, the entity_type carries the actual
+        # concept (e.g. 'actions' or 'events') rather than extraction_type.
+        if 'temporal_dynamics' in concept_type:
+            key = entity_type_lower.rstrip('s') if entity_type_lower else concept_type
+            # Normalize to plural form used in config
+            for config_key in self._CONCEPT_CATEGORY_CONFIG:
+                if config_key.startswith(key):
+                    concept_type = config_key
+                    break
+
+        axes = self._CONCEPT_CATEGORY_CONFIG.get(concept_type)
+        if not axes:
+            # Unrecognized concept type -- try substring match for robustness
+            for config_key, config_axes in self._CONCEPT_CATEGORY_CONFIG.items():
+                if config_key in concept_type or config_key in entity_type_lower:
+                    axes = config_axes
+                    concept_type = config_key
+                    break
+
+        if not axes:
+            logger.warning(f"No category config for extraction_type={entity.extraction_type}, "
+                          f"entity_type={entity.entity_type}")
+            return []
+
+        result = []
+        props = (rdf_data or {}).get('properties', {})
+
+        for category_field, iri_map_key, fallback_uri in axes:
+            # Check for category value in rdf_json_ld properties
+            category_value = None
+            if props:
+                vals = props.get(category_field)
+                if vals:
+                    category_value = vals[0] if isinstance(vals, list) else vals
+            # Also check top-level rdf_json_ld (unified extractor stores flat)
+            if not category_value and rdf_data:
+                category_value = rdf_data.get(category_field)
+
+            if category_value:
+                # Normalize enum value (Pydantic may store as 'provider_client' or 'ProviderClient')
+                normalized = category_value.lower().replace(' ', '_').replace('-', '_')
+                iri_map = CATEGORY_TO_ONTOLOGY_IRI.get(iri_map_key, {})
+                iri = iri_map.get(normalized)
+                if iri:
+                    result.append(iri)
+                elif fallback_uri:
+                    result.append(fallback_uri)
+            elif fallback_uri:
+                # No category info (legacy data) -- use core class
+                result.append(fallback_uri)
+
+        return result
 
     def _camelCase(self, text: str) -> str:
         """Convert text to camelCase for property names."""
