@@ -109,35 +109,51 @@ def extract_entity_type(entity_type: str, section_text: str, case_id: int,
             result['success'] = True
 
         elif entity_type == 'resources':
-            from app.services.extraction.resources import ResourcesExtractor
-            extractor = ResourcesExtractor()
+            from app.services.extraction.unified_dual_extractor import UnifiedDualExtractor
+
+            extractor = UnifiedDualExtractor('resources')
 
             if prov_service:
                 with prov_service.track_activity(
                     activity_type='llm_query',
-                    activity_name='resources_extraction',
+                    activity_name='dual_resources_extraction',
                     case_id=case_id,
                     session_id=session_id,
                     agent_type='extraction_service',
-                    agent_name='ResourcesExtractor'
+                    agent_name='UnifiedDualExtractor'
                 ) as activity:
-                    candidates = extract_with_retry(
+                    candidate_classes, individuals = extract_with_retry(
                         extractor.extract,
-                        section_text,
-                        guideline_id=case_id,
-                        activity=activity
+                        case_text=section_text,
+                        case_id=case_id,
+                        section_type='facts'
+                    )
+
+                    prov_service.record_extraction_results(
+                        results=[{
+                            'label': c.label,
+                            'definition': c.definition,
+                            'confidence': c.confidence,
+                            'type': 'resource_class'
+                        } for c in candidate_classes],
+                        activity=activity,
+                        entity_type='extracted_resource_classes',
+                        metadata={'count': len(candidate_classes)}
                     )
             else:
-                candidates = extract_with_retry(
+                candidate_classes, individuals = extract_with_retry(
                     extractor.extract,
-                    section_text,
-                    guideline_id=case_id,
-                    activity=None
+                    case_text=section_text,
+                    case_id=case_id,
+                    section_type='facts'
                 )
 
             result['data'] = {
-                'resources': [serialize_resource(c) for c in candidates]
+                'classes': [serialize_resource_class(c) for c in candidate_classes],
+                'individuals': [serialize_resource_individual(i) for i in individuals]
             }
+            result['prompt_text'] = getattr(extractor, 'last_prompt', None)
+            result['raw_response'] = getattr(extractor, 'last_raw_response', None)
             result['success'] = True
 
         elif entity_type == 'states':
@@ -300,6 +316,38 @@ def serialize_state_individual(individual):
         'terminated_by': individual.terminated_by,
         'affected_parties': individual.affected_parties,
         'urgency_level': individual.urgency_level.value if individual.urgency_level else None,
+    }
+
+
+def serialize_resource_class(candidate):
+    """Serialize a CandidateResourceClass Pydantic model to dict."""
+    return {
+        'label': candidate.label,
+        'definition': candidate.definition,
+        'type': 'resource_class',
+        'confidence': candidate.confidence,
+        'resource_category': candidate.resource_category.value if candidate.resource_category else None,
+        'authority_source': candidate.authority_source,
+        'extensional_function': candidate.extensional_function,
+        'usage_context': candidate.usage_context,
+        'text_references': candidate.text_references,
+        'importance': candidate.importance,
+    }
+
+
+def serialize_resource_individual(individual):
+    """Serialize a ResourceIndividual Pydantic model to dict."""
+    return {
+        'label': individual.identifier or individual.name,
+        'definition': getattr(individual, 'definition', '') or '',
+        'type': 'resource_individual',
+        'confidence': individual.confidence,
+        'resource_class': individual.resource_class,
+        'document_title': individual.document_title,
+        'created_by': individual.created_by,
+        'version': individual.version,
+        'used_by': individual.used_by,
+        'used_in_context': individual.used_in_context,
     }
 
 

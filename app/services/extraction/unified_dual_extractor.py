@@ -479,6 +479,31 @@ class UnifiedDualExtractor:
             )
             return [], []
 
+        # Remap legacy flat keys to the expected dual-array keys.
+        # Older DB templates used a single array (e.g. "resources" instead of
+        # "new_resource_classes" + "resource_individuals"). If neither expected
+        # key is present but a legacy key is, treat the flat list as classes.
+        if classes_key not in raw_json and individuals_key not in raw_json:
+            legacy_key = self.concept_type  # e.g. 'resources', 'roles'
+            if legacy_key in raw_json and isinstance(raw_json[legacy_key], list):
+                logger.info(
+                    f"Remapping legacy '{legacy_key}' key "
+                    f"({len(raw_json[legacy_key])} items) to '{classes_key}'"
+                )
+                raw_json[classes_key] = raw_json.pop(legacy_key)
+
+        # Normalize all items BEFORE validation so the primary path
+        # handles enum hyphens, label->identifier, and source_text
+        # fallback -- not just the fallback per-item path.
+        for key in (classes_key, individuals_key):
+            items = raw_json.get(key, [])
+            if isinstance(items, list):
+                raw_json[key] = [
+                    self._normalize_field_names(item)
+                    for item in items
+                    if isinstance(item, dict)
+                ]
+
         # Try validating the full ExtractionResult
         try:
             result = self.result_schema.model_validate(raw_json)
@@ -498,7 +523,9 @@ class UnifiedDualExtractor:
             for err in e.errors()[:5]:
                 logger.debug(f"  Validation error: {err['loc']} - {err['msg']}")
 
-        # Fallback: parse each item individually, skipping invalid ones
+        # Fallback: parse each item individually, skipping invalid ones.
+        # Items are already normalized above, but _parse_items calls
+        # _normalize_field_names again (idempotent).
         classes = self._parse_items(
             raw_json.get(classes_key, []),
             self.class_model,
@@ -561,6 +588,13 @@ class UnifiedDualExtractor:
             elif 'label' in item:
                 item['identifier'] = item['label']
 
+        # Normalize hyphenated enum values to underscores
+        # LLMs sometimes return "non-inertial" instead of "non_inertial"
+        for enum_field in ('persistence_type', 'state_category', 'urgency_level',
+                           'role_category', 'resource_category', 'resource_type'):
+            if enum_field in item and isinstance(item[enum_field], str):
+                item[enum_field] = item[enum_field].replace('-', '_')
+
         return item
 
     # ------------------------------------------------------------------
@@ -594,14 +628,18 @@ class UnifiedDualExtractor:
                     break
 
     def _labels_match(self, label1: str, label2: str) -> bool:
-        """Case-insensitive label matching with normalization."""
-        norm1 = label1.lower().replace('_', ' ').replace('-', ' ')
-        norm2 = label2.lower().replace('_', ' ').replace('-', ' ')
-        if norm1 == norm2:
-            return True
-        if norm1 in norm2 or norm2 in norm1:
-            return True
-        return False
+        """Case-insensitive exact label matching with normalization.
+
+        Only matches when labels are identical after normalization.
+        Substring containment is intentionally excluded -- the LLM
+        already sees the full existing class list and makes deliberate
+        match decisions.  Overriding with substring matching collapses
+        legitimate specializations (e.g. 'Design Engineer Role' would
+        falsely match 'Engineer Role').
+        """
+        norm1 = label1.lower().replace('_', ' ').replace('-', ' ').strip()
+        norm2 = label2.lower().replace('_', ' ').replace('-', ' ').strip()
+        return norm1 == norm2
 
     # ------------------------------------------------------------------
     # Individual-to-class linking
@@ -613,29 +651,73 @@ class UnifiedDualExtractor:
         classes: List[BaseModel],
     ) -> None:
         """
-        Check whether each individual references a new candidate class
-        or an existing ontology class. Sets match_decision on the
-        individual's class_ref_field if applicable.
+        Propagate ontology match info from classes to their individuals.
+
+        When an individual's class reference (e.g. role_class) points to a
+        newly extracted class that matched an existing ontology class, the
+        individual inherits that match decision. When the reference points
+        directly to an existing ontology class label, the individual gets
+        a match decision linking it there.
         """
         class_ref_field = self.config['class_ref_field']
-        candidate_labels = {c.label for c in classes}
+
+        # Build lookup: normalized label -> candidate class
+        candidate_by_label = {}
+        for c in classes:
+            norm = c.label.lower().replace('_', ' ').replace('-', ' ').strip()
+            candidate_by_label[norm] = c
+
+        # Build lookup: normalized label -> existing ontology class dict
+        existing_by_label = {}
+        for existing in self.existing_classes:
+            lbl = existing.get('label', '')
+            if lbl:
+                norm = lbl.lower().replace('_', ' ').replace('-', ' ').strip()
+                existing_by_label[norm] = existing
 
         for individual in individuals:
             ref_value = getattr(individual, class_ref_field, None)
             if not ref_value:
                 continue
 
-            # Check new candidates
-            for label in candidate_labels:
-                if self._labels_match(ref_value, label):
-                    break
-            else:
-                # Check existing ontology classes
-                for existing in self.existing_classes:
-                    if self._labels_match(
-                        ref_value, existing.get('label', '')
-                    ):
-                        break
+            ref_norm = ref_value.lower().replace('_', ' ').replace('-', ' ').strip()
+
+            # Case 1: individual references a new candidate class
+            matched_candidate = candidate_by_label.get(ref_norm)
+            if matched_candidate:
+                md = matched_candidate.match_decision
+                if md.matches_existing:
+                    # Cascade: class matched existing -> individual inherits
+                    individual.match_decision.matches_existing = True
+                    individual.match_decision.matched_uri = md.matched_uri
+                    individual.match_decision.matched_label = md.matched_label
+                    individual.match_decision.confidence = md.confidence
+                    individual.match_decision.reasoning = (
+                        f"Via class '{matched_candidate.label}': "
+                        f"{md.reasoning or ''}"
+                    )
+                    logger.debug(
+                        f"Individual '{individual.identifier}' linked to "
+                        f"existing '{md.matched_label}' via class "
+                        f"'{matched_candidate.label}'"
+                    )
+                continue
+
+            # Case 2: individual references an existing ontology class directly
+            matched_existing = existing_by_label.get(ref_norm)
+            if matched_existing:
+                individual.match_decision.matches_existing = True
+                individual.match_decision.matched_uri = matched_existing.get('uri')
+                individual.match_decision.matched_label = matched_existing.get('label')
+                individual.match_decision.confidence = 0.95
+                individual.match_decision.reasoning = (
+                    f"Individual typed as existing ontology class "
+                    f"'{matched_existing.get('label')}'"
+                )
+                logger.debug(
+                    f"Individual '{individual.identifier}' directly references "
+                    f"existing class '{matched_existing.get('label')}'"
+                )
 
     # ------------------------------------------------------------------
     # JSON repair

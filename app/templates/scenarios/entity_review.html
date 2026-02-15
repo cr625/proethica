@@ -154,9 +154,10 @@
     }
 
     .match-linked {
-        background-color: #28a745 !important;
-        color: #fff !important;
-        border-color: #1e7e34 !important;
+        --bs-badge-color: #155724;
+        background-color: #d4edda !important;
+        color: #155724 !important;
+        border-color: #28a745 !important;
     }
 
     .match-review {
@@ -422,16 +423,16 @@
             <!-- NEW CLASSES SUB-SECTION -->
             <div class="row mb-5">
                 <div class="col-12">
-                    <h5 class="mb-3">New {{ concept_type|title }} Classes</h5>
+                    <h5 class="mb-3">Extracted {{ concept_type|title }} Classes</h5>
                     <div class="card border-primary shadow-sm">
                         <div class="card-header bg-primary text-white">
                             <div class="d-flex justify-content-between align-items-center">
                                 <div>
                                     <h6 class="mb-0">
                                         <i class="fas fa-sitemap"></i>
-                                        Classes to Add to proethica-intermediate
+                                        Candidate {{ concept_type|title }} Classes
                                     </h6>
-                                    <small>These are new {{ concept_type }} types not currently in the ontology</small>
+                                    <small>Extracted classes with ontology match status</small>
                                 </div>
                                 <span class="badge bg-light text-primary">{{ type_data.classes|length if type_data.classes else 0 }} Classes</span>
                             </div>
@@ -497,6 +498,7 @@
                                                     {% set confidence = cls.match_confidence or 0 %}
                                                     {% if confidence >= 0.90 %}
                                                     <span class="badge match-status-badge match-linked"
+                                                          style="background-color: #d4edda !important; color: #155724 !important; border: 1px solid #28a745 !important;"
                                                           data-bs-toggle="modal" data-bs-target="#matchDetailsModal"
                                                           data-entity-id="{{ cls.id }}"
                                                           data-entity-label="{{ cls.entity_label }}"
@@ -506,7 +508,7 @@
                                                           data-method="{{ cls.match_method or 'llm' }}"
                                                           data-reasoning="{{ cls.match_reasoning or '' }}"
                                                           title="Linked: {{ cls.matched_ontology_label or cls.matched_ontology_uri }}">
-                                                        <i class="bi bi-link-45deg"></i> Linked
+                                                        <i class="bi bi-link-45deg" style="color: #155724 !important;"></i> Linked
                                                     </span>
                                                     {% else %}
                                                     <span class="badge match-status-badge match-review"
@@ -523,7 +525,8 @@
                                                     </span>
                                                     {% endif %}
                                                     <br/>
-                                                    <small class="text-muted">{{ cls.matched_ontology_label or cls.matched_ontology_uri.split('#')[-1] }}</small>
+                                                    {% set ontserve_path = cls.matched_ontology_uri.replace('http://proethica.org/', '').replace('#', '/') %}
+                                                    <small><a href="{{ ontserve_web_url }}/{{ ontserve_path }}" target="_blank" class="text-decoration-none" title="View in OntServe">{{ cls.matched_ontology_label or cls.matched_ontology_uri.split('#')[-1] }} <i class="bi bi-box-arrow-up-right" style="font-size: 0.7em;"></i></a></small>
                                                     <div class="match-confidence-bar">
                                                         <div class="match-confidence-fill {% if confidence >= 0.90 %}confidence-high{% elif confidence >= 0.75 %}confidence-medium{% else %}confidence-low{% endif %}"
                                                              style="width: {{ (confidence * 100)|int }}%"></div>
@@ -550,7 +553,7 @@
                                                 <div class="rdf-properties" style="font-size: 0.85rem;">
                                                     {% if cls.rdf_json_ld and cls.rdf_json_ld.properties %}
                                                         {% set quote_props = ['textReferences', 'hasExample', 'sourceText'] %}
-                                                        {% for prop_name, prop_values in cls.rdf_json_ld.properties.items() if prop_name not in ['wasGeneratedAt', 'wasAttributedTo', 'discoveredInCase'] and prop_values %}
+                                                        {% for prop_name, prop_values in cls.rdf_json_ld.properties.items() if prop_name not in ['wasGeneratedAt', 'wasAttributedTo', 'discoveredInCase'] and prop_values and prop_values != ['{}'] and prop_values != ['[]'] %}
                                                             <div class="mb-1 property-item" data-property="{{ prop_name }}">
                                                                 <strong class="property-name">
                                                                     {{ prop_name | camel_to_readable }}:
@@ -666,7 +669,7 @@
                                 <div>
                                     <h5 class="mb-0">
                                         <i class="fas fa-users"></i>
-                                        Individuals to Add to proethica-case-{{ case.id }}
+                                        Candidate {{ concept_type|title }} Individuals
                                     </h5>
                                     <small>These are specific people, organizations, and entities in this case</small>
                                 </div>
@@ -734,6 +737,7 @@
                                                     {% set confidence = indiv.match_confidence or 0 %}
                                                     {% if confidence >= 0.90 %}
                                                     <span class="badge match-status-badge match-linked"
+                                                          style="background-color: #d4edda !important; color: #155724 !important; border: 1px solid #28a745 !important;"
                                                           data-bs-toggle="modal" data-bs-target="#matchDetailsModal"
                                                           data-entity-id="{{ indiv.id }}"
                                                           data-entity-label="{{ indiv.entity_label }}"
@@ -743,7 +747,7 @@
                                                           data-method="{{ indiv.match_method or 'llm' }}"
                                                           data-reasoning="{{ indiv.match_reasoning or '' }}"
                                                           title="Linked: {{ indiv.matched_ontology_label or indiv.matched_ontology_uri }}">
-                                                        <i class="bi bi-link-45deg"></i> Linked
+                                                        <i class="bi bi-link-45deg" style="color: #155724 !important;"></i> Linked
                                                     </span>
                                                     {% else %}
                                                     <span class="badge match-status-badge match-review"
@@ -760,7 +764,8 @@
                                                     </span>
                                                     {% endif %}
                                                     <br/>
-                                                    <small class="text-muted">{{ indiv.matched_ontology_label or indiv.matched_ontology_uri.split('#')[-1] }}</small>
+                                                    {% set ontserve_path = indiv.matched_ontology_uri.replace('http://proethica.org/', '').replace('#', '/') %}
+                                                    <small><a href="{{ ontserve_web_url }}/{{ ontserve_path }}" target="_blank" class="text-decoration-none" title="View in OntServe">{{ indiv.matched_ontology_label or indiv.matched_ontology_uri.split('#')[-1] }} <i class="bi bi-box-arrow-up-right" style="font-size: 0.7em;"></i></a></small>
                                                     <div class="match-confidence-bar">
                                                         <div class="match-confidence-fill {% if confidence >= 0.90 %}confidence-high{% elif confidence >= 0.75 %}confidence-medium{% else %}confidence-low{% endif %}"
                                                              style="width: {{ (confidence * 100)|int }}%"></div>
@@ -810,7 +815,7 @@
                                                     {% set ns = namespace(has_content=false) %}
                                                     {% set quote_props = ['textReferences', 'hasExample', 'sourceText'] %}
                                                     {% if indiv.rdf_json_ld and indiv.rdf_json_ld.properties %}
-                                                        {% for prop_name, prop_values in indiv.rdf_json_ld.properties.items() if prop_name not in ['wasGeneratedAt', 'wasAttributedTo', 'discoveredInCase'] and prop_values %}
+                                                        {% for prop_name, prop_values in indiv.rdf_json_ld.properties.items() if prop_name not in ['wasGeneratedAt', 'wasAttributedTo', 'discoveredInCase'] and prop_values and prop_values != ['{}'] and prop_values != ['[]'] %}
                                                             {% set ns.has_content = true %}
                                                             <div class="mb-1 property-item" data-property="{{ prop_name }}" data-type="property">
                                                                 <strong class="property-name">

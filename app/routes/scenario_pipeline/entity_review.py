@@ -483,6 +483,9 @@ def review_case_entities(case_id, section_type='facts'):
         from app.services.pipeline_status_service import PipelineStatusService
         pipeline_status = PipelineStatusService.get_step_status(case_id)
 
+        import os
+        ontserve_web_url = os.environ.get('ONTSERVE_WEB_URL', 'http://localhost:5003')
+
         return render_template(
             'scenarios/entity_review.html',
             case=case_doc,
@@ -494,7 +497,8 @@ def review_case_entities(case_id, section_type='facts'):
             section_label=section_type.replace('_', ' ').title(),  # 'facts' -> 'Facts', 'discussion' -> 'Discussion'
             question_conclusion_links=question_conclusion_links,  # Pass Q→C links for Conclusions section
             ontserve_classes=ontserve_classes,  # Pass OntServe classes for reference
-            pipeline_status=pipeline_status  # For navigation toggle
+            pipeline_status=pipeline_status,  # For navigation toggle
+            ontserve_web_url=ontserve_web_url
         )
 
     except Exception as e:

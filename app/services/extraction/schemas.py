@@ -96,6 +96,7 @@ class BaseIndividual(BaseModel):
     identifier: str = Field("", description="Unique instance descriptor")
     source_text: Optional[str] = Field(None, max_length=500)
     confidence: float = Field(0.0, ge=0.0, le=1.0)
+    match_decision: MatchDecision = Field(default_factory=MatchDecision)
 
     @model_validator(mode='before')
     @classmethod
@@ -470,7 +471,9 @@ class CandidateResourceClass(BaseCandidate):
     extensional_function: Optional[str] = Field(
         None, description="How the resource functions in professional practice (McLaren)"
     )
-    usage_context: Optional[str] = None
+    usage_context: List[str] = Field(
+        default_factory=list, description="Contexts where this resource type is used"
+    )
 
 
 class ResourceIndividual(BaseIndividual):

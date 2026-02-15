@@ -147,15 +147,22 @@ def pydantic_to_rdf_data(
             cls_obj, concept_type, timestamp, case_id, section_type, pass_number,
         )
 
+        # Ensure source_text is populated -- when full schema validation
+        # succeeds, _normalize_field_names is skipped and source_text may
+        # be None even though text_references has values.
+        source_text = cls_obj.source_text
+        if not source_text and cls_obj.text_references:
+            source_text = cls_obj.text_references[0]
+
         class_info = {
             'uri': uri,
             'label': label,
             'definition': cls_obj.definition,
             'parent': resolved_parent,
             'properties': properties,
-            'source_text': cls_obj.source_text,
+            'source_text': source_text,
             'section_sources': [section_type],
-            'source_texts': {section_type: cls_obj.source_text} if cls_obj.source_text else {},
+            'source_texts': {section_type: source_text} if source_text else {},
             'match_decision': {
                 'matches_existing': cls_obj.match_decision.matches_existing,
                 'matched_uri': cls_obj.match_decision.matched_uri,
@@ -165,12 +172,15 @@ def pydantic_to_rdf_data(
             },
         }
 
-        # Store category in properties for commit service lookup
+        # Store category at top level for commit service lookup
+        # (commit service checks rdf_data.get(category_field) as fallback)
+        # Do NOT add to properties -- _extract_properties already adds the
+        # camelCase version (roleCategory, stateCategory, etc.) for display.
         if category_field:
             cat_val = getattr(cls_obj, category_field, None)
             if cat_val:
                 cat_str = cat_val.value if hasattr(cat_val, 'value') else str(cat_val)
-                properties[category_field] = [cat_str]
+                class_info[category_field] = cat_str
 
         new_classes.append(class_info)
 
@@ -191,15 +201,29 @@ def pydantic_to_rdf_data(
             ind_obj, concept_type, timestamp, case_id, section_type, pass_number,
         )
 
+        # Same source_text fallback as classes
+        ind_source_text = ind_obj.source_text
+        if not ind_source_text:
+            refs = getattr(ind_obj, 'text_references', None)
+            if refs:
+                ind_source_text = refs[0]
+
         indiv_info = {
             'uri': ind_uri,
             'label': identifier,
             'definition': getattr(ind_obj, 'description', None) or getattr(ind_obj, 'definition', None) or '',
             'types': types,
             'properties': properties,
-            'source_text': ind_obj.source_text,
+            'source_text': ind_source_text,
             'section_sources': [section_type],
-            'source_texts': {section_type: ind_obj.source_text} if ind_obj.source_text else {},
+            'source_texts': {section_type: ind_source_text} if ind_source_text else {},
+            'match_decision': {
+                'matches_existing': ind_obj.match_decision.matches_existing,
+                'matched_uri': ind_obj.match_decision.matched_uri,
+                'matched_label': ind_obj.match_decision.matched_label,
+                'confidence': ind_obj.match_decision.confidence,
+                'reasoning': ind_obj.match_decision.reasoning,
+            },
         }
 
         new_individuals.append(indiv_info)
@@ -244,6 +268,9 @@ def _extract_properties(
         if field_name in skip_fields:
             continue
         if value is None:
+            continue
+        # Skip empty collections (e.g. attributes: {}, relationships: [])
+        if isinstance(value, (dict, list)) and not value:
             continue
 
         # Normalize to list of strings

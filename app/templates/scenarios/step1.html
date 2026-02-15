@@ -636,6 +636,7 @@ const extractionStatus = {
 // Track if we've already shown the completion popup (e.g., on page reload)
 let completionPopupShown = false;
 let isInitialLoad = true;
+let isFullPassMode = false;  // Only show completion modal during Full Contextual Framework Pass
 
 function markExtractionComplete(conceptType) {
     extractionStatus[conceptType] = true;
@@ -675,8 +676,8 @@ function checkAllExtractionsComplete() {
                 </a>`;
         }
 
-        // Show completion popup only if not initial page load
-        if (!isInitialLoad && !completionPopupShown) {
+        // Show completion popup only during Full Contextual Framework Pass
+        if (!isInitialLoad && !completionPopupShown && isFullPassMode) {
             showCompletionPopup();
             completionPopupShown = true;
         }
@@ -726,6 +727,7 @@ function showCompletionPopup() {
 }
 
 async function executeFullContextualPass() {
+    isFullPassMode = true;  // Enable completion modal for full pass
     const mainButton = document.getElementById('contextualPassBtn');
     mainButton.disabled = true;
     mainButton.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Clearing & Extracting All...';

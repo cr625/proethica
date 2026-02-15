@@ -2,7 +2,7 @@
 OntServe Commit Service for ProEthica
 
 Handles committing extracted entities from temporary storage to permanent OntServe storage.
-- Classes are saved to proethica-intermediate-extracted.ttl (supplemental file)
+- Classes are saved to proethica-engineering-extracted.ttl (supplemental file)
 - Individuals are saved to case-specific ontologies (proethica-case-N.ttl)
 - Synchronizes with OntServe database via refresh scripts
 
@@ -11,7 +11,7 @@ Versioning Strategy (January 2026):
 - OntServe DB preserves historical versions via concepts.is_current and concept_versions
 - Classes are versioned individually (same class from different cases = new version)
 
-Note: Current architecture stores new classes in proethica-intermediate-extracted.ttl
+Note: Current architecture stores new classes in proethica-engineering-extracted.ttl
 for testing purposes. Alternative approach would be to store both classes and
 individuals in case-specific ontologies (proethica-case-N.ttl) and have
 proethica-intermediate import from all cases, but this could become unwieldy.
@@ -114,7 +114,7 @@ class OntServeCommitService:
                 'errors': []
             }
 
-            # Commit classes to proethica-intermediate-extracted.ttl
+            # Commit classes to proethica-engineering-extracted.ttl
             if classes_to_commit:
                 class_result = self._commit_classes_to_intermediate(classes_to_commit)
                 results['classes_committed'] = class_result['count']
@@ -166,13 +166,13 @@ class OntServeCommitService:
 
     def _commit_classes_to_intermediate(self, classes: List[Tuple[Any, Dict]]) -> Dict[str, Any]:
         """
-        Commit new classes to proethica-intermediate-extracted.ttl.
+        Commit new classes to proethica-engineering-extracted.ttl.
 
         This creates a supplemental file that can be imported by proethica-intermediate.ttl
         to avoid making the main file unwieldy.
         """
         try:
-            extracted_file = self.ontologies_dir / "proethica-intermediate-extracted.ttl"
+            extracted_file = self.ontologies_dir / "proethica-engineering-extracted.ttl"
 
             # Load existing graph or create new one
             g = Graph()
@@ -589,9 +589,9 @@ class OntServeCommitService:
             with open(intermediate_file, 'r') as f:
                 content = f.read()
 
-            import_statement = "owl:imports <http://proethica.org/ontology/intermediate-extracted> ;"
+            import_statement = "owl:imports <http://proethica.org/ontology/engineering-extracted> ;"
 
-            if "intermediate-extracted" not in content:
+            if "engineering-extracted" not in content:
                 # Add import statement after other imports
                 lines = content.split('\n')
                 for i, line in enumerate(lines):
@@ -604,7 +604,7 @@ class OntServeCommitService:
                 with open(intermediate_file, 'w') as f:
                     f.write('\n'.join(lines))
 
-                logger.info("Added import statement for intermediate-extracted to proethica-intermediate.ttl")
+                logger.info("Added import statement for engineering-extracted to proethica-intermediate.ttl")
 
         except Exception as e:
             logger.error(f"Error ensuring import statement: {e}")
@@ -616,7 +616,7 @@ class OntServeCommitService:
         Runs the refresh_entity_extraction.py script to update the database.
         """
         try:
-            # Run refresh script for proethica-intermediate-extracted (where new classes are stored)
+            # Run refresh script for proethica-engineering-extracted (where new classes are stored)
             refresh_script = self.ontserve_path / "scripts" / "refresh_entity_extraction.py"
 
             if not refresh_script.exists():
@@ -627,7 +627,7 @@ class OntServeCommitService:
 
             # Refresh the extracted ontology (scripts handle their own path setup)
             result = subprocess.run(
-                [self.ontserve_python, str(refresh_script), "proethica-intermediate-extracted"],
+                [self.ontserve_python, str(refresh_script), "proethica-engineering-extracted"],
                 capture_output=True,
                 text=True,
                 cwd=str(self.ontserve_path),
