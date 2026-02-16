@@ -208,10 +208,34 @@ def pydantic_to_rdf_data(
             if refs:
                 ind_source_text = refs[0]
 
+        # Build individual definition from concept-specific descriptor fields.
+        # Individuals don't have a 'definition' field like classes do -- the
+        # meaningful descriptor varies by concept type (e.g. concrete_expression
+        # for principles, obligation_statement for obligations).
+        _INDIVIDUAL_DESCRIPTOR = {
+            'roles': 'case_involvement',
+            'states': 'subject',
+            'resources': 'used_in_context',
+            'principles': 'concrete_expression',
+            'obligations': 'obligation_statement',
+            'constraints': 'constraint_statement',
+            'capabilities': 'capability_statement',
+        }
+        ind_definition = ''
+        descriptor_field = _INDIVIDUAL_DESCRIPTOR.get(concept_type)
+        if descriptor_field:
+            ind_definition = getattr(ind_obj, descriptor_field, None) or ''
+        if not ind_definition:
+            ind_definition = (
+                getattr(ind_obj, 'description', None)
+                or getattr(ind_obj, 'definition', None)
+                or ''
+            )
+
         indiv_info = {
             'uri': ind_uri,
             'label': identifier,
-            'definition': getattr(ind_obj, 'description', None) or getattr(ind_obj, 'definition', None) or '',
+            'definition': ind_definition,
             'types': types,
             'properties': properties,
             'source_text': ind_source_text,
@@ -258,7 +282,6 @@ def _extract_properties(
     skip_fields = {
         'label', 'definition', 'match_decision',
         'source_text', 'identifier', 'name',
-        'category_notes',
     }
 
     props: Dict[str, list] = {}

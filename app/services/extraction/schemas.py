@@ -81,12 +81,6 @@ class BaseCandidate(BaseModel):
         description="Extraction priority: high, medium, low",
     )
     match_decision: MatchDecision = Field(default_factory=MatchDecision)
-    category_notes: Optional[str] = Field(
-        None,
-        description="LLM reasoning about category classification, especially "
-        "when the entity does not fit neatly into a single category or spans "
-        "multiple categories"
-    )
 
 
 class BaseIndividual(BaseModel):
@@ -94,6 +88,14 @@ class BaseIndividual(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra='allow')
 
     identifier: str = Field("", description="Unique instance descriptor")
+    text_references: List[str] = Field(
+        default_factory=list,
+        description="Direct quotes from case text where this individual appears",
+    )
+    importance: Optional[str] = Field(
+        None,
+        description="Extraction priority: high, medium, low",
+    )
     source_text: Optional[str] = Field(None, max_length=500)
     confidence: float = Field(0.0, ge=0.0, le=1.0)
     match_decision: MatchDecision = Field(default_factory=MatchDecision)
@@ -157,6 +159,9 @@ class RoleIndividual(BaseIndividual):
     role_class: str = Field(
         "", description="Role class label or URI",
         alias="instance_of",
+    )
+    role_category: Optional[RoleCategory] = Field(
+        None, description="Kong framework category for this individual"
     )
     attributes: Dict[str, Any] = Field(
         default_factory=dict,

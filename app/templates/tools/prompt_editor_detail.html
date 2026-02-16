@@ -688,13 +688,21 @@ div.reference-panel {
                         <div class="pipeline-step">Template + Variables</div>
                         <div class="pipeline-arrow">↓ Jinja2 render</div>
                         <div class="pipeline-step">Rendered Prompt</div>
+                        <div class="pipeline-arrow">↓ + JSON wrapper (code)</div>
+                        <div class="pipeline-step">Final Prompt to LLM</div>
                         <div class="pipeline-arrow">↓ LLM API</div>
                         <div class="pipeline-step">JSON Response</div>
-                        <div class="pipeline-arrow">↓ Dataclass parse</div>
+                        <div class="pipeline-arrow">↓ Pydantic validate</div>
                         <div class="pipeline-step">Entities</div>
                         <div class="pipeline-arrow">↓ RDF convert</div>
                         <div class="pipeline-step">Storage</div>
                     </div>
+                    {% if json_wrapper_suffix %}
+                    <div class="mt-2">
+                        <small class="text-muted">JSON wrapper (appended by extractor):</small>
+                        <pre class="mt-1 p-2 bg-light border rounded" style="font-size: 0.7rem; white-space: pre-wrap; margin-bottom: 0;">{{ json_wrapper_suffix | trim }}</pre>
+                    </div>
+                    {% endif %}
                 </div>
 
             </div>

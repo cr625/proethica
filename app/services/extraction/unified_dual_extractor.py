@@ -19,6 +19,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from pydantic import BaseModel, ValidationError
 
+from app.services.prompt_variable_resolver import format_existing_entities
+
 from app.utils.llm_utils import extract_json_from_response
 
 logger = logging.getLogger(__name__)
@@ -61,7 +63,7 @@ CONCEPT_CONFIG: Dict[str, Dict[str, Any]] = {
     'principles': {
         'step': 2,
         'model_tier': 'powerful',
-        'temperature': 0.7,
+        'temperature': 0.5,
         'max_tokens': 8192,
         'classes_key': 'new_principle_classes',
         'individuals_key': 'principle_individuals',
@@ -113,6 +115,421 @@ CONCEPT_CONFIG: Dict[str, Dict[str, Any]] = {
         'class_ref_field': 'event_class',
     },
 }
+
+
+# ---------------------------------------------------------------------------
+# Cross-concept dependency map
+# ---------------------------------------------------------------------------
+# Defines which prior concept extractions should be injected into the prompt
+# for each concept. Reflects the methodology's dependency chain:
+#   Roles -> Principles -> Obligations -> Constraints/Capabilities
+
+CROSS_CONCEPT_DEPS: Dict[str, Dict[str, Any]] = {
+    'principles': {
+        'depends_on': ['roles'],
+        'instruction': (
+            'The following ROLES were identified in this case. '
+            'Consider which ethical principles apply to each role\'s '
+            'professional responsibilities.'
+        ),
+    },
+    'obligations': {
+        'depends_on': ['principles', 'roles'],
+        'instruction': (
+            'The following PRINCIPLES and ROLES were identified. '
+            'Derive specific obligations from these principles for each role.'
+        ),
+    },
+    'constraints': {
+        'depends_on': ['obligations', 'states', 'resources'],
+        'instruction': (
+            'The following OBLIGATIONS, STATES, and RESOURCES were identified. '
+            'Identify constraints that limit or affect the fulfillment of these '
+            'obligations within the given states and available resources.'
+        ),
+    },
+    'capabilities': {
+        'depends_on': ['obligations', 'roles'],
+        'instruction': (
+            'The following OBLIGATIONS and ROLES were identified. '
+            'Identify capabilities needed by each role to fulfill '
+            'these obligations.'
+        ),
+    },
+}
+
+
+def _summarize_individual(rdf_json_ld: dict, concept_type: str) -> str:
+    """
+    Build a one-line summary of an individual from its rdf_json_ld data.
+
+    Each concept type has a different "descriptor" field that best captures
+    how the individual manifests in the case. The class reference field
+    (e.g. principleClass, obligationClass) identifies what kind of entity
+    this individual is, and the descriptor provides case-specific detail.
+    """
+    if not rdf_json_ld:
+        return ''
+
+    props = rdf_json_ld.get('properties', {})
+
+    # Concept-specific descriptor fields (camelCase as stored in rdf_json_ld).
+    # Each entry: (class_ref_key, [descriptor_keys in priority order])
+    _INDIVIDUAL_SUMMARY_FIELDS = {
+        'roles': ('roleClass', ['caseInvolvement']),
+        'states': ('stateClass', ['subject', 'triggeringEvent']),
+        'resources': ('resourceClass', ['usedInContext', 'documentTitle']),
+        'principles': ('principleClass', ['concreteExpression', 'interpretation']),
+        'obligations': ('obligationClass', ['obligationStatement', 'obligatedParty']),
+        'constraints': ('constraintClass', ['constraintStatement', 'constrainedEntity']),
+        'capabilities': ('capabilityClass', ['capabilityStatement', 'possessedBy']),
+    }
+
+    config = _INDIVIDUAL_SUMMARY_FIELDS.get(concept_type, (None, []))
+    class_key, descriptor_keys = config
+
+    parts = []
+
+    # Class reference (what kind of entity)
+    if class_key:
+        class_val = props.get(class_key, [])
+        if class_val:
+            val = class_val[0] if isinstance(class_val, list) else class_val
+            parts.append(val)
+
+    # First available descriptor (how it manifests in this case)
+    for key in descriptor_keys:
+        val = props.get(key, [])
+        if val:
+            text = val[0] if isinstance(val, list) else val
+            if text and len(text) > 150:
+                text = text[:147] + '...'
+            parts.append(text)
+            break
+
+    return ' -- '.join(parts) if parts else ''
+
+
+def format_cross_concept_context(concept_type: str, case_id: int) -> str:
+    """
+    Load entities extracted for dependency concepts and format as prompt context.
+
+    Queries TemporaryRDFStorage for classes and individuals of each dependency
+    concept type. Returns a formatted text block the LLM can use to inform its
+    extraction, or an empty string if no dependencies or no prior extractions.
+
+    For classes, the definition from entity_definition is shown. For individuals,
+    richer data is pulled from rdf_json_ld including the class reference and a
+    concept-specific descriptor field (e.g. concrete_expression for principles,
+    obligation_statement for obligations). This enables the methodological
+    dependency chain: Roles -> Principles -> Obligations -> Constraints/Capabilities.
+
+    Shared function so both UnifiedDualExtractor._build_prompt() and
+    PromptVariableResolver.resolve_variables() produce identical prompts.
+    """
+    deps = CROSS_CONCEPT_DEPS.get(concept_type)
+    if not deps:
+        return ''
+
+    try:
+        from app.models.temporary_rdf_storage import TemporaryRDFStorage
+
+        sections = []
+        for dep_concept in deps['depends_on']:
+            entities = TemporaryRDFStorage.query.filter(
+                TemporaryRDFStorage.case_id == case_id,
+                TemporaryRDFStorage.extraction_type == dep_concept,
+            ).all()
+
+            if not entities:
+                continue
+
+            classes = [e for e in entities if e.storage_type == 'class']
+            individuals = [e for e in entities if e.storage_type == 'individual']
+
+            lines = [f'\n--- {dep_concept.upper()} (from prior extraction) ---']
+            if classes:
+                lines.append(f'Classes ({len(classes)}):')
+                for cls in classes:
+                    defn = cls.entity_definition or ''
+                    if defn and len(defn) > 120:
+                        defn = defn[:117] + '...'
+                    lines.append(f'  - {cls.entity_label}: {defn}')
+            if individuals:
+                lines.append(f'Individuals ({len(individuals)}):')
+                for ind in individuals:
+                    summary = _summarize_individual(
+                        ind.rdf_json_ld, dep_concept
+                    )
+                    if summary:
+                        lines.append(f'  - {ind.entity_label}: {summary}')
+                    else:
+                        # Fallback to entity_definition
+                        defn = ind.entity_definition or ''
+                        if defn and len(defn) > 120:
+                            defn = defn[:117] + '...'
+                        lines.append(f'  - {ind.entity_label}: {defn}')
+
+            sections.append('\n'.join(lines))
+
+        if not sections:
+            return ''
+
+        header = (
+            f'\n\n=== CROSS-CONCEPT CONTEXT ===\n'
+            f'{deps["instruction"]}\n'
+        )
+        return header + '\n'.join(sections)
+
+    except Exception as e:
+        logger.warning(f"Could not load cross-concept context: {e}")
+        return ''
+
+
+def build_json_wrapper_suffix(concept_type: str) -> str:
+    """
+    Build the JSON wrapper instruction appended after the rendered template.
+
+    Kept as a shared function (not in the template text) so that:
+    - The keys always match CONCEPT_CONFIG and can't be accidentally edited.
+    - Both the extractor and the prompt editor preview use the same logic.
+    - Field-level requirements reinforce schema compliance at the end of the
+      prompt where the LLM pays most attention.
+    """
+    config = CONCEPT_CONFIG.get(concept_type, {})
+    classes_key = config.get('classes_key', f'new_{concept_type}_classes')
+    individuals_key = config.get('individuals_key', f'{concept_type}_individuals')
+    class_ref_field = config.get('class_ref_field', f'{concept_type}_class')
+
+    base = (
+        f'\n\nIMPORTANT: Wrap your response as a JSON object with exactly '
+        f'two keys:\n'
+        f'{{"{classes_key}": [...], "{individuals_key}": [...]}}\n'
+        f'If there are no individuals to report, use an empty array for '
+        f'"{individuals_key}".'
+    )
+
+    # Concept-specific field reinforcement at the very end of the prompt.
+    # The LLM attends most to the final instructions.
+    field_reqs = _FIELD_REQUIREMENTS.get(concept_type)
+    if field_reqs:
+        base += (
+            f'\n\nREQUIRED FIELDS on every class: '
+            f'{field_reqs["class_required"]}\n'
+            f'REQUIRED FIELDS on every individual: '
+            f'{field_reqs["individual_required"]}'
+        )
+        if field_reqs.get('match_decision_note'):
+            base += f'\n{field_reqs["match_decision_note"]}'
+
+    return base
+
+
+# Per-concept required-field reminders appended by build_json_wrapper_suffix().
+# Keep concise -- this is the last thing the LLM sees before generating JSON.
+_FIELD_REQUIREMENTS: Dict[str, Dict[str, str]] = {
+    'principles': {
+        'class_required': (
+            'label, definition, confidence (float 0-1), match_decision '
+            '(object with matches_existing, matched_label, confidence, '
+            'reasoning), principle_category (fundamental_ethical | '
+            'professional_virtue | relational | domain_specific), '
+            'text_references (list of direct quotes)'
+        ),
+        'individual_required': (
+            'identifier, principle_class, confidence (float 0-1), '
+            'text_references (list of direct quotes)'
+        ),
+        'match_decision_note': (
+            'Every new class MUST include a match_decision object. '
+            'If the class matches an existing ontology class, set '
+            'matches_existing=true and matched_label to the existing label.'
+        ),
+    },
+    'obligations': {
+        'class_required': (
+            'label, definition, confidence (float 0-1), match_decision, '
+            'obligation_type, enforcement_level, text_references'
+        ),
+        'individual_required': (
+            'identifier, obligation_class, confidence (float 0-1), '
+            'text_references'
+        ),
+        'match_decision_note': (
+            'Every new class MUST include a match_decision object.'
+        ),
+    },
+    'constraints': {
+        'class_required': (
+            'label, definition, confidence (float 0-1), match_decision, '
+            'constraint_type, flexibility, severity, text_references'
+        ),
+        'individual_required': (
+            'identifier, constraint_class, confidence (float 0-1), '
+            'text_references'
+        ),
+        'match_decision_note': (
+            'Every new class MUST include a match_decision object.'
+        ),
+    },
+    'capabilities': {
+        'class_required': (
+            'label, definition, confidence (float 0-1), match_decision, '
+            'capability_category, skill_level, text_references'
+        ),
+        'individual_required': (
+            'identifier, capability_class, confidence (float 0-1), '
+            'text_references'
+        ),
+        'match_decision_note': (
+            'Every new class MUST include a match_decision object.'
+        ),
+    },
+}
+
+
+# Per-concept category enum inference when LLM omits the category field.
+# Maps concept_type -> (field_name, [(enum_value, {keywords...}), ...]).
+# Order within each list matters: checked top-to-bottom, first match wins.
+# Text fields checked: label, definition, value_basis (shared across concepts).
+_CATEGORY_INFERENCE: Dict[str, Tuple[str, list]] = {
+    'principles': ('principle_category', [
+        ('fundamental_ethical', {
+            'public welfare', 'public safety', 'paramount', 'fundamental',
+            'universal', 'human dignity', 'justice', 'beneficence',
+            'respect for persons', 'welfare of the public',
+        }),
+        ('professional_virtue', {
+            'integrity', 'competence', 'honesty', 'accountability',
+            'virtue', 'character', 'professional excellence', 'courage',
+            'responsibility', 'diligence',
+        }),
+        ('relational', {
+            'confidentiality', 'loyalty', 'transparency', 'trust',
+            'fairness', 'collegial', 'respect', 'communication',
+            'disclosure', 'notification', 'consent',
+        }),
+        ('domain_specific', {
+            'engineering', 'medical', 'legal', 'environmental',
+            'stewardship', 'patient', 'domain', 'technological',
+        }),
+    ]),
+    'obligations': ('obligation_type', [
+        ('disclosure', {
+            'disclose', 'disclosure', 'inform stakeholder', 'notify client',
+            'report to', 'transparency',
+        }),
+        ('safety', {
+            'safety', 'protect the public', 'harm', 'danger', 'risk',
+            'public welfare', 'paramount',
+        }),
+        ('competence', {
+            'competence', 'qualified', 'expertise', 'training requirement',
+            'skill', 'proficiency',
+        }),
+        ('confidentiality', {
+            'confidential', 'privacy', 'secret', 'non-disclosure',
+            'privileged information',
+        }),
+        ('reporting', {
+            'report violation', 'notify authorities', 'whistleblow',
+            'alert regulatory', 'report to board',
+        }),
+        ('collegial', {
+            'collegial', 'peer', 'colleague', 'fellow engineer',
+            'professional relationship', 'mutual respect',
+        }),
+        ('legal', {
+            'law', 'statute', 'regulation', 'legal requirement',
+            'compliance', 'statutory',
+        }),
+    ]),
+    'constraints': ('constraint_type', [
+        ('legal', {
+            'law', 'statute', 'legislation', 'legal requirement',
+            'court order', 'legal prohibition',
+        }),
+        ('regulatory', {
+            'regulation', 'code requirement', 'standard', 'building code',
+            'compliance requirement', 'regulatory body',
+        }),
+        ('resource', {
+            'budget', 'funding', 'time constraint', 'personnel',
+            'limited resource', 'financial',
+        }),
+        ('competence', {
+            'qualification', 'expertise limitation', 'training',
+            'certification', 'outside competence',
+        }),
+        ('jurisdictional', {
+            'jurisdiction', 'authority', 'boundary of practice',
+            'scope of license', 'geographic',
+        }),
+        ('procedural', {
+            'procedure', 'process requirement', 'protocol',
+            'workflow', 'due process', 'notification requirement',
+        }),
+        ('safety', {
+            'safety constraint', 'hazard', 'risk limit',
+            'danger threshold', 'safety factor',
+        }),
+    ]),
+    'capabilities': ('capability_category', [
+        ('norm_management', {
+            'norm', 'rule management', 'obligation tracking',
+            'compliance management', 'policy',
+        }),
+        ('awareness', {
+            'awareness', 'recognize', 'perceive', 'identify risk',
+            'detect', 'situational awareness',
+        }),
+        ('learning', {
+            'learn', 'adapt', 'update knowledge', 'improve',
+            'experience', 'continuing education',
+        }),
+        ('reasoning', {
+            'reason', 'analyze', 'evaluate', 'judge', 'assess',
+            'deliberate', 'weigh', 'ethical reasoning',
+        }),
+        ('communication', {
+            'communicate', 'inform', 'report', 'disclose',
+            'articulate', 'explain', 'present',
+        }),
+        ('domain_specific', {
+            'engineering', 'technical', 'domain knowledge',
+            'specialized', 'professional expertise',
+        }),
+        ('retrieval', {
+            'retrieve', 'access', 'reference', 'recall',
+            'look up', 'precedent', 'case law',
+        }),
+    ]),
+}
+
+
+def _infer_category_enum(
+    concept_type: str, item: Dict[str, Any],
+) -> Optional[str]:
+    """Infer a missing category enum value from item text fields.
+
+    Works for any concept type registered in _CATEGORY_INFERENCE.
+    Returns the enum value string or None if no match.
+    """
+    spec = _CATEGORY_INFERENCE.get(concept_type)
+    if not spec:
+        return None
+    field_name, keyword_rules = spec
+    if item.get(field_name):
+        return None  # already set
+    text = ' '.join(
+        str(item.get(f, '')) for f in ('label', 'definition', 'value_basis')
+    ).lower()
+    if not text.strip():
+        return None
+    for enum_value, keywords in keyword_rules:
+        if any(kw in text for kw in keywords):
+            return enum_value
+    return None
 
 
 class UnifiedDualExtractor:
@@ -214,7 +631,7 @@ class UnifiedDualExtractor:
         self._current_section_type = section_type
 
         # 1. Build prompt
-        prompt = self._build_prompt(case_text, section_type)
+        prompt = self._build_prompt(case_text, section_type, case_id=case_id)
         self.last_prompt = prompt
 
         # 2. Call LLM
@@ -273,12 +690,18 @@ class UnifiedDualExtractor:
             logger.error(f"Failed to load DB template: {e}")
             return None
 
-    def _build_prompt(self, case_text: str, section_type: str) -> str:
+    def _build_prompt(
+        self, case_text: str, section_type: str, case_id: int = None,
+    ) -> str:
         """
         Build the extraction prompt.
 
         Uses the DB template with PromptVariableResolver for variable
         resolution (case text + existing MCP entities).
+
+        When section_type is not 'facts', classes already extracted from
+        earlier sections (e.g. facts) are appended to the existing-entities
+        list so the LLM can reference them rather than re-extracting.
         """
         if not self.template:
             raise RuntimeError(
@@ -289,51 +712,106 @@ class UnifiedDualExtractor:
         # Format existing entities for the template
         existing_text = self._format_existing_entities()
 
+        # For non-facts sections, include classes extracted from prior sections
+        if section_type != 'facts' and case_id is not None:
+            prior_text = self._format_prior_section_classes(case_id, section_type)
+            if prior_text:
+                existing_text += prior_text
+
+        # Load cross-concept context (e.g., roles for principles, etc.)
+        cross_context = ''
+        if case_id is not None:
+            cross_context = format_cross_concept_context(
+                self.concept_type, case_id
+            )
+
         # Build variable dict matching the template's Jinja2 variables
         variables = {
             'case_text': case_text,
             'section_type': section_type,
             f'existing_{self.concept_type}_text': existing_text,
             'existing_entities_text': existing_text,
+            'cross_concept_context': cross_context,
         }
 
         rendered = self.template.render(**variables)
 
-        # Append wrapper format instruction so the LLM returns a dict with
-        # both keys rather than a bare list, enabling full schema validation.
-        classes_key = self.config['classes_key']
-        individuals_key = self.config['individuals_key']
-        rendered += (
-            f'\n\nIMPORTANT: Wrap your response as a JSON object with exactly '
-            f'two keys:\n'
-            f'{{"{ classes_key}": [...], "{individuals_key}": [...]}}\n'
-            f'If there are no individuals to report, use an empty array for '
-            f'"{individuals_key}".'
-        )
+        # Append JSON wrapper instruction so the LLM returns a dict with
+        # both keys rather than a bare list.  Kept in code (not in the
+        # editable template) so the keys always match CONCEPT_CONFIG.
+        rendered += build_json_wrapper_suffix(self.concept_type)
         return rendered
 
     def _format_existing_entities(self) -> str:
         """Format existing ontology entities for prompt inclusion."""
-        if not self.existing_classes:
-            return f"No existing {self.concept_type} classes found in ontology."
+        return format_existing_entities(self.existing_classes, self.concept_type)
 
-        lines = []
-        for entity in self.existing_classes[:20]:
-            label = entity.get('label', entity.get('name', 'Unknown'))
-            definition = entity.get(
-                'definition', entity.get('description', '')
+    def _format_prior_section_classes(
+        self, case_id: int, current_section: str,
+    ) -> str:
+        """
+        Format classes extracted from earlier sections for this case.
+
+        When extracting from discussion, the facts-extracted classes are
+        included so the LLM can reference them instead of re-extracting.
+        """
+        try:
+            from app.models.temporary_rdf_storage import TemporaryRDFStorage
+            from app.models.extraction_prompt import ExtractionPrompt
+
+            # Determine which prior sections to include
+            section_order = ['facts', 'discussion', 'questions', 'conclusions']
+            current_idx = section_order.index(current_section) if current_section in section_order else 0
+            prior_sections = section_order[:current_idx]
+
+            if not prior_sections:
+                return ''
+
+            # Find extraction sessions for prior sections
+            prior_sessions = [
+                p.extraction_session_id
+                for p in ExtractionPrompt.query.filter_by(
+                    case_id=case_id,
+                    concept_type=self.concept_type,
+                    is_active=True,
+                ).all()
+                if p.extraction_session_id and p.section_type in prior_sections
+            ]
+
+            if not prior_sessions:
+                return ''
+
+            # Query classes from those sessions
+            prior_classes = TemporaryRDFStorage.query.filter(
+                TemporaryRDFStorage.case_id == case_id,
+                TemporaryRDFStorage.extraction_type == self.concept_type,
+                TemporaryRDFStorage.storage_type == 'class',
+                TemporaryRDFStorage.extraction_session_id.in_(prior_sessions),
+            ).all()
+
+            if not prior_classes:
+                return ''
+
+            # Format as text block
+            lines = [
+                f'\n\n--- {self.concept_type.upper()} CLASSES ALREADY EXTRACTED FROM PRIOR SECTIONS ---',
+                'These classes were found in earlier sections of this case.',
+                'Reference them via match_decision if the same concept appears here.',
+                'Do NOT re-create them as new classes.\n',
+            ]
+            for cls in prior_classes:
+                defn = cls.entity_definition or ''
+                lines.append(f'- {cls.entity_label}: {defn}')
+
+            logger.info(
+                f"Added {len(prior_classes)} prior-section {self.concept_type} "
+                f"classes to prompt for case {case_id}"
             )
-            if definition:
-                if len(definition) > 150:
-                    definition = definition[:147] + '...'
-                lines.append(f"- {label}: {definition}")
-            else:
-                lines.append(f"- {label}")
+            return '\n'.join(lines)
 
-        if len(self.existing_classes) > 20:
-            lines.append(f"... and {len(self.existing_classes) - 20} more")
-
-        return '\n'.join(lines)
+        except Exception as e:
+            logger.warning(f"Could not load prior-section classes: {e}")
+            return ''
 
     # ------------------------------------------------------------------
     # MCP entity loading
@@ -565,21 +1043,23 @@ class UnifiedDualExtractor:
                     logger.debug(f"  {err['loc']}: {err['msg']}")
         return parsed
 
-    @staticmethod
-    def _normalize_field_names(item: Dict[str, Any]) -> Dict[str, Any]:
+    def _normalize_field_names(self, item: Dict[str, Any]) -> Dict[str, Any]:
         """
         Normalize LLM field names to match Pydantic schema field names.
 
         DB templates and hardcoded prompts may use different field names
-        for the same concept. This maps common aliases.
+        for the same concept. This maps common aliases. Uses
+        self.concept_type for concept-aware category inference.
         """
         # definition/description: handled by Pydantic AliasChoices on BaseCandidate
         # text_references/examples_from_case: handled by Pydantic AliasChoices
 
-        # source_text fallback to first text reference
+        # Bidirectional fallback between source_text and text_references
         refs = item.get('text_references') or item.get('examples_from_case')
         if not item.get('source_text') and refs:
             item['source_text'] = refs[0]
+        elif item.get('source_text') and not refs:
+            item['text_references'] = [item['source_text']]
 
         # name/label -> identifier (for individuals)
         if 'identifier' not in item:
@@ -588,10 +1068,56 @@ class UnifiedDualExtractor:
             elif 'label' in item:
                 item['identifier'] = item['label']
 
+        # --- Remap commonly hallucinated class fields ---
+        # LLM returns "balancing_requirements" instead of "potential_conflicts"
+        if 'balancing_requirements' in item and 'potential_conflicts' not in item:
+            item['potential_conflicts'] = item.pop('balancing_requirements')
+        # LLM returns "application_context" -- no direct match, drop it
+        # (this data is partially captured by extensional_examples)
+        item.pop('application_context', None)
+        # LLM returns "case_relevance" on individuals -- not a schema field
+        item.pop('case_relevance', None)
+
+        # NOTE: examples_from_case is NOT dropped here. Pydantic AliasChoices
+        # on BaseCandidate.text_references handles it:
+        #   AliasChoices('text_references', 'examples_from_case')
+        # Dropping it would lose data when text_references is absent.
+
+        # --- Default confidence when LLM omits it ---
+        if 'confidence' not in item:
+            item['confidence'] = 0.75
+
+        # --- Ensure match_decision has required subfields ---
+        md = item.get('match_decision')
+        if isinstance(md, dict):
+            md.setdefault('matches_existing', False)
+            md.setdefault('confidence', 0.5)
+            if not md.get('reasoning'):
+                md['reasoning'] = 'No reasoning provided by LLM'
+        # If LLM omits match_decision entirely on a class (has "label" key),
+        # add a default so Pydantic populates the field
+        if 'match_decision' not in item and 'label' in item:
+            item['match_decision'] = {
+                'matches_existing': False,
+                'confidence': 0.5,
+                'reasoning': 'match_decision omitted by LLM; post-hoc matching will resolve',
+            }
+
+        # --- Infer missing category enum from item text ---
+        inferred = _infer_category_enum(self.concept_type, item)
+        if inferred:
+            spec = _CATEGORY_INFERENCE[self.concept_type]
+            item.setdefault(spec[0], inferred)
+
         # Normalize hyphenated enum values to underscores
         # LLMs sometimes return "non-inertial" instead of "non_inertial"
-        for enum_field in ('persistence_type', 'state_category', 'urgency_level',
-                           'role_category', 'resource_category', 'resource_type'):
+        for enum_field in (
+            'persistence_type', 'state_category', 'urgency_level',
+            'role_category', 'resource_category', 'resource_type',
+            'principle_category', 'obligation_type', 'enforcement_level',
+            'compliance_status', 'constraint_type', 'flexibility', 'severity',
+            'capability_category', 'skill_level', 'proficiency_level',
+        ):
             if enum_field in item and isinstance(item[enum_field], str):
                 item[enum_field] = item[enum_field].replace('-', '_')
 

@@ -680,6 +680,7 @@ function checkAllExtractionsComplete() {
         if (!isInitialLoad && !completionPopupShown && isFullPassMode) {
             showCompletionPopup();
             completionPopupShown = true;
+            isFullPassMode = false;  // Reset so individual buttons don't re-trigger
         }
     }
 }
@@ -728,6 +729,13 @@ function showCompletionPopup() {
 
 async function executeFullContextualPass() {
     isFullPassMode = true;  // Enable completion modal for full pass
+    completionPopupShown = false;
+
+    // Reset extraction status so popup only fires after all 3 complete in THIS run
+    extractionStatus.roles = false;
+    extractionStatus.states = false;
+    extractionStatus.resources = false;
+
     const mainButton = document.getElementById('contextualPassBtn');
     mainButton.disabled = true;
     mainButton.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Clearing & Extracting All...';

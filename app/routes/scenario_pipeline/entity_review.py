@@ -652,6 +652,9 @@ def review_case_entities_pass2(case_id, section_type=None):
         from app.services.pipeline_status_service import PipelineStatusService
         pipeline_status = PipelineStatusService.get_step_status(case_id)
 
+        import os
+        ontserve_web_url = os.environ.get('ONTSERVE_WEB_URL', 'http://localhost:5003')
+
         # Return the entity review page for Pass 2
         return render_template('scenarios/entity_review_pass2.html',
                              case=case_doc,
@@ -663,7 +666,8 @@ def review_case_entities_pass2(case_id, section_type=None):
                              section_type=section_type,
                              section_display=section_display,
                              ontserve_classes=ontserve_classes,
-                             pipeline_status=pipeline_status)
+                             pipeline_status=pipeline_status,
+                             ontserve_web_url=ontserve_web_url)
 
     except Exception as e:
         logger.error(f"Error displaying Pass 2 entity review for case {case_id}: {e}")

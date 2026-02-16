@@ -547,7 +547,22 @@ Focus on identifying principles that serve as abstract ethical foundations requi
         })
 
 
-def create_enhanced_principles_prompt(text: str, include_mcp_context: bool = False, 
+# Literature grounding for principle extraction prompts.
+# These citations inform the theoretical framework section of the DB prompt template
+# (extraction_prompt_templates id=4) and the chapter 2 discussion of principles.
+PRINCIPLE_LITERATURE = {
+    'McLaren2003': "Principles require extensional definition through accumulated case precedents",
+    'Taddeo2024': "Three-step operationalization: identify abstraction, interpret requirements, define balancing criteria",
+    'Anderson2018': "Principles learned from expert examples via machine learning",
+    'Hallamaa2022': "Principles mediate moral ideals into actionable professional reality",
+    'Benzmüller2020': "Formal distinction between abstract principles and concrete deontic obligations",
+    'Prem2023': "Inherent challenge of operationalizing abstract ethical guidance",
+    'Segun2021': "Principles resist formal specification, requiring interpretive judgment",
+    'Frankel1989': "Hierarchical code structure: aspirational principles at top level (DIE justification)",
+}
+
+
+def create_enhanced_principles_prompt(text: str, include_mcp_context: bool = False,
                                      existing_principles: list = None) -> str:
     """
     Standalone function to generate enhanced principles prompt.

@@ -8,7 +8,8 @@ from typing import Dict, Any, Optional, List
 from flask import jsonify, request, Response
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from app.models import db
-from app.utils import logger
+import logging
+logger = logging.getLogger(__name__)
 from contextlib import nullcontext
 
 # Retry configuration
@@ -60,44 +61,27 @@ def extract_concept_type(concept_type: str, section_text: str, case_id: int,
 
     try:
         if concept_type == 'principles':
-            from app.services.extraction.dual_principles_extractor import DualPrinciplesExtractor
-            extractor = DualPrinciplesExtractor()
+            from app.services.extraction.unified_dual_extractor import UnifiedDualExtractor
+            extractor = UnifiedDualExtractor('principles')
 
-            # Track extraction with provenance if available
+            candidate_classes, individuals = extract_with_retry(
+                extractor.extract,
+                case_text=section_text,
+                case_id=case_id,
+                section_type='discussion'
+            )
+
             if prov_service:
-                with prov_service.track_activity(
-                    activity_type='llm_query',
-                    activity_name='dual_principles_extraction',
-                    case_id=case_id,
-                    session_id=session_id,
-                    agent_type='extraction_service',
-                    agent_name='DualPrinciplesExtractor'
-                ) as activity:
-                    candidate_classes, individuals = extract_with_retry(
-                        extractor.extract_dual_principles,
-                        case_text=section_text,
-                        case_id=case_id,
-                        section_type='discussion'
-                    )
-
-                    # Record results
-                    prov_service.record_extraction_results(
-                        results=[{
-                            'label': c.label,
-                            'definition': c.definition,
-                            'confidence': c.confidence,
-                            'type': 'principle_class'
-                        } for c in candidate_classes],
-                        activity=activity,
-                        entity_type='extracted_principle_classes',
-                        metadata={'count': len(candidate_classes)}
-                    )
-            else:
-                candidate_classes, individuals = extract_with_retry(
-                    extractor.extract_dual_principles,
-                    case_text=section_text,
-                    case_id=case_id,
-                    section_type='discussion'
+                prov_service.record_extraction_results(
+                    results=[{
+                        'label': c.label,
+                        'definition': c.definition,
+                        'confidence': c.confidence,
+                        'type': 'principle_class'
+                    } for c in candidate_classes],
+                    activity=None,
+                    entity_type='extracted_principle_classes',
+                    metadata={'count': len(candidate_classes)}
                 )
 
             result['data'] = {
@@ -107,32 +91,15 @@ def extract_concept_type(concept_type: str, section_text: str, case_id: int,
             result['success'] = True
 
         elif concept_type == 'obligations':
-            from app.services.extraction.dual_obligations_extractor import DualObligationsExtractor
-            extractor = DualObligationsExtractor()
+            from app.services.extraction.unified_dual_extractor import UnifiedDualExtractor
+            extractor = UnifiedDualExtractor('obligations')
 
-            if prov_service:
-                with prov_service.track_activity(
-                    activity_type='llm_query',
-                    activity_name='dual_obligations_extraction',
-                    case_id=case_id,
-                    session_id=session_id,
-                    agent_type='extraction_service',
-                    agent_name='DualObligationsExtractor'
-                ) as activity:
-                    candidates = extract_with_retry(
-                        extractor.extract_dual_obligations,
-                        case_text=section_text,
-                        case_id=case_id,
-                        section_type='discussion'
-                    )
-                    candidate_classes, individuals = candidates
-            else:
-                candidate_classes, individuals = extract_with_retry(
-                    extractor.extract_dual_obligations,
-                    case_text=section_text,
-                    case_id=case_id,
-                    section_type='discussion'
-                )
+            candidate_classes, individuals = extract_with_retry(
+                extractor.extract,
+                case_text=section_text,
+                case_id=case_id,
+                section_type='discussion'
+            )
 
             result['data'] = {
                 'classes': [serialize_obligation_class(c) for c in candidate_classes],
@@ -141,32 +108,15 @@ def extract_concept_type(concept_type: str, section_text: str, case_id: int,
             result['success'] = True
 
         elif concept_type == 'constraints':
-            from app.services.extraction.dual_constraints_extractor import DualConstraintsExtractor
-            extractor = DualConstraintsExtractor()
+            from app.services.extraction.unified_dual_extractor import UnifiedDualExtractor
+            extractor = UnifiedDualExtractor('constraints')
 
-            if prov_service:
-                with prov_service.track_activity(
-                    activity_type='llm_query',
-                    activity_name='dual_constraints_extraction',
-                    case_id=case_id,
-                    session_id=session_id,
-                    agent_type='extraction_service',
-                    agent_name='DualConstraintsExtractor'
-                ) as activity:
-                    candidates = extract_with_retry(
-                        extractor.extract_dual_constraints,
-                        case_text=section_text,
-                        case_id=case_id,
-                        section_type='discussion'
-                    )
-                    candidate_classes, individuals = candidates
-            else:
-                candidate_classes, individuals = extract_with_retry(
-                    extractor.extract_dual_constraints,
-                    case_text=section_text,
-                    case_id=case_id,
-                    section_type='discussion'
-                )
+            candidate_classes, individuals = extract_with_retry(
+                extractor.extract,
+                case_text=section_text,
+                case_id=case_id,
+                section_type='discussion'
+            )
 
             result['data'] = {
                 'classes': [serialize_constraint_class(c) for c in candidate_classes],
@@ -175,32 +125,15 @@ def extract_concept_type(concept_type: str, section_text: str, case_id: int,
             result['success'] = True
 
         elif concept_type == 'capabilities':
-            from app.services.extraction.dual_capabilities_extractor import DualCapabilitiesExtractor
-            extractor = DualCapabilitiesExtractor()
+            from app.services.extraction.unified_dual_extractor import UnifiedDualExtractor
+            extractor = UnifiedDualExtractor('capabilities')
 
-            if prov_service:
-                with prov_service.track_activity(
-                    activity_type='llm_query',
-                    activity_name='dual_capabilities_extraction',
-                    case_id=case_id,
-                    session_id=session_id,
-                    agent_type='extraction_service',
-                    agent_name='DualCapabilitiesExtractor'
-                ) as activity:
-                    candidates = extract_with_retry(
-                        extractor.extract_dual_capabilities,
-                        case_text=section_text,
-                        case_id=case_id,
-                        section_type='discussion'
-                    )
-                    candidate_classes, individuals = candidates
-            else:
-                candidate_classes, individuals = extract_with_retry(
-                    extractor.extract_dual_capabilities,
-                    case_text=section_text,
-                    case_id=case_id,
-                    section_type='discussion'
-                )
+            candidate_classes, individuals = extract_with_retry(
+                extractor.extract,
+                case_text=section_text,
+                case_id=case_id,
+                section_type='discussion'
+            )
 
             result['data'] = {
                 'classes': [serialize_capability_class(c) for c in candidate_classes],
@@ -249,15 +182,18 @@ def serialize_principle_individual(individual):
 
 def serialize_obligation_class(candidate):
     """Serialize an obligation class candidate to dict"""
+    ot = getattr(candidate, 'obligation_type', None)
+    el = getattr(candidate, 'enforcement_level', None)
     return {
         'label': candidate.label,
         'definition': candidate.definition,
         'type': 'obligation_class',
         'confidence': candidate.confidence,
         'derived_from_principle': getattr(candidate, 'derived_from_principle', ''),
-        'duty_type': getattr(candidate, 'duty_type', ''),
-        'enforcement_mechanism': getattr(candidate, 'enforcement_mechanism', ''),
-        'violation_consequences': getattr(candidate, 'violation_consequences', '')
+        'obligation_type': ot.value if hasattr(ot, 'value') else (ot or ''),
+        'enforcement_level': el.value if hasattr(el, 'value') else (el or ''),
+        'violation_consequences': getattr(candidate, 'violation_consequences', ''),
+        'nspe_reference': getattr(candidate, 'nspe_reference', ''),
     }
 
 
@@ -277,20 +213,23 @@ def serialize_obligation_individual(individual):
 
 def serialize_constraint_class(candidate):
     """Serialize a constraint class candidate to dict"""
+    ct = getattr(candidate, 'constraint_type', None)
+    fl = getattr(candidate, 'flexibility', None)
     return {
         'label': candidate.label,
         'definition': candidate.definition,
         'type': 'constraint_class',
         'confidence': candidate.confidence,
-        'constraint_type': getattr(candidate, 'constraint_type', ''),
-        'flexibility': getattr(candidate, 'flexibility', ''),
+        'constraint_type': ct.value if hasattr(ct, 'value') else (ct or ''),
+        'flexibility': fl.value if hasattr(fl, 'value') else (fl or ''),
         'violation_impact': getattr(candidate, 'violation_impact', ''),
-        'mitigation_possible': getattr(candidate, 'mitigation_possible', False)
+        'mitigation_strategies': getattr(candidate, 'mitigation_strategies', []),
     }
 
 
 def serialize_constraint_individual(individual):
     """Serialize a constraint individual to dict"""
+    sv = getattr(individual, 'severity', None)
     return {
         'identifier': individual.identifier,
         'constraint_class': individual.constraint_class,
@@ -298,35 +237,38 @@ def serialize_constraint_individual(individual):
         'constrained_entity': getattr(individual, 'constrained_entity', ''),
         'constraint_statement': getattr(individual, 'constraint_statement', ''),
         'source': getattr(individual, 'source', ''),
-        'enforcement_mechanism': getattr(individual, 'enforcement_mechanism', ''),
+        'severity': sv.value if hasattr(sv, 'value') else (sv or ''),
         'type': 'constraint_individual'
     }
 
 
 def serialize_capability_class(candidate):
     """Serialize a capability class candidate to dict"""
+    cc = getattr(candidate, 'capability_category', None)
+    sl = getattr(candidate, 'skill_level', None)
     return {
         'label': candidate.label,
         'definition': candidate.definition,
         'type': 'capability_class',
         'confidence': candidate.confidence,
-        'capability_type': getattr(candidate, 'capability_type', ''),
-        'skill_level': getattr(candidate, 'skill_level', ''),
-        'acquisition_method': getattr(candidate, 'acquisition_method', ''),
-        'norm_competence_related': getattr(candidate, 'norm_competence_related', False)
+        'capability_category': cc.value if hasattr(cc, 'value') else (cc or ''),
+        'skill_level': sl.value if hasattr(sl, 'value') else (sl or ''),
+        'enables_actions': getattr(candidate, 'enables_actions', []),
+        'required_for_obligations': getattr(candidate, 'required_for_obligations', []),
     }
 
 
 def serialize_capability_individual(individual):
     """Serialize a capability individual to dict"""
+    pl = getattr(individual, 'proficiency_level', None)
     return {
         'identifier': individual.identifier,
         'capability_class': individual.capability_class,
         'confidence': individual.confidence,
         'possessed_by': getattr(individual, 'possessed_by', ''),
         'capability_statement': getattr(individual, 'capability_statement', ''),
-        'proficiency_level': getattr(individual, 'proficiency_level', ''),
-        'application_context': getattr(individual, 'application_context', ''),
+        'proficiency_level': pl.value if hasattr(pl, 'value') else (pl or ''),
+        'demonstrated_through': getattr(individual, 'demonstrated_through', ''),
         'type': 'capability_individual'
     }
 

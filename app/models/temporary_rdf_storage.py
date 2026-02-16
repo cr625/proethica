@@ -331,7 +331,7 @@ class TemporaryRDFStorage(db.Model):
                     entity_label=indiv_info['label'],
                     entity_uri=indiv_info['uri'],
                     entity_type=extraction_type.capitalize(),
-                    entity_definition='',
+                    entity_definition=indiv_info.get('definition', ''),
                     rdf_json_ld=clean_indiv_info,
                     extraction_model=extraction_model,
                     triple_count=len(indiv_info.get('properties', {})) + len(indiv_info.get('relationships', [])) + 2,

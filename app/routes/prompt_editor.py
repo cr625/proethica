@@ -112,6 +112,10 @@ def edit_template(step, concept):
             ExtractionPromptTemplateVersion.version_number.desc()
         ).limit(10).all()
 
+    # Build the JSON wrapper suffix for display in the reference panel
+    from app.services.extraction.unified_dual_extractor import build_json_wrapper_suffix
+    json_wrapper_suffix = build_json_wrapper_suffix(concept) if template else ''
+
     return render_template('tools/prompt_editor_detail.html',
                           template=template,
                           step=step,
@@ -123,7 +127,8 @@ def edit_template(step, concept):
                           pipeline_steps=PIPELINE_STEPS,
                           concept_colors=CONCEPT_COLORS,
                           available_domains=available_domains,
-                          selected_domain=selected_domain)
+                          selected_domain=selected_domain,
+                          json_wrapper_suffix=json_wrapper_suffix)
 
 
 @prompt_editor_bp.route('/tools/prompts/guidelines/<concept>')
@@ -446,6 +451,11 @@ def render_template_with_case(template_id):
 
         # Render the template
         rendered = template.render(**variables)
+
+        # Append the same JSON wrapper suffix that the extractor adds,
+        # so the preview matches what the LLM actually receives.
+        from app.services.extraction.unified_dual_extractor import build_json_wrapper_suffix
+        rendered += build_json_wrapper_suffix(template.concept_type)
 
         # Get case info for display
         case = Document.query.get(case_id)

@@ -58,6 +58,14 @@ class PromptVariableResolver:
         existing_entities = self.get_existing_entities(concept_type)
         existing_text = self.format_existing_entities(existing_entities, concept_type)
 
+        # For non-facts sections, append classes extracted from prior sections
+        if section_type != 'facts':
+            prior_text = self._format_prior_section_classes(
+                case_id, section_type, concept_type
+            )
+            if prior_text:
+                existing_text += prior_text
+
         # Set concept-specific variable names
         var_name = f'existing_{concept_type}_text'
         variables[var_name] = existing_text
@@ -67,10 +75,83 @@ class PromptVariableResolver:
         variables[f'existing_{concept_type}'] = existing_entities
         variables['existing_entities'] = existing_entities
 
+        # Cross-concept context (e.g., roles for principles extraction)
+        from app.services.extraction.unified_dual_extractor import (
+            format_cross_concept_context,
+        )
+        variables['cross_concept_context'] = format_cross_concept_context(
+            concept_type, case_id
+        )
+
         logger.info(f"Resolved {len(variables)} variables for case {case_id}, "
                    f"section {section_type}, concept {concept_type}")
 
         return variables
+
+    def _format_prior_section_classes(
+        self, case_id: int, current_section: str, concept_type: str,
+    ) -> str:
+        """
+        Format classes extracted from earlier sections for this case.
+
+        Mirrors UnifiedDualExtractor._format_prior_section_classes() so the
+        prompt editor preview matches what the actual extraction sends.
+        """
+        try:
+            from app.models.temporary_rdf_storage import TemporaryRDFStorage
+            from app.models.extraction_prompt import ExtractionPrompt
+
+            section_order = ['facts', 'discussion', 'questions', 'conclusions']
+            current_idx = (
+                section_order.index(current_section)
+                if current_section in section_order else 0
+            )
+            prior_sections = section_order[:current_idx]
+            if not prior_sections:
+                return ''
+
+            prior_sessions = [
+                p.extraction_session_id
+                for p in ExtractionPrompt.query.filter_by(
+                    case_id=case_id,
+                    concept_type=concept_type,
+                    is_active=True,
+                ).all()
+                if p.extraction_session_id and p.section_type in prior_sections
+            ]
+            if not prior_sessions:
+                return ''
+
+            prior_classes = TemporaryRDFStorage.query.filter(
+                TemporaryRDFStorage.case_id == case_id,
+                TemporaryRDFStorage.extraction_type == concept_type,
+                TemporaryRDFStorage.storage_type == 'class',
+                TemporaryRDFStorage.extraction_session_id.in_(prior_sessions),
+            ).all()
+            if not prior_classes:
+                return ''
+
+            lines = [
+                f'\n\n--- {concept_type.upper()} CLASSES ALREADY EXTRACTED '
+                f'FROM PRIOR SECTIONS ---',
+                'These classes were found in earlier sections of this case.',
+                'Reference them via match_decision if the same concept '
+                'appears here.',
+                'Do NOT re-create them as new classes.\n',
+            ]
+            for cls in prior_classes:
+                defn = cls.entity_definition or ''
+                lines.append(f'- {cls.entity_label}: {defn}')
+
+            logger.info(
+                f"Added {len(prior_classes)} prior-section {concept_type} "
+                f"classes to prompt editor preview for case {case_id}"
+            )
+            return '\n'.join(lines)
+
+        except Exception as e:
+            logger.warning(f"Could not load prior-section classes: {e}")
+            return ''
 
     def get_case_section_text(self, case_id: int, section_type: str) -> str:
         """
@@ -205,36 +286,41 @@ class PromptVariableResolver:
 
     def format_existing_entities(self, entities: List[Dict[str, Any]],
                                   concept_type: str) -> str:
-        """
-        Format existing entities for inclusion in a prompt.
+        """Delegate to module-level function."""
+        return format_existing_entities(entities, concept_type)
 
-        Args:
-            entities: List of entity dictionaries
-            concept_type: Concept type for formatting
 
-        Returns:
-            Formatted string for prompt inclusion
-        """
-        if not entities:
-            return f"No existing {concept_type} classes found in ontology."
+def format_existing_entities(entities: List[Dict[str, Any]],
+                             concept_type: str) -> str:
+    """
+    Format existing ontology entities for inclusion in a prompt.
 
-        lines = []
-        for entity in entities[:20]:  # Limit to 20 to avoid prompt bloat
-            label = entity.get('label', entity.get('name', 'Unknown'))
-            definition = entity.get('definition', entity.get('description', ''))
+    Shared by UnifiedDualExtractor and PromptVariableResolver to ensure
+    the extraction pipeline and prompt editor produce identical prompts.
 
-            if definition:
-                # Truncate long definitions
-                if len(definition) > 150:
-                    definition = definition[:147] + '...'
-                lines.append(f"- {label}: {definition}")
-            else:
-                lines.append(f"- {label}")
+    Args:
+        entities: List of entity dictionaries from MCP
+        concept_type: Concept type (roles, states, etc.)
 
-        if len(entities) > 20:
-            lines.append(f"... and {len(entities) - 20} more")
+    Returns:
+        Formatted string for prompt inclusion
+    """
+    if not entities:
+        return f"No existing {concept_type} classes found in ontology."
 
-        return '\n'.join(lines)
+    lines = []
+    for entity in entities:
+        label = entity.get('label', entity.get('name', 'Unknown'))
+        definition = entity.get('definition', entity.get('description', ''))
+
+        if definition:
+            if len(definition) > 150:
+                definition = definition[:147] + '...'
+            lines.append(f"- {label}: {definition}")
+        else:
+            lines.append(f"- {label}")
+
+    return '\n'.join(lines)
 
 
 def get_prompt_variable_resolver() -> PromptVariableResolver:
