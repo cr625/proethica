@@ -102,6 +102,15 @@ def extract_entity_type(entity_type: str, section_text: str, case_id: int,
                     section_type=section_type
                 )
 
+            from app.services.extraction.extraction_graph import store_extraction_result
+            store_extraction_result(
+                case_id=case_id, concept_type='roles', step_number=1,
+                section_type=section_type, session_id=session_id,
+                extractor=extractor, classes=candidate_classes,
+                individuals=individuals, pass_number=1,
+                extraction_pass='contextual_framework',
+            )
+
             result['data'] = {
                 'classes': [serialize_role_class(c) for c in candidate_classes],
                 'individuals': [serialize_role_individual(i) for i in individuals]
@@ -150,6 +159,15 @@ def extract_entity_type(entity_type: str, section_text: str, case_id: int,
                     section_type=section_type
                 )
 
+            from app.services.extraction.extraction_graph import store_extraction_result
+            store_extraction_result(
+                case_id=case_id, concept_type='resources', step_number=1,
+                section_type=section_type, session_id=session_id,
+                extractor=extractor, classes=candidate_classes,
+                individuals=individuals, pass_number=1,
+                extraction_pass='contextual_framework',
+            )
+
             result['data'] = {
                 'classes': [serialize_resource_class(c) for c in candidate_classes],
                 'individuals': [serialize_resource_individual(i) for i in individuals]
@@ -197,6 +215,15 @@ def extract_entity_type(entity_type: str, section_text: str, case_id: int,
                     case_id=case_id,
                     section_type=section_type
                 )
+
+            from app.services.extraction.extraction_graph import store_extraction_result
+            store_extraction_result(
+                case_id=case_id, concept_type='states', step_number=1,
+                section_type=section_type, session_id=session_id,
+                extractor=extractor, classes=candidate_classes,
+                individuals=individuals, pass_number=1,
+                extraction_pass='contextual_framework',
+            )
 
             result['data'] = {
                 'classes': [serialize_state_class(c) for c in candidate_classes],

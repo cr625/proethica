@@ -72,8 +72,14 @@ def extract_concept_type(concept_type: str, section_text: str, case_id: int,
                 section_type=section_type
             )
 
-            # Provenance recording skipped here -- activity context is
-            # managed by the caller (normative_pass_execute_streaming)
+            from app.services.extraction.extraction_graph import store_extraction_result
+            store_extraction_result(
+                case_id=case_id, concept_type='principles', step_number=2,
+                section_type=section_type, session_id=session_id,
+                extractor=extractor, classes=candidate_classes,
+                individuals=individuals, pass_number=2,
+                extraction_pass='normative_requirements',
+            )
 
             result['data'] = {
                 'classes': [serialize_principle_class(c) for c in candidate_classes],
@@ -90,6 +96,15 @@ def extract_concept_type(concept_type: str, section_text: str, case_id: int,
                 case_text=section_text,
                 case_id=case_id,
                 section_type=section_type
+            )
+
+            from app.services.extraction.extraction_graph import store_extraction_result
+            store_extraction_result(
+                case_id=case_id, concept_type='obligations', step_number=2,
+                section_type=section_type, session_id=session_id,
+                extractor=extractor, classes=candidate_classes,
+                individuals=individuals, pass_number=2,
+                extraction_pass='normative_requirements',
             )
 
             result['data'] = {
@@ -109,6 +124,15 @@ def extract_concept_type(concept_type: str, section_text: str, case_id: int,
                 section_type=section_type
             )
 
+            from app.services.extraction.extraction_graph import store_extraction_result
+            store_extraction_result(
+                case_id=case_id, concept_type='constraints', step_number=2,
+                section_type=section_type, session_id=session_id,
+                extractor=extractor, classes=candidate_classes,
+                individuals=individuals, pass_number=2,
+                extraction_pass='normative_requirements',
+            )
+
             result['data'] = {
                 'classes': [serialize_constraint_class(c) for c in candidate_classes],
                 'individuals': [serialize_constraint_individual(i) for i in individuals]
@@ -124,6 +148,15 @@ def extract_concept_type(concept_type: str, section_text: str, case_id: int,
                 case_text=section_text,
                 case_id=case_id,
                 section_type=section_type
+            )
+
+            from app.services.extraction.extraction_graph import store_extraction_result
+            store_extraction_result(
+                case_id=case_id, concept_type='capabilities', step_number=2,
+                section_type=section_type, session_id=session_id,
+                extractor=extractor, classes=candidate_classes,
+                individuals=individuals, pass_number=2,
+                extraction_pass='normative_requirements',
             )
 
             result['data'] = {

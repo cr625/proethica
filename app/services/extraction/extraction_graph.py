@@ -258,6 +258,108 @@ def pydantic_to_rdf_data(
     }
 
 
+def store_extraction_result(
+    case_id: int,
+    concept_type: str,
+    step_number: int,
+    section_type: str,
+    session_id: str,
+    extractor,
+    classes: list,
+    individuals: list,
+    pass_number: int = None,
+    extraction_pass: str = None,
+) -> None:
+    """
+    Persist extraction results to the database.
+
+    Consolidates the 3-call storage pattern used by both streaming and
+    non-streaming extraction paths:
+      1. ExtractionPrompt.save_prompt()
+      2. pydantic_to_rdf_data()
+      3. TemporaryRDFStorage.store_extraction_results()
+
+    Args:
+        case_id: Case database ID.
+        concept_type: e.g. roles, states, resources, principles, obligations,
+                      constraints, capabilities.
+        step_number: Pipeline step (1 for contextual, 2 for normative).
+        section_type: Source section (facts, discussion, etc.).
+        session_id: UUID extraction session identifier.
+        extractor: UnifiedDualExtractor instance (provides last_prompt,
+                   last_raw_response, model_name).
+        classes: Pydantic candidate class model instances.
+        individuals: Pydantic individual model instances.
+        pass_number: Extraction pass number (1 or 2).
+        extraction_pass: Provenance label ('contextual_framework' or
+                         'normative_requirements').
+    """
+    from app.models import db
+    from app.models.extraction_prompt import ExtractionPrompt
+    from app.models.temporary_rdf_storage import TemporaryRDFStorage
+
+    model_name = extractor.model_name
+
+    # 1. Save prompt + raw response
+    try:
+        ExtractionPrompt.save_prompt(
+            case_id=case_id,
+            concept_type=concept_type,
+            prompt_text=extractor.last_prompt or f'[streaming] {concept_type}',
+            raw_response=extractor.last_raw_response,
+            step_number=step_number,
+            section_type=section_type,
+            llm_model=model_name,
+            extraction_session_id=session_id,
+            results_summary={
+                'classes': len(classes),
+                'individuals': len(individuals),
+            },
+        )
+    except Exception as e:
+        logger.warning(f"Could not save extraction prompt for {concept_type}: {e}")
+
+    # 2 + 3. Convert Pydantic models to rdf_data, then store
+    try:
+        rdf_data = pydantic_to_rdf_data(
+            classes=classes,
+            individuals=individuals,
+            concept_type=concept_type,
+            case_id=case_id,
+            section_type=section_type,
+            pass_number=pass_number,
+        )
+
+        provenance_data = {
+            'section_type': section_type,
+            'extracted_at': datetime.now(timezone.utc).isoformat(),
+            'model_used': model_name,
+            'concept_type': concept_type,
+        }
+        if extraction_pass:
+            provenance_data['extraction_pass'] = extraction_pass
+
+        TemporaryRDFStorage.store_extraction_results(
+            case_id=case_id,
+            extraction_session_id=session_id,
+            extraction_type=concept_type,
+            rdf_data=rdf_data,
+            extraction_model=model_name,
+            provenance_data=provenance_data,
+        )
+
+        db.session.commit()
+        logger.info(
+            f"Stored {len(rdf_data.get('new_classes', []))} classes + "
+            f"{len(rdf_data.get('new_individuals', []))} individuals "
+            f"for {concept_type} (case {case_id})"
+        )
+    except Exception as e:
+        logger.error(f"Failed to store {concept_type} entities: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+
+
 def _extract_properties(
     obj: Any,
     concept_type: str,
