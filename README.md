@@ -40,6 +40,22 @@ cp .env.example .env
 python run.py
 ```
 
+## Version History
+
+| Tag | Branch | Description |
+| --- | ------ | ----------- |
+| `v2.0.0-pipeline-harmonization` | `pipeline` | Unified extractor with DB prompt templates, streaming API calls, server-side text resolution |
+| `v1.3.1-paper-baseline` | `main` | Reference version for ICCBR 2026 and HT 2026 paper submissions |
+| `v1.3.0-phase3-complete` | `main` | Phase 3 analysis: arguments, temporal dynamics, decision points |
+
+Database backups corresponding to tagged releases are stored in `backups/` (not version-controlled).
+
+To restore a tagged version:
+
+```bash
+git checkout v1.3.1-paper-baseline
+```
+
 ## License
 
 GPL-3.0 License - See LICENSE file for details.
