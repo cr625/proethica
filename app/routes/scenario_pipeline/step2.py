@@ -29,6 +29,53 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+
+def _resolve_section_text(case, section_type):
+    """
+    Resolve the section text server-side from case metadata.
+
+    Always looks up the text from the database rather than relying on
+    browser-submitted text, avoiding encoding round-trip issues.
+    Returns a plain string or None.
+    """
+    raw_sections = {}
+    if case.doc_metadata:
+        if 'sections_dual' in case.doc_metadata:
+            raw_sections = case.doc_metadata['sections_dual']
+        elif 'sections' in case.doc_metadata:
+            raw_sections = case.doc_metadata['sections']
+        elif ('document_structure' in case.doc_metadata
+              and 'sections' in case.doc_metadata['document_structure']):
+            raw_sections = case.doc_metadata['document_structure']['sections']
+
+    section_keywords = {
+        'facts': 'fact',
+        'discussion': 'discussion',
+        'questions': 'question',
+        'conclusions': 'conclusion',
+        'references': 'reference',
+    }
+    search_keyword = section_keywords.get(section_type, 'fact')
+
+    for section_key, section_content in raw_sections.items():
+        if search_keyword in section_key.lower():
+            formatted = _format_section_for_llm(section_key, section_content, case)
+            if isinstance(formatted, dict):
+                return formatted.get('llm_text') or formatted.get('html', '')
+            return formatted
+
+    # Fallback: first available section
+    if raw_sections:
+        first_key = list(raw_sections.keys())[0]
+        formatted = _format_section_for_llm(first_key, raw_sections[first_key], case)
+        if isinstance(formatted, dict):
+            return formatted.get('llm_text') or formatted.get('html', '')
+        return formatted
+
+    # Last resort: raw content
+    return case.content or case.description or None
+
+
 # Function to exempt specific routes from CSRF after app initialization
 def init_step2_csrf_exemption(app):
     """Exempt Step 2 normative pass routes from CSRF protection"""
@@ -59,8 +106,7 @@ def extract_individual_concept(case_id):
             return jsonify({'error': 'No JSON data provided'}), 400
 
         concept_type = data.get('concept_type')
-        section_text = data.get('section_text')  # Get section text from request
-        section_type = data.get('section_type', 'facts')  # Default to facts if not provided
+        section_type = data.get('section_type', 'facts')
 
         if not concept_type:
             return jsonify({'error': 'concept_type is required'}), 400
@@ -71,45 +117,11 @@ def extract_individual_concept(case_id):
         # Get the case
         case = Document.query.get_or_404(case_id)
 
-        # If section_text was not provided, extract it from case metadata
+        # Always resolve section text server-side from case metadata
+        # (avoids encoding issues from browser-to-server round-trip)
+        section_text = _resolve_section_text(case, section_type)
         if not section_text:
-            raw_sections = {}
-
-            if case.doc_metadata:
-                # Get sections from metadata
-                if 'sections_dual' in case.doc_metadata:
-                    raw_sections = case.doc_metadata['sections_dual']
-                elif 'sections' in case.doc_metadata:
-                    raw_sections = case.doc_metadata['sections']
-                elif 'document_structure' in case.doc_metadata and 'sections' in case.doc_metadata['document_structure']:
-                    raw_sections = case.doc_metadata['document_structure']['sections']
-
-            # Look for the appropriate section based on section_type
-            section_keywords = {
-                'facts': 'fact',
-                'discussion': 'discussion',
-                'questions': 'question',
-                'conclusions': 'conclusion',
-                'references': 'reference'
-            }
-
-            search_keyword = section_keywords.get(section_type, 'fact')
-
-            for section_key, section_content in raw_sections.items():
-                if search_keyword in section_key.lower():
-                    section_text = _format_section_for_llm(section_key, section_content, case)
-                    break
-
-            # If no matching section found, use first available section
-            if not section_text and raw_sections:
-                first_key = list(raw_sections.keys())[0]
-                section_text = _format_section_for_llm(first_key, raw_sections[first_key], case)
-
-            if not section_text:
-                # Fallback to using available content
-                section_text = case.content or case.description or ""
-                if not section_text:
-                    return jsonify({'error': f'No {section_type} section found'}), 400
+            return jsonify({'error': f'No {section_type} section found'}), 400
 
         logger.info(f"Executing individual {concept_type} extraction for case {case_id}, section: {section_type}")
 
@@ -603,7 +615,7 @@ def extract_individual_concept(case_id):
             'raw_llm_response': raw_llm_response,
             'session_id': session_id,
             'extraction_metadata': {
-                'timestamp': datetime.now().isoformat(),
+                'timestamp': datetime.utcnow().isoformat(),
                 'extraction_method': 'unified_dual_extractor',
                 'provenance_tracked': True,
                 'model_used': extractor.model_name
@@ -1152,7 +1164,7 @@ def normative_pass_execute(case_id):
             summary['provenance_url'] = url_for('provenance.provenance_viewer')
 
         extraction_metadata = {
-            'timestamp': datetime.now().isoformat(),
+            'timestamp': datetime.utcnow().isoformat(),
             'extraction_method': 'unified_dual_extractor',
             'extractor': 'UnifiedDualExtractor',
             'model_used': model_used or 'unknown',

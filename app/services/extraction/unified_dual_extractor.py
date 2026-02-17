@@ -362,11 +362,11 @@ _FIELD_REQUIREMENTS: Dict[str, Dict[str, str]] = {
     'constraints': {
         'class_required': (
             'label, definition, confidence (float 0-1), match_decision, '
-            'constraint_type, flexibility, severity, text_references'
+            'constraint_type, flexibility, text_references'
         ),
         'individual_required': (
             'identifier, constraint_class, confidence (float 0-1), '
-            'text_references'
+            'severity, text_references'
         ),
         'match_decision_note': (
             'Every new class MUST include a match_decision object.'
@@ -725,6 +725,16 @@ class UnifiedDualExtractor:
                 self.concept_type, case_id
             )
 
+        # Handle dict input from _format_section_for_llm()
+        if isinstance(case_text, dict):
+            case_text = case_text.get('llm_text') or case_text.get('html', '')
+            logger.warning("case_text was a dict, extracted llm_text")
+
+        # Strip non-printable control characters (except newline, tab, CR)
+        # that may be present in source documents from PDF extraction.
+        import re
+        case_text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', case_text)
+
         # Build variable dict matching the template's Jinja2 variables
         variables = {
             'case_text': case_text,
@@ -892,19 +902,38 @@ class UnifiedDualExtractor:
                 logger.error("No LLM client available")
                 return {}
 
-            response = client.messages.create(
+            logger.info(
+                f"_call_llm: sending {len(prompt)} chars, "
+                f"type={type(prompt).__name__}, "
+                f"model={self.model_name}, "
+                f"max_tokens={self.config['max_tokens']}"
+            )
+
+            # Use streaming to avoid server-side timeout on long responses.
+            # Non-streaming requests fail with APIConnectionError when
+            # generation exceeds ~180s (e.g., discussion principles at 7K+
+            # output tokens).
+            chunks = []
+            with client.messages.stream(
                 model=self.model_name,
                 max_tokens=self.config['max_tokens'],
                 temperature=self.config['temperature'],
                 messages=[{"role": "user", "content": prompt}],
-            )
+            ) as stream:
+                for text in stream.text_stream:
+                    chunks.append(text)
 
-            response_text = (
-                response.content[0].text if response.content else ""
-            )
+            response_text = "".join(chunks)
             self.last_raw_response = response_text
 
-            if response.stop_reason == 'max_tokens':
+            final_msg = stream.get_final_message()
+            stop_reason = final_msg.stop_reason
+            logger.info(
+                f"LLM stream complete: {final_msg.usage.input_tokens} in / "
+                f"{final_msg.usage.output_tokens} out, stop={stop_reason}"
+            )
+
+            if stop_reason == 'max_tokens':
                 logger.warning(
                     f"Response truncated at {self.config['max_tokens']} "
                     f"tokens for {self.concept_type}"
@@ -917,7 +946,19 @@ class UnifiedDualExtractor:
             return extract_json_from_response(response_text)
 
         except Exception as e:
-            logger.error(f"LLM call failed for {self.concept_type}: {e}")
+            logger.error(
+                f"LLM call failed for {self.concept_type}: "
+                f"{type(e).__name__}: {e}"
+            )
+            # Log full chain for connection errors
+            if hasattr(e, '__cause__') and e.__cause__:
+                logger.error(f"  Caused by: {type(e.__cause__).__name__}: {e.__cause__}")
+            if hasattr(e, 'status_code'):
+                logger.error(f"  Status code: {e.status_code}")
+            if hasattr(e, 'response'):
+                logger.error(f"  Response: {e.response}")
+            import traceback
+            logger.error(f"  Traceback: {traceback.format_exc()}")
             return {}
 
     # ------------------------------------------------------------------
@@ -1094,6 +1135,12 @@ class UnifiedDualExtractor:
             md.setdefault('confidence', 0.5)
             if not md.get('reasoning'):
                 md['reasoning'] = 'No reasoning provided by LLM'
+            # Remap LLM variants of matched_label
+            if not md.get('matched_label'):
+                for alt_key in ('matched_class', 'matched_name', 'match_label'):
+                    if alt_key in md:
+                        md['matched_label'] = md.pop(alt_key)
+                        break
         # If LLM omits match_decision entirely on a class (has "label" key),
         # add a default so Pydantic populates the field
         if 'match_decision' not in item and 'label' in item:
@@ -1120,6 +1167,45 @@ class UnifiedDualExtractor:
         ):
             if enum_field in item and isinstance(item[enum_field], str):
                 item[enum_field] = item[enum_field].replace('-', '_')
+
+        # Normalize compliance_status to valid ComplianceStatus enum values.
+        # LLMs produce semantically equivalent but syntactically invalid values
+        # (e.g. "potentially_violated", "met_after_objection"). Two-stage:
+        # 1. Exact synonym map for known variants
+        # 2. Keyword fallback for any novel LLM invention
+        _COMPLIANCE_VALID = {'met', 'unmet', 'partial', 'unclear'}
+        _COMPLIANCE_STATUS_MAP = {
+            'not_met': 'unmet',
+            'unknown': 'unclear',
+            'partially_met': 'partial',
+            'in_progress': 'partial',
+            'pending': 'unclear',
+            'violated': 'unmet',
+            'fulfilled': 'met',
+            'compliant': 'met',
+            'non_compliant': 'unmet',
+            'potentially_violated': 'partial',
+            'met_after_objection': 'met',
+        }
+        cs = item.get('compliance_status')
+        if cs and isinstance(cs, str) and cs not in _COMPLIANCE_VALID:
+            if cs in _COMPLIANCE_STATUS_MAP:
+                item['compliance_status'] = _COMPLIANCE_STATUS_MAP[cs]
+            else:
+                # Keyword fallback for novel LLM values.
+                # Split on underscores to get word tokens, avoiding
+                # substring false positives (e.g. "so_met_hing").
+                tokens = set(cs.lower().replace('-', '_').split('_'))
+                if tokens & {'violated', 'violation', 'breached', 'breach'}:
+                    item['compliance_status'] = 'unmet'
+                elif tokens & {'partial', 'partially', 'progress'}:
+                    item['compliance_status'] = 'partial'
+                elif tokens & {'unclear', 'unknown', 'undetermined', 'indeterminate'}:
+                    item['compliance_status'] = 'unclear'
+                elif tokens & {'met', 'fulfilled', 'satisfied', 'complied'}:
+                    item['compliance_status'] = 'met'
+                else:
+                    item['compliance_status'] = 'unclear'
 
         return item
 

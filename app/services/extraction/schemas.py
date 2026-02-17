@@ -819,8 +819,9 @@ class Flexibility(str, Enum):
 
 class Severity(str, Enum):
     critical = "critical"
-    major = "major"
-    minor = "minor"
+    high = "high"
+    medium = "medium"
+    low = "low"
 
 
 class CandidateConstraintClass(BaseCandidate):

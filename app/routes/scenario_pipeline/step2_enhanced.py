@@ -43,7 +43,8 @@ def extract_with_retry(extractor_func, *args, **kwargs):
 
 
 def extract_concept_type(concept_type: str, section_text: str, case_id: int,
-                         session_id: str, prov_service=None) -> Dict[str, Any]:
+                         session_id: str, prov_service=None,
+                         section_type: str = 'discussion') -> Dict[str, Any]:
     """
     Extract a single concept type with error handling and retry logic.
     Returns a result dict with success status and data.
@@ -68,7 +69,7 @@ def extract_concept_type(concept_type: str, section_text: str, case_id: int,
                 extractor.extract,
                 case_text=section_text,
                 case_id=case_id,
-                section_type='discussion'
+                section_type=section_type
             )
 
             if prov_service:
@@ -98,7 +99,7 @@ def extract_concept_type(concept_type: str, section_text: str, case_id: int,
                 extractor.extract,
                 case_text=section_text,
                 case_id=case_id,
-                section_type='discussion'
+                section_type=section_type
             )
 
             result['data'] = {
@@ -115,7 +116,7 @@ def extract_concept_type(concept_type: str, section_text: str, case_id: int,
                 extractor.extract,
                 case_text=section_text,
                 case_id=case_id,
-                section_type='discussion'
+                section_type=section_type
             )
 
             result['data'] = {
@@ -132,7 +133,7 @@ def extract_concept_type(concept_type: str, section_text: str, case_id: int,
                 extractor.extract,
                 case_text=section_text,
                 case_id=case_id,
-                section_type='discussion'
+                section_type=section_type
             )
 
             result['data'] = {
@@ -281,13 +282,18 @@ def normative_pass_execute_streaming(case_id: int):
     def generate():
         """Generator function for SSE streaming"""
         try:
-            # Get request data
-            section_text = request.json.get('section_text')
+            # Resolve section text server-side from case metadata
+            from app.models import Document
+            from app.routes.scenario_pipeline.step2 import _resolve_section_text
+
+            section_type = request.json.get('section_type', 'facts') if request.json else 'facts'
+            case = Document.query.get(case_id)
+            section_text = _resolve_section_text(case, section_type) if case else None
             if not section_text:
-                yield f"data: {json.dumps({'error': 'section_text is required'})}\n\n"
+                yield f"data: {json.dumps({'error': f'No {section_type} section found for case {case_id}'})}\n\n"
                 return
 
-            logger.info(f"Starting streaming normative pass execution for case {case_id}")
+            logger.info(f"Starting streaming normative pass execution for case {case_id}, section={section_type}")
 
             # Initialize provenance tracking
             from app.services.provenance_service import get_provenance_service
@@ -343,7 +349,8 @@ def normative_pass_execute_streaming(case_id: int):
                             section_text=section_text,
                             case_id=case_id,
                             session_id=session_id,
-                            prov_service=prov
+                            prov_service=prov,
+                            section_type=section_type
                         )
 
                         all_results.append(result)

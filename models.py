@@ -8,18 +8,19 @@ import os
 class ModelConfig:
     """Centralized configuration for AI models."""
     
-    # Anthropic/Claude Models (as of January 2026)
+    # Anthropic/Claude Models (as of February 2026)
     # See: https://docs.anthropic.com/en/docs/about-claude/models/overview
     CLAUDE_MODELS = {
         # Primary models for different use cases
-        "fast": os.getenv("CLAUDE_FAST_MODEL", "claude-haiku-4-5-20251022"),
-        "powerful": os.getenv("CLAUDE_POWERFUL_MODEL", "claude-opus-4-5-20251101"),
+        "fast": os.getenv("CLAUDE_FAST_MODEL", "claude-haiku-4-5-20251001"),
+        "powerful": os.getenv("CLAUDE_POWERFUL_MODEL", "claude-opus-4-6"),
         "default": os.getenv("CLAUDE_DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
 
         # Specific versions (for testing/compatibility)
-        "opus-4.5": "claude-opus-4-5-20251101",  # Latest Opus 4.5 (Nov 2025)
-        "sonnet-4.5": "claude-sonnet-4-5-20250929",  # Latest Sonnet 4.5 (Sep 2025)
-        "haiku-4.5": "claude-haiku-4-5-20251022",  # Latest Haiku 4.5 (Oct 2025)
+        "opus-4.6": "claude-opus-4-6",  # Latest Opus 4.6 (Feb 2026)
+        "opus-4.5": "claude-opus-4-5-20251101",  # Legacy Opus 4.5 (Nov 2025)
+        "sonnet-4.5": "claude-sonnet-4-5-20250929",  # Sonnet 4.5 (Sep 2025)
+        "haiku-4.5": "claude-haiku-4-5-20251001",  # Haiku 4.5 (Oct 2025)
         "sonnet-4": "claude-sonnet-4-20250514",  # Previous Sonnet 4
         "opus-4.1": "claude-opus-4-1-20250805",  # Previous Opus 4.1
         "opus-4": "claude-opus-4-20250514",  # Previous Opus 4

@@ -166,8 +166,8 @@ SYNTHESIS_PARAMETERS = {
         'type': 'select',
         'options': [
             {'value': 'claude-sonnet-4-5-20250929', 'label': 'Sonnet 4.5 (Default)'},
-            {'value': 'claude-haiku-4-5-20251022', 'label': 'Haiku 4.5 (Fast)'},
-            {'value': 'claude-opus-4-5-20251101', 'label': 'Opus 4.5 (Powerful)'}
+            {'value': 'claude-haiku-4-5-20251001', 'label': 'Haiku 4.5 (Fast)'},
+            {'value': 'claude-opus-4-6', 'label': 'Opus 4.6 (Powerful)'}
         ],
         'default': 'claude-sonnet-4-5-20250929'
     },

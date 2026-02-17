@@ -22,7 +22,7 @@ class LLMConfig:
     # Model selection
     default_model: str = "claude-sonnet-4-5-20250929"
     fast_model: str = "claude-haiku-4-5-20251022"
-    powerful_model: str = "claude-opus-4-5-20251101"
+    powerful_model: str = "claude-opus-4-6"
 
     # Timeout configuration (addresses Sonnet 4.5 timeout issues documented in CLAUDE.md)
     connect_timeout: float = 10.0

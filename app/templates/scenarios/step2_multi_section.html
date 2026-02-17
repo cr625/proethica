@@ -419,6 +419,7 @@ const extractionStatus = {
 // Track if we've already shown the completion popup
 let completionPopupShown = false;
 let isInitialLoad = true;
+let isRunningFullPass = false;
 
 function markExtractionComplete(conceptType) {
     extractionStatus[conceptType] = true;
@@ -429,7 +430,7 @@ function checkAllExtractionsComplete() {
     const allComplete = extractionStatus.principles && extractionStatus.obligations &&
                        extractionStatus.constraints && extractionStatus.capabilities;
 
-    if (allComplete && !isInitialLoad && !completionPopupShown) {
+    if (allComplete && !isInitialLoad && !completionPopupShown && isRunningFullPass) {
         showCompletionPopup();
         completionPopupShown = true;
     }
@@ -671,6 +672,13 @@ async function extractIndividualConcept(conceptType) {
 }
 
 async function executeFullNormativePass() {
+    isRunningFullPass = true;
+    completionPopupShown = false;
+    // Reset extraction status so completion is tracked fresh for this pass
+    extractionStatus.principles = false;
+    extractionStatus.obligations = false;
+    extractionStatus.constraints = false;
+    extractionStatus.capabilities = false;
     const button = document.getElementById('normativePassBtn');
     button.disabled = true;
     button.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Clearing & Extracting All...';
@@ -695,26 +703,30 @@ async function executeFullNormativePass() {
         console.error('Error clearing Pass 2 entities:', error);
     }
 
-    // Run all four extractors in sequence
-    Promise.all([
-        extractConcept('principles'),
-        extractConcept('obligations'),
-        extractConcept('constraints'),
-        extractConcept('capabilities')
-    ])
-    .then(results => {
-        console.log('Full normative pass completed', results);
-        // Completion popup will be shown by markExtractionComplete when all are done
-    })
-    .catch(error => {
+    // Run extractors sequentially following dependency chain:
+    // principles -> obligations -> constraints + capabilities (parallel)
+    try {
+        console.log('Full normative pass: extracting principles...');
+        await extractConcept('principles');
+
+        console.log('Full normative pass: extracting obligations...');
+        await extractConcept('obligations');
+
+        console.log('Full normative pass: extracting constraints + capabilities...');
+        await Promise.all([
+            extractConcept('constraints'),
+            extractConcept('capabilities')
+        ]);
+
+        console.log('Full normative pass completed');
+    } catch (error) {
         console.error('Error in full pass:', error);
-        // Individual errors are shown in each section
-    })
-    .finally(() => {
+    } finally {
+        isRunningFullPass = false;
         button.disabled = false;
         button.innerHTML = `<i class="bi bi-arrow-right-circle"></i> Full Normative Requirements Pass
                            <small class="d-block">Extract All: Principles + Obligations + Constraints + Capabilities</small>`;
-    });
+    }
 }
 
 function extractConcept(conceptType) {
