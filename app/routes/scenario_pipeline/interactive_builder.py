@@ -20,13 +20,16 @@ logger = logging.getLogger(__name__)
 interactive_scenario_bp = Blueprint('scenario_pipeline', __name__, url_prefix='/scenario_pipeline')
 
 def init_csrf_exemption(app):
-    """Exempt entity tagging routes from CSRF protection since they're API endpoints"""
+    """Exempt API endpoints from CSRF protection (they use JSON, not form submission)"""
     if hasattr(app, 'csrf') and app.csrf:
         # Exempt the tag entity routes
         app.csrf.exempt(tag_entities_in_questions_route)
         app.csrf.exempt(tag_entities_in_conclusions_route)
         # Exempt code provision extraction
         app.csrf.exempt(extract_code_provisions_route)
+        # Exempt streaming extraction endpoints
+        app.csrf.exempt(entities_pass_execute_streaming)
+        app.csrf.exempt(normative_pass_execute_streaming)
 
 @interactive_scenario_bp.route('/case/<int:case_id>')
 @auth_optional

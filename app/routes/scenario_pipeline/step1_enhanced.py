@@ -5,10 +5,11 @@ import json
 import uuid
 import time
 from typing import Dict, Any, Optional, List
-from flask import jsonify, request, Response
+from flask import jsonify, request, Response, stream_with_context
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from app.models import db
-from app.utils import logger
+import logging
+logger = logging.getLogger(__name__)
 from contextlib import nullcontext
 
 # Retry configuration
@@ -42,7 +43,8 @@ def extract_with_retry(extractor_func, *args, **kwargs):
 
 
 def extract_entity_type(entity_type: str, section_text: str, case_id: int,
-                        session_id: str, prov_service=None) -> Dict[str, Any]:
+                        session_id: str, prov_service=None,
+                        section_type: str = 'facts') -> Dict[str, Any]:
     """
     Extract a single entity type with error handling and retry logic.
     Returns a result dict with success status and data.
@@ -77,7 +79,7 @@ def extract_entity_type(entity_type: str, section_text: str, case_id: int,
                         extractor.extract,
                         case_text=section_text,
                         case_id=case_id,
-                        section_type='facts'
+                        section_type=section_type
                     )
 
                     # Record results
@@ -97,7 +99,7 @@ def extract_entity_type(entity_type: str, section_text: str, case_id: int,
                     extractor.extract,
                     case_text=section_text,
                     case_id=case_id,
-                    section_type='facts'
+                    section_type=section_type
                 )
 
             result['data'] = {
@@ -126,7 +128,7 @@ def extract_entity_type(entity_type: str, section_text: str, case_id: int,
                         extractor.extract,
                         case_text=section_text,
                         case_id=case_id,
-                        section_type='facts'
+                        section_type=section_type
                     )
 
                     prov_service.record_extraction_results(
@@ -145,7 +147,7 @@ def extract_entity_type(entity_type: str, section_text: str, case_id: int,
                     extractor.extract,
                     case_text=section_text,
                     case_id=case_id,
-                    section_type='facts'
+                    section_type=section_type
                 )
 
             result['data'] = {
@@ -174,7 +176,7 @@ def extract_entity_type(entity_type: str, section_text: str, case_id: int,
                         extractor.extract,
                         case_text=section_text,
                         case_id=case_id,
-                        section_type='facts'
+                        section_type=section_type
                     )
 
                     prov_service.record_extraction_results(
@@ -193,7 +195,7 @@ def extract_entity_type(entity_type: str, section_text: str, case_id: int,
                     extractor.extract,
                     case_text=section_text,
                     case_id=case_id,
-                    section_type='facts'
+                    section_type=section_type
                 )
 
             result['data'] = {
@@ -356,11 +358,20 @@ def entities_pass_execute_streaming(case_id: int):
     Execute entities pass with streaming updates for real-time UI feedback.
     Uses Server-Sent Events (SSE) to stream progress.
     """
+    # Extract request data BEFORE entering the generator (request context
+    # may not be available once the generator starts iterating).
+    # Resolve section text server-side from case metadata.
+    from app.models import Document
+    from app.routes.scenario_pipeline.step2 import _resolve_section_text
+
+    req_section_type = request.json.get('section_type', 'facts') if request.json else 'facts'
+    case = Document.query.get(case_id)
+    req_section_text = _resolve_section_text(case, req_section_type) if case else None
+
     def generate():
         """Generator function for SSE streaming"""
         try:
-            # Get request data
-            section_text = request.json.get('section_text')
+            section_text = req_section_text
             if not section_text:
                 yield f"data: {json.dumps({'error': 'section_text is required'})}\n\n"
                 return
@@ -421,7 +432,8 @@ def entities_pass_execute_streaming(case_id: int):
                             section_text=section_text,
                             case_id=case_id,
                             session_id=session_id,
-                            prov_service=prov
+                            prov_service=prov,
+                            section_type=req_section_type
                         )
 
                         all_results.append(result)
@@ -462,4 +474,4 @@ def entities_pass_execute_streaming(case_id: int):
             logger.error(f"Error in streaming entities pass: {str(e)}")
             yield f"data: {json.dumps({'status': 'error', 'error': str(e)})}\n\n"
 
-    return Response(generate(), mimetype='text/event-stream')
+    return Response(stream_with_context(generate()), mimetype='text/event-stream')

@@ -5,7 +5,7 @@ import json
 import uuid
 import time
 from typing import Dict, Any, Optional, List
-from flask import jsonify, request, Response
+from flask import jsonify, request, Response, stream_with_context
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from app.models import db
 import logging
@@ -72,18 +72,8 @@ def extract_concept_type(concept_type: str, section_text: str, case_id: int,
                 section_type=section_type
             )
 
-            if prov_service:
-                prov_service.record_extraction_results(
-                    results=[{
-                        'label': c.label,
-                        'definition': c.definition,
-                        'confidence': c.confidence,
-                        'type': 'principle_class'
-                    } for c in candidate_classes],
-                    activity=None,
-                    entity_type='extracted_principle_classes',
-                    metadata={'count': len(candidate_classes)}
-                )
+            # Provenance recording skipped here -- activity context is
+            # managed by the caller (normative_pass_execute_streaming)
 
             result['data'] = {
                 'classes': [serialize_principle_class(c) for c in candidate_classes],
@@ -279,16 +269,20 @@ def normative_pass_execute_streaming(case_id: int):
     Execute normative pass with streaming updates for real-time UI feedback.
     Uses Server-Sent Events (SSE) to stream progress.
     """
+    # Extract request data BEFORE entering the generator (request context
+    # may not be available once the generator starts iterating)
+    from app.models import Document
+    from app.routes.scenario_pipeline.step2 import _resolve_section_text
+
+    req_section_type = request.json.get('section_type', 'facts') if request.json else 'facts'
+    case = Document.query.get(case_id)
+    req_section_text = _resolve_section_text(case, req_section_type) if case else None
+
     def generate():
         """Generator function for SSE streaming"""
         try:
-            # Resolve section text server-side from case metadata
-            from app.models import Document
-            from app.routes.scenario_pipeline.step2 import _resolve_section_text
-
-            section_type = request.json.get('section_type', 'facts') if request.json else 'facts'
-            case = Document.query.get(case_id)
-            section_text = _resolve_section_text(case, section_type) if case else None
+            section_type = req_section_type
+            section_text = req_section_text
             if not section_text:
                 yield f"data: {json.dumps({'error': f'No {section_type} section found for case {case_id}'})}\n\n"
                 return
@@ -389,4 +383,4 @@ def normative_pass_execute_streaming(case_id: int):
             logger.error(f"Error in streaming normative pass: {str(e)}")
             yield f"data: {json.dumps({'status': 'error', 'error': str(e)})}\n\n"
 
-    return Response(generate(), mimetype='text/event-stream')
+    return Response(stream_with_context(generate()), mimetype='text/event-stream')
