@@ -39,7 +39,6 @@ def get_cases_with_component_embeddings():
     result = db.session.execute(text("""
         SELECT case_id FROM case_precedent_features
         WHERE combined_embedding IS NOT NULL
-        AND extraction_method = 'component_aggregation'
         ORDER BY case_id
     """)).fetchall()
     return [r[0] for r in result]
@@ -110,11 +109,15 @@ def compare_case(case_id: int, service: PrecedentSimilarityService,
     Returns comparison metrics and details.
     """
     # Get results using both methods
+    # Use limit=200 to ensure enough results survive filtering to the
+    # component-embedded pool (25 of 118 cases). With limit=top_k*2,
+    # section-based search returns mostly non-component cases.
+    fetch_limit = 200
     section_results = service.find_similar_cases(
-        case_id, limit=top_k * 2, use_component_embedding=False
+        case_id, limit=fetch_limit, use_component_embedding=False
     )
     component_results = service.find_similar_cases(
-        case_id, limit=top_k * 2, use_component_embedding=True
+        case_id, limit=fetch_limit, use_component_embedding=True
     )
 
     # Filter to cases with component embeddings for fair comparison
