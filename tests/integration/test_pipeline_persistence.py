@@ -41,17 +41,16 @@ class TestPromptPersistence:
         db.session.commit()
 
         # Import and run extraction with mock
-        from app.tasks.pipeline_tasks import run_extraction, get_extractor_class
+        from app.tasks.pipeline_tasks import run_extraction
 
         # Mock the LLM calls
         with patch('app.services.external_mcp_client.get_external_mcp_client') as mock_mcp:
             mock_mcp.return_value = MagicMock()
 
-            # Run extraction (uses the extractor class internally)
-            extractor_class = get_extractor_class('roles')
+            # Run extraction (uses UnifiedDualExtractor internally)
             case_text = "Engineer A is working on a project."
             result = run_extraction(
-                extractor_class, case_text, case_id, 'facts', 'roles',
+                case_text, case_id, 'facts', 'roles',
                 step_number=1
             )
 

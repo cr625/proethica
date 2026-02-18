@@ -395,38 +395,34 @@ function displayExtractionResults(type, data) {
     const resultsEl = document.getElementById(`${type}Results`);
     let html = '';
 
-    if (type === 'roles' && data) {
-        if (data.classes && data.classes.length > 0) {
-            html += '<h6>Role Classes:</h6><ul>';
-            data.classes.forEach(cls => {
-                html += `<li><strong>${cls.label}</strong> - ${cls.definition}
-                         <span class="badge bg-secondary">${(cls.confidence * 100).toFixed(0)}%</span></li>`;
-            });
-            html += '</ul>';
-        }
+    if (!data) {
+        resultsEl.innerHTML = '<p class="text-muted">No entities found</p>';
+        return;
+    }
 
-        if (data.individuals && data.individuals.length > 0) {
-            html += '<h6>Individuals:</h6><ul>';
-            data.individuals.forEach(ind => {
-                html += `<li><strong>${ind.name}</strong> (${ind.role_class})
-                         <span class="badge bg-info">${ind.is_new_role_class ? 'New Role' : 'Existing Role'}</span></li>`;
-            });
-            html += '</ul>';
-        }
+    // Capitalize type for display headers
+    const typeLabel = type.charAt(0).toUpperCase() + type.slice(1);
 
-    } else if (type === 'states' && data && data.states) {
-        html += '<ul>';
-        data.states.forEach(state => {
-            html += `<li><strong>${state.label}</strong> - ${state.description}
-                     <span class="badge bg-secondary">${(state.confidence * 100).toFixed(0)}%</span></li>`;
+    if (data.classes && data.classes.length > 0) {
+        html += `<h6>${typeLabel} Classes:</h6><ul>`;
+        data.classes.forEach(cls => {
+            html += `<li><strong>${cls.label}</strong> - ${cls.definition || ''}
+                     <span class="badge bg-secondary">${(cls.confidence * 100).toFixed(0)}%</span></li>`;
         });
         html += '</ul>';
+    }
 
-    } else if (type === 'resources' && data && data.resources) {
-        html += '<ul>';
-        data.resources.forEach(resource => {
-            html += `<li><strong>${resource.label}</strong> - ${resource.description}
-                     <span class="badge bg-secondary">${(resource.confidence * 100).toFixed(0)}%</span></li>`;
+    if (data.individuals && data.individuals.length > 0) {
+        html += '<h6>Individuals:</h6><ul>';
+        data.individuals.forEach(ind => {
+            const label = ind.name || ind.label || ind.identifier || '';
+            const parentClass = ind.role_class || ind.state_class || ind.resource_class || '';
+            const matchType = ind.type || '';
+            const badge = matchType.includes('individual') ? 'Existing ' + typeLabel.slice(0, -1) : '';
+            html += `<li><strong>${label}</strong>` +
+                    (parentClass ? ` (${parentClass})` : '') +
+                    (badge ? ` <span class="badge bg-info">${badge}</span>` : '') +
+                    `</li>`;
         });
         html += '</ul>';
     }

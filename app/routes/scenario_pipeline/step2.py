@@ -91,16 +91,12 @@ def init_step2_csrf_exemption(app):
 def extract_individual_concept(case_id):
     """
     API endpoint to extract an individual concept type from the normative pass.
-    This allows debugging of individual extractors (principles, obligations, constraints, capabilities).
     Supports section_type parameter for multi-section extraction.
     """
-    from app import db  # Import db at the start of the function
-
     try:
         if request.method != 'POST':
             return jsonify({'error': 'POST method required'}), 405
 
-        # Get request data
         data = request.get_json()
         if not data:
             return jsonify({'error': 'No JSON data provided'}), 400
@@ -110,520 +106,64 @@ def extract_individual_concept(case_id):
 
         if not concept_type:
             return jsonify({'error': 'concept_type is required'}), 400
-
         if concept_type not in ['principles', 'obligations', 'constraints', 'capabilities']:
             return jsonify({'error': f'Invalid concept_type: {concept_type}'}), 400
 
-        # Get the case
         case = Document.query.get_or_404(case_id)
-
-        # Always resolve section text server-side from case metadata
-        # (avoids encoding issues from browser-to-server round-trip)
         section_text = _resolve_section_text(case, section_type)
         if not section_text:
             return jsonify({'error': f'No {section_type} section found'}), 400
 
         logger.info(f"Executing individual {concept_type} extraction for case {case_id}, section: {section_type}")
 
-        # Initialize provenance service
-        if USE_VERSIONED_PROVENANCE:
-            prov = get_versioned_provenance_service()
-        else:
-            from app.services.provenance_service import get_provenance_service
-            prov = get_provenance_service()
+        from app.services.extraction.concept_extraction_service import extract_concept
 
-        # Create session ID for this extraction
         session_id = str(uuid.uuid4())
 
-        # Perform the extraction based on concept type
-        candidates = []
-        extraction_prompt = ""
-        raw_llm_response = ""
-        activity = None
+        extraction = extract_concept(
+            case_text=section_text,
+            case_id=case_id,
+            concept_type=concept_type,
+            section_type=section_type,
+            step_number=2,
+            session_id=session_id,
+        )
 
-        if concept_type == 'principles':
-            from app.services.extraction.unified_dual_extractor import UnifiedDualExtractor
-            from models import ModelConfig
-
-            extractor = UnifiedDualExtractor('principles')
-            candidate_classes, principle_individuals = extractor.extract(
-                case_text=section_text,
-                case_id=case_id,
-                section_type=section_type
-            )
-            extraction_prompt = extractor.last_prompt
-            raw_llm_response = extractor.last_raw_response
-
-            # Save prompt and response
-            from app.models import ExtractionPrompt
-            try:
-                ExtractionPrompt.save_prompt(
-                    case_id=case_id,
-                    concept_type='principles',
-                    prompt_text=extraction_prompt,
-                    raw_response=raw_llm_response,
-                    step_number=2,
-                    llm_model=extractor.model_name,
-                    extraction_session_id=session_id,
-                    section_type=section_type
-                )
-            except Exception as e:
-                logger.warning(f"Could not save extraction prompt: {e}")
-
-            # Store Pydantic results directly (bypasses old RDFExtractionConverter)
-            try:
-                from app.services.extraction.extraction_graph import pydantic_to_rdf_data
-                from app.models import TemporaryRDFStorage
-
-                rdf_data = pydantic_to_rdf_data(
-                    classes=candidate_classes,
-                    individuals=principle_individuals,
-                    concept_type='principles',
-                    case_id=case_id,
-                    section_type=section_type,
-                    pass_number=2,
-                )
-                logger.info(
-                    f"Converted Pydantic to rdf_data: "
-                    f"{len(rdf_data['new_classes'])} classes, "
-                    f"{len(rdf_data['new_individuals'])} individuals"
-                )
-
-                stored_entities = TemporaryRDFStorage.store_extraction_results(
-                    case_id=case_id,
-                    extraction_session_id=session_id,
-                    extraction_type='principles',
-                    rdf_data=rdf_data,
-                    extraction_model=extractor.model_name,
-                    provenance_data={
-                        'section_type': section_type,
-                        'extracted_at': datetime.utcnow().isoformat(),
-                        'model_used': extractor.model_name,
-                        'extraction_pass': 'normative_requirements',
-                        'concept_type': 'principles'
-                    }
-                )
-                logger.info(f"Stored {len(stored_entities)} principle entities for case {case_id}")
-                db.session.commit()
-            except Exception as e:
-                logger.error(f"Failed to store principles entities: {e}")
-                import traceback
-                logger.error(traceback.format_exc())
-
-            # Convert to candidates format for UI compatibility
-            candidates = []
-            from app.services.extraction.base import ConceptCandidate
-            for cls in candidate_classes:
-                candidates.append(ConceptCandidate(
-                    label=cls.label,
-                    description=cls.definition,
-                    primary_type='principle',
-                    category='principle',
-                    confidence=cls.confidence,
-                    debug={
-                        'abstract_nature': getattr(cls, 'abstract_nature', ''),
-                        'value_basis': getattr(cls, 'value_basis', ''),
-                        'extensional_examples': getattr(cls, 'extensional_examples', []),
-                        'operationalization': getattr(cls, 'operationalization', ''),
-                        'derived_obligations': getattr(cls, 'derived_obligations', []),
-                        'potential_conflicts': getattr(cls, 'potential_conflicts', []),
-                        'is_class': True
-                    }
-                ))
-
-            for ind in principle_individuals:
-                candidates.append(ConceptCandidate(
-                    label=ind.identifier,
-                    description=getattr(ind, 'concrete_expression', '') or '',
-                    primary_type='principle_instance',
-                    category='principle',
-                    confidence=ind.confidence,
-                    debug={
-                        'principle_class': ind.principle_class,
-                        'invoked_by': getattr(ind, 'invoked_by', []),
-                        'applied_to': getattr(ind, 'applied_to', []),
-                        'interpretation': getattr(ind, 'interpretation', ''),
-                        'balancing_with': getattr(ind, 'balancing_with', []),
-                        'is_individual': True
-                    }
-                ))
-
-        elif concept_type == 'obligations':
-            from app.services.extraction.unified_dual_extractor import UnifiedDualExtractor
-            from models import ModelConfig
-
-            extractor = UnifiedDualExtractor('obligations')
-            candidate_classes, obligation_individuals = extractor.extract(
-                case_text=section_text,
-                case_id=case_id,
-                section_type=section_type
-            )
-            extraction_prompt = extractor.last_prompt
-            raw_llm_response = extractor.last_raw_response
-
-            from app.models import ExtractionPrompt
-            try:
-                ExtractionPrompt.save_prompt(
-                    case_id=case_id,
-                    concept_type='obligations',
-                    prompt_text=extraction_prompt,
-                    raw_response=raw_llm_response,
-                    step_number=2,
-                    llm_model=extractor.model_name,
-                    extraction_session_id=session_id,
-                    section_type=section_type
-                )
-            except Exception as e:
-                logger.warning(f"Could not save extraction prompt: {e}")
-
-            try:
-                from app.services.extraction.extraction_graph import pydantic_to_rdf_data
-                from app.models import TemporaryRDFStorage
-
-                rdf_data = pydantic_to_rdf_data(
-                    classes=candidate_classes,
-                    individuals=obligation_individuals,
-                    concept_type='obligations',
-                    case_id=case_id,
-                    section_type=section_type,
-                    pass_number=2,
-                )
-                stored_entities = TemporaryRDFStorage.store_extraction_results(
-                    case_id=case_id,
-                    extraction_session_id=session_id,
-                    extraction_type='obligations',
-                    rdf_data=rdf_data,
-                    extraction_model=extractor.model_name,
-                    provenance_data={
-                        'section_type': section_type,
-                        'extracted_at': datetime.utcnow().isoformat(),
-                        'model_used': extractor.model_name,
-                        'extraction_pass': 'normative_requirements',
-                        'concept_type': 'obligations'
-                    }
-                )
-                logger.info(f"Stored {len(stored_entities)} obligation entities for case {case_id}")
-                db.session.commit()
-            except Exception as e:
-                logger.error(f"Failed to store obligations entities: {e}")
-                import traceback
-                logger.error(traceback.format_exc())
-
-            candidates = []
-            from app.services.extraction.base import ConceptCandidate
-            for obl_class in candidate_classes:
-                candidates.append(ConceptCandidate(
-                    label=obl_class.label,
-                    description=obl_class.definition,
-                    primary_type='obligations',
-                    category='obligations_class',
-                    confidence=obl_class.confidence,
-                    debug={
-                        'is_class': True,
-                        'derived_from_principle': getattr(obl_class, 'derived_from_principle', ''),
-                        'obligation_type': getattr(obl_class, 'obligation_type', ''),
-                        'enforcement_level': getattr(obl_class, 'enforcement_level', ''),
-                        'nspe_reference': getattr(obl_class, 'nspe_reference', ''),
-                        'extraction_method': 'unified_extraction'
-                    }
-                ))
-
-            for individual in obligation_individuals:
-                candidates.append(ConceptCandidate(
-                    label=individual.identifier,
-                    description=getattr(individual, 'obligation_statement', '') or '',
-                    primary_type='obligations',
-                    category='obligations_individual',
-                    confidence=individual.confidence,
-                    debug={
-                        'is_individual': True,
-                        'obligation_class': individual.obligation_class,
-                        'obligated_party': getattr(individual, 'obligated_party', ''),
-                        'compliance_status': getattr(individual, 'compliance_status', ''),
-                        'extraction_method': 'unified_extraction'
-                    }
-                ))
-
-        elif concept_type == 'constraints':
-            from app.services.extraction.unified_dual_extractor import UnifiedDualExtractor
-            from models import ModelConfig
-
-            extractor = UnifiedDualExtractor('constraints')
-            candidate_classes, constraint_individuals = extractor.extract(
-                case_text=section_text,
-                case_id=case_id,
-                section_type=section_type
-            )
-            extraction_prompt = extractor.last_prompt
-            raw_llm_response = extractor.last_raw_response
-
-            from app.models import ExtractionPrompt
-            try:
-                ExtractionPrompt.save_prompt(
-                    case_id=case_id,
-                    concept_type='constraints',
-                    prompt_text=extraction_prompt,
-                    raw_response=raw_llm_response,
-                    step_number=2,
-                    llm_model=extractor.model_name,
-                    extraction_session_id=session_id,
-                    section_type=section_type
-                )
-            except Exception as e:
-                logger.warning(f"Could not save extraction prompt: {e}")
-
-            try:
-                from app.services.extraction.extraction_graph import pydantic_to_rdf_data
-                from app.models import TemporaryRDFStorage
-
-                rdf_data = pydantic_to_rdf_data(
-                    classes=candidate_classes,
-                    individuals=constraint_individuals,
-                    concept_type='constraints',
-                    case_id=case_id,
-                    section_type=section_type,
-                    pass_number=2,
-                )
-                stored_entities = TemporaryRDFStorage.store_extraction_results(
-                    case_id=case_id,
-                    extraction_session_id=session_id,
-                    extraction_type='constraints',
-                    rdf_data=rdf_data,
-                    extraction_model=extractor.model_name,
-                    provenance_data={
-                        'section_type': section_type,
-                        'extracted_at': datetime.utcnow().isoformat(),
-                        'model_used': extractor.model_name,
-                        'extraction_pass': 'normative_requirements',
-                        'concept_type': 'constraints'
-                    }
-                )
-                logger.info(f"Stored {len(stored_entities)} constraint entities for case {case_id}")
-                db.session.commit()
-            except Exception as e:
-                logger.error(f"Failed to store constraints entities: {e}")
-                import traceback
-                logger.error(traceback.format_exc())
-
-            candidates = []
-            from app.services.extraction.base import ConceptCandidate
-            for cons_class in candidate_classes:
-                candidates.append(ConceptCandidate(
-                    label=cons_class.label,
-                    description=cons_class.definition,
-                    primary_type='constraints',
-                    category='constraints_class',
-                    confidence=cons_class.confidence,
-                    debug={
-                        'is_class': True,
-                        'constraint_type': getattr(cons_class, 'constraint_type', ''),
-                        'flexibility': getattr(cons_class, 'flexibility', ''),
-                        'violation_impact': getattr(cons_class, 'violation_impact', ''),
-                        'extraction_method': 'unified_extraction'
-                    }
-                ))
-
-            for individual in constraint_individuals:
-                candidates.append(ConceptCandidate(
-                    label=individual.identifier,
-                    description=getattr(individual, 'constraint_statement', '') or '',
-                    primary_type='constraints',
-                    category='constraints_individual',
-                    confidence=individual.confidence,
-                    debug={
-                        'is_individual': True,
-                        'constraint_class': individual.constraint_class,
-                        'constrained_entity': getattr(individual, 'constrained_entity', ''),
-                        'severity': getattr(individual, 'severity', ''),
-                        'extraction_method': 'unified_extraction'
-                    }
-                ))
-
-        elif concept_type == 'capabilities':
-            from app.services.extraction.unified_dual_extractor import UnifiedDualExtractor
-            from models import ModelConfig
-
-            extractor = UnifiedDualExtractor('capabilities')
-            candidate_classes, capability_individuals = extractor.extract(
-                case_text=section_text,
-                case_id=case_id,
-                section_type=section_type
-            )
-            extraction_prompt = extractor.last_prompt
-            raw_llm_response = extractor.last_raw_response
-
-            from app.models import ExtractionPrompt
-            try:
-                ExtractionPrompt.save_prompt(
-                    case_id=case_id,
-                    concept_type='capabilities',
-                    prompt_text=extraction_prompt,
-                    raw_response=raw_llm_response,
-                    step_number=2,
-                    llm_model=extractor.model_name,
-                    extraction_session_id=session_id,
-                    section_type=section_type
-                )
-            except Exception as e:
-                logger.warning(f"Could not save extraction prompt: {e}")
-
-            try:
-                from app.services.extraction.extraction_graph import pydantic_to_rdf_data
-                from app.models import TemporaryRDFStorage
-
-                rdf_data = pydantic_to_rdf_data(
-                    classes=candidate_classes,
-                    individuals=capability_individuals,
-                    concept_type='capabilities',
-                    case_id=case_id,
-                    section_type=section_type,
-                    pass_number=2,
-                )
-                stored_entities = TemporaryRDFStorage.store_extraction_results(
-                    case_id=case_id,
-                    extraction_session_id=session_id,
-                    extraction_type='capabilities',
-                    rdf_data=rdf_data,
-                    extraction_model=extractor.model_name,
-                    provenance_data={
-                        'section_type': section_type,
-                        'extracted_at': datetime.utcnow().isoformat(),
-                        'model_used': extractor.model_name,
-                        'extraction_pass': 'normative_requirements',
-                        'concept_type': 'capabilities'
-                    }
-                )
-                logger.info(f"Stored {len(stored_entities)} capability entities for case {case_id}")
-                db.session.commit()
-            except Exception as e:
-                logger.error(f"Failed to store capabilities entities: {e}")
-                import traceback
-                logger.error(traceback.format_exc())
-
-            candidates = []
-            from app.services.extraction.base import ConceptCandidate
-            for cap_class in candidate_classes:
-                candidates.append(ConceptCandidate(
-                    label=cap_class.label,
-                    description=cap_class.definition,
-                    primary_type='capabilities',
-                    category='capabilities_class',
-                    confidence=cap_class.confidence,
-                    debug={
-                        'is_class': True,
-                        'capability_category': getattr(cap_class, 'capability_category', ''),
-                        'skill_level': getattr(cap_class, 'skill_level', ''),
-                        'enables_actions': getattr(cap_class, 'enables_actions', []),
-                        'extraction_method': 'unified_extraction'
-                    }
-                ))
-
-            for individual in capability_individuals:
-                candidates.append(ConceptCandidate(
-                    label=individual.identifier,
-                    description=getattr(individual, 'capability_statement', '') or '',
-                    primary_type='capabilities',
-                    category='capabilities_individual',
-                    confidence=individual.confidence,
-                    debug={
-                        'is_individual': True,
-                        'capability_class': individual.capability_class,
-                        'possessed_by': getattr(individual, 'possessed_by', ''),
-                        'proficiency_level': getattr(individual, 'proficiency_level', ''),
-                        'extraction_method': 'unified_extraction'
-                    }
-                ))
-
-        # Record extraction results in provenance
-        if candidates and activity:
-            prov.record_extraction_results(
-                results=[{
-                    'label': c.label,
-                    'description': c.description,
-                    'confidence': c.confidence,
-                    'debug': c.debug
-                } for c in candidates],
-                activity=activity,
-                entity_type=f'extracted_{concept_type}',
-                metadata={'count': len(candidates)}
-            )
-
-        # Commit provenance records
-        db.session.commit()
-
-        # Convert candidates to response format
+        # Build results from Pydantic models (classes + individuals)
         results = []
-        for candidate in candidates:
-            result_data = {
-                "label": candidate.label,
-                "description": candidate.description or "",
-                "type": concept_type.rstrip('s'),  # Remove plural 's'
-                "confidence": candidate.confidence
-            }
-
-            # Add concept-specific metadata
-            if concept_type == 'principles':
-                result_data.update({
-                    "principle_category": candidate.debug.get('principle_category', 'professional'),
-                    "abstraction_level": candidate.debug.get('abstraction_level', 'high'),
-                    "requires_interpretation": candidate.debug.get('requires_interpretation', True),
-                    "potential_conflicts": candidate.debug.get('potential_conflicts', []),
-                    "extensional_examples": candidate.debug.get('extensional_examples', []),
-                    "derived_obligations": candidate.debug.get('derived_obligations', []),
-                    "scholarly_grounding": candidate.debug.get('scholarly_grounding', '')
-                })
-            elif concept_type == 'obligations':
-                result_data.update({
-                    "obligation_type": candidate.debug.get('obligation_type', 'professional_practice'),
-                    "enforcement_level": candidate.debug.get('enforcement_level', 'mandatory'),
-                    "derived_from_principle": candidate.debug.get('derived_from_principle', ''),
-                    "stakeholders_affected": candidate.debug.get('stakeholders_affected', []),
-                    "potential_conflicts": candidate.debug.get('potential_conflicts', []),
-                    "monitoring_criteria": candidate.debug.get('monitoring_criteria', ''),
-                    "nspe_reference": candidate.debug.get('nspe_reference', ''),
-                    "contextual_factors": candidate.debug.get('contextual_factors', '')
-                })
-            elif concept_type == 'constraints':
-                result_data.update({
-                    "constraint_category": candidate.debug.get('constraint_category', 'resource'),
-                    "flexibility": candidate.debug.get('flexibility', 'non-negotiable'),
-                    "impact_on_decisions": candidate.debug.get('impact_on_decisions', ''),
-                    "affected_stakeholders": candidate.debug.get('affected_stakeholders', []),
-                    "potential_violations": candidate.debug.get('potential_violations', ''),
-                    "mitigation_strategies": candidate.debug.get('mitigation_strategies', []),
-                    "temporal_aspect": candidate.debug.get('temporal_aspect', 'permanent'),
-                    "quantifiable_metrics": candidate.debug.get('quantifiable_metrics', '')
-                })
-            elif concept_type == 'capabilities':
-                result_data.update({
-                    "capability_category": candidate.debug.get('capability_category', 'TechnicalCapability'),
-                    "ethical_relevance": candidate.debug.get('ethical_relevance', ''),
-                    "required_for_roles": candidate.debug.get('required_for_roles', []),
-                    "enables_obligations": candidate.debug.get('enables_obligations', []),
-                    "theoretical_grounding": candidate.debug.get('theoretical_grounding', ''),
-                    "development_path": candidate.debug.get('development_path', '')
-                })
-
-            results.append(result_data)
+        for cls in extraction.classes:
+            results.append({
+                'label': cls.label,
+                'description': cls.definition or '',
+                'type': concept_type.rstrip('s'),
+                'confidence': cls.confidence,
+            })
+        for ind in extraction.individuals:
+            results.append({
+                'label': ind.identifier,
+                'description': getattr(ind, 'concrete_expression', '') or getattr(ind, 'obligation_statement', '') or getattr(ind, 'constraint_statement', '') or getattr(ind, 'capability_statement', '') or '',
+                'type': concept_type.rstrip('s'),
+                'confidence': ind.confidence,
+            })
 
         return jsonify({
             'success': True,
             'concept_type': concept_type,
             'results': results,
             'count': len(results),
-            'prompt': extraction_prompt,
-            'raw_llm_response': raw_llm_response,
+            'prompt': extraction.prompt_text,
+            'raw_llm_response': extraction.raw_response,
             'session_id': session_id,
             'extraction_metadata': {
                 'timestamp': datetime.utcnow().isoformat(),
                 'extraction_method': 'unified_dual_extractor',
-                'provenance_tracked': True,
-                'model_used': extractor.model_name
-            }
+                'provenance_tracked': False,
+                'model_used': extraction.model_name,
+            },
         })
 
     except Exception as e:
-        logger.error(f"Error extracting individual {concept_type} for case {case_id}: {str(e)}", exc_info=True)
+        logger.error(f"Error extracting individual {concept_type} for case {case_id}: {e}", exc_info=True)
         return jsonify({'error': str(e), 'success': False}), 500
 
 def step2_data(case_id, section_type='facts'):
@@ -750,8 +290,8 @@ def step2(case_id):
             'pipeline_status': pipeline_status
         }
 
-        return render_template('scenarios/step2_multi_section.html', **context)
-        
+        return render_template('scenarios/step2_streaming.html', **context)
+
     except Exception as e:
         logger.error(f"Error loading step 2 for case {case_id}: {str(e)}")
         flash(f'Error loading step 2: {str(e)}', 'danger')
@@ -1234,7 +774,7 @@ def step2b(case_id):
         'pipeline_status': pipeline_status
     }
 
-    return render_template('scenarios/step2_multi_section.html', **context)
+    return render_template('scenarios/step2_streaming.html', **context)
 
 def step2c(case_id):
     """
@@ -1278,7 +818,7 @@ def step2c(case_id):
         'pipeline_status': pipeline_status
     }
 
-    return render_template('scenarios/step2_multi_section.html', **context)
+    return render_template('scenarios/step2_streaming.html', **context)
 
 def step2d(case_id):
     """
@@ -1322,7 +862,7 @@ def step2d(case_id):
         'pipeline_status': pipeline_status
     }
 
-    return render_template('scenarios/step2_multi_section.html', **context)
+    return render_template('scenarios/step2_streaming.html', **context)
 
 def step2e(case_id):
     """
@@ -1367,4 +907,4 @@ def step2e(case_id):
         'pipeline_status': pipeline_status
     }
 
-    return render_template('scenarios/step2_multi_section.html', **context)
+    return render_template('scenarios/step2_streaming.html', **context)

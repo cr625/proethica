@@ -129,7 +129,8 @@ def step1_streaming(case_id):
                          case=case_doc,
                          facts_section=facts_section,
                          discussion_section=discussion_section,
-                         saved_prompts=saved_prompts)
+                         saved_prompts=saved_prompts,
+                         current_step=1)
 
 @interactive_scenario_bp.route('/case/<int:case_id>/debug')
 def debug_overview_route(case_id):
@@ -316,7 +317,8 @@ def step2_streaming(case_id):
     return render_template('scenarios/step2_streaming.html',
                          case=case_doc,
                          discussion_section=facts_section,  # Keep name for template compatibility
-                         saved_prompts=saved_prompts)
+                         saved_prompts=saved_prompts,
+                         current_step=2)
 
 @interactive_scenario_bp.route('/case/<int:case_id>/normative_pass_execute_streaming', methods=['POST'])
 @auth_required_for_llm

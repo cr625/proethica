@@ -32,7 +32,6 @@ from datetime import datetime
 import logging
 import traceback
 import uuid
-import json
 import re
 
 logger = logging.getLogger(__name__)
@@ -80,241 +79,40 @@ def get_case_sections(case_id: int) -> dict:
     }
 
 
-def run_extraction(extractor_class, case_text: str, case_id: int,
-                   section_type: str, entity_type: str, step_number: int = 1) -> dict:
+def run_extraction(case_text: str, case_id: int,
+                   section_type: str, entity_type: str, step_number: int = 1,
+                   extractor_class=None) -> dict:
     """
-    Run a single extraction and return results.
+    Run a single extraction using the shared concept extraction service.
 
-    Also saves the prompt and response to the database for persistence,
-    and stores extracted entities to TemporaryRDFStorage for entity review.
+    Thin wrapper around extract_concept() that returns counts for Celery
+    task compatibility.
 
     Args:
-        extractor_class: The extractor class to instantiate
         case_text: Text to extract from
         case_id: Case ID
         section_type: 'facts' or 'discussion'
-        entity_type: Type of entity being extracted
+        entity_type: Type of entity being extracted (roles, states, etc.)
         step_number: Pipeline step number (1, 2, or 3)
+        extractor_class: Deprecated, ignored.
 
     Returns:
-        dict with extraction results
+        dict with extraction result counts
     """
-    from app.models.extraction_prompt import ExtractionPrompt
-    from app.models import TemporaryRDFStorage
-    from app.services.rdf_extraction_converter import RDFExtractionConverter
+    from app.services.extraction.concept_extraction_service import extract_concept
 
-    # Generate unique session ID to link prompt and entities
-    session_id = str(uuid.uuid4())
-
-    extractor = extractor_class()
-
-    if entity_type == 'roles':
-        classes, individuals = extractor.extract_dual_roles(
-            case_text=case_text, case_id=case_id, section_type=section_type
-        )
-    elif entity_type == 'states':
-        classes, individuals = extractor.extract_dual_states(
-            case_text=case_text, case_id=case_id, section_type=section_type
-        )
-    elif entity_type == 'resources':
-        classes, individuals = extractor.extract_dual_resources(
-            case_text=case_text, case_id=case_id, section_type=section_type
-        )
-    elif entity_type == 'principles':
-        classes, individuals = extractor.extract_dual_principles(
-            case_text=case_text, case_id=case_id, section_type=section_type
-        )
-    elif entity_type == 'obligations':
-        classes, individuals = extractor.extract_dual_obligations(
-            case_text=case_text, case_id=case_id, section_type=section_type
-        )
-    elif entity_type == 'constraints':
-        classes, individuals = extractor.extract_dual_constraints(
-            case_text=case_text, case_id=case_id, section_type=section_type
-        )
-    elif entity_type == 'capabilities':
-        classes, individuals = extractor.extract_dual_capabilities(
-            case_text=case_text, case_id=case_id, section_type=section_type
-        )
-    elif entity_type == 'actions':
-        classes, individuals = extractor.extract_dual_actions(
-            case_text=case_text, case_id=case_id, section_type=section_type
-        )
-    elif entity_type == 'events':
-        classes, individuals = extractor.extract_dual_events(
-            case_text=case_text, case_id=case_id, section_type=section_type
-        )
-    elif entity_type == 'actions_events':
-        action_classes, action_individuals, event_classes, event_individuals = \
-            extractor.extract_dual_actions_events(
-                case_text=case_text, case_id=case_id, section_type=section_type
-            )
-
-        # Save prompt and response for actions_events with session_id
-        raw_response = extractor.last_raw_response
-        prompt_text = extractor.last_prompt or f"[Automated Pipeline] {entity_type} extraction for case {case_id}, {section_type}"
-        try:
-            ExtractionPrompt.save_prompt(
-                case_id=case_id,
-                concept_type='actions_events',
-                prompt_text=prompt_text,
-                raw_response=raw_response,
-                step_number=step_number,
-                section_type=section_type,
-                llm_model='claude-sonnet-4-20250514',
-                extraction_session_id=session_id,
-                results_summary={
-                    'action_classes': len(action_classes),
-                    'action_individuals': len(action_individuals),
-                    'event_classes': len(event_classes),
-                    'event_individuals': len(event_individuals)
-                }
-            )
-        except Exception as e:
-            logger.warning(f"Could not save extraction prompt: {e}")
-
-        # Store actions_events to TemporaryRDFStorage
-        try:
-            if raw_response:
-                raw_data = _parse_raw_response(raw_response)
-                rdf_converter = RDFExtractionConverter()
-                rdf_converter.convert_actions_events_extraction_to_rdf(raw_data, case_id)
-                rdf_data = rdf_converter.get_temporary_triples()
-                TemporaryRDFStorage.store_extraction_results(
-                    case_id=case_id,
-                    extraction_session_id=session_id,
-                    extraction_type='actions_events',
-                    rdf_data=rdf_data,
-                    extraction_model='claude-sonnet-4-20250514',
-                    provenance_data={'section_type': section_type}
-                )
-                logger.info(f"Stored actions_events RDF entities for case {case_id}, session {session_id}, section_type={section_type}")
-        except Exception as e:
-            logger.warning(f"Could not store actions_events RDF: {e}")
-
-        return {
-            'action_classes': len(action_classes),
-            'action_individuals': len(action_individuals),
-            'event_classes': len(event_classes),
-            'event_individuals': len(event_individuals),
-            'raw_response': raw_response
-        }
-    else:
-        raise ValueError(f"Unknown entity type: {entity_type}")
-
-    # Save prompt and response to database with session_id
-    raw_response = extractor.last_raw_response
-    prompt_text = extractor.last_prompt or f"[Automated Pipeline] {entity_type} extraction for case {case_id}, {section_type}"
-    try:
-        ExtractionPrompt.save_prompt(
-            case_id=case_id,
-            concept_type=entity_type,
-            prompt_text=prompt_text,
-            raw_response=raw_response,
-            step_number=step_number,
-            section_type=section_type,
-            llm_model='claude-sonnet-4-20250514',
-            extraction_session_id=session_id,
-            results_summary={
-                'classes': len(classes),
-                'individuals': len(individuals)
-            }
-        )
-    except Exception as e:
-        logger.warning(f"Could not save extraction prompt: {e}")
-
-    # Store entities to TemporaryRDFStorage for entity review
-    try:
-        if raw_response:
-            raw_data = _parse_raw_response(raw_response)
-            rdf_converter = RDFExtractionConverter()
-
-            # Use appropriate converter method based on entity type
-            if entity_type == 'roles':
-                rdf_converter.convert_extraction_to_rdf(raw_data, case_id, section_type=section_type, pass_number=step_number)
-            elif entity_type == 'states':
-                rdf_converter.convert_states_extraction_to_rdf(raw_data, case_id)
-            elif entity_type == 'resources':
-                rdf_converter.convert_resources_extraction_to_rdf(raw_data, case_id)
-            elif entity_type == 'principles':
-                rdf_converter.convert_principles_extraction_to_rdf(raw_data, case_id)
-            elif entity_type == 'obligations':
-                rdf_converter.convert_obligations_extraction_to_rdf(raw_data, case_id)
-            elif entity_type == 'constraints':
-                rdf_converter.convert_constraints_extraction_to_rdf(raw_data, case_id)
-            elif entity_type == 'capabilities':
-                rdf_converter.convert_capabilities_extraction_to_rdf(raw_data, case_id)
-            elif entity_type == 'actions':
-                rdf_converter.convert_actions_extraction_to_rdf(raw_data, case_id)
-            elif entity_type == 'events':
-                rdf_converter.convert_events_extraction_to_rdf(raw_data, case_id)
-
-            rdf_data = rdf_converter.get_temporary_triples()
-            TemporaryRDFStorage.store_extraction_results(
-                case_id=case_id,
-                extraction_session_id=session_id,
-                extraction_type=entity_type,
-                rdf_data=rdf_data,
-                extraction_model='claude-sonnet-4-20250514',
-                provenance_data={'section_type': section_type}
-            )
-            logger.info(f"Stored {entity_type} RDF entities for case {case_id}, session {session_id}, section_type={section_type}")
-    except Exception as e:
-        logger.warning(f"Could not store {entity_type} RDF: {e}")
+    result = extract_concept(
+        case_text=case_text,
+        case_id=case_id,
+        concept_type=entity_type,
+        section_type=section_type,
+        step_number=step_number,
+    )
 
     return {
-        'classes': len(classes),
-        'individuals': len(individuals),
-        'raw_response': raw_response
+        'classes': len(result.classes),
+        'individuals': len(result.individuals),
     }
-
-
-def _parse_raw_response(raw_response: str) -> dict:
-    """Parse raw LLM response JSON, handling mixed text/JSON responses."""
-    try:
-        return json.loads(raw_response)
-    except json.JSONDecodeError:
-        # Try to extract JSON from mixed response
-        json_match = re.search(r'\{[\s\S]*\}', raw_response)
-        if json_match:
-            return json.loads(json_match.group())
-        raise ValueError("Could not extract JSON from LLM response")
-
-
-def get_extractor_class(entity_type: str):
-    """Get the extractor class for an entity type."""
-    if entity_type == 'roles':
-        from app.services.extraction.dual_role_extractor import DualRoleExtractor
-        return DualRoleExtractor
-    elif entity_type == 'states':
-        from app.services.extraction.dual_states_extractor import DualStatesExtractor
-        return DualStatesExtractor
-    elif entity_type == 'resources':
-        from app.services.extraction.dual_resources_extractor import DualResourcesExtractor
-        return DualResourcesExtractor
-    elif entity_type == 'principles':
-        from app.services.extraction.dual_principles_extractor import DualPrinciplesExtractor
-        return DualPrinciplesExtractor
-    elif entity_type == 'obligations':
-        from app.services.extraction.dual_obligations_extractor import DualObligationsExtractor
-        return DualObligationsExtractor
-    elif entity_type == 'constraints':
-        from app.services.extraction.dual_constraints_extractor import DualConstraintsExtractor
-        return DualConstraintsExtractor
-    elif entity_type == 'capabilities':
-        from app.services.extraction.dual_capabilities_extractor import DualCapabilitiesExtractor
-        return DualCapabilitiesExtractor
-    elif entity_type == 'actions_events':
-        from app.services.extraction.dual_actions_events_extractor import DualActionsEventsExtractor
-        return DualActionsEventsExtractor
-    elif entity_type == 'actions':
-        from app.services.extraction.dual_actions_extractor import DualActionsExtractor
-        return DualActionsExtractor
-    elif entity_type == 'events':
-        from app.services.extraction.dual_events_extractor import DualEventsExtractor
-        return DualEventsExtractor
-    else:
-        raise ValueError(f"Unknown entity type: {entity_type}")
 
 
 @celery.task(bind=True, name='proethica.tasks.run_step1')
@@ -372,9 +170,8 @@ def run_step1_task(self, run_id: int, section_type: str = 'facts'):
             db.session.commit()
 
             logger.info(f"[Task {self.request.id}] Extracting {entity_type} from {section_type}")
-            extractor_class = get_extractor_class(entity_type)
             results[entity_type] = run_extraction(
-                extractor_class, case_text, run.case_id, section_type, entity_type,
+                case_text, run.case_id, section_type, entity_type,
                 step_number=1
             )
 
@@ -446,9 +243,8 @@ def run_step2_task(self, run_id: int, section_type: str = 'facts'):
             db.session.commit()
 
             logger.info(f"[Task {self.request.id}] Extracting {entity_type} from {section_type}")
-            extractor_class = get_extractor_class(entity_type)
             results[entity_type] = run_extraction(
-                extractor_class, case_text, run.case_id, section_type, entity_type,
+                case_text, run.case_id, section_type, entity_type,
                 step_number=2
             )
 
