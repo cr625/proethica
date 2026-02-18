@@ -10,7 +10,7 @@ Discussion analysis uses dual approach: independent and contextual with Facts aw
 import logging
 from contextlib import nullcontext
 from flask import render_template, request, jsonify, redirect, url_for, flash, session
-from app.models import Document
+from app.models import db, Document
 from app.routes.scenario_pipeline.overview import _format_section_for_llm
 from app.services.pipeline_status_service import PipelineStatusService
 
