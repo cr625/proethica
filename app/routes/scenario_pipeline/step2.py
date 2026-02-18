@@ -276,6 +276,12 @@ def step2(case_id):
         # Get pipeline status for navigation
         pipeline_status = PipelineStatusService.get_step_status(case_id)
 
+        # Load existing extraction results for page-load display
+        from app.routes.scenario_pipeline.step1 import _load_existing_extractions
+        existing_extractions = _load_existing_extractions(
+            case_id, ['principles', 'obligations', 'constraints', 'capabilities'], step_number=2
+        )
+
         context = {
             'case': case,
             'discussion_section': facts_section,  # Keep variable name for template compatibility
@@ -287,7 +293,8 @@ def step2(case_id):
             'next_step_name': 'Discussion Section',
             'prev_step_url': url_for('scenario_pipeline.step1b', case_id=case_id),
             'saved_prompts': saved_prompts,
-            'pipeline_status': pipeline_status
+            'pipeline_status': pipeline_status,
+            'existing_extractions': existing_extractions,
         }
 
         return render_template('scenarios/step2_streaming.html', **context)

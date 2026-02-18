@@ -430,6 +430,44 @@ function displayExtractionResults(type, data) {
     resultsEl.innerHTML = html || '<p class="text-muted">No entities found</p>';
 }
 
+// Load existing extraction results on page load
+(function() {
+    const existing = {{ existing_extractions | default({}) | tojson }};
+    if (Object.keys(existing).length === 0) return;
+
+    // Show the progress container
+    document.getElementById('extractionProgress').style.display = 'block';
+
+    for (const [type, data] of Object.entries(existing)) {
+        // Show entity count
+        const countEl = document.getElementById(`${type}Count`);
+        const entityCount = (data.classes ? data.classes.length : 0) +
+                           (data.individuals ? data.individuals.length : 0);
+        countEl.textContent = entityCount + ' entities';
+        countEl.style.display = 'inline-block';
+
+        // Mark as completed
+        const typeEl = document.getElementById(`${type}Extraction`);
+        typeEl.classList.add('success');
+
+        // Display results
+        displayExtractionResults(type, data);
+        document.getElementById(`${type}Results`).classList.add('show');
+    }
+
+    // Show summary card if all 3 concepts have results
+    if (existing.roles && existing.states && existing.resources) {
+        const totalEntities = Object.values(existing).reduce((sum, d) => {
+            return sum + (d.classes ? d.classes.length : 0) + (d.individuals ? d.individuals.length : 0);
+        }, 0);
+        displaySummary({
+            total_success: Object.keys(existing).length,
+            total_failed: 0,
+            total_entities: totalEntities
+        }, 'previous');
+    }
+})();
+
 function displaySummary(summary, sessionId) {
     const summaryCard = document.getElementById('summaryCard');
     const summaryContent = document.getElementById('summaryContent');
