@@ -1,8 +1,14 @@
 {% extends "scenarios/base_step.html" %}
 
-{% block step_title %}Step 1: Contextual Framework Pass - Facts Section{% endblock %}
-{% block step_header %}Step 1: Contextual Framework Pass (Facts){% endblock %}
-{% block step_subtitle %}Extract roles, states, and resources from the facts section{% endblock %}
+{# section_type defaults to 'facts' if not provided #}
+{% set section_type = section_type | default('facts') %}
+{% set section_label = 'Discussion' if section_type == 'discussion' else 'Facts' %}
+{% set section_data = discussion_section if section_type == 'discussion' else facts_section %}
+{% set step_suffix = 'b' if section_type == 'discussion' else '' %}
+
+{% block step_title %}Step 1{{ step_suffix }}: Contextual Framework Pass - {{ section_label }} Section{% endblock %}
+{% block step_header %}Step 1{{ step_suffix }}: Contextual Framework Pass ({{ section_label }}){% endblock %}
+{% block step_subtitle %}Extract roles, states, and resources from the {{ section_label | lower }} section{% endblock %}
 
 {% block head %}
 {{ super() }}
@@ -16,24 +22,33 @@
         margin: 10px 0;
         border-radius: 8px;
         border: 1px solid #dee2e6;
+        border-left: 4px solid #dee2e6;
         background-color: #f8f9fa;
         transition: all 0.3s ease;
     }
 
+    /* Concept-specific left borders (from CONCEPT_COLORS) */
+    #rolesExtraction { border-left-color: #0d6efd; }
+    #statesExtraction { border-left-color: #6f42c1; }
+    #resourcesExtraction { border-left-color: #20c997; }
+
     .extraction-item.extracting {
         background-color: #fff3cd;
-        border-color: #ffc107;
     }
 
     .extraction-item.success {
-        background-color: #d4edda;
-        border-color: #28a745;
+        background-color: #f8f9fa;
     }
 
     .extraction-item.error {
         background-color: #f8d7da;
-        border-color: #dc3545;
+        border-left-color: #dc3545;
     }
+
+    /* Concept-specific icon colors */
+    #rolesExtraction h5 i { color: #0d6efd; }
+    #statesExtraction h5 i { color: #6f42c1; }
+    #resourcesExtraction h5 i { color: #20c997; }
 
     .extraction-status {
         display: flex;
@@ -93,16 +108,28 @@
 
 {% block step_navigation %}
 <div class="d-flex justify-content-between mb-3">
+    {% if section_type == 'discussion' %}
+    <a href="{{ url_for('scenario_pipeline.step1', case_id=case.id) }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Facts
+    </a>
+    {% else %}
     <a href="{{ url_for('scenario_pipeline.scenario_builder', case_id=case.id) }}" class="btn btn-outline-secondary">
         <i class="bi bi-arrow-left"></i> Back to Case
     </a>
+    {% endif %}
     <div>
-        <a href="{{ url_for('entity_review.review_case_entities', case_id=case.id) }}" class="btn btn-info me-2">
+        <a href="{{ url_for('entity_review.review_case_entities', case_id=case.id, section_type=section_type) }}" class="btn btn-info me-2">
             <i class="bi bi-list-check"></i> Review Pass 1 Entities
         </a>
+        {% if section_type == 'discussion' %}
         <a href="{{ url_for('scenario_pipeline.step2', case_id=case.id) }}" class="btn btn-outline-primary">
             Step 2: Normative Pass <i class="bi bi-arrow-right"></i>
         </a>
+        {% else %}
+        <a href="{{ url_for('scenario_pipeline.step1b', case_id=case.id) }}" class="btn btn-outline-primary">
+            Step 1b: Discussion <i class="bi bi-arrow-right"></i>
+        </a>
+        {% endif %}
     </div>
 </div>
 {% endblock %}
@@ -111,14 +138,14 @@
 <div class="step-card">
     <div class="step-header">
         <h4 class="mb-0">
-            <i class="bi bi-file-text"></i> Facts Section
+            <i class="bi bi-{% if section_type == 'discussion' %}chat-left-text{% else %}file-text{% endif %}"></i> {{ section_label }} Section
         </h4>
     </div>
     <div class="step-content">
-        {% if facts_section %}
+        {% if section_data %}
         <div class="alert alert-info mb-3">
             <h6 class="mb-2"><i class="bi bi-info-circle"></i> Section Content:</h6>
-            <pre class="section-text">{{ facts_section.llm_text }}</pre>
+            <pre class="section-text" style="white-space: pre-wrap; word-wrap: break-word;">{{ section_data.llm_text }}</pre>
         </div>
 
         <!-- Enhanced Contextual Framework Pass Button -->
@@ -145,7 +172,7 @@
             <!-- Roles Extraction Item -->
             <div id="rolesExtraction" class="extraction-item">
                 <div class="extraction-status">
-                    <div id="rolesSpinner" class="spinner-border spinner-border-sm text-primary" style="display: none;"></div>
+                    <div id="rolesSpinner" class="spinner-border spinner-border-sm" style="display: none; color: #0d6efd;"></div>
                     <h5 class="mb-0">
                         <i class="bi bi-person-badge"></i> Roles Extraction
                         <span id="rolesCount" class="entity-count" style="display: none;"></span>
@@ -163,7 +190,7 @@
             <!-- States Extraction Item -->
             <div id="statesExtraction" class="extraction-item">
                 <div class="extraction-status">
-                    <div id="statesSpinner" class="spinner-border spinner-border-sm text-warning" style="display: none;"></div>
+                    <div id="statesSpinner" class="spinner-border spinner-border-sm" style="display: none; color: #6f42c1;"></div>
                     <h5 class="mb-0">
                         <i class="bi bi-diagram-3"></i> States Extraction
                         <span id="statesCount" class="entity-count" style="display: none;"></span>
@@ -181,7 +208,7 @@
             <!-- Resources Extraction Item -->
             <div id="resourcesExtraction" class="extraction-item">
                 <div class="extraction-status">
-                    <div id="resourcesSpinner" class="spinner-border spinner-border-sm text-success" style="display: none;"></div>
+                    <div id="resourcesSpinner" class="spinner-border spinner-border-sm" style="display: none; color: #20c997;"></div>
                     <h5 class="mb-0">
                         <i class="bi bi-box-seam"></i> Resources Extraction
                         <span id="resourcesCount" class="entity-count" style="display: none;"></span>
@@ -212,15 +239,16 @@
         {% else %}
         <div class="alert alert-warning">
             <i class="bi bi-exclamation-triangle"></i>
-            No facts section found in this case.
+            No {{ section_label | lower }} section found in this case.
         </div>
         {% endif %}
     </div>
 </div>
 
 <script>
-// Store the current section text globally
-const currentSectionText = `{{ facts_section.llm_text if facts_section else '' }}`;
+// Store the current section text and type globally
+const currentSectionText = `{{ section_data.llm_text if section_data else '' }}`;
+const currentSectionType = '{{ section_type }}';
 
 function executeStreamingPass() {
     const contextualBtn = document.getElementById('contextualPassBtn');
@@ -257,7 +285,8 @@ function executeStreamingPass() {
             'X-CSRFToken': csrfToken
         },
         body: JSON.stringify({
-            section_text: currentSectionText
+            section_text: currentSectionText,
+            section_type: currentSectionType
         })
     })
     .then(response => {
@@ -391,6 +420,30 @@ function handleStreamData(data) {
     }
 }
 
+// Canonical concept colors from CONCEPT_COLORS
+const CONCEPT_COLORS = {
+    'roles': '#0d6efd', 'states': '#6f42c1', 'resources': '#20c997',
+    'principles': '#fd7e14', 'obligations': '#dc3545',
+    'constraints': '#6c757d', 'capabilities': '#0dcaf0',
+    'actions': '#198754', 'events': '#ffc107'
+};
+
+function confidenceBadge(confidence) {
+    if (!confidence) return '';
+    const pct = (confidence * 100).toFixed(0);
+    let cls = 'bg-secondary';
+    if (confidence >= 0.90) cls = 'bg-success';
+    else if (confidence >= 0.75) cls = 'bg-warning text-dark';
+    else if (confidence > 0) cls = 'bg-danger';
+    return `<span class="badge ${cls}" style="font-size:0.75em;">${pct}%</span>`;
+}
+
+function matchBadge(matchedLabel, confidence) {
+    if (!matchedLabel) return '<span class="badge bg-secondary" style="font-size:0.75em;">New</span>';
+    if (confidence >= 0.90) return `<span class="badge bg-success" style="font-size:0.75em;">Linked: ${matchedLabel}</span>`;
+    return `<span class="badge bg-warning text-dark" style="font-size:0.75em;">Review: ${matchedLabel}</span>`;
+}
+
 function displayExtractionResults(type, data) {
     const resultsEl = document.getElementById(`${type}Results`);
     let html = '';
@@ -400,31 +453,38 @@ function displayExtractionResults(type, data) {
         return;
     }
 
-    // Capitalize type for display headers
     const typeLabel = type.charAt(0).toUpperCase() + type.slice(1);
+    const color = CONCEPT_COLORS[type] || '#6c757d';
+    // Lighter variant for individuals (30% opacity)
+    const indColor = color + '80';
 
     if (data.classes && data.classes.length > 0) {
-        html += `<h6>${typeLabel} Classes:</h6><ul>`;
+        html += `<div class="mb-3" style="border-left: 3px solid ${color}; padding-left: 10px;">`;
+        html += `<h6 style="color: ${color};" class="mb-2"><i class="bi bi-diagram-2"></i> ${typeLabel} Classes (${data.classes.length})</h6>`;
         data.classes.forEach(cls => {
-            html += `<li><strong>${cls.label}</strong> - ${cls.definition || ''}
-                     <span class="badge bg-secondary">${(cls.confidence * 100).toFixed(0)}%</span></li>`;
+            const conf = cls.confidence || 0;
+            const matched = cls.matched_ontology_label || '';
+            html += `<div style="padding: 4px 0; border-bottom: 1px solid #f0f0f0;">`;
+            html += `<strong>${cls.label}</strong> ${confidenceBadge(conf)} ${matchBadge(matched, conf)}`;
+            if (cls.definition) html += `<br/><small class="text-muted">${cls.definition}</small>`;
+            html += `</div>`;
         });
-        html += '</ul>';
+        html += `</div>`;
     }
 
     if (data.individuals && data.individuals.length > 0) {
-        html += '<h6>Individuals:</h6><ul>';
+        html += `<div class="mb-2" style="border-left: 3px solid ${indColor}; padding-left: 10px;">`;
+        html += `<h6 style="color: ${color}; opacity: 0.7;" class="mb-2"><i class="bi bi-person"></i> Individuals (${data.individuals.length})</h6>`;
         data.individuals.forEach(ind => {
             const label = ind.name || ind.label || ind.identifier || '';
-            const parentClass = ind.role_class || ind.state_class || ind.resource_class || '';
-            const matchType = ind.type || '';
-            const badge = matchType.includes('individual') ? 'Existing ' + typeLabel.slice(0, -1) : '';
-            html += `<li><strong>${label}</strong>` +
-                    (parentClass ? ` (${parentClass})` : '') +
-                    (badge ? ` <span class="badge bg-info">${badge}</span>` : '') +
-                    `</li>`;
+            const conf = ind.confidence || 0;
+            const matched = ind.matched_ontology_label || '';
+            html += `<div style="padding: 4px 0; border-bottom: 1px solid #f0f0f0;">`;
+            html += `<strong>${label}</strong> ${confidenceBadge(conf)} ${matchBadge(matched, conf)}`;
+            if (ind.definition) html += `<br/><small class="text-muted">${ind.definition}</small>`;
+            html += `</div>`;
         });
-        html += '</ul>';
+        html += `</div>`;
     }
 
     resultsEl.innerHTML = html || '<p class="text-muted">No entities found</p>';
@@ -496,11 +556,11 @@ function displaySummary(summary, sessionId) {
         </div>
         <hr>
         <div class="d-grid gap-2 d-md-flex justify-content-md-center">
-            <a href="{{ url_for('entity_review.review_case_entities', case_id=case.id) }}" class="btn btn-primary">
+            <a href="{{ url_for('entity_review.review_case_entities', case_id=case.id, section_type=section_type) }}" class="btn btn-primary">
                 <i class="bi bi-list-check"></i> Review Extracted Entities
             </a>
-            <a href="/tools/provenance?case_id={{ case.id }}&session_id=${sessionId}" class="btn btn-outline-secondary">
-                <i class="bi bi-clock-history"></i> View Provenance
+            <a href="{{ url_for('entity_review.extraction_history', case_id=case.id) }}?steps=1" class="btn btn-outline-secondary">
+                <i class="bi bi-clock-history"></i> View Extraction History
             </a>
         </div>
     `;

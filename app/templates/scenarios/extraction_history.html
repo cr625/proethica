@@ -3,6 +3,39 @@
 {% block title %}Extraction History - Case {{ case.id }}{% endblock %}
 
 {% block content %}
+<style>
+    .concept-card {
+        border-left: 4px solid #dee2e6;
+        transition: border-color 0.2s;
+    }
+    .concept-card[data-concept="roles"] { border-left-color: #0d6efd; }
+    .concept-card[data-concept="states"] { border-left-color: #6f42c1; }
+    .concept-card[data-concept="resources"] { border-left-color: #20c997; }
+    .concept-card[data-concept="principles"] { border-left-color: #fd7e14; }
+    .concept-card[data-concept="obligations"] { border-left-color: #dc3545; }
+    .concept-card[data-concept="constraints"] { border-left-color: #6c757d; }
+    .concept-card[data-concept="capabilities"] { border-left-color: #0dcaf0; }
+    .concept-card[data-concept="actions"] { border-left-color: #198754; }
+    .concept-card[data-concept="events"] { border-left-color: #ffc107; }
+
+    .concept-badge {
+        display: inline-block;
+        padding: 0.25em 0.5em;
+        font-size: 0.75em;
+        font-weight: 600;
+        color: #fff;
+        border-radius: 0.375rem;
+    }
+    .concept-badge[data-concept="roles"] { background-color: #0d6efd; }
+    .concept-badge[data-concept="states"] { background-color: #6f42c1; }
+    .concept-badge[data-concept="resources"] { background-color: #20c997; }
+    .concept-badge[data-concept="principles"] { background-color: #fd7e14; }
+    .concept-badge[data-concept="obligations"] { background-color: #dc3545; }
+    .concept-badge[data-concept="constraints"] { background-color: #6c757d; }
+    .concept-badge[data-concept="capabilities"] { background-color: #0dcaf0; color: #000; }
+    .concept-badge[data-concept="actions"] { background-color: #198754; }
+    .concept-badge[data-concept="events"] { background-color: #ffc107; color: #000; }
+</style>
 <div class="container-fluid mt-4">
     <div class="row">
         <div class="col-12">
@@ -65,7 +98,7 @@
                             </select>
                         </div>
                         <div class="col-md-3 d-flex align-items-end">
-                            <a href="{{ url_for('entity_review.extraction_history', case_id=case.id) }}" class="btn btn-outline-secondary">
+                            <a href="{{ url_for('entity_review.extraction_history', case_id=case.id) }}{% if steps_filter %}?steps={{ steps_filter }}{% endif %}" class="btn btn-outline-secondary">
                                 <i class="bi bi-x-circle"></i> Clear Filters
                             </a>
                         </div>
@@ -93,14 +126,14 @@
                             <i class="bi bi-calendar3"></i> {{ date }}
                         </h5>
                         {% for prompt in prompts %}
-                        <div class="card mb-3 {% if prompt.is_active %}border-primary border-2{% endif %}">
+                        <div class="card mb-3 concept-card {% if prompt.is_active %}border-2{% endif %}" data-concept="{{ prompt.concept_type }}">
                             <div class="card-header d-flex justify-content-between align-items-center py-2">
                                 <span>
-                                    <span class="badge bg-{% if prompt.step_number == 1 %}primary{% elif prompt.step_number == 2 %}success{% else %}info{% endif %}">
+                                    <span class="badge bg-{% if prompt.step_number == 1 %}primary{% elif prompt.step_number == 2 %}success{% elif prompt.step_number == 3 %}info{% else %}secondary{% endif %}">
                                         Step {{ prompt.step_number }}
                                     </span>
                                     <span class="badge bg-secondary">{{ prompt.section_type|replace('_', ' ')|title }}</span>
-                                    <span class="badge bg-dark">{{ prompt.concept_type|replace('_', ' ')|title }}</span>
+                                    <span class="concept-badge" data-concept="{{ prompt.concept_type }}">{{ prompt.concept_type|replace('_', ' ')|title }}</span>
                                     {% if prompt.is_active %}
                                     <span class="badge bg-warning text-dark">
                                         <i class="bi bi-check-circle"></i> Active
@@ -186,27 +219,32 @@ function applyFilters() {
     const step = form.querySelector('[name="step"]').value;
     const section = form.querySelector('[name="section_type"]').value;
     const concept = form.querySelector('[name="concept_type"]').value;
+    const stepsFilter = "{{ steps_filter }}";
 
-    // Build URL with path params for step/section, query param for concept
+    // Build URL with path params for step/section, query params for concept + steps
     let url = "{{ url_for('entity_review.extraction_history', case_id=case.id) }}";
+    let params = [];
 
     if (step) {
         url += '/' + step;
         if (section) {
             url += '/' + section;
         }
+    } else if (section) {
+        params.push('section_type=' + section);
     }
 
     if (concept) {
-        url += (url.includes('?') ? '&' : '?') + 'concept_type=' + concept;
+        params.push('concept_type=' + concept);
     }
 
-    // If section is set but step is not, use query param instead
-    if (section && !step) {
-        url += '?section_type=' + section;
-        if (concept) {
-            url += '&concept_type=' + concept;
-        }
+    // Preserve steps filter from incoming link
+    if (stepsFilter) {
+        params.push('steps=' + stepsFilter);
+    }
+
+    if (params.length > 0) {
+        url += '?' + params.join('&');
     }
 
     window.location.href = url;

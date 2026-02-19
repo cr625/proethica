@@ -192,6 +192,8 @@
     .confidence-high { background-color: #28a745; }
     .confidence-medium { background-color: #ffc107; }
     .confidence-low { background-color: #dc3545; }
+
+    /* Concept colors applied via inline styles from concept_colors dict */
 </style>
 {% endblock %}
 
@@ -287,9 +289,9 @@
             <div class="row mb-3">
                 <!-- Roles -->
                 <div class="col-md-4 mb-2">
-                    <div class="card border-primary">
+                    <div class="card" style="border-color: #0d6efd;">
                         <div class="card-body">
-                            <h5 class="card-title text-primary">
+                            <h5 class="card-title" style="color: #0d6efd;">
                                 <i class="bi bi-person-badge"></i> Roles
                             </h5>
                             <div class="row text-center">
@@ -308,9 +310,9 @@
 
                 <!-- States -->
                 <div class="col-md-4 mb-2">
-                    <div class="card border-warning">
+                    <div class="card" style="border-color: #6f42c1;">
                         <div class="card-body">
-                            <h5 class="card-title text-warning">
+                            <h5 class="card-title" style="color: #6f42c1;">
                                 <i class="bi bi-diagram-3"></i> States
                             </h5>
                             <div class="row text-center">
@@ -329,9 +331,9 @@
 
                 <!-- Resources -->
                 <div class="col-md-4 mb-2">
-                    <div class="card border-success">
+                    <div class="card" style="border-color: #20c997;">
                         <div class="card-body">
-                            <h5 class="card-title text-success">
+                            <h5 class="card-title" style="color: #20c997;">
                                 <i class="bi bi-box-seam"></i> Resources
                             </h5>
                             <div class="row text-center">
@@ -411,8 +413,9 @@
             <div class="row mb-5">
                 <div class="col-12">
                     <!-- Panel Header for {{ concept_type|title }} -->
-                    <div class="card {% if concept_type == 'roles' %}border-primary{% elif concept_type == 'states' %}border-warning{% else %}border-success{% endif %}">
-                        <div class="card-header {% if concept_type == 'roles' %}bg-primary{% elif concept_type == 'states' %}bg-warning{% else %}bg-success{% endif %} text-white">
+                    {% set concept_colors = {'roles': '#0d6efd', 'states': '#6f42c1', 'resources': '#20c997', 'principles': '#fd7e14', 'obligations': '#dc3545', 'constraints': '#6c757d', 'capabilities': '#0dcaf0', 'actions': '#198754', 'events': '#ffc107'} %}
+                    <div class="card" style="border-left: 5px solid {{ concept_colors.get(concept_type, '#dee2e6') }};">
+                        <div class="card-header">
                             <h4 class="mb-0">
                                 <i class="fas fa-{% if concept_type == 'roles' %}user-tie{% elif concept_type == 'states' %}diagram-3{% else %}box{% endif %}"></i>
                                 {{ concept_type|title }} Extraction
@@ -424,17 +427,17 @@
             <div class="row mb-5">
                 <div class="col-12">
                     <h5 class="mb-3">Extracted {{ concept_type|title }} Classes</h5>
-                    <div class="card border-primary shadow-sm">
-                        <div class="card-header bg-primary text-white">
+                    <div class="card border-secondary shadow-sm">
+                        <div class="card-header bg-light">
                             <div class="d-flex justify-content-between align-items-center">
                                 <div>
                                     <h6 class="mb-0">
                                         <i class="fas fa-sitemap"></i>
                                         Candidate {{ concept_type|title }} Classes
                                     </h6>
-                                    <small>Extracted classes with ontology match status</small>
+                                    <small class="text-muted">Extracted classes with ontology match status</small>
                                 </div>
-                                <span class="badge bg-light text-primary">{{ type_data.classes|length if type_data.classes else 0 }} Classes</span>
+                                <span class="badge bg-secondary">{{ type_data.classes|length if type_data.classes else 0 }} Classes</span>
                             </div>
                         </div>
                         <div class="card-body">
@@ -663,17 +666,17 @@
                     </div>
                     {% endif %}
 
-                    <div class="card border-info shadow-sm">
-                        <div class="card-header bg-info text-white">
+                    <div class="card border-secondary shadow-sm">
+                        <div class="card-header bg-light">
                             <div class="d-flex justify-content-between align-items-center">
                                 <div>
                                     <h5 class="mb-0">
                                         <i class="fas fa-users"></i>
                                         Candidate {{ concept_type|title }} Individuals
                                     </h5>
-                                    <small>These are specific people, organizations, and entities in this case</small>
+                                    <small class="text-muted">Specific people, organizations, and entities in this case</small>
                                 </div>
-                                <span class="badge bg-light text-info">{{ type_data.individuals|length if type_data.individuals else 0 }} Individuals</span>
+                                <span class="badge bg-secondary">{{ type_data.individuals|length if type_data.individuals else 0 }} Individuals</span>
                             </div>
                         </div>
                         <div class="card-body">
@@ -1028,8 +1031,8 @@
             <!-- Empty state: No entities extracted for this concept type -->
             <div class="row mb-5">
                 <div class="col-12">
-                    <div class="card {% if concept_type == 'roles' %}border-primary{% elif concept_type == 'states' %}border-warning{% else %}border-success{% endif %}">
-                        <div class="card-header {% if concept_type == 'roles' %}bg-primary{% elif concept_type == 'states' %}bg-warning{% else %}bg-success{% endif %} text-white">
+                    <div class="card" style="border-left: 5px solid {{ concept_colors.get(concept_type, '#dee2e6') }};">
+                        <div class="card-header">
                             <h4 class="mb-0">
                                 <i class="fas fa-{% if concept_type == 'roles' %}user-tie{% elif concept_type == 'states' %}diagram-3{% else %}box{% endif %}"></i>
                                 {{ concept_type|title }} Extraction

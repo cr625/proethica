@@ -171,14 +171,8 @@ def _load_existing_extractions(case_id, concept_types, step_number=1):
                 'confidence': float(e.match_confidence) if e.match_confidence else 0.0,
                 'matched_ontology_label': e.matched_ontology_label or '',
             }
-            # Individuals have "Instance" in the label (convention from the extractor)
-            if 'instance' in (e.entity_label or '').lower():
-                entry['name'] = e.entity_label
+            if e.storage_type == 'individual':
                 entry['type'] = f'{concept_type.rstrip("s")}_individual'
-                # Try to extract parent class from matched ontology
-                entry['role_class'] = e.matched_ontology_label or ''
-                entry['state_class'] = e.matched_ontology_label or ''
-                entry['resource_class'] = e.matched_ontology_label or ''
                 individuals.append(entry)
             else:
                 entry['type'] = f'{concept_type.rstrip("s")}_class'
@@ -218,6 +212,7 @@ def step1(case_id):
         'case': case,
         'facts_section': facts_section,
         'discussion_section': discussion_section,
+        'section_type': 'facts',
         'current_step': 1,
         'step_title': 'Contextual Framework Pass - Facts',
         'next_step_url': url_for('scenario_pipeline.step1b', case_id=case_id),
@@ -237,10 +232,12 @@ def step1(case_id):
 def step1b(case_id):
     """
     Step 1b: Contextual Framework Pass for Discussion Section
-    Same exact structure as step1 but shows Discussion section content and prompts
+    Same streaming template as step1, parameterized for discussion section.
 
     Requires: Step 1 Facts extraction must be completed first
     """
+    from app.services.extraction.mock_llm_provider import get_data_source_display
+
     # Get pipeline status first to check prerequisites
     pipeline_status = PipelineStatusService.get_step_status(case_id)
 
@@ -252,22 +249,35 @@ def step1b(case_id):
     # Load data with section_type='discussion' to get discussion prompts
     case, facts_section, discussion_section, saved_prompts = step1_data(case_id, section_type='discussion')
 
-    # Template context
+    # Get data source info for UI display (mock mode indicator)
+    data_source_info = get_data_source_display()
+
+    # Load existing extraction results for page-load display
+    existing_extractions = _load_existing_extractions(
+        case_id, ['roles', 'states', 'resources'], step_number=1
+    )
+
+    # Template context -- same streaming template, parameterized for discussion
     context = {
         'case': case,
         'facts_section': facts_section,
         'discussion_section': discussion_section,
+        'section_type': 'discussion',
         'current_step': 1,
         'step_title': 'Contextual Framework Pass - Discussion',
         'next_step_url': url_for('scenario_pipeline.step2', case_id=case_id),
         'next_step_name': 'Normative Requirements',
         'prev_step_url': url_for('scenario_pipeline.step1', case_id=case_id),
-        'saved_prompts': saved_prompts,  # These are now discussion-specific prompts
-        'pipeline_status': pipeline_status
+        'saved_prompts': saved_prompts,
+        'pipeline_status': pipeline_status,
+        'data_source': data_source_info['source'],
+        'data_source_label': data_source_info['label'],
+        'is_mock_mode': data_source_info['is_mock'],
+        'data_source_warning': data_source_info.get('warning'),
+        'existing_extractions': existing_extractions,
     }
 
-    # Use step1b.html template
-    return render_template('scenarios/step1b.html', **context)
+    return render_template('scenarios/step1_streaming.html', **context)
 
 def step1c(case_id):
     """

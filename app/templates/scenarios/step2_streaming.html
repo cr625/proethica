@@ -16,24 +16,35 @@
         margin: 10px 0;
         border-radius: 8px;
         border: 1px solid #dee2e6;
+        border-left: 4px solid #dee2e6;
         background-color: #f8f9fa;
         transition: all 0.3s ease;
     }
 
+    /* Concept-specific left borders (from CONCEPT_COLORS) */
+    #principlesExtraction { border-left-color: #fd7e14; }
+    #obligationsExtraction { border-left-color: #dc3545; }
+    #constraintsExtraction { border-left-color: #6c757d; }
+    #capabilitiesExtraction { border-left-color: #0dcaf0; }
+
     .extraction-item.extracting {
         background-color: #fff3cd;
-        border-color: #ffc107;
     }
 
     .extraction-item.success {
-        background-color: #d4edda;
-        border-color: #28a745;
+        background-color: #f8f9fa;
     }
 
     .extraction-item.error {
         background-color: #f8d7da;
-        border-color: #dc3545;
+        border-left-color: #dc3545;
     }
+
+    /* Concept-specific icon colors */
+    #principlesExtraction h5 i { color: #fd7e14; }
+    #obligationsExtraction h5 i { color: #dc3545; }
+    #constraintsExtraction h5 i { color: #6c757d; }
+    #capabilitiesExtraction h5 i { color: #0dcaf0; }
 
     .extraction-status {
         display: flex;
@@ -145,7 +156,7 @@
             <!-- Principles Extraction Item -->
             <div id="principlesExtraction" class="extraction-item">
                 <div class="extraction-status">
-                    <div id="principlesSpinner" class="spinner-border spinner-border-sm text-success" style="display: none;"></div>
+                    <div id="principlesSpinner" class="spinner-border spinner-border-sm" style="display: none; color: #fd7e14;"></div>
                     <h5 class="mb-0">
                         <i class="bi bi-stars text-success"></i> Principles Extraction
                         <span id="principlesCount" class="entity-count" style="display: none;"></span>
@@ -163,7 +174,7 @@
             <!-- Obligations Extraction Item -->
             <div id="obligationsExtraction" class="extraction-item">
                 <div class="extraction-status">
-                    <div id="obligationsSpinner" class="spinner-border spinner-border-sm text-warning" style="display: none;"></div>
+                    <div id="obligationsSpinner" class="spinner-border spinner-border-sm" style="display: none; color: #dc3545;"></div>
                     <h5 class="mb-0">
                         <i class="bi bi-shield-check text-warning"></i> Obligations Extraction
                         <span id="obligationsCount" class="entity-count" style="display: none;"></span>
@@ -181,7 +192,7 @@
             <!-- Constraints Extraction Item -->
             <div id="constraintsExtraction" class="extraction-item">
                 <div class="extraction-status">
-                    <div id="constraintsSpinner" class="spinner-border spinner-border-sm text-danger" style="display: none;"></div>
+                    <div id="constraintsSpinner" class="spinner-border spinner-border-sm" style="display: none; color: #6c757d;"></div>
                     <h5 class="mb-0">
                         <i class="bi bi-exclamation-triangle text-danger"></i> Constraints Extraction
                         <span id="constraintsCount" class="entity-count" style="display: none;"></span>
@@ -199,7 +210,7 @@
             <!-- Capabilities Extraction Item -->
             <div id="capabilitiesExtraction" class="extraction-item">
                 <div class="extraction-status">
-                    <div id="capabilitiesSpinner" class="spinner-border spinner-border-sm text-info" style="display: none;"></div>
+                    <div id="capabilitiesSpinner" class="spinner-border spinner-border-sm" style="display: none; color: #0dcaf0;"></div>
                     <h5 class="mb-0">
                         <i class="bi bi-gear text-info"></i> Capabilities Extraction
                         <span id="capabilitiesCount" class="entity-count" style="display: none;"></span>
@@ -407,30 +418,70 @@ function handleStreamData(data) {
     }
 }
 
+// Canonical concept colors from CONCEPT_COLORS
+const CONCEPT_COLORS = {
+    'roles': '#0d6efd', 'states': '#6f42c1', 'resources': '#20c997',
+    'principles': '#fd7e14', 'obligations': '#dc3545',
+    'constraints': '#6c757d', 'capabilities': '#0dcaf0',
+    'actions': '#198754', 'events': '#ffc107'
+};
+
+function confidenceBadge(confidence) {
+    if (!confidence) return '';
+    const pct = (confidence * 100).toFixed(0);
+    let cls = 'bg-secondary';
+    if (confidence >= 0.90) cls = 'bg-success';
+    else if (confidence >= 0.75) cls = 'bg-warning text-dark';
+    else if (confidence > 0) cls = 'bg-danger';
+    return `<span class="badge ${cls}" style="font-size:0.75em;">${pct}%</span>`;
+}
+
+function matchBadge(matchedLabel, confidence) {
+    if (!matchedLabel) return '<span class="badge bg-secondary" style="font-size:0.75em;">New</span>';
+    if (confidence >= 0.90) return `<span class="badge bg-success" style="font-size:0.75em;">Linked: ${matchedLabel}</span>`;
+    return `<span class="badge bg-warning text-dark" style="font-size:0.75em;">Review: ${matchedLabel}</span>`;
+}
+
 function displayExtractionResults(type, data) {
     const resultsEl = document.getElementById(`${type}Results`);
     let html = '';
 
-    if (data) {
-        if (data.classes && data.classes.length > 0) {
-            html += '<h6>' + type.charAt(0).toUpperCase() + type.slice(1) + ' Classes:</h6><ul>';
-            data.classes.forEach(cls => {
-                html += `<li><strong>${cls.label}</strong> - ${cls.definition}
-                         <span class="badge bg-secondary">${(cls.confidence * 100).toFixed(0)}%</span></li>`;
-            });
-            html += '</ul>';
-        }
+    if (!data) {
+        resultsEl.innerHTML = '<p class="text-muted">No entities found</p>';
+        return;
+    }
 
-        if (data.individuals && data.individuals.length > 0) {
-            html += '<h6>' + type.charAt(0).toUpperCase() + type.slice(1) + ' Individuals:</h6><ul>';
-            data.individuals.forEach(ind => {
-                const classField = ind.principle_class || ind.obligation_class || ind.constraint_class || ind.capability_class;
-                const identField = ind.identifier || ind.name;
-                html += `<li><strong>${identField}</strong> (${classField})
-                         <span class="badge bg-info">Individual</span></li>`;
-            });
-            html += '</ul>';
-        }
+    const typeLabel = type.charAt(0).toUpperCase() + type.slice(1);
+    const color = CONCEPT_COLORS[type] || '#6c757d';
+    const indColor = color + '80';
+
+    if (data.classes && data.classes.length > 0) {
+        html += `<div class="mb-3" style="border-left: 3px solid ${color}; padding-left: 10px;">`;
+        html += `<h6 style="color: ${color};" class="mb-2"><i class="bi bi-diagram-2"></i> ${typeLabel} Classes (${data.classes.length})</h6>`;
+        data.classes.forEach(cls => {
+            const conf = cls.confidence || 0;
+            const matched = cls.matched_ontology_label || '';
+            html += `<div style="padding: 4px 0; border-bottom: 1px solid #f0f0f0;">`;
+            html += `<strong>${cls.label}</strong> ${confidenceBadge(conf)} ${matchBadge(matched, conf)}`;
+            if (cls.definition) html += `<br/><small class="text-muted">${cls.definition}</small>`;
+            html += `</div>`;
+        });
+        html += `</div>`;
+    }
+
+    if (data.individuals && data.individuals.length > 0) {
+        html += `<div class="mb-2" style="border-left: 3px solid ${indColor}; padding-left: 10px;">`;
+        html += `<h6 style="color: ${color}; opacity: 0.7;" class="mb-2"><i class="bi bi-person"></i> Individuals (${data.individuals.length})</h6>`;
+        data.individuals.forEach(ind => {
+            const label = ind.name || ind.label || ind.identifier || '';
+            const conf = ind.confidence || 0;
+            const matched = ind.matched_ontology_label || '';
+            html += `<div style="padding: 4px 0; border-bottom: 1px solid #f0f0f0;">`;
+            html += `<strong>${label}</strong> ${confidenceBadge(conf)} ${matchBadge(matched, conf)}`;
+            if (ind.definition) html += `<br/><small class="text-muted">${ind.definition}</small>`;
+            html += `</div>`;
+        });
+        html += `</div>`;
     }
 
     resultsEl.innerHTML = html || '<p class="text-muted">No entities found</p>';
@@ -506,8 +557,8 @@ function displaySummary(summary, sessionId) {
             <a href="{{ url_for('entity_review.review_case_entities_pass2', case_id=case.id) }}" class="btn btn-primary">
                 <i class="bi bi-list-check"></i> Review Extracted Entities
             </a>
-            <a href="/tools/provenance?case_id={{ case.id }}&session_id=${sessionId}" class="btn btn-outline-secondary">
-                <i class="bi bi-clock-history"></i> View Provenance
+            <a href="{{ url_for('entity_review.extraction_history', case_id=case.id) }}?steps=2" class="btn btn-outline-secondary">
+                <i class="bi bi-clock-history"></i> View Extraction History
             </a>
         </div>
     `;
