@@ -146,15 +146,23 @@ Changes:
 File: `app/services/scenario_generation/orchestrator.py` (lines 270-279)
 
 Changes:
-- Assemble the complete scenario model from Stages 1-6 output:
-  - `ScenarioSourceData` entities → the world (via existing `scenario_population_service.py` mapping)
-  - `ScenarioTimeline` → event sequence
-  - Participants → characters with relationships
-  - `DecisionGraph` with `DecisionConsequenceMap` and `NormativeContext` → the interactive navigation structure
-- Store the assembled scenario. Two options:
-  - Option A: Write to existing Scenario/World/Character/Action/Event DB models (the `scenario_population_service` path)
-  - Option B: Store as a single JSON document in ExtractionPrompt (concept_type='scenario_assembled') for the interactive service to consume
-  - **Recommend Option B** for now — it's what `interactive_scenario_service` already reads, and avoids the complexity of populating the full Scenario model graph. Option A becomes a future enhancement for when scenarios need to be independently browsable.
+- Assemble the complete scenario model from Stages 1-6 output by calling `ScenarioPopulationService.populate_scenario_from_deconstruction()` with the unified data. That service already maps all nine component types to real DB models:
+  - Roles → `Character` records (`characters` table) via `_create_characters()` (line 103)
+  - States → `Condition` records (`conditions` table) via `_create_conditions()` (line 172)
+  - Resources → `Resource` records (`resources` table) via `_create_resources()` (line 130)
+  - Principles, Obligations, Constraints → `Scenario.scenario_metadata` JSON via `_update_scenario_metadata()` (line 453)
+  - Capabilities → `Character.attributes['capabilities']` + metadata via `_extract_capabilities_for_stakeholder()` (line 541)
+  - Actions → `Action` records (`actions` table, `is_decision=True` for decision points) via `_create_actions()` (line 211)
+  - Events → `Event` records (`events` table) via `_create_events()` (line 309)
+- The unified pipeline needs to adapt Stages 1-6 output into the `DeconstructedCase` shape that `populate_scenario_from_deconstruction()` expects. Build a `SynthesisToDeconstructedCaseAdapter` that maps:
+  - `NarrativeCharacter` list → `DeconstructedCase.stakeholders`
+  - `CanonicalDecisionPoint` list → `DeconstructedCase.decision_points` (with options and Toulmin structure)
+  - `EntityGroundedTimeline.events` → `DeconstructedCase.reasoning_steps` (for event creation)
+  - `CausalNormativeLink` list → `DeconstructedCase.reasoning_chain` (for resource and principle extraction)
+  - `DecisionConsequenceMap` → enriches `DeconstructedCase.decision_points` with consequence data
+  - `NormativeContext` per decision → enriches `DeconstructedCase.reasoning_chain['applicable_principles']`
+- After population, the Scenario has a real `scenario.id`. Write a lightweight reference to ExtractionPrompt: `concept_type='scenario_assembled'` with `results_summary={'scenario_id': scenario.id, 'status': 'complete', 'character_count': N, 'action_count': N, 'event_count': N}`. No JSON blob — just the ID and counts so Step 5 can check assembly status without querying the full model graph.
+- The scenario is now queryable through its own models: `Scenario.characters`, `Scenario.actions`, `Scenario.events`, `Scenario.resources`, plus `scenario_metadata` for principles/obligations/constraints.
 
 **Task 9. Replace Stage 8 (Interactive Model Generation) with handoff to interactive_scenario_service**
 
@@ -162,14 +170,13 @@ File: `app/services/scenario_generation/orchestrator.py` (lines 281-290)
 
 Current state: Placeholder.
 
-The interactive model already exists — it's the `ScenarioExplorationSession` workflow driven by `interactive_scenario_service`. What Stage 8 needs to do is prepare the data in the format that service expects.
+The interactive model already exists — it's the `ScenarioExplorationSession` workflow driven by `interactive_scenario_service`. Stage 8 prepares the Scenario model (now populated by Stage 7) for interactive use.
 
 Changes:
-- `interactive_scenario_service.start_session()` currently calls `_load_decision_points()` which re-queries ExtractionPrompt and TemporaryRDFStorage. Instead:
-- Add `interactive_scenario_service.start_session_from_assembled(case_id, assembled_scenario)` method that accepts the Stage 7 output directly
-- The assembled scenario already contains decision points with options, consequence maps, normative context, and initial fluents — no re-querying needed
-- Stage 8 calls this method (or just validates the assembled scenario is ready for interactive use)
-- The existing `start_session()` remains as the standalone entry point (for cases where the user goes directly to interactive exploration without running the pipeline)
+- `interactive_scenario_service.start_session()` currently calls `_load_decision_points()` which re-queries ExtractionPrompt and TemporaryRDFStorage. Add a `start_session_from_scenario(case_id, scenario_id)` method that loads decision points directly from the `Action` table (`WHERE scenario_id=:id AND is_decision=True`) and initial fluents from `Scenario.scenario_metadata`
+- Stage 8 calls `start_session_from_scenario(case_id, scenario.id)` using the scenario created in Stage 7
+- The existing `start_session()` remains as the standalone entry point (for cases where the user goes directly to interactive exploration without running the full pipeline). Internally, it checks for an ExtractionPrompt with `concept_type='scenario_assembled'` first — if found, delegates to `start_session_from_scenario()` using the stored `scenario_id`; otherwise falls back to its current ExtractionPrompt/TemporaryRDFStorage queries
+- This means once the unified pipeline has run, both the orchestrator path and the direct Step 5 path use the same Scenario model data
 
 **Task 10. Replace Stage 9 (Validation) with actual quality checks**
 
@@ -214,9 +221,9 @@ Changes:
 File: `app/routes/scenario_pipeline/step5.py`
 
 Changes:
-- Keep `_load_phase4_data()` and related helpers as-is — they load from ExtractionPrompt which the unified pipeline also writes to
-- Add loading of the assembled scenario from Stage 7 output (if it exists)
-- The three-tab UI (Narrative, Timeline, Decision Wizard) already works with Phase 4 data — the unified pipeline just ensures that data is richer (with consequence maps and normative context attached to each decision)
+- Keep `_load_phase4_data()` and related helpers as-is — they load Phase 4 narrative data from ExtractionPrompt for the Narrative and Timeline tabs
+- Add `_load_assembled_scenario(case_id)`: query ExtractionPrompt for `concept_type='scenario_assembled'` to get the `scenario_id`, then load the Scenario with its Character/Action/Event/Resource/Condition relationships for the Decision Wizard tab. This replaces any direct JSON blob reading — the Scenario model is the source of truth for assembled scenario data
+- The three-tab UI (Narrative, Timeline, Decision Wizard) already works with Phase 4 data. When an assembled scenario exists, the Decision Wizard tab additionally has access to: `Action` records with `is_decision=True` (richer than raw CanonicalDecisionPoint dicts), `Character` records with full attribute profiles, and `Scenario.scenario_metadata` with principles/obligations/constraints
 - Add a "Generate Scenario" button that triggers the SSE endpoint (already exists) and shows progress through all 9 stages with real results
 
 ### Phase 5: Deprecate abandoned code
@@ -310,17 +317,21 @@ File: `app/services/scenario_generation/orchestrator.py`
   ┌──────────────────────────────────────────────────────────┐
   │                    STAGE 7: Assembly                      │
   │                                                          │
-  │  Combines: entity set + timeline + participants +        │
-  │  decision graph + consequence map + normative context    │
-  │  → Assembled Scenario (stored in ExtractionPrompt)       │
+  │  Adapts Stages 1-6 output → DeconstructedCase shape.     │
+  │  Calls ScenarioPopulationService to write:               │
+  │    Character, Action, Event, Resource, Condition rows    │
+  │    + Scenario.scenario_metadata (P, O, Cs, Ca)           │
+  │  Writes lightweight ref to ExtractionPrompt:             │
+  │    concept_type='scenario_assembled', scenario_id only   │
   └────────────────────────────┬─────────────────────────────┘
                                │
                                ▼
   ┌──────────────────────────────────────────────────────────┐
   │              STAGE 8: Interactive Model                   │
   │                                                          │
-  │  Validates assembled scenario is ready for exploration.  │
-  │  Prepares initial fluents, option labels, board choices. │
+  │  Calls start_session_from_scenario(scenario_id).         │
+  │  Loads decisions from Action table (is_decision=True).   │
+  │  Loads fluents from Scenario.scenario_metadata.          │
   │  Hands off to interactive_scenario_service.              │
   └────────────────────────────┬─────────────────────────────┘
                                │
