@@ -557,8 +557,8 @@ function displaySummary(summary, sessionId) {
             <a href="{{ url_for('entity_review.review_case_entities_pass2', case_id=case.id) }}" class="btn btn-primary">
                 <i class="bi bi-list-check"></i> Review Extracted Entities
             </a>
-            <a href="{{ url_for('entity_review.extraction_history', case_id=case.id) }}?steps=2" class="btn btn-outline-secondary">
-                <i class="bi bi-clock-history"></i> View Extraction History
+            <a href="{{ url_for('provenance.case_provenance', case_id=case.id, step=2) }}" class="btn btn-outline-secondary">
+                <i class="bi bi-diagram-3"></i> View Provenance
             </a>
         </div>
     `;

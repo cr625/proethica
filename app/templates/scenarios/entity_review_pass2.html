@@ -239,6 +239,10 @@
                             <i class="bi bi-eye"></i> View Extraction
                         </a>
                         {% endif %}
+                        <a href="{{ url_for('provenance.case_provenance', case_id=case.id, step=2) }}"
+                           class="btn btn-sm btn-outline-secondary" title="View provenance">
+                            <i class="bi bi-diagram-3"></i> Provenance
+                        </a>
                         <!-- Re-run button (admin only) -->
                         {% if current_user.is_authenticated and current_user.is_admin %}
                         {% if section_type == 'discussion' %}

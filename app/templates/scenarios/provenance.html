@@ -1,0 +1,890 @@
+{% extends "base.html" %}
+
+{% block title %}Provenance - {{ case.title }} - ProEthica{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="mb-0">
+                        <i class="bi bi-diagram-3"></i> Provenance
+                    </h1>
+                    <p class="text-muted mb-0">Case {{ case.id }}: {{ case.title }}</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{{ url_for('prompt_editor.index') }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-pencil-square"></i> Edit Templates
+                    </a>
+                    <button class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#activityLogModal" id="activityLogBtn">
+                        <i class="bi bi-clock-history"></i> Activity Log
+                    </button>
+                    <a href="{{ url_for('entity_review.review_case_entities', case_id=case.id) }}" class="btn btn-outline-primary">
+                        <i class="bi bi-list-check"></i> Review
+                    </a>
+                    <a href="{{ url_for('scenario_pipeline.overview', case_id=case.id) }}" class="btn btn-outline-primary">
+                        <i class="bi bi-list-ul"></i> Pipeline
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="card filter-bar">
+                <div class="card-body py-2">
+                    <div class="d-flex align-items-center gap-3">
+                        <label class="text-muted small mb-0">Filter:</label>
+                        <select id="filter-step" class="form-select form-select-sm" style="width: auto;" onchange="applyFilters()">
+                            <option value="">All Steps</option>
+                            <option value="1" {% if initial_step == 1 %}selected{% endif %}>Step 1: Contextual</option>
+                            <option value="2" {% if initial_step == 2 %}selected{% endif %}>Step 2: Normative</option>
+                            <option value="3" {% if initial_step == 3 %}selected{% endif %}>Step 3: Temporal</option>
+                            <option value="4">Step 4: Synthesis</option>
+                        </select>
+                        <select id="filter-section" class="form-select form-select-sm" style="width: auto;" onchange="applyFilters()">
+                            <option value="">All Sections</option>
+                            <option value="facts" {% if initial_section == 'facts' %}selected{% endif %}>Facts</option>
+                            <option value="discussion" {% if initial_section == 'discussion' %}selected{% endif %}>Discussion</option>
+                        </select>
+                        <select id="filter-concept" class="form-select form-select-sm" style="width: auto;" onchange="applyFilters()">
+                            <option value="">All Concepts</option>
+                            <option value="roles">Roles</option>
+                            <option value="states">States</option>
+                            <option value="resources">Resources</option>
+                            <option value="principles">Principles</option>
+                            <option value="obligations">Obligations</option>
+                            <option value="constraints">Constraints</option>
+                            <option value="capabilities">Capabilities</option>
+                            <option value="actions">Actions</option>
+                            <option value="events">Events</option>
+                        </select>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="clearFilters()">
+                            <i class="bi bi-x-circle"></i> Clear
+                        </button>
+                        <span id="filter-count" class="text-muted small ms-auto"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pipeline Timeline -->
+    <div class="row">
+        <div class="col-12">
+            <div id="pipeline-timeline" class="pipeline-timeline">
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary"></div>
+                    <p class="mt-2">Loading pipeline data...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Activity Log Modal -->
+<div class="modal fade" id="activityLogModal" tabindex="-1" aria-labelledby="activityLogModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="activityLogModalLabel">
+                    <i class="bi bi-clock-history"></i> Activity Log
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="activity-timeline" class="activity-timeline">
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-primary"></div>
+                        <p class="mt-2 text-muted">Loading activity log...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Step colors */
+:root {
+    --step-1-color: #3b82f6;
+    --step-2-color: #8b5cf6;
+    --step-3-color: #14b8a6;
+    --step-4-color: #64748b;
+}
+
+/* Filter bar */
+.filter-bar {
+    border-left: 4px solid #6c757d;
+    background: #f8f9fa;
+}
+
+/* Timeline layout */
+.pipeline-timeline {
+    position: relative;
+    padding-left: 30px;
+}
+
+.pipeline-card {
+    position: relative;
+    margin-bottom: 1rem;
+}
+
+.pipeline-card::before {
+    content: '';
+    position: absolute;
+    left: -20px;
+    top: 0;
+    bottom: -1rem;
+    width: 2px;
+    background: #dee2e6;
+}
+
+.pipeline-card:last-child::before {
+    display: none;
+}
+
+.pipeline-card::after {
+    content: '';
+    position: absolute;
+    left: -25px;
+    top: 20px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--card-color, #6c757d);
+    border: 2px solid white;
+    box-shadow: 0 0 0 2px var(--card-color, #6c757d);
+}
+
+/* Step header cards */
+.step-header-card {
+    background: linear-gradient(135deg, var(--card-color) 0%, color-mix(in srgb, var(--card-color) 80%, black) 100%);
+    color: white;
+}
+
+.step-header-card .card-body {
+    padding: 0.75rem 1rem;
+}
+
+/* Extraction cards */
+.extraction-card {
+    border-left: 4px solid var(--card-color, #6c757d);
+}
+
+.extraction-card.empty {
+    opacity: 0.5;
+}
+
+.extraction-card .card-header {
+    background: color-mix(in srgb, var(--card-color) 10%, white);
+    border-bottom: 1px solid color-mix(in srgb, var(--card-color) 20%, white);
+    padding: 0.5rem 1rem;
+}
+
+/* Prompt/Response sections */
+.prompt-section, .response-section {
+    background: #f8f9fa;
+    border-radius: 0.375rem;
+    margin-bottom: 1rem;
+}
+
+.prompt-section .section-header,
+.response-section .section-header {
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.prompt-section .section-header:hover,
+.response-section .section-header:hover {
+    background: #e9ecef;
+}
+
+.prompt-text, .response-text {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 0.8rem;
+    max-height: 400px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    background: white;
+    padding: 1rem;
+    border-radius: 0.25rem;
+    margin: 0 1rem 1rem 1rem;
+    border: 1px solid #dee2e6;
+}
+
+/* Entity list */
+.entity-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.entity-item {
+    background: white;
+    border-left: 3px solid var(--entity-color, #6c757d);
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+}
+
+.entity-item .entity-label {
+    font-weight: 600;
+    color: var(--entity-color, #2e59d9);
+}
+
+.entity-item .entity-definition {
+    color: #6c757d;
+    font-size: 0.8rem;
+}
+
+/* Metadata bar */
+.metadata-bar {
+    font-size: 0.75rem;
+    color: #6c757d;
+    padding: 0.5rem 1rem;
+    background: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+}
+
+/* Provenance bar */
+.provenance-bar {
+    font-size: 0.8rem;
+    padding: 0.5rem 1rem;
+    background: #f0f4ff;
+    border-bottom: 1px solid #dee2e6;
+    cursor: pointer;
+}
+
+.provenance-bar:hover {
+    background: #e4ebff;
+}
+
+.provenance-detail {
+    font-size: 0.75rem;
+    background: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    padding: 0.5rem 1rem;
+}
+
+/* Origin badges */
+.origin-badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 1rem;
+    font-weight: 500;
+}
+
+.origin-automated_pipeline { background: #dbeafe; color: #1e40af; }
+.origin-user_initiated { background: #dcfce7; color: #166534; }
+.origin-individual_extraction { background: #ffedd5; color: #9a3412; }
+.origin-algorithmic { background: #e5e7eb; color: #374151; }
+
+/* Activity Log styles */
+.activity-timeline {
+    position: relative;
+    padding-left: 30px;
+}
+
+.activity-card {
+    position: relative;
+    margin-bottom: 1rem;
+}
+
+.activity-card::before {
+    content: '';
+    position: absolute;
+    left: -20px;
+    top: 0;
+    bottom: -1rem;
+    width: 2px;
+    background: #dee2e6;
+}
+
+.activity-card:last-child::before {
+    display: none;
+}
+
+.activity-card::after {
+    content: '';
+    position: absolute;
+    left: -25px;
+    top: 20px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--activity-color, #6c757d);
+    border: 2px solid white;
+    box-shadow: 0 0 0 2px var(--activity-color, #6c757d);
+}
+
+.activity-extraction { --activity-color: #3b82f6; }
+.activity-llm_query { --activity-color: #8b5cf6; }
+.activity-composition { --activity-color: #14b8a6; }
+.activity-alignment { --activity-color: #06b6d4; }
+.activity-enrichment { --activity-color: #22c55e; }
+.activity-synthesis { --activity-color: #f59e0b; }
+.activity-storage { --activity-color: #64748b; }
+.activity-analysis { --activity-color: #ec4899; }
+
+.activity-card .card {
+    border-left: 4px solid var(--activity-color, #6c757d);
+}
+
+.activity-card .card-header {
+    background: linear-gradient(90deg, color-mix(in srgb, var(--activity-color) 10%, white), white);
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid #e3e6f0;
+}
+
+.activity-card .card-body {
+    padding: 0.75rem;
+}
+
+.status-completed { background: #198754; }
+.status-failed { background: #dc3545; }
+.status-running { background: #0d6efd; }
+</style>
+
+<script>
+const CASE_ID = {{ case.id }};
+let currentPipelineData = null;
+
+// Origin display labels
+const ORIGIN_LABELS = {
+    'automated_pipeline': 'Automated Pipeline',
+    'user_initiated': 'User Initiated',
+    'individual_extraction': 'Individual Extraction',
+    'algorithmic': 'Algorithmic'
+};
+
+// Activity type styling
+const activityStyles = {
+    'extraction': { icon: 'bi-download', color: '#3b82f6', label: 'Extraction' },
+    'llm_query': { icon: 'bi-robot', color: '#8b5cf6', label: 'LLM Query' },
+    'composition': { icon: 'bi-gear', color: '#14b8a6', label: 'Algorithmic' },
+    'alignment': { icon: 'bi-check2-square', color: '#06b6d4', label: 'Alignment' },
+    'enrichment': { icon: 'bi-link-45deg', color: '#22c55e', label: 'MCP Resolution' },
+    'synthesis': { icon: 'bi-lightbulb', color: '#f59e0b', label: 'Synthesis' },
+    'storage': { icon: 'bi-database', color: '#64748b', label: 'Storage' },
+    'analysis': { icon: 'bi-graph-up', color: '#ec4899', label: 'Analysis' }
+};
+
+const ENTITY_COLORS = {
+    'roles': '#0d6efd',
+    'states': '#6f42c1',
+    'resources': '#20c997',
+    'principles': '#fd7e14',
+    'obligations': '#dc3545',
+    'constraints': '#6c757d',
+    'capabilities': '#0dcaf0',
+    'actions': '#198754',
+    'events': '#ffc107'
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadPipeline();
+
+    document.getElementById('activityLogModal').addEventListener('show.bs.modal', function() {
+        loadActivityLog();
+    });
+});
+
+// ---- Data Loading ----
+
+function loadPipeline() {
+    const container = document.getElementById('pipeline-timeline');
+    container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-2">Loading pipeline data...</p></div>';
+
+    fetch(`/api/provenance/case/${CASE_ID}/pipeline`)
+        .then(response => response.json())
+        .then(data => {
+            currentPipelineData = data;
+            displayPipeline(data);
+            applyFilters();
+        })
+        .catch(error => {
+            console.error('Error loading pipeline:', error);
+            container.innerHTML = `<div class="alert alert-danger">Failed to load pipeline data: ${error.message}</div>`;
+        });
+}
+
+// ---- Pipeline Display ----
+
+function displayPipeline(data) {
+    const container = document.getElementById('pipeline-timeline');
+    container.innerHTML = '';
+
+    if (!data.pipeline || data.pipeline.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-4 text-muted">
+                <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                <p class="mt-2">No pipeline data recorded for this case yet.</p>
+                <p class="small">Run extraction steps to begin building the provenance record.</p>
+            </div>`;
+        return;
+    }
+
+    data.pipeline.forEach(step => {
+        if (step.step <= 3) {
+            container.appendChild(createStepHeader(step));
+            step.passes.forEach(pass => {
+                container.appendChild(createPassHeader(step, pass));
+                pass.extractions.forEach(extraction => {
+                    container.appendChild(createExtractionCard(step, pass, extraction));
+                });
+            });
+        } else {
+            container.appendChild(createStepHeader(step));
+            if (step.phases) {
+                step.phases.forEach(phase => {
+                    container.appendChild(createPhaseCard(step, phase));
+                });
+            }
+        }
+    });
+}
+
+function createStepHeader(step) {
+    const div = document.createElement('div');
+    div.className = 'pipeline-card';
+    div.dataset.step = step.step;
+    div.dataset.type = 'step-header';
+    div.style.setProperty('--card-color', step.color);
+    div.innerHTML = `
+        <div class="card step-header-card" style="--card-color: ${step.color};">
+            <div class="card-body">
+                <h5 class="mb-0"><i class="bi bi-layers me-2"></i>Step ${step.step}: ${step.name}</h5>
+            </div>
+        </div>`;
+    return div;
+}
+
+function createPassHeader(step, pass) {
+    const div = document.createElement('div');
+    div.className = 'pipeline-card';
+    div.dataset.step = step.step;
+    div.dataset.section = pass.section_type;
+    div.dataset.type = 'pass-header';
+    div.style.setProperty('--card-color', step.color);
+    const hasData = pass.extractions.some(e => e.has_data);
+    div.innerHTML = `
+        <div class="card" style="border-left: 4px solid ${step.color};">
+            <div class="card-body py-2">
+                <h6 class="mb-0">
+                    <i class="bi bi-arrow-right-circle me-2" style="color: ${step.color};"></i>
+                    ${pass.name}
+                    ${hasData ? '<span class="badge bg-success ms-2">Completed</span>' : '<span class="badge bg-secondary ms-2">Not processed</span>'}
+                </h6>
+            </div>
+        </div>`;
+    return div;
+}
+
+function createExtractionCard(step, pass, extraction) {
+    const div = document.createElement('div');
+    div.className = `pipeline-card${extraction.has_data ? '' : ' empty'}`;
+    div.dataset.step = step.step;
+    div.dataset.section = pass.section_type;
+    div.dataset.concept = extraction.concept;
+    div.dataset.type = 'extraction';
+    div.style.setProperty('--card-color', extraction.color);
+
+    if (!extraction.has_data) {
+        div.innerHTML = `
+            <div class="card extraction-card empty" style="--card-color: ${extraction.color};">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span><span class="badge" style="background: ${extraction.color};">${extraction.concept_label}</span></span>
+                    <span class="badge bg-secondary">Awaiting extraction</span>
+                </div>
+            </div>`;
+        return div;
+    }
+
+    const prompt = extraction.prompt;
+    const prov = extraction.provenance;
+    const entityHtml = extraction.entities.length > 0
+        ? `<div class="entity-list">${extraction.entities.map(e => `
+            <div class="entity-item" style="--entity-color: ${e.color};">
+                <div class="entity-label">${escapeHtml(e.label)}</div>
+                <div class="entity-definition">${escapeHtml((e.definition || '').substring(0, 150))}${e.definition && e.definition.length > 150 ? '...' : ''}</div>
+            </div>`).join('')}</div>`
+        : '<p class="text-muted mb-0">No entities extracted</p>';
+
+    const provId = `prov-${step.step}-${pass.section_type}-${extraction.concept}`;
+    const provBar = prov ? `
+        <div class="provenance-bar" onclick="toggleProvDetail('${provId}')">
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                <span><i class="bi bi-person-gear me-1"></i>${escapeHtml(prov.agent_name || 'Unknown')}</span>
+                ${prov.duration_ms ? `<span><i class="bi bi-stopwatch me-1"></i>${(prov.duration_ms / 1000).toFixed(1)}s</span>` : ''}
+                <span class="origin-badge origin-${prov.origin}">${ORIGIN_LABELS[prov.origin] || prov.origin}</span>
+                <span class="badge bg-${prov.status === 'completed' ? 'success' : prov.status === 'failed' ? 'danger' : 'secondary'}" style="font-size: 0.65rem;">${prov.status || 'unknown'}</span>
+                ${extraction.history_count > 1 ? `<span class="text-muted"><i class="bi bi-clock-history me-1"></i>${extraction.history_count} runs</span>` : ''}
+                <i class="bi bi-chevron-down ms-auto" style="font-size: 0.7rem;"></i>
+            </div>
+        </div>
+        <div class="provenance-detail" id="${provId}" style="display: none;">
+            <div class="row">
+                <div class="col-sm-6">
+                    <div><strong>Agent Type:</strong> ${escapeHtml(prov.agent_type || 'N/A')}</div>
+                    <div><strong>Agent Version:</strong> ${escapeHtml(prov.agent_version || 'N/A')}</div>
+                    <div><strong>Activity:</strong> ${escapeHtml(prov.activity_name || 'N/A')}</div>
+                </div>
+                <div class="col-sm-6">
+                    <div><strong>Started:</strong> ${prov.started_at ? new Date(prov.started_at).toLocaleString() : 'N/A'}</div>
+                    <div><strong>Ended:</strong> ${prov.ended_at ? new Date(prov.ended_at).toLocaleString() : 'N/A'}</div>
+                    <div><strong>Session:</strong> <code style="font-size: 0.7rem;">${escapeHtml((prompt.session_id || '').substring(0, 8))}</code></div>
+                </div>
+            </div>
+        </div>` : '';
+
+    div.innerHTML = `
+        <div class="card extraction-card" style="--card-color: ${extraction.color};">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>
+                    <span class="badge" style="background: ${extraction.color};">${extraction.concept_label}</span>
+                    <span class="badge bg-success ms-1">${extraction.entity_count} entities</span>
+                </span>
+                <span class="badge bg-success">Completed</span>
+            </div>
+            ${provBar}
+            <div class="card-body">
+                <div class="prompt-section">
+                    <div class="section-header" onclick="toggleSection(this)">
+                        <span><i class="bi bi-cpu me-2"></i>LLM Prompt</span>
+                        <i class="bi bi-chevron-down"></i>
+                    </div>
+                    <div class="section-content" style="display: none;">
+                        <pre class="prompt-text">${escapeHtml(prompt.text || 'No prompt text available')}</pre>
+                    </div>
+                </div>
+                <div class="response-section">
+                    <div class="section-header" onclick="toggleSection(this)">
+                        <span><i class="bi bi-chat-left-text me-2"></i>LLM Response</span>
+                        <i class="bi bi-chevron-down"></i>
+                    </div>
+                    <div class="section-content" style="display: none;">
+                        <pre class="response-text">${escapeHtml(prompt.response || 'No response available')}</pre>
+                    </div>
+                </div>
+                <div class="entities-section">
+                    <h6><i class="bi bi-collection me-2"></i>Extracted Entities (${extraction.entity_count})</h6>
+                    ${entityHtml}
+                </div>
+            </div>
+            <div class="metadata-bar">
+                <i class="bi bi-clock me-1"></i>${prompt.created_at ? new Date(prompt.created_at).toLocaleString() : 'N/A'}
+                <span class="mx-2">|</span>
+                <i class="bi bi-robot me-1"></i>${prompt.model || 'Unknown model'}
+            </div>
+        </div>`;
+    return div;
+}
+
+function createPhaseCard(step, phase) {
+    const div = document.createElement('div');
+    div.className = `pipeline-card${phase.has_data ? '' : ' empty'}`;
+    div.dataset.step = step.step;
+    div.dataset.concept = phase.concept_type;
+    div.dataset.type = 'phase';
+    div.style.setProperty('--card-color', step.color);
+
+    if (!phase.has_data) {
+        div.innerHTML = `
+            <div class="card extraction-card empty" style="--card-color: ${step.color};">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>
+                        <span class="badge" style="background: ${step.color};">Phase ${phase.phase}</span>
+                        <span class="ms-2">${phase.name}</span>
+                    </span>
+                    <span class="badge bg-secondary">Awaiting processing</span>
+                </div>
+            </div>`;
+        return div;
+    }
+
+    const prompt = phase.prompt;
+    const prov = phase.provenance;
+    const entityHtml = phase.entities.length > 0
+        ? `<div class="entity-list">${phase.entities.map(e => `
+            <div class="entity-item" style="--entity-color: ${step.color};">
+                <div class="entity-label">${escapeHtml(e.label)}</div>
+                <div class="entity-definition">${escapeHtml((e.definition || '').substring(0, 150))}${e.definition && e.definition.length > 150 ? '...' : ''}</div>
+            </div>`).join('')}</div>`
+        : '';
+
+    const provId = `prov-4-${phase.concept_type}`;
+    const provBar = prov ? `
+        <div class="provenance-bar" onclick="toggleProvDetail('${provId}')">
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                <span><i class="bi bi-person-gear me-1"></i>${escapeHtml(prov.agent_name || 'Unknown')}</span>
+                ${prov.duration_ms ? `<span><i class="bi bi-stopwatch me-1"></i>${(prov.duration_ms / 1000).toFixed(1)}s</span>` : ''}
+                <span class="origin-badge origin-${prov.origin}">${ORIGIN_LABELS[prov.origin] || prov.origin}</span>
+                <span class="badge bg-${prov.status === 'completed' ? 'success' : prov.status === 'failed' ? 'danger' : 'secondary'}" style="font-size: 0.65rem;">${prov.status || 'unknown'}</span>
+                <i class="bi bi-chevron-down ms-auto" style="font-size: 0.7rem;"></i>
+            </div>
+        </div>
+        <div class="provenance-detail" id="${provId}" style="display: none;">
+            <div class="row">
+                <div class="col-sm-6">
+                    <div><strong>Agent Type:</strong> ${escapeHtml(prov.agent_type || 'N/A')}</div>
+                    <div><strong>Activity:</strong> ${escapeHtml(prov.activity_name || 'N/A')}</div>
+                </div>
+                <div class="col-sm-6">
+                    <div><strong>Started:</strong> ${prov.started_at ? new Date(prov.started_at).toLocaleString() : 'N/A'}</div>
+                    <div><strong>Ended:</strong> ${prov.ended_at ? new Date(prov.ended_at).toLocaleString() : 'N/A'}</div>
+                </div>
+            </div>
+        </div>` : '';
+
+    div.innerHTML = `
+        <div class="card extraction-card" style="--card-color: ${step.color};">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>
+                    <span class="badge" style="background: ${step.color};">Phase ${phase.phase}</span>
+                    <span class="ms-2">${phase.name}</span>
+                    ${phase.entity_count > 0 ? `<span class="badge bg-success ms-1">${phase.entity_count} items</span>` : ''}
+                </span>
+                <span class="badge bg-success">Completed</span>
+            </div>
+            ${provBar}
+            <div class="card-body">
+                <div class="prompt-section">
+                    <div class="section-header" onclick="toggleSection(this)">
+                        <span><i class="bi bi-cpu me-2"></i>LLM Prompt</span>
+                        <i class="bi bi-chevron-down"></i>
+                    </div>
+                    <div class="section-content" style="display: none;">
+                        <pre class="prompt-text">${escapeHtml(prompt.text || 'No prompt text available')}</pre>
+                    </div>
+                </div>
+                <div class="response-section">
+                    <div class="section-header" onclick="toggleSection(this)">
+                        <span><i class="bi bi-chat-left-text me-2"></i>LLM Response</span>
+                        <i class="bi bi-chevron-down"></i>
+                    </div>
+                    <div class="section-content" style="display: none;">
+                        <pre class="response-text">${escapeHtml(prompt.response || 'No response available')}</pre>
+                    </div>
+                </div>
+                ${entityHtml ? `
+                <div class="entities-section">
+                    <h6><i class="bi bi-collection me-2"></i>Generated Items (${phase.entity_count})</h6>
+                    ${entityHtml}
+                </div>` : ''}
+            </div>
+            <div class="metadata-bar">
+                <i class="bi bi-clock me-1"></i>${prompt.created_at ? new Date(prompt.created_at).toLocaleString() : 'N/A'}
+                <span class="mx-2">|</span>
+                <i class="bi bi-robot me-1"></i>${prompt.model || 'Unknown model'}
+            </div>
+        </div>`;
+    return div;
+}
+
+// ---- Filtering ----
+
+function applyFilters() {
+    const stepFilter = document.getElementById('filter-step').value;
+    const sectionFilter = document.getElementById('filter-section').value;
+    const conceptFilter = document.getElementById('filter-concept').value;
+
+    const cards = document.querySelectorAll('.pipeline-card');
+    let visible = 0;
+    let total = 0;
+
+    cards.forEach(card => {
+        const cardStep = card.dataset.step;
+        const cardSection = card.dataset.section || '';
+        const cardConcept = card.dataset.concept || '';
+        const cardType = card.dataset.type;
+
+        // Step headers: show if step matches or no step filter
+        if (cardType === 'step-header') {
+            card.style.display = (!stepFilter || cardStep === stepFilter) ? '' : 'none';
+            return;
+        }
+
+        // Pass headers: show if step and section match
+        if (cardType === 'pass-header') {
+            const stepMatch = !stepFilter || cardStep === stepFilter;
+            const sectionMatch = !sectionFilter || cardSection === sectionFilter;
+            card.style.display = (stepMatch && sectionMatch) ? '' : 'none';
+            return;
+        }
+
+        // Extraction and phase cards
+        total++;
+        const stepMatch = !stepFilter || cardStep === stepFilter;
+        const sectionMatch = !sectionFilter || cardSection === sectionFilter || !cardSection;
+        const conceptMatch = !conceptFilter || cardConcept === conceptFilter;
+
+        if (stepMatch && sectionMatch && conceptMatch) {
+            card.style.display = '';
+            visible++;
+        } else {
+            card.style.display = 'none';
+        }
+    });
+
+    const countEl = document.getElementById('filter-count');
+    if (stepFilter || sectionFilter || conceptFilter) {
+        countEl.textContent = `Showing ${visible} of ${total} extractions`;
+    } else {
+        countEl.textContent = '';
+    }
+}
+
+function clearFilters() {
+    document.getElementById('filter-step').value = '';
+    document.getElementById('filter-section').value = '';
+    document.getElementById('filter-concept').value = '';
+    applyFilters();
+}
+
+// ---- Activity Log ----
+
+function loadActivityLog() {
+    const container = document.getElementById('activity-timeline');
+    if (container.dataset.loaded === String(CASE_ID)) return;
+
+    container.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>';
+
+    fetch(`/api/provenance/case/${CASE_ID}`)
+        .then(response => response.json())
+        .then(data => {
+            displayActivityLog(data.timeline);
+            container.dataset.loaded = String(CASE_ID);
+        })
+        .catch(error => {
+            container.innerHTML = `<div class="alert alert-danger">Failed to load activity log: ${error.message}</div>`;
+        });
+}
+
+function displayActivityLog(timeline) {
+    const container = document.getElementById('activity-timeline');
+
+    if (!timeline || timeline.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-4 text-muted">
+                <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                <p class="mt-2">No activities recorded yet.</p>
+            </div>`;
+        return;
+    }
+
+    container.innerHTML = '';
+    timeline.forEach(activity => {
+        const style = activityStyles[activity.activity_type] || activityStyles['extraction'];
+        container.appendChild(createActivityCard(activity, style));
+    });
+}
+
+function createActivityCard(activity, style) {
+    const div = document.createElement('div');
+    div.className = `activity-card activity-${activity.activity_type}`;
+
+    const statusBadge = activity.status === 'completed'
+        ? '<span class="badge status-completed">Completed</span>'
+        : activity.status === 'failed'
+        ? '<span class="badge status-failed">Failed</span>'
+        : '<span class="badge status-running">Running</span>';
+
+    const durationText = activity.duration_ms ? `${(activity.duration_ms / 1000).toFixed(2)}s` : 'N/A';
+    const startTime = activity.started_at ? new Date(activity.started_at).toLocaleString() : 'N/A';
+    const agentInfo = activity.agent ? `<span class="me-2"><i class="bi bi-robot me-1"></i>${activity.agent.name}</span>` : '';
+
+    div.innerHTML = `
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    <i class="bi ${style.icon} me-1" style="color: ${style.color};"></i>
+                    <strong>${formatActivityName(activity.name)}</strong>
+                    <span class="badge ms-1" style="background: ${style.color}; font-size: 0.7rem;">${style.label}</span>
+                </div>
+                ${statusBadge}
+            </div>
+            <div class="card-body">
+                <div class="d-flex flex-wrap gap-2 text-muted small">
+                    ${agentInfo}
+                    <span><i class="bi bi-clock me-1"></i>${startTime}</span>
+                    <span><i class="bi bi-stopwatch me-1"></i>${durationText}</span>
+                </div>
+            </div>
+        </div>`;
+    return div;
+}
+
+function formatActivityName(name) {
+    const nameMap = {
+        'entities_pass_step1': 'Step 1: Entity Extraction',
+        'entities_pass_step1_streaming': 'Step 1: Entity Extraction (Streaming)',
+        'dual_roles_extraction': 'Roles Extraction',
+        'dual_states_extraction': 'States Extraction',
+        'dual_resources_extraction': 'Resources Extraction',
+        'normative_pass_step2': 'Step 2: Normative Pass',
+        'normative_pass_step2_streaming': 'Step 2: Normative Pass (Streaming)',
+        'dual_principles_extraction': 'Principles Extraction',
+        'dual_obligations_extraction': 'Obligations Extraction',
+        'dual_constraints_extraction': 'Constraints Extraction',
+        'dual_capabilities_extraction': 'Capabilities Extraction',
+        'temporal_pass_step3': 'Step 3: Temporal Pass',
+        'temporal_action_extraction': 'Actions Extraction',
+        'temporal_event_extraction': 'Events Extraction',
+        'temporal_section_analysis': 'Temporal Section Analysis',
+        'temporal_temporal_markers': 'Temporal Markers',
+        'temporal_causal_analysis': 'Causal Analysis',
+        'step4_provisions': 'Phase 2A: Code Provisions',
+        'step4_questions': 'Phase 2B: Ethical Questions',
+        'step4_conclusions': 'Phase 2B: Ethical Conclusions',
+        'step4_transformation': 'Phase 2C: Transformation',
+        'step4_rich_analysis': 'Phase 2D: Rich Analysis',
+        'step4_phase3_decision': 'Phase 3: Decision Points',
+        'step4_phase4_narrative': 'Phase 4: Narrative'
+    };
+    return nameMap[name] || name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+}
+
+// ---- Utilities ----
+
+function toggleSection(header) {
+    const content = header.nextElementSibling;
+    const icon = header.querySelector('.bi-chevron-down, .bi-chevron-up');
+    if (content.style.display === 'none') {
+        content.style.display = 'block';
+        if (icon) icon.classList.replace('bi-chevron-down', 'bi-chevron-up');
+    } else {
+        content.style.display = 'none';
+        if (icon) icon.classList.replace('bi-chevron-up', 'bi-chevron-down');
+    }
+}
+
+function toggleProvDetail(id) {
+    const el = document.getElementById(id);
+    if (el) {
+        el.style.display = el.style.display === 'none' ? '' : 'none';
+        const bar = el.previousElementSibling;
+        const icon = bar ? bar.querySelector('.bi-chevron-down, .bi-chevron-up') : null;
+        if (icon) {
+            icon.classList.toggle('bi-chevron-down');
+            icon.classList.toggle('bi-chevron-up');
+        }
+    }
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+    return String(text).replace(/[&<>"']/g, m => map[m]);
+}
+</script>
+{% endblock %}

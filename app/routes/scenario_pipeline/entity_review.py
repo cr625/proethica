@@ -143,103 +143,21 @@ def review_all_case_entities(case_id):
 @bp.route('/case/<int:case_id>/extraction_history/<int:step_number>/<section_type>')
 @auth_optional
 def extraction_history(case_id, step_number=None, section_type=None):
-    """Display extraction prompt/response history with filters.
-
-    Shows a timeline of all extractions for a case, grouped by date.
-    Can be filtered by step, section, and concept type.
-    """
-    try:
-        from app.models.extraction_prompt import ExtractionPrompt
-
-        case_doc = Document.query.get(case_id)
-        if not case_doc:
-            flash(f'Case {case_id} not found', 'error')
-            return redirect(url_for('index.index'))
-
-        # Get query params
-        concept_type = request.args.get('concept_type')
-        steps_param = request.args.get('steps')  # e.g. "1" or "1,2,3"
-
-        # Determine step filter: path param takes precedence, then ?steps= query param
-        step_numbers = None
-        if step_number is not None:
-            step_numbers = [step_number]
-        elif steps_param:
-            try:
-                step_numbers = [int(s.strip()) for s in steps_param.split(',') if s.strip()]
-            except ValueError:
-                step_numbers = None
-
-        # Get history with filters
-        if step_numbers and len(step_numbers) == 1:
-            # Single step - use existing filter
-            prompts = ExtractionPrompt.get_prompt_history(
-                case_id=case_id,
-                step_number=step_numbers[0],
-                section_type=section_type,
-                concept_type=concept_type
-            )
-            step_number = step_numbers[0]  # For template display
-        elif step_numbers:
-            # Multiple steps - query with IN clause
-            query = ExtractionPrompt.query.filter(
-                ExtractionPrompt.case_id == case_id,
-                ExtractionPrompt.step_number.in_(step_numbers)
-            )
-            if section_type:
-                query = query.filter_by(section_type=section_type)
-            if concept_type:
-                query = query.filter_by(concept_type=concept_type)
-            prompts = query.order_by(ExtractionPrompt.created_at.desc()).all()
-        else:
-            prompts = ExtractionPrompt.get_prompt_history(
-                case_id=case_id,
-                section_type=section_type,
-                concept_type=concept_type
-            )
-
-        # Group by date for timeline display
-        history_by_date = defaultdict(list)
-        for prompt in prompts:
-            date_key = prompt.created_at.strftime('%Y-%m-%d') if prompt.created_at else 'Unknown'
-            history_by_date[date_key].append(prompt.to_history_dict())
-
-        # Build filter options from available data
-        available_steps = db.session.query(ExtractionPrompt.step_number).filter_by(
-            case_id=case_id
-        ).distinct().order_by(ExtractionPrompt.step_number).all()
-
-        available_sections = db.session.query(ExtractionPrompt.section_type).filter_by(
-            case_id=case_id
-        ).distinct().all()
-
-        available_concepts = db.session.query(ExtractionPrompt.concept_type).filter_by(
-            case_id=case_id
-        ).distinct().all()
-
-        # Constrain available filter options when steps are pre-filtered
-        avail_steps = [s[0] for s in available_steps if s[0] is not None]
-        if step_numbers:
-            avail_steps = [s for s in avail_steps if s in step_numbers]
-
-        return render_template(
-            'scenarios/extraction_history.html',
-            case=case_doc,
-            history_by_date=dict(history_by_date),
-            total_prompts=len(prompts),
-            current_step=step_number,
-            current_section=section_type,
-            current_concept=concept_type,
-            steps_filter=steps_param or '',
-            available_steps=avail_steps,
-            available_sections=[s[0] for s in available_sections if s[0] is not None],
-            available_concepts=[c[0] for c in available_concepts if c[0] is not None]
-        )
-
-    except Exception as e:
-        logger.error(f"Error loading extraction history for case {case_id}: {e}")
-        flash(f'Error loading extraction history: {str(e)}', 'error')
-        return redirect(url_for('index.index'))
+    """Redirect to unified provenance view."""
+    params = {}
+    if step_number:
+        params['step'] = step_number
+    elif request.args.get('steps'):
+        # Take first step from comma-separated list
+        try:
+            params['step'] = int(request.args['steps'].split(',')[0].strip())
+        except (ValueError, IndexError):
+            pass
+    if section_type:
+        params['section'] = section_type
+    if request.args.get('concept_type'):
+        params['concept'] = request.args['concept_type']
+    return redirect(url_for('provenance.case_provenance', case_id=case_id, **params))
 
 
 @bp.route('/case/<int:case_id>/entities/review')

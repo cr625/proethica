@@ -354,35 +354,9 @@ class GuidelineAnalysisService:
                 return
                 
         except Exception as e:
-            logger.warning(f"Error using OntologyEntityService, falling back to database query: {str(e)}")
-        
-        # Fallback to database query
-        try:
-            query = text("""
-                SELECT DISTINCT e.uri, e.label, e.description, e.entity_type
-                FROM ontology_entities e
-                JOIN ontologies o ON e.ontology_id = o.id
-                WHERE o.name IN ('engineering-ethics', 'proethica-intermediate', 'bfo')
-                ORDER BY e.entity_type, e.label
-            """)
-            
-            result = db.session.execute(query)
+            logger.error(f"Failed to load ontology entities from OntologyEntityService: {e}")
             entities = []
-            
-            for row in result:
-                entities.append({
-                    'uri': row.uri,
-                    'label': row.label,
-                    'description': row.description or '',
-                    'category': self._map_entity_type_to_category(row.entity_type)
-                })
-            
-            logger.info(f"Found {len(entities)} ontology entities from database")
-            
-        except Exception as e:
-            logger.error(f"Error querying database for entities: {str(e)}")
-            entities = []
-        
+
         # Generate embeddings for entities
         self._ontology_index = entities
         self._generate_ontology_embeddings()

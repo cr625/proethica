@@ -19,6 +19,19 @@ from app.models.temporary_rdf_storage import TemporaryRDFStorage
 from app.services.provenance_service import get_provenance_service
 from app.utils.environment_auth import auth_optional
 
+# Mapping from concept_type to provenance activity_name patterns
+CONCEPT_ACTIVITY_MAP = {
+    'roles': 'dual_roles_extraction',
+    'states': 'dual_states_extraction',
+    'resources': 'dual_resources_extraction',
+    'principles': 'dual_principles_extraction',
+    'obligations': 'dual_obligations_extraction',
+    'constraints': 'dual_constraints_extraction',
+    'capabilities': 'dual_capabilities_extraction',
+    'actions': 'temporal_action_extraction',
+    'events': 'temporal_event_extraction',
+}
+
 # Pipeline structure definition with colors
 PIPELINE_STRUCTURE = {
     'steps': [
@@ -81,11 +94,12 @@ def provenance_hub():
 @auth_optional
 def provenance_cases():
     """All cases provenance viewer page with optional case pre-selected."""
-    # Get optional selected case_id from query params
+    # Redirect to unified view when a specific case is selected
     selected_case_id = request.args.get('selected', type=int)
-    selected_case = None
     if selected_case_id:
-        selected_case = Document.query.get(selected_case_id)
+        return redirect(url_for('provenance.case_provenance', case_id=selected_case_id))
+
+    selected_case = None
 
     # Get all cases with optional provenance activity counts
     all_cases = db.session.query(
@@ -122,7 +136,24 @@ def provenance_cases():
 @auth_optional
 def provenance_case(case_id):
     """Redirect to unified provenance view with case selected."""
-    return redirect(url_for('provenance.provenance_cases', selected=case_id))
+    return redirect(url_for('provenance.case_provenance', case_id=case_id))
+
+
+@provenance_bp.route('/scenario_pipeline/case/<int:case_id>/provenance')
+@auth_optional
+def case_provenance(case_id):
+    """Unified provenance view for a single case."""
+    document = Document.query.get_or_404(case_id)
+
+    initial_step = request.args.get('step', type=int)
+    initial_section = request.args.get('section')
+    initial_concept = request.args.get('concept')
+
+    return render_template('scenarios/provenance.html',
+                           case=document,
+                           initial_step=initial_step,
+                           initial_section=initial_section,
+                           initial_concept=initial_concept)
 
 
 @provenance_bp.route('/api/provenance/case/<int:case_id>')
@@ -513,6 +544,17 @@ def _get_extraction_data(case_id: int, step_number: int, section_type: str, conc
                 'color': ENTITY_COLORS.get(concept_type, '#6c757d')
             })
 
+    # Provenance metadata
+    provenance = _get_provenance_for_prompt(case_id, concept_type, prompt)
+
+    # History count (how many prior prompts exist)
+    history_count = ExtractionPrompt.query.filter_by(
+        case_id=case_id,
+        step_number=step_number,
+        section_type=section_type,
+        concept_type=concept_type
+    ).count()
+
     return {
         'concept': concept_type,
         'concept_label': concept_type.replace('_', ' ').title(),
@@ -524,10 +566,13 @@ def _get_extraction_data(case_id: int, step_number: int, section_type: str, conc
             'response': prompt.raw_response,
             'model': prompt.llm_model,
             'created_at': prompt.created_at.isoformat() if prompt.created_at else None,
-            'results_summary': prompt.results_summary
+            'results_summary': prompt.results_summary,
+            'session_id': prompt.extraction_session_id
         } if prompt else None,
         'entities': section_entities,
-        'entity_count': len(section_entities)
+        'entity_count': len(section_entities),
+        'provenance': provenance,
+        'history_count': history_count
     }
 
 
@@ -570,6 +615,9 @@ def _get_step4_phase_data(case_id: int, phase_def: dict) -> dict:
             'rdf_data': dp.rdf_json_ld
         } for dp in decision_points]
 
+    # Provenance metadata
+    provenance = _get_provenance_for_prompt(case_id, concept_type, prompt)
+
     return {
         'phase': phase_def['phase'],
         'name': phase_def['name'],
@@ -582,8 +630,80 @@ def _get_step4_phase_data(case_id: int, phase_def: dict) -> dict:
             'response': prompt.raw_response,
             'model': prompt.llm_model,
             'created_at': prompt.created_at.isoformat() if prompt.created_at else None,
-            'results_summary': prompt.results_summary if isinstance(prompt.results_summary, dict) else None
+            'results_summary': prompt.results_summary if isinstance(prompt.results_summary, dict) else None,
+            'session_id': prompt.extraction_session_id
         } if prompt else None,
         'entities': entities,
-        'entity_count': len(entities)
+        'entity_count': len(entities),
+        'provenance': provenance
     }
+
+
+def _get_provenance_for_prompt(case_id, concept_type, prompt):
+    """Look up W3C provenance metadata for an extraction prompt.
+
+    Matches via session_id + activity_name pattern. Falls back to
+    case_id + activity_name when session_id is unavailable.
+    """
+    if not prompt:
+        return None
+
+    activity_name = CONCEPT_ACTIVITY_MAP.get(concept_type)
+
+    activity = None
+    if prompt.extraction_session_id and activity_name:
+        # Primary match: session_id + concept-specific activity
+        activity = ProvenanceActivity.query.filter_by(
+            case_id=case_id,
+            session_id=prompt.extraction_session_id,
+            activity_name=activity_name
+        ).order_by(ProvenanceActivity.started_at.desc()).first()
+
+    if not activity and prompt.extraction_session_id:
+        # Fallback: any activity in this session for this case
+        activity = ProvenanceActivity.query.filter_by(
+            case_id=case_id,
+            session_id=prompt.extraction_session_id
+        ).order_by(ProvenanceActivity.started_at.desc()).first()
+
+    if not activity and activity_name:
+        # Last resort: match by case + activity name, closest to prompt timestamp
+        activity = ProvenanceActivity.query.filter_by(
+            case_id=case_id,
+            activity_name=activity_name
+        ).order_by(ProvenanceActivity.started_at.desc()).first()
+
+    if not activity:
+        return None
+
+    agent = activity.agent
+    return {
+        'activity_id': activity.id,
+        'activity_type': activity.activity_type,
+        'activity_name': activity.activity_name,
+        'agent_name': agent.agent_name if agent else None,
+        'agent_type': agent.agent_type if agent else None,
+        'agent_version': agent.agent_version if agent else None,
+        'duration_ms': activity.duration_ms,
+        'status': activity.status,
+        'started_at': activity.started_at.isoformat() if activity.started_at else None,
+        'ended_at': activity.ended_at.isoformat() if activity.ended_at else None,
+        'origin': _determine_origin(activity)
+    }
+
+
+def _determine_origin(activity):
+    """Classify extraction origin from activity metadata.
+
+    Returns one of: automated_pipeline, user_initiated,
+    individual_extraction, algorithmic.
+    """
+    name = activity.activity_name or ''
+
+    if 'entities_pass' in name or 'normative_pass' in name or 'temporal_pass' in name:
+        return 'automated_pipeline'
+    if activity.activity_type in ('composition', 'synthesis', 'analysis'):
+        return 'algorithmic'
+    if 'dual_' in name or '_extraction' in name:
+        return 'user_initiated'
+    return 'user_initiated'
