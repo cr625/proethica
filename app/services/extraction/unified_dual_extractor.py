@@ -646,7 +646,10 @@ class UnifiedDualExtractor:
         # 4. Match against existing ontology classes
         self._check_existing_matches(classes)
 
-        # 5. Link individuals to classes
+        # 5. Collect ontology definitions for matched entities
+        self.ontology_definitions = self._collect_ontology_definitions(classes)
+
+        # 6. Link individuals to classes
         self._link_individuals_to_classes(individuals, classes)
 
         elapsed = time.time() - start
@@ -802,7 +805,7 @@ class UnifiedDualExtractor:
             if not prior_classes:
                 return ''
 
-            # Format as text block
+            # Format as text block with multi-source definitions
             lines = [
                 f'\n\n--- {self.concept_type.upper()} CLASSES ALREADY EXTRACTED FROM PRIOR SECTIONS ---',
                 'These classes were found in earlier sections of this case.',
@@ -810,8 +813,19 @@ class UnifiedDualExtractor:
                 'Do NOT re-create them as new classes.\n',
             ]
             for cls in prior_classes:
-                defn = cls.entity_definition or ''
-                lines.append(f'- {cls.entity_label}: {defn}')
+                json_ld = cls.rdf_json_ld or {}
+                definitions = json_ld.get('definitions', [])
+                if definitions and len(definitions) > 1:
+                    # Show each definition with source tag
+                    lines.append(f'- {cls.entity_label}')
+                    for defn_entry in definitions:
+                        source_tag = defn_entry.get('source_section') or defn_entry.get('source_type', 'unknown')
+                        text = defn_entry.get('text', '')
+                        if text:
+                            lines.append(f'  [{source_tag}] {text}')
+                else:
+                    defn = cls.entity_definition or ''
+                    lines.append(f'- {cls.entity_label}: {defn}')
 
             logger.info(
                 f"Added {len(prior_classes)} prior-section {self.concept_type} "
@@ -1238,6 +1252,64 @@ class UnifiedDualExtractor:
                         'Label match with existing ontology class'
                     )
                     break
+
+    def _collect_ontology_definitions(
+        self, classes: List[BaseModel],
+    ) -> Dict[str, Dict[str, str]]:
+        """Collect definitions from matched ontology entities.
+
+        For each candidate class that matched an existing ontology class,
+        look up the ontology entity's comment (rdfs:comment) and return it
+        keyed by label.
+
+        Returns:
+            Dict mapping label -> {text, source_uri, source_ontology}
+        """
+        result = {}
+        if not self.existing_classes:
+            return result
+
+        # Build lookup: URI -> existing entity dict
+        existing_by_uri = {}
+        existing_by_label = {}
+        for ent in self.existing_classes:
+            uri = ent.get('uri', '')
+            label = ent.get('label', '')
+            if uri:
+                existing_by_uri[uri] = ent
+            if label:
+                norm = label.lower().replace('_', ' ').replace('-', ' ').strip()
+                existing_by_label[norm] = ent
+
+        for candidate in classes:
+            md = candidate.match_decision
+            if not md.matches_existing:
+                continue
+
+            # Find the ontology entity via matched_uri or matched_label
+            ont_entity = None
+            if md.matched_uri:
+                ont_entity = existing_by_uri.get(md.matched_uri)
+            if not ont_entity and md.matched_label:
+                norm = md.matched_label.lower().replace('_', ' ').replace('-', ' ').strip()
+                ont_entity = existing_by_label.get(norm)
+
+            ont_def = (
+                ont_entity.get('description')
+                or ont_entity.get('comment', '')
+            ) if ont_entity else ''
+            if ont_def:
+                result[candidate.label] = {
+                    'text': ont_def,
+                    'source_uri': ont_entity.get('uri', ''),
+                    'source_ontology': (
+                        ont_entity.get('ontology_name')
+                        or ont_entity.get('source')
+                        or (ont_entity.get('metadata', {}) or {}).get('ontology', '')
+                    ),
+                }
+
+        return result
 
     def _labels_match(self, label1: str, label2: str) -> bool:
         """Case-insensitive exact label matching with normalization.

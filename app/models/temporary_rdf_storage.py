@@ -425,6 +425,30 @@ class TemporaryRDFStorage(db.Model):
         if combined_sources:
             existing_json['source_text'] = " | ".join(combined_sources)
 
+        # Merge definitions array
+        existing_defs = existing_json.get('definitions', [])
+        new_defs = new_json_ld.get('definitions', [])
+
+        # Bootstrap existing definitions from scalar 'definition' if array is empty
+        if not existing_defs and existing_json.get('definition'):
+            existing_defs = [{
+                'text': existing_json['definition'],
+                'source_type': 'extraction',
+                'source_section': existing_json.get('section_sources', ['unknown'])[0],
+                'is_primary': True,
+            }]
+
+        # Append new definitions, skipping exact text duplicates
+        existing_texts = {d.get('text', '') for d in existing_defs}
+        for new_def in new_defs:
+            new_text = new_def.get('text', '')
+            if new_text and new_text not in existing_texts:
+                new_def['is_primary'] = False
+                existing_defs.append(new_def)
+                existing_texts.add(new_text)
+
+        existing_json['definitions'] = existing_defs
+
         # Merge relationships
         existing_rels = existing_json.get('relationships', [])
         new_rels = new_json_ld.get('relationships', [])

@@ -176,7 +176,17 @@
 
                 {# Fallback: definition + reasoning if no properties #}
                 {% if not ns.has_content %}
-                    {% if indiv.rdf_json_ld and indiv.rdf_json_ld.definition %}
+                    {% set definitions = (indiv.rdf_json_ld or {}).get('definitions', []) %}
+                    {% if definitions and definitions|length > 1 %}
+                        <div class="mb-1"><strong class="text-muted">Definitions:</strong></div>
+                        {% for defn in definitions %}
+                        <div class="small{% if not defn.is_primary %} text-muted{% endif %} mb-1">
+                            {% if defn.is_primary %}<strong>{{ defn.text }}</strong>
+                            {% else %}{{ defn.text }}{% endif %}
+                            <span class="badge bg-{{ 'primary' if defn.source_type == 'extraction' else ('info' if defn.source_type == 'ontology' else 'secondary') }}" style="font-size: 0.65em;">{{ defn.source_section or defn.source_ontology or defn.source_type }}</span>
+                        </div>
+                        {% endfor %}
+                    {% elif indiv.rdf_json_ld and indiv.rdf_json_ld.definition %}
                         <div class="mb-1"><strong class="text-muted">Definition:</strong> <span class="small">{{ indiv.rdf_json_ld.definition }}</span></div>
                         {% if indiv.rdf_json_ld.reasoning %}
                         <div class="mb-1"><strong class="text-muted">Reasoning:</strong> <span class="small text-muted">{{ indiv.rdf_json_ld.reasoning }}</span></div>

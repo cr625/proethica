@@ -32,7 +32,7 @@ def modify_entity_in_ontserve():
         SELECT oe.label, oe.uri, o.name as ontology
         FROM ontology_entities oe
         JOIN ontologies o ON oe.ontology_id = o.id
-        WHERE o.name IN ('proethica-intermediate-extracted', 'proethica-case-18')
+        WHERE o.name IN ('proethica-intermediate-extended', 'proethica-case-18')
         ORDER BY o.name, oe.label
     """)
 
@@ -48,7 +48,7 @@ def modify_entity_in_ontserve():
         UPDATE ontology_entities
         SET label = label || ' (Modified in OntServe)'
         WHERE label = 'Technical Evaluation Report'
-        AND ontology_id = (SELECT id FROM ontologies WHERE name = 'proethica-intermediate-extracted')
+        AND ontology_id = (SELECT id FROM ontologies WHERE name = 'proethica-intermediate-extended')
         RETURNING label, uri
     """)
 
@@ -69,7 +69,7 @@ def modify_entity_in_ontserve():
         SELECT oe.label, oe.uri, o.name as ontology
         FROM ontology_entities oe
         JOIN ontologies o ON oe.ontology_id = o.id
-        WHERE o.name IN ('proethica-intermediate-extracted', 'proethica-case-18')
+        WHERE o.name IN ('proethica-intermediate-extended', 'proethica-case-18')
         ORDER BY o.name, oe.label
     """)
 

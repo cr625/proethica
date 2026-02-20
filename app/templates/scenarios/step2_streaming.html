@@ -435,6 +435,16 @@ function matchBadge(matchedLabel, confidence) {
     return `<span class="badge bg-warning text-dark" style="font-size:0.75em;">Review: ${matchedLabel}</span>`;
 }
 
+const currentSectionType = '{{ section_type|default("facts") }}';
+
+function sectionBadge(sectionSources) {
+    if (!sectionSources || sectionSources.length <= 1) return '';
+    const otherSections = sectionSources.filter(s => s !== currentSectionType);
+    if (otherSections.length === 0) return '';
+    const labels = otherSections.map(s => s.charAt(0).toUpperCase() + s.slice(1));
+    return `<span class="badge bg-info text-dark" style="font-size:0.70em;" title="Also extracted from ${labels.join(', ')} section"><i class="bi bi-link-45deg"></i> +${labels.join(', ')}</span>`;
+}
+
 function displayExtractionResults(type, data) {
     const resultsEl = document.getElementById(`${type}Results`);
     let html = '';
@@ -455,7 +465,7 @@ function displayExtractionResults(type, data) {
             const conf = cls.confidence || 0;
             const matched = cls.matched_ontology_label || '';
             html += `<div style="padding: 4px 0; border-bottom: 1px solid #f0f0f0;">`;
-            html += `<strong>${cls.label}</strong> ${confidenceBadge(conf)} ${matchBadge(matched, conf)}`;
+            html += `<strong>${cls.label}</strong> ${confidenceBadge(conf)} ${matchBadge(matched, conf)} ${sectionBadge(cls.section_sources)}`;
             if (cls.definition) html += `<br/><small class="text-muted">${cls.definition}</small>`;
             html += `</div>`;
         });
@@ -470,7 +480,7 @@ function displayExtractionResults(type, data) {
             const conf = ind.confidence || 0;
             const matched = ind.matched_ontology_label || '';
             html += `<div style="padding: 4px 0; border-bottom: 1px solid #f0f0f0;">`;
-            html += `<strong>${label}</strong> ${confidenceBadge(conf)} ${matchBadge(matched, conf)}`;
+            html += `<strong>${label}</strong> ${confidenceBadge(conf)} ${matchBadge(matched, conf)} ${sectionBadge(ind.section_sources)}`;
             if (ind.definition) html += `<br/><small class="text-muted">${ind.definition}</small>`;
             html += `</div>`;
         });

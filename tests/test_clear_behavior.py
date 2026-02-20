@@ -99,7 +99,7 @@ def test_clear_behavior():
         if committed_before == committed_after:
             print("✅ SUCCESS: Committed entities were preserved!")
             print("   They remain in OntServe and can be viewed at:")
-            print("   - http://localhost:5003/ontology/proethica-intermediate-extracted")
+            print("   - http://localhost:5003/ontology/proethica-intermediate-extended")
             print("   - http://localhost:5003/ontology/proethica-case-18")
         else:
             print("❌ PROBLEM: Some committed entities were lost!")

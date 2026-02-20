@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test cumulative addition of classes to proethica-intermediate-extracted.
+Test cumulative addition of classes to proethica-intermediate-extended.
 
 This demonstrates that new classes are added without removing existing ones.
 """
@@ -78,7 +78,7 @@ def create_test_state_entities():
         entity_ids = [state_class.id, state_class2.id]
 
         # Now commit them
-        print("\nCommitting State classes to proethica-intermediate-extracted...")
+        print("\nCommitting State classes to proethica-intermediate-extended...")
         commit_service = OntServeCommitService()
         result = commit_service.commit_selected_entities(18, entity_ids)
 
@@ -93,7 +93,7 @@ def create_test_state_entities():
         print("Checking cumulative result...")
 
         # Read the TTL file
-        ttl_file = "/home/chris/onto/OntServe/ontologies/proethica-intermediate-extracted.ttl"
+        ttl_file = "/home/chris/onto/OntServe/ontologies/proethica-intermediate-extended.ttl"
         with open(ttl_file) as f:
             content = f.read()
 
@@ -101,14 +101,14 @@ def create_test_state_entities():
         resource_count = content.count("subClassOf proeth-core:Resource")
         state_count = content.count("subClassOf proeth-core:State")
 
-        print(f"✓ proethica-intermediate-extracted.ttl now contains:")
+        print(f"✓ proethica-intermediate-extended.ttl now contains:")
         print(f"  - {resource_count} Resource classes (previously committed)")
         print(f"  - {state_count} State classes (just added)")
         print(f"  - Total: {resource_count + state_count} classes")
 
         print("\n✓ Cumulative addition successful!")
         print("\nYou can now view all classes at:")
-        print("  http://localhost:5003/ontology/proethica-intermediate-extracted")
+        print("  http://localhost:5003/ontology/proethica-intermediate-extended")
 
 
 if __name__ == "__main__":

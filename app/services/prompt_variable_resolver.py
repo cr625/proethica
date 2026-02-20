@@ -298,6 +298,11 @@ def format_existing_entities(entities: List[Dict[str, Any]],
     Shared by UnifiedDualExtractor and PromptVariableResolver to ensure
     the extraction pipeline and prompt editor produce identical prompts.
 
+    Entities are separated into tiers by source ontology:
+      Tier 1 - Canonical (proethica-core, proethica-intermediate): hand-curated
+      Tier 2 - Previously extracted (proethica-intermediate-extended): from prior cases
+      Tier 4 - External standards (engineering-ethics): NSPE, ISO, ANSI references
+
     Args:
         entities: List of entity dictionaries from MCP
         concept_type: Concept type (roles, states, etc.)
@@ -308,17 +313,61 @@ def format_existing_entities(entities: List[Dict[str, Any]],
     if not entities:
         return f"No existing {concept_type} classes found in ontology."
 
-    lines = []
+    # Classify entities by source ontology tier.
+    # MCP entities use 'source' for ontology name, and nested
+    # metadata.ontology as fallback.
+    canonical = []     # proethica-core, proethica-intermediate
+    extracted = []     # proethica-intermediate-extended
+    external = []      # engineering-ethics
     for entity in entities:
-        label = entity.get('label', entity.get('name', 'Unknown'))
-        definition = entity.get('definition', entity.get('description', ''))
-
-        if definition:
-            if len(definition) > 150:
-                definition = definition[:147] + '...'
-            lines.append(f"- {label}: {definition}")
+        ont_name = (
+            entity.get('ontology_name')
+            or entity.get('source')
+            or (entity.get('metadata', {}) or {}).get('ontology', '')
+        )
+        if ont_name in ('proethica-core', 'proethica-intermediate'):
+            canonical.append(entity)
+        elif ont_name == 'proethica-intermediate-extended':
+            extracted.append(entity)
+        elif ont_name == 'engineering-ethics':
+            external.append(entity)
         else:
-            lines.append(f"- {label}")
+            canonical.append(entity)  # default to canonical
+
+    def _format_entity_line(entity):
+        label = entity.get('label', entity.get('name', 'Unknown'))
+        definition = (
+            entity.get('definition')
+            or entity.get('description')
+            or entity.get('comment', '')
+        )
+        if definition:
+            return f"- {label}: {definition}"
+        return f"- {label}"
+
+    lines = []
+
+    if canonical:
+        lines.append(f"=== CANONICAL ONTOLOGY CLASSES ({concept_type}) ===")
+        lines.append("Hand-curated classes from the formal ontology. Match to these with high confidence.")
+        for e in canonical:
+            lines.append(_format_entity_line(e))
+
+    if extracted:
+        if lines:
+            lines.append('')
+        lines.append(f"=== PREVIOUSLY EXTRACTED CLASSES (from other cases) ===")
+        lines.append("Auto-extracted from prior case analyses and approved. Match if the same concept appears.")
+        for e in extracted:
+            lines.append(_format_entity_line(e))
+
+    if external:
+        if lines:
+            lines.append('')
+        lines.append(f"=== EXTERNAL REFERENCE STANDARDS ===")
+        lines.append("NSPE, ISO, ANSI, and other professional standards. Reference context only.")
+        for e in external:
+            lines.append(_format_entity_line(e))
 
     return '\n'.join(lines)
 

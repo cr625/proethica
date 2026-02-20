@@ -136,7 +136,7 @@ def check_ttl_files():
     ontserve_path = Path("/home/chris/onto/OntServe/ontologies")
 
     # Check for extracted classes file
-    extracted_file = ontserve_path / "proethica-intermediate-extracted.ttl"
+    extracted_file = ontserve_path / "proethica-intermediate-extended.ttl"
     if extracted_file.exists():
         print(f"\n✓ Found extracted classes file:")
         print(f"  {extracted_file}")

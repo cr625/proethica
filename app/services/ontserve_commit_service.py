@@ -2,7 +2,7 @@
 OntServe Commit Service for ProEthica
 
 Handles committing extracted entities from temporary storage to permanent OntServe storage.
-- Classes are saved to proethica-engineering-extracted.ttl (supplemental file)
+- Classes are saved to proethica-intermediate-extended.ttl (supplemental file)
 - Individuals are saved to case-specific ontologies (proethica-case-N.ttl)
 - Synchronizes with OntServe database via refresh scripts
 
@@ -11,7 +11,7 @@ Versioning Strategy (January 2026):
 - OntServe DB preserves historical versions via concepts.is_current and concept_versions
 - Classes are versioned individually (same class from different cases = new version)
 
-Note: Current architecture stores new classes in proethica-engineering-extracted.ttl
+Note: Current architecture stores new classes in proethica-intermediate-extended.ttl
 for testing purposes. Alternative approach would be to store both classes and
 individuals in case-specific ontologies (proethica-case-N.ttl) and have
 proethica-intermediate import from all cases, but this could become unwieldy.
@@ -114,7 +114,7 @@ class OntServeCommitService:
                 'errors': []
             }
 
-            # Commit classes to proethica-engineering-extracted.ttl
+            # Commit classes to proethica-intermediate-extended.ttl
             if classes_to_commit:
                 class_result = self._commit_classes_to_intermediate(classes_to_commit)
                 results['classes_committed'] = class_result['count']
@@ -166,13 +166,13 @@ class OntServeCommitService:
 
     def _commit_classes_to_intermediate(self, classes: List[Tuple[Any, Dict]]) -> Dict[str, Any]:
         """
-        Commit new classes to proethica-engineering-extracted.ttl.
+        Commit new classes to proethica-intermediate-extended.ttl.
 
         This creates a supplemental file that can be imported by proethica-intermediate.ttl
         to avoid making the main file unwieldy.
         """
         try:
-            extracted_file = self.ontologies_dir / "proethica-engineering-extracted.ttl"
+            extracted_file = self.ontologies_dir / "proethica-intermediate-extended.ttl"
 
             # Load existing graph or create new one
             g = Graph()
@@ -211,8 +211,25 @@ class OntServeCommitService:
                 g.add((class_uri, RDF.type, OWL.Class))
                 g.add((class_uri, RDFS.label, Literal(label)))
 
-                # Add description
-                if entity.entity_definition:
+                # Add definitions with multi-source SKOS support
+                definitions = (rdf_data or {}).get('definitions', [])
+                if definitions:
+                    # Primary definition -> skos:definition + rdfs:comment
+                    primary = next((d for d in definitions if d.get('is_primary')), definitions[0])
+                    if primary.get('text'):
+                        g.add((class_uri, RDFS.comment, Literal(primary['text'])))
+                        g.add((class_uri, SKOS.definition, Literal(primary['text'])))
+                    # Alternate definitions -> skos:scopeNote with source tag
+                    for defn in definitions:
+                        if defn is primary:
+                            continue
+                        text = defn.get('text', '')
+                        if not text:
+                            continue
+                        source_tag = defn.get('source_section') or defn.get('source_ontology') or defn.get('source_type', '')
+                        tagged_text = f"[{source_tag}] {text}" if source_tag else text
+                        g.add((class_uri, SKOS.scopeNote, Literal(tagged_text)))
+                elif entity.entity_definition:
                     g.add((class_uri, RDFS.comment, Literal(entity.entity_definition)))
                     g.add((class_uri, SKOS.definition, Literal(entity.entity_definition)))
 
@@ -589,9 +606,9 @@ class OntServeCommitService:
             with open(intermediate_file, 'r') as f:
                 content = f.read()
 
-            import_statement = "owl:imports <http://proethica.org/ontology/engineering-extracted> ;"
+            import_statement = "owl:imports <http://proethica.org/ontology/intermediate-extended> ;"
 
-            if "engineering-extracted" not in content:
+            if "intermediate-extended" not in content:
                 # Add import statement after other imports
                 lines = content.split('\n')
                 for i, line in enumerate(lines):
@@ -604,7 +621,7 @@ class OntServeCommitService:
                 with open(intermediate_file, 'w') as f:
                     f.write('\n'.join(lines))
 
-                logger.info("Added import statement for engineering-extracted to proethica-intermediate.ttl")
+                logger.info("Added import statement for intermediate-extended to proethica-intermediate.ttl")
 
         except Exception as e:
             logger.error(f"Error ensuring import statement: {e}")
@@ -616,7 +633,7 @@ class OntServeCommitService:
         Runs the refresh_entity_extraction.py script to update the database.
         """
         try:
-            # Run refresh script for proethica-engineering-extracted (where new classes are stored)
+            # Run refresh script for proethica-intermediate-extended (where new classes are stored)
             refresh_script = self.ontserve_path / "scripts" / "refresh_entity_extraction.py"
 
             if not refresh_script.exists():
@@ -627,7 +644,7 @@ class OntServeCommitService:
 
             # Refresh the extracted ontology (scripts handle their own path setup)
             result = subprocess.run(
-                [self.ontserve_python, str(refresh_script), "proethica-engineering-extracted"],
+                [self.ontserve_python, str(refresh_script), "proethica-intermediate-extended"],
                 capture_output=True,
                 text=True,
                 cwd=str(self.ontserve_path),
@@ -976,7 +993,7 @@ class OntServeCommitService:
                 results['ttl_file'] = ttl_result.get('file')
 
             if classes_to_commit:
-                # For classes, we still append to intermediate-extracted.ttl
+                # For classes, we still append to intermediate-extended.ttl
                 # but with version metadata
                 class_ttl_result = self._commit_classes_to_intermediate(classes_to_commit)
                 if class_ttl_result.get('error'):

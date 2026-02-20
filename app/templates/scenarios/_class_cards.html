@@ -108,12 +108,20 @@
         {# -- Row 2: Definition + Properties -- #}
         <div class="row mt-2">
             <div class="col-md-5">
-                {% if cls.entity_definition %}
                 <div class="text-uppercase text-muted fw-bold" style="font-size: 0.7em; letter-spacing: 0.05em;">Definition</div>
-                <div class="small">{{ cls.entity_definition }}</div>
+                {% set definitions = (cls.rdf_json_ld or {}).get('definitions', []) %}
+                {% if definitions and definitions|length > 1 %}
+                    {% for defn in definitions %}
+                    <div class="small{% if not defn.is_primary %} text-muted{% endif %} mb-1">
+                        {% if defn.is_primary %}<strong>{{ defn.text }}</strong>
+                        {% else %}{{ defn.text }}{% endif %}
+                        <span class="badge bg-{{ 'primary' if defn.source_type == 'extraction' else ('info' if defn.source_type == 'ontology' else 'secondary') }}" style="font-size: 0.65em;">{{ defn.source_section or defn.source_ontology or defn.source_type }}</span>
+                    </div>
+                    {% endfor %}
+                {% elif cls.entity_definition %}
+                    <div class="small">{{ cls.entity_definition }}</div>
                 {% else %}
-                <div class="text-uppercase text-muted fw-bold" style="font-size: 0.7em; letter-spacing: 0.05em;">Definition</div>
-                <div class="small text-muted">-</div>
+                    <div class="small text-muted">-</div>
                 {% endif %}
             </div>
             <div class="col-md-7">

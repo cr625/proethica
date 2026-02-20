@@ -59,7 +59,7 @@ class OntServeDataFetcher:
                 'sync_timestamp': datetime.utcnow().isoformat()
             }
 
-            # Fetch classes from proethica-engineering-extracted
+            # Fetch classes from proethica-intermediate-extended
             cursor.execute("""
                 SELECT
                     oe.uri,
@@ -71,7 +71,7 @@ class OntServeDataFetcher:
                     o.name as ontology_name
                 FROM ontology_entities oe
                 JOIN ontologies o ON oe.ontology_id = o.id
-                WHERE o.name = 'proethica-engineering-extracted'
+                WHERE o.name = 'proethica-intermediate-extended'
                 ORDER BY oe.label
             """)
 

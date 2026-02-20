@@ -1518,9 +1518,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 </a>
                 {% endif %}
             {% else %}
-                {# Smart URL: go to review if Step 1 already complete, extraction if not #}
-                {% set step1_complete = pipeline_status.step1.complete if pipeline_status else false %}
-                {% if step1_complete %}
+                {# Smart URL: go to review if discussion extracted, extraction if not #}
+                {% set discussion_extracted = pipeline_status.step1.discussion_complete if pipeline_status else false %}
+                {% if discussion_extracted %}
                 <a href="{{ url_for('entity_review.review_case_entities', case_id=case.id, section_type='discussion') }}"
                    class="btn btn-primary btn-lg">
                     Continue to Discussion Review <i class="bi bi-arrow-right"></i>

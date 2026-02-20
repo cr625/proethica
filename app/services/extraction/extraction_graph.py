@@ -104,6 +104,8 @@ def pydantic_to_rdf_data(
     case_id: int,
     section_type: str = 'discussion',
     pass_number: int = None,
+    step_number: int = None,
+    ontology_definitions: Dict[str, Dict[str, str]] = None,
 ) -> Dict[str, Any]:
     """
     Convert Pydantic model lists from UnifiedDualExtractor to the rdf_data dict
@@ -116,6 +118,9 @@ def pydantic_to_rdf_data(
         case_id: Case ID for URI construction
         section_type: Section source (facts, discussion)
         pass_number: Extraction pass number (1, 2, or 3)
+        step_number: Pipeline step (1, 2, or 3)
+        ontology_definitions: Dict mapping label -> {text, source_uri, source_ontology}
+            from matched OntServe entities. Appended to definitions array.
 
     Returns:
         Dict with 'new_classes' and 'new_individuals' lists
@@ -154,10 +159,22 @@ def pydantic_to_rdf_data(
         if not source_text and cls_obj.text_references:
             source_text = cls_obj.text_references[0]
 
+        # Build definitions array with provenance
+        definition_entry = {
+            'text': cls_obj.definition,
+            'source_type': 'extraction',
+            'source_section': section_type,
+            'source_step': step_number,
+            'source_case': case_id,
+            'is_primary': True,
+            'timestamp': timestamp,
+        }
+
         class_info = {
             'uri': uri,
             'label': label,
             'definition': cls_obj.definition,
+            'definitions': [definition_entry],
             'parent': resolved_parent,
             'properties': properties,
             'source_text': source_text,
@@ -171,6 +188,21 @@ def pydantic_to_rdf_data(
                 'reasoning': cls_obj.match_decision.reasoning,
             },
         }
+
+        # Append ontology definition if this class matched an existing entity
+        if ontology_definitions and label in ontology_definitions:
+            ont_def = ontology_definitions[label]
+            ont_def_text = ont_def.get('text', '')
+            # Skip if identical to extraction definition
+            if ont_def_text and ont_def_text != cls_obj.definition:
+                class_info['definitions'].append({
+                    'text': ont_def_text,
+                    'source_type': 'ontology',
+                    'source_uri': ont_def.get('source_uri', ''),
+                    'source_ontology': ont_def.get('source_ontology', ''),
+                    'is_primary': False,
+                    'timestamp': timestamp,
+                })
 
         # Store category at top level for commit service lookup
         # (commit service checks rdf_data.get(category_field) as fallback)
@@ -232,10 +264,22 @@ def pydantic_to_rdf_data(
                 or ''
             )
 
+        # Build definitions array with provenance for individuals
+        ind_definition_entry = {
+            'text': ind_definition,
+            'source_type': 'extraction',
+            'source_section': section_type,
+            'source_step': step_number,
+            'source_case': case_id,
+            'is_primary': True,
+            'timestamp': timestamp,
+        }
+
         indiv_info = {
             'uri': ind_uri,
             'label': identifier,
             'definition': ind_definition,
+            'definitions': [ind_definition_entry],
             'types': types,
             'properties': properties,
             'source_text': ind_source_text,
@@ -321,6 +365,9 @@ def store_extraction_result(
 
     # 2 + 3. Convert Pydantic models to rdf_data, then store
     try:
+        # Collect ontology definitions from the extractor if available
+        ont_defs = getattr(extractor, 'ontology_definitions', None)
+
         rdf_data = pydantic_to_rdf_data(
             classes=classes,
             individuals=individuals,
@@ -328,6 +375,8 @@ def store_extraction_result(
             case_id=case_id,
             section_type=section_type,
             pass_number=pass_number,
+            step_number=step_number,
+            ontology_definitions=ont_defs,
         )
 
         provenance_data = {

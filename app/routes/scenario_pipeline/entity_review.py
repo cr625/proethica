@@ -208,13 +208,19 @@ def review_case_entities(case_id, section_type='facts'):
                 'resources_matching'
             ])
 
-        # Query RDF entities directly by extraction_type.
-        # TemporaryRDFStorage lacks a section_type column, so we always query
-        # by extraction_type. The section_type is used for display only.
+        # Query RDF entities by extraction_type, then filter by section_sources
         all_rdf_entities = TemporaryRDFStorage.query.filter(
             TemporaryRDFStorage.case_id == case_id,
             TemporaryRDFStorage.extraction_type.in_(pass1_types)
         ).all()
+
+        # Filter to entities whose section_sources includes the requested section.
+        # Before discussion extraction runs, this returns empty for discussion.
+        if section_type:
+            all_rdf_entities = [
+                e for e in all_rdf_entities
+                if section_type in (e.rdf_json_ld or {}).get('section_sources', [])
+            ]
         logger.info(f"Retrieved {len(all_rdf_entities)} RDF entities for pass 1 ({section_type})")
 
         rdf_by_type = {
@@ -468,13 +474,18 @@ def review_case_entities_pass2(case_id, section_type=None):
         # Pass 2 extraction types
         pass2_types = ['principles', 'obligations', 'constraints', 'capabilities']
 
-        # Get all Pass 2 entities for this case (filter by extraction_type).
-        # TemporaryRDFStorage lacks a section_type column, so we always query
-        # by extraction_type. The section_type is used for display only.
+        # Query Pass 2 entities, then filter by section_sources
         all_rdf_entities = TemporaryRDFStorage.query.filter(
             TemporaryRDFStorage.case_id == case_id,
             TemporaryRDFStorage.extraction_type.in_(pass2_types)
         ).all()
+
+        # Filter to entities whose section_sources includes the requested section
+        if section_type:
+            all_rdf_entities = [
+                e for e in all_rdf_entities
+                if section_type in (e.rdf_json_ld or {}).get('section_sources', [])
+            ]
 
         # Group entities by extraction_type and storage_type
         # PASS 2 entities only (Normative Requirements)
@@ -688,6 +699,24 @@ def commit_entities_to_ontserve(case_id):
         from app.services.ontserve_commit_service import OntServeCommitService
 
         data = request.get_json() if request.is_json else request.form
+        force = data.get('force', False)
+
+        # Check extraction step completion before allowing commit
+        if not force:
+            from app.services.pipeline_status_service import PipelineStatusService
+            step_status = PipelineStatusService.get_step_status(case_id)
+            incomplete_steps = []
+            for step_key in ('step1', 'step2', 'step3'):
+                if not step_status.get(step_key, {}).get('complete', False):
+                    incomplete_steps.append(step_key)
+            if incomplete_steps:
+                return jsonify({
+                    'success': False,
+                    'error': f"Extraction steps not complete: {', '.join(incomplete_steps)}. "
+                             f"Complete all extraction steps before committing to OntServe. "
+                             f"Pass force=true to override.",
+                    'incomplete_steps': incomplete_steps,
+                })
 
         # Handle both old format (session_ids) and new format (entity_ids)
         entity_ids = data.get('entity_ids', [])

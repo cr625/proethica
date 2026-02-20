@@ -282,10 +282,11 @@ def step2(case_id):
             return redirect(url_for('entity_review.review_case_entities_pass2',
                                     case_id=case_id, section_type='facts'))
 
-        # Load existing extraction results for page-load display
+        # Load existing extraction results for page-load display (facts section only)
         from app.routes.scenario_pipeline.step1 import _load_existing_extractions
         existing_extractions = _load_existing_extractions(
-            case_id, ['principles', 'obligations', 'constraints', 'capabilities'], step_number=2
+            case_id, ['principles', 'obligations', 'constraints', 'capabilities'],
+            step_number=2, section_type='facts'
         )
 
         context = {
@@ -780,11 +781,11 @@ def step2b(case_id):
             discussion_section = _format_section_for_llm(section_key, section_content, case_doc=case)
             break
 
-    # Load existing extraction results for page-load display (needed for ?force=1 re-runs)
+    # Load existing extraction results for page-load display (discussion section only)
     from app.routes.scenario_pipeline.step1 import _load_existing_extractions
     existing_extractions = _load_existing_extractions(
         case_id, ['principles', 'obligations', 'constraints', 'capabilities'],
-        step_number=2
+        step_number=2, section_type='discussion'
     )
 
     context = {

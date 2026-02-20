@@ -135,41 +135,39 @@ def step1_data(case_id, section_type='facts'):
         flash(f'Error loading step 1: {str(e)}', 'danger')
         return redirect(url_for('cases.view_case', id=case_id))
 
-def _load_existing_extractions(case_id, concept_types, step_number=1):
-    """Load most recent extraction results from temporary_rdf_storage for page-load display."""
+def _load_existing_extractions(case_id, concept_types, step_number=1, section_type=None):
+    """Load extraction results from temporary_rdf_storage for page-load display.
+
+    When section_type is provided, only returns entities whose section_sources
+    include that section. This ensures the facts page shows only facts entities
+    and the discussion page shows only discussion entities (including merged ones).
+
+    When section_type is None, loads all entities (used by step 3 and review pages).
+    """
     from app.models.temporary_rdf_storage import TemporaryRDFStorage
-    from sqlalchemy import func
 
     results = {}
     for concept_type in concept_types:
-        # Get the most recent extraction session for this concept
-        latest_session = db.session.query(
-            TemporaryRDFStorage.extraction_session_id
-        ).filter(
-            TemporaryRDFStorage.case_id == case_id,
-            TemporaryRDFStorage.extraction_type == concept_type,
-        ).order_by(
-            TemporaryRDFStorage.created_at.desc()
-        ).first()
-
-        if not latest_session:
-            continue
-
-        session_id = latest_session[0]
         entities = TemporaryRDFStorage.query.filter_by(
             case_id=case_id,
             extraction_type=concept_type,
-            extraction_session_id=session_id,
         ).all()
 
         classes = []
         individuals = []
         for e in entities:
+            # Section filtering: skip entities not sourced from this section
+            if section_type:
+                section_sources = (e.rdf_json_ld or {}).get('section_sources', [])
+                if section_type not in section_sources:
+                    continue
+
             entry = {
                 'label': e.entity_label or '',
                 'definition': e.entity_definition or '',
                 'confidence': float(e.match_confidence) if e.match_confidence else 0.0,
                 'matched_ontology_label': e.matched_ontology_label or '',
+                'section_sources': (e.rdf_json_ld or {}).get('section_sources', []),
             }
             if e.storage_type == 'individual':
                 entry['type'] = f'{concept_type.rstrip("s")}_individual'
@@ -208,9 +206,9 @@ def step1(case_id):
     # Get data source info for UI display (mock mode indicator)
     data_source_info = get_data_source_display()
 
-    # Load existing extraction results for page-load display
+    # Load existing extraction results for page-load display (facts section only)
     existing_extractions = _load_existing_extractions(
-        case_id, ['roles', 'states', 'resources'], step_number=1
+        case_id, ['roles', 'states', 'resources'], step_number=1, section_type='facts'
     )
 
     # Template context
@@ -264,9 +262,9 @@ def step1b(case_id):
     # Get data source info for UI display (mock mode indicator)
     data_source_info = get_data_source_display()
 
-    # Load existing extraction results for page-load display
+    # Load existing extraction results for page-load display (discussion section only)
     existing_extractions = _load_existing_extractions(
-        case_id, ['roles', 'states', 'resources'], step_number=1
+        case_id, ['roles', 'states', 'resources'], step_number=1, section_type='discussion'
     )
 
     # Template context -- same streaming template, parameterized for discussion
