@@ -55,7 +55,7 @@ def extract_events_with_classification(
         api_key = os.getenv('ANTHROPIC_API_KEY')
         if not api_key:
             raise RuntimeError("ANTHROPIC_API_KEY not found in environment")
-        llm_client = anthropic.Anthropic(api_key=api_key, timeout=180.0)
+        llm_client = anthropic.Anthropic(api_key=api_key, timeout=180.0, max_retries=0)
         model_name = ModelConfig.get_claude_model('powerful')
         logger.info(f"[Stage 4] Initialized Anthropic client with model {model_name}")
     except Exception as e:

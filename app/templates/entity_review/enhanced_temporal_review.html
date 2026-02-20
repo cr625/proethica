@@ -46,26 +46,18 @@
                         </a>
                     </div>
                     <div class="d-flex gap-2 align-items-center">
-                        <!-- Re-run button (admin only) -->
-                        {% if current_user.is_authenticated and current_user.is_admin %}
+                        <!-- Re-run Extraction (with ?force=1 to bypass redirect) -->
                         <a href="{{ url_for('scenario_pipeline.step3', case_id=case.id, force=1) }}"
-                           class="btn btn-sm btn-outline-primary" title="Re-run extraction">
-                            <i class="bi bi-arrow-repeat"></i> Re-run
+                           class="btn btn-sm btn-outline-info" title="Re-run extraction">
+                            <i class="bi bi-arrow-repeat"></i> Re-run Extraction
                         </a>
-                        {% endif %}
-                        <!-- Provenance -->
                         <a href="{{ url_for('provenance.case_provenance', case_id=case.id, step=3) }}"
                            class="btn btn-sm btn-outline-secondary" title="View provenance (opens in new tab)" target="_blank">
                             <i class="bi bi-diagram-3"></i> Provenance <i class="bi bi-box-arrow-up-right" style="font-size: 0.7em;"></i>
                         </a>
-                        <!-- Draft status -->
                         <span class="badge bg-info" title="Entities will be published to OntServe from Step 4 Review">
                             <i class="bi bi-info-circle"></i> Draft
                         </span>
-                        <!-- Continue to Step 4 -->
-                        <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}" class="btn btn-sm btn-success">
-                            Continue to Step 4 <i class="bi bi-arrow-right"></i>
-                        </a>
                     </div>
                 </div>
             </div>
@@ -601,6 +593,18 @@
         </div>
     </div>
     {% endif %}
+
+    <!-- Continue to Step 4 -->
+    <div class="mt-4 pt-3 border-top">
+        <div class="d-flex justify-content-between align-items-center">
+            <a href="{{ url_for('scenario_pipeline.step3', case_id=case.id, force=1) }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Extraction
+            </a>
+            <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}" class="btn btn-success btn-lg">
+                Continue to Step 4 <i class="bi bi-arrow-right"></i>
+            </a>
+        </div>
+    </div>
 
     {% endif %}
 </div>

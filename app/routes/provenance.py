@@ -647,6 +647,30 @@ def _get_temporal_extraction_data(case_id: int, concept_type: str) -> dict:
     if entities:
         extraction_model = entities[0].extraction_model
 
+    # Pull prompt/response text from provenance_entities for this activity.
+    # Step 3 stores these via ProvenanceService.record_prompt/record_response,
+    # not via extraction_prompts like Steps 1-2.
+    prompt_text = None
+    response_text = None
+    if activity_name:
+        activity = ProvenanceActivity.query.filter_by(
+            case_id=case_id,
+            activity_name=activity_name
+        ).order_by(ProvenanceActivity.started_at.desc()).first()
+        if activity:
+            prompt_entity = ProvenanceEntity.query.filter_by(
+                generating_activity_id=activity.id,
+                entity_type='prompt'
+            ).first()
+            response_entity = ProvenanceEntity.query.filter_by(
+                generating_activity_id=activity.id,
+                entity_type='response'
+            ).first()
+            if prompt_entity:
+                prompt_text = prompt_entity.content
+            if response_entity:
+                response_text = response_entity.content
+
     return {
         'concept': concept_type,
         'concept_label': concept_type.replace('_', ' ').title(),
@@ -656,6 +680,8 @@ def _get_temporal_extraction_data(case_id: int, concept_type: str) -> dict:
             'model': extraction_model,
             'created_at': entities[0].created_at.isoformat() if entities and entities[0].created_at else None,
             'session_id': entities[0].extraction_session_id if entities else None,
+            'text': prompt_text,
+            'response': response_text,
         } if entity_list else None,
         'entities': entity_list,
         'entity_count': len(entity_list),

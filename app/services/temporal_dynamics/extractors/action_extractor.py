@@ -96,7 +96,7 @@ def _call_llm_with_streaming(
 
     with llm_client.messages.stream(
         model=model_name,
-        max_tokens=6000,
+        max_tokens=8000,
         messages=[{"role": "user", "content": prompt}]
     ) as stream:
         response = stream.get_final_message()

@@ -51,7 +51,7 @@ def analyze_combined_sections(facts: str, discussion: str) -> Tuple[Dict, Dict]:
         api_key = os.getenv('ANTHROPIC_API_KEY')
         if not api_key:
             raise RuntimeError("ANTHROPIC_API_KEY not found in environment")
-        llm_client = anthropic.Anthropic(api_key=api_key, timeout=180.0)
+        llm_client = anthropic.Anthropic(api_key=api_key, timeout=180.0, max_retries=0)
         logger.info("[Extractor] Initialized Anthropic client")
     except Exception as e:
         logger.error(f"[Extractor] Failed to initialize LLM client: {e}")
@@ -100,13 +100,13 @@ JSON Response:"""
         call_timestamp = datetime.utcnow().isoformat()
         model_name = ModelConfig.get_claude_model('powerful')
 
-        # Use Anthropic messages API
-        response = llm_client.messages.create(
+        # Use Anthropic messages API (streaming to prevent WSL2 TCP idle timeout)
+        with llm_client.messages.stream(
             model=model_name,
             max_tokens=4000,
             messages=[{"role": "user", "content": prompt}],
-            timeout=120.0,
-        )
+        ) as stream:
+            response = stream.get_final_message()
         response_text = response.content[0].text
 
         logger.info(f"[Extractor] LLM response length: {len(response_text)} chars")
