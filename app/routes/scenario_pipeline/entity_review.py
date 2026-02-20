@@ -37,7 +37,9 @@ def init_entity_review_csrf_exemption(app):
                 commit_entities_to_ontserve,
                 clear_entities_by_types,
                 clear_all_entities,
-                delete_rdf_entity
+                delete_rdf_entity,
+                reconcile_merge,
+                reconcile_commit_execute
             )
             app.csrf.exempt(trigger_auto_commit)
             app.csrf.exempt(clear_case_ontology)
@@ -47,6 +49,8 @@ def init_entity_review_csrf_exemption(app):
             app.csrf.exempt(clear_entities_by_types)
             app.csrf.exempt(clear_all_entities)
             app.csrf.exempt(delete_rdf_entity)
+            app.csrf.exempt(reconcile_merge)
+            app.csrf.exempt(reconcile_commit_execute)
         except Exception as e:
             logger.warning(f"Could not exempt entity_review routes from CSRF: {e}")
 
@@ -1957,3 +1961,101 @@ def get_entity_overlap(case_id):
             'success': False,
             'error': str(e)
         }), 500
+
+
+# --- Reconcile & Commit routes ---
+
+@bp.route('/case/<int:case_id>/reconcile')
+@auth_optional
+def reconcile_and_commit(case_id):
+    """Reconciliation and commit page between Step 3 and Step 4.
+
+    Shows auto-merge summary, review candidates for human decision,
+    and commit button to finalize entities to OntServe.
+    """
+    case_doc = Document.query.get_or_404(case_id)
+
+    from app.services.entity_reconciliation_service import EntityReconciliationService
+    from app.services.pipeline_status_service import PipelineStatusService
+
+    pipeline_status = PipelineStatusService.get_step_status(case_id)
+
+    # Run reconciliation (auto-merges high-confidence, returns review candidates)
+    recon_service = EntityReconciliationService()
+    reconciliation = recon_service.reconcile_with_review(case_id)
+
+    # Entity counts
+    unpublished_count = TemporaryRDFStorage.query.filter_by(
+        case_id=case_id, is_published=False
+    ).count()
+    published_count = TemporaryRDFStorage.query.filter_by(
+        case_id=case_id, is_published=True
+    ).count()
+
+    # Class/individual breakdown
+    class_count = TemporaryRDFStorage.query.filter_by(
+        case_id=case_id, is_published=False, storage_type='class'
+    ).count()
+    individual_count = TemporaryRDFStorage.query.filter_by(
+        case_id=case_id, is_published=False, storage_type='individual'
+    ).count()
+
+    return render_template(
+        'scenarios/reconcile_commit.html',
+        case=case_doc,
+        reconciliation=reconciliation,
+        pipeline_status=pipeline_status,
+        unpublished_count=unpublished_count,
+        published_count=published_count,
+        class_count=class_count,
+        individual_count=individual_count,
+        current_step=3.5,
+        step_title='Reconcile & Commit'
+    )
+
+
+@bp.route('/case/<int:case_id>/reconcile/merge', methods=['POST'])
+@auth_required_for_write
+def reconcile_merge(case_id):
+    """Merge two entities as part of reconciliation."""
+    data = request.get_json()
+    keep_id = data.get('keep_id')
+    merge_id = data.get('merge_id')
+
+    if not keep_id or not merge_id:
+        return jsonify({'success': False, 'error': 'Missing keep_id or merge_id'}), 400
+
+    from app.services.entity_reconciliation_service import EntityReconciliationService
+    service = EntityReconciliationService()
+    success = service.merge_entities(keep_id, merge_id)
+
+    if success:
+        return jsonify({'success': True})
+    else:
+        return jsonify({'success': False, 'error': 'Merge failed'}), 500
+
+
+@bp.route('/case/<int:case_id>/reconcile/commit', methods=['POST'])
+@auth_required_for_write
+def reconcile_commit_execute(case_id):
+    """Execute full commit to OntServe after reconciliation."""
+    from app.services.ontserve_commit_service import OntServeCommitService
+
+    entities = TemporaryRDFStorage.query.filter_by(
+        case_id=case_id, is_published=False
+    ).all()
+    entity_ids = [e.id for e in entities]
+
+    if not entity_ids:
+        return jsonify({'success': False, 'error': 'No entities to commit'}), 400
+
+    try:
+        service = OntServeCommitService()
+        result = service.commit_selected_entities(case_id, entity_ids)
+        return jsonify({
+            'success': True,
+            'result': result
+        })
+    except Exception as e:
+        logger.error(f"Commit failed for case {case_id}: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500

@@ -429,6 +429,50 @@ def run_step3_task(self, run_id: int):
         raise
 
 
+@celery.task(bind=True, name='proethica.tasks.run_reconcile')
+def run_reconcile_task(self, run_id: int):
+    """Auto-merge near-duplicate entities across extraction passes.
+
+    Uses EntityReconciliationService with auto-merge only (no human review).
+    Called between Step 3 and commit in the batch pipeline.
+    """
+    logger.info(f"[Task {self.request.id}] Starting entity reconciliation for run {run_id}")
+
+    run = PipelineRun.query.get(run_id)
+    if not run:
+        raise ValueError(f"Run {run_id} not found")
+
+    step_name = "reconcile"
+    run.current_step = "Reconciling entities"
+    db.session.commit()
+
+    try:
+        from app.services.entity_reconciliation_service import EntityReconciliationService
+        service = EntityReconciliationService()
+        result = service.reconcile_auto(run.case_id)
+
+        results = {
+            'auto_merged': result.auto_merged,
+            'skipped': result.skipped,
+            'errors': result.errors
+        }
+
+        run.mark_step_complete(step_name, results)
+        db.session.commit()
+
+        logger.info(
+            f"[Task {self.request.id}] Reconciliation completed: "
+            f"{result.auto_merged} merged, {result.skipped} skipped"
+        )
+        return {'success': True, 'step': step_name, 'results': results}
+
+    except Exception as e:
+        logger.error(f"[Task {self.request.id}] Reconciliation failed: {e}", exc_info=True)
+        run.set_error(str(e), step_name)
+        db.session.commit()
+        raise
+
+
 @celery.task(bind=True, name='proethica.tasks.run_full_pipeline')
 def run_full_pipeline_task(self, case_id: int, config: dict = None, user_id: int = None):
     """
@@ -498,7 +542,11 @@ def run_full_pipeline_task(self, case_id: int, config: dict = None, user_id: int
         logger.info(f"[Task {self.request.id}] Running Step 3...")
         run_step3_task.apply(args=[run_id])
 
-        # Commit to OntServe (optional) - after extraction, before synthesis
+        # Reconcile: auto-merge near-duplicate entities across sections
+        logger.info(f"[Task {self.request.id}] Running entity reconciliation...")
+        run_reconcile_task.apply(args=[run_id])
+
+        # Commit to OntServe (optional) - after reconciliation, before synthesis
         if commit_to_ontserve:
             logger.info(f"[Task {self.request.id}] Committing entities to OntServe...")
             run_commit_task.apply(args=[run_id])
@@ -614,6 +662,11 @@ def resume_pipeline_task(self, run_id: int):
         if 'step3' not in completed:
             logger.info(f"[Task {self.request.id}] Running Step 3...")
             run_step3_task.apply(args=[run_id])
+
+        # Reconcile
+        if 'reconcile' not in completed:
+            logger.info(f"[Task {self.request.id}] Running entity reconciliation...")
+            run_reconcile_task.apply(args=[run_id])
 
         # Commit to OntServe (if configured)
         if commit_to_ontserve and 'commit' not in completed:
@@ -742,12 +795,14 @@ def run_step4_task(self, run_id: int):
 @celery.task(bind=True, name='proethica.tasks.run_commit')
 def run_commit_task(self, run_id: int):
     """
-    Commit extracted entities to OntServe.
+    Commit extracted entities to OntServe using full commit service.
 
-    Uses AutoCommitService to:
-    - Link entities to existing OntServe classes based on LLM match decisions
-    - Generate case-specific TTL files
-    - Update precedent features for Jaccard calculation
+    Uses OntServeCommitService to:
+    - Write classes to proethica-intermediate-extended.ttl
+    - Write individuals to proethica-case-N.ttl
+    - Mark entities as published
+    - Refresh OntServe DB entities (with parent_uri)
+    - Sync MCP cache
 
     Args:
         run_id: PipelineRun ID
@@ -766,19 +821,30 @@ def run_commit_task(self, run_id: int):
     db.session.commit()
 
     try:
-        from app.services.auto_commit_service import AutoCommitService
+        from app.services.ontserve_commit_service import OntServeCommitService
+        from app.models.temporary_rdf_storage import TemporaryRDFStorage
 
-        commit_service = AutoCommitService()
-        result = commit_service.commit_case_entities(run.case_id)
+        # Get all unpublished entity IDs
+        entities = TemporaryRDFStorage.query.filter_by(
+            case_id=run.case_id, is_published=False
+        ).all()
+        entity_ids = [e.id for e in entities]
 
-        # Extract results summary
+        if not entity_ids:
+            results = {'total_entities': 0, 'skipped': True}
+            run.mark_step_complete(step_name, results)
+            db.session.commit()
+            logger.info(f"[Task {self.request.id}] No entities to commit")
+            return {'success': True, 'step': step_name, 'results': results}
+
+        commit_service = OntServeCommitService()
+        result = commit_service.commit_selected_entities(run.case_id, entity_ids)
+
         results = {
-            'total_entities': result.total_entities,
-            'linked_count': result.linked_count,
-            'new_class_count': result.new_class_count,
-            'skipped_count': result.skipped_count,
-            'error_count': result.error_count,
-            'ttl_file': result.ttl_file
+            'classes_committed': result.get('classes_committed', 0),
+            'individuals_committed': result.get('individuals_committed', 0),
+            'ontserve_synced': result.get('ontserve_synced', False),
+            'errors': result.get('errors', [])
         }
 
         run.mark_step_complete(step_name, results)

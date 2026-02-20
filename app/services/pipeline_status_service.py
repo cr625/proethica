@@ -63,6 +63,7 @@ class PipelineStatusService:
                 'step1': cls._check_extraction_step(case_id, cls.STEP1_TYPES),
                 'step2': cls._check_extraction_step(case_id, cls.STEP2_TYPES),
                 'step3': cls._check_step3(case_id),
+                'reconcile_commit': cls._check_reconcile_commit(case_id),
                 'step4': cls._check_step4(case_id),
                 'step5': cls._check_step5(case_id),
             }
@@ -73,6 +74,7 @@ class PipelineStatusService:
                 'step1': {'complete': False, 'facts_complete': False, 'discussion_complete': False, 'questions_complete': False, 'conclusions_complete': False},
                 'step2': {'complete': False, 'facts_complete': False, 'discussion_complete': False, 'questions_complete': False, 'conclusions_complete': False},
                 'step3': {'complete': False},
+                'reconcile_commit': {'complete': False, 'committed_count': 0},
                 'step4': {'complete': False, 'phase2_complete': False, 'phase2_tasks_done': 0, 'phase3_complete': False, 'phase4_complete': False},
                 'step5': {'complete': False, 'has_scenario': False},
             }
@@ -144,6 +146,32 @@ class PipelineStatusService:
         total_count = total_result.count if total_result else 0
 
         return {'complete': total_count > 0}
+
+    @classmethod
+    def _check_reconcile_commit(cls, case_id: int) -> Dict[str, Any]:
+        """Check if entity reconciliation and OntServe commit have been completed.
+
+        Reconcile+commit is done when at least one entity has been published
+        (is_published=True) for this case.
+        """
+        try:
+            committed_query = text("""
+                SELECT COUNT(*) as count
+                FROM temporary_rdf_storage
+                WHERE case_id = :case_id
+                AND is_published = true
+            """)
+            committed_result = db.session.execute(
+                committed_query, {'case_id': case_id}
+            ).fetchone()
+            committed_count = committed_result.count if committed_result else 0
+
+            return {
+                'complete': committed_count > 0,
+                'committed_count': committed_count
+            }
+        except Exception:
+            return {'complete': False, 'committed_count': 0}
 
     @classmethod
     def _check_step4(cls, case_id: int) -> Dict[str, Any]:
@@ -275,6 +303,11 @@ class PipelineStatusService:
             return True
 
         status = cls.get_step_status(case_id)
+
+        # Step 4+ requires reconcile+commit to be done (not just Step 3)
+        if step_number >= 4:
+            return status.get('reconcile_commit', {}).get('complete', False)
+
         prev_step_key = f'step{step_number - 1}'
         return status.get(prev_step_key, {}).get('complete', False)
 

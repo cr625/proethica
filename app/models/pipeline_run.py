@@ -19,6 +19,7 @@ PIPELINE_STATUS = {
     'STEP2_FACTS': 'step2_facts',
     'STEP2_DISCUSSION': 'step2_discussion',
     'STEP3': 'step3',
+    'RECONCILE': 'reconcile',
     'STEP4': 'step4',
     'STEP5': 'step5',
     'EXTRACTED': 'extracted',  # Steps 1-3 complete, no commit/synthesis

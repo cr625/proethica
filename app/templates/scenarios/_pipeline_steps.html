@@ -7,7 +7,7 @@ Usage:
 Required context variables:
     - case: The case object
     - pipeline_status: Dict from PipelineStatusService.get_step_status()
-    - current_step: Current step number (1-5) or 0 for overview
+    - current_step: Current step number (1-5), 0 for overview, 3.5 for reconcile
     - step_title: Current step title (used to determine active sub-step)
 #}
 
@@ -140,9 +140,28 @@ Required context variables:
         {% endif %}
     </a>
 
-    {# Step 4: Whole-Case Synthesis - available if step 3 complete #}
+    {# Reconcile & Commit - available if step 3 complete #}
+    {% set reconcile_complete = pipeline_status.reconcile_commit.complete if pipeline_status and pipeline_status.reconcile_commit is defined else false %}
+    {% set reconcile_available = step3_complete %}
+    {% set reconcile_active = current_step == 3.5 %}
+    {% set reconcile_url = url_for('entity_review.reconcile_and_commit', case_id=case.id) %}
+    <a href="{% if reconcile_available %}{{ reconcile_url }}{% else %}#{% endif %}"
+       class="pipeline-step {% if reconcile_active %}active{% endif %} {% if reconcile_complete %}completed{% endif %} {% if not reconcile_available %}disabled{% endif %}"
+       {% if not reconcile_available %}aria-disabled="true" tabindex="-1"{% endif %}>
+        <span class="step-icon">
+            <i class="bi bi-arrow-left-right"></i>
+        </span>
+        <span class="step-label">Reconcile & Commit</span>
+        {% if reconcile_complete %}
+        <span class="step-check"><i class="bi bi-check-lg"></i></span>
+        {% elif not reconcile_available %}
+        <span class="step-lock"><i class="bi bi-lock-fill"></i></span>
+        {% endif %}
+    </a>
+
+    {# Step 4: Whole-Case Synthesis - available if reconcile+commit complete #}
     {% set step4_complete = pipeline_status.step4.complete if pipeline_status else false %}
-    {% set step4_available = step3_complete or current_step >= 4 %}
+    {% set step4_available = reconcile_complete or current_step >= 4 %}
     {# Smart URL: go to review when complete, synthesis when not #}
     {% set step4_url = url_for('step4.step4_review', case_id=case.id) if step4_complete else url_for('step4.step4_synthesis', case_id=case.id) %}
     <a href="{% if step4_available %}{{ step4_url }}{% else %}#{% endif %}"
