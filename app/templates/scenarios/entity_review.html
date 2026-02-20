@@ -614,6 +614,7 @@
             <!-- Empty state: No entities extracted for this concept type -->
             <div class="row mb-5">
                 <div class="col-12">
+                    {% set concept_colors = {'roles': '#0d6efd', 'states': '#6f42c1', 'resources': '#20c997', 'principles': '#fd7e14', 'obligations': '#dc3545', 'constraints': '#6c757d', 'capabilities': '#0dcaf0', 'actions': '#198754', 'events': '#ffc107'} %}
                     <div class="card" style="border-left: 5px solid {{ concept_colors.get(concept_type, '#dee2e6') }};">
                         <div class="card-header">
                             <h4 class="mb-0">

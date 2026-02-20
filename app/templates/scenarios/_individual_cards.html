@@ -37,15 +37,19 @@
                         {% endif %}
                     </h6>
                     <small class="text-muted">
-                        {# rdf:type display #}
-                        {% if indiv.rdf_json_ld and indiv.rdf_json_ld.types %}
-                            {% for type in indiv.rdf_json_ld.types %}
-                            <span class="badge bg-secondary" style="font-size: 0.8em;">{{ type.split('#')[-1] if '#' in type else type.split('/')[-1] }}</span>
-                            {% endfor %}
-                        {% elif indiv.entity_type %}
-                            <span class="badge bg-secondary" style="font-size: 0.8em;">{{ indiv.entity_type | title }}</span>
-                        {% else %}
-                            Individual Instance
+                        {# rdf:type display -- skip when match badge present (avoids redundancy) #}
+                        {% if not indiv.matched_ontology_uri %}
+                            {% if indiv.rdf_json_ld and indiv.rdf_json_ld.types %}
+                                {% for type in indiv.rdf_json_ld.types %}
+                                <span class="badge bg-secondary" style="font-size: 0.8em;">{{ type.split('#')[-1] if '#' in type else type.split('/')[-1] }}</span>
+                                {% endfor %}
+                            {% elif indiv.entity_type %}
+                                <span class="badge bg-secondary" style="font-size: 0.8em;">{{ indiv.entity_type | title }}</span>
+                            {% else %}
+                                Individual Instance
+                            {% endif %}
+                        {% elif indiv.matched_ontology_label %}
+                            <span style="font-size: 0.85em;">{{ indiv.matched_ontology_label }}</span>
                         {% endif %}
                     </small>
                 </div>

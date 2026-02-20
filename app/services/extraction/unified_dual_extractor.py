@@ -37,7 +37,7 @@ CONCEPT_CONFIG: Dict[str, Dict[str, Any]] = {
         'step': 1,
         'model_tier': 'powerful',
         'temperature': 0.3,
-        'max_tokens': 4000,
+        'max_tokens': 8192,
         'classes_key': 'new_role_classes',
         'individuals_key': 'role_individuals',
         'class_ref_field': 'role_class',
@@ -46,7 +46,7 @@ CONCEPT_CONFIG: Dict[str, Dict[str, Any]] = {
         'step': 1,
         'model_tier': 'powerful',
         'temperature': 0.3,
-        'max_tokens': 8000,
+        'max_tokens': 8192,
         'classes_key': 'new_state_classes',
         'individuals_key': 'state_individuals',
         'class_ref_field': 'state_class',
@@ -55,7 +55,7 @@ CONCEPT_CONFIG: Dict[str, Dict[str, Any]] = {
         'step': 1,
         'model_tier': 'powerful',
         'temperature': 0.3,
-        'max_tokens': 4000,
+        'max_tokens': 8192,
         'classes_key': 'new_resource_classes',
         'individuals_key': 'resource_individuals',
         'class_ref_field': 'resource_class',
@@ -1232,13 +1232,46 @@ class UnifiedDualExtractor:
         Check candidate classes against existing ontology classes.
 
         Updates the match_decision field on each candidate.
+
+        For classes where the LLM already set matches_existing=True but
+        provided a label (not a full URI) in matched_uri, resolves the
+        proper URI from self.existing_classes.
         """
         if not self.existing_classes:
             return
 
+        # Build label -> existing entity lookup for URI resolution
+        existing_by_label = {}
+        for existing in self.existing_classes:
+            lbl = existing.get('label', '')
+            if lbl:
+                norm = lbl.lower().replace('_', ' ').replace('-', ' ').strip()
+                existing_by_label[norm] = existing
+
         for candidate in classes:
             if candidate.match_decision.matches_existing:
-                # LLM already identified a match
+                # LLM already identified a match -- resolve URI if missing
+                # or invalid (LLM only sees labels, not full URIs)
+                uri = candidate.match_decision.matched_uri or ''
+                if not uri.startswith('http'):
+                    resolve_label = (
+                        candidate.match_decision.matched_label
+                        or candidate.match_decision.matched_uri
+                        or ''
+                    )
+                    norm = resolve_label.lower().replace(
+                        '_', ' '
+                    ).replace('-', ' ').strip()
+                    resolved = existing_by_label.get(norm)
+                    if resolved:
+                        candidate.match_decision.matched_uri = resolved.get('uri')
+                        candidate.match_decision.matched_label = (
+                            resolved.get('label')
+                        )
+                        logger.debug(
+                            f"Resolved URI for LLM-matched class "
+                            f"'{candidate.label}': {resolved.get('uri')}"
+                        )
                 continue
 
             for existing in self.existing_classes:
@@ -1252,6 +1285,18 @@ class UnifiedDualExtractor:
                         'Label match with existing ontology class'
                     )
                     break
+
+        # Cleanup: zero out ALL orphaned match data where no URI was resolved.
+        # The LLM sometimes matches against sibling extractions (from prior
+        # sections) rather than the ontology list.  Those siblings have no
+        # OntServe URI, so the match is invalid.  Clear everything so the DB
+        # columns stay strictly "matched to an OntServe ontology entity."
+        for candidate in classes:
+            if not candidate.match_decision.matched_uri:
+                candidate.match_decision.confidence = 0.0
+                candidate.match_decision.matches_existing = False
+                candidate.match_decision.matched_label = None
+                candidate.match_decision.reasoning = None
 
     def _collect_ontology_definitions(
         self, classes: List[BaseModel],
