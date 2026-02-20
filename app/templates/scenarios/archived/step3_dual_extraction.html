@@ -1149,7 +1149,8 @@
             if (clearData.success) {
                 addEnhancedMessage("success", "Cleared existing Pass 3 data");
                 // Hide warning banner since we just cleared
-                document.getElementById('extraction-warning-banner').style.display = 'none';
+                const warningBanner = document.getElementById('extraction-warning-banner');
+                if (warningBanner) warningBanner.style.display = 'none';
             } else {
                 addEnhancedMessage("warning", "Warning: Could not clear existing data - " + (clearData.error || 'unknown error'));
             }

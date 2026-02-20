@@ -1,8 +1,13 @@
 {% extends "scenarios/base_step.html" %}
 
-{% block step_title %}Step 2: Normative Requirements Pass - Discussion Section{% endblock %}
-{% block step_header %}Step 2: Normative Requirements Pass (Discussion){% endblock %}
-{% block step_subtitle %}Extract principles, obligations, constraints, and capabilities from the discussion section{% endblock %}
+{# section_type defaults to 'facts' if not provided #}
+{% set section_type = section_type | default('facts') %}
+{% set section_label = 'Discussion' if section_type == 'discussion' else 'Facts' %}
+{% set step_suffix = 'b' if section_type == 'discussion' else '' %}
+
+{% block step_title %}Step 2{{ step_suffix }}: Normative Requirements Pass - {{ section_label }} Section{% endblock %}
+{% block step_header %}Step 2{{ step_suffix }}: Normative Requirements Pass ({{ section_label }}){% endblock %}
+{% block step_subtitle %}Extract principles, obligations, constraints, and capabilities from the {{ section_label | lower }} section{% endblock %}
 
 {% block head %}
 {{ super() }}
@@ -40,11 +45,8 @@
         border-left-color: #dc3545;
     }
 
-    /* Concept-specific icon colors */
-    #principlesExtraction h5 i { color: #fd7e14; }
-    #obligationsExtraction h5 i { color: #dc3545; }
-    #constraintsExtraction h5 i { color: #6c757d; }
-    #capabilitiesExtraction h5 i { color: #0dcaf0; }
+    /* Concept abbreviation badges */
+    .extraction-item h5 .badge { vertical-align: middle; }
 
     .extraction-status {
         display: flex;
@@ -102,34 +104,20 @@
 </style>
 {% endblock %}
 
-{% block step_navigation %}
-<div class="d-flex justify-content-between mb-3">
-    <a href="{{ url_for('scenario_pipeline.step1', case_id=case.id) }}" class="btn btn-outline-secondary">
-        <i class="bi bi-arrow-left"></i> Back to Step 1
-    </a>
-    <div>
-        <a href="{{ url_for('entity_review.review_case_entities_pass2', case_id=case.id) }}" class="btn btn-info me-2">
-            <i class="bi bi-list-check"></i> Review Pass 2 Entities
-        </a>
-        <a href="{{ url_for('scenario_pipeline.step3', case_id=case.id) }}" class="btn btn-outline-primary">
-            Step 3: Temporal Pass <i class="bi bi-arrow-right"></i>
-        </a>
-    </div>
-</div>
-{% endblock %}
+{% block step_navigation_bottom %}{% endblock %}
 
 {% block step_content %}
 <div class="step-card">
     <div class="step-header">
         <h4 class="mb-0">
-            <i class="bi bi-file-text"></i> Discussion Section
+            <i class="bi bi-{% if section_type == 'discussion' %}chat-left-text{% else %}file-text{% endif %}"></i> {{ section_label }} Section
         </h4>
     </div>
     <div class="step-content">
         {% if discussion_section %}
         <div class="alert alert-info mb-3">
             <h6 class="mb-2"><i class="bi bi-info-circle"></i> Section Content:</h6>
-            <pre class="discussion-text">{{ discussion_section.llm_text }}</pre>
+            <pre class="section-text" style="white-space: pre-wrap; word-wrap: break-word;">{{ discussion_section.llm_text }}</pre>
         </div>
 
         <!-- Enhanced Normative Pass Button -->
@@ -158,7 +146,7 @@
                 <div class="extraction-status">
                     <div id="principlesSpinner" class="spinner-border spinner-border-sm" style="display: none; color: #fd7e14;"></div>
                     <h5 class="mb-0">
-                        <i class="bi bi-stars text-success"></i> Principles Extraction
+                        <span class="badge" style="background-color: #fd7e14; font-size: 0.75em;">P</span> Principles Extraction
                         <span id="principlesCount" class="entity-count" style="display: none;"></span>
                         <span id="principlesRetry" class="retry-badge" style="display: none;"></span>
                     </h5>
@@ -176,7 +164,7 @@
                 <div class="extraction-status">
                     <div id="obligationsSpinner" class="spinner-border spinner-border-sm" style="display: none; color: #dc3545;"></div>
                     <h5 class="mb-0">
-                        <i class="bi bi-shield-check text-warning"></i> Obligations Extraction
+                        <span class="badge" style="background-color: #dc3545; font-size: 0.75em;">O</span> Obligations Extraction
                         <span id="obligationsCount" class="entity-count" style="display: none;"></span>
                         <span id="obligationsRetry" class="retry-badge" style="display: none;"></span>
                     </h5>
@@ -194,7 +182,7 @@
                 <div class="extraction-status">
                     <div id="constraintsSpinner" class="spinner-border spinner-border-sm" style="display: none; color: #6c757d;"></div>
                     <h5 class="mb-0">
-                        <i class="bi bi-exclamation-triangle text-danger"></i> Constraints Extraction
+                        <span class="badge" style="background-color: #6c757d; font-size: 0.75em;">Cs</span> Constraints Extraction
                         <span id="constraintsCount" class="entity-count" style="display: none;"></span>
                         <span id="constraintsRetry" class="retry-badge" style="display: none;"></span>
                     </h5>
@@ -212,7 +200,7 @@
                 <div class="extraction-status">
                     <div id="capabilitiesSpinner" class="spinner-border spinner-border-sm" style="display: none; color: #0dcaf0;"></div>
                     <h5 class="mb-0">
-                        <i class="bi bi-gear text-info"></i> Capabilities Extraction
+                        <span class="badge" style="background-color: #0dcaf0; font-size: 0.75em;">Ca</span> Capabilities Extraction
                         <span id="capabilitiesCount" class="entity-count" style="display: none;"></span>
                         <span id="capabilitiesRetry" class="retry-badge" style="display: none;"></span>
                     </h5>
@@ -265,13 +253,17 @@ function executeStreamingPass() {
     progressIndicator.style.display = 'block';
     extractionProgress.style.display = 'block';
 
-    // Reset all extraction items
+    // Hide summary card from previous run
+    document.getElementById('summaryCard').style.display = 'none';
+
+    // Reset all extraction items and clear previous results
     ['principles', 'obligations', 'constraints', 'capabilities'].forEach(type => {
         document.getElementById(`${type}Extraction`).className = 'extraction-item';
         document.getElementById(`${type}Spinner`).style.display = 'none';
         document.getElementById(`${type}Count`).style.display = 'none';
         document.getElementById(`${type}Retry`).style.display = 'none';
         document.getElementById(`${type}Results`).classList.remove('show');
+        document.getElementById(`${type}Results`).innerHTML = '';
         document.getElementById(`${type}Error`).style.display = 'none';
     });
 
@@ -286,7 +278,8 @@ function executeStreamingPass() {
             'X-CSRFToken': csrfToken
         },
         body: JSON.stringify({
-            section_text: currentSectionText
+            section_text: currentSectionText,
+            section_type: '{{ section_type|default("facts") }}'
         })
     })
     .then(response => {
@@ -554,11 +547,12 @@ function displaySummary(summary, sessionId) {
         </div>
         <hr>
         <div class="d-grid gap-2 d-md-flex justify-content-md-center">
-            <a href="{{ url_for('entity_review.review_case_entities_pass2', case_id=case.id) }}" class="btn btn-primary">
-                <i class="bi bi-list-check"></i> Review Extracted Entities
+            <a href="{{ url_for('entity_review.review_case_entities_pass2', case_id=case.id, section_type=section_type|default('facts')) }}" class="btn btn-primary btn-lg">
+                <i class="bi bi-eye"></i> Review Extraction
             </a>
-            <a href="{{ url_for('provenance.case_provenance', case_id=case.id, step=2) }}" class="btn btn-outline-secondary">
-                <i class="bi bi-diagram-3"></i> View Provenance
+            <a href="{{ url_for('provenance.case_provenance', case_id=case.id, step=2) }}"
+               class="btn btn-outline-secondary btn-lg" target="_blank" title="View provenance (opens in new tab)">
+                <i class="bi bi-diagram-3"></i> Provenance <i class="bi bi-box-arrow-up-right" style="font-size: 0.7em;"></i>
             </a>
         </div>
     `;

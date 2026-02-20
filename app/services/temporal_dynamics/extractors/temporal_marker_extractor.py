@@ -10,6 +10,8 @@ import json
 import logging
 import os
 
+from models import ModelConfig
+
 logger = logging.getLogger(__name__)
 
 
@@ -41,7 +43,7 @@ def extract_temporal_markers_llm(facts: str, discussion: str, timeline_summary: 
         api_key = os.getenv('ANTHROPIC_API_KEY')
         if not api_key:
             raise RuntimeError("ANTHROPIC_API_KEY not found in environment")
-        llm_client = anthropic.Anthropic(api_key=api_key)
+        llm_client = anthropic.Anthropic(api_key=api_key, timeout=180.0)
         logger.info("[Temporal Extractor] Initialized Anthropic client")
     except Exception as e:
         logger.error(f"[Temporal Extractor] Failed to initialize LLM client: {e}")
@@ -100,7 +102,7 @@ Focus on precision. If unsure about a temporal marker, note it as "approximate" 
 JSON Response:"""
 
     # Record prompt in trace
-    model_name = "claude-sonnet-4-20250514"
+    model_name = ModelConfig.get_claude_model('powerful')
     trace_entry = {
         'stage': 'temporal_markers',
         'timestamp': datetime.utcnow().isoformat(),
@@ -113,7 +115,8 @@ JSON Response:"""
         response = llm_client.messages.create(
             model=model_name,
             max_tokens=4000,
-            messages=[{"role": "user", "content": prompt}]
+            messages=[{"role": "user", "content": prompt}],
+            timeout=120.0,
         )
         response_text = response.content[0].text
 

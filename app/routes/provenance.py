@@ -30,6 +30,9 @@ CONCEPT_ACTIVITY_MAP = {
     'capabilities': 'dual_capabilities_extraction',
     'actions': 'temporal_action_extraction',
     'events': 'temporal_event_extraction',
+    'causal_chains': 'temporal_causal_analysis',
+    'allen_relations': 'temporal_temporal_markers',
+    'timeline': 'temporal_temporal_markers',
 }
 
 # Pipeline structure definition with colors
@@ -51,7 +54,7 @@ PIPELINE_STRUCTURE = {
             'step': 3,
             'name': 'Temporal Framework',
             'color': '#14b8a6',  # Teal
-            'concepts': ['actions', 'events']
+            'concepts': ['actions', 'events', 'causal_chains', 'allen_relations', 'timeline']
         }
     ],
     'step4_phases': [
@@ -77,7 +80,10 @@ ENTITY_COLORS = {
     'constraints': '#6c757d', # Gray
     'capabilities': '#0dcaf0',# Cyan
     'actions': '#198754',     # Green
-    'events': '#ffc107'       # Yellow
+    'events': '#ffc107',      # Yellow/Amber
+    'causal_chains': '#dc3545',  # Red
+    'allen_relations': '#6f42c1', # Purple
+    'timeline': '#0dcaf0'     # Cyan
 }
 
 provenance_bp = Blueprint('provenance', __name__)
@@ -465,24 +471,36 @@ def get_case_pipeline(case_id):
             'passes': []
         }
 
-        for section_type in PIPELINE_STRUCTURE['passes']:
-            pass_name = 'Pass 1 (Facts)' if section_type == 'facts' else 'Pass 2 (Discussion)'
+        if step_def['step'] == 3:
+            # Step 3 uses a single LangGraph extraction (not per-section passes)
             pass_data = {
-                'name': pass_name,
-                'section_type': section_type,
+                'name': 'Temporal Dynamics',
+                'section_type': 'facts',
                 'extractions': []
             }
-
             for concept in step_def['concepts']:
-                extraction_data = _get_extraction_data(
-                    case_id,
-                    step_def['step'],
-                    section_type,
-                    concept
-                )
+                extraction_data = _get_temporal_extraction_data(case_id, concept)
                 pass_data['extractions'].append(extraction_data)
-
             step_data['passes'].append(pass_data)
+        else:
+            for section_type in PIPELINE_STRUCTURE['passes']:
+                pass_name = 'Pass 1 (Facts)' if section_type == 'facts' else 'Pass 2 (Discussion)'
+                pass_data = {
+                    'name': pass_name,
+                    'section_type': section_type,
+                    'extractions': []
+                }
+
+                for concept in step_def['concepts']:
+                    extraction_data = _get_extraction_data(
+                        case_id,
+                        step_def['step'],
+                        section_type,
+                        concept
+                    )
+                    pass_data['extractions'].append(extraction_data)
+
+                step_data['passes'].append(pass_data)
 
         pipeline.append(step_data)
 
@@ -573,6 +591,76 @@ def _get_extraction_data(case_id: int, step_number: int, section_type: str, conc
         'entity_count': len(section_entities),
         'provenance': provenance,
         'history_count': history_count
+    }
+
+
+def _get_temporal_extraction_data(case_id: int, concept_type: str) -> dict:
+    """Get extraction data for Step 3 temporal concepts.
+
+    Step 3 uses extraction_type='temporal_dynamics_enhanced' with entity_type
+    differentiation, and stores provenance in PROV-O tables (not extraction_prompts).
+    """
+    # Query entities by extraction_type + entity_type
+    entities = TemporaryRDFStorage.query.filter_by(
+        case_id=case_id,
+        extraction_type='temporal_dynamics_enhanced',
+        entity_type=concept_type
+    ).all()
+
+    entity_list = [{
+        'id': e.id,
+        'label': e.entity_label,
+        'definition': e.entity_definition,
+        'uri': e.entity_uri,
+        'type': e.entity_type,
+        'is_published': e.is_published,
+        'color': ENTITY_COLORS.get(concept_type, '#6c757d')
+    } for e in entities]
+
+    # Look up provenance directly from PROV-O (no extraction_prompts for Step 3)
+    activity_name = CONCEPT_ACTIVITY_MAP.get(concept_type)
+    provenance = None
+    if activity_name:
+        activity = ProvenanceActivity.query.filter_by(
+            case_id=case_id,
+            activity_name=activity_name
+        ).order_by(ProvenanceActivity.started_at.desc()).first()
+
+        if activity:
+            agent = activity.agent
+            provenance = {
+                'activity_id': activity.id,
+                'activity_type': activity.activity_type,
+                'activity_name': activity.activity_name,
+                'agent_name': agent.agent_name if agent else None,
+                'agent_type': agent.agent_type if agent else None,
+                'agent_version': agent.agent_version if agent else None,
+                'duration_ms': activity.duration_ms,
+                'status': activity.status,
+                'started_at': activity.started_at.isoformat() if activity.started_at else None,
+                'ended_at': activity.ended_at.isoformat() if activity.ended_at else None,
+                'origin': _determine_origin(activity)
+            }
+
+    # Get extraction model from first entity (all share the same model)
+    extraction_model = None
+    if entities:
+        extraction_model = entities[0].extraction_model
+
+    return {
+        'concept': concept_type,
+        'concept_label': concept_type.replace('_', ' ').title(),
+        'color': ENTITY_COLORS.get(concept_type, '#6c757d'),
+        'has_data': len(entity_list) > 0,
+        'prompt': {
+            'model': extraction_model,
+            'created_at': entities[0].created_at.isoformat() if entities and entities[0].created_at else None,
+            'session_id': entities[0].extraction_session_id if entities else None,
+        } if entity_list else None,
+        'entities': entity_list,
+        'entity_count': len(entity_list),
+        'provenance': provenance,
+        'history_count': 0
     }
 
 

@@ -4,9 +4,9 @@ Pipeline Status Service
 Provides step completion status for the scenario pipeline.
 Used by the UI to show which steps are complete and which are available.
 
-Hybrid approach:
-- Checks for RDF entities (confirms extraction succeeded, not just attempted)
-- Joins to ExtractionPrompt via extraction_session_id to get section_type
+- Overall completion: checks for RDF entities in temporary_rdf_storage
+- Section-level completion (Steps 1-2): checks extraction_prompts for section_type
+- Step 3: single complete flag (processes both sections together)
 """
 
 from typing import Dict, Any
@@ -62,7 +62,7 @@ class PipelineStatusService:
             status = {
                 'step1': cls._check_extraction_step(case_id, cls.STEP1_TYPES),
                 'step2': cls._check_extraction_step(case_id, cls.STEP2_TYPES),
-                'step3': cls._check_extraction_step(case_id, cls.STEP3_TYPES),
+                'step3': cls._check_step3(case_id),
                 'step4': cls._check_step4(case_id),
                 'step5': cls._check_step5(case_id),
             }
@@ -81,10 +81,12 @@ class PipelineStatusService:
     def _check_extraction_step(cls, case_id: int, extraction_types: tuple) -> Dict[str, Any]:
         """Check if an extraction step has completed by looking for RDF entities.
 
-        Uses entity existence (not just prompts) to confirm extraction succeeded.
-        Joins to prompts via extraction_session_id to get reliable section_type.
+        Uses entity existence in temporary_rdf_storage (not prompts) to confirm
+        extraction succeeded. Section-level completion checks extraction_prompts
+        directly for whether that section was extracted (no JOIN to RDF, which
+        breaks when session IDs diverge).
         """
-        # Overall count - do we have any entities for this step?
+        # Overall: do we have any RDF entities for this step?
         total_query = text("""
             SELECT COUNT(*) as count
             FROM temporary_rdf_storage
@@ -97,73 +99,51 @@ class PipelineStatusService:
         ).fetchone()
         total_count = total_result.count if total_result else 0
 
-        # Facts section - join to prompts to get section_type
-        facts_query = text("""
-            SELECT COUNT(DISTINCT r.id) as count
-            FROM temporary_rdf_storage r
-            JOIN extraction_prompts p ON r.extraction_session_id = p.extraction_session_id
-            WHERE r.case_id = :case_id
-            AND r.extraction_type IN :types
-            AND p.section_type = 'facts'
+        # Section-level: check if extraction_prompts exist for each section_type.
+        # This confirms extraction was attempted for that section, independent of
+        # whether RDF session IDs match (they often don't across re-runs).
+        section_query = text("""
+            SELECT section_type, COUNT(*) as count
+            FROM extraction_prompts
+            WHERE case_id = :case_id
+            AND concept_type IN :types
+            AND section_type IN ('facts', 'discussion', 'questions', 'conclusions')
+            GROUP BY section_type
         """)
-        facts_result = db.session.execute(
-            facts_query,
+        section_results = db.session.execute(
+            section_query,
             {'case_id': case_id, 'types': extraction_types}
-        ).fetchone()
-        facts_count = facts_result.count if facts_result else 0
-
-        # Discussion section - join to prompts to get section_type
-        discussion_query = text("""
-            SELECT COUNT(DISTINCT r.id) as count
-            FROM temporary_rdf_storage r
-            JOIN extraction_prompts p ON r.extraction_session_id = p.extraction_session_id
-            WHERE r.case_id = :case_id
-            AND r.extraction_type IN :types
-            AND p.section_type = 'discussion'
-        """)
-        discussion_result = db.session.execute(
-            discussion_query,
-            {'case_id': case_id, 'types': extraction_types}
-        ).fetchone()
-        discussion_count = discussion_result.count if discussion_result else 0
-
-        # Questions section - join to prompts to get section_type
-        questions_query = text("""
-            SELECT COUNT(DISTINCT r.id) as count
-            FROM temporary_rdf_storage r
-            JOIN extraction_prompts p ON r.extraction_session_id = p.extraction_session_id
-            WHERE r.case_id = :case_id
-            AND r.extraction_type IN :types
-            AND p.section_type = 'questions'
-        """)
-        questions_result = db.session.execute(
-            questions_query,
-            {'case_id': case_id, 'types': extraction_types}
-        ).fetchone()
-        questions_count = questions_result.count if questions_result else 0
-
-        # Conclusions section - join to prompts to get section_type
-        conclusions_query = text("""
-            SELECT COUNT(DISTINCT r.id) as count
-            FROM temporary_rdf_storage r
-            JOIN extraction_prompts p ON r.extraction_session_id = p.extraction_session_id
-            WHERE r.case_id = :case_id
-            AND r.extraction_type IN :types
-            AND p.section_type = 'conclusions'
-        """)
-        conclusions_result = db.session.execute(
-            conclusions_query,
-            {'case_id': case_id, 'types': extraction_types}
-        ).fetchone()
-        conclusions_count = conclusions_result.count if conclusions_result else 0
+        ).fetchall()
+        sections_found = {row.section_type for row in section_results}
 
         return {
             'complete': total_count > 0,
-            'facts_complete': facts_count > 0,
-            'discussion_complete': discussion_count > 0,
-            'questions_complete': questions_count > 0,
-            'conclusions_complete': conclusions_count > 0
+            'facts_complete': 'facts' in sections_found,
+            'discussion_complete': 'discussion' in sections_found,
+            'questions_complete': 'questions' in sections_found,
+            'conclusions_complete': 'conclusions' in sections_found
         }
+
+    @classmethod
+    def _check_step3(cls, case_id: int) -> Dict[str, Any]:
+        """Check Step 3 (Temporal Dynamics) completion.
+
+        Step 3 processes both facts and discussion together in a single
+        LangGraph extraction, so there is no per-section breakdown.
+        """
+        total_query = text("""
+            SELECT COUNT(*) as count
+            FROM temporary_rdf_storage
+            WHERE case_id = :case_id
+            AND extraction_type IN :types
+        """)
+        total_result = db.session.execute(
+            total_query,
+            {'case_id': case_id, 'types': cls.STEP3_TYPES}
+        ).fetchone()
+        total_count = total_result.count if total_result else 0
+
+        return {'complete': total_count > 0}
 
     @classmethod
     def _check_step4(cls, case_id: int) -> Dict[str, Any]:

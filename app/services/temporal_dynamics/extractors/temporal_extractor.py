@@ -11,6 +11,8 @@ import logging
 import os
 from datetime import datetime
 
+from models import ModelConfig
+
 logger = logging.getLogger(__name__)
 
 
@@ -49,7 +51,7 @@ def analyze_combined_sections(facts: str, discussion: str) -> Tuple[Dict, Dict]:
         api_key = os.getenv('ANTHROPIC_API_KEY')
         if not api_key:
             raise RuntimeError("ANTHROPIC_API_KEY not found in environment")
-        llm_client = anthropic.Anthropic(api_key=api_key)
+        llm_client = anthropic.Anthropic(api_key=api_key, timeout=180.0)
         logger.info("[Extractor] Initialized Anthropic client")
     except Exception as e:
         logger.error(f"[Extractor] Failed to initialize LLM client: {e}")
@@ -96,13 +98,14 @@ JSON Response:"""
     try:
         # Capture timestamp before LLM call
         call_timestamp = datetime.utcnow().isoformat()
-        model_name = "claude-sonnet-4-20250514"
+        model_name = ModelConfig.get_claude_model('powerful')
 
         # Use Anthropic messages API
         response = llm_client.messages.create(
             model=model_name,
             max_tokens=4000,
-            messages=[{"role": "user", "content": prompt}]
+            messages=[{"role": "user", "content": prompt}],
+            timeout=120.0,
         )
         response_text = response.content[0].text
 
@@ -164,7 +167,7 @@ JSON Response:"""
             'timestamp': datetime.utcnow().isoformat(),
             'prompt': prompt if 'prompt' in locals() else '',
             'response': f'ERROR: {str(e)}',
-            'model': 'claude-sonnet-4-20250514',
+            'model': ModelConfig.get_claude_model('powerful'),
             'parsed_output': error_analysis,
             'tokens': {}
         }

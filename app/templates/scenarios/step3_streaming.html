@@ -1,0 +1,620 @@
+{% extends "scenarios/base_step.html" %}
+
+{% block step_title %}Step 3: Temporal Dynamics Pass{% endblock %}
+{% block step_header %}Step 3: Temporal Dynamics Pass{% endblock %}
+{% block step_subtitle %}Extract actions, events, causal chains, and temporal relationships{% endblock %}
+
+{% block head %}
+{{ super() }}
+<style>
+    .extraction-progress {
+        margin: 20px 0;
+    }
+
+    .extraction-item {
+        padding: 15px;
+        margin: 10px 0;
+        border-radius: 8px;
+        border-left: 4px solid #dee2e6;
+        background-color: #f8f9fa;
+    }
+
+    .extraction-item.extracting {
+        background-color: #fff3cd;
+    }
+
+    .extraction-item.success {
+        background-color: #f8f9fa;
+    }
+
+    .extraction-item.error {
+        background-color: #f8d7da;
+        border-left-color: #dc3545;
+    }
+
+    .extraction-item h5 .badge { vertical-align: middle; }
+
+    .extraction-status {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .extraction-status .spinner-border {
+        margin-right: 10px;
+        flex-shrink: 0;
+    }
+
+    .entity-count {
+        font-size: 0.75em;
+        color: #6c757d;
+        margin-left: 8px;
+    }
+
+    .extraction-results {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+    .extraction-error {
+        color: #dc3545;
+        font-style: italic;
+    }
+
+    .entity-card {
+        padding: 8px 12px;
+        margin: 6px 0;
+        border-radius: 4px;
+        background: white;
+        border: 1px solid #dee2e6;
+    }
+
+    .extraction-summary {
+        margin-top: 20px;
+        padding: 15px;
+        border: 1px solid #28a745;
+        border-radius: 8px;
+        background-color: #d4edda;
+    }
+
+    pre.section-text {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        font-size: 0.875rem;
+    }
+</style>
+{% endblock %}
+
+{% block step_navigation_bottom %}{% endblock %}
+
+{% block step_content %}
+<div class="step-card">
+    <div class="step-header">
+        <h4 class="mb-0">
+            <i class="bi bi-file-text"></i> Case Sections
+        </h4>
+    </div>
+    <div class="step-content">
+        <!-- Section Tabs -->
+        <ul class="nav nav-tabs mb-3" id="sectionTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="facts-tab" data-bs-toggle="tab" data-bs-target="#facts-content"
+                        type="button" role="tab" aria-controls="facts-content" aria-selected="true">
+                    <i class="bi bi-file-earmark-text"></i> Facts Section
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="discussion-tab" data-bs-toggle="tab" data-bs-target="#discussion-content"
+                        type="button" role="tab" aria-controls="discussion-content" aria-selected="false">
+                    <i class="bi bi-chat-left-text"></i> Discussion Section
+                </button>
+            </li>
+        </ul>
+
+        <!-- Tab Content -->
+        <div class="tab-content" id="sectionTabsContent">
+            <div class="tab-pane fade show active" id="facts-content" role="tabpanel" aria-labelledby="facts-tab">
+                {% if discussion_section %}
+                <div class="alert alert-info mb-3">
+                    <h6 class="mb-2"><i class="bi bi-info-circle"></i> Facts Section Content:</h6>
+                    <pre class="section-text">{{ discussion_section.llm_text }}</pre>
+                </div>
+                {% else %}
+                <div class="alert alert-warning">No facts section found.</div>
+                {% endif %}
+            </div>
+            <div class="tab-pane fade" id="discussion-content" role="tabpanel" aria-labelledby="discussion-tab">
+                {% if case.doc_metadata and case.doc_metadata.sections and case.doc_metadata.sections.discussion %}
+                <div class="alert alert-info mb-3">
+                    <h6 class="mb-2"><i class="bi bi-info-circle"></i> Discussion Section Content:</h6>
+                    <pre class="section-text">{{ case.doc_metadata.sections.discussion }}</pre>
+                </div>
+                {% else %}
+                <div class="alert alert-warning">No discussion section found.</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Extract Button -->
+        <div class="d-grid gap-2 d-md-flex justify-content-md-center mb-4">
+            {% if current_user.is_authenticated %}
+            <button id="extractBtn" class="btn btn-primary btn-lg" onclick="executeEnhancedTemporalPass()">
+                <i class="bi bi-clock-history"></i> Extract Temporal Dynamics (Pass 3)
+                <small class="d-block">Actions + Events + Causal Chains + Allen Relations + Timeline</small>
+            </button>
+            {% else %}
+            <button class="btn btn-secondary btn-lg" onclick="window.location.href='{{ url_for('auth.login') }}';" title="Login required">
+                <i class="bi bi-lock-fill"></i> Extract Temporal Dynamics (Pass 3)
+                <small class="d-block">Login Required</small>
+            </button>
+            {% endif %}
+        </div>
+
+        <!-- Extraction Progress Container -->
+        <div id="extractionProgress" class="extraction-progress" style="display: none;">
+
+            <!-- Progress Bar -->
+            <div class="card mb-3" id="progressCard" style="display: none;">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span id="currentStageLabel" class="text-muted">Initializing...</span>
+                        <span id="progressPercent" class="badge bg-primary">0%</span>
+                    </div>
+                    <div class="progress" style="height: 20px;">
+                        <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated"
+                             role="progressbar" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions Extraction Item -->
+            <div id="actionsExtraction" class="extraction-item" style="border-left-color: #198754;">
+                <div class="extraction-status">
+                    <div id="actionsSpinner" class="spinner-border spinner-border-sm" style="display: none; color: #198754;"></div>
+                    <h5 class="mb-0">
+                        <span class="badge" style="background-color: #198754; font-size: 0.75em;">A</span> Actions
+                        <span id="actionsCount" class="entity-count" style="display: none;"></span>
+                    </h5>
+                </div>
+                <div id="actionsResults" class="extraction-results"></div>
+                <div id="actionsError" class="extraction-error" style="display: none;"></div>
+            </div>
+
+            <!-- Events Extraction Item -->
+            <div id="eventsExtraction" class="extraction-item" style="border-left-color: #ffc107;">
+                <div class="extraction-status">
+                    <div id="eventsSpinner" class="spinner-border spinner-border-sm" style="display: none; color: #ffc107;"></div>
+                    <h5 class="mb-0">
+                        <span class="badge" style="background-color: #ffc107; color: #000; font-size: 0.75em;">E</span> Events
+                        <span id="eventsCount" class="entity-count" style="display: none;"></span>
+                    </h5>
+                </div>
+                <div id="eventsResults" class="extraction-results"></div>
+                <div id="eventsError" class="extraction-error" style="display: none;"></div>
+            </div>
+
+            <!-- Causal Chains Extraction Item -->
+            <div id="causalChainsExtraction" class="extraction-item" style="border-left-color: #dc3545;">
+                <div class="extraction-status">
+                    <div id="causalChainsSpinner" class="spinner-border spinner-border-sm" style="display: none; color: #dc3545;"></div>
+                    <h5 class="mb-0">
+                        <span class="badge" style="background-color: #dc3545; font-size: 0.75em;">CC</span> Causal Chains
+                        <span id="causalChainsCount" class="entity-count" style="display: none;"></span>
+                    </h5>
+                </div>
+                <div id="causalChainsResults" class="extraction-results"></div>
+                <div id="causalChainsError" class="extraction-error" style="display: none;"></div>
+            </div>
+
+            <!-- Allen Relations Extraction Item -->
+            <div id="allenRelationsExtraction" class="extraction-item" style="border-left-color: #6f42c1;">
+                <div class="extraction-status">
+                    <div id="allenRelationsSpinner" class="spinner-border spinner-border-sm" style="display: none; color: #6f42c1;"></div>
+                    <h5 class="mb-0">
+                        <span class="badge" style="background-color: #6f42c1; font-size: 0.75em;">AR</span> Allen Relations
+                        <span id="allenRelationsCount" class="entity-count" style="display: none;"></span>
+                    </h5>
+                </div>
+                <div id="allenRelationsResults" class="extraction-results"></div>
+                <div id="allenRelationsError" class="extraction-error" style="display: none;"></div>
+            </div>
+
+            <!-- Timeline Extraction Item -->
+            <div id="timelineExtraction" class="extraction-item" style="border-left-color: #0dcaf0;">
+                <div class="extraction-status">
+                    <div id="timelineSpinner" class="spinner-border spinner-border-sm" style="display: none; color: #0dcaf0;"></div>
+                    <h5 class="mb-0">
+                        <span class="badge" style="background-color: #0dcaf0; color: #000; font-size: 0.75em;">TL</span> Timeline
+                        <span id="timelineCount" class="entity-count" style="display: none;"></span>
+                    </h5>
+                </div>
+                <div id="timelineResults" class="extraction-results"></div>
+                <div id="timelineError" class="extraction-error" style="display: none;"></div>
+            </div>
+
+            <!-- LLM Traces (collapsed developer section) -->
+            <details id="llmTraceDetails" class="mt-3">
+                <summary class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-code-square"></i> LLM Prompts & Responses
+                    <span class="badge bg-secondary ms-1" id="traceCount">0</span>
+                </summary>
+                <div id="stagesAccordion" class="accordion mt-2">
+                    <em class="text-muted">Stages will appear here as extraction progresses...</em>
+                </div>
+            </details>
+
+            <!-- Summary (shown on completion) -->
+            <div id="extractionSummary" class="extraction-summary" style="display: none;">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="mb-0"><i class="bi bi-check-circle text-success"></i> Extraction Complete</h5>
+                    <span id="summaryDuration" class="text-muted"></span>
+                </div>
+                <div id="summaryContent" class="mb-3"></div>
+                <div class="d-flex gap-2">
+                    <a href="{{ url_for('entity_review.review_enhanced_temporal', case_id=case.id) }}" class="btn btn-primary">
+                        <i class="bi bi-eye"></i> Review Extraction
+                    </a>
+                    <a href="{{ url_for('provenance.case_provenance', case_id=case.id, step=3) }}"
+                       class="btn btn-outline-secondary" target="_blank" title="View provenance (opens in new tab)">
+                        <i class="bi bi-diagram-3"></i> Provenance <i class="bi bi-box-arrow-up-right" style="font-size: 0.7em;"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block step_scripts %}
+<script>
+    const CONCEPT_COLORS = {
+        actions: '#198754',
+        events: '#ffc107',
+        causal_chains: '#dc3545',
+        allen_relations: '#6f42c1',
+        timeline: '#0dcaf0'
+    };
+
+    let extractionStartTime = null;
+    let traceCount = 0;
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function getCsrfToken() {
+        const meta = document.querySelector('meta[name="csrf-token"]');
+        return meta ? meta.getAttribute('content') : '';
+    }
+
+    // --- Entity card renderers ---
+
+    function renderActionCard(action) {
+        return `<div class="entity-card" style="border-left: 4px solid #198754;">
+            <div class="d-flex justify-content-between align-items-start">
+                <strong>${escapeHtml(action.label)}</strong>
+                <span class="badge" style="background-color: #198754; font-size: 0.7em;">Action</span>
+            </div>
+            <div class="text-muted small mt-1">${escapeHtml(action.description || '')}</div>
+            <div class="mt-1 small">
+                ${action.agent ? `<span class="text-secondary">Agent:</span> ${escapeHtml(action.agent)}` : ''}
+                ${action.temporal_marker ? ` | <span class="text-secondary">When:</span> ${escapeHtml(action.temporal_marker)}` : ''}
+                ${action.intention ? ` | <span class="text-secondary">Intent:</span> ${escapeHtml(action.intention)}` : ''}
+            </div>
+        </div>`;
+    }
+
+    function renderEventCard(event) {
+        const urgencyColors = {critical: '#dc3545', high: '#fd7e14', medium: '#ffc107', low: '#6c757d'};
+        const urgencyColor = urgencyColors[event.urgency] || '#6c757d';
+        return `<div class="entity-card" style="border-left: 4px solid #ffc107;">
+            <div class="d-flex justify-content-between align-items-start">
+                <strong>${escapeHtml(event.label)}</strong>
+                <span>
+                    <span class="badge" style="background-color: #ffc107; color: #000; font-size: 0.7em;">Event</span>
+                    ${event.urgency ? `<span class="badge ms-1" style="background-color: ${urgencyColor}; font-size: 0.7em;">${escapeHtml(event.urgency)}</span>` : ''}
+                </span>
+            </div>
+            <div class="text-muted small mt-1">${escapeHtml(event.description || '')}</div>
+            <div class="mt-1 small">
+                ${event.classification ? `<span class="text-secondary">Type:</span> ${escapeHtml(event.classification)}` : ''}
+                ${event.temporal_marker ? ` | <span class="text-secondary">When:</span> ${escapeHtml(event.temporal_marker)}` : ''}
+            </div>
+        </div>`;
+    }
+
+    function renderCausalChainCard(chain) {
+        return `<div class="entity-card" style="border-left: 4px solid #dc3545;">
+            <div class="d-flex justify-content-between align-items-start">
+                <strong>${escapeHtml(chain.cause)} &rarr; ${escapeHtml(chain.effect)}</strong>
+                <span class="badge bg-danger" style="font-size: 0.7em;">Causal</span>
+            </div>
+            ${chain.responsibility_type ? `<div class="mt-1 small"><span class="text-secondary">Responsibility:</span> ${escapeHtml(chain.responsibility_type)}</div>` : ''}
+        </div>`;
+    }
+
+    function renderAllenRelationCard(rel) {
+        return `<div class="entity-card" style="border-left: 4px solid #6f42c1;">
+            <span class="small">${escapeHtml(rel.entity1)}</span>
+            <span class="badge bg-secondary mx-1" style="font-size: 0.7em;">${escapeHtml(rel.relation)}</span>
+            <span class="small">${escapeHtml(rel.entity2)}</span>
+        </div>`;
+    }
+
+    function renderTimelineSummary(timeline) {
+        let html = `<div class="entity-card" style="border-left: 4px solid #0dcaf0;">
+            <strong>${timeline.total_elements || 0} timeline elements</strong>
+            <span class="ms-2 small text-muted">(${timeline.actions || 0} actions, ${timeline.events || 0} events)</span>`;
+        if (timeline.timepoints && timeline.timepoints.length > 0) {
+            html += `<div class="mt-1 small text-muted">Timepoints: ${timeline.timepoints.map(t => escapeHtml(t)).join(', ')}</div>`;
+        }
+        html += `</div>`;
+        return html;
+    }
+
+    // --- Convert snake_case to camelCase for DOM ID lookup ---
+
+    function snakeToCamel(s) {
+        return s.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+    }
+
+    // --- Display entities for a given type ---
+
+    function displayEntities(type, items) {
+        const domKey = snakeToCamel(type);
+        const resultsDiv = document.getElementById(domKey + 'Results');
+        const countEl = document.getElementById(domKey + 'Count');
+        const spinnerEl = document.getElementById(domKey + 'Spinner');
+        const itemDiv = document.getElementById(domKey + 'Extraction');
+
+        if (spinnerEl) spinnerEl.style.display = 'none';
+        if (itemDiv) itemDiv.classList.remove('extracting');
+        if (itemDiv) itemDiv.classList.add('success');
+
+        let html = '';
+        const count = Array.isArray(items) ? items.length : 1;
+
+        if (type === 'actions') {
+            items.forEach(a => { html += renderActionCard(a); });
+        } else if (type === 'events') {
+            items.forEach(e => { html += renderEventCard(e); });
+        } else if (type === 'causal_chains') {
+            items.forEach(c => { html += renderCausalChainCard(c); });
+        } else if (type === 'allen_relations') {
+            items.forEach(r => { html += renderAllenRelationCard(r); });
+        } else if (type === 'timeline') {
+            html = renderTimelineSummary(items);
+        }
+
+        if (resultsDiv) resultsDiv.innerHTML = html;
+        if (countEl) {
+            countEl.textContent = count + (count === 1 ? ' entity' : ' entities');
+            countEl.style.display = 'inline-block';
+        }
+    }
+
+    // --- LLM Trace display ---
+
+    function displayStageTrace(trace) {
+        const accordion = document.getElementById('stagesAccordion');
+        if (accordion.querySelector('em')) {
+            accordion.innerHTML = '';
+        }
+
+        const stageName = trace.stage || 'unknown';
+        const stageId = 'stage-' + stageName.replace(/[^a-z0-9]/gi, '-');
+        if (document.getElementById(stageId)) return;
+
+        traceCount++;
+        document.getElementById('traceCount').textContent = traceCount;
+
+        let tokenBadge = '';
+        if (trace.tokens && trace.tokens.total_tokens) {
+            tokenBadge = `<span class="badge bg-info ms-2">${trace.tokens.total_tokens} tokens</span>`;
+        }
+
+        const item = document.createElement('div');
+        item.className = 'accordion-item';
+        item.id = stageId;
+        item.innerHTML = `
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#collapse-${stageId}">
+                    <i class="bi bi-check-circle text-success me-2"></i>
+                    <strong>Stage: ${escapeHtml(trace.stage || 'Unknown')}</strong>
+                    <span class="badge bg-secondary ms-2">${escapeHtml(trace.model || 'Unknown')}</span>
+                    ${tokenBadge}
+                </button>
+            </h2>
+            <div id="collapse-${stageId}" class="accordion-collapse collapse">
+                <div class="accordion-body">
+                    <div class="mb-4">
+                        <h6 class="text-primary"><i class="bi bi-file-text"></i> LLM Prompt</h6>
+                        <pre style="max-height: 300px; overflow-y: auto; font-size: 0.8em; background: #f5f5f5; padding: 10px; border-radius: 4px;">${escapeHtml(trace.prompt || 'No prompt')}</pre>
+                    </div>
+                    <div class="mb-3">
+                        <h6 class="text-success"><i class="bi bi-code-square"></i> LLM Response</h6>
+                        <pre style="max-height: 300px; overflow-y: auto; font-size: 0.8em; background: #f5f5f5; padding: 10px; border-radius: 4px;">${escapeHtml(trace.response || 'No response')}</pre>
+                    </div>
+                </div>
+            </div>`;
+        accordion.appendChild(item);
+    }
+
+    // --- Stage-to-concept mapping ---
+
+    const STAGE_CONCEPTS = {
+        'temporal_markers': 'allen_relations',
+        'action_extraction': 'actions',
+        'event_extraction': 'events',
+        'causal_analysis': 'causal_chains',
+        'temporal_sequencing': 'timeline',
+    };
+
+    function markStageActive(stage) {
+        const conceptType = STAGE_CONCEPTS[stage];
+        if (!conceptType) return;
+
+        const domKey = snakeToCamel(conceptType);
+        const spinnerEl = document.getElementById(domKey + 'Spinner');
+        const itemDiv = document.getElementById(domKey + 'Extraction');
+        if (spinnerEl) spinnerEl.style.display = 'inline-block';
+        if (itemDiv) itemDiv.classList.add('extracting');
+    }
+
+    // --- Main SSE handler ---
+
+    async function executeEnhancedTemporalPass() {
+        const btn = document.getElementById('extractBtn');
+        const progressContainer = document.getElementById('extractionProgress');
+        const progressCard = document.getElementById('progressCard');
+        const progressBar = document.getElementById('progressBar');
+        const progressPercent = document.getElementById('progressPercent');
+        const stageLabel = document.getElementById('currentStageLabel');
+        const currentCaseId = {{ case.id }};
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Extracting...';
+        progressContainer.style.display = 'block';
+        progressCard.style.display = 'block';
+        extractionStartTime = new Date();
+
+        // Clear existing Pass 3 data first
+        try {
+            const clearResponse = await fetch(`/scenario_pipeline/case/${currentCaseId}/entities/clear_and_rerun/pass3`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+                body: JSON.stringify({})
+            });
+            const clearData = await clearResponse.json();
+            if (!clearData.success) {
+                console.warn('Could not clear existing data:', clearData.error);
+            }
+        } catch (error) {
+            console.warn('Could not clear existing data:', error.message);
+        }
+
+        // Start SSE connection
+        const eventSource = new EventSource(
+            `/scenario_pipeline/case/${currentCaseId}/step3/extract_enhanced`
+        );
+
+        eventSource.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+
+            // Completion
+            if (data.complete) {
+                eventSource.close();
+                const duration = ((new Date() - extractionStartTime) / 1000).toFixed(1);
+
+                progressBar.style.width = '100%';
+                progressBar.classList.remove('progress-bar-animated');
+                progressBar.classList.add('bg-success');
+                progressPercent.textContent = '100%';
+                stageLabel.textContent = 'Complete';
+
+                // Show summary
+                const summary = document.getElementById('extractionSummary');
+                document.getElementById('summaryDuration').textContent = `${duration}s`;
+
+                // Count entities from displayed results
+                let totalEntities = 0;
+                ['actions', 'events', 'causal_chains', 'allen_relations', 'timeline'].forEach(type => {
+                    const countEl = document.getElementById(snakeToCamel(type) + 'Count');
+                    if (countEl && countEl.style.display !== 'none') {
+                        const match = countEl.textContent.match(/(\d+)/);
+                        if (match) totalEntities += parseInt(match[1]);
+                    }
+                });
+
+                document.getElementById('summaryContent').innerHTML =
+                    `<strong>${totalEntities} total entities extracted</strong>` +
+                    (data.commit_result ? ` | ${data.commit_result.total || 0} committed to case ontology` : '');
+
+                summary.style.display = 'block';
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Re-run Extraction';
+                return;
+            }
+
+            // Error
+            if (data.error) {
+                eventSource.close();
+                progressBar.classList.add('bg-danger');
+                stageLabel.textContent = 'Error: ' + data.error;
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-clock-history"></i> Extract Temporal Dynamics (Pass 3)';
+                return;
+            }
+
+            // Update progress
+            if (data.progress) {
+                progressBar.style.width = data.progress + '%';
+                progressPercent.textContent = data.progress + '%';
+            }
+            if (data.stage) {
+                stageLabel.textContent = data.stage;
+                markStageActive(data.stage);
+            }
+
+            // Display entities
+            if (data.entities) {
+                displayEntities(data.entities.type, data.entities.items);
+            }
+            if (data.allen_relations) {
+                displayEntities('allen_relations', data.allen_relations);
+            }
+            if (data.timeline) {
+                displayEntities('timeline', data.timeline);
+            }
+
+            // Display LLM traces (collapsed section)
+            if (data.llm_trace && data.llm_trace.length > 0) {
+                data.llm_trace.forEach(trace => {
+                    displayStageTrace(trace);
+                });
+            }
+        };
+
+        eventSource.onerror = function(error) {
+            console.error('SSE error:', error);
+            eventSource.close();
+            stageLabel.textContent = 'Connection error';
+            progressBar.classList.add('bg-danger');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-clock-history"></i> Extract Temporal Dynamics (Pass 3)';
+        };
+    }
+
+    // --- Page-load restoration from existing extractions ---
+
+    (function() {
+        const existing = {{ existing_extractions | default({}) | tojson }};
+        if (Object.keys(existing).length === 0) return;
+
+        document.getElementById('extractionProgress').style.display = 'block';
+
+        let totalEntities = 0;
+        for (const [entityType, items] of Object.entries(existing)) {
+            if (entityType === 'timeline' && !Array.isArray(items)) {
+                displayEntities('timeline', items);
+                totalEntities += 1;
+            } else if (Array.isArray(items) && items.length > 0) {
+                displayEntities(entityType, items);
+                totalEntities += items.length;
+            }
+        }
+
+        if (totalEntities > 0) {
+            // Show summary for previously extracted data
+            const summary = document.getElementById('extractionSummary');
+            document.getElementById('summaryDuration').textContent = 'previous extraction';
+            document.getElementById('summaryContent').innerHTML =
+                `<strong>${totalEntities} entities from previous extraction</strong>`;
+            summary.style.display = 'block';
+        }
+    })();
+</script>
+{% endblock %}

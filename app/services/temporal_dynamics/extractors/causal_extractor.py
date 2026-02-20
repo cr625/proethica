@@ -15,6 +15,8 @@ from datetime import datetime
 
 import os
 
+from models import ModelConfig
+
 logger = logging.getLogger(__name__)
 
 # Maximum causal chain depth per plan Q&A
@@ -48,9 +50,9 @@ def analyze_causal_chains(
         api_key = os.getenv('ANTHROPIC_API_KEY')
         if not api_key:
             raise RuntimeError("ANTHROPIC_API_KEY not found in environment")
-        llm_client = anthropic.Anthropic(api_key=api_key)
-        model_name = "claude-sonnet-4-20250514"
-        logger.info("[Stage 5] Initialized Anthropic client")
+        llm_client = anthropic.Anthropic(api_key=api_key, timeout=180.0)
+        model_name = ModelConfig.get_claude_model('powerful')
+        logger.info(f"[Stage 5] Initialized Anthropic client with model {model_name}")
     except Exception as e:
         logger.error(f"[Stage 5] Failed to initialize LLM client: {e}")
         raise RuntimeError(f"No LLM client available: {e}")
@@ -67,13 +69,14 @@ def analyze_causal_chains(
     }
 
     try:
-        # Call LLM
-        logger.info("[Stage 5] Calling LLM for causal chain analysis")
-        response = llm_client.messages.create(
+        # Call LLM with streaming to prevent WSL2 TCP idle timeout (60s)
+        logger.info("[Stage 5] Calling LLM for causal chain analysis (streaming)")
+        with llm_client.messages.stream(
             model=model_name,
             max_tokens=8000,
-            messages=[{"role": "user", "content": prompt}]
-        )
+            messages=[{"role": "user", "content": prompt}],
+        ) as stream:
+            response = stream.get_final_message()
 
         # Extract response content
         response_text = response.content[0].text

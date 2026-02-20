@@ -45,10 +45,8 @@
         border-left-color: #dc3545;
     }
 
-    /* Concept-specific icon colors */
-    #rolesExtraction h5 i { color: #0d6efd; }
-    #statesExtraction h5 i { color: #6f42c1; }
-    #resourcesExtraction h5 i { color: #20c997; }
+    /* Concept abbreviation badges */
+    .extraction-item h5 .badge { vertical-align: middle; }
 
     .extraction-status {
         display: flex;
@@ -106,33 +104,7 @@
 </style>
 {% endblock %}
 
-{% block step_navigation %}
-<div class="d-flex justify-content-between mb-3">
-    {% if section_type == 'discussion' %}
-    <a href="{{ url_for('scenario_pipeline.step1', case_id=case.id) }}" class="btn btn-outline-secondary">
-        <i class="bi bi-arrow-left"></i> Back to Facts
-    </a>
-    {% else %}
-    <a href="{{ url_for('scenario_pipeline.scenario_builder', case_id=case.id) }}" class="btn btn-outline-secondary">
-        <i class="bi bi-arrow-left"></i> Back to Case
-    </a>
-    {% endif %}
-    <div>
-        <a href="{{ url_for('entity_review.review_case_entities', case_id=case.id, section_type=section_type) }}" class="btn btn-info me-2">
-            <i class="bi bi-list-check"></i> Review Pass 1 Entities
-        </a>
-        {% if section_type == 'discussion' %}
-        <a href="{{ url_for('scenario_pipeline.step2', case_id=case.id) }}" class="btn btn-outline-primary">
-            Step 2: Normative Pass <i class="bi bi-arrow-right"></i>
-        </a>
-        {% else %}
-        <a href="{{ url_for('scenario_pipeline.step1b', case_id=case.id) }}" class="btn btn-outline-primary">
-            Step 1b: Discussion <i class="bi bi-arrow-right"></i>
-        </a>
-        {% endif %}
-    </div>
-</div>
-{% endblock %}
+{% block step_navigation_bottom %}{% endblock %}
 
 {% block step_content %}
 <div class="step-card">
@@ -174,7 +146,7 @@
                 <div class="extraction-status">
                     <div id="rolesSpinner" class="spinner-border spinner-border-sm" style="display: none; color: #0d6efd;"></div>
                     <h5 class="mb-0">
-                        <i class="bi bi-person-badge"></i> Roles Extraction
+                        <span class="badge" style="background-color: #0d6efd; font-size: 0.75em;">R</span> Roles Extraction
                         <span id="rolesCount" class="entity-count" style="display: none;"></span>
                         <span id="rolesRetry" class="retry-badge" style="display: none;"></span>
                     </h5>
@@ -192,7 +164,7 @@
                 <div class="extraction-status">
                     <div id="statesSpinner" class="spinner-border spinner-border-sm" style="display: none; color: #6f42c1;"></div>
                     <h5 class="mb-0">
-                        <i class="bi bi-diagram-3"></i> States Extraction
+                        <span class="badge" style="background-color: #6f42c1; font-size: 0.75em;">S</span> States Extraction
                         <span id="statesCount" class="entity-count" style="display: none;"></span>
                         <span id="statesRetry" class="retry-badge" style="display: none;"></span>
                     </h5>
@@ -210,7 +182,7 @@
                 <div class="extraction-status">
                     <div id="resourcesSpinner" class="spinner-border spinner-border-sm" style="display: none; color: #20c997;"></div>
                     <h5 class="mb-0">
-                        <i class="bi bi-box-seam"></i> Resources Extraction
+                        <span class="badge" style="background-color: #20c997; font-size: 0.75em;">Rs</span> Resources Extraction
                         <span id="resourcesCount" class="entity-count" style="display: none;"></span>
                         <span id="resourcesRetry" class="retry-badge" style="display: none;"></span>
                     </h5>
@@ -264,13 +236,17 @@ function executeStreamingPass() {
     progressIndicator.style.display = 'block';
     extractionProgress.style.display = 'block';
 
-    // Reset all extraction items
+    // Hide summary card from previous run
+    document.getElementById('summaryCard').style.display = 'none';
+
+    // Reset all extraction items and clear previous results
     ['roles', 'states', 'resources'].forEach(type => {
         document.getElementById(`${type}Extraction`).className = 'extraction-item';
         document.getElementById(`${type}Spinner`).style.display = 'none';
         document.getElementById(`${type}Count`).style.display = 'none';
         document.getElementById(`${type}Retry`).style.display = 'none';
         document.getElementById(`${type}Results`).classList.remove('show');
+        document.getElementById(`${type}Results`).innerHTML = '';
         document.getElementById(`${type}Error`).style.display = 'none';
     });
 
@@ -556,11 +532,12 @@ function displaySummary(summary, sessionId) {
         </div>
         <hr>
         <div class="d-grid gap-2 d-md-flex justify-content-md-center">
-            <a href="{{ url_for('entity_review.review_case_entities', case_id=case.id, section_type=section_type) }}" class="btn btn-primary">
-                <i class="bi bi-list-check"></i> Review Extracted Entities
+            <a href="{{ url_for('entity_review.review_case_entities', case_id=case.id, section_type=section_type) }}" class="btn btn-primary btn-lg">
+                <i class="bi bi-eye"></i> Review Extraction
             </a>
-            <a href="{{ url_for('provenance.case_provenance', case_id=case.id, step=1) }}" class="btn btn-outline-secondary">
-                <i class="bi bi-diagram-3"></i> View Provenance
+            <a href="{{ url_for('provenance.case_provenance', case_id=case.id, step=1) }}"
+               class="btn btn-outline-secondary btn-lg" target="_blank" title="View provenance (opens in new tab)">
+                <i class="bi bi-diagram-3"></i> Provenance <i class="bi bi-box-arrow-up-right" style="font-size: 0.7em;"></i>
             </a>
         </div>
     `;

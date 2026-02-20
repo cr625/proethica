@@ -67,6 +67,7 @@ class DevelopmentConfig(Config):
     """Development configuration."""
     DEBUG = True
     ENVIRONMENT = 'development'
+    TEMPLATES_AUTO_RELOAD = True
 
 
 class ProductionConfig(Config):

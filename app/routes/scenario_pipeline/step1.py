@@ -199,6 +199,12 @@ def step1(case_id):
     # Get pipeline status for navigation
     pipeline_status = PipelineStatusService.get_step_status(case_id)
 
+    # Redirect to review if facts already extracted (unless ?force=1 for re-extraction)
+    if (pipeline_status.get('step1', {}).get('facts_complete', False)
+            and not request.args.get('force')):
+        return redirect(url_for('entity_review.review_case_entities',
+                                case_id=case_id, section_type='facts'))
+
     # Get data source info for UI display (mock mode indicator)
     data_source_info = get_data_source_display()
 
@@ -245,6 +251,12 @@ def step1b(case_id):
     if not pipeline_status.get('step1', {}).get('facts_complete', False):
         flash('Please complete Step 1 (Facts extraction) before proceeding to Discussion.', 'warning')
         return redirect(url_for('scenario_pipeline.step1', case_id=case_id))
+
+    # Redirect to review if discussion already extracted (unless ?force=1 for re-extraction)
+    if (pipeline_status.get('step1', {}).get('discussion_complete', False)
+            and not request.args.get('force')):
+        return redirect(url_for('entity_review.review_case_entities',
+                                case_id=case_id, section_type='discussion'))
 
     # Load data with section_type='discussion' to get discussion prompts
     case, facts_section, discussion_section, saved_prompts = step1_data(case_id, section_type='discussion')

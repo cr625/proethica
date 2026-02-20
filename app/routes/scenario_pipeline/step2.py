@@ -276,6 +276,12 @@ def step2(case_id):
         # Get pipeline status for navigation
         pipeline_status = PipelineStatusService.get_step_status(case_id)
 
+        # Redirect to review if facts already extracted (unless ?force=1 for re-extraction)
+        if (pipeline_status.get('step2', {}).get('facts_complete', False)
+                and not request.args.get('force')):
+            return redirect(url_for('entity_review.review_case_entities_pass2',
+                                    case_id=case_id, section_type='facts'))
+
         # Load existing extraction results for page-load display
         from app.routes.scenario_pipeline.step1 import _load_existing_extractions
         existing_extractions = _load_existing_extractions(
@@ -287,6 +293,7 @@ def step2(case_id):
             'discussion_section': facts_section,  # Keep variable name for template compatibility
             'discussion_section_key': facts_section_key,
             'section_display_name': 'Facts Section',
+            'section_type': 'facts',
             'current_step': 2,
             'step_title': 'Normative Pass - Facts Section',
             'next_step_url': url_for('scenario_pipeline.step2b', case_id=case_id),
@@ -747,6 +754,12 @@ def step2b(case_id):
         flash('Please complete Step 2 (Facts extraction) before proceeding to Discussion.', 'warning')
         return redirect(url_for('scenario_pipeline.step2', case_id=case_id))
 
+    # Redirect to review if discussion already extracted (unless ?force=1 for re-extraction)
+    if (pipeline_status.get('step2', {}).get('discussion_complete', False)
+            and not request.args.get('force')):
+        return redirect(url_for('entity_review.review_case_entities_pass2',
+                                case_id=case_id, section_type='discussion'))
+
     # Load data with section_type='discussion' to get discussion prompts
     case, facts_section, saved_prompts = step2_data(case_id, section_type='discussion')
 
@@ -767,18 +780,27 @@ def step2b(case_id):
             discussion_section = _format_section_for_llm(section_key, section_content, case_doc=case)
             break
 
+    # Load existing extraction results for page-load display (needed for ?force=1 re-runs)
+    from app.routes.scenario_pipeline.step1 import _load_existing_extractions
+    existing_extractions = _load_existing_extractions(
+        case_id, ['principles', 'obligations', 'constraints', 'capabilities'],
+        step_number=2
+    )
+
     context = {
         'case': case,
         'discussion_section': discussion_section,
         'discussion_section_key': discussion_section_key,
         'section_display_name': 'Discussion Section',
+        'section_type': 'discussion',
         'current_step': 2,
         'step_title': 'Normative Pass - Discussion',
         'next_step_url': url_for('scenario_pipeline.step3', case_id=case_id),
         'next_step_name': 'Temporal Dynamics',
         'prev_step_url': url_for('scenario_pipeline.step2', case_id=case_id),
         'saved_prompts': saved_prompts,
-        'pipeline_status': pipeline_status
+        'pipeline_status': pipeline_status,
+        'existing_extractions': existing_extractions,
     }
 
     return render_template('scenarios/step2_streaming.html', **context)

@@ -10,7 +10,6 @@ import json
 import logging
 import uuid
 from datetime import datetime
-import asyncio
 
 from app.models import Document
 from app.services.temporal_dynamics import build_temporal_dynamics_graph
@@ -20,13 +19,67 @@ from app.utils.environment_auth import auth_required_for_llm
 logger = logging.getLogger(__name__)
 
 
+# --- SSE entity summary helpers ---
+
+def _summarize_actions(actions):
+    """Produce card-friendly action summaries for SSE transmission."""
+    return [{
+        'label': a.get('label', 'Unknown'),
+        'description': (a.get('description', '') or '')[:200],
+        'agent': a.get('agent', ''),
+        'temporal_marker': a.get('temporal_marker', ''),
+        'intention': (a.get('intention') or {}).get('mental_state', ''),
+    } for a in actions]
+
+
+def _summarize_events(events):
+    """Produce card-friendly event summaries for SSE transmission."""
+    return [{
+        'label': e.get('label', 'Unknown'),
+        'description': (e.get('description', '') or '')[:200],
+        'temporal_marker': e.get('temporal_marker', ''),
+        'classification': (e.get('classification') or {}).get('event_type', ''),
+        'urgency': (e.get('urgency') or {}).get('urgency_level', ''),
+    } for e in events]
+
+
+def _summarize_causal_chains(chains):
+    """Produce card-friendly causal chain summaries for SSE transmission."""
+    return [{
+        'cause': c.get('cause', ''),
+        'effect': c.get('effect', ''),
+        'responsibility_type': (c.get('responsibility') or {}).get('responsibility_type', ''),
+        'counterfactual': (c.get('ness_test') or {}).get('counterfactual', ''),
+    } for c in chains]
+
+
+def _summarize_allen_relations(relations):
+    """Produce card-friendly Allen relation summaries for SSE transmission."""
+    return [{
+        'entity1': r.get('entity1', ''),
+        'relation': r.get('relation', ''),
+        'entity2': r.get('entity2', ''),
+    } for r in relations]
+
+
+def _summarize_timeline(timeline):
+    """Produce card-friendly timeline summary for SSE transmission."""
+    elements = timeline.get('timeline', [])
+    return {
+        'total_elements': timeline.get('total_elements', len(elements)),
+        'actions': timeline.get('actions', 0),
+        'events': timeline.get('events', 0),
+        'timepoints': [e.get('timepoint', '') for e in elements[:10]],
+    }
+
+
 @auth_required_for_llm
 def extract_enhanced_temporal_dynamics(case_id):
     """
     Execute enhanced temporal dynamics extraction with real-time progress streaming.
 
-    Uses Server-Sent Events (SSE) to stream progress updates to the frontend.
-    Currently implements Stage 1 (section analysis) as proof of concept.
+    Uses Server-Sent Events (SSE) to stream progress updates and extracted entities
+    to the frontend as each LangGraph stage completes.
 
     Args:
         case_id: Case ID to extract from
@@ -89,6 +142,10 @@ def extract_enhanced_temporal_dynamics(case_id):
         logger.info("[Enhanced TD] Building LangGraph")
         graph = build_temporal_dynamics_graph()
 
+        # Capture Flask app reference before entering generator
+        # (generator can lose request context during long-running LangGraph execution)
+        flask_app = app._get_current_object()
+
         def generate():
             """Generator for Server-Sent Events"""
             try:
@@ -98,7 +155,6 @@ def extract_enhanced_temporal_dynamics(case_id):
                 yield f"data: {json.dumps({'stage': 'init', 'progress': 0, 'messages': ['Starting enhanced temporal extraction...']})}\n\n"
 
                 # Execute graph synchronously with streaming
-                # Note: Using stream() not astream() since Flask doesn't support async generators easily
                 for chunk in graph.stream(
                     initial_state,
                     stream_mode="updates"
@@ -114,18 +170,48 @@ def extract_enhanced_temporal_dynamics(case_id):
                             'progress': updates.get('progress_percentage', 0),
                             'messages': updates.get('stage_messages', []),
                             'errors': updates.get('errors', []),
-                            'llm_trace': updates.get('llm_trace', [])  # Include LLM trace data
+                            'llm_trace': updates.get('llm_trace', []),
                         }
 
-                        logger.info(f"[Enhanced TD] Streaming: {node_name} - {progress_data['progress']}% - Trace entries: {len(progress_data['llm_trace'])}")
+                        # Include entity data from entity-producing stages
+                        if updates.get('actions'):
+                            progress_data['entities'] = {
+                                'type': 'actions',
+                                'items': _summarize_actions(updates['actions']),
+                            }
+                        if updates.get('events'):
+                            progress_data['entities'] = {
+                                'type': 'events',
+                                'items': _summarize_events(updates['events']),
+                            }
+                        if updates.get('causal_chains'):
+                            progress_data['entities'] = {
+                                'type': 'causal_chains',
+                                'items': _summarize_causal_chains(updates['causal_chains']),
+                            }
+
+                        # Allen relations are nested inside temporal_markers
+                        markers = updates.get('temporal_markers')
+                        if markers and markers.get('allen_relations'):
+                            progress_data['allen_relations'] = _summarize_allen_relations(
+                                markers['allen_relations']
+                            )
+
+                        # Timeline (algorithmic, no LLM)
+                        if updates.get('timeline'):
+                            progress_data['timeline'] = _summarize_timeline(updates['timeline'])
+
+                        logger.info(f"[Enhanced TD] Streaming: {node_name} - {progress_data['progress']}%")
 
                         # Send as SSE
                         yield f"data: {json.dumps(progress_data)}\n\n"
 
                 # Commit temporal entities to case TTL (after Stage 7 storage)
+                # Must use explicit app context since generator may have lost it
                 logger.info("[Enhanced TD] Committing temporal entities to case TTL...")
                 from app.services.auto_commit_service import commit_temporal_entities
-                commit_result = commit_temporal_entities(case_id)
+                with flask_app.app_context():
+                    commit_result = commit_temporal_entities(case_id)
                 logger.info(f"[Enhanced TD] Temporal commit result: {commit_result}")
 
                 # Send completion event

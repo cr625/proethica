@@ -1,0 +1,183 @@
+{# Card layout for extracted class entities.
+   Included from entity_review.html and entity_review_pass2.html.
+   Expects parent context: type_data, concept_type, concept_colors, ontserve_web_url, case #}
+
+{% set color = concept_colors.get(concept_type, '#dee2e6') %}
+
+{% for cls in type_data.classes %}
+<div class="card mb-2" style="border-left: 4px solid {{ color }};">
+    <div class="card-body p-3">
+        {# -- Row 1: Header -- #}
+        <div class="d-flex justify-content-between align-items-start">
+            <div class="d-flex align-items-start gap-2">
+                {% if cls.is_published %}
+                <span class="badge bg-success rounded-circle p-1 mt-1" title="Published to OntServe">
+                    <i class="bi bi-check-lg"></i>
+                </span>
+                {% else %}
+                <button type="button" class="btn btn-outline-secondary btn-sm rounded-circle delete-entity-btn p-0 mt-1"
+                        style="width: 24px; height: 24px; line-height: 1;"
+                        data-entity-id="{{ cls.id }}"
+                        data-entity-label="{{ cls.entity_label }}"
+                        title="Remove this entity">
+                    <i class="bi bi-x" style="font-size: 14px;"></i>
+                </button>
+                {% endif %}
+                <div>
+                    <h6 class="mb-0">
+                        {{ cls.entity_label }}
+                        {% if cls.rdf_json_ld and cls.rdf_json_ld.get('section_sources') and cls.rdf_json_ld.get('section_sources')|length > 1 %}
+                        <span class="badge bg-warning text-dark ms-1" style="font-size: 0.7em;" title="Merged from multiple sections">
+                            <i class="bi bi-layers"></i> {{ cls.rdf_json_ld.get('section_sources') | join(', ') }}
+                        </span>
+                        {% elif cls.cross_section_matches %}
+                        <span class="badge bg-info ms-1" style="font-size: 0.7em;" title="Also extracted from other section(s)">
+                            Also in: {{ cls.cross_section_matches | map(attribute='section_label') | join(', ') }}
+                        </span>
+                        {% endif %}
+                    </h6>
+                    <small class="text-muted">rdfs:subClassOf {{ concept_type|title }}</small>
+                </div>
+            </div>
+            <div class="d-flex gap-2 align-items-start">
+                {# -- Match status badge -- #}
+                {% if cls.matched_ontology_uri %}
+                    {% set confidence = cls.match_confidence or 0 %}
+                    {% if confidence >= 0.90 %}
+                    <div class="text-end">
+                        <span class="badge match-status-badge match-linked"
+                              style="background-color: #d4edda !important; color: #155724 !important; border: 1px solid #28a745 !important;"
+                              data-bs-toggle="modal" data-bs-target="#matchDetailsModal"
+                              data-entity-id="{{ cls.id }}"
+                              data-entity-label="{{ cls.entity_label }}"
+                              data-matched-uri="{{ cls.matched_ontology_uri }}"
+                              data-matched-label="{{ cls.matched_ontology_label or 'Unknown' }}"
+                              data-confidence="{{ confidence }}"
+                              data-method="{{ cls.match_method or 'llm' }}"
+                              data-reasoning="{{ cls.match_reasoning or '' }}"
+                              title="Linked: {{ cls.matched_ontology_label or cls.matched_ontology_uri }}">
+                            <i class="bi bi-link-45deg" style="color: #155724 !important;"></i> Linked
+                        </span>
+                        <br/>
+                        {% set ontserve_path = cls.matched_ontology_uri.replace('http://proethica.org/', '').replace('#', '/') %}
+                        <small><a href="{{ ontserve_web_url }}/{{ ontserve_path }}" target="_blank" class="text-decoration-none" title="View in OntServe">{{ cls.matched_ontology_label or cls.matched_ontology_uri.split('#')[-1] }} <i class="bi bi-box-arrow-up-right" style="font-size: 0.7em;"></i></a></small>
+                        <div class="match-confidence-bar">
+                            <div class="match-confidence-fill confidence-high" style="width: {{ (confidence * 100)|int }}%"></div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="text-end">
+                        <span class="badge match-status-badge match-review"
+                              data-bs-toggle="modal" data-bs-target="#matchDetailsModal"
+                              data-entity-id="{{ cls.id }}"
+                              data-entity-label="{{ cls.entity_label }}"
+                              data-matched-uri="{{ cls.matched_ontology_uri }}"
+                              data-matched-label="{{ cls.matched_ontology_label or 'Unknown' }}"
+                              data-confidence="{{ confidence }}"
+                              data-method="{{ cls.match_method or 'llm' }}"
+                              data-reasoning="{{ cls.match_reasoning or '' }}"
+                              title="Review: {{ cls.matched_ontology_label or cls.matched_ontology_uri }}">
+                            <i class="bi bi-search"></i> Review
+                        </span>
+                        <br/>
+                        {% set ontserve_path = cls.matched_ontology_uri.replace('http://proethica.org/', '').replace('#', '/') %}
+                        <small><a href="{{ ontserve_web_url }}/{{ ontserve_path }}" target="_blank" class="text-decoration-none" title="View in OntServe">{{ cls.matched_ontology_label or cls.matched_ontology_uri.split('#')[-1] }} <i class="bi bi-box-arrow-up-right" style="font-size: 0.7em;"></i></a></small>
+                        <div class="match-confidence-bar">
+                            <div class="match-confidence-fill {% if confidence >= 0.75 %}confidence-medium{% else %}confidence-low{% endif %}" style="width: {{ (confidence * 100)|int }}%"></div>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% else %}
+                <span class="badge bg-secondary match-status-badge match-new"
+                      data-bs-toggle="modal" data-bs-target="#matchDetailsModal"
+                      data-entity-id="{{ cls.id }}"
+                      data-entity-label="{{ cls.entity_label }}"
+                      data-matched-uri=""
+                      data-matched-label=""
+                      data-confidence="0"
+                      data-method=""
+                      data-reasoning=""
+                      title="New class - no match found">
+                    <i class="bi bi-plus-circle"></i> New
+                </span>
+                {% endif %}
+                <small class="text-muted ms-2">C{{ cls.case_id }}</small>
+            </div>
+        </div>
+
+        {# -- Row 2: Definition + Properties -- #}
+        <div class="row mt-2">
+            <div class="col-md-5">
+                {% if cls.entity_definition %}
+                <div class="text-uppercase text-muted fw-bold" style="font-size: 0.7em; letter-spacing: 0.05em;">Definition</div>
+                <div class="small">{{ cls.entity_definition }}</div>
+                {% else %}
+                <div class="text-uppercase text-muted fw-bold" style="font-size: 0.7em; letter-spacing: 0.05em;">Definition</div>
+                <div class="small text-muted">-</div>
+                {% endif %}
+            </div>
+            <div class="col-md-7">
+                <div class="text-uppercase text-muted fw-bold" style="font-size: 0.7em; letter-spacing: 0.05em;">Properties</div>
+                <div class="rdf-properties" style="font-size: 0.85rem;">
+                    {% set skip_props = ['wasGeneratedAt', 'wasAttributedTo', 'discoveredInCase',
+                                         'generatedAtTime', 'firstDiscoveredInCase', 'firstDiscoveredAt',
+                                         'discoveredInSection', 'discoveredInPass',
+                                         'sourceText'] %}
+                    {% set quote_props = ['textReferences', 'hasExample'] %}
+                    {% if cls.rdf_json_ld and cls.rdf_json_ld.properties %}
+                        {% for prop_name, prop_values in cls.rdf_json_ld.properties.items() if prop_name not in skip_props and prop_values and prop_values != ['{}'] and prop_values != ['[]'] %}
+                            <div class="mb-1 property-item" data-property="{{ prop_name }}">
+                                <strong class="property-name">{{ prop_name | camel_to_readable }}:</strong>
+                                {% if prop_name in quote_props %}
+                                    {% for val in prop_values if val %}
+                                    <br/><small class="text-info"><i class="bi bi-quote"></i> "{{ val[:200] }}{% if val|length > 200 %}...{% endif %}"</small>
+                                    {% endfor %}
+                                {% else %}
+                                <span class="property-value">
+                                    {% if prop_values is string %}
+                                        {{ prop_values }}
+                                    {% elif prop_values is iterable %}
+                                        {% if prop_values|length > 1 %}
+                                            {% if prop_values[0]|length == 1 %}
+                                                {{ prop_values|join('') }}
+                                            {% else %}
+                                                <ul class="list-unstyled ms-3 mb-0">
+                                                {% for val in prop_values if val %}
+                                                    <li>{{ val }}</li>
+                                                {% endfor %}
+                                                </ul>
+                                            {% endif %}
+                                        {% elif prop_values|length == 1 %}
+                                            {{ prop_values[0] }}
+                                        {% else %}
+                                            <small class="text-muted">-</small>
+                                        {% endif %}
+                                    {% else %}
+                                        {{ prop_values }}
+                                    {% endif %}
+                                </span>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <small class="text-muted">No additional properties</small>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {# -- Row 3: Source quotes (if any) -- #}
+        {% if cls.rdf_json_ld and cls.rdf_json_ld.get('source_texts') %}
+        <div class="mt-2 pt-2 border-top" style="font-size: 0.85em;">
+            {% for section, text in cls.rdf_json_ld.get('source_texts').items() %}
+            <div class="text-info"><i class="bi bi-quote"></i> <strong>[{{ section }}]</strong> "{{ text[:200] }}{% if text|length > 200 %}...{% endif %}"</div>
+            {% endfor %}
+        </div>
+        {% elif cls.rdf_json_ld and cls.rdf_json_ld.get('source_text') %}
+        <div class="mt-2 pt-2 border-top" style="font-size: 0.85em;">
+            <div class="text-info"><i class="bi bi-quote"></i> "{{ cls.rdf_json_ld.get('source_text')[:200] }}{% if cls.rdf_json_ld.get('source_text')|length > 200 %}...{% endif %}"</div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endfor %}

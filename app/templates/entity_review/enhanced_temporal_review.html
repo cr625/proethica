@@ -40,7 +40,7 @@
                             <i class="bi bi-arrow-left"></i> Overview
                         </a>
                         <!-- View Extraction -->
-                        <a href="{{ url_for('scenario_pipeline.step3', case_id=case.id) }}"
+                        <a href="{{ url_for('scenario_pipeline.step3', case_id=case.id, force=1) }}"
                            class="btn btn-sm btn-outline-secondary" title="View extraction page">
                             <i class="bi bi-eye"></i> View Extraction
                         </a>
@@ -48,11 +48,16 @@
                     <div class="d-flex gap-2 align-items-center">
                         <!-- Re-run button (admin only) -->
                         {% if current_user.is_authenticated and current_user.is_admin %}
-                        <a href="{{ url_for('scenario_pipeline.step3', case_id=case.id) }}"
+                        <a href="{{ url_for('scenario_pipeline.step3', case_id=case.id, force=1) }}"
                            class="btn btn-sm btn-outline-primary" title="Re-run extraction">
                             <i class="bi bi-arrow-repeat"></i> Re-run
                         </a>
                         {% endif %}
+                        <!-- Provenance -->
+                        <a href="{{ url_for('provenance.case_provenance', case_id=case.id, step=3) }}"
+                           class="btn btn-sm btn-outline-secondary" title="View provenance (opens in new tab)" target="_blank">
+                            <i class="bi bi-diagram-3"></i> Provenance <i class="bi bi-box-arrow-up-right" style="font-size: 0.7em;"></i>
+                        </a>
                         <!-- Draft status -->
                         <span class="badge bg-info" title="Entities will be published to OntServe from Step 4 Review">
                             <i class="bi bi-info-circle"></i> Draft

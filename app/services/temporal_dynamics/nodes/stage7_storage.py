@@ -10,6 +10,8 @@ import logging
 from datetime import datetime
 from flask import current_app
 
+from models import ModelConfig
+
 from ..state import TemporalDynamicsState
 from ..utils.rdf_converter import (
     convert_action_to_rdf,
@@ -51,6 +53,16 @@ def store_rdf_entities(state: TemporalDynamicsState) -> Dict:
     # Execute storage within Flask app context
     with flask_app.app_context():
         try:
+            # Extract model name from LLM trace for entity records
+            llm_trace = state.get('llm_trace', [])
+            extraction_model = None
+            for trace_entry in llm_trace:
+                if trace_entry.get('model'):
+                    extraction_model = trace_entry['model']
+                    break
+            if not extraction_model:
+                extraction_model = ModelConfig.get_claude_model('powerful')
+
             # Initialize counters
             actions_stored = 0
             events_stored = 0
@@ -64,9 +76,10 @@ def store_rdf_entities(state: TemporalDynamicsState) -> Dict:
                 _store_entity(
                     case_id=case_id,
                     session_id=session_id,
-                    entity_type='actions',  # Separate type per plan
+                    entity_type='actions',
                     entity_label=action.get('label', 'Unknown Action'),
-                    rdf_data=rdf_entity
+                    rdf_data=rdf_entity,
+                    extraction_model=extraction_model
                 )
                 actions_stored += 1
 
@@ -78,9 +91,10 @@ def store_rdf_entities(state: TemporalDynamicsState) -> Dict:
                 _store_entity(
                     case_id=case_id,
                     session_id=session_id,
-                    entity_type='events',  # Separate type per plan
+                    entity_type='events',
                     entity_label=event.get('label', 'Unknown Event'),
-                    rdf_data=rdf_entity
+                    rdf_data=rdf_entity,
+                    extraction_model=extraction_model
                 )
                 events_stored += 1
 
@@ -93,8 +107,9 @@ def store_rdf_entities(state: TemporalDynamicsState) -> Dict:
                     case_id=case_id,
                     session_id=session_id,
                     entity_type='causal_chains',
-                    entity_label=f"{chain.get('cause', 'Unknown')} → {chain.get('effect', 'Unknown')}",
-                    rdf_data=rdf_entity
+                    entity_label=f"{chain.get('cause', 'Unknown')} \u2192 {chain.get('effect', 'Unknown')}",
+                    rdf_data=rdf_entity,
+                    extraction_model=extraction_model
                 )
                 chains_stored += 1
 
@@ -113,7 +128,8 @@ def store_rdf_entities(state: TemporalDynamicsState) -> Dict:
                     session_id=session_id,
                     entity_type='allen_relations',
                     entity_label=f'{entity1} {relation} {entity2}',
-                    rdf_data=rdf_entity
+                    rdf_data=rdf_entity,
+                    extraction_model=extraction_model
                 )
                 allen_relations_stored += 1
 
@@ -127,23 +143,21 @@ def store_rdf_entities(state: TemporalDynamicsState) -> Dict:
                     session_id=session_id,
                     entity_type='timeline',
                     entity_label=f'Case {case_id} Timeline',
-                    rdf_data=rdf_entity
+                    rdf_data=rdf_entity,
+                    extraction_model=extraction_model
                 )
                 timeline_stored = 1
 
             logger.info(f"[Stage 7] Stored timeline")
 
-            # Store LLM trace if present
+            # Store LLM trace via PROV-O provenance system
             llm_trace_stored = 0
-            if state.get('llm_trace'):
+            if llm_trace:
                 llm_trace_stored = _store_llm_trace(
                     case_id=case_id,
                     session_id=session_id,
-                    llm_trace=state['llm_trace']
+                    llm_trace=llm_trace
                 )
-
-            # Save extraction summary to extraction_prompts table for Step 3 display
-            _save_extraction_summary(case_id, state)
 
             # Commit transaction
             db.session.commit()
@@ -181,7 +195,8 @@ def _store_entity(
     session_id: str,
     entity_type: str,
     entity_label: str,
-    rdf_data: Dict
+    rdf_data: Dict,
+    extraction_model: str = None
 ) -> None:
     """
     Store a single RDF entity in the database.
@@ -192,6 +207,7 @@ def _store_entity(
         entity_type: Type of entity (actions, events, causal_chains, timeline)
         entity_label: Label for the entity
         rdf_data: RDF JSON-LD data
+        extraction_model: Model name used for extraction
     """
     entity = TemporaryRDFStorage(
         case_id=case_id,
@@ -200,7 +216,8 @@ def _store_entity(
         storage_type='individual',
         entity_label=entity_label,
         rdf_json_ld=rdf_data,
-        extraction_type='temporal_dynamics_enhanced'
+        extraction_type='temporal_dynamics_enhanced',
+        extraction_model=extraction_model
     )
     db.session.add(entity)
 
@@ -266,81 +283,3 @@ def _store_llm_trace(case_id: int, session_id: str, llm_trace: list) -> int:
     return stored_count
 
 
-def _save_extraction_summary(case_id: int, state: Dict) -> None:
-    """
-    Save extraction summary to extraction_prompts table for Step 3 page display.
-
-    This allows the Step 3 page to show saved prompts/responses when refreshed,
-    maintaining consistency with other extraction steps.
-
-    Args:
-        case_id: Case ID
-        state: Complete extraction state with LLM traces
-    """
-    from app.models.extraction_prompt import ExtractionPrompt
-
-    try:
-        # Compile all prompts and responses from llm_trace
-        llm_trace = state.get('llm_trace', [])
-        if not llm_trace:
-            logger.info("[Stage 7] No LLM trace to save to extraction_prompts")
-            return
-
-        # Debug: Log what stages are in the trace
-        stages_in_trace = [entry.get('stage', 'unknown') for entry in llm_trace]
-        logger.info(f"[Stage 7] LLM trace has {len(llm_trace)} entries: {stages_in_trace}")
-        for entry in llm_trace:
-            stage = entry.get('stage', 'unknown')
-            has_response = bool(entry.get('response'))
-            has_error = bool(entry.get('error'))
-            has_warning = bool(entry.get('warning'))
-            logger.info(f"[Stage 7]   - {stage}: response={has_response}, error={has_error}, warning={has_warning}")
-
-        # Build combined prompt and response from all stages
-        combined_prompt_parts = []
-        combined_response_parts = []
-
-        for i, trace_entry in enumerate(llm_trace, 1):
-            stage = trace_entry.get('stage', f'stage_{i}')
-            prompt = trace_entry.get('prompt', '')
-            response = trace_entry.get('response', '')
-            error = trace_entry.get('error', '')
-            warning = trace_entry.get('warning', '')
-
-            if prompt:
-                combined_prompt_parts.append(f"=== {stage.upper()} ===\n{prompt}\n")
-
-            # Always include response section - show error/warning if no response
-            if response:
-                combined_response_parts.append(f"=== {stage.upper()} RESPONSE ===\n{response}\n")
-            elif error:
-                combined_response_parts.append(f"=== {stage.upper()} RESPONSE ===\nERROR: {error}\n")
-            elif warning:
-                combined_response_parts.append(f"=== {stage.upper()} RESPONSE ===\nWARNING: {warning}\n")
-            elif prompt:  # Had a prompt but no response
-                combined_response_parts.append(f"=== {stage.upper()} RESPONSE ===\n(No response available)\n")
-
-        combined_prompt = "\n".join(combined_prompt_parts)
-        combined_response = "\n".join(combined_response_parts)
-
-        # Get model from first trace entry
-        llm_model = llm_trace[0].get('model', 'claude-opus-4-1-20250805') if llm_trace else 'unknown'
-
-        # Save to extraction_prompts table
-        # Use section_type='temporal' to match Step 3 page expectations
-        ExtractionPrompt.save_prompt(
-            case_id=case_id,
-            concept_type='actions_events',
-            prompt_text=combined_prompt,
-            raw_response=combined_response,
-            step_number=3,
-            llm_model=llm_model,
-            section_type='temporal'
-        )
-
-        logger.info(f"[Stage 7] Saved extraction summary to extraction_prompts for Step 3 display")
-
-    except Exception as e:
-        logger.error(f"[Stage 7] Error saving extraction summary: {e}")
-        # Don't fail the whole storage if this fails
-        pass

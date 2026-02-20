@@ -12,16 +12,11 @@ from typing import Dict, List, Optional
 import json
 import logging
 import os
-import time
-import random
+
+from models import ModelConfig
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
-
-# Retry configuration
-MAX_RETRIES = 3
-BASE_DELAY = 1.0  # seconds
-TIMEOUT_SECONDS = 120  # 2 minute timeout per call
 
 
 def extract_actions_with_metadata(
@@ -54,9 +49,9 @@ def extract_actions_with_metadata(
         api_key = os.getenv('ANTHROPIC_API_KEY')
         if not api_key:
             raise RuntimeError("ANTHROPIC_API_KEY not found in environment")
-        llm_client = anthropic.Anthropic(api_key=api_key)
-        model_name = "claude-sonnet-4-20250514"
-        logger.info("[Stage 3] Initialized Anthropic client")
+        llm_client = anthropic.Anthropic(api_key=api_key, timeout=180.0, max_retries=0)
+        model_name = ModelConfig.get_claude_model('powerful')
+        logger.info(f"[Stage 3] Initialized Anthropic client with model {model_name}")
     except Exception as e:
         logger.error(f"[Stage 3] Failed to initialize LLM client: {e}")
         raise RuntimeError(f"No LLM client available: {e}")
@@ -82,7 +77,7 @@ def extract_actions_with_metadata(
     return enriched_actions
 
 
-def _call_llm_with_retry(
+def _call_llm_with_streaming(
     llm_client,
     model_name: str,
     prompt: str,
@@ -90,60 +85,23 @@ def _call_llm_with_retry(
     case_id: int
 ) -> Optional[str]:
     """
-    Call LLM with retry logic for transient errors.
+    Call LLM with streaming to prevent WSL2 TCP idle timeout (60s).
 
-    Returns response text or None if all retries fail.
+    Streaming keeps the connection alive with continuous data flow,
+    preventing the network layer from killing idle connections.
+
+    Returns (response_text, response_message) tuple.
     """
-    import anthropic
+    logger.info(f"[Stage 3] {phase} - LLM streaming call")
 
-    for attempt in range(MAX_RETRIES):
-        try:
-            logger.info(f"[Stage 3] {phase} - LLM call attempt {attempt + 1}/{MAX_RETRIES}")
+    with llm_client.messages.stream(
+        model=model_name,
+        max_tokens=6000,
+        messages=[{"role": "user", "content": prompt}]
+    ) as stream:
+        response = stream.get_final_message()
 
-            response = llm_client.messages.create(
-                model=model_name,
-                max_tokens=6000,
-                timeout=TIMEOUT_SECONDS,
-                messages=[{"role": "user", "content": prompt}]
-            )
-
-            return response.content[0].text, response
-
-        except anthropic.APIConnectionError as e:
-            logger.warning(f"[Stage 3] {phase} - Connection error: {e}")
-            if attempt < MAX_RETRIES - 1:
-                delay = BASE_DELAY * (2 ** attempt) + random.uniform(0, 0.5)
-                logger.info(f"[Stage 3] Retrying in {delay:.1f}s...")
-                time.sleep(delay)
-            else:
-                logger.error(f"[Stage 3] {phase} - All retries failed")
-                raise
-
-        except anthropic.RateLimitError as e:
-            logger.warning(f"[Stage 3] {phase} - Rate limit: {e}")
-            if attempt < MAX_RETRIES - 1:
-                delay = BASE_DELAY * (2 ** attempt) + random.uniform(0, 0.5)
-                logger.info(f"[Stage 3] Retrying in {delay:.1f}s...")
-                time.sleep(delay)
-            else:
-                logger.error(f"[Stage 3] {phase} - All retries failed")
-                raise
-
-        except anthropic.APIStatusError as e:
-            # Only retry 5xx errors
-            if e.status_code >= 500:
-                logger.warning(f"[Stage 3] {phase} - Server error {e.status_code}: {e}")
-                if attempt < MAX_RETRIES - 1:
-                    delay = BASE_DELAY * (2 ** attempt) + random.uniform(0, 0.5)
-                    logger.info(f"[Stage 3] Retrying in {delay:.1f}s...")
-                    time.sleep(delay)
-                else:
-                    logger.error(f"[Stage 3] {phase} - All retries failed")
-                    raise
-            else:
-                # Don't retry 4xx errors
-                logger.error(f"[Stage 3] {phase} - Client error {e.status_code}: {e}")
-                raise
+    return response.content[0].text, response
 
 
 def _extract_core_actions(
@@ -160,6 +118,7 @@ def _extract_core_actions(
     Smaller, faster prompt for reliability.
     """
     prompt = _build_phase1_prompt(narrative, temporal_markers)
+    logger.info(f"[Stage 3] Phase 1 prompt length: {len(prompt)} chars")
 
     trace_entry = {
         'stage': 'action_extraction',
@@ -170,7 +129,7 @@ def _extract_core_actions(
     }
 
     try:
-        response_text, response = _call_llm_with_retry(
+        response_text, response = _call_llm_with_streaming(
             llm_client, model_name, prompt, "Phase 1", case_id
         )
 
@@ -228,7 +187,7 @@ def _enrich_with_scenario_metadata(
     }
 
     try:
-        response_text, response = _call_llm_with_retry(
+        response_text, response = _call_llm_with_streaming(
             llm_client, model_name, prompt, "Phase 2", case_id
         )
 

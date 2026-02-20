@@ -334,45 +334,12 @@ def step3(case_id):
     from .step3 import step3 as step3_handler
     return step3_handler(case_id)
 
-@interactive_scenario_bp.route('/case/<int:case_id>/behavioral_pass_prompt', methods=['POST'])
-def behavioral_pass_prompt(case_id):
-    """API endpoint to generate behavioral pass prompt"""
-    from .step3 import behavioral_pass_prompt as prompt_handler
-    return prompt_handler(case_id)
-
-@interactive_scenario_bp.route('/case/<int:case_id>/behavioral_pass_execute', methods=['POST'])
-@auth_required_for_llm
-def behavioral_pass_execute(case_id):
-    """API endpoint to execute behavioral pass extraction"""
-    from .step3 import behavioral_pass_execute as execute_handler
-    return execute_handler(case_id)
-
-@interactive_scenario_bp.route('/case/<int:case_id>/step3/extract', methods=['POST'])
-@auth_required_for_llm
-def step3_extract(case_id):
-    """API endpoint for Step 3 extraction using dual extractor that saves to database"""
-    from .step3 import extract_individual_actions_events as execute_handler
-    return execute_handler(case_id)
-
 @interactive_scenario_bp.route('/case/<int:case_id>/step3/extract_enhanced', methods=['GET'])
 @auth_required_for_llm
 def step3_extract_enhanced(case_id):
     """API endpoint for enhanced temporal dynamics extraction with LangGraph streaming (SSE uses GET)"""
     from .step3_enhanced import extract_enhanced_temporal_dynamics
     return extract_enhanced_temporal_dynamics(case_id)
-
-@interactive_scenario_bp.route('/case/<int:case_id>/step3/extract_individual', methods=['POST'])
-@auth_required_for_llm
-def step3_extract_individual(case_id):
-    """API endpoint for individual actions & events extraction in Step 3"""
-    from .step3 import extract_individual_actions_events as individual_handler
-    return individual_handler(case_id)
-
-@interactive_scenario_bp.route('/case/<int:case_id>/step3/get_saved_prompt', methods=['GET'])
-def step3_get_saved_prompt(case_id):
-    """API endpoint to get saved extraction prompt for Step 3"""
-    from .step3 import step3_get_saved_prompt as prompt_handler
-    return prompt_handler(case_id)
 
 @interactive_scenario_bp.route('/case/<int:case_id>/complete')
 def complete_analysis(case_id):

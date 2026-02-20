@@ -181,38 +181,13 @@ def review_case_entities(case_id, section_type='facts'):
             flash(f'Case {case_id} not found', 'error')
             return redirect(url_for('index.index'))
 
-        # Get extraction session IDs for this section type
-        from app.models import ExtractionPrompt
-        section_session_ids = set()
-        section_prompts = ExtractionPrompt.query.filter_by(
-            case_id=case_id,
-            section_type=section_type
-        ).all()
-        for prompt in section_prompts:
-            if prompt.extraction_session_id:
-                section_session_ids.add(prompt.extraction_session_id)
-
-        logger.info(f"Found {len(section_session_ids)} extraction sessions for {section_type} section")
-
-        # Get RDF entities for this section's extraction sessions
-        if section_session_ids:
-            all_rdf_entities = TemporaryRDFStorage.query.filter(
-                TemporaryRDFStorage.case_id == case_id,
-                TemporaryRDFStorage.extraction_session_id.in_(section_session_ids)
-            ).all()
-            logger.info(f"Retrieved {len(all_rdf_entities)} RDF entities for {section_type} section")
-        else:
-            all_rdf_entities = []
-            logger.info(f"No extraction sessions found for {section_type} section")
-
-        # Group entities by extraction_type and storage_type
-        # PASS 1 entities only (Contextual Framework)
+        # Pass 1 base types -- extended below for questions/conclusions sections
         pass1_types = ['roles', 'states', 'resources']
 
         # For Questions section, also include special extraction types
         if section_type == 'questions':
             pass1_types.extend([
-                'questions_entity_refs',  # Matched entities from Facts/Discussion
+                'questions_entity_refs',
                 'roles_new_from_questions',
                 'states_new_from_questions',
                 'resources_new_from_questions',
@@ -220,12 +195,11 @@ def review_case_entities(case_id, section_type='facts'):
                 'states_matching',
                 'resources_matching'
             ])
-            logger.info(f"Extended pass1_types for questions section: {pass1_types}")
 
         # For Conclusions section, also include special extraction types
         if section_type == 'conclusions':
             pass1_types.extend([
-                'conclusions_entity_refs',  # Matched entities from Facts/Discussion/Questions
+                'conclusions_entity_refs',
                 'roles_new_from_conclusions',
                 'states_new_from_conclusions',
                 'resources_new_from_conclusions',
@@ -233,7 +207,15 @@ def review_case_entities(case_id, section_type='facts'):
                 'states_matching',
                 'resources_matching'
             ])
-            logger.info(f"Extended pass1_types for conclusions section: {pass1_types}")
+
+        # Query RDF entities directly by extraction_type.
+        # TemporaryRDFStorage lacks a section_type column, so we always query
+        # by extraction_type. The section_type is used for display only.
+        all_rdf_entities = TemporaryRDFStorage.query.filter(
+            TemporaryRDFStorage.case_id == case_id,
+            TemporaryRDFStorage.extraction_type.in_(pass1_types)
+        ).all()
+        logger.info(f"Retrieved {len(all_rdf_entities)} RDF entities for pass 1 ({section_type})")
 
         rdf_by_type = {
             'roles': {'classes': [], 'individuals': [], 'relationships': []},
@@ -315,6 +297,7 @@ def review_case_entities(case_id, section_type='facts'):
 
         # Detect cross-section duplicates
         # Get entities from OTHER sections for comparison
+        from app.models import ExtractionPrompt
         other_sections = ['facts', 'discussion', 'questions', 'conclusions', 'dissenting_opinion']
         other_sections.remove(section_type) if section_type in other_sections else None
 
@@ -485,33 +468,13 @@ def review_case_entities_pass2(case_id, section_type=None):
         # Pass 2 extraction types
         pass2_types = ['principles', 'obligations', 'constraints', 'capabilities']
 
-        # Get RDF entities - filter by section_type if provided
-        all_rdf_entities = []
-        if section_type:
-            # Filter by section_type using the extraction_session_id relationship
-            from app.models import ExtractionPrompt
-            # Get extraction sessions for this case and section
-            session_ids = db.session.query(ExtractionPrompt.extraction_session_id).filter(
-                ExtractionPrompt.case_id == case_id,
-                ExtractionPrompt.section_type == section_type,
-                ExtractionPrompt.step_number == 2
-            ).distinct().all()
-            session_ids = [sid[0] for sid in session_ids if sid[0]]
-
-            if session_ids:
-                all_rdf_entities = TemporaryRDFStorage.query.filter(
-                    TemporaryRDFStorage.case_id == case_id,
-                    TemporaryRDFStorage.extraction_session_id.in_(session_ids)
-                ).all()
-            else:
-                # No extraction has been run for this section
-                logger.warning(f"No Pass 2 extraction found for case {case_id} section_type={section_type}")
-        else:
-            # Get all Pass 2 entities for this case (filter by extraction_type)
-            all_rdf_entities = TemporaryRDFStorage.query.filter(
-                TemporaryRDFStorage.case_id == case_id,
-                TemporaryRDFStorage.extraction_type.in_(pass2_types)
-            ).all()
+        # Get all Pass 2 entities for this case (filter by extraction_type).
+        # TemporaryRDFStorage lacks a section_type column, so we always query
+        # by extraction_type. The section_type is used for display only.
+        all_rdf_entities = TemporaryRDFStorage.query.filter(
+            TemporaryRDFStorage.case_id == case_id,
+            TemporaryRDFStorage.extraction_type.in_(pass2_types)
+        ).all()
 
         # Group entities by extraction_type and storage_type
         # PASS 2 entities only (Normative Requirements)

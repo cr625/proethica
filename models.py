@@ -9,14 +9,15 @@ class ModelConfig:
     """Centralized configuration for AI models."""
     
     # Anthropic/Claude Models (as of February 2026)
-    # See: https://docs.anthropic.com/en/docs/about-claude/models/overview
+    # See: https://platform.claude.com/docs/en/docs/about-claude/models
     CLAUDE_MODELS = {
         # Primary models for different use cases
         "fast": os.getenv("CLAUDE_FAST_MODEL", "claude-haiku-4-5-20251001"),
         "powerful": os.getenv("CLAUDE_POWERFUL_MODEL", "claude-opus-4-6"),
-        "default": os.getenv("CLAUDE_DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
+        "default": os.getenv("CLAUDE_DEFAULT_MODEL", "claude-sonnet-4-6"),
 
         # Specific versions (for testing/compatibility)
+        "sonnet-4.6": "claude-sonnet-4-6",  # Latest Sonnet 4.6 (Feb 2026)
         "opus-4.6": "claude-opus-4-6",  # Latest Opus 4.6 (Feb 2026)
         "opus-4.5": "claude-opus-4-5-20251101",  # Legacy Opus 4.5 (Nov 2025)
         "sonnet-4.5": "claude-sonnet-4-5-20250929",  # Sonnet 4.5 (Sep 2025)
@@ -24,13 +25,6 @@ class ModelConfig:
         "sonnet-4": "claude-sonnet-4-20250514",  # Previous Sonnet 4
         "opus-4.1": "claude-opus-4-1-20250805",  # Previous Opus 4.1
         "opus-4": "claude-opus-4-20250514",  # Previous Opus 4
-        "haiku-3.5": "claude-3-5-haiku-20241022",  # Legacy Haiku 3.5
-        
-        # Legacy models (deprecated, for backward compatibility only)
-        "legacy_sonnet": "claude-3-sonnet-20240229",
-        "legacy_opus": "claude-3-opus-20240229",
-        "sonnet-3.5": "claude-3.5-sonnet-latest",
-        "opus-3.5": "claude-3.5-opus-latest",
     }
     
     # OpenAI Models
