@@ -156,7 +156,46 @@ def step4_synthesis(case_id):
         # Get pipeline status for navigation
         pipeline_status = PipelineStatusService.get_step_status(case_id)
 
-        # Commit section data
+        # Load Phase 2 entities for summary display (label + definition)
+        phase2_entities = _load_phase2_entity_summaries(case_id)
+
+        return render_template(
+            'scenarios/step4.html',
+            case=case,
+            entities_summary=entities_summary,
+            synthesis_status=synthesis_status,
+            saved_synthesis=saved_synthesis,
+            phase4_data=phase4_data,
+            phase2_entities=phase2_entities,
+            current_step=4,
+            prev_step_url=f"/scenario_pipeline/case/{case_id}/reconcile",
+            next_step_url=None,
+            next_step_name=None,
+            pipeline_status=pipeline_status,
+        )
+
+    except Exception as e:
+        logger.error(f"Error displaying Step 4 for case {case_id}: {e}")
+        return str(e), 500
+
+
+@bp.route('/case/<int:case_id>/step4/entities')
+@auth_optional
+def step4_entities(case_id):
+    """Display Step 4 entity review page.
+
+    Phase-grouped view of all Step 4 extracted entities.
+    Exclusive home for OntServe commit workflow.
+    Structured for future per-entity editing (hooks present, hidden).
+    """
+    try:
+        case = Document.query.get_or_404(case_id)
+
+        phase_groups = _build_step4_entity_groups(case_id)
+        synthesis_status = get_synthesis_status(case_id)
+        pipeline_status = PipelineStatusService.get_step_status(case_id)
+
+        # Commit counts
         unpublished_count = TemporaryRDFStorage.query.filter_by(
             case_id=case_id, is_published=False
         ).count()
@@ -171,26 +210,89 @@ def step4_synthesis(case_id):
         ).count()
 
         return render_template(
-            'scenarios/step4.html',
+            'scenario_pipeline/step4_entities.html',
             case=case,
-            entities_summary=entities_summary,
+            phase_groups=phase_groups,
             synthesis_status=synthesis_status,
-            saved_synthesis=saved_synthesis,
-            phase4_data=phase4_data,
-            current_step=4,
-            prev_step_url=f"/scenario_pipeline/case/{case_id}/reconcile",
-            next_step_url=None,
-            next_step_name=None,
             pipeline_status=pipeline_status,
             unpublished_count=unpublished_count,
             published_count=published_count,
             class_count=class_count,
             individual_count=individual_count,
+            current_step=4,
+            step_title='Step 4 Entities',
+            prev_step_url=url_for('step4.step4_synthesis', case_id=case_id),
+            next_step_url=url_for('step4.step4_review', case_id=case_id),
+            next_step_name='Review',
         )
 
     except Exception as e:
-        logger.error(f"Error displaying Step 4 for case {case_id}: {e}")
+        logger.error(f"Error displaying Step 4 entities for case {case_id}: {e}")
         return str(e), 500
+
+
+def _build_step4_entity_groups(case_id: int) -> List[Dict]:
+    """Build phase-grouped entity data for the Step 4 entities page.
+
+    Returns list of dicts, one per phase group. Each contains the phase label,
+    icon, entities list, by_type sub-grouping, and count/publish stats.
+    """
+    from collections import defaultdict
+
+    PHASE_DEFS = [
+        {
+            'phase': '2A', 'label': 'Code Provisions',
+            'icon': 'bi-file-text',
+            'types': ['code_provision_reference'],
+        },
+        {
+            'phase': '2B', 'label': 'Precedent Cases',
+            'icon': 'bi-journal-bookmark',
+            'types': ['precedent_case_reference'],
+        },
+        {
+            'phase': '2C', 'label': 'Questions & Conclusions',
+            'icon': 'bi-question-circle',
+            'types': ['ethical_question', 'ethical_conclusion'],
+        },
+        {
+            'phase': '2E', 'label': 'Rich Analysis',
+            'icon': 'bi-diagram-3',
+            'types': ['causal_normative_link', 'question_emergence', 'resolution_pattern'],
+        },
+        {
+            'phase': '3', 'label': 'Decision Points & Arguments',
+            'icon': 'bi-signpost-split',
+            'types': ['canonical_decision_point', 'argument_generated', 'argument_validation'],
+        },
+    ]
+
+    groups = []
+    for defn in PHASE_DEFS:
+        entities = TemporaryRDFStorage.query.filter(
+            TemporaryRDFStorage.case_id == case_id,
+            TemporaryRDFStorage.extraction_type.in_(defn['types'])
+        ).order_by(
+            TemporaryRDFStorage.extraction_type,
+            TemporaryRDFStorage.created_at
+        ).all()
+
+        by_type = defaultdict(list)
+        for e in entities:
+            by_type[e.extraction_type].append(e)
+
+        groups.append({
+            'phase': defn['phase'],
+            'label': defn['label'],
+            'icon': defn['icon'],
+            'entities': entities,
+            'by_type': dict(by_type),
+            'count': len(entities),
+            'published_count': sum(1 for e in entities if e.is_published),
+            'unpublished_count': sum(1 for e in entities if not e.is_published),
+        })
+
+    return groups
 
 
 @bp.route('/case/<int:case_id>/clear_step4', methods=['POST'])
@@ -1325,15 +1427,11 @@ def step4_review(case_id):
             'precedent_features': precedent_features,
             'data_inventory': data_inventory,
             'entity_type_counts': entity_type_counts,
-            # Publish status
-            'unpublished_count': unpublished_count,
-            'published_count': published_count,
-            'can_publish': can_publish,
             'pipeline_status': pipeline_status,
             # Pipeline navigation (required by base_step.html)
             'current_step': 4,
             'step_title': 'Synthesis Review',
-            'prev_step_url': url_for('step4.step4_synthesis', case_id=case_id),
+            'prev_step_url': url_for('step4.step4_entities', case_id=case_id),
             'next_step_url': None,
             'next_step_name': None,
             'rich_analysis': rich_analysis,
@@ -1729,6 +1827,37 @@ def get_synthesis_status(case_id: int) -> Dict:
         'precedents_count': precedents,
         'transformation_type': transformation_type
     }
+
+
+def _load_phase2_entity_summaries(case_id: int) -> Dict[str, List[Dict]]:
+    """Load Phase 2 entities for summary display on the extraction page.
+
+    Returns dict keyed by extraction_type with list of {label, definition, rdf}
+    dicts for server-side rendering of entity summaries.
+    """
+    PHASE2_TYPES = [
+        'code_provision_reference',
+        'precedent_case_reference',
+        'ethical_question',
+        'ethical_conclusion',
+        'causal_normative_link',
+        'question_emergence',
+        'resolution_pattern',
+    ]
+    result = {}
+    entities = TemporaryRDFStorage.query.filter(
+        TemporaryRDFStorage.case_id == case_id,
+        TemporaryRDFStorage.extraction_type.in_(PHASE2_TYPES)
+    ).order_by(TemporaryRDFStorage.created_at).all()
+
+    for e in entities:
+        result.setdefault(e.extraction_type, []).append({
+            'id': e.id,
+            'label': e.entity_label,
+            'definition': e.entity_definition,
+            'rdf': e.rdf_json_ld or {},
+        })
+    return result
 
 
 def get_all_case_entities(case_id: int) -> Dict[str, List]:
@@ -4963,12 +5092,13 @@ def get_saved_step4_prompt(case_id):
 
         # Map task types to concept types for extraction_prompts lookup
         concept_type_map = {
+            'precedents': 'precedent_case_reference',
             'questions': 'ethical_question',
             'conclusions': 'ethical_conclusion',
             'transformation': 'transformation_classification',
             'rich_analysis': 'rich_analysis',
-            'decision_synthesis': 'phase3_decision_synthesis',  # Updated to match run_all saves
-            'narrative': 'phase4_narrative'  # Updated to match phase4 saves
+            'decision_synthesis': 'phase3_decision_synthesis',
+            'narrative': 'phase4_narrative'
         }
 
         concept_type = concept_type_map.get(task_type, task_type)

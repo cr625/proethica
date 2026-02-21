@@ -59,10 +59,11 @@ PIPELINE_STRUCTURE = {
     ],
     'step4_phases': [
         {'phase': '2A', 'name': 'Code Provisions', 'concept_type': 'code_provision_reference'},
-        {'phase': '2B-Q', 'name': 'Ethical Questions', 'concept_type': 'ethical_question'},
-        {'phase': '2B-C', 'name': 'Ethical Conclusions', 'concept_type': 'ethical_conclusion'},
-        {'phase': '2C', 'name': 'Transformation Analysis', 'concept_type': 'transformation_classification'},
-        {'phase': '2D', 'name': 'Rich Analysis', 'concept_type': 'rich_analysis'},
+        {'phase': '2B', 'name': 'Precedent Cases', 'concept_type': 'precedent_case_reference'},
+        {'phase': '2C-Q', 'name': 'Ethical Questions', 'concept_type': 'ethical_question'},
+        {'phase': '2C-C', 'name': 'Ethical Conclusions', 'concept_type': 'ethical_conclusion'},
+        {'phase': '2D', 'name': 'Transformation Analysis', 'concept_type': 'transformation_classification'},
+        {'phase': '2E', 'name': 'Rich Analysis', 'concept_type': 'rich_analysis'},
         {'phase': '3', 'name': 'Decision Point Synthesis', 'concept_type': 'phase3_decision_synthesis'},
         {'phase': '4', 'name': 'Narrative Construction', 'concept_type': 'phase4_narrative'}
     ],

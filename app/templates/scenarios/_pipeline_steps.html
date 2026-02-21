@@ -161,11 +161,14 @@ Required context variables:
 
     {# Step 4: Whole-Case Synthesis - available if reconcile complete #}
     {% set step4_complete = pipeline_status.step4.complete if pipeline_status else false %}
+    {% set step4_p2_done = pipeline_status.step4.phase2_complete if pipeline_status and pipeline_status.step4 else false %}
     {% set step4_available = reconcile_complete or current_step >= 4 %}
     {% set step4_active = current_step == 4 %}
     {% set step4_synthesis_url = url_for('step4.step4_synthesis', case_id=case.id) %}
+    {% set step4_entities_url = url_for('step4.step4_entities', case_id=case.id) %}
     {% set step4_review_url = url_for('step4.step4_review', case_id=case.id) %}
     {% set step4_on_synthesis = step4_active and request.endpoint == 'step4.step4_synthesis' %}
+    {% set step4_on_entities = step4_active and request.endpoint == 'step4.step4_entities' %}
     {% set step4_on_review = step4_active and request.endpoint == 'step4.step4_review' %}
     <div class="pipeline-step-group {% if step4_active %}expanded{% endif %} {% if not step4_available %}disabled{% endif %}">
         <a href="{% if step4_available %}{{ step4_synthesis_url }}{% else %}#{% endif %}"
@@ -185,6 +188,13 @@ Required context variables:
                class="pipeline-substep {% if step4_on_synthesis %}active{% endif %}">
                 <span class="substep-label">Synthesis</span>
                 {% if step4_complete %}
+                <span class="substep-check"><i class="bi bi-check-sm"></i></span>
+                {% endif %}
+            </a>
+            <a href="{{ step4_entities_url }}"
+               class="pipeline-substep {% if step4_on_entities %}active{% endif %}">
+                <span class="substep-label">Entities</span>
+                {% if step4_p2_done %}
                 <span class="substep-check"><i class="bi bi-check-sm"></i></span>
                 {% endif %}
             </a>

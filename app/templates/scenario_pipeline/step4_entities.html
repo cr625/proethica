@@ -1,0 +1,327 @@
+{% extends "scenarios/base_step.html" %}
+
+{% block step_title %}Step 4: Entity Review{% endblock %}
+{% block step_header %}Step 4: Entity Review{% endblock %}
+{% block step_subtitle %}Review extracted entities and commit to OntServe{% endblock %}
+
+{% block step_styles %}
+<style>
+    .entity-card {
+        transition: border-color 0.2s;
+    }
+    .entity-card:hover {
+        border-color: #6c757d !important;
+    }
+    .rdf-property {
+        font-size: 0.85em;
+        line-height: 1.4;
+    }
+    .rdf-property .prop-name {
+        color: #6c757d;
+        min-width: 120px;
+        flex-shrink: 0;
+    }
+    .rdf-property .prop-value {
+        word-break: break-word;
+    }
+    .phase-card .card-header {
+        cursor: pointer;
+        user-select: none;
+    }
+    .phase-card .card-header:hover {
+        background-color: #f0f0f0;
+    }
+    .phase-card .card-header .bi-chevron-down {
+        transition: transform 0.2s;
+    }
+    .phase-card .card-header.collapsed .bi-chevron-down {
+        transform: rotate(-90deg);
+    }
+    .type-group-header {
+        font-size: 0.9em;
+        text-transform: capitalize;
+    }
+    .commit-status.success {
+        color: #198754;
+    }
+    .commit-status.error {
+        color: #dc3545;
+    }
+</style>
+{% endblock %}
+
+{% block step_content %}
+
+<!-- Navigation Bar -->
+<div class="bg-light border rounded p-3 mb-4">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}"
+               class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Extraction
+            </a>
+            <a href="{{ url_for('provenance.case_provenance', case_id=case.id, step=4) }}"
+               class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-diagram-3"></i> Provenance
+            </a>
+        </div>
+        <div class="d-flex gap-2 align-items-center">
+            {% if unpublished_count > 0 %}
+            <span class="badge bg-warning text-dark">{{ unpublished_count }} unpublished</span>
+            {% elif published_count > 0 %}
+            <span class="badge bg-success">{{ published_count }} committed</span>
+            {% endif %}
+            <a href="{{ url_for('step4.step4_review', case_id=case.id) }}"
+               class="btn btn-sm btn-primary">
+                Review <i class="bi bi-arrow-right"></i>
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Commit to OntServe -->
+<div class="card mb-4" id="commit-section">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-cloud-upload me-2"></i>Commit to OntServe</h5>
+    </div>
+    <div class="card-body">
+        {% if published_count > 0 and unpublished_count == 0 %}
+        <div class="commit-status success">
+            <i class="bi bi-check-circle-fill me-2 text-success"></i>
+            All {{ published_count }} entities have been committed to OntServe.
+            <div class="mt-2">
+                <button class="btn btn-outline-danger btn-sm" onclick="uncommitEntities()">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i>Uncommit
+                </button>
+            </div>
+        </div>
+        <div id="uncommitResult" class="mt-3" style="display: none;"></div>
+        {% elif unpublished_count > 0 %}
+        <p>
+            <strong>{{ unpublished_count }}</strong> entities ready to commit:
+            {{ class_count }} classes,
+            {{ individual_count }} individuals.
+        </p>
+        <button id="commitBtn" class="btn btn-success" onclick="commitToOntServe()">
+            <i class="bi bi-cloud-upload me-2"></i>Commit {{ unpublished_count }} Entities to OntServe
+        </button>
+        <div id="commitResult" class="mt-3" style="display: none;"></div>
+        {% else %}
+        <div class="text-muted">No entities extracted yet. Run extraction on the
+            <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}">Synthesis page</a> first.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Transformation Status (Phase 2D) -->
+{% if synthesis_status and synthesis_status.transformation_type and synthesis_status.transformation_type != 'unclear' %}
+<div class="alert alert-light border mb-4">
+    <div class="d-flex align-items-center">
+        <span class="me-2 text-muted">Phase 2D:</span>
+        <span class="badge me-2" style="background-color: #6f42c1;">
+            {% if synthesis_status.transformation_type == 'transfer' %}Transfer
+            {% elif synthesis_status.transformation_type == 'stalemate' %}Stalemate
+            {% elif synthesis_status.transformation_type == 'oscillation' %}Oscillation
+            {% elif synthesis_status.transformation_type == 'phase_lag' %}Phase Lag
+            {% else %}{{ synthesis_status.transformation_type|title }}{% endif %}
+        </span>
+        <span class="text-muted small">
+            {% if synthesis_status.transformation_type == 'transfer' %}
+            Resolution transfers obligation/responsibility to another party
+            {% elif synthesis_status.transformation_type == 'stalemate' %}
+            Competing obligations remain in tension without clear resolution
+            {% elif synthesis_status.transformation_type == 'oscillation' %}
+            Duties shift back and forth between parties over time
+            {% elif synthesis_status.transformation_type == 'phase_lag' %}
+            Delayed consequences reveal obligations not initially apparent
+            {% endif %}
+        </span>
+    </div>
+</div>
+{% endif %}
+
+<!-- Entity Groups by Phase -->
+{% for group in phase_groups %}
+<div class="card mb-3 phase-card" id="phase-{{ group.phase }}-card">
+    <div class="card-header d-flex justify-content-between align-items-center{% if group.count == 0 %} collapsed{% endif %}"
+         data-bs-toggle="collapse" data-bs-target="#phase-{{ group.phase }}-body">
+        <h5 class="mb-0">
+            <i class="{{ group.icon }} me-1"></i>
+            Phase {{ group.phase }}: {{ group.label }}
+        </h5>
+        <div class="d-flex gap-2 align-items-center">
+            {% if group.count > 0 %}
+            <span class="badge bg-secondary">{{ group.count }}</span>
+            {% if group.unpublished_count > 0 %}
+            <span class="badge bg-warning text-dark">{{ group.unpublished_count }} unpublished</span>
+            {% endif %}
+            {% if group.published_count > 0 %}
+            <span class="badge bg-success">{{ group.published_count }} committed</span>
+            {% endif %}
+            {% else %}
+            <span class="badge bg-light text-muted border">not extracted</span>
+            {% endif %}
+            <i class="bi bi-chevron-down"></i>
+        </div>
+    </div>
+    <div class="collapse{% if group.count > 0 %} show{% endif %}" id="phase-{{ group.phase }}-body">
+        <div class="card-body p-0">
+            {% if group.count == 0 %}
+            <p class="text-muted p-3 mb-0">No entities extracted for this phase yet.</p>
+            {% else %}
+                {% for extraction_type, type_entities in group.by_type.items() %}
+                <div class="border-bottom p-3">
+                    <h6 class="type-group-header text-muted mb-3">
+                        {{ extraction_type | replace('_', ' ') }}
+                        <span class="badge bg-light text-dark border ms-1">{{ type_entities | length }}</span>
+                    </h6>
+                    {% for entity in type_entities %}
+                    <div class="card mb-2 entity-card border-{{ 'success' if entity.is_published else 'secondary' }}"
+                         data-entity-id="{{ entity.id }}"
+                         data-extraction-type="{{ entity.extraction_type }}"
+                         data-storage-type="{{ entity.storage_type or '' }}">
+                        <div class="card-body py-2 px-3">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <strong>{{ entity.entity_label }}</strong>
+                                    {% if entity.storage_type %}
+                                    <span class="badge bg-{{ 'primary' if entity.storage_type == 'class' else 'info' }} ms-1"
+                                          style="font-size: 0.7em;">{{ entity.storage_type }}</span>
+                                    {% endif %}
+                                    {% if entity.is_published %}
+                                    <span class="badge bg-success ms-1" style="font-size: 0.7em;">committed</span>
+                                    {% endif %}
+                                </div>
+                                <!-- Future edit hook -->
+                                <button class="entity-edit-btn btn btn-sm btn-outline-secondary"
+                                        data-entity-id="{{ entity.id }}" style="display: none;">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                            </div>
+                            {% if entity.entity_definition %}
+                            <p class="small text-muted mb-1 mt-1">
+                                {{ entity.entity_definition[:250] }}{% if entity.entity_definition|length > 250 %}...{% endif %}
+                            </p>
+                            {% endif %}
+                            {% if entity.rdf_json_ld %}
+                            <div class="mt-1">
+                                {% for key, val in entity.rdf_json_ld.items() if key not in ['@type', '@context', '@id'] and val %}
+                                <div class="rdf-property d-flex gap-2">
+                                    <span class="prop-name">{{ key }}:</span>
+                                    <span class="prop-value">
+                                        {% if val is string %}
+                                            {{ val[:150] }}{% if val|length > 150 %}...{% endif %}
+                                        {% elif val is iterable and val is not mapping %}
+                                            {{ val|length }} items
+                                        {% else %}
+                                            {{ val }}
+                                        {% endif %}
+                                    </span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+{% endblock %}
+
+{% block step_scripts %}
+<script>
+const currentCaseId = {{ case.id }};
+
+function getCsrfToken() {
+    var meta = document.querySelector('meta[name="csrf-token"]');
+    return meta ? meta.getAttribute('content') : '';
+}
+
+function commitToOntServe() {
+    var btn = document.getElementById('commitBtn');
+    var resultDiv = document.getElementById('commitResult');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Committing...';
+
+    fetch(`/scenario_pipeline/case/${currentCaseId}/reconcile/commit`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        resultDiv.style.display = 'block';
+        if (data.success) {
+            var r = data.result || {};
+            resultDiv.innerHTML = '<div class="commit-status success">'
+                + '<i class="bi bi-check-circle-fill me-2 text-success"></i>'
+                + '<strong>Commit successful.</strong> '
+                + 'Classes: ' + (r.classes_committed || 0) + ', '
+                + 'Individuals: ' + (r.individuals_committed || 0) + ', '
+                + 'OntServe synced: ' + (r.ontserve_synced ? 'Yes' : 'No')
+                + '</div>';
+            // Reload after short delay to reflect committed state
+            setTimeout(function() { location.reload(); }, 1500);
+        } else {
+            resultDiv.innerHTML = '<div class="commit-status error">'
+                + '<i class="bi bi-x-circle-fill me-2 text-danger"></i>'
+                + '<strong>Commit failed:</strong> ' + (data.error || 'Unknown error')
+                + '</div>';
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-cloud-upload me-2"></i>Retry Commit';
+        }
+    })
+    .catch(function(err) {
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = '<div class="commit-status error">'
+            + '<i class="bi bi-x-circle-fill me-2 text-danger"></i>'
+            + '<strong>Error:</strong> ' + err
+            + '</div>';
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-cloud-upload me-2"></i>Retry Commit';
+    });
+}
+
+function uncommitEntities() {
+    if (!confirm('This will remove all committed entities from OntServe and reset them to draft status. Proceed?')) {
+        return;
+    }
+    var resultDiv = document.getElementById('uncommitResult');
+    if (resultDiv) resultDiv.style.display = 'block';
+
+    fetch(`/scenario_pipeline/case/${currentCaseId}/reconcile/uncommit`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            location.reload();
+        } else {
+            if (resultDiv) {
+                resultDiv.innerHTML = '<div class="commit-status error">'
+                    + '<strong>Uncommit failed:</strong> ' + (data.error || 'Unknown error')
+                    + '</div>';
+            } else {
+                alert('Uncommit failed: ' + (data.error || 'Unknown error'));
+            }
+        }
+    })
+    .catch(function(err) {
+        alert('Error: ' + err);
+    });
+}
+</script>
+{% endblock %}

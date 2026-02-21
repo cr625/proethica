@@ -14,21 +14,23 @@
         </h5>
     </div>
     <div class="card-body">
-        <div class="row text-center">
-            <div class="col-md-3">
+        {% set p2_done = pipeline_status.step4.phase2_complete if pipeline_status and pipeline_status.step4 else false %}
+        {% set p3_done = pipeline_status.step4.phase3_complete if pipeline_status and pipeline_status.step4 else false %}
+        {% set p4_done = pipeline_status.step4.phase4_complete if pipeline_status and pipeline_status.step4 else false %}
+        <div class="phase-row text-center">
+            <div class="phase-col">
                 <div id="phase1-indicator" class="phase-indicator phase-complete">
                     <span class="phase-number">1</span>
                     <div class="phase-label">Entity Foundation</div>
-                    <small class="text-muted">Passes 1-3 entities</small>
+                    <small class="text-muted">Passes 1-3</small>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div id="phase2-indicator" class="phase-indicator">
+            <div class="phase-col">
+                <div id="phase2-indicator" class="phase-indicator{% if p2_done %} phase-complete{% endif %}">
                     <span class="phase-number">2</span>
                     <div class="phase-label">Analytical Extraction</div>
-                    <small class="text-muted">Provisions, Precedents, Q&C, Transformation, Rich Analysis</small>
-                    <!-- Phase 2 substep progress -->
-                    <div class="phase2-progress mt-2">
+                    <small class="text-muted">2A-2E</small>
+                    <div class="phase2-progress mt-1">
                         <div class="d-flex justify-content-center gap-1">
                             <span id="p2-provisions" class="substep-dot" title="2A: Provisions"></span>
                             <span id="p2-precedents" class="substep-dot" title="2B: Precedents"></span>
@@ -40,15 +42,15 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div id="phase3-indicator" class="phase-indicator">
+            <div class="phase-col">
+                <div id="phase3-indicator" class="phase-indicator{% if p3_done %} phase-complete{% endif %}">
                     <span class="phase-number">3</span>
                     <div class="phase-label">Decision Synthesis</div>
                     <small class="text-muted">E1-E3 + LLM</small>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div id="phase4-indicator" class="phase-indicator">
+            <div class="phase-col">
+                <div id="phase4-indicator" class="phase-indicator{% if p4_done %} phase-complete{% endif %}">
                     <span class="phase-number">4</span>
                     <div class="phase-label">Narrative</div>
                     <small class="text-muted">Timeline + Scenario</small>
@@ -134,7 +136,7 @@
                 <div class="step-header bg-light">
                     <div class="d-flex justify-content-between align-items-center">
                         <h6 class="mb-0">
-                            <i class="bi bi-file-text text-secondary"></i> 2A: Code Provisions Extraction
+                            <i class="bi bi-file-text text-secondary"></i> 2A: Code Provisions
                             <span id="provisionsCount" class="badge bg-secondary ms-2">{{ synthesis_status.provisions_count or 0 }}</span>
                         </h6>
                         {% if current_user.is_authenticated %}
@@ -145,35 +147,27 @@
                     </div>
                 </div>
                 <div class="step-content">
-                    {% if synthesis_status.provisions_count > 0 %}
-                    <div class="alert alert-success py-2 mb-2" id="provisionsExistingStatus">
-                        <i class="bi bi-check-circle-fill me-1"></i>
-                        <strong>{{ synthesis_status.provisions_count }} provisions</strong> extracted from References section.
-                        <a href="{{ url_for('step4.step4_review', case_id=case.id) }}#provisions" class="alert-link">View details</a>
-                    </div>
+                    <div id="provisionsStreamStatus" style="display: none;"></div>
+                    <div id="provisionsEntityList">
+                    {% set prov_entities = phase2_entities.get('code_provision_reference', []) %}
+                    {% if prov_entities %}
+                        {% for e in prov_entities %}
+                        <div class="entity-summary-item">
+                            <strong>{{ e.label }}</strong>
+                            {% if e.definition %}
+                            <small class="text-muted d-block">{{ e.definition[:150] }}{% if e.definition|length > 150 %}...{% endif %}</small>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
                     {% else %}
-                    <div class="alert alert-secondary py-2 mb-2" id="provisionsExistingStatus">
-                        <i class="bi bi-info-circle me-1"></i>
-                        No provisions extracted yet. Click <strong>Extract</strong> to parse NSPE code references.
-                    </div>
+                    <div class="text-muted small">No provisions extracted yet.</div>
                     {% endif %}
-                    <div class="prompt-preview mb-3" id="provisionsPromptSection" style="display: none;">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="mb-0"><i class="bi bi-chat-left-text"></i> Extraction Prompt</h6>
-                        </div>
-                        <div class="prompt-text" id="provisionsPromptText"></div>
-                    </div>
-                    <div class="results-preview" id="provisionsResults" style="display: none;">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="mb-0"><i class="bi bi-list-check text-success"></i> Extracted Provisions</h6>
-                        </div>
-                        <div id="provisionsResultsContent"></div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- 2E: Precedent Case References -->
+        <!-- 2B: Precedent Case References -->
         <div class="extractor-section mb-4" id="precedentsSection">
             <div class="step-card border-dark">
                 <div class="step-header bg-dark bg-opacity-10">
@@ -190,59 +184,43 @@
                     </div>
                 </div>
                 <div class="step-content">
-                    {% if precedents_json %}
-                    <div id="precedentsExistingStatus">
-                        <div class="list-group list-group-flush">
-                            {% for p in precedents_json %}
-                            {% set rdf = p.rdf_json_ld or {} %}
-                            <div class="list-group-item px-0 py-2">
-                                <div class="d-flex justify-content-between align-items-start">
-                                    <div>
-                                        {% if rdf.get('resolved') and rdf.get('internalCaseId') %}
-                                        <a href="{{ url_for('cases.view_case', id=rdf.internalCaseId) }}" class="fw-semibold text-decoration-none">
-                                            <i class="bi bi-journal-bookmark me-1"></i>{{ p.entity_label }}
-                                        </a>
-                                        {% else %}
-                                        <span class="fw-semibold"><i class="bi bi-journal-bookmark me-1"></i>{{ p.entity_label }}</span>
-                                        {% endif %}
-                                        {% if rdf.get('citationType') %}
-                                        <span class="badge bg-{{ 'success' if rdf.citationType == 'supporting' else 'warning' if rdf.citationType == 'distinguishing' else 'info' }} ms-2">{{ rdf.citationType }}</span>
-                                        {% endif %}
-                                    </div>
-                                    {% if rdf.get('resolved') %}
-                                    <span class="badge bg-secondary" title="Resolved to case ID {{ rdf.internalCaseId }}"><i class="bi bi-link-45deg"></i> linked</span>
+                    <div id="precedentsStreamStatus" style="display: none;"></div>
+                    <div id="precedentsEntityList">
+                    {% set prec_entities = phase2_entities.get('precedent_case_reference', []) %}
+                    {% if prec_entities %}
+                        {% for e in prec_entities %}
+                        <div class="entity-summary-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    {% if e.rdf.get('resolved') and e.rdf.get('internalCaseId') %}
+                                    <a href="{{ url_for('cases.view_case', id=e.rdf.internalCaseId) }}" class="fw-semibold text-decoration-none">
+                                        <i class="bi bi-journal-bookmark me-1"></i>{{ e.label }}
+                                    </a>
+                                    {% else %}
+                                    <strong><i class="bi bi-journal-bookmark me-1"></i>{{ e.label }}</strong>
+                                    {% endif %}
+                                    {% if e.rdf.get('citationType') %}
+                                    <span class="badge bg-{{ 'success' if e.rdf.citationType == 'supporting' else 'warning' if e.rdf.citationType == 'distinguishing' else 'info' }} ms-1">{{ e.rdf.citationType }}</span>
                                     {% endif %}
                                 </div>
-                                {% if rdf.get('principleEstablished') %}
-                                <small class="text-muted d-block mt-1">{{ rdf.principleEstablished }}</small>
+                                {% if e.rdf.get('resolved') %}
+                                <span class="badge bg-secondary"><i class="bi bi-link-45deg"></i> linked</span>
                                 {% endif %}
                             </div>
-                            {% endfor %}
+                            {% if e.rdf.get('principleEstablished') %}
+                            <small class="text-muted d-block mt-1">{{ e.rdf.principleEstablished }}</small>
+                            {% endif %}
                         </div>
-                    </div>
+                        {% endfor %}
                     {% else %}
-                    <div class="alert alert-secondary py-2 mb-2" id="precedentsExistingStatus">
-                        <i class="bi bi-info-circle me-1"></i>
-                        No precedent cases extracted yet. Click <strong>Extract</strong> to find cited prior BER decisions.
-                    </div>
+                    <div class="text-muted small">No precedent cases extracted yet.</div>
                     {% endif %}
-                    <div class="prompt-preview mb-3" id="precedentsPromptSection" style="display: none;">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="mb-0"><i class="bi bi-chat-left-text"></i> Extraction Prompt</h6>
-                        </div>
-                        <div class="prompt-text" id="precedentsPromptText"></div>
-                    </div>
-                    <div class="results-preview" id="precedentsResults" style="display: none;">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="mb-0"><i class="bi bi-list-check text-success"></i> Extracted Precedents</h6>
-                        </div>
-                        <div id="precedentsResultsContent"></div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- 2B: Questions & Conclusions (Unified) -->
+        <!-- 2C: Questions & Conclusions -->
         <div class="extractor-section mb-4" id="questionsSection">
             <div class="step-card border-warning">
                 <div class="step-header bg-warning bg-opacity-10">
@@ -253,43 +231,49 @@
                             <span id="conclusionsCount" class="badge bg-success ms-1">{{ synthesis_status.conclusions_count or 0 }}</span>
                         </h6>
                         {% if current_user.is_authenticated %}
-                        <button class="btn btn-outline-warning btn-sm" onclick="extractTask('qc_unified')" id="extractQuestionsBtn" title="Extract questions, conclusions, and link them atomically">
+                        <button class="btn btn-outline-warning btn-sm" onclick="extractTask('qc_unified')" id="extractQuestionsBtn">
                             <i class="bi bi-play-fill"></i> Extract Q&C
                         </button>
                         {% endif %}
                     </div>
                 </div>
                 <div class="step-content">
-                    {% if synthesis_status.questions_count > 0 or synthesis_status.conclusions_count > 0 %}
-                    <div class="alert alert-success py-2 mb-2" id="qcExistingStatus">
-                        <i class="bi bi-check-circle-fill me-1"></i>
-                        <strong>{{ synthesis_status.questions_count }} questions</strong> and
-                        <strong>{{ synthesis_status.conclusions_count }} conclusions</strong> extracted.
-                        <a href="{{ url_for('step4.step4_review', case_id=case.id) }}#questions" class="alert-link">View details</a>
-                    </div>
+                    <div id="questionsStreamStatus" style="display: none;"></div>
+                    <div id="questionsEntityList">
+                    {% set q_entities = phase2_entities.get('ethical_question', []) %}
+                    {% set c_entities = phase2_entities.get('ethical_conclusion', []) %}
+                    {% if q_entities or c_entities %}
+                        {% if q_entities %}
+                        <div class="mb-2"><small class="text-muted fw-semibold">Questions ({{ q_entities|length }})</small></div>
+                        {% for e in q_entities %}
+                        <div class="entity-summary-item">
+                            <strong>{{ e.label }}</strong>
+                            {% if e.definition %}
+                            <small class="text-muted d-block">{{ e.definition[:150] }}{% if e.definition|length > 150 %}...{% endif %}</small>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                        {% endif %}
+                        {% if c_entities %}
+                        <div class="mb-2 mt-3"><small class="text-muted fw-semibold">Conclusions ({{ c_entities|length }})</small></div>
+                        {% for e in c_entities %}
+                        <div class="entity-summary-item">
+                            <strong>{{ e.label }}</strong>
+                            {% if e.definition %}
+                            <small class="text-muted d-block">{{ e.definition[:150] }}{% if e.definition|length > 150 %}...{% endif %}</small>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                        {% endif %}
                     {% else %}
-                    <div class="alert alert-secondary py-2 mb-2" id="qcExistingStatus">
-                        <i class="bi bi-info-circle me-1"></i>
-                        No Q&C extracted yet. Click <strong>Extract Q&C</strong> to analyze Questions and Conclusions sections.
-                    </div>
+                    <div class="text-muted small">No questions or conclusions extracted yet.</div>
                     {% endif %}
-                    <div class="prompt-preview mb-3" id="questionsPromptSection" style="display: none;">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="mb-0"><i class="bi bi-chat-left-text"></i> Extraction Prompt</h6>
-                        </div>
-                        <div class="prompt-text" id="questionsPromptText"></div>
-                    </div>
-                    <div class="results-preview" id="questionsResults" style="display: none;">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="mb-0"><i class="bi bi-list-check text-success"></i> Extraction Results</h6>
-                        </div>
-                        <div id="questionsResultsContent"></div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- 2C: Transformation Classification -->
+        <!-- 2D: Transformation Classification -->
         <div class="extractor-section mb-4" id="transformationSection">
             <div class="step-card border-purple">
                 <div class="step-header bg-purple-light">
@@ -307,23 +291,12 @@
                     </div>
                 </div>
                 <div class="step-content">
-                    <div class="prompt-preview mb-3" id="transformationPromptSection" style="display: none;">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="mb-0"><i class="bi bi-chat-left-text"></i> Extraction Prompt</h6>
-                        </div>
-                        <div class="prompt-text" id="transformationPromptText"></div>
-                    </div>
-                    <div class="results-preview" id="transformationResults" style="display: none;">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="mb-0"><i class="bi bi-chat-left-text text-success"></i> LLM Response</h6>
-                        </div>
-                        <div id="transformationResultsContent"></div>
-                    </div>
+                    <div id="transformationStreamStatus" style="display: none;"></div>
                 </div>
             </div>
         </div>
 
-        <!-- 2D: Rich Analysis -->
+        <!-- 2E: Rich Analysis -->
         <div class="extractor-section mb-4" id="rich_analysisSection">
             <div class="step-card border-info">
                 <div class="step-header bg-info bg-opacity-10">
@@ -341,17 +314,48 @@
                     </div>
                 </div>
                 <div class="step-content">
-                    <div class="prompt-preview mb-3" id="rich_analysisPromptSection" style="display: none;">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="mb-0"><i class="bi bi-chat-left-text"></i> Extraction Prompts (3 analyses)</h6>
+                    <div id="rich_analysisStreamStatus" style="display: none;"></div>
+                    <div id="rich_analysisEntityList">
+                    {% set cl_entities = phase2_entities.get('causal_normative_link', []) %}
+                    {% set qe_entities = phase2_entities.get('question_emergence', []) %}
+                    {% set rp_entities = phase2_entities.get('resolution_pattern', []) %}
+                    {% if cl_entities or qe_entities or rp_entities %}
+                        {% if cl_entities %}
+                        <div class="mb-2"><small class="text-muted fw-semibold">Causal-Normative Links ({{ cl_entities|length }})</small></div>
+                        {% for e in cl_entities %}
+                        <div class="entity-summary-item">
+                            <strong>{{ e.label }}</strong>
+                            {% if e.definition %}
+                            <small class="text-muted d-block">{{ e.definition[:150] }}{% if e.definition|length > 150 %}...{% endif %}</small>
+                            {% endif %}
                         </div>
-                        <div class="prompt-text" id="rich_analysisPromptText"></div>
-                    </div>
-                    <div class="results-preview" id="rich_analysisResults" style="display: none;">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="mb-0"><i class="bi bi-chat-left-text text-success"></i> LLM Responses</h6>
+                        {% endfor %}
+                        {% endif %}
+                        {% if qe_entities %}
+                        <div class="mb-2 mt-3"><small class="text-muted fw-semibold">Question Emergence ({{ qe_entities|length }})</small></div>
+                        {% for e in qe_entities %}
+                        <div class="entity-summary-item">
+                            <strong>{{ e.label }}</strong>
+                            {% if e.definition %}
+                            <small class="text-muted d-block">{{ e.definition[:150] }}{% if e.definition|length > 150 %}...{% endif %}</small>
+                            {% endif %}
                         </div>
-                        <div id="rich_analysisResultsContent"></div>
+                        {% endfor %}
+                        {% endif %}
+                        {% if rp_entities %}
+                        <div class="mb-2 mt-3"><small class="text-muted fw-semibold">Resolution Patterns ({{ rp_entities|length }})</small></div>
+                        {% for e in rp_entities %}
+                        <div class="entity-summary-item">
+                            <strong>{{ e.label }}</strong>
+                            {% if e.definition %}
+                            <small class="text-muted d-block">{{ e.definition[:150] }}{% if e.definition|length > 150 %}...{% endif %}</small>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                        {% endif %}
+                    {% else %}
+                    <div class="text-muted small">No analysis entities extracted yet.</div>
+                    {% endif %}
                     </div>
                 </div>
             </div>
@@ -583,71 +587,54 @@
     </div>
 </div>
 
-<!-- Commit to OntServe -->
-<div class="card mb-4" id="commit-section">
-    <div class="card-header">
-        <h5 class="mb-0"><i class="bi bi-cloud-upload me-2"></i>Commit to OntServe</h5>
-    </div>
-    <div class="card-body">
-        {% if published_count > 0 and unpublished_count == 0 %}
-        <div class="commit-status success">
-            <i class="bi bi-check-circle-fill me-2 text-success"></i>
-            All {{ published_count }} entities have been committed to OntServe.
-            <div class="mt-2">
-                <button class="btn btn-outline-danger" onclick="uncommitEntities()">
-                    <i class="bi bi-arrow-counterclockwise me-1"></i>Uncommit
-                </button>
-            </div>
-        </div>
-        <div id="uncommitResult" class="mt-3" style="display: none;"></div>
-        {% elif unpublished_count > 0 %}
-        <p>
-            <strong>{{ unpublished_count }}</strong> entities ready to commit:
-            {{ class_count }} classes,
-            {{ individual_count }} individuals.
-        </p>
-        <p class="text-muted mb-3">
-            Commits all extracted entities (Steps 1-4) to OntServe permanent ontology storage.
-        </p>
-        <button id="commitBtn" class="btn btn-success btn-lg" onclick="commitToOntServe()">
-            <i class="bi bi-cloud-upload me-2"></i>Commit {{ unpublished_count }} Entities to OntServe
-        </button>
-        <div id="commitResult" class="mt-3" style="display: none;"></div>
-        {% else %}
-        <div class="text-muted">No entities to commit for this case.</div>
-        {% endif %}
-    </div>
-</div>
-
-<!-- Navigation buttons -->
+<!-- Navigation -->
 {% set step4_complete = pipeline_status.step4.complete if pipeline_status else false %}
-{% if step4_complete %}
 <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4">
-    <a href="{{ url_for('step4.step4_review', case_id=case.id) }}" class="btn btn-primary btn-lg">
-        <i class="bi bi-eye"></i> Review Step 4 Results
+    <a href="{{ url_for('step4.step4_entities', case_id=case.id) }}" class="btn btn-primary btn-lg">
+        <i class="bi bi-list-check"></i> Review Entities & Commit
     </a>
+    {% if step4_complete %}
+    <a href="{{ url_for('step4.step4_review', case_id=case.id) }}" class="btn btn-outline-secondary btn-lg">
+        <i class="bi bi-eye"></i> View Synthesis
+    </a>
+    {% endif %}
 </div>
-{% endif %}
 
 {% endblock %}
 
 {% block step_styles %}
 <style>
+    .phase-row {
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    .phase-col {
+        flex: 1 1 0;
+        min-width: 0;
+    }
+
     .phase-indicator {
-        padding: 1rem;
+        padding: 1rem 0.75rem;
         border-radius: 0.5rem;
         background-color: #f8f9fa;
+        border: 2px solid transparent;
         transition: all 0.3s ease;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
     }
 
     .phase-indicator.phase-complete {
         background-color: #d4edda;
-        border: 2px solid #28a745;
+        border-color: #28a745;
     }
 
     .phase-indicator.phase-active {
         background-color: #cce5ff;
-        border: 2px solid #007bff;
+        border-color: #007bff;
         animation: pulse 1.5s infinite;
     }
 
@@ -775,6 +762,13 @@
     .commit-status.error {
         background: #fef2f2;
         border: 1px solid #fca5a5;
+    }
+    .entity-summary-item {
+        padding: 0.4rem 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    .entity-summary-item:last-child {
+        border-bottom: none;
     }
 </style>
 {% endblock %}
@@ -962,163 +956,27 @@ function extractTask(taskType) {
     const domTaskType = taskType === 'qc_unified' ? 'questions' : taskType;
 
     const button = document.getElementById(`extract${capitalizeFirst(domTaskType)}Btn`);
-    const promptSection = document.getElementById(`${domTaskType}PromptSection`);
-    const resultsSection = document.getElementById(`${domTaskType}Results`);
-    const promptText = document.getElementById(`${domTaskType}PromptText`);
-    const resultsContent = document.getElementById(`${domTaskType}ResultsContent`);
+    const streamStatus = document.getElementById(`${domTaskType}StreamStatus`);
 
-    // Use streaming for provisions, qc_unified, questions, conclusions, transformation, and rich_analysis (shows real-time progress)
+    // Use streaming for Phase 2 tasks (shows real-time progress)
     const useStreaming = ['provisions', 'precedents', 'qc_unified', 'questions', 'conclusions', 'transformation', 'rich_analysis'];
     if (useStreaming.includes(taskType)) {
-        extractTaskStreaming(taskType, button, promptSection, resultsSection, promptText, resultsContent);
+        extractTaskStreaming(taskType, button, streamStatus);
         return;
     }
 
-    // Map task types to endpoints (non-streaming)
-    const endpoints = {
-        'questions': 'extract_questions',
-        'conclusions': 'extract_conclusions',
-        'qc_unified': 'extract_qc_unified',  // Q + C + Link atomically
-        'transformation': 'extract_transformation',
-        'rich_analysis': 'extract_rich_analysis',
-        'decision_synthesis': 'extract_decision_synthesis',
-        'narrative': 'extract_narrative'
-    };
-
-    const endpoint = endpoints[taskType];
-    if (!endpoint) {
-        console.error('Unknown task type:', taskType);
-        return;
-    }
-
-    // Disable button and show loading
-    if (button) {
-        button.disabled = true;
-        button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Running...';
-    }
-
-    // Clear previous results and show prompt section with loading
-    if (promptSection) {
-        promptSection.style.display = 'block';
-        if (promptText) {
-            promptText.innerHTML = '<div class="text-center text-muted"><i class="bi bi-hourglass-split"></i> Generating prompt...</div>';
-        }
-    }
-
-    // Clear previous response
-    if (resultsSection) {
-        resultsSection.style.display = 'none';
-    }
-    if (resultsContent) {
-        resultsContent.innerHTML = '';
-    }
-
-    fetch(`/scenario_pipeline/case/${currentCaseId}/${endpoint}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCsrfToken()
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            // Display status messages + prompt
-            if (promptText) {
-                let promptHtml = '';
-
-                // Show status messages if available
-                if (data.status_messages && data.status_messages.length > 0) {
-                    promptHtml += '<div class="alert alert-info mb-3 py-2"><strong>Extraction Results:</strong><ul class="mb-0 mt-1 small">';
-                    data.status_messages.forEach(msg => {
-                        promptHtml += `<li>${escapeHtml(msg)}</li>`;
-                    });
-                    promptHtml += '</ul></div>';
-                }
-
-                // Show the prompt
-                if (data.prompt) {
-                    promptHtml += `<pre class="prompt-text-content">${escapeHtml(data.prompt)}</pre>`;
-                }
-
-                promptText.innerHTML = promptHtml;
-            }
-
-            // Display response
-            if (resultsSection && resultsContent) {
-                resultsSection.style.display = 'block';
-
-                if (data.raw_llm_response) {
-                    resultsContent.innerHTML = `<pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; max-height: 500px; overflow-y: auto;">${escapeHtml(data.raw_llm_response)}</pre>`;
-                }
-
-                // Handle task-specific results
-                handleTaskResults(taskType, data);
-            }
-
-            // Update counts if available
-            updateCountBadges(taskType, data.result);
-
-            // Re-enable button with Re-run label
-            if (button) {
-                button.disabled = false;
-                button.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Re-run';
-                button.classList.remove('btn-outline-' + getButtonColor(taskType));
-                button.classList.add('btn-outline-secondary');
-            }
-        } else {
-            throw new Error(data.error || 'Extraction failed');
-        }
-    })
-    .catch(error => {
-        console.error('Extraction error:', error);
-        if (promptText) {
-            promptText.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
-        }
-        if (button) {
-            button.disabled = false;
-            button.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Retry';
-        }
-    });
+    // All Phase 2 tasks use streaming; Phase 3/4 have dedicated handlers
+    console.error('extractTask called for non-streaming task:', taskType);
 }
 
 function handleTaskResults(taskType, data) {
     switch(taskType) {
-        case 'rich_analysis':
-            handleRichAnalysisResults(data);
-            break;
         case 'decision_synthesis':
             handleDecisionSynthesisResults(data);
             break;
         case 'narrative':
             handleNarrativeResults(data);
             break;
-    }
-}
-
-function handleRichAnalysisResults(data) {
-    // Display LLM traces (now handled by streaming, but keep for non-streaming fallback)
-    if (data.llm_traces && data.llm_traces.length > 0) {
-        const promptSection = document.getElementById('rich_analysisPromptSection');
-        const promptText = document.getElementById('rich_analysisPromptText');
-        const resultsSection = document.getElementById('rich_analysisResults');
-        const resultsContent = document.getElementById('rich_analysisResultsContent');
-
-        if (promptSection) promptSection.style.display = 'block';
-        if (resultsSection) resultsSection.style.display = 'block';
-
-        // Combine prompts and responses
-        if (promptText) {
-            promptText.innerHTML = data.llm_traces.map((trace, i) =>
-                `<h6 class="mt-2">${trace.stage}</h6><pre style="max-height: 200px; overflow-y: auto; font-size: 0.8rem;">${escapeHtml(trace.prompt)}</pre>`
-            ).join('');
-        }
-
-        if (resultsContent) {
-            resultsContent.innerHTML = data.llm_traces.map((trace, i) =>
-                `<h6 class="mt-2">${trace.stage}</h6><pre style="max-height: 200px; overflow-y: auto; font-size: 0.8rem;">${escapeHtml(trace.response)}</pre>`
-            ).join('');
-        }
     }
 }
 
@@ -1192,20 +1050,6 @@ function updateCountBadges(taskType, result) {
     }
 }
 
-function getButtonColor(taskType) {
-    const colors = {
-        'provisions': 'secondary',
-        'precedents': 'dark',
-        'questions': 'warning',
-        'conclusions': 'success',
-        'transformation': 'secondary',
-        'rich_analysis': 'info',
-        'decision_synthesis': 'primary',
-        'narrative': 'dark'
-    };
-    return colors[taskType] || 'secondary';
-}
-
 function capitalizeFirst(str) {
     // Handle underscored names like rich_analysis -> RichAnalysis
     return str.split('_').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join('');
@@ -1217,8 +1061,8 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// Streaming extraction for provisions (real-time progress)
-function extractTaskStreaming(taskType, button, promptSection, resultsSection, promptText, resultsContent) {
+// Streaming extraction with real-time progress
+function extractTaskStreaming(taskType, button, streamStatus) {
     // Reset streaming messages for this task
     streamingMessages[taskType] = [];
 
@@ -1231,34 +1075,10 @@ function extractTaskStreaming(taskType, button, promptSection, resultsSection, p
     // Update substep dot to active
     updateSubstepDot(taskType, 'active');
 
-    // Hide existing status alerts (provisions or Q&C)
-    const statusAlerts = {
-        'provisions': 'provisionsExistingStatus',
-        'precedents': 'precedentsExistingStatus',
-        'qc_unified': 'qcExistingStatus',
-        'questions': 'qcExistingStatus',
-        'conclusions': 'qcExistingStatus'
-    };
-    const statusAlertId = statusAlerts[taskType];
-    if (statusAlertId) {
-        const statusAlert = document.getElementById(statusAlertId);
-        if (statusAlert) statusAlert.style.display = 'none';
-    }
-
-    // Show prompt section with initial message
-    if (promptSection) {
-        promptSection.style.display = 'block';
-        if (promptText) {
-            promptText.innerHTML = '<div class="alert alert-info py-2"><i class="bi bi-hourglass-split me-1"></i> <strong>Starting extraction...</strong></div>';
-        }
-    }
-
-    // Clear previous response
-    if (resultsSection) {
-        resultsSection.style.display = 'none';
-    }
-    if (resultsContent) {
-        resultsContent.innerHTML = '';
+    // Show streaming status area
+    if (streamStatus) {
+        streamStatus.style.display = 'block';
+        streamStatus.innerHTML = '<div class="alert alert-info py-2 mb-2"><i class="bi bi-hourglass-split me-1"></i> Starting extraction...</div>';
     }
 
     // Use streaming endpoint
@@ -1277,7 +1097,6 @@ function extractTaskStreaming(taskType, button, promptSection, resultsSection, p
         function processStream() {
             reader.read().then(({ done, value }) => {
                 if (done) {
-                    // Re-enable button
                     if (button) {
                         button.disabled = false;
                         button.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Re-run';
@@ -1294,7 +1113,7 @@ function extractTaskStreaming(taskType, button, promptSection, resultsSection, p
                     if (line.startsWith('data: ')) {
                         try {
                             const data = JSON.parse(line.substring(6));
-                            handleStreamingExtraction(taskType, data, promptText, resultsSection, resultsContent);
+                            handleStreamingExtraction(taskType, data, streamStatus);
                         } catch (e) {
                             console.log('Parse error:', line);
                         }
@@ -1309,8 +1128,8 @@ function extractTaskStreaming(taskType, button, promptSection, resultsSection, p
     })
     .catch(error => {
         console.error('Streaming error:', error);
-        if (promptText) {
-            promptText.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+        if (streamStatus) {
+            streamStatus.innerHTML = `<div class="alert alert-danger py-2 mb-2">Error: ${error.message}</div>`;
         }
         if (button) {
             button.disabled = false;
@@ -1319,8 +1138,8 @@ function extractTaskStreaming(taskType, button, promptSection, resultsSection, p
     });
 }
 
-// Handle streaming extraction data
-function handleStreamingExtraction(taskType, data, promptText, resultsSection, resultsContent) {
+// Handle streaming extraction events -- progress messages and completion
+function handleStreamingExtraction(taskType, data, streamStatus) {
     // Accumulate messages
     if (data.messages) {
         data.messages.forEach(msg => {
@@ -1330,12 +1149,11 @@ function handleStreamingExtraction(taskType, data, promptText, resultsSection, r
         });
     }
 
-    // Build the display
-    if (promptText) {
+    // Show live progress in streamStatus area
+    if (streamStatus && data.stage !== 'COMPLETE') {
         let html = '<div class="alert alert-info mb-2 py-2">';
         html += '<strong><i class="bi bi-gear-fill me-1"></i> Processing:</strong>';
-        html += '<div class="streaming-messages mt-2" style="max-height: 200px; overflow-y: auto;">';
-
+        html += '<div class="streaming-messages mt-2" style="max-height: 150px; overflow-y: auto;">';
         streamingMessages[taskType].forEach((msg, idx) => {
             const isLatest = idx === streamingMessages[taskType].length - 1;
             html += `<div class="mb-1 ${isLatest ? 'fw-bold' : 'text-muted small'}">
@@ -1343,157 +1161,47 @@ function handleStreamingExtraction(taskType, data, promptText, resultsSection, r
                 ${escapeHtml(msg)}
             </div>`;
         });
-
         html += '</div>';
-
-        // Show progress bar
         if (data.progress) {
             html += `<div class="progress mt-2" style="height: 6px;">
                 <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: ${data.progress}%"></div>
             </div>`;
         }
-
         html += '</div>';
-        promptText.innerHTML = html;
-
-        // Auto-scroll
-        const messagesDiv = promptText.querySelector('.streaming-messages');
-        if (messagesDiv) {
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        }
+        streamStatus.innerHTML = html;
     }
 
-    // Update count badge on completion
+    // On completion: update badges, dots, and reload entity summaries
     if (data.stage === 'COMPLETE' && data.result) {
-        // Handle task-specific count updates
         if (taskType === 'qc_unified') {
-            // Update both questions and conclusions badges
-            const questionsCountEl = document.getElementById('questionsCount');
-            const conclusionsCountEl = document.getElementById('conclusionsCount');
-            if (questionsCountEl) {
-                questionsCountEl.textContent = data.result.questions || 0;
-            }
-            if (conclusionsCountEl) {
-                conclusionsCountEl.textContent = data.result.conclusions || 0;
-            }
+            const qEl = document.getElementById('questionsCount');
+            const cEl = document.getElementById('conclusionsCount');
+            if (qEl) qEl.textContent = data.result.questions || 0;
+            if (cEl) cEl.textContent = data.result.conclusions || 0;
         } else if (taskType !== 'rich_analysis') {
             const countEl = document.getElementById(`${taskType}Count`);
-            if (countEl) {
-                countEl.textContent = data.result.count || 0;
-            }
+            if (countEl) countEl.textContent = data.result.count || 0;
         }
 
-        // Update substep dot to complete
         updateSubstepDot(taskType, 'complete');
 
-        // Mark Phase 2 complete when rich_analysis (2D) finishes
         if (taskType === 'rich_analysis') {
             const phase2Indicator = document.getElementById('phase2-indicator');
-            if (phase2Indicator) {
-                phase2Indicator.classList.add('phase-complete');
-            }
-            // Enable Phase 3 now that Phase 2 is complete
+            if (phase2Indicator) phase2Indicator.classList.add('phase-complete');
             enablePhase3();
         }
 
-        // Show final status messages + prompt
-        if (promptText) {
-            let html = '<div class="alert alert-success mb-2 py-2">';
-            html += '<strong><i class="bi bi-check-circle-fill me-1"></i> Extraction Complete:</strong>';
-            if (data.status_messages && data.status_messages.length > 0) {
-                html += '<ul class="mb-0 mt-1 small">';
-                data.status_messages.forEach(msg => {
-                    html += `<li>${escapeHtml(msg)}</li>`;
-                });
-                html += '</ul>';
-            }
-            html += '</div>';
-
-            // Show the prompt if available
-            if (data.prompt) {
-                html += `<pre class="prompt-text-content">${escapeHtml(data.prompt)}</pre>`;
-            }
-
-            promptText.innerHTML = html;
-        }
-
-        // Show the LLM response if available
-        if (data.raw_llm_response && resultsSection && resultsContent) {
-            resultsSection.style.display = 'block';
-
-            // Special handling for rich_analysis - show structured results
-            if (taskType === 'rich_analysis' && data.details) {
-                let detailsHtml = '<div class="row">';
-
-                // Causal-Normative Links
-                if (data.details.causal_links && data.details.causal_links.length > 0) {
-                    detailsHtml += '<div class="col-md-4 mb-3">';
-                    detailsHtml += '<div class="card h-100"><div class="card-header bg-warning bg-opacity-25 py-2"><strong>Causal-Normative Links</strong></div>';
-                    detailsHtml += '<ul class="list-group list-group-flush small">';
-                    data.details.causal_links.forEach(cl => {
-                        detailsHtml += `<li class="list-group-item py-2">
-                            <strong>${escapeHtml(cl.action)}</strong><br>
-                            <span class="text-success">Fulfills: ${cl.fulfills}</span> |
-                            <span class="text-danger">Violates: ${cl.violates}</span>
-                        </li>`;
-                    });
-                    detailsHtml += '</ul></div></div>';
-                }
-
-                // Question Emergence
-                if (data.details.question_emergence && data.details.question_emergence.length > 0) {
-                    detailsHtml += '<div class="col-md-4 mb-3">';
-                    detailsHtml += '<div class="card h-100"><div class="card-header bg-info bg-opacity-25 py-2"><strong>Question Emergence</strong></div>';
-                    detailsHtml += '<ul class="list-group list-group-flush small">';
-                    data.details.question_emergence.forEach(qe => {
-                        detailsHtml += `<li class="list-group-item py-2">
-                            <em>"${escapeHtml(qe.question)}"</em><br>
-                            <span class="badge bg-secondary">${qe.data_triggers} triggers</span>
-                            <span class="badge bg-warning text-dark">${qe.competing_warrants} competing warrants</span>
-                        </li>`;
-                    });
-                    detailsHtml += '</ul></div></div>';
-                }
-
-                // Resolution Patterns
-                if (data.details.resolution_patterns && data.details.resolution_patterns.length > 0) {
-                    detailsHtml += '<div class="col-md-4 mb-3">';
-                    detailsHtml += '<div class="card h-100"><div class="card-header bg-success bg-opacity-25 py-2"><strong>Resolution Patterns</strong></div>';
-                    detailsHtml += '<ul class="list-group list-group-flush small">';
-                    data.details.resolution_patterns.forEach(rp => {
-                        detailsHtml += `<li class="list-group-item py-2">
-                            <em>"${escapeHtml(rp.conclusion)}"</em><br>
-                            <span class="badge bg-primary">${rp.determinative_principles} principles</span>
-                            <span class="badge bg-dark">${rp.determinative_facts} facts</span>
-                        </li>`;
-                    });
-                    detailsHtml += '</ul></div></div>';
-                }
-
-                detailsHtml += '</div>';
-
-                // Add collapsible raw response
-                detailsHtml += `<div class="mt-3">
-                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#richAnalysisRaw">
-                        <i class="bi bi-code-slash"></i> View Raw LLM Response
-                    </button>
-                    <div class="collapse mt-2" id="richAnalysisRaw">
-                        <pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; max-height: 300px; overflow-y: auto; font-size: 0.8rem;">${escapeHtml(data.raw_llm_response)}</pre>
-                    </div>
-                </div>`;
-
-                resultsContent.innerHTML = detailsHtml;
-            } else {
-                resultsContent.innerHTML = `<pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; max-height: 500px; overflow-y: auto;">${escapeHtml(data.raw_llm_response)}</pre>`;
-            }
+        // Show completion status briefly, then reload to show entity summaries
+        if (streamStatus) {
+            streamStatus.innerHTML = '<div class="alert alert-success py-2 mb-2"><i class="bi bi-check-circle-fill me-1"></i> Extraction complete. Refreshing...</div>';
+            // Reload page after short delay to show server-rendered entity summaries
+            setTimeout(() => location.reload(), 800);
         }
     }
 
     // Handle errors
-    if (data.error) {
-        if (promptText) {
-            promptText.innerHTML = `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-1"></i> ${data.messages ? data.messages[0] : 'Error occurred'}</div>`;
-        }
+    if (data.error && streamStatus) {
+        streamStatus.innerHTML = `<div class="alert alert-danger py-2 mb-2"><i class="bi bi-exclamation-triangle me-1"></i> ${data.messages ? escapeHtml(data.messages[0]) : 'Error occurred'}</div>`;
     }
 }
 
@@ -1510,24 +1218,27 @@ async function runCompleteSynthesis() {
     button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Running Complete Synthesis...';
     progressText.textContent = 'Running all phases sequentially. This may take several minutes. Do not navigate away from this page.';
 
-    // Show a simple interstitial message
-    document.getElementById('provisionsPromptSection').style.display = 'block';
-    document.getElementById('provisionsPromptText').innerHTML = `
-        <div class="alert alert-info py-3">
-            <h5 class="mb-3"><i class="bi bi-hourglass-split me-2"></i>Running Complete Synthesis</h5>
-            <p class="mb-2">Executing all phases in sequence:</p>
-            <ol class="mb-2">
-                <li>Provisions (2A)</li>
-                <li>Precedent Cases (2B)</li>
-                <li>Questions & Conclusions (2C)</li>
-                <li>Transformation Classification (2D)</li>
-                <li>Rich Analysis (2E)</li>
-                <li>Phase 3: Decision Point Synthesis</li>
-                <li>Phase 4: Narrative Construction</li>
-            </ol>
-            <p class="mb-0 text-muted small">Page will refresh automatically when complete.</p>
-        </div>
-    `;
+    // Show interstitial in provisions stream status area
+    const synthStatus = document.getElementById('provisionsStreamStatus');
+    if (synthStatus) {
+        synthStatus.style.display = 'block';
+        synthStatus.innerHTML = `
+            <div class="alert alert-info py-3">
+                <h5 class="mb-3"><i class="bi bi-hourglass-split me-2"></i>Running Complete Synthesis</h5>
+                <p class="mb-2">Executing all phases in sequence:</p>
+                <ol class="mb-2">
+                    <li>Provisions (2A)</li>
+                    <li>Precedent Cases (2B)</li>
+                    <li>Questions & Conclusions (2C)</li>
+                    <li>Transformation Classification (2D)</li>
+                    <li>Rich Analysis (2E)</li>
+                    <li>Phase 3: Decision Point Synthesis</li>
+                    <li>Phase 4: Narrative Construction</li>
+                </ol>
+                <p class="mb-0 text-muted small">Page will refresh automatically when complete.</p>
+            </div>
+        `;
+    }
 
     try {
         // Call non-streaming endpoint
@@ -1548,7 +1259,7 @@ async function runCompleteSynthesis() {
             button.innerHTML = '<i class="bi bi-check-circle"></i> Synthesis Complete';
             button.classList.remove('btn-primary');
             button.classList.add('btn-success');
-            document.getElementById('provisionsPromptText').innerHTML = `
+            if (synthStatus) synthStatus.innerHTML = `
                 <div class="alert alert-success py-3">
                     <h5 class="mb-2"><i class="bi bi-check-circle me-2"></i>Synthesis Complete!</h5>
                     <p class="mb-0">Refreshing page to show results...</p>
@@ -1564,7 +1275,7 @@ async function runCompleteSynthesis() {
             progressText.textContent = `Error: ${result.error || 'Unknown error'}`;
             button.disabled = false;
             button.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Retry';
-            document.getElementById('provisionsPromptText').innerHTML = `
+            if (synthStatus) synthStatus.innerHTML = `
                 <div class="alert alert-danger py-3">
                     <h5 class="mb-2"><i class="bi bi-exclamation-triangle me-2"></i>Synthesis Failed</h5>
                     <p class="mb-0">${result.error || 'Unknown error'}</p>
@@ -1579,7 +1290,7 @@ async function runCompleteSynthesis() {
         progressText.textContent = `Error: ${error.message}`;
         button.disabled = false;
         button.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Retry';
-        document.getElementById('provisionsPromptText').innerHTML = `
+        if (synthStatus) synthStatus.innerHTML = `
             <div class="alert alert-danger py-3">
                 <h5 class="mb-2"><i class="bi bi-exclamation-triangle me-2"></i>Request Failed</h5>
                 <p class="mb-0">${error.message}</p>
@@ -2249,82 +1960,34 @@ const streamingMessages = {
     narrative: []
 };
 
-// Update prompt section with streaming messages (accumulates)
+// Update stream status area with run-all progress messages
 function updatePromptSection(taskType, data) {
-    const promptSection = document.getElementById(`${taskType}PromptSection`);
-    const promptText = document.getElementById(`${taskType}PromptText`);
+    const streamStatus = document.getElementById(`${taskType}StreamStatus`);
+    if (!streamStatus) return;
 
-    if (promptSection && promptText) {
-        promptSection.style.display = 'block';
+    streamStatus.style.display = 'block';
 
-        // Accumulate messages
-        if (data.messages) {
-            data.messages.forEach(msg => {
-                if (!streamingMessages[taskType].includes(msg)) {
-                    streamingMessages[taskType].push(msg);
-                }
-            });
-        }
-
-        // Build the display with all accumulated messages
-        let html = '<div class="alert alert-info mb-2 py-2">';
-        html += '<strong><i class="bi bi-gear-fill me-1"></i> Processing:</strong>';
-        html += '<div class="streaming-messages mt-2" style="max-height: 200px; overflow-y: auto;">';
-
-        streamingMessages[taskType].forEach((msg, idx) => {
-            const isLatest = idx === streamingMessages[taskType].length - 1;
-            html += `<div class="mb-1 ${isLatest ? 'fw-bold' : 'text-muted small'}">
-                <i class="bi bi-${isLatest ? 'arrow-right-circle-fill text-primary' : 'check-circle text-success'} me-1"></i>
-                ${escapeHtml(msg)}
-            </div>`;
+    // Accumulate messages
+    if (data.messages) {
+        data.messages.forEach(msg => {
+            if (!streamingMessages[taskType].includes(msg)) {
+                streamingMessages[taskType].push(msg);
+            }
         });
+    }
 
-        html += '</div>';
-
-        // Show progress bar if available
-        if (data.progress) {
-            html += `<div class="progress mt-2" style="height: 6px;">
-                <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: ${data.progress}%"></div>
-            </div>`;
-        }
-
-        html += '</div>';
-
-        promptText.innerHTML = html;
-
-        // Auto-scroll to show latest message
-        const messagesDiv = promptText.querySelector('.streaming-messages');
-        if (messagesDiv) {
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        }
+    // Show latest message as a compact status line
+    const latest = streamingMessages[taskType][streamingMessages[taskType].length - 1];
+    if (latest) {
+        streamStatus.innerHTML = `<div class="alert alert-info py-2 mb-2 small">
+            <i class="bi bi-gear-fill me-1"></i> ${escapeHtml(latest)}
+        </div>`;
     }
 }
 
-// Show LLM trace in prompt/response sections
+// LLM traces for Phase 2 tasks are available in the Provenance view
 function showLLMTrace(stage, trace) {
-    // Determine which section to update based on stage
-    let taskType = 'provisions';
-    if (stage.includes('QUESTION')) taskType = 'questions';
-    else if (stage.includes('CONCLUSION')) taskType = 'conclusions';
-    else if (stage.includes('TRANSFORMATION')) taskType = 'transformation';
-
-    const promptSection = document.getElementById(`${taskType}PromptSection`);
-    const promptText = document.getElementById(`${taskType}PromptText`);
-    const resultsSection = document.getElementById(`${taskType}Results`);
-    const resultsContent = document.getElementById(`${taskType}ResultsContent`);
-
-    if (promptSection && promptText && trace.prompt) {
-        promptSection.style.display = 'block';
-        // Add the actual prompt
-        const promptHtml = `<div class="alert alert-success mb-2 py-1 small">LLM call: ${stage}</div>
-            <pre class="prompt-text-content">${escapeHtml(trace.prompt)}</pre>`;
-        promptText.innerHTML = promptHtml;
-    }
-
-    if (resultsSection && resultsContent && trace.response) {
-        resultsSection.style.display = 'block';
-        resultsContent.innerHTML = `<pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; max-height: 300px; overflow-y: auto;">${escapeHtml(trace.response)}</pre>`;
-    }
+    // No-op: prompt/response details shown in provenance, not inline
 }
 
 // Mark a task button as complete (shows Re-run)
@@ -2849,32 +2512,9 @@ function loadSavedPrompts() {
             .then(response => response.json())
             .then(data => {
                 if (data.success && data.prompt_text) {
-                    const promptSection = document.getElementById(`${task}PromptSection`);
-                    const promptText = document.getElementById(`${task}PromptText`);
-                    const resultsSection = document.getElementById(`${task}Results`);
-                    const resultsContent = document.getElementById(`${task}ResultsContent`);
-
-                    if (promptSection && promptText) {
-                        promptSection.style.display = 'block';
-                        // Format prompt like streaming completion does
-                        let html = '<div class="alert alert-success mb-2 py-2">';
-                        html += '<strong><i class="bi bi-check-circle-fill me-1"></i> Saved Extraction:</strong>';
-                        if (data.timestamp) {
-                            html += `<small class="text-muted ms-2">${new Date(data.timestamp).toLocaleString()}</small>`;
-                        }
-                        html += '</div>';
-                        html += `<pre class="prompt-text-content">${escapeHtml(data.prompt_text)}</pre>`;
-                        promptText.innerHTML = html;
-                    }
-
-                    if (resultsSection && resultsContent && data.raw_response) {
-                        resultsSection.style.display = 'block';
-                        resultsContent.innerHTML = `<pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; max-height: 500px; overflow-y: auto;">${escapeHtml(data.raw_response)}</pre>`;
-                    }
-
                     // Mark button as done with Re-run styling
                     const button = document.getElementById(`extract${capitalizeFirst(task)}Btn`);
-                    if (button && data.prompt_text) {
+                    if (button) {
                         button.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Re-run';
                         button.classList.remove('btn-secondary', 'btn-warning', 'btn-success', 'btn-info');
                         button.classList.add('btn-outline-success');
@@ -2890,84 +2530,6 @@ function loadSavedPrompts() {
     });
 }
 
-// --- Commit to OntServe ---
-function commitToOntServe() {
-    var btn = document.getElementById('commitBtn');
-    var resultDiv = document.getElementById('commitResult');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Committing...';
-
-    fetch(`/scenario_pipeline/case/${currentCaseId}/reconcile/commit`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCsrfToken()
-        }
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-        resultDiv.style.display = 'block';
-        if (data.success) {
-            var r = data.result || {};
-            resultDiv.innerHTML = '<div class="commit-status success">'
-                + '<i class="bi bi-check-circle-fill me-2 text-success"></i>'
-                + '<strong>Commit successful.</strong> '
-                + 'Classes: ' + (r.classes_committed || 0) + ', '
-                + 'Individuals: ' + (r.individuals_committed || 0) + ', '
-                + 'OntServe synced: ' + (r.ontserve_synced ? 'Yes' : 'No')
-                + '</div>';
-            btn.style.display = 'none';
-        } else {
-            resultDiv.innerHTML = '<div class="commit-status error">'
-                + '<i class="bi bi-x-circle-fill me-2 text-danger"></i>'
-                + '<strong>Commit failed:</strong> ' + (data.error || 'Unknown error')
-                + '</div>';
-            btn.disabled = false;
-            btn.innerHTML = '<i class="bi bi-cloud-upload me-2"></i>Retry Commit';
-        }
-    })
-    .catch(function(err) {
-        resultDiv.style.display = 'block';
-        resultDiv.innerHTML = '<div class="commit-status error">'
-            + '<i class="bi bi-x-circle-fill me-2 text-danger"></i>'
-            + '<strong>Error:</strong> ' + err
-            + '</div>';
-        btn.disabled = false;
-        btn.innerHTML = '<i class="bi bi-cloud-upload me-2"></i>Retry Commit';
-    });
-}
-
-function uncommitEntities() {
-    if (!confirm('This will remove all committed entities from OntServe and reset them to draft status. Proceed?')) {
-        return;
-    }
-    var resultDiv = document.getElementById('uncommitResult');
-    if (resultDiv) resultDiv.style.display = 'block';
-
-    fetch(`/scenario_pipeline/case/${currentCaseId}/reconcile/uncommit`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCsrfToken()
-        }
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-        if (data.success) {
-            location.reload();
-        } else {
-            if (resultDiv) {
-                resultDiv.innerHTML = '<div class="commit-status error">'
-                    + '<strong>Uncommit failed:</strong> ' + (data.error || 'Unknown error')
-                    + '</div>';
-            } else {
-                alert('Uncommit failed: ' + (data.error || 'Unknown error'));
-            }
-        }
-    })
-    .catch(function(err) {
-        alert('Error: ' + err);
-    });
-}
+// Commit functionality moved to /step4/entities page
 </script>
 {% endblock %}

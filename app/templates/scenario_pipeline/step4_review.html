@@ -13,32 +13,11 @@
 
 {% block step_content %}
 
-<!-- Action Buttons -->
+<!-- Navigation -->
 <div class="d-flex flex-wrap gap-2 mb-4">
-    {% if current_user.is_authenticated %}
-        {% if unpublished_count > 0 and can_publish %}
-        <button id="publishAllBtn" class="btn btn-primary" onclick="publishAllEntities()">
-            <i class="bi bi-cloud-upload"></i> Publish to OntServe ({{ unpublished_count }})
-        </button>
-        {% elif unpublished_count > 0 and not can_publish %}
-        <button id="publishAllBtn" class="btn btn-secondary" disabled title="Complete Pass 1 extraction before publishing">
-            <i class="bi bi-cloud-upload"></i> Publish (Pass 1 Required)
-        </button>
-        {% elif published_count > 0 %}
-        <button id="publishAllBtn" class="btn btn-success" disabled>
-            <i class="bi bi-check-circle"></i> Published ({{ published_count }})
-        </button>
-        {% else %}
-        <button id="publishAllBtn" class="btn btn-secondary" disabled title="Extract entities first">
-            <i class="bi bi-cloud-upload"></i> No Entities
-        </button>
-        {% endif %}
-    {% else %}
-    <button class="btn btn-secondary" onclick="window.location.href='{{ url_for('auth.login') }}';" title="Login required to publish">
-        <i class="bi bi-lock-fill"></i> Publish (Login Required)
-    </button>
-    {% endif %}
-
+    <a href="{{ url_for('step4.step4_entities', case_id=case.id) }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Entity Review
+    </a>
     {% if validation_study_mode %}
     <button id="validationDemoToggle" class="btn btn-outline-info" onclick="toggleValidationDemo()">
         <i class="bi bi-clipboard-check"></i> Validation Demo
@@ -47,12 +26,6 @@
         <i class="bi bi-x-circle"></i>
     </a>
     {% endif %}
-</div>
-
-<!-- Alert for publish operations -->
-<div id="publishAlert" class="alert alert-dismissible fade" role="alert" style="display: none;">
-    <div id="publishMessage"></div>
-    <button type="button" class="btn-close" onclick="document.getElementById('publishAlert').style.display='none'"></button>
 </div>
 
 <!-- Summary Cards -->
@@ -266,8 +239,6 @@ window.ENTITY_LOOKUP = {
 <script src="{{ url_for('static', filename='js/step4-flow-graph.js') }}"></script>
 <script src="{{ url_for('static', filename='js/step4-entity-graph.js') }}"></script>
 <script src="{{ url_for('static', filename='js/step4-toulmin-arguments.js') }}"></script>
-<script src="{{ url_for('static', filename='js/step4-publish.js') }}"></script>
-
 <!-- Tab Hash Activation -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {

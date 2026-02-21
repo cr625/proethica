@@ -23,9 +23,9 @@ def reset_step4_case_features(case_id: int):
 
     Fields populated at ingestion (outcome_type, provisions_cited, subject_tags,
     etc.) are NOT cleared -- only fields written by Step 4 tasks:
-      - transformation_type/pattern (2C)
-      - principle_tensions, obligation_conflicts (2D)
-      - cited_case_numbers, cited_case_ids (2E)
+      - cited_case_numbers, cited_case_ids (2B)
+      - transformation_type/pattern (2D)
+      - principle_tensions, obligation_conflicts (2E)
 
     Called by both clear_step4_data() and step4_run_all._clear_step4_data().
     """
