@@ -140,8 +140,8 @@ Required context variables:
         {% endif %}
     </a>
 
-    {# Reconcile & Commit - available if step 3 complete #}
-    {% set reconcile_complete = pipeline_status.reconcile_commit.complete if pipeline_status and pipeline_status.reconcile_commit is defined else false %}
+    {# Reconcile - available if step 3 complete #}
+    {% set reconcile_complete = pipeline_status.reconcile.complete if pipeline_status and pipeline_status.reconcile is defined else false %}
     {% set reconcile_available = step3_complete %}
     {% set reconcile_active = current_step == 3.5 %}
     {% set reconcile_url = url_for('entity_review.reconcile_and_commit', case_id=case.id) %}
@@ -151,7 +151,7 @@ Required context variables:
         <span class="step-icon">
             <i class="bi bi-arrow-left-right"></i>
         </span>
-        <span class="step-label">Reconcile & Commit</span>
+        <span class="step-label">Reconcile</span>
         {% if reconcile_complete %}
         <span class="step-check"><i class="bi bi-check-lg"></i></span>
         {% elif not reconcile_available %}
@@ -159,7 +159,7 @@ Required context variables:
         {% endif %}
     </a>
 
-    {# Step 4: Whole-Case Synthesis - available if reconcile+commit complete #}
+    {# Step 4: Whole-Case Synthesis - available if reconcile complete #}
     {% set step4_complete = pipeline_status.step4.complete if pipeline_status else false %}
     {% set step4_available = reconcile_complete or current_step >= 4 %}
     {% set step4_active = current_step == 4 %}

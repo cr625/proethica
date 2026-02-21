@@ -74,6 +74,14 @@
         </div>
     </div>
     <div class="col">
+        <div class="card text-center" style="border-color: #343a40 !important; border-width: 2px;">
+            <div class="card-body py-2">
+                <h4 class="mb-0" style="color: #343a40;">{{ precedent_count }}</h4>
+                <small class="text-muted">Precedents</small>
+            </div>
+        </div>
+    </div>
+    <div class="col">
         <div class="card text-center" style="border-color: #0dcaf0 !important; border-width: 2px;">
             <div class="card-body py-2">
                 <h4 class="mb-0" style="color: #0dcaf0;">{{ question_count }}</h4>
@@ -157,6 +165,11 @@
         </button>
     </li>
     <li class="nav-item" role="presentation">
+        <button class="nav-link" id="precedents-tab" data-bs-toggle="tab" data-bs-target="#precedents" type="button">
+            <i class="bi bi-journal-bookmark"></i> Precedents
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
         <button class="nav-link" id="questions-tab" data-bs-toggle="tab" data-bs-target="#questions" type="button">
             <i class="bi bi-question-circle"></i> Q&C
         </button>
@@ -188,6 +201,9 @@
     </div>
     <div class="tab-pane fade" id="provisions" role="tabpanel">
         {% include 'scenario_pipeline/_review_tab_provisions.html' %}
+    </div>
+    <div class="tab-pane fade" id="precedents" role="tabpanel">
+        {% include 'scenario_pipeline/_review_tab_precedents.html' %}
     </div>
     <div class="tab-pane fade" id="questions" role="tabpanel">
         {% include 'scenario_pipeline/_review_tab_questions.html' %}
@@ -284,6 +300,7 @@ document.addEventListener('DOMContentLoaded', function() {
         'fullgraph': 'fullgraph-tab',
         'graph': 'graph-tab',
         'provisions': 'provisions-tab',
+        'precedents': 'precedents-tab',
         'questions': 'questions-tab',
         'richanalysis': 'richanalysis-tab',
         'decisionpoints': 'decision-points-tab',

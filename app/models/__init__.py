@@ -110,3 +110,6 @@ from app.models.synthesis_config import SynthesisConfig, SYNTHESIS_PARAMETERS
 from app.models.view_utility_evaluation import (
     ValidationSession, ViewUtilityEvaluation, RetrospectiveReflection
 )
+
+# Reconciliation state persistence (added 2026-02-20)
+from app.models.reconciliation_run import ReconciliationRun, ReconciliationDecision

@@ -26,11 +26,12 @@
                 <div id="phase2-indicator" class="phase-indicator">
                     <span class="phase-number">2</span>
                     <div class="phase-label">Analytical Extraction</div>
-                    <small class="text-muted">Provisions, Q&C, Transformation, Rich Analysis</small>
+                    <small class="text-muted">Provisions, Precedents, Q&C, Transformation, Rich Analysis</small>
                     <!-- Phase 2 substep progress -->
                     <div class="phase2-progress mt-2">
                         <div class="d-flex justify-content-center gap-1">
                             <span id="p2-provisions" class="substep-dot" title="2A: Provisions"></span>
+                            <span id="p2-precedents" class="substep-dot" title="2E: Precedents"></span>
                             <span id="p2-questions" class="substep-dot" title="2B: Questions"></span>
                             <span id="p2-conclusions" class="substep-dot" title="2B: Conclusions"></span>
                             <span id="p2-transformation" class="substep-dot" title="2C: Transformation"></span>
@@ -167,6 +168,51 @@
                             <h6 class="mb-0"><i class="bi bi-list-check text-success"></i> Extracted Provisions</h6>
                         </div>
                         <div id="provisionsResultsContent"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2E: Precedent Case References -->
+        <div class="extractor-section mb-4" id="precedentsSection">
+            <div class="step-card border-dark">
+                <div class="step-header bg-dark bg-opacity-10">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="bi bi-journal-bookmark text-dark"></i> 2E: Precedent Cases
+                            <span id="precedentsCount" class="badge bg-dark ms-2">{{ synthesis_status.precedents_count or 0 }}</span>
+                        </h6>
+                        {% if current_user.is_authenticated %}
+                        <button class="btn btn-outline-dark btn-sm" onclick="extractTask('precedents')" id="extractPrecedentsBtn">
+                            <i class="bi bi-play-fill"></i> Extract
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="step-content">
+                    {% if synthesis_status.precedents_count > 0 %}
+                    <div class="alert alert-success py-2 mb-2" id="precedentsExistingStatus">
+                        <i class="bi bi-check-circle-fill me-1"></i>
+                        <strong>{{ synthesis_status.precedents_count }} precedent cases</strong> extracted from case text.
+                        <a href="{{ url_for('step4.step4_review', case_id=case.id) }}#precedents" class="alert-link">View details</a>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-secondary py-2 mb-2" id="precedentsExistingStatus">
+                        <i class="bi bi-info-circle me-1"></i>
+                        No precedent cases extracted yet. Click <strong>Extract</strong> to find cited prior BER decisions.
+                    </div>
+                    {% endif %}
+                    <div class="prompt-preview mb-3" id="precedentsPromptSection" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0"><i class="bi bi-chat-left-text"></i> Extraction Prompt</h6>
+                        </div>
+                        <div class="prompt-text" id="precedentsPromptText"></div>
+                    </div>
+                    <div class="results-preview" id="precedentsResults" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0"><i class="bi bi-list-check text-success"></i> Extracted Precedents</h6>
+                        </div>
+                        <div id="precedentsResultsContent"></div>
                     </div>
                 </div>
             </div>
@@ -513,6 +559,42 @@
     </div>
 </div>
 
+<!-- Commit to OntServe -->
+<div class="card mb-4" id="commit-section">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-cloud-upload me-2"></i>Commit to OntServe</h5>
+    </div>
+    <div class="card-body">
+        {% if published_count > 0 and unpublished_count == 0 %}
+        <div class="commit-status success">
+            <i class="bi bi-check-circle-fill me-2 text-success"></i>
+            All {{ published_count }} entities have been committed to OntServe.
+            <div class="mt-2">
+                <button class="btn btn-outline-danger" onclick="uncommitEntities()">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i>Uncommit
+                </button>
+            </div>
+        </div>
+        <div id="uncommitResult" class="mt-3" style="display: none;"></div>
+        {% elif unpublished_count > 0 %}
+        <p>
+            <strong>{{ unpublished_count }}</strong> entities ready to commit:
+            {{ class_count }} classes,
+            {{ individual_count }} individuals.
+        </p>
+        <p class="text-muted mb-3">
+            Commits all extracted entities (Steps 1-4) to OntServe permanent ontology storage.
+        </p>
+        <button id="commitBtn" class="btn btn-success btn-lg" onclick="commitToOntServe()">
+            <i class="bi bi-cloud-upload me-2"></i>Commit {{ unpublished_count }} Entities to OntServe
+        </button>
+        <div id="commitResult" class="mt-3" style="display: none;"></div>
+        {% else %}
+        <div class="text-muted">No entities to commit for this case.</div>
+        {% endif %}
+    </div>
+</div>
+
 <!-- Navigation buttons -->
 {% set step4_complete = pipeline_status.step4.complete if pipeline_status else false %}
 {% if step4_complete %}
@@ -657,6 +739,19 @@
     .bg-purple-light {
         background-color: #e9ddff !important;
     }
+
+    .commit-status {
+        padding: 1rem;
+        border-radius: 0.375rem;
+    }
+    .commit-status.success {
+        background: #f0fdf4;
+        border: 1px solid #86efac;
+    }
+    .commit-status.error {
+        background: #fef2f2;
+        border: 1px solid #fca5a5;
+    }
 </style>
 {% endblock %}
 
@@ -726,7 +821,7 @@ function resetStep4UI() {
     });
 
     // Reset counts
-    ['provisionsCount', 'questionsCount', 'conclusionsCount'].forEach(id => {
+    ['provisionsCount', 'precedentsCount', 'questionsCount', 'conclusionsCount'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.textContent = '0';
     });
@@ -787,6 +882,7 @@ function resetStep4UI() {
     // Reset all Phase 2 buttons to their original state
     const phase2Buttons = [
         { id: 'extractProvisionsBtn', color: 'secondary', label: 'Extract' },
+        { id: 'extractPrecedentsBtn', color: 'dark', label: 'Extract' },
         { id: 'extractQuestionsBtn', color: 'warning', label: 'Extract' },
         { id: 'extractConclusionsBtn', color: 'success', label: 'Extract' },
         { id: 'extractTransformationBtn', color: 'secondary', label: 'Classify' },
@@ -848,7 +944,7 @@ function extractTask(taskType) {
     const resultsContent = document.getElementById(`${domTaskType}ResultsContent`);
 
     // Use streaming for provisions, qc_unified, questions, conclusions, transformation, and rich_analysis (shows real-time progress)
-    const useStreaming = ['provisions', 'qc_unified', 'questions', 'conclusions', 'transformation', 'rich_analysis'];
+    const useStreaming = ['provisions', 'precedents', 'qc_unified', 'questions', 'conclusions', 'transformation', 'rich_analysis'];
     if (useStreaming.includes(taskType)) {
         extractTaskStreaming(taskType, button, promptSection, resultsSection, promptText, resultsContent);
         return;
@@ -1057,6 +1153,9 @@ function updateCountBadges(taskType, result) {
         case 'provisions':
             document.getElementById('provisionsCount').textContent = result.count || 0;
             break;
+        case 'precedents':
+            document.getElementById('precedentsCount').textContent = result.count || 0;
+            break;
         case 'questions':
             document.getElementById('questionsCount').textContent = result.count || 0;
             break;
@@ -1072,6 +1171,7 @@ function updateCountBadges(taskType, result) {
 function getButtonColor(taskType) {
     const colors = {
         'provisions': 'secondary',
+        'precedents': 'dark',
         'questions': 'warning',
         'conclusions': 'success',
         'transformation': 'secondary',
@@ -1110,6 +1210,7 @@ function extractTaskStreaming(taskType, button, promptSection, resultsSection, p
     // Hide existing status alerts (provisions or Q&C)
     const statusAlerts = {
         'provisions': 'provisionsExistingStatus',
+        'precedents': 'precedentsExistingStatus',
         'qc_unified': 'qcExistingStatus',
         'questions': 'qcExistingStatus',
         'conclusions': 'qcExistingStatus'
@@ -1393,6 +1494,7 @@ async function runCompleteSynthesis() {
             <p class="mb-2">Executing all phases in sequence:</p>
             <ol class="mb-2">
                 <li>Provisions (2A)</li>
+                <li>Precedent Cases (2E)</li>
                 <li>Questions & Conclusions (2B)</li>
                 <li>Transformation Classification (2C)</li>
                 <li>Rich Analysis (2D)</li>
@@ -2678,6 +2780,7 @@ function loadSavedPhase4Results() {
 function updateSubstepDot(taskType, status) {
     const dotMapping = {
         'provisions': 'p2-provisions',
+        'precedents': 'p2-precedents',
         'questions': 'p2-questions',
         'conclusions': 'p2-conclusions',
         'transformation': 'p2-transformation',
@@ -2698,7 +2801,7 @@ function updateSubstepDot(taskType, status) {
 }
 
 function loadSavedPrompts() {
-    const tasks = ['provisions', 'questions', 'conclusions', 'transformation', 'rich_analysis'];
+    const tasks = ['provisions', 'precedents', 'questions', 'conclusions', 'transformation', 'rich_analysis'];
     const completedTasks = new Set();
 
     // Track completed tasks and update phase2 indicator when core tasks complete
@@ -2760,6 +2863,86 @@ function loadSavedPrompts() {
                 }
             })
             .catch(error => console.log(`No saved prompt for ${task}`));
+    });
+}
+
+// --- Commit to OntServe ---
+function commitToOntServe() {
+    var btn = document.getElementById('commitBtn');
+    var resultDiv = document.getElementById('commitResult');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Committing...';
+
+    fetch(`/scenario_pipeline/case/${currentCaseId}/reconcile/commit`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        resultDiv.style.display = 'block';
+        if (data.success) {
+            var r = data.result || {};
+            resultDiv.innerHTML = '<div class="commit-status success">'
+                + '<i class="bi bi-check-circle-fill me-2 text-success"></i>'
+                + '<strong>Commit successful.</strong> '
+                + 'Classes: ' + (r.classes_committed || 0) + ', '
+                + 'Individuals: ' + (r.individuals_committed || 0) + ', '
+                + 'OntServe synced: ' + (r.ontserve_synced ? 'Yes' : 'No')
+                + '</div>';
+            btn.style.display = 'none';
+        } else {
+            resultDiv.innerHTML = '<div class="commit-status error">'
+                + '<i class="bi bi-x-circle-fill me-2 text-danger"></i>'
+                + '<strong>Commit failed:</strong> ' + (data.error || 'Unknown error')
+                + '</div>';
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-cloud-upload me-2"></i>Retry Commit';
+        }
+    })
+    .catch(function(err) {
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = '<div class="commit-status error">'
+            + '<i class="bi bi-x-circle-fill me-2 text-danger"></i>'
+            + '<strong>Error:</strong> ' + err
+            + '</div>';
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-cloud-upload me-2"></i>Retry Commit';
+    });
+}
+
+function uncommitEntities() {
+    if (!confirm('This will remove all committed entities from OntServe and reset them to draft status. Proceed?')) {
+        return;
+    }
+    var resultDiv = document.getElementById('uncommitResult');
+    if (resultDiv) resultDiv.style.display = 'block';
+
+    fetch(`/scenario_pipeline/case/${currentCaseId}/reconcile/uncommit`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            location.reload();
+        } else {
+            if (resultDiv) {
+                resultDiv.innerHTML = '<div class="commit-status error">'
+                    + '<strong>Uncommit failed:</strong> ' + (data.error || 'Unknown error')
+                    + '</div>';
+            } else {
+                alert('Uncommit failed: ' + (data.error || 'Unknown error'));
+            }
+        }
+    })
+    .catch(function(err) {
+        alert('Error: ' + err);
     });
 }
 </script>

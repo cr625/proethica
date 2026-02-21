@@ -76,6 +76,16 @@ def register_run_all_routes(bp, get_all_case_entities):
                 }), 500
 
             # =====================================================================
+            # STEP 2E: Precedent Cases
+            # =====================================================================
+            logger.info(f"[RunAll] Running precedent case extraction for case {case_id}")
+            precedents_result = _run_precedents(case_id, llm_client)
+            results['precedents'] = precedents_result
+            results['stages'].append('PRECEDENTS')
+
+            # Non-blocking - continue even on error
+
+            # =====================================================================
             # STEP 2B: Q&C Unified
             # =====================================================================
             logger.info(f"[RunAll] Running Q&C extraction for case {case_id}")
@@ -158,6 +168,7 @@ def _clear_step4_data(case_id: int) -> dict:
     try:
         extraction_types_to_clear = [
             'code_provision_reference',
+            'precedent_case_reference',
             'ethical_question',
             'ethical_conclusion',
             'question_emergence',
@@ -186,6 +197,7 @@ def _clear_step4_data(case_id: int) -> dict:
         # Clear related extraction prompts
         prompt_types = [
             'code_provision',
+            'precedent_case_reference',
             'ethical_question',
             'ethical_conclusion',
             'question_emergence',
@@ -378,6 +390,148 @@ def _run_provisions(case_id: int, llm_client, get_all_case_entities) -> dict:
 
     except Exception as e:
         logger.error(f"[RunAll] Provisions error: {e}")
+        import traceback
+        traceback.print_exc()
+        return {'error': str(e)}
+
+
+def _run_precedents(case_id: int, llm_client) -> dict:
+    """Run precedent case extraction -- same logic as extract_precedents_streaming."""
+    import json as json_mod
+    from app.routes.scenario_pipeline.step4 import (
+        PRECEDENT_EXTRACTION_PROMPT, _update_cited_cases
+    )
+
+    prov = get_provenance_service()
+
+    try:
+        case = Document.query.get_or_404(case_id)
+
+        # Gather case text
+        sections_dual = case.doc_metadata.get('sections_dual', {}) if case.doc_metadata else {}
+        case_text_parts = []
+        for section_key in ['facts', 'discussion', 'question', 'conclusion']:
+            section_data = sections_dual.get(section_key, {})
+            text = section_data.get('text', '') if isinstance(section_data, dict) else str(section_data)
+            if text:
+                case_text_parts.append(f"=== {section_key.upper()} ===\n{text}")
+
+        if not case_text_parts:
+            return {'error': 'No case sections found'}
+
+        case_text = '\n\n'.join(case_text_parts)
+        prompt = PRECEDENT_EXTRACTION_PROMPT.format(case_text=case_text)
+
+        # Call LLM
+        response = llm_client.messages.create(
+            model='claude-sonnet-4-20250514',
+            max_tokens=4096,
+            messages=[{'role': 'user', 'content': prompt}]
+        )
+        raw_response = response.content[0].text
+
+        # Parse JSON
+        cleaned = raw_response.strip()
+        if cleaned.startswith('```'):
+            cleaned = cleaned.split('\n', 1)[1] if '\n' in cleaned else cleaned[3:]
+            if cleaned.endswith('```'):
+                cleaned = cleaned[:-3].strip()
+        precedents = json_mod.loads(cleaned)
+        if not isinstance(precedents, list):
+            precedents = []
+
+        # Resolve case numbers
+        for p in precedents:
+            case_number = p.get('caseNumber', '')
+            if case_number:
+                try:
+                    resolved = Document.query.filter(
+                        Document.doc_metadata['case_number'].astext == case_number
+                    ).first()
+                    p['internalCaseId'] = resolved.id if resolved else None
+                    p['resolved'] = resolved is not None
+                except Exception:
+                    p['internalCaseId'] = None
+                    p['resolved'] = False
+
+        # Store with provenance
+        session_id = str(uuid.uuid4())
+
+        with prov.track_activity(
+            activity_type='extraction',
+            activity_name='step4_precedents',
+            case_id=case_id,
+            session_id=session_id,
+            agent_type='llm',
+            agent_name='precedent_extractor',
+            execution_plan={'precedents_count': len(precedents)}
+        ) as activity:
+            prov.record_extraction_results(
+                results=[{
+                    'caseCitation': p.get('caseCitation'),
+                    'citationType': p.get('citationType'),
+                    'resolved': p.get('resolved', False)
+                } for p in precedents],
+                activity=activity,
+                entity_type='extracted_precedents',
+                metadata={'total_precedents': len(precedents)}
+            )
+
+            for p in precedents:
+                rdf_entity = TemporaryRDFStorage(
+                    case_id=case_id,
+                    extraction_session_id=session_id,
+                    extraction_type='precedent_case_reference',
+                    storage_type='individual',
+                    entity_type='precedent_references',
+                    entity_label=p.get('caseCitation', 'Unknown Case'),
+                    entity_definition=p.get('citationContext', ''),
+                    rdf_json_ld={
+                        '@type': 'proeth-case:PrecedentCaseReference',
+                        'caseCitation': p.get('caseCitation', ''),
+                        'caseNumber': p.get('caseNumber', ''),
+                        'citationContext': p.get('citationContext', ''),
+                        'citationType': p.get('citationType', 'supporting'),
+                        'principleEstablished': p.get('principleEstablished', ''),
+                        'relevantExcerpts': p.get('relevantExcerpts', []),
+                        'internalCaseId': p.get('internalCaseId'),
+                        'resolved': p.get('resolved', False)
+                    },
+                    is_selected=True
+                )
+                db.session.add(rdf_entity)
+
+            # Save extraction prompt
+            from app.models import ExtractionPrompt
+            from datetime import datetime
+            extraction_prompt = ExtractionPrompt(
+                case_id=case_id,
+                concept_type='precedent_case_reference',
+                step_number=4,
+                section_type='discussion',
+                prompt_text=prompt,
+                llm_model='claude-sonnet-4-20250514',
+                extraction_session_id=session_id,
+                raw_response=raw_response,
+                results_summary={'total_precedents': len(precedents)},
+                is_active=True,
+                times_used=1,
+                created_at=datetime.utcnow(),
+                last_used_at=datetime.utcnow()
+            )
+            db.session.add(extraction_prompt)
+            db.session.commit()
+            logger.info(f"[RunAll] Stored {len(precedents)} precedent references with provenance")
+
+        _update_cited_cases(case_id, precedents)
+
+        return {
+            'precedents_count': len(precedents),
+            'resolved_count': sum(1 for p in precedents if p.get('resolved'))
+        }
+
+    except Exception as e:
+        logger.error(f"[RunAll] Precedents error: {e}")
         import traceback
         traceback.print_exc()
         return {'error': str(e)}

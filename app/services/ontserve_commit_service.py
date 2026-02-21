@@ -395,6 +395,11 @@ class OntServeCommitService:
                         class_uri = PROETHICA[safe_class]
                         g.add((individual_uri, RDF.type, class_uri))
 
+                # Tag with base concept category for display grouping
+                concept_cat = self._get_concept_category(entity)
+                if concept_cat:
+                    g.add((individual_uri, PROETHICA['conceptCategory'], Literal(concept_cat)))
+
                 # Check if this is an argument entity (Toulmin structure)
                 extraction_type = entity.extraction_type or ''
                 if extraction_type == 'argument_generated' and rdf_data:
@@ -760,6 +765,42 @@ class OntServeCommitService:
     #   (category_field_name, CATEGORY_TO_ONTOLOGY_IRI key, fallback core class URI)
     # Multi-axis concepts (obligations, constraints) have a second entry for the
     # orthogonal axis (enforcement_level, flexibility).
+    # Maps extraction_type (+ entity_type for temporal_dynamics) to the base
+    # concept name used for display categorization in OntServe case views.
+    _EXTRACTION_TO_CONCEPT = {
+        'roles': 'Role',
+        'principles': 'Principle',
+        'obligations': 'Obligation',
+        'states': 'State',
+        'resources': 'Resource',
+        'actions': 'Action',
+        'events': 'Event',
+        'capabilities': 'Capability',
+        'constraints': 'Constraint',
+    }
+
+    def _get_concept_category(self, entity) -> str | None:
+        """Derive base concept category from extraction_type/entity_type.
+
+        Returns one of the 9 concept names (Role, Principle, ...) or None
+        for non-concept entities (arguments, decision points, etc.).
+        """
+        ext_type = (entity.extraction_type or '').lower()
+
+        # Direct match (steps 1-2)
+        concept = self._EXTRACTION_TO_CONCEPT.get(ext_type)
+        if concept:
+            return concept
+
+        # Step 3 temporal_dynamics: entity_type carries the concept
+        if 'temporal_dynamics' in ext_type:
+            etype = (entity.entity_type or '').lower().rstrip('s')
+            for key, val in self._EXTRACTION_TO_CONCEPT.items():
+                if key.startswith(etype):
+                    return val
+
+        return None
+
     _CONCEPT_CATEGORY_CONFIG = {
         'roles':        [('role_category',       'roles',                  f'{PROETHICA_CORE}Role')],
         'principles':   [('principle_category',  'principles',             f'{PROETHICA_CORE}Principle')],
@@ -1280,6 +1321,11 @@ class OntServeCommitService:
                         class_uri = PROETHICA[safe_class]
                         g.add((individual_uri, RDF.type, class_uri))
 
+                # Tag with base concept category for display grouping
+                concept_cat = self._get_concept_category(entity)
+                if concept_cat:
+                    g.add((individual_uri, PROETHICA['conceptCategory'], Literal(concept_cat)))
+
                 # Add type-specific properties (reuse existing logic)
                 self._add_individual_properties(g, individual_uri, entity, rdf_data, case_ns)
 
@@ -1387,4 +1433,86 @@ class OntServeCommitService:
         except Exception as e:
             logger.error(f"Error getting version history: {e}")
             return {'error': str(e)}
+
+    def uncommit_case(self, case_id: int) -> Dict[str, Any]:
+        """Reverse a commit: remove entities from OntServe, reset is_published.
+
+        Deletes the case TTL file, clears OntServe DB entries for the case
+        ontology, and resets all committed entities to unpublished status.
+        Does NOT attempt to remove classes from proethica-intermediate-extended.ttl
+        (classes are shared and may be referenced by other cases).
+        """
+        from app.models import db
+
+        result = {
+            'case_id': case_id,
+            'ttl_deleted': False,
+            'ontserve_cleared': False,
+            'entities_reset': 0,
+            'errors': [],
+        }
+
+        # 1. Delete case TTL file
+        case_file = self.ontologies_dir / f"proethica-case-{case_id}.ttl"
+        if case_file.exists():
+            case_file.unlink()
+            result['ttl_deleted'] = True
+            logger.info(f"Deleted case TTL file: {case_file}")
+
+        # 2. Clear from OntServe database
+        try:
+            conn = psycopg2.connect(**ONTSERVE_DB_CONFIG)
+            try:
+                with conn.cursor() as cur:
+                    ontology_name = f"proethica-case-{case_id}"
+
+                    cur.execute(
+                        "SELECT id FROM ontologies WHERE name = %s",
+                        (ontology_name,)
+                    )
+                    row = cur.fetchone()
+
+                    if row:
+                        ontology_id = row[0]
+                        cur.execute(
+                            "DELETE FROM ontology_entities WHERE ontology_id = %s",
+                            (ontology_id,)
+                        )
+                        deleted_entities = cur.rowcount
+
+                        cur.execute(
+                            "DELETE FROM ontology_versions WHERE ontology_id = %s",
+                            (ontology_id,)
+                        )
+                        cur.execute(
+                            "DELETE FROM ontologies WHERE id = %s",
+                            (ontology_id,)
+                        )
+                        conn.commit()
+                        result['ontserve_entities_deleted'] = deleted_entities
+                        result['ontserve_cleared'] = True
+                        logger.info(
+                            f"Cleared {deleted_entities} entities from OntServe "
+                            f"for {ontology_name}"
+                        )
+                    else:
+                        result['ontserve_entities_deleted'] = 0
+                        result['ontserve_cleared'] = True
+            finally:
+                conn.close()
+        except Exception as e:
+            error_msg = f"Failed to clear OntServe: {e}"
+            logger.warning(error_msg)
+            result['errors'].append(error_msg)
+
+        # 3. Reset committed entities to unpublished
+        reset_count = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id, is_published=True
+        ).update({'is_published': False})
+        db.session.commit()
+        result['entities_reset'] = reset_count
+        logger.info(f"Reset {reset_count} committed entities to unpublished")
+
+        result['success'] = len(result['errors']) == 0
+        return result
 

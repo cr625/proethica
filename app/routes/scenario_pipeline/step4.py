@@ -61,12 +61,13 @@ def init_step4_csrf_exemption(app):
         from app.routes.scenario_pipeline.step4 import (
             save_streaming_results, generate_synthesis_annotations,
             extract_decision_points, generate_arguments, commit_step4_entities,
-            publish_all_entities, synthesize_case, synthesize_complete,
+            synthesize_case, synthesize_complete,
             # Individual extraction endpoints still in step4.py
-            extract_provisions_individual, extract_decision_synthesis_individual,
+            extract_provisions_individual, extract_precedents_individual,
+            extract_decision_synthesis_individual,
             extract_narrative_individual,
             # Streaming extraction endpoints still in step4.py
-            extract_provisions_streaming
+            extract_provisions_streaming, extract_precedents_streaming
         )
         from app.routes.scenario_pipeline.generate_scenario import generate_scenario_from_case
         app.csrf.exempt(save_streaming_results)
@@ -75,15 +76,16 @@ def init_step4_csrf_exemption(app):
         app.csrf.exempt(extract_decision_points)
         app.csrf.exempt(generate_arguments)
         app.csrf.exempt(commit_step4_entities)
-        app.csrf.exempt(publish_all_entities)
         app.csrf.exempt(synthesize_case)
         app.csrf.exempt(synthesize_complete)
         # Individual extraction endpoints (in step4.py)
         app.csrf.exempt(extract_provisions_individual)
+        app.csrf.exempt(extract_precedents_individual)
         app.csrf.exempt(extract_decision_synthesis_individual)
         app.csrf.exempt(extract_narrative_individual)
         # Streaming extraction endpoints (in step4.py)
         app.csrf.exempt(extract_provisions_streaming)
+        app.csrf.exempt(extract_precedents_streaming)
         # Modular endpoints - exempt by view name
         app.csrf.exempt('step4.extract_questions_individual')
         app.csrf.exempt('step4.extract_questions_streaming')
@@ -149,6 +151,20 @@ def step4_synthesis(case_id):
         # Get pipeline status for navigation
         pipeline_status = PipelineStatusService.get_step_status(case_id)
 
+        # Commit section data
+        unpublished_count = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id, is_published=False
+        ).count()
+        published_count = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id, is_published=True
+        ).count()
+        class_count = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id, is_published=False, storage_type='class'
+        ).count()
+        individual_count = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id, is_published=False, storage_type='individual'
+        ).count()
+
         return render_template(
             'scenarios/step4.html',
             case=case,
@@ -157,10 +173,14 @@ def step4_synthesis(case_id):
             saved_synthesis=saved_synthesis,
             phase4_data=phase4_data,
             current_step=4,
-            prev_step_url=f"/scenario_pipeline/case/{case_id}/step3",
-            next_step_url=None,  # Step 5 hidden until fully integrated
+            prev_step_url=f"/scenario_pipeline/case/{case_id}/reconcile",
+            next_step_url=None,
             next_step_name=None,
-            pipeline_status=pipeline_status
+            pipeline_status=pipeline_status,
+            unpublished_count=unpublished_count,
+            published_count=published_count,
+            class_count=class_count,
+            individual_count=individual_count,
         )
 
     except Exception as e:
@@ -189,6 +209,8 @@ def clear_step4_data(case_id):
         extraction_types_to_clear = [
             # 2A: Provisions
             'code_provision_reference',
+            # 2E: Precedent Cases
+            'precedent_case_reference',
             # 2B: Questions & Conclusions
             'ethical_question',
             'ethical_conclusion',
@@ -1055,6 +1077,23 @@ def step4_review(case_id):
                 'rdf_json_ld': c.rdf_json_ld or {}
             })
 
+        # Get precedent case references
+        precedents_objs = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            extraction_type='precedent_case_reference'
+        ).all()
+
+        precedents_list = []
+        for pr in precedents_objs:
+            precedents_list.append({
+                'id': pr.id,
+                'entity_type': pr.entity_type,
+                'entity_label': pr.entity_label,
+                'entity_definition': pr.entity_definition,
+                'entity_uri': pr.entity_uri,
+                'rdf_json_ld': pr.rdf_json_ld or {}
+            })
+
         # Sort questions and conclusions by type priority (board_explicit first)
         question_type_order = ['board_explicit', 'implicit', 'principle_tension', 'theoretical', 'counterfactual']
         conclusion_type_order = ['board_explicit', 'analytical_extension', 'question_response', 'principle_synthesis']
@@ -1276,6 +1315,9 @@ def step4_review(case_id):
             'all_entities': all_entities,
             'entity_count': len(all_entities),
             'provision_count': len(provisions),
+            'precedents': precedents_objs,
+            'precedents_json': precedents_list,
+            'precedent_count': len(precedents_list),
             'question_count': len(questions),
             'conclusion_count': len(conclusions),
             'has_synthesis_annotations': len(existing_annotations) > 0,
@@ -1666,6 +1708,12 @@ def get_synthesis_status(case_id: int) -> Dict:
         extraction_type='ethical_conclusion'
     ).count()
 
+    # Check for precedent case references
+    precedents = TemporaryRDFStorage.query.filter_by(
+        case_id=case_id,
+        extraction_type='precedent_case_reference'
+    ).count()
+
     completed = provisions > 0 or questions > 0 or conclusions > 0
 
     # Get transformation type from case_precedent_features
@@ -1680,6 +1728,7 @@ def get_synthesis_status(case_id: int) -> Dict:
         'provisions_count': provisions,
         'questions_count': questions,
         'conclusions_count': conclusions,
+        'precedents_count': precedents,
         'transformation_type': transformation_type
     }
 
@@ -2953,144 +3002,6 @@ def get_step4_prompts(case_id):
         }), 500
 
 
-# ============================================================================
-# PUBLISH ALL ENTITIES
-# ============================================================================
-
-@bp.route('/case/<int:case_id>/publish_all', methods=['POST'])
-@auth_required_for_llm
-def publish_all_entities(case_id):
-    """
-    Publish all entities (Pass 1-3 + Step 4) to OntServe.
-
-    This is the primary publish point for a case analysis.
-    Validates that extraction passes are complete before publishing.
-    """
-    try:
-        from app.services.ontserve_commit_service import OntServeCommitService
-
-        case = Document.query.get_or_404(case_id)
-
-        # Get pipeline status to validate prerequisites
-        pipeline_status = PipelineStatusService.get_step_status(case_id)
-
-        # Check if passes 1-3 have entities
-        pass1_complete = pipeline_status.get('step1', {}).get('complete', False)
-        pass2_complete = pipeline_status.get('step2', {}).get('complete', False)
-        pass3_complete = pipeline_status.get('step3', {}).get('complete', False)
-
-        if not pass1_complete:
-            return jsonify({
-                'success': False,
-                'error': 'Pass 1 (Roles, States, Resources) extraction must be complete before publishing.',
-                'missing_passes': ['Pass 1']
-            }), 400
-
-        # Get all unpublished entities
-        unpublished_entities = TemporaryRDFStorage.query.filter_by(
-            case_id=case_id,
-            is_published=False
-        ).all()
-
-        if not unpublished_entities:
-            return jsonify({
-                'success': False,
-                'error': 'No unpublished entities to publish. All entities may already be published.'
-            }), 400
-
-        # Get entity IDs and count by type
-        entity_ids = [e.id for e in unpublished_entities]
-        entity_counts = {}
-        for e in unpublished_entities:
-            etype = e.extraction_type or e.entity_type or 'unknown'
-            entity_counts[etype] = entity_counts.get(etype, 0) + 1
-
-        logger.info(f"Publishing {len(entity_ids)} entities for case {case_id}: {entity_counts}")
-
-        # Use OntServeCommitService to publish
-        commit_service = OntServeCommitService()
-        result = commit_service.commit_selected_entities(case_id, entity_ids)
-
-        if result.get('success'):
-            return jsonify({
-                'success': True,
-                'message': f'Published {len(entity_ids)} entities to OntServe',
-                'total_published': len(entity_ids),
-                'classes_committed': result.get('classes_committed', 0),
-                'individuals_committed': result.get('individuals_committed', 0),
-                'entity_counts': entity_counts,
-                'ontserve_synced': result.get('ontserve_synced', False),
-                'errors': result.get('errors', [])
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'error': result.get('error', 'Publish failed'),
-                'errors': result.get('errors', [])
-            }), 500
-
-    except Exception as e:
-        logger.error(f"Error publishing entities for case {case_id}: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
-@bp.route('/case/<int:case_id>/publish_status')
-def get_publish_status(case_id):
-    """
-    Get the publish status for a case.
-
-    Returns counts of published and unpublished entities.
-    """
-    try:
-        from app.services.ontserve_commit_service import OntServeCommitService
-
-        commit_service = OntServeCommitService()
-        status = commit_service.get_commit_status(case_id)
-
-        # Get entity breakdown
-        unpublished = TemporaryRDFStorage.query.filter_by(
-            case_id=case_id,
-            is_published=False
-        ).all()
-
-        unpublished_by_type = {}
-        for e in unpublished:
-            etype = e.extraction_type or e.entity_type or 'unknown'
-            unpublished_by_type[etype] = unpublished_by_type.get(etype, 0) + 1
-
-        published = TemporaryRDFStorage.query.filter_by(
-            case_id=case_id,
-            is_published=True
-        ).all()
-
-        published_by_type = {}
-        for e in published:
-            etype = e.extraction_type or e.entity_type or 'unknown'
-            published_by_type[etype] = published_by_type.get(etype, 0) + 1
-
-        return jsonify({
-            'success': True,
-            'case_id': case_id,
-            'unpublished_count': status.get('pending_count', 0),
-            'published_count': status.get('committed_count', 0),
-            'unpublished_by_type': unpublished_by_type,
-            'published_by_type': published_by_type,
-            'case_ontology_exists': status.get('case_ontology_exists', False)
-        })
-
-    except Exception as e:
-        logger.error(f"Error getting publish status for case {case_id}: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
 @bp.route('/case/<int:case_id>/pipeline_state')
 def get_pipeline_state_api(case_id):
     """
@@ -4157,6 +4068,382 @@ def extract_provisions_individual(case_id):
             'success': False,
             'error': str(e)
         }), 500
+
+
+# ============================================================================
+# PART A2: PRECEDENT CASE REFERENCES
+# ============================================================================
+
+PRECEDENT_EXTRACTION_PROMPT = """You are analyzing an ethics case from the NSPE Board of Ethical Review (BER).
+Identify ALL prior cases, decisions, or rulings cited by the board in their discussion.
+
+CASE TEXT:
+{case_text}
+
+For each cited case, extract:
+1. caseCitation: The exact citation as it appears in the text (e.g., "BER Case 94-8", "Case No. 85-3")
+2. caseNumber: Normalized case number (e.g., "94-8", "85-3")
+3. citationContext: A 1-2 sentence summary of WHY the board cited this case -- what point it supports
+4. citationType: One of: "supporting" (cited to support the current analysis), "distinguishing" (cited to show how the current case differs), "analogizing" (cited as a parallel situation), "overruling" (cited as being superseded)
+5. principleEstablished: The key principle, holding, or precedent that the cited case establishes
+6. relevantExcerpts: Array of objects with "section" (facts/discussion/question/conclusion) and "text" (the exact passage where the citation appears, up to 200 characters)
+
+Return a JSON array. If no prior cases are cited, return an empty array [].
+
+Example output:
+[
+  {{
+    "caseCitation": "BER Case 94-8",
+    "caseNumber": "94-8",
+    "citationContext": "The Board cited this case to establish that engineers must have an objective basis to assess another engineer's competency before delegating work.",
+    "citationType": "supporting",
+    "principleEstablished": "Engineers must verify that colleagues have sufficient education, experience, and training before delegating professional responsibilities.",
+    "relevantExcerpts": [
+      {{"section": "discussion", "text": "In BER Case 94-8, Engineer A, a professional engineer, was working with..."}}
+    ]
+  }}
+]
+
+Respond ONLY with the JSON array, no other text."""
+
+
+@bp.route('/case/<int:case_id>/extract_precedents_stream', methods=['POST'])
+@auth_required_for_llm
+def extract_precedents_streaming(case_id):
+    """Extract precedent case references with SSE streaming for real-time progress."""
+    import json as json_mod
+    from flask import Response, stream_with_context
+
+    def sse_msg(data):
+        return f"data: {json_mod.dumps(data)}\n\n"
+
+    def generate():
+        try:
+            case = Document.query.get_or_404(case_id)
+            llm_client = get_llm_client()
+
+            # Clear existing precedent references
+            TemporaryRDFStorage.query.filter_by(
+                case_id=case_id,
+                extraction_type='precedent_case_reference'
+            ).delete(synchronize_session=False)
+            db.session.commit()
+
+            yield sse_msg({'stage': 'START', 'progress': 5, 'messages': ['Starting precedent case extraction...']})
+
+            # Gather case text from all sections
+            sections_dual = case.doc_metadata.get('sections_dual', {}) if case.doc_metadata else {}
+            case_text_parts = []
+            for section_key in ['facts', 'discussion', 'question', 'conclusion']:
+                section_data = sections_dual.get(section_key, {})
+                text = section_data.get('text', '') if isinstance(section_data, dict) else str(section_data)
+                if text:
+                    case_text_parts.append(f"=== {section_key.upper()} ===\n{text}")
+
+            if not case_text_parts:
+                yield sse_msg({'stage': 'ERROR', 'progress': 100, 'messages': ['No case sections found'], 'error': True})
+                return
+
+            case_text = '\n\n'.join(case_text_parts)
+            yield sse_msg({'stage': 'PREPARED', 'progress': 15, 'messages': [f'Prepared {len(case_text_parts)} case sections for analysis']})
+
+            # Build prompt
+            prompt = PRECEDENT_EXTRACTION_PROMPT.format(case_text=case_text)
+            yield sse_msg({'stage': 'PROMPTING', 'progress': 25, 'messages': ['Sending to LLM for precedent analysis...']})
+
+            # Call LLM
+            response = llm_client.messages.create(
+                model='claude-sonnet-4-20250514',
+                max_tokens=4096,
+                messages=[{'role': 'user', 'content': prompt}]
+            )
+            raw_response = response.content[0].text
+            yield sse_msg({'stage': 'RECEIVED', 'progress': 60, 'messages': ['LLM response received, parsing...']})
+
+            # Parse JSON response
+            try:
+                # Handle potential markdown code blocks
+                cleaned = raw_response.strip()
+                if cleaned.startswith('```'):
+                    cleaned = cleaned.split('\n', 1)[1] if '\n' in cleaned else cleaned[3:]
+                    if cleaned.endswith('```'):
+                        cleaned = cleaned[:-3].strip()
+                precedents = json_mod.loads(cleaned)
+            except json_mod.JSONDecodeError:
+                logger.error(f"Failed to parse precedent extraction response: {raw_response[:500]}")
+                yield sse_msg({'stage': 'ERROR', 'progress': 100,
+                               'messages': ['Failed to parse LLM response as JSON'], 'error': True})
+                return
+
+            if not isinstance(precedents, list):
+                precedents = []
+
+            yield sse_msg({'stage': 'PARSED', 'progress': 70,
+                           'messages': [f'Found {len(precedents)} cited precedent cases']})
+
+            # Attempt to resolve case numbers to internal document IDs
+            for p in precedents:
+                case_number = p.get('caseNumber', '')
+                if case_number:
+                    try:
+                        resolved = Document.query.filter(
+                            Document.doc_metadata['case_number'].astext == case_number
+                        ).first()
+                        if resolved:
+                            p['internalCaseId'] = resolved.id
+                            p['resolved'] = True
+                        else:
+                            p['internalCaseId'] = None
+                            p['resolved'] = False
+                    except Exception:
+                        p['internalCaseId'] = None
+                        p['resolved'] = False
+
+            yield sse_msg({'stage': 'RESOLVED', 'progress': 80,
+                           'messages': [f'Resolved {sum(1 for p in precedents if p.get("resolved"))} of {len(precedents)} to internal cases']})
+
+            # Store precedent entities
+            session_id = str(uuid.uuid4())
+            for p in precedents:
+                rdf_entity = TemporaryRDFStorage(
+                    case_id=case_id,
+                    extraction_session_id=session_id,
+                    extraction_type='precedent_case_reference',
+                    storage_type='individual',
+                    entity_type='precedent_references',
+                    entity_label=p.get('caseCitation', 'Unknown Case'),
+                    entity_definition=p.get('citationContext', ''),
+                    rdf_json_ld={
+                        '@type': 'proeth-case:PrecedentCaseReference',
+                        'caseCitation': p.get('caseCitation', ''),
+                        'caseNumber': p.get('caseNumber', ''),
+                        'citationContext': p.get('citationContext', ''),
+                        'citationType': p.get('citationType', 'supporting'),
+                        'principleEstablished': p.get('principleEstablished', ''),
+                        'relevantExcerpts': p.get('relevantExcerpts', []),
+                        'internalCaseId': p.get('internalCaseId'),
+                        'resolved': p.get('resolved', False)
+                    },
+                    is_selected=True
+                )
+                db.session.add(rdf_entity)
+
+            # Save extraction prompt record
+            extraction_prompt = ExtractionPrompt(
+                case_id=case_id,
+                concept_type='precedent_case_reference',
+                step_number=4,
+                section_type='discussion',
+                prompt_text=prompt,
+                llm_model='claude-sonnet-4-20250514',
+                extraction_session_id=session_id,
+                raw_response=raw_response,
+                results_summary={'total_precedents': len(precedents)},
+                is_active=True,
+                times_used=1,
+                created_at=datetime.utcnow(),
+                last_used_at=datetime.utcnow()
+            )
+            db.session.add(extraction_prompt)
+            db.session.commit()
+
+            # Update case_precedent_features with cited case numbers
+            _update_cited_cases(case_id, precedents)
+
+            yield sse_msg({'stage': 'STORED', 'progress': 90,
+                           'messages': [f'Stored {len(precedents)} precedent references']})
+
+            # Build results text for display
+            results_text = f"Extracted {len(precedents)} Precedent Case References\n"
+            results_text += "=" * 40 + "\n\n"
+            for p in precedents:
+                citation = p.get('caseCitation', 'Unknown')
+                ctype = p.get('citationType', 'unknown')
+                principle = p.get('principleEstablished', '')[:120]
+                resolved_str = ' [resolved]' if p.get('resolved') else ''
+                results_text += f"{citation} ({ctype}){resolved_str}\n"
+                results_text += f"  Principle: {principle}\n"
+                results_text += f"  Context: {p.get('citationContext', '')[:150]}\n\n"
+
+            yield sse_msg({
+                'stage': 'COMPLETE',
+                'progress': 100,
+                'messages': [f'Extraction complete: {len(precedents)} precedent cases'],
+                'prompt': prompt[:500] + '...',
+                'raw_llm_response': results_text,
+                'result': {
+                    'count': len(precedents),
+                    'precedents': [
+                        {
+                            'citation': p.get('caseCitation', ''),
+                            'type': p.get('citationType', ''),
+                            'resolved': p.get('resolved', False)
+                        }
+                        for p in precedents
+                    ]
+                }
+            })
+
+        except Exception as e:
+            logger.error(f"Streaming precedents error: {e}")
+            import traceback
+            traceback.print_exc()
+            yield sse_msg({'stage': 'ERROR', 'progress': 100, 'messages': [f'Error: {str(e)}'], 'error': True})
+
+    return Response(stream_with_context(generate()), mimetype='text/event-stream')
+
+
+def _update_cited_cases(case_id: int, precedents: list):
+    """Update case_precedent_features with cited case numbers from extraction."""
+    from app.models import CasePrecedentFeatures
+
+    if not precedents:
+        return
+
+    case_numbers = [p.get('caseNumber', '') for p in precedents if p.get('caseNumber')]
+    case_ids = [p.get('internalCaseId') for p in precedents if p.get('internalCaseId')]
+
+    try:
+        features = CasePrecedentFeatures.query.filter_by(case_id=case_id).first()
+        if features:
+            features.cited_case_numbers = case_numbers
+            features.cited_case_ids = case_ids if case_ids else None
+        else:
+            features = CasePrecedentFeatures(
+                case_id=case_id,
+                cited_case_numbers=case_numbers,
+                cited_case_ids=case_ids if case_ids else None,
+                outcome_type='unclear',
+                outcome_confidence=0.0,
+                outcome_reasoning='',
+                extraction_method='precedent_extraction'
+            )
+            db.session.add(features)
+        db.session.commit()
+    except Exception as e:
+        logger.error(f"Error updating cited cases for case {case_id}: {e}")
+        db.session.rollback()
+
+
+@bp.route('/case/<int:case_id>/extract_precedents', methods=['POST'])
+@auth_required_for_llm
+def extract_precedents_individual(case_id):
+    """Extract precedent case references (non-streaming fallback)."""
+    try:
+        case = Document.query.get_or_404(case_id)
+        llm_client = get_llm_client()
+
+        # Clear existing
+        TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            extraction_type='precedent_case_reference'
+        ).delete(synchronize_session=False)
+        db.session.commit()
+
+        # Gather case text
+        sections_dual = case.doc_metadata.get('sections_dual', {}) if case.doc_metadata else {}
+        case_text_parts = []
+        for section_key in ['facts', 'discussion', 'question', 'conclusion']:
+            section_data = sections_dual.get(section_key, {})
+            text = section_data.get('text', '') if isinstance(section_data, dict) else str(section_data)
+            if text:
+                case_text_parts.append(f"=== {section_key.upper()} ===\n{text}")
+
+        if not case_text_parts:
+            return jsonify({'success': False, 'error': 'No case sections found'}), 400
+
+        case_text = '\n\n'.join(case_text_parts)
+        prompt = PRECEDENT_EXTRACTION_PROMPT.format(case_text=case_text)
+
+        # Call LLM
+        response = llm_client.messages.create(
+            model='claude-sonnet-4-20250514',
+            max_tokens=4096,
+            messages=[{'role': 'user', 'content': prompt}]
+        )
+        raw_response = response.content[0].text
+
+        # Parse
+        import json as json_mod
+        cleaned = raw_response.strip()
+        if cleaned.startswith('```'):
+            cleaned = cleaned.split('\n', 1)[1] if '\n' in cleaned else cleaned[3:]
+            if cleaned.endswith('```'):
+                cleaned = cleaned[:-3].strip()
+        precedents = json_mod.loads(cleaned)
+        if not isinstance(precedents, list):
+            precedents = []
+
+        # Resolve + store
+        session_id = str(uuid.uuid4())
+        for p in precedents:
+            case_number = p.get('caseNumber', '')
+            if case_number:
+                try:
+                    resolved = Document.query.filter(
+                        Document.doc_metadata['case_number'].astext == case_number
+                    ).first()
+                    p['internalCaseId'] = resolved.id if resolved else None
+                    p['resolved'] = resolved is not None
+                except Exception:
+                    p['internalCaseId'] = None
+                    p['resolved'] = False
+
+            rdf_entity = TemporaryRDFStorage(
+                case_id=case_id,
+                extraction_session_id=session_id,
+                extraction_type='precedent_case_reference',
+                storage_type='individual',
+                entity_type='precedent_references',
+                entity_label=p.get('caseCitation', 'Unknown Case'),
+                entity_definition=p.get('citationContext', ''),
+                rdf_json_ld={
+                    '@type': 'proeth-case:PrecedentCaseReference',
+                    'caseCitation': p.get('caseCitation', ''),
+                    'caseNumber': p.get('caseNumber', ''),
+                    'citationContext': p.get('citationContext', ''),
+                    'citationType': p.get('citationType', 'supporting'),
+                    'principleEstablished': p.get('principleEstablished', ''),
+                    'relevantExcerpts': p.get('relevantExcerpts', []),
+                    'internalCaseId': p.get('internalCaseId'),
+                    'resolved': p.get('resolved', False)
+                },
+                is_selected=True
+            )
+            db.session.add(rdf_entity)
+
+        extraction_prompt = ExtractionPrompt(
+            case_id=case_id,
+            concept_type='precedent_case_reference',
+            step_number=4,
+            section_type='discussion',
+            prompt_text=prompt,
+            llm_model='claude-sonnet-4-20250514',
+            extraction_session_id=session_id,
+            raw_response=raw_response,
+            results_summary={'total_precedents': len(precedents)},
+            is_active=True,
+            times_used=1,
+            created_at=datetime.utcnow(),
+            last_used_at=datetime.utcnow()
+        )
+        db.session.add(extraction_prompt)
+        db.session.commit()
+
+        _update_cited_cases(case_id, precedents)
+
+        return jsonify({
+            'success': True,
+            'prompt': prompt[:500] + '...',
+            'raw_llm_response': raw_response,
+            'result': {'count': len(precedents)}
+        })
+
+    except Exception as e:
+        logger.error(f"Error extracting precedents for case {case_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @bp.route('/case/<int:case_id>/extract_qc_unified', methods=['POST'])

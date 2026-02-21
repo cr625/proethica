@@ -32,9 +32,9 @@ PAREN_SUFFIX_RE = re.compile(r'\s*\([^)]*\)\s*$')
 # Extraction types excluded from reconciliation (different structure, no URIs)
 SKIP_EXTRACTION_TYPES = {'temporal_dynamics_enhanced', 'temporal_dynamics'}
 
-# Label similarity threshold for triggering LLM evaluation on a group.
-# At least one pair in the group must exceed this to justify an LLM call.
-LLM_CANDIDATE_THRESHOLD = 0.55
+# Label similarity threshold for sending a pair to LLM evaluation.
+# Must be high enough to avoid noise but low enough to catch genuine near-dupes.
+LLM_CANDIDATE_THRESHOLD = 0.70
 
 
 @dataclass
@@ -92,41 +92,49 @@ class EntityReconciliationService:
         # Re-fetch groups after merges (entities were deleted)
         groups = self._group_entities(case_id)
 
-        # Phase 3: LLM semantic evaluation for groups with near-matches
+        # Phase 3: LLM pair-based evaluation for groups with near-matches
         for group_key, entities in groups.items():
             if len(entities) < 2:
                 continue
 
-            if self._group_has_near_matches(entities):
-                try:
-                    candidates = self._llm_batch_dedup(group_key, entities)
-                    result.review_candidates.extend(candidates)
-                except Exception as e:
-                    logger.error(
-                        f"LLM dedup failed for group {group_key}: {e}",
-                        exc_info=True
-                    )
-                    result.errors.append(
-                        f"LLM evaluation failed for {group_key[0]} {group_key[1]}: {e}"
-                    )
+            pairs = self._find_candidate_pairs(entities)
+            if not pairs:
+                continue
+
+            try:
+                candidates = self._llm_evaluate_pairs(group_key, pairs)
+                result.review_candidates.extend(candidates)
+            except Exception as e:
+                logger.error(
+                    f"LLM evaluation failed for group {group_key}: {e}",
+                    exc_info=True
+                )
+                result.errors.append(
+                    f"LLM evaluation failed for {group_key[0]} {group_key[1]}: {e}"
+                )
 
         return result
 
-    def merge_entities(self, keep_id: int, merge_id: int) -> bool:
+    def merge_entities(self, keep_id: int, merge_id: int) -> Dict[str, Any]:
         """Merge entity merge_id into keep_id, then delete merge_id.
 
         Delegates property merging to EntityMergeService.merge_entity_properties().
+        Returns dict with 'success' bool and 'snapshots' for undo support.
         """
         keep_entity = TemporaryRDFStorage.query.get(keep_id)
         merge_entity = TemporaryRDFStorage.query.get(merge_id)
 
         if not keep_entity or not merge_entity:
             logger.error(f"Entity not found: keep={keep_id}, merge={merge_id}")
-            return False
+            return {'success': False, 'error': 'Entity not found'}
 
         if keep_entity.is_published or merge_entity.is_published:
             logger.error("Cannot merge published entities")
-            return False
+            return {'success': False, 'error': 'Cannot merge published entities'}
+
+        # Snapshot both entities before merge for undo support
+        keep_snapshot = self._snapshot_entity(keep_entity)
+        merge_snapshot = self._snapshot_entity(merge_entity)
 
         try:
             self._merge_service.merge_entity_properties(
@@ -151,12 +159,100 @@ class EntityReconciliationService:
                 f"Merged entity '{merge_label}' (id={merge_id}) "
                 f"into '{keep_entity.entity_label}' (id={keep_id})"
             )
-            return True
+            return {
+                'success': True,
+                'snapshots': {
+                    'keep': keep_snapshot,
+                    'merge': merge_snapshot,
+                }
+            }
 
         except Exception as e:
             db.session.rollback()
             logger.error(f"Merge failed: {e}", exc_info=True)
+            return {'success': False, 'error': str(e)}
+
+    def unmerge_entities(self, keep_snapshot: Dict, merge_snapshot: Dict) -> bool:
+        """Restore both entities to their pre-merge state.
+
+        Restores the kept entity from its snapshot and recreates the deleted entity.
+        """
+        keep_id = keep_snapshot.get('id')
+        keep_entity = TemporaryRDFStorage.query.get(keep_id)
+
+        if not keep_entity:
+            logger.error(f"Cannot unmerge: kept entity {keep_id} not found")
             return False
+
+        try:
+            # Restore kept entity to pre-merge state
+            keep_entity.entity_label = keep_snapshot['entity_label']
+            keep_entity.entity_definition = keep_snapshot['entity_definition']
+            keep_entity.rdf_json_ld = keep_snapshot['rdf_json_ld']
+            keep_entity.property_count = keep_snapshot.get('property_count', 0)
+            keep_entity.relationship_count = keep_snapshot.get('relationship_count', 0)
+
+            # Recreate the deleted entity
+            restored = TemporaryRDFStorage(
+                case_id=merge_snapshot['case_id'],
+                extraction_session_id=merge_snapshot['extraction_session_id'],
+                extraction_type=merge_snapshot['extraction_type'],
+                storage_type=merge_snapshot['storage_type'],
+                ontology_target=merge_snapshot.get('ontology_target'),
+                entity_label=merge_snapshot['entity_label'],
+                entity_type=merge_snapshot.get('entity_type'),
+                entity_definition=merge_snapshot.get('entity_definition'),
+                entity_uri=merge_snapshot.get('entity_uri'),
+                rdf_json_ld=merge_snapshot['rdf_json_ld'],
+                extraction_model=merge_snapshot.get('extraction_model'),
+                provenance_metadata=merge_snapshot.get('provenance_metadata', {}),
+                matched_ontology_uri=merge_snapshot.get('matched_ontology_uri'),
+                matched_ontology_label=merge_snapshot.get('matched_ontology_label'),
+                match_confidence=merge_snapshot.get('match_confidence'),
+                match_method=merge_snapshot.get('match_method'),
+                match_reasoning=merge_snapshot.get('match_reasoning'),
+                is_selected=merge_snapshot.get('is_selected', True),
+                is_published=False,
+            )
+            db.session.add(restored)
+            db.session.commit()
+
+            logger.info(
+                f"Unmerged: restored '{merge_snapshot['entity_label']}' "
+                f"and reverted '{keep_entity.entity_label}' (id={keep_id})"
+            )
+            return True
+
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Unmerge failed: {e}", exc_info=True)
+            return False
+
+    def _snapshot_entity(self, entity: TemporaryRDFStorage) -> Dict[str, Any]:
+        """Capture a full snapshot of an entity for undo support."""
+        return {
+            'id': entity.id,
+            'case_id': entity.case_id,
+            'extraction_session_id': entity.extraction_session_id,
+            'extraction_type': entity.extraction_type,
+            'storage_type': entity.storage_type,
+            'ontology_target': entity.ontology_target,
+            'entity_label': entity.entity_label,
+            'entity_type': entity.entity_type,
+            'entity_definition': entity.entity_definition,
+            'entity_uri': entity.entity_uri,
+            'rdf_json_ld': json.loads(json.dumps(entity.rdf_json_ld or {})),
+            'extraction_model': entity.extraction_model,
+            'provenance_metadata': json.loads(json.dumps(entity.provenance_metadata or {})),
+            'matched_ontology_uri': entity.matched_ontology_uri,
+            'matched_ontology_label': entity.matched_ontology_label,
+            'match_confidence': float(entity.match_confidence) if entity.match_confidence else None,
+            'match_method': entity.match_method,
+            'match_reasoning': entity.match_reasoning,
+            'is_selected': entity.is_selected,
+            'property_count': entity.property_count or 0,
+            'relationship_count': entity.relationship_count or 0,
+        }
 
     # -- Phase 1: Grouping --
 
@@ -200,13 +296,13 @@ class EntityReconciliationService:
             keep = group[0]
             for merge_entity in group[1:]:
                 try:
-                    success = self.merge_entities(keep.id, merge_entity.id)
-                    if success:
+                    merge_result = self.merge_entities(keep.id, merge_entity.id)
+                    if merge_result.get('success'):
                         merged_count += 1
                     else:
                         result.errors.append(
                             f"Failed to auto-merge '{merge_entity.entity_label}' "
-                            f"into '{keep.entity_label}'"
+                            f"into '{keep.entity_label}': {merge_result.get('error', '')}"
                         )
                 except Exception as e:
                     result.errors.append(str(e))
@@ -214,10 +310,13 @@ class EntityReconciliationService:
 
         return merged_count
 
-    # -- Phase 3: LLM semantic evaluation --
+    # -- Phase 3: LLM pair-based evaluation --
 
-    def _group_has_near_matches(self, entities: List[TemporaryRDFStorage]) -> bool:
-        """Check if any pair in the group has label similarity >= threshold."""
+    def _find_candidate_pairs(
+        self, entities: List[TemporaryRDFStorage]
+    ) -> List[Tuple[TemporaryRDFStorage, TemporaryRDFStorage, float]]:
+        """Find all pairs in a group with label similarity >= threshold."""
+        pairs = []
         n = len(entities)
         for i in range(n):
             for j in range(i + 1, n):
@@ -226,17 +325,17 @@ class EntityReconciliationService:
                     entities[j].entity_label or ''
                 )
                 if sim >= LLM_CANDIDATE_THRESHOLD:
-                    return True
-        return False
+                    pairs.append((entities[i], entities[j], sim))
+        return pairs
 
-    def _llm_batch_dedup(
+    def _llm_evaluate_pairs(
         self,
         group_key: Tuple[str, str],
-        entities: List[TemporaryRDFStorage]
+        pairs: List[Tuple[TemporaryRDFStorage, TemporaryRDFStorage, float]]
     ) -> List[ReconciliationCandidate]:
-        """Send a group of entities to Haiku for batch duplicate detection."""
+        """Send candidate pairs to Haiku for explicit merge/keep_separate verdicts."""
         extraction_type, storage_type = group_key
-        prompt = self._build_dedup_prompt(extraction_type, storage_type, entities)
+        prompt = self._build_pair_eval_prompt(extraction_type, storage_type, pairs)
 
         try:
             response_json = self._call_llm(prompt)
@@ -246,95 +345,144 @@ class EntityReconciliationService:
 
         # Parse LLM response into ReconciliationCandidate objects
         candidates = []
-        entity_map = {e.id: e for e in entities}
-        duplicate_groups = response_json.get('duplicate_groups', [])
+        entity_map = {}
+        for a, b, _ in pairs:
+            entity_map[a.id] = a
+            entity_map[b.id] = b
 
-        for dup_group in duplicate_groups:
-            ids = dup_group.get('ids', [])
-            reason = dup_group.get('reason', '')
+        evaluations = response_json.get('evaluations', [])
 
-            if len(ids) < 2:
+        for ev in evaluations:
+            pair_ids = ev.get('pair', [])
+            verdict = ev.get('verdict', 'keep_separate')
+            reason = ev.get('reason', '')
+
+            if len(pair_ids) != 2:
                 continue
 
-            # Validate all IDs exist in our entity map
-            valid_ids = [eid for eid in ids if eid in entity_map]
-            if len(valid_ids) < 2:
+            a_id, b_id = pair_ids
+            if a_id not in entity_map or b_id not in entity_map:
                 logger.warning(
-                    f"LLM returned invalid entity IDs: {ids} "
-                    f"(valid: {valid_ids})"
+                    f"LLM returned invalid pair IDs: {pair_ids}"
                 )
                 continue
 
-            # Create pairwise candidates from the group
-            # First entity is the keep candidate, paired with each subsequent
-            for k in range(1, len(valid_ids)):
-                a = entity_map[valid_ids[0]]
-                b = entity_map[valid_ids[k]]
+            a = entity_map[a_id]
+            b = entity_map[b_id]
+
+            # Map verdict to recommendation
+            if verdict == 'merge':
+                recommendation = 'merge'
+            else:
+                recommendation = 'keep_separate'
+
+            candidates.append(ReconciliationCandidate(
+                entity_a_id=a.id,
+                entity_b_id=b.id,
+                entity_a_label=a.entity_label or '',
+                entity_b_label=b.entity_label or '',
+                similarity=self._compute_similarity(
+                    a.entity_label or '', b.entity_label or ''
+                ),
+                same_concept_type=True,
+                recommendation=recommendation,
+                llm_reason=reason,
+                entity_a_context=self._get_entity_context(a),
+                entity_b_context=self._get_entity_context(b),
+            ))
+
+        # If LLM missed any pairs, add them with no recommendation
+        evaluated_pairs = {
+            (ev.get('pair', [None, None])[0], ev.get('pair', [None, None])[1])
+            for ev in evaluations if len(ev.get('pair', [])) == 2
+        }
+        for a, b, sim in pairs:
+            if (a.id, b.id) not in evaluated_pairs and (b.id, a.id) not in evaluated_pairs:
                 candidates.append(ReconciliationCandidate(
                     entity_a_id=a.id,
                     entity_b_id=b.id,
                     entity_a_label=a.entity_label or '',
                     entity_b_label=b.entity_label or '',
-                    similarity=1.0,  # LLM-confirmed match
+                    similarity=sim,
                     same_concept_type=True,
                     recommendation='review',
-                    llm_reason=reason,
+                    llm_reason='(LLM did not evaluate this pair)',
                     entity_a_context=self._get_entity_context(a),
                     entity_b_context=self._get_entity_context(b),
                 ))
 
         return candidates
 
-    def _build_dedup_prompt(
+    def _build_pair_eval_prompt(
         self,
         extraction_type: str,
         storage_type: str,
-        entities: List[TemporaryRDFStorage]
+        pairs: List[Tuple[TemporaryRDFStorage, TemporaryRDFStorage, float]]
     ) -> str:
-        """Build the LLM prompt for batch duplicate detection."""
-        entity_lines = []
-        for i, e in enumerate(entities, 1):
-            rdf = e.rdf_json_ld or {}
-            definition = (
-                e.entity_definition
-                or rdf.get('definition', '')
-                or ''
-            )[:300]
-            section = rdf.get('source_section', rdf.get('section_type', ''))
-            line = f'{i}. [ID: {e.id}] "{e.entity_label or ""}"'
-            if definition:
-                line += f'\n   Definition: "{definition}"'
-            if section:
-                line += f' (source: {section})'
-            entity_lines.append(line)
-
-        entity_list = '\n'.join(entity_lines)
+        """Build LLM prompt for per-pair duplicate evaluation."""
         type_label = extraction_type.replace('_', ' ').title()
         storage_label = storage_type
 
-        return f"""You are checking for EXACT DUPLICATES among entities extracted from a professional ethics case.
+        # Concept category definitions
+        concept_defs = {
+            'Roles': 'Professional roles and role-bearers (e.g., "Engineer A", "Structural Design Engineer"). Different roles of the same person are DISTINCT.',
+            'States': 'States of affairs or conditions (e.g., "Competence Failure", "Design Deficiency"). Different states are DISTINCT even if related.',
+            'Resources': 'Resources, standards, or references (e.g., "BER Case 85-3", "Building Code Section 4.2"). Different references are DISTINCT.',
+            'Principles': 'Ethical principles or values (e.g., "Public Safety", "Professional Integrity"). Different principles are DISTINCT.',
+            'Obligations': 'Professional duties or requirements (e.g., "Competence Maintenance Obligation", "Safety Reporting Obligation"). Different obligations are DISTINCT.',
+            'Capabilities': 'Professional competencies or capacities (e.g., "Structural Analysis Capability", "Code Compliance Capability"). Different capabilities are DISTINCT.',
+            'Constraints': 'Limitations or restrictions (e.g., "Budget Constraint", "Time Constraint"). Different constraints are DISTINCT.',
+            'Actions': 'Actions performed by agents. Different actions are DISTINCT.',
+            'Events': 'Events in the case timeline. Different events are DISTINCT.',
+        }
+        concept_context = concept_defs.get(type_label, '')
+        concept_line = f'\nCategory: {concept_context}\n' if concept_context else ''
 
-The only valid duplicates are entities where the SAME specific concept was extracted twice from different document sections (Facts vs Discussion). These will have nearly identical labels or clearly refer to the identical specific thing.
+        # Build pair descriptions
+        pair_lines = []
+        for idx, (a, b, sim) in enumerate(pairs, 1):
+            rdf_a = a.rdf_json_ld or {}
+            rdf_b = b.rdf_json_ld or {}
+            def_a = (a.entity_definition or rdf_a.get('definition', '') or '')[:250]
+            def_b = (b.entity_definition or rdf_b.get('definition', '') or '')[:250]
+            sec_a = rdf_a.get('source_section', rdf_a.get('section_type', ''))
+            sec_b = rdf_b.get('source_section', rdf_b.get('section_type', ''))
 
-Entity type: {type_label} ({storage_label})
+            line = f'Pair {idx}: [ID: {a.id}] "{a.entity_label or ""}"'
+            if sec_a:
+                line += f' (source: {sec_a})'
+            line += f'\n     vs [ID: {b.id}] "{b.entity_label or ""}"'
+            if sec_b:
+                line += f' (source: {sec_b})'
+            if def_a:
+                line += f'\n  A: "{def_a}"'
+            if def_b:
+                line += f'\n  B: "{def_b}"'
+            pair_lines.append(line)
 
-Entities:
-{entity_list}
+        pairs_text = '\n\n'.join(pair_lines)
 
-STRICT RULES -- most entities are NOT duplicates:
-- DUPLICATE: Same label or trivially rephrased label referring to the exact same specific concept
-- NOT duplicate: Different roles of the same person (e.g., "Engineer A Design Role" vs "Engineer A Safety Role")
-- NOT duplicate: Different BER case references (e.g., "BER 85-3 ..." vs "BER 98-8 ...")
-- NOT duplicate: Related but distinct concepts (e.g., "Safety Obligation" vs "Competence Obligation")
-- NOT duplicate: Different aspects, perspectives, or facets of a broader topic
-- NOT duplicate: General vs specific versions of a concept (e.g., "Safety Constraint" vs "Structural Safety Constraint")
-- When in doubt, they are NOT duplicates
+        return f"""Evaluate each candidate pair for potential duplication among entities extracted from a professional ethics case.
 
-Return ONLY valid JSON (no other text):
-{{"duplicate_groups": [{{"ids": [id1, id2], "reason": "brief explanation"}}]}}
+Entity type: {type_label} ({storage_label}){concept_line}
 
-If no duplicates exist (the most common result), return:
-{{"duplicate_groups": []}}"""
+For each pair, determine:
+- "merge" if both refer to the SAME specific concept extracted from different document sections (Facts vs Discussion)
+- "keep_separate" if they are DISTINCT concepts that should remain as separate entities
+
+{pairs_text}
+
+STRICT RULES -- most pairs should be "keep_separate":
+- merge: Same label or trivially rephrased label referring to the exact same specific concept
+- keep_separate: Different roles of the same person (e.g., "Engineer A Design Role" vs "Engineer A Safety Role")
+- keep_separate: Different BER case references (e.g., "BER 85-3 ..." vs "BER 98-8 ...")
+- keep_separate: Related but distinct concepts (e.g., "Safety Obligation" vs "Competence Obligation")
+- keep_separate: Different aspects or facets of a broader topic
+- keep_separate: General vs specific versions (e.g., "Safety Constraint" vs "Structural Safety Constraint")
+- When in doubt, use "keep_separate"
+
+Return ONLY valid JSON:
+{{"evaluations": [{{"pair": [id_a, id_b], "verdict": "merge"|"keep_separate", "reason": "brief explanation"}}]}}"""
 
     def _call_llm(self, prompt: str) -> Dict[str, Any]:
         """Call Haiku for dedup evaluation."""
@@ -360,7 +508,7 @@ If no duplicates exist (the most common result), return:
 
         response = client.messages.create(
             model=model,
-            max_tokens=2048,
+            max_tokens=4096,
             temperature=0,
             messages=[{"role": "user", "content": prompt}]
         )
