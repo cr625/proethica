@@ -193,6 +193,22 @@
     margin-bottom: 1rem;
 }
 
+/* Synthesis trace section (Phase 3) */
+.synthesis-trace-section {
+    background: #f0f4f8;
+    border: 1px solid #d1d9e6;
+    border-radius: 0.375rem;
+    padding: 0.75rem 1rem;
+}
+.synthesis-trace-section h6 {
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+}
+.synthesis-trace-section .card {
+    border-color: #d1d9e6;
+    font-size: 0.8rem;
+}
+
 .prompt-section .section-header,
 .response-section .section-header {
     padding: 0.5rem 1rem;
@@ -676,6 +692,8 @@ function createPhaseCard(step, phase) {
                         <pre class="response-text">${escapeHtml(prompt.response || 'No response available')}</pre>
                     </div>
                 </div>
+                ${phase.algorithmic_trace ? renderAlgorithmicTrace(phase.algorithmic_trace) : ''}
+                ${phase.synthesis_trace ? renderSynthesisTrace(phase.synthesis_trace) : ''}
                 ${entityHtml ? `
                 <div class="entities-section">
                     <h6><i class="bi bi-collection me-2"></i>Generated Items (${phase.entity_count})</h6>
@@ -689,6 +707,311 @@ function createPhaseCard(step, phase) {
             </div>
         </div>`;
     return div;
+}
+
+function renderSynthesisTrace(trace) {
+    let html = '<div class="synthesis-trace-section mt-3 mb-2">';
+    html += '<h6><i class="bi bi-gear me-2"></i>Algorithmic Synthesis Pipeline</h6>';
+    html += '<div class="row g-2 small">';
+
+    // Timing
+    if (trace.synthesis_started && trace.synthesis_completed) {
+        const start = new Date(trace.synthesis_started);
+        const end = new Date(trace.synthesis_completed);
+        const durationSec = ((end - start) / 1000).toFixed(1);
+        html += `<div class="col-12 mb-1">
+            <span class="text-muted"><i class="bi bi-stopwatch me-1"></i>Duration: ${durationSec}s
+            (${start.toLocaleTimeString()} - ${end.toLocaleTimeString()})</span>
+        </div>`;
+    }
+
+    // Algorithmic Composition (E1-E3)
+    if (trace.algorithmic_composition) {
+        const ac = trace.algorithmic_composition;
+        html += `<div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body py-2 px-3">
+                    <div class="fw-bold mb-1"><i class="bi bi-gear me-1"></i>E1-E3 Composition</div>
+                    <div>Method: ${escapeHtml(ac.method || 'E1-E3')}</div>
+                    <div>Candidates: <span class="badge bg-primary">${ac.candidates_count || 0}</span></div>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    // Q&C Alignment
+    if (trace.qc_alignment) {
+        const qc = trace.qc_alignment;
+        let scoresHtml = '';
+        if (qc.top_scores && qc.top_scores.length > 0) {
+            scoresHtml = qc.top_scores.map(s =>
+                `<span class="badge bg-${s.score > 0.5 ? 'success' : 'secondary'} me-1">${escapeHtml(s.candidate_id)}: ${(s.score * 100).toFixed(0)}%</span>`
+            ).join('');
+        }
+        html += `<div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body py-2 px-3">
+                    <div class="fw-bold mb-1"><i class="bi bi-check2-square me-1"></i>Q&C Alignment</div>
+                    <div>High alignment (&gt;50%): <span class="badge bg-info">${qc.high_alignment_count || 0}</span></div>
+                    ${scoresHtml ? `<div class="mt-1">${scoresHtml}</div>` : ''}
+                </div>
+            </div>
+        </div>`;
+    }
+
+    // LLM Refinement
+    if (trace.llm_refinement) {
+        const llm = trace.llm_refinement;
+        html += `<div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body py-2 px-3">
+                    <div class="fw-bold mb-1"><i class="bi bi-robot me-1"></i>LLM Refinement</div>
+                    <div>Model: ${escapeHtml(llm.model || 'Unknown')}</div>
+                    <div>Prompt: ${(llm.prompt_length || 0).toLocaleString()} chars</div>
+                    <div>Response: ${(llm.response_length || 0).toLocaleString()} chars</div>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    html += '</div>';  // close .row
+
+    // Entity Resolution (MCP) -- collapsible since it can be long
+    if (trace.entity_resolution) {
+        const er = trace.entity_resolution;
+        const resolvedList = (er.entities_resolved || []);
+        html += `<div class="mt-2">
+            <div class="fw-bold small mb-1"><i class="bi bi-link-45deg me-1"></i>Entity Resolution (OntServe MCP)</div>
+            <div class="d-flex gap-2 mb-1">
+                <span class="badge bg-success">${er.mcp_resolved_count || 0} MCP</span>
+                <span class="badge bg-warning text-dark">${er.local_resolved_count || 0} local</span>
+                <span class="badge bg-secondary">${er.entities_not_found || 0} not found</span>
+            </div>`;
+        if (resolvedList.length > 0) {
+            const traceId = 'synth-trace-entities-' + Date.now();
+            html += `<details class="small">
+                <summary class="text-muted" style="cursor: pointer;">${resolvedList.length} entities resolved</summary>
+                <div class="mt-1" style="max-height: 200px; overflow-y: auto;">`;
+            resolvedList.forEach(e => {
+                const icon = e.found ? 'check-circle text-success' : 'x-circle text-danger';
+                const srcClass = e.source === 'mcp' ? 'bg-success' : e.source === 'local' ? 'bg-warning text-dark' : 'bg-secondary';
+                html += `<div class="d-flex align-items-center gap-1 mb-1">
+                    <i class="bi bi-${icon}" style="font-size: 0.75rem;"></i>
+                    <span class="badge ${srcClass}" style="font-size: 0.6rem;">${escapeHtml(e.source || '?')}</span>
+                    <span>${escapeHtml(e.label || '')}</span>
+                    <span class="text-muted">(${escapeHtml(e.entity_type || '')})</span>
+                </div>`;
+            });
+            html += '</div></details>';
+        }
+        html += '</div>';
+    }
+
+    // Pipeline funnel (from results_summary)
+    if (trace.pipeline_summary) {
+        const ps = trace.pipeline_summary;
+        html += `<div class="mt-2">
+            <div class="fw-bold small mb-1"><i class="bi bi-funnel me-1"></i>Pipeline Funnel</div>
+            <div class="d-flex align-items-center gap-1 small flex-wrap">
+                <span class="badge bg-secondary">${ps.e1_obligations || 0} obligations</span>
+                <i class="bi bi-arrow-right text-muted" style="font-size: 0.7rem;"></i>
+                <span class="badge bg-secondary">${ps.e1_decision_relevant || 0} decision-relevant</span>
+                <i class="bi bi-arrow-right text-muted" style="font-size: 0.7rem;"></i>
+                <span class="badge bg-secondary">${ps.e2_action_sets || 0} action sets</span>
+                <i class="bi bi-arrow-right text-muted" style="font-size: 0.7rem;"></i>
+                <span class="badge bg-info">${ps.e3_candidates || 0} E3 candidates</span>
+                <i class="bi bi-arrow-right text-muted" style="font-size: 0.7rem;"></i>
+                <span class="badge bg-success">${ps.high_alignment_count || 0} high-align</span>
+                <i class="bi bi-arrow-right text-muted" style="font-size: 0.7rem;"></i>
+                <span class="badge bg-primary">${ps.canonical_count || 0} canonical</span>
+            </div>
+        </div>`;
+    }
+
+    // Output
+    if (trace.output && !trace.pipeline_summary) {
+        html += `<div class="mt-2 small text-muted">
+            <i class="bi bi-box-arrow-right me-1"></i>Output: <span class="badge bg-primary">${trace.output.canonical_points_produced || 0}</span> decision points
+        </div>`;
+    }
+
+    // Argument validation summary
+    if (trace.argument_validation) {
+        const av = trace.argument_validation;
+        const total = av.validations_run || 0;
+        html += `<div class="mt-2">
+            <div class="fw-bold small mb-1"><i class="bi bi-shield-check me-1"></i>Argument Validation (3-Tier)</div>
+            <div class="d-flex gap-3 small">
+                <div>
+                    <span class="text-muted">Generated:</span>
+                    <span class="badge bg-primary">${av.arguments_generated || 0}</span>
+                </div>
+                <div>
+                    <span class="text-muted">Valid:</span>
+                    <span class="badge bg-${av.valid_count === total ? 'success' : 'warning text-dark'}">${av.valid_count || 0}/${total}</span>
+                </div>
+                <div>
+                    <span class="text-muted">Avg score:</span>
+                    <span class="badge bg-secondary">${((av.avg_score || 0) * 100).toFixed(0)}%</span>
+                </div>
+            </div>
+            <div class="d-flex gap-2 small mt-1">
+                <span class="text-muted">Entity refs:</span>
+                <span class="badge bg-${av.entity_valid === total ? 'success' : 'secondary'}">${av.entity_valid || 0}/${total}</span>
+                <span class="text-muted">Founding value:</span>
+                <span class="badge bg-${av.founding_compliant === total ? 'success' : 'secondary'}">${av.founding_compliant || 0}/${total}</span>
+                <span class="text-muted">Virtue:</span>
+                <span class="badge bg-${av.virtue_valid === total ? 'success' : 'secondary'}">${av.virtue_valid || 0}/${total}</span>
+            </div>
+        </div>`;
+    }
+
+    html += '</div>';
+    return html;
+}
+
+function renderAlgorithmicTrace(trace) {
+    if (!trace || !trace.type) return '';
+
+    let html = '<div class="synthesis-trace-section mt-3 mb-2">';
+
+    switch (trace.type) {
+
+    case 'precedent_resolution':
+        html += '<h6><i class="bi bi-journal-bookmark me-2"></i>Case Resolution</h6>';
+        html += '<div class="small">';
+        html += `<div class="mb-1">
+            <span class="badge bg-primary">${trace.total}</span> precedents extracted,
+            <span class="badge bg-success">${trace.resolved}</span> resolved to internal documents`;
+        if (trace.unresolved > 0) {
+            html += `, <span class="badge bg-warning text-dark">${trace.unresolved}</span> unresolved`;
+        }
+        html += '</div>';
+        if (trace.cases && trace.cases.length > 0) {
+            trace.cases.forEach(c => {
+                const icon = c.resolved ? 'check-circle-fill text-success' : 'question-circle text-warning';
+                const typeLabel = c.citation_type || 'cited';
+                html += `<div class="d-flex align-items-center gap-2 mb-1">
+                    <i class="bi bi-${icon}" style="font-size: 0.8rem;"></i>
+                    <strong>${escapeHtml(c.label)}</strong>
+                    <span class="badge bg-secondary" style="font-size: 0.65rem;">${escapeHtml(typeLabel)}</span>
+                    ${c.resolved && c.internal_id ? `<span class="text-muted">doc #${c.internal_id}</span>` : ''}
+                </div>`;
+            });
+        }
+        html += '</div>';
+        break;
+
+    case 'question_classification':
+        html += '<h6><i class="bi bi-tag me-2"></i>Question Classification</h6>';
+        html += `<div class="d-flex gap-3 small">
+            <div><span class="text-muted">Total:</span> <span class="badge bg-primary">${trace.total}</span></div>
+            <div><span class="text-muted">Board-explicit:</span> <span class="badge bg-success">${trace.board_explicit}</span></div>
+            <div><span class="text-muted">Analytical:</span> <span class="badge bg-info">${trace.analytical}</span></div>
+        </div>`;
+        html += `<div class="text-muted small mt-1">Board-explicit questions are stated directly in the case text; analytical questions are inferred from the ethical tensions.</div>`;
+        break;
+
+    case 'conclusion_classification':
+        html += '<h6><i class="bi bi-tag me-2"></i>Conclusion Classification</h6>';
+        html += `<div class="d-flex gap-3 small">
+            <div><span class="text-muted">Total:</span> <span class="badge bg-primary">${trace.total}</span></div>
+            <div><span class="text-muted">Board-explicit:</span> <span class="badge bg-success">${trace.board_explicit}</span></div>
+            <div><span class="text-muted">Analytical:</span> <span class="badge bg-info">${trace.analytical}</span></div>
+            ${trace.qc_links ? `<div><span class="text-muted">Q-C links:</span> <span class="badge bg-warning text-dark">${trace.qc_links}</span></div>` : ''}
+        </div>`;
+        if (trace.qc_links) {
+            html += `<div class="text-muted small mt-1">Q-C links connect each conclusion to the question(s) it addresses.</div>`;
+        }
+        break;
+
+    case 'transformation_classification':
+        html += '<h6><i class="bi bi-shuffle me-2"></i>Transformation Classification</h6>';
+        if (trace.transformation_type) {
+            const typeLabels = {
+                'transfer': 'Transfer -- resolution transfers obligation to another party',
+                'stalemate': 'Stalemate -- competing obligations remain in tension',
+                'oscillation': 'Oscillation -- duties shift between parties over time',
+                'phase_lag': 'Phase Lag -- delayed consequences reveal hidden obligations'
+            };
+            html += `<div class="small">
+                <span class="badge bg-purple" style="background: #6f42c1; font-size: 0.85em;">${escapeHtml(trace.transformation_type)}</span>`;
+            if (trace.confidence) {
+                html += ` <span class="badge bg-secondary" style="font-size: 0.75em;">${(trace.confidence * 100).toFixed(0)}% confidence</span>`;
+            }
+            html += `<div class="text-muted mt-1">${typeLabels[trace.transformation_type] || ''}</div>`;
+            html += '</div>';
+        }
+        break;
+
+    case 'rich_analysis':
+        html += '<h6><i class="bi bi-diagram-3 me-2"></i>Cross-Entity Analysis</h6>';
+        html += '<div class="row g-2 small">';
+        html += `<div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body py-2 px-3">
+                    <div class="fw-bold mb-1"><i class="bi bi-arrow-left-right me-1"></i>Causal-Normative Links</div>
+                    <div><span class="badge bg-primary">${trace.causal_links}</span> action-obligation mappings</div>
+                    <div class="text-muted mt-1">Maps each Action to Obligations it fulfills or violates</div>
+                </div>
+            </div>
+        </div>`;
+        html += `<div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body py-2 px-3">
+                    <div class="fw-bold mb-1"><i class="bi bi-question-diamond me-1"></i>Question Emergence</div>
+                    <div><span class="badge bg-primary">${trace.question_emergence}</span> Toulmin decompositions</div>
+                    <div class="text-muted mt-1">DATA, WARRANTS, REBUTTALS for each ethical question</div>
+                </div>
+            </div>
+        </div>`;
+        html += `<div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body py-2 px-3">
+                    <div class="fw-bold mb-1"><i class="bi bi-signpost me-1"></i>Resolution Patterns</div>
+                    <div><span class="badge bg-primary">${trace.resolution_patterns}</span> resolution analyses</div>
+                    <div class="text-muted mt-1">How the board weighed and resolved each conclusion</div>
+                </div>
+            </div>
+        </div>`;
+        html += '</div>';
+        break;
+
+    case 'narrative_structure':
+        html += '<h6><i class="bi bi-book me-2"></i>Narrative Structure</h6>';
+        html += '<div class="row g-2 small">';
+        const items = [
+            {label: 'Characters', count: trace.characters, icon: 'bi-people'},
+            {label: 'Events', count: trace.events, icon: 'bi-calendar-event'},
+            {label: 'Conflicts', count: trace.conflicts, icon: 'bi-lightning'},
+            {label: 'Decision Moments', count: trace.decision_moments, icon: 'bi-signpost-split'},
+        ];
+        items.forEach(item => {
+            html += `<div class="col-md-3 col-6">
+                <div class="card h-100">
+                    <div class="card-body py-2 px-3 text-center">
+                        <div class="fw-bold" style="font-size: 1.25rem;">${item.count}</div>
+                        <div class="text-muted"><i class="bi ${item.icon} me-1"></i>${item.label}</div>
+                    </div>
+                </div>
+            </div>`;
+        });
+        html += '</div>';
+        const features = [];
+        if (trace.has_setting) features.push('Setting');
+        if (trace.has_resolution) features.push('Resolution');
+        if (trace.timeline_events > 0) features.push(`${trace.timeline_events} timeline events`);
+        if (features.length > 0) {
+            html += `<div class="mt-1 small text-muted">${features.join(' | ')}</div>`;
+        }
+        break;
+
+    default:
+        return '';
+    }
+
+    html += '</div>';
+    return html;
 }
 
 // ---- Filtering ----

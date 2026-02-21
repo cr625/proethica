@@ -52,7 +52,7 @@ from app.routes.scenario_pipeline.step4_run_all import register_run_all_routes
 
 from app.routes.scenario_pipeline.step4_config import (  # noqa: F401
     STEP4_SECTION_TYPE, STEP4_DEFAULT_MODEL, STEP4_POWERFUL_MODEL,
-    reset_step4_case_features,
+    STEP4_EXTRACTION_TYPES, reset_step4_case_features,
 )
 
 logger = logging.getLogger(__name__)
@@ -195,7 +195,9 @@ def step4_entities(case_id):
         synthesis_status = get_synthesis_status(case_id)
         pipeline_status = PipelineStatusService.get_step_status(case_id)
 
-        # Commit counts
+        # Commit counts -- all entities for this case (Steps 1-4).
+        # The commit action publishes everything, and users may defer
+        # committing until the end of the pipeline.
         unpublished_count = TemporaryRDFStorage.query.filter_by(
             case_id=case_id, is_published=False
         ).count()
@@ -1413,7 +1415,7 @@ def step4_review(case_id):
             'conclusions': conclusions_objs,
             'conclusions_json': conclusions,
             'all_entities': all_entities,
-            'entity_count': len(all_entities),
+            'entity_count': TemporaryRDFStorage.query.filter_by(case_id=case_id).count(),
             'provision_count': len(provisions),
             'precedents': precedents_objs,
             'precedents_json': precedents_list,
@@ -1675,106 +1677,38 @@ def generate_synthesis_annotations(case_id):
 # ============================================================================
 
 def get_entities_summary(case_id: int) -> Dict:
-    """
-    Get summary of all extracted entities from Passes 1-3.
+    """Get summary of all extracted entities from Steps 1-3.
 
-    Returns:
-        Dict with entity counts by type (includes both committed and uncommitted)
+    Counts by extraction_type (classes + individuals) so totals match
+    the commit counts on the entities page.
     """
-    from sqlalchemy import func
-
-    # Use case-insensitive queries with func.lower()
-    # Count ALL entities regardless of commit status for synthesis display
     summary = {}
 
-    # Pass 1 - Count all entities (committed or not)
-    summary['roles'] = TemporaryRDFStorage.query.filter(
-        TemporaryRDFStorage.case_id == case_id,
-        func.lower(TemporaryRDFStorage.entity_type) == 'roles',
-        TemporaryRDFStorage.storage_type == 'individual'
-    ).count()
+    # Steps 1-2 concepts: count all entities per extraction_type
+    for concept in ['roles', 'states', 'resources', 'principles',
+                    'obligations', 'constraints', 'capabilities']:
+        summary[concept] = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id, extraction_type=concept
+        ).count()
 
-    summary['states'] = TemporaryRDFStorage.query.filter(
-        TemporaryRDFStorage.case_id == case_id,
-        func.lower(TemporaryRDFStorage.entity_type) == 'states',
-        TemporaryRDFStorage.storage_type == 'individual'
+    # Step 3: temporal_dynamics_enhanced covers all sub-types
+    # (actions, events, allen_relations, causal_chains, timeline)
+    summary['temporal_dynamics'] = TemporaryRDFStorage.query.filter_by(
+        case_id=case_id, extraction_type='temporal_dynamics_enhanced'
     ).count()
-
-    summary['resources'] = TemporaryRDFStorage.query.filter(
-        TemporaryRDFStorage.case_id == case_id,
-        func.lower(TemporaryRDFStorage.entity_type) == 'resources',
-        TemporaryRDFStorage.storage_type == 'individual'
-    ).count()
-
-    # Pass 2 - Count all entities (committed or not)
-    summary['principles'] = TemporaryRDFStorage.query.filter(
-        TemporaryRDFStorage.case_id == case_id,
-        func.lower(TemporaryRDFStorage.entity_type) == 'principles',
-        TemporaryRDFStorage.storage_type == 'individual'
-    ).count()
-
-    summary['obligations'] = TemporaryRDFStorage.query.filter(
-        TemporaryRDFStorage.case_id == case_id,
-        func.lower(TemporaryRDFStorage.entity_type) == 'obligations',
-        TemporaryRDFStorage.storage_type == 'individual'
-    ).count()
-
-    summary['constraints'] = TemporaryRDFStorage.query.filter(
-        TemporaryRDFStorage.case_id == case_id,
-        func.lower(TemporaryRDFStorage.entity_type) == 'constraints',
-        TemporaryRDFStorage.storage_type == 'individual'
-    ).count()
-
-    summary['capabilities'] = TemporaryRDFStorage.query.filter(
-        TemporaryRDFStorage.case_id == case_id,
-        func.lower(TemporaryRDFStorage.entity_type) == 'capabilities',
-        TemporaryRDFStorage.storage_type == 'individual'
-    ).count()
-
-    # Pass 3 - Handle combined Actions_events or separate actions/events
-    actions_events_count = TemporaryRDFStorage.query.filter(
-        TemporaryRDFStorage.case_id == case_id,
-        func.lower(TemporaryRDFStorage.entity_type) == 'actions_events',
-        TemporaryRDFStorage.storage_type == 'individual'
-    ).count()
-
-    actions_only = TemporaryRDFStorage.query.filter(
-        TemporaryRDFStorage.case_id == case_id,
-        func.lower(TemporaryRDFStorage.entity_type) == 'actions',
-        TemporaryRDFStorage.storage_type == 'individual'
-    ).count()
-
-    events_only = TemporaryRDFStorage.query.filter(
-        TemporaryRDFStorage.case_id == case_id,
-        func.lower(TemporaryRDFStorage.entity_type) == 'events',
-        TemporaryRDFStorage.storage_type == 'individual'
-    ).count()
-
-    # If combined, split evenly for display (or query individually)
-    if actions_events_count > 0 and actions_only == 0 and events_only == 0:
-        summary['actions'] = actions_events_count  # Show all as actions
-        summary['events'] = 0  # Combined format
-    else:
-        summary['actions'] = actions_only
-        summary['events'] = events_only
 
     # Calculate totals
-    summary['pass1_total'] = sum([
-        summary['roles'],
-        summary['states'],
-        summary['resources']
-    ])
-    summary['pass2_total'] = sum([
-        summary['principles'],
-        summary['obligations'],
-        summary['constraints'],
-        summary['capabilities']
-    ])
-    summary['pass3_total'] = sum([
-        summary['actions'],
-        summary['events']
-    ])
-    summary['total'] = summary['pass1_total'] + summary['pass2_total'] + summary['pass3_total']
+    summary['pass1_total'] = (
+        summary['roles'] + summary['states'] + summary['resources']
+    )
+    summary['pass2_total'] = (
+        summary['principles'] + summary['obligations']
+        + summary['constraints'] + summary['capabilities']
+    )
+    summary['pass3_total'] = summary['temporal_dynamics']
+    summary['total'] = (
+        summary['pass1_total'] + summary['pass2_total'] + summary['pass3_total']
+    )
 
     return summary
 
@@ -1815,9 +1749,31 @@ def get_synthesis_status(case_id: int) -> Dict:
     # Get transformation type from case_precedent_features
     from app.models import CasePrecedentFeatures
     transformation_type = None
+    transformation_detail = {}
     features = CasePrecedentFeatures.query.filter_by(case_id=case_id).first()
     if features and features.transformation_type:
         transformation_type = features.transformation_type
+        # Pull richer detail from the extraction prompt response
+        trans_prompt = ExtractionPrompt.query.filter_by(
+            case_id=case_id, concept_type='transformation_classification'
+        ).order_by(ExtractionPrompt.created_at.desc()).first()
+        if trans_prompt and trans_prompt.raw_response:
+            try:
+                import json as _json
+                raw = trans_prompt.raw_response.strip()
+                # Strip markdown code fence if present
+                if raw.startswith('```'):
+                    raw = raw.split('\n', 1)[1] if '\n' in raw else raw[3:]
+                    if raw.endswith('```'):
+                        raw = raw[:-3]
+                parsed = _json.loads(raw.strip())
+                transformation_detail = {
+                    'reasoning': parsed.get('reasoning', ''),
+                    'pattern_description': parsed.get('pattern_description', ''),
+                    'confidence': parsed.get('confidence'),
+                }
+            except (ValueError, KeyError):
+                pass
 
     return {
         'completed': completed,
@@ -1825,7 +1781,8 @@ def get_synthesis_status(case_id: int) -> Dict:
         'questions_count': questions,
         'conclusions_count': conclusions,
         'precedents_count': precedents,
-        'transformation_type': transformation_type
+        'transformation_type': transformation_type,
+        'transformation_detail': transformation_detail,
     }
 
 

@@ -114,8 +114,7 @@
             <div class="col-md-4">
                 <h6 class="text-muted">Pass 3: Temporal Dynamics</h6>
                 <ul class="list-unstyled">
-                    <li><span class="badge bg-dark me-1">{{ entities_summary.actions }}</span> Actions</li>
-                    <li><span class="badge bg-secondary me-1">{{ entities_summary.events }}</span> Events</li>
+                    <li><span class="badge bg-dark me-1">{{ entities_summary.temporal_dynamics }}</span> Temporal Dynamics</li>
                 </ul>
             </div>
         </div>
@@ -278,20 +277,38 @@
             <div class="step-card border-purple">
                 <div class="step-header bg-purple-light">
                     <div class="d-flex justify-content-between align-items-center">
-                        <h6 class="mb-0">
-                            <i class="bi bi-shuffle text-purple"></i> 2D: Transformation Classification
-                            <a href="{{ url_for('tools.references') }}#transformation" class="ms-1" title="Marchais-Roubelat & Roubelat (2015)" target="_blank"><i class="bi bi-info-circle text-muted"></i></a>
-                            <span id="transformationType" class="badge bg-purple ms-2">{{ synthesis_status.transformation_type or 'Not classified' }}</span>
-                        </h6>
-                        {% if current_user.is_authenticated %}
-                        <button class="btn btn-outline-secondary btn-sm" onclick="extractTask('transformation')" id="extractTransformationBtn">
-                            <i class="bi bi-play-fill"></i> Classify
-                        </button>
-                        {% endif %}
+                        <div>
+                            <h6 class="mb-0">
+                                <i class="bi bi-shuffle text-purple"></i> 2D: Transformation Classification
+                                <a href="{{ url_for('tools.references') }}#transformation" class="ms-1" title="Marchais-Roubelat & Roubelat (2015)" target="_blank"><i class="bi bi-info-circle text-muted"></i></a>
+                            </h6>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span id="transformationType" class="badge bg-purple" style="font-size: 0.85em;">{{ synthesis_status.transformation_type or 'Not classified' }}</span>
+                            {% if synthesis_status.transformation_detail and synthesis_status.transformation_detail.confidence %}
+                            <span class="badge bg-secondary" style="font-size: 0.75em;">{{ (synthesis_status.transformation_detail.confidence * 100)|int }}%</span>
+                            {% endif %}
+                            {% if current_user.is_authenticated %}
+                            <button class="btn btn-outline-secondary btn-sm" onclick="extractTask('transformation')" id="extractTransformationBtn">
+                                <i class="bi bi-play-fill"></i> Classify
+                            </button>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
                 <div class="step-content">
                     <div id="transformationStreamStatus" style="display: none;"></div>
+                    {% if synthesis_status.transformation_detail and synthesis_status.transformation_detail.pattern_description %}
+                    <div id="transformationDetail" class="mt-1">
+                        <p class="small mb-2">{{ synthesis_status.transformation_detail.pattern_description }}</p>
+                        {% if synthesis_status.transformation_detail.reasoning %}
+                        <details class="small">
+                            <summary class="text-muted" style="cursor: pointer;">Reasoning</summary>
+                            <p class="text-muted mt-1 mb-0">{{ synthesis_status.transformation_detail.reasoning }}</p>
+                        </details>
+                        {% endif %}
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -433,46 +450,12 @@
                         <div id="decisionPointsList" class="mb-3"></div>
                     </div>
 
-                    <!-- LLM Prompt (collapsible) -->
-                    <div class="accordion mb-3" id="phase3LLMAccordion" style="display: none;">
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse" data-bs-target="#phase3PromptCollapse">
-                                    <i class="bi bi-chat-left-text me-2"></i> Refinement Prompt
-                                </button>
-                            </h2>
-                            <div id="phase3PromptCollapse" class="accordion-collapse collapse" data-bs-parent="#phase3LLMAccordion">
-                                <div class="accordion-body p-2">
-                                    <pre id="phase3PromptContent" class="small mb-0" style="white-space: pre-wrap; max-height: 300px; overflow-y: auto; background: #f8f9fa; padding: 0.5rem; border-radius: 0.25rem;"></pre>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse" data-bs-target="#phase3ResponseCollapse">
-                                    <i class="bi bi-chat-left-text text-success me-2"></i> LLM Response
-                                </button>
-                            </h2>
-                            <div id="phase3ResponseCollapse" class="accordion-collapse collapse" data-bs-parent="#phase3LLMAccordion">
-                                <div class="accordion-body p-2">
-                                    <pre id="phase3ResponseContent" class="small mb-0" style="white-space: pre-wrap; max-height: 300px; overflow-y: auto; background: #f8f9fa; padding: 0.5rem; border-radius: 0.25rem;"></pre>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse" data-bs-target="#phase3TraceCollapse">
-                                    <i class="bi bi-diagram-3 text-info me-2"></i> Synthesis Provenance
-                                </button>
-                            </h2>
-                            <div id="phase3TraceCollapse" class="accordion-collapse collapse" data-bs-parent="#phase3LLMAccordion">
-                                <div class="accordion-body p-2">
-                                    <div id="phase3SynthesisTrace">
-                                        <p class="text-muted small mb-0">No provenance trace available</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                    <!-- Provenance link (prompt/response details viewable on provenance page) -->
+                    <div id="phase3ProvenanceLink" class="mt-2" style="display: none;">
+                        <a href="{{ url_for('provenance.case_provenance', case_id=case.id, step=4) }}"
+                           class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-diagram-3 me-1"></i> View Prompt & Provenance
+                        </a>
                     </div>
                 </div>
             </div>
@@ -862,8 +845,8 @@ function resetStep4UI() {
     // Hide Phase 3 specific elements
     const decisionResults = document.getElementById('decisionPointsResults');
     if (decisionResults) decisionResults.style.display = 'none';
-    const phase3Accordion = document.getElementById('phase3LLMAccordion');
-    if (phase3Accordion) phase3Accordion.style.display = 'none';
+    const phase3ProvLink = document.getElementById('phase3ProvenanceLink');
+    if (phase3ProvLink) phase3ProvLink.style.display = 'none';
 
     // Reset Phase 3 streaming messages
     if (typeof phase3StreamingMessages !== 'undefined') {
@@ -1046,6 +1029,24 @@ function updateCountBadges(taskType, result) {
             break;
         case 'transformation':
             document.getElementById('transformationType').textContent = result.type || 'classified';
+            // Populate detail section dynamically
+            var detailDiv = document.getElementById('transformationDetail');
+            if (!detailDiv) {
+                detailDiv = document.createElement('div');
+                detailDiv.id = 'transformationDetail';
+                detailDiv.className = 'mt-1';
+                var stepContent = document.querySelector('#transformationSection .step-content');
+                if (stepContent) stepContent.appendChild(detailDiv);
+            }
+            var detailHtml = '';
+            if (result.pattern) {
+                detailHtml += '<p class="small mb-2">' + escapeHtml(result.pattern) + '</p>';
+            }
+            if (result.reasoning) {
+                detailHtml += '<details class="small"><summary class="text-muted" style="cursor: pointer;">Reasoning</summary>'
+                    + '<p class="text-muted mt-1 mb-0">' + escapeHtml(result.reasoning) + '</p></details>';
+            }
+            if (detailHtml) detailDiv.innerHTML = detailHtml;
             break;
     }
 }
@@ -1331,7 +1332,7 @@ async function runPhase3Synthesis() {
 
     // Hide previous results
     document.getElementById('decisionPointsResults').style.display = 'none';
-    document.getElementById('phase3LLMAccordion').style.display = 'none';
+    document.getElementById('phase3ProvenanceLink').style.display = 'none';
 
     // Use streaming endpoint
     fetch(`/scenario_pipeline/case/${currentCaseId}/synthesize_phase3_stream`, {
@@ -1528,24 +1529,9 @@ function handlePhase3StreamingData(data) {
             listDiv.innerHTML = dpHtml;
         }
 
-        // Show LLM accordion with prompt and response
-        if (data.llm_trace) {
-            const accordion = document.getElementById('phase3LLMAccordion');
-            accordion.style.display = 'block';
-
-            // Add fallback indicator if LLM fallback was used
-            const accordionHeader = accordion.querySelector('.accordion-button');
-            if (data.used_llm_fallback && accordionHeader) {
-                accordionHeader.innerHTML = '<i class="bi bi-robot me-1"></i> LLM Analysis (Fallback Mode)';
-            }
-
-            if (data.llm_trace.prompt) {
-                document.getElementById('phase3PromptContent').textContent = data.llm_trace.prompt;
-            }
-            if (data.llm_trace.response) {
-                document.getElementById('phase3ResponseContent').textContent = data.llm_trace.response;
-            }
-        }
+        // Show provenance link (prompt/response viewable on provenance page)
+        const provLink = document.getElementById('phase3ProvenanceLink');
+        if (provLink) provLink.style.display = 'block';
 
         // Update phase indicator
         const phase3Indicator = document.getElementById('phase3-indicator');
@@ -1910,7 +1896,7 @@ function handleStreamingData(data) {
         } else if (data.stage.startsWith('PART_B')) {
             updatePhaseIndicator('questions');
             updatePromptSection('questions', data);
-        } else if (data.stage.startsWith('PART_C') || data.stage.includes('TRANSFORMATION')) {
+        } else if (data.stage.startsWith('PART_C') || data.stage.startsWith('PART_D') || data.stage.includes('TRANSFORMATION')) {
             updatePhaseIndicator('transformation');
             updatePromptSection('transformation', data);
         } else if (data.stage.includes('RICH') || data.stage.includes('ANALYSIS')) {
@@ -1931,9 +1917,13 @@ function handleStreamingData(data) {
         document.getElementById('conclusionsCount').textContent = data.result.conclusion_count || 0;
         markTaskComplete('questions');
         markTaskComplete('conclusions');
-    } else if (data.stage === 'PART_C_COMPLETE' || data.stage === 'TRANSFORMATION_COMPLETE') {
+    } else if (data.stage === 'PART_D_COMPLETE' || data.stage === 'TRANSFORMATION_COMPLETE') {
         if (data.result && data.result.transformation_type) {
             document.getElementById('transformationType').textContent = data.result.transformation_type;
+        } else if (data.messages && data.messages.length > 0) {
+            // Run-all sends type in messages: "Transformation: stalemate"
+            var match = data.messages[0].match(/Transformation:\s*(\w+)/);
+            if (match) document.getElementById('transformationType').textContent = match[1];
         }
         markTaskComplete('transformation');
     } else if (data.stage === 'COMPLETE') {
@@ -2296,29 +2286,18 @@ function loadPhase3Results() {
                     document.getElementById('step-e3').className = 'badge bg-success mb-1';
                     document.getElementById('e3Result').textContent = `${data.e3_candidates} candidates`;
                 }
+                if (data.high_alignment_count !== undefined) {
+                    document.getElementById('step-align').className = 'badge bg-success mb-1';
+                    document.getElementById('alignResult').textContent = `${data.high_alignment_count} aligned`;
+                }
                 if (data.canonical_count > 0) {
                     document.getElementById('step-llm').className = 'badge bg-success mb-1';
                     document.getElementById('llmResult').textContent = `${data.canonical_count} decision pts`;
                 }
 
-                // Show LLM trace if available
-                if (data.llm_trace) {
-                    const accordion = document.getElementById('phase3LLMAccordion');
-                    if (accordion) {
-                        accordion.style.display = 'block';
-                        if (data.llm_trace.prompt) {
-                            document.getElementById('phase3PromptContent').textContent = data.llm_trace.prompt;
-                        }
-                        if (data.llm_trace.response) {
-                            document.getElementById('phase3ResponseContent').textContent = data.llm_trace.response;
-                        }
-                    }
-                }
-
-                // Show synthesis trace (MCP resolution info) if available
-                if (data.synthesis_trace) {
-                    displaySynthesisTrace(data.synthesis_trace);
-                }
+                // Show provenance link (prompt/response viewable on provenance page)
+                const provLink = document.getElementById('phase3ProvenanceLink');
+                if (provLink) provLink.style.display = 'block';
 
                 // Mark phase indicator as complete
                 const phase3Indicator = document.getElementById('phase3-indicator');
@@ -2355,100 +2334,6 @@ function enablePhase4() {
         phase4Btn.innerHTML = '<i class="bi bi-play-fill"></i> Construct';
         phase4Btn.title = '';
     }
-}
-
-// Display synthesis trace/provenance information
-function displaySynthesisTrace(trace) {
-    const container = document.getElementById('phase3SynthesisTrace');
-    if (!container || !trace) return;
-
-    let html = '<div class="small">';
-
-    // Timing info
-    if (trace.synthesis_started || trace.synthesis_completed) {
-        html += '<div class="mb-2"><strong><i class="bi bi-clock me-1"></i>Timing</strong>';
-        if (trace.synthesis_started) html += `<br>Started: ${trace.synthesis_started}`;
-        if (trace.synthesis_completed) html += `<br>Completed: ${trace.synthesis_completed}`;
-        html += '</div>';
-    }
-
-    // Entity Resolution (MCP info)
-    if (trace.entity_resolution) {
-        const er = trace.entity_resolution;
-        html += '<div class="mb-2 p-2 bg-light rounded">';
-        html += '<strong><i class="bi bi-link-45deg me-1"></i>Entity Resolution (MCP)</strong>';
-        html += `<div class="mt-1">`;
-        html += `<span class="badge bg-success me-1">${er.mcp_resolved_count || 0} from MCP</span>`;
-        html += `<span class="badge bg-warning me-1">${er.local_resolved_count || 0} from local</span>`;
-        html += `<span class="badge bg-secondary">${er.entities_not_found || 0} not found</span>`;
-        html += `</div>`;
-        if (er.mcp_server_url) {
-            html += `<small class="text-muted">Server: ${er.mcp_server_url}</small>`;
-        }
-
-        // Show resolved entities
-        if (er.entities_resolved && er.entities_resolved.length > 0) {
-            html += '<details class="mt-2"><summary class="text-primary" style="cursor: pointer;">Resolved Entities</summary>';
-            html += '<ul class="list-unstyled mt-1 ms-2">';
-            er.entities_resolved.forEach(e => {
-                const srcBadge = e.source === 'mcp' ? 'success' : e.source === 'local' ? 'warning' : 'secondary';
-                const icon = e.found ? 'check-circle' : 'x-circle';
-                html += `<li class="mb-1">
-                    <i class="bi bi-${icon} text-${e.found ? 'success' : 'danger'} me-1"></i>
-                    <span class="badge bg-${srcBadge} me-1">${e.source}</span>
-                    <strong>${e.label}</strong> <small class="text-muted">(${e.entity_type})</small>
-                </li>`;
-            });
-            html += '</ul></details>';
-        }
-        html += '</div>';
-    }
-
-    // Algorithmic Composition
-    if (trace.algorithmic_composition) {
-        const ac = trace.algorithmic_composition;
-        html += '<div class="mb-2">';
-        html += '<strong><i class="bi bi-gear me-1"></i>Algorithmic Composition</strong>';
-        html += `<br>Method: ${ac.method || 'E1-E3'}`;
-        html += `<br>Candidates: ${ac.candidates_count || 0}`;
-        html += '</div>';
-    }
-
-    // Q&C Alignment
-    if (trace.qc_alignment) {
-        const qc = trace.qc_alignment;
-        html += '<div class="mb-2">';
-        html += '<strong><i class="bi bi-check2-square me-1"></i>Q&C Alignment</strong>';
-        html += `<br>High alignment (&gt;0.5): ${qc.high_alignment_count || 0}`;
-        if (qc.top_scores && qc.top_scores.length > 0) {
-            html += '<br>Top scores: ';
-            qc.top_scores.slice(0, 3).forEach(s => {
-                html += `<span class="badge bg-info me-1">${s.candidate_id}: ${(s.score * 100).toFixed(0)}%</span>`;
-            });
-        }
-        html += '</div>';
-    }
-
-    // LLM Refinement
-    if (trace.llm_refinement && trace.llm_refinement.model) {
-        const llm = trace.llm_refinement;
-        html += '<div class="mb-2">';
-        html += '<strong><i class="bi bi-robot me-1"></i>LLM Refinement</strong>';
-        html += `<br>Model: ${llm.model}`;
-        html += `<br>Prompt: ${llm.prompt_length || 0} chars, Response: ${llm.response_length || 0} chars`;
-        html += '</div>';
-    }
-
-    // Output
-    if (trace.output) {
-        html += '<div class="mb-2">';
-        html += '<strong><i class="bi bi-box-arrow-right me-1"></i>Output</strong>';
-        html += `<br>Decision points produced: <span class="badge bg-primary">${trace.output.canonical_points_produced || 0}</span>`;
-        html += '</div>';
-    }
-
-    html += '</div>';
-    container.innerHTML = html;
 }
 
 // Load saved Phase 4 results via API

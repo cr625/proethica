@@ -733,7 +733,73 @@ def _get_step4_phase_data(case_id: int, phase_def: dict) -> dict:
     # Provenance metadata
     provenance = _get_provenance_for_prompt(case_id, concept_type, prompt)
 
-    return {
+    # Phase 3 synthesis trace: algorithmic composition, Q&C alignment,
+    # entity resolution, timing -- stored on provenance_metadata of the
+    # first canonical_decision_point entity.
+    synthesis_trace = None
+    if concept_type == 'phase3_decision_synthesis':
+        first_dp = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            extraction_type='canonical_decision_point'
+        ).order_by(TemporaryRDFStorage.id).first()
+        if first_dp and first_dp.provenance_metadata:
+            synthesis_trace = dict(first_dp.provenance_metadata)
+
+        # Add pipeline funnel from results_summary
+        parsed_rs = _parse_results_summary(prompt)
+        if synthesis_trace and parsed_rs:
+            synthesis_trace['pipeline_summary'] = parsed_rs
+
+        # Add argument validation summary
+        if synthesis_trace:
+            arg_validations = TemporaryRDFStorage.query.filter_by(
+                case_id=case_id, extraction_type='argument_validation'
+            ).all()
+            if arg_validations:
+                valid_count = sum(
+                    1 for v in arg_validations
+                    if (v.rdf_json_ld or {}).get('is_valid')
+                )
+                scores = [
+                    (v.rdf_json_ld or {}).get('validation_score', 0)
+                    for v in arg_validations
+                ]
+                avg_score = sum(scores) / len(scores)
+                fv = sum(
+                    1 for v in arg_validations
+                    if (v.rdf_json_ld or {}).get(
+                        'founding_value_validation', {}
+                    ).get('is_compliant')
+                )
+                ev = sum(
+                    1 for v in arg_validations
+                    if (v.rdf_json_ld or {}).get(
+                        'entity_validation', {}
+                    ).get('is_valid')
+                )
+                vv = sum(
+                    1 for v in arg_validations
+                    if (v.rdf_json_ld or {}).get(
+                        'virtue_validation', {}
+                    ).get('is_valid')
+                )
+                arg_count = TemporaryRDFStorage.query.filter_by(
+                    case_id=case_id, extraction_type='argument_generated'
+                ).count()
+                synthesis_trace['argument_validation'] = {
+                    'arguments_generated': arg_count,
+                    'validations_run': len(arg_validations),
+                    'valid_count': valid_count,
+                    'avg_score': round(avg_score, 2),
+                    'entity_valid': ev,
+                    'founding_compliant': fv,
+                    'virtue_valid': vv,
+                }
+
+    # Algorithmic trace for non-Phase-3 phases
+    algorithmic_trace = _build_algorithmic_trace(case_id, concept_type, prompt)
+
+    result = {
         'phase': phase_def['phase'],
         'name': phase_def['name'],
         'concept_type': concept_type,
@@ -752,6 +818,123 @@ def _get_step4_phase_data(case_id: int, phase_def: dict) -> dict:
         'entity_count': len(entities),
         'provenance': provenance
     }
+    if synthesis_trace:
+        result['synthesis_trace'] = synthesis_trace
+    if algorithmic_trace:
+        result['algorithmic_trace'] = algorithmic_trace
+    return result
+
+
+def _parse_results_summary(prompt) -> dict:
+    """Parse results_summary, handling double-encoded JSON strings."""
+    if not prompt or prompt.results_summary is None:
+        return None
+    rs = prompt.results_summary
+    if isinstance(rs, dict):
+        return rs
+    if isinstance(rs, str):
+        try:
+            parsed = json.loads(rs)
+            if isinstance(parsed, dict):
+                return parsed
+        except (ValueError, TypeError):
+            pass
+    return None
+
+
+def _build_algorithmic_trace(case_id: int, concept_type: str, prompt) -> dict:
+    """Build algorithmic trace data for Step 4 phases.
+
+    Returns a dict with 'type' key indicating the trace kind, or None if
+    no algorithmic component exists for this phase.
+    """
+    rs = _parse_results_summary(prompt)
+
+    if concept_type == 'precedent_case_reference':
+        # Phase 2B: Case number resolution against internal document DB
+        prec_entities = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id, extraction_type='precedent_case_reference'
+        ).all()
+        if not prec_entities:
+            return None
+        resolved_count = sum(
+            1 for e in prec_entities
+            if str((e.rdf_json_ld or {}).get('resolved', '')).lower() == 'true'
+        )
+        return {
+            'type': 'precedent_resolution',
+            'total': len(prec_entities),
+            'resolved': resolved_count,
+            'unresolved': len(prec_entities) - resolved_count,
+            'cases': [{
+                'label': e.entity_label,
+                'case_number': (e.rdf_json_ld or {}).get('caseNumber'),
+                'citation_type': (e.rdf_json_ld or {}).get('citationType'),
+                'resolved': str(
+                    (e.rdf_json_ld or {}).get('resolved', '')
+                ).lower() == 'true',
+                'internal_id': (e.rdf_json_ld or {}).get('internalCaseId'),
+            } for e in prec_entities]
+        }
+
+    if concept_type == 'ethical_question' and rs:
+        return {
+            'type': 'question_classification',
+            'total': rs.get('total', 0),
+            'board_explicit': rs.get('board_explicit', 0),
+            'analytical': rs.get('analytical', 0),
+        }
+
+    if concept_type == 'ethical_conclusion' and rs:
+        return {
+            'type': 'conclusion_classification',
+            'total': rs.get('total', 0),
+            'board_explicit': rs.get('board_explicit', 0),
+            'analytical': rs.get('analytical', 0),
+            'qc_links': rs.get('qc_links', 0),
+        }
+
+    if concept_type == 'transformation_classification' and rs:
+        return {
+            'type': 'transformation_classification',
+            'transformation_type': rs.get('transformation_type'),
+            'confidence': rs.get('confidence'),
+        }
+
+    if concept_type == 'rich_analysis':
+        causal = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id, extraction_type='causal_normative_link'
+        ).count()
+        qe = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id, extraction_type='question_emergence'
+        ).count()
+        rp = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id, extraction_type='resolution_pattern'
+        ).count()
+        if causal + qe + rp > 0:
+            return {
+                'type': 'rich_analysis',
+                'causal_links': causal,
+                'question_emergence': qe,
+                'resolution_patterns': rp,
+            }
+
+    if concept_type == 'phase4_narrative' and rs:
+        ne = rs.get('narrative_elements', {})
+        tl = rs.get('timeline', {})
+        if ne:
+            return {
+                'type': 'narrative_structure',
+                'characters': ne.get('characters', 0),
+                'events': ne.get('events', 0),
+                'conflicts': ne.get('conflicts', 0),
+                'decision_moments': ne.get('decision_moments', 0),
+                'has_setting': ne.get('has_setting', False),
+                'has_resolution': ne.get('has_resolution', False),
+                'timeline_events': tl.get('events_count', 0),
+            }
+
+    return None
 
 
 def _get_provenance_for_prompt(case_id, concept_type, prompt):

@@ -17,6 +17,20 @@ STEP4_SECTION_TYPE = 'synthesis'
 STEP4_DEFAULT_MODEL = ModelConfig.get_claude_model("default")    # claude-sonnet-4-6
 STEP4_POWERFUL_MODEL = ModelConfig.get_claude_model("powerful")  # claude-opus-4-6
 
+# All extraction_type values produced by Step 4 (used for scoped counts/queries).
+STEP4_EXTRACTION_TYPES = [
+    'code_provision_reference',       # 2A
+    'precedent_case_reference',       # 2B
+    'ethical_question',               # 2C
+    'ethical_conclusion',             # 2C
+    'causal_normative_link',          # 2E
+    'question_emergence',             # 2E
+    'resolution_pattern',             # 2E
+    'canonical_decision_point',       # Phase 3
+    'argument_generated',             # Phase 3
+    'argument_validation',            # Phase 3
+]
+
 
 def reset_step4_case_features(case_id: int):
     """Clear all CasePrecedentFeatures fields populated by Step 4 extraction.
