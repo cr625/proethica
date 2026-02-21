@@ -6,24 +6,7 @@
 
 {% block step_content %}
 
-<!-- Step 5 View Tabs -->
-<ul class="nav nav-tabs mb-4" id="step5Tabs" role="tablist">
-    <li class="nav-item">
-        <a class="nav-link active" href="{{ url_for('step5.narrative_overview', case_id=case.id) }}">
-            <i class="bi bi-book"></i> Narrative
-        </a>
-    </li>
-    <li class="nav-item">
-        <a class="nav-link" href="{{ url_for('step5.enhanced_timeline', case_id=case.id) }}">
-            <i class="bi bi-clock-history"></i> Timeline
-        </a>
-    </li>
-    <li class="nav-item">
-        <a class="nav-link" href="{{ url_for('step5.decision_wizard', case_id=case.id) }}">
-            <i class="bi bi-signpost-split"></i> Decisions
-        </a>
-    </li>
-</ul>
+{% with active_tab='narrative' %}{% include 'scenarios/_step5_tab_nav.html' %}{% endwith %}
 
 {% if not has_phase4 %}
 <!-- No Phase 4 Data Alert -->

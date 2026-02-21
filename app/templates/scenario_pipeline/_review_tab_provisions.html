@@ -1,0 +1,65 @@
+{# Step 4 Review -- Provisions tab (NSPE code provisions).
+   Parent provides: case, provisions
+#}
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-file-text"></i> NSPE Code Provisions Referenced</h5>
+        <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}#provisionsSection" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> View Extraction
+        </a>
+    </div>
+    <div class="card-body">
+        {% if provisions %}
+            {% for provision in provisions %}
+            <div class="card mb-3">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">
+                        <strong>{{ provision.entity_label }}</strong>
+                        {% if provision.rdf_json_ld and provision.rdf_json_ld.codeProvision %}
+                        <span class="badge bg-secondary ms-2">{{ provision.rdf_json_ld.codeProvision }}</span>
+                        {% endif %}
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <p class="mb-2"><strong>Full Text:</strong></p>
+                    <p class="text-muted mb-3">{{ provision.entity_definition }}</p>
+
+                    {% if provision.rdf_json_ld and provision.rdf_json_ld.relevantExcerpts %}
+                    <p class="mb-2"><strong>Relevant Case Excerpts:</strong></p>
+                    {% for excerpt in provision.rdf_json_ld.relevantExcerpts %}
+                    <div class="alert alert-info mb-2">
+                        <small class="text-muted"><strong>From {{ excerpt.section }}:</strong></small><br>
+                        "{{ excerpt.text }}"
+                        {% if excerpt.confidence %}
+                        <br><small class="text-muted">Confidence: {{ "%.1f"|format(excerpt.confidence * 100) }}%</small>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                    {% endif %}
+
+                    {% if provision.rdf_json_ld and provision.rdf_json_ld.appliesTo %}
+                    <p class="mb-2"><strong>Applies To:</strong></p>
+                    <div class="applies-to-list">
+                        {% for entity in provision.rdf_json_ld.appliesTo %}
+                        <div class="applies-to-item mb-2 p-2 border rounded bg-light">
+                            <div class="d-flex align-items-center">
+                                <span class="badge me-2 onto-type-{{ entity.entity_type|lower|default('default') }}">
+                                    {{ entity.entity_type|default('Entity') }}
+                                </span>
+                                <strong>{{ entity.entity_label|default(entity) }}</strong>
+                            </div>
+                            {% if entity.reasoning %}
+                            <small class="text-muted d-block mt-1 fst-italic">{{ entity.reasoning }}</small>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p class="text-muted">No code provisions extracted yet.</p>
+        {% endif %}
+    </div>
+</div>

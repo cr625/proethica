@@ -1,0 +1,73 @@
+{# Step 4 Review -- Flow tab (Cytoscape reasoning flow graph).
+   Requires: step4-flow-graph.js, Cytoscape 3.23+, window.STEP4_FLOW_DATA
+#}
+<div class="card">
+    <div class="card-header">
+        <h5><i class="bi bi-arrow-right-circle"></i> Synthesis Reasoning Flow</h5>
+        <small class="text-muted">Shows how NSPE provisions inform questions and conclusions - the board's reasoning chain</small>
+    </div>
+    <div class="card-body">
+        <!-- Graph Controls -->
+        <div class="mb-3">
+            <button id="reset-graph" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-arrow-clockwise"></i> Reset Layout
+            </button>
+            <div class="btn-group ms-2" role="group">
+                <input type="checkbox" class="btn-check" id="show-labels" checked autocomplete="off">
+                <label class="btn btn-outline-secondary btn-sm" for="show-labels">Show Labels</label>
+            </div>
+        </div>
+
+        <!-- Cytoscape Container -->
+        <div id="cy-graph-card" style="position: relative;">
+            <div id="cy" style="width: 100%; height: 700px; border: 1px solid #ddd; background-color: #fafafa;"></div>
+
+            <!-- Flow Details Panel -->
+            <div id="cy-details-panel" style="position: absolute; top: 10px; right: 10px; width: 320px; max-height: 400px; overflow-y: auto; background: white; border: 1px solid #dee2e6; border-radius: 0.25rem; padding: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: none; z-index: 100;">
+                <button type="button" class="btn-close float-end" id="cy-close-details"></button>
+                <h6 id="cy-detail-label" class="mb-2" style="border-bottom: 2px solid #666; padding-bottom: 5px;"></h6>
+                <p class="small mb-2">
+                    <span class="badge" id="cy-detail-type"></span>
+                </p>
+                <div id="cy-detail-text" class="small text-muted mb-2"></div>
+                <div id="cy-detail-connections" class="small">
+                    <strong>Connections:</strong>
+                    <ul class="list-unstyled mt-1" id="cy-detail-edges"></ul>
+                </div>
+            </div>
+
+            <!-- Zoom Controls -->
+            <div style="position: absolute; bottom: 10px; left: 10px; z-index: 100;">
+                <button class="btn btn-sm btn-light" id="cy-zoom-in" title="Zoom In"><i class="bi bi-plus-lg"></i></button>
+                <button class="btn btn-sm btn-light" id="cy-zoom-out" title="Zoom Out"><i class="bi bi-dash-lg"></i></button>
+                <button class="btn btn-sm btn-light" id="cy-zoom-fit" title="Fit to View"><i class="bi bi-arrows-fullscreen"></i></button>
+                <button class="btn btn-sm btn-primary" id="cy-fullscreen-btn" title="Full Screen"><i class="bi bi-fullscreen"></i></button>
+                <button class="btn btn-sm btn-warning" id="cy-exit-fullscreen-btn" title="Exit Full Screen" style="display: none;"><i class="bi bi-fullscreen-exit"></i></button>
+            </div>
+        </div>
+
+        <!-- Legend -->
+        <div class="mt-3">
+            <h6>Node Types & Relationships</h6>
+            <div class="row">
+                <div class="col-md-6">
+                    <strong>Nodes:</strong>
+                    <div class="d-flex flex-wrap gap-3 mt-2">
+                        <span><span class="badge" style="background-color: #495057;">&#9632;</span> NSPE Provisions</span>
+                        <span><span class="badge" style="background-color: #0dcaf0; color: #212529;">&#9670;</span> Questions</span>
+                        <span><span class="badge" style="background-color: #198754;">&#9644;</span> Conclusions</span>
+                        <span><span class="badge" style="background-color: #1d4ed8;">&#9644;</span> Entities (labels)</span>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <strong>Edge Colors:</strong>
+                    <div class="mt-2">
+                        <span class="badge" style="background-color: #495057;">&rarr;</span> Provision informs Question<br>
+                        <span class="badge" style="background-color: #0dcaf0; color: #212529;">&rarr;</span> Question answered by Conclusion<br>
+                        <span class="badge" style="background-color: #1d4ed8;">&rarr;</span> Provision applies to Entity
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

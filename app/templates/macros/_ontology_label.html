@@ -1,150 +1,44 @@
 {#
-Ontology Label Macro - Reusable component for displaying ontology entity labels with rich popovers
+Ontology Label Macro - Reusable entity labels with rich popovers.
 
 Usage:
-    {% from 'macros/_ontology_label.html' import ontology_label, ontology_label_styles %}
+    import ontology_label from macros/_ontology_label.html
+    call ontology_label(uri, entity_lookup) in your template
 
-    {# In your styles block: #}
-    {{ ontology_label_styles() }}
-
-    {# In your content: #}
-    {{ ontology_label(uri, entity_lookup) }}
-    {{ ontology_label(uri, entity_lookup, show_type=true) }}
+Popover content is built at runtime by ontology-popovers.js using data-* attributes.
+Include ontology-labels.css for styling and ontology-popovers.js for initialization.
 
 Parameters:
-    uri: The entity URI (string)
-    entity_lookup: Dict mapping URI -> entity metadata dict
-    show_type: Whether to show entity type badge (default: false)
-    show_pass: Whether to show source pass badge (default: false)
-
-Entity lookup dict structure (built by build_entity_lookup_dict):
-    {
-        'http://example.org/Entity1': {
-            'label': 'Entity 1',
-            'definition': 'Definition text...',
-            'entity_type': 'Role',
-            'extraction_type': 'roles',
-            'is_published': false,
-            'source_pass': 1,
-            'provenance': {...}
-        }
-    }
+    uri: The entity URI (string) or plain label
+    entity_lookup: Dict mapping URI to entity metadata dict
 #}
 
-{% macro ontology_label_styles() %}
-<style>
-.onto-label {
-    cursor: help;
-    border-bottom: 1px dotted currentColor;
-    text-decoration: none;
-}
-.onto-label:hover {
-    background-color: rgba(var(--bs-primary-rgb), 0.1);
-    border-radius: 2px;
-}
-.onto-popover-content {
-    max-width: 350px;
-}
-.onto-popover-content .onto-type-badge {
-    font-size: 0.7rem;
-    padding: 0.15rem 0.4rem;
-}
-.onto-popover-content .onto-uri {
-    font-size: 0.7rem;
-    word-break: break-all;
-    color: #6c757d;
-    background: #f8f9fa;
-    padding: 4px 6px;
-    border-radius: 3px;
-    margin-top: 8px;
-}
-.onto-popover-content .onto-definition {
-    font-size: 0.85rem;
-    margin: 8px 0;
-    color: #495057;
-}
-.onto-popover-content .onto-pass-badge {
-    font-size: 0.65rem;
-}
-.onto-label-unknown {
-    color: #6c757d;
-    font-style: italic;
-}
-
-/* Type colors */
-.onto-type-role { background-color: #0d6efd; color: white; }
-.onto-type-state { background-color: #6f42c1; color: white; }
-.onto-type-resource { background-color: #20c997; color: white; }
-.onto-type-principle { background-color: #fd7e14; color: white; }
-.onto-type-obligation { background-color: #dc3545; color: white; }
-.onto-type-constraint { background-color: #6c757d; color: white; }
-.onto-type-capability { background-color: #0dcaf0; color: black; }
-.onto-type-action { background-color: #198754; color: white; }
-.onto-type-event { background-color: #ffc107; color: black; }
-.onto-type-default { background-color: #adb5bd; color: black; }
-</style>
-{% endmacro %}
-
-{% macro ontology_label(uri, entity_lookup, show_type=false, show_pass=false) %}
-{# Extract label from URI if not in lookup #}
-{% set label = uri.split('#')[-1] if '#' in uri else uri.split('/')[-1] if '/' in uri else uri %}
-{% set entity = entity_lookup.get(uri) if entity_lookup else none %}
-
-{% if entity %}
-    {# Entity found in lookup - render with popover #}
-    {% set type_class = 'onto-type-' ~ (entity.extraction_type or entity.entity_type or 'default')|lower|replace(' ', '-') %}
-    {% set pass_num = entity.source_pass or (entity.provenance.pass_number if entity.provenance else none) %}
-    {% set pass_colors = {1: 'bg-primary', 2: 'bg-success', 3: 'bg-warning text-dark', 4: 'bg-danger'} %}
-
-    <span class="onto-label"
-          tabindex="0"
-          data-bs-toggle="popover"
-          data-bs-trigger="hover focus"
-          data-bs-html="true"
-          data-bs-placement="top"
-          data-bs-content="<div class='onto-popover-content'>
-            <div class='d-flex align-items-center gap-2 mb-1'>
-                <span class='badge onto-type-badge {{ type_class }}'>{{ entity.entity_type or entity.extraction_type|title }}</span>
-                {% if pass_num %}<span class='badge onto-pass-badge {{ pass_colors.get(pass_num|int, 'bg-secondary') }}'>Pass {{ pass_num }}</span>{% endif %}
-                {% if entity.is_published %}<span class='badge bg-success onto-pass-badge'>Published</span>{% endif %}
-            </div>
-            {% if entity.definition %}<div class='onto-definition'>{{ entity.definition|e|truncate(200) }}</div>{% endif %}
-            <div class='onto-uri'><i class='bi bi-link-45deg'></i> {{ uri|e }}</div>
-          </div>"
-          title="{{ entity.label or label }}">
-        {{ entity.label or label }}{% if show_type %} <span class="badge {{ type_class }} onto-type-badge">{{ entity.entity_type or entity.extraction_type|title }}</span>{% endif %}
-    </span>
-{% else %}
-    {# Entity not in lookup - render as simple label #}
-    {% if uri is string and ('http' in uri or '#' in uri) %}
-    <span class="onto-label onto-label-unknown"
-          tabindex="0"
-          data-bs-toggle="popover"
-          data-bs-trigger="hover focus"
-          data-bs-html="true"
-          data-bs-placement="top"
-          data-bs-content="<div class='onto-popover-content'>
-            <div class='text-muted small mb-1'><i class='bi bi-question-circle'></i> Not found in case entities</div>
-            <div class='onto-uri'><i class='bi bi-link-45deg'></i> {{ uri|e }}</div>
-          </div>"
-          title="{{ label }}">{{ label }}</span>
-    {% else %}
-    <span>{{ uri }}</span>
-    {% endif %}
-{% endif %}
-{% endmacro %}
-
-{% macro ontology_label_init_script() %}
-<script>
-// Initialize Bootstrap popovers for ontology labels
-document.addEventListener('DOMContentLoaded', function() {
-    var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
-    var popoverList = popoverTriggerList.map(function(popoverTriggerEl) {
-        return new bootstrap.Popover(popoverTriggerEl, {
-            container: 'body',
-            sanitize: false
-        });
-    });
-});
-</script>
+{% macro ontology_label(uri, entity_lookup) %}
+{%- set label = uri.split('#')[-1] if uri is string and '#' in uri else (uri.split('/')[-1] if uri is string and '/' in uri else uri) -%}
+{%- set entity = entity_lookup.get(uri) if entity_lookup and uri is string else none -%}
+{%- if entity -%}
+<span class="onto-label{% if entity.source == 'ontology' %} onto-source-ontology{% endif %}"
+      tabindex="0"
+      data-bs-toggle="popover"
+      data-bs-trigger="hover focus"
+      data-bs-html="true"
+      data-bs-placement="top"
+      data-entity-type="{{ entity.entity_type or entity.extraction_type }}"
+      data-entity-pass="{{ entity.source_pass }}"
+      data-entity-source="{{ entity.source or 'case' }}"
+      data-entity-definition="{{ entity.definition|e }}"
+      data-entity-uri="{{ uri|e }}"
+      title="{{ entity.label or label }}">{{ entity.label or label }}</span>
+{%- elif uri is string and ('http' in uri or '#' in uri) -%}
+<span class="onto-label onto-label-unknown"
+      tabindex="0"
+      data-bs-toggle="popover"
+      data-bs-trigger="hover focus"
+      data-bs-html="true"
+      data-bs-placement="top"
+      data-entity-uri="{{ uri|e }}"
+      title="{{ label }}">{{ label }}</span>
+{%- else -%}
+<span>{{ uri }}</span>
+{%- endif -%}
 {% endmacro %}

@@ -1,0 +1,291 @@
+{# Step 4 Review -- Validation study panel (offcanvas + JS + styles).
+   Only included when validation_study_mode is true.
+   Parent provides: case, session, validation_study_mode
+#}
+<script>
+var validationDemoActive = false;
+
+function toggleValidationDemo() {
+    validationDemoActive = !validationDemoActive;
+    var toggle = document.getElementById('validationDemoToggle');
+    var panel = document.getElementById('validationDemoPanel');
+    var qcTab = document.getElementById('questions-tab');
+
+    if (validationDemoActive) {
+        panel.classList.add('show');
+        toggle.classList.remove('btn-outline-info');
+        toggle.classList.add('btn-info');
+        toggle.innerHTML = '<i class="bi bi-x-lg"></i> Close Demo';
+
+        if (qcTab) {
+            qcTab.closest('li').style.display = 'none';
+        }
+
+        updateValidationPanelForTab();
+    } else {
+        panel.classList.remove('show');
+        toggle.classList.remove('btn-info');
+        toggle.classList.add('btn-outline-info');
+        toggle.innerHTML = '<i class="bi bi-clipboard-check"></i> Validation Demo';
+
+        if (qcTab) {
+            qcTab.closest('li').style.display = '';
+        }
+    }
+}
+
+function updateValidationPanelForTab() {
+    var activeTab = document.querySelector('#reviewTabs .nav-link.active');
+    if (!activeTab) return;
+
+    var tabId = activeTab.id;
+    var viewTitle = document.getElementById('validationViewTitle');
+    var likertContent = document.getElementById('validationLikertContent');
+
+    var viewConfig = {
+        'provisions-tab': {
+            name: 'Provisions',
+            icon: 'bi-file-text',
+            color: '#6c757d',
+            questions: [
+                'The code provision mapping helped me identify which professional standards apply to this case.',
+                'The connections between provisions and case facts were clear and useful.',
+                'This view helped me understand the normative foundation for evaluating the case.'
+            ]
+        },
+        'decision-points-tab': {
+            name: 'Decisions',
+            icon: 'bi-signpost-split',
+            color: '#0d6efd',
+            questions: [
+                'The decision points helped me understand the choices the professional faced.',
+                'The alternatives presented gave useful context for evaluation.',
+                'This view helped me trace how the professional\'s actions related to their obligations.'
+            ]
+        },
+        'narrative-tab': {
+            name: 'Narrative',
+            icon: 'bi-book',
+            color: '#198754',
+            questions: [
+                'The character profiles and timeline helped me understand the situation.',
+                'The relationship information clarified who was involved and how.',
+                'The sequence of events and decisions was clear.'
+            ]
+        },
+        'fullgraph-tab': {
+            name: 'Entities',
+            icon: 'bi-diagram-3',
+            color: '#0d6efd',
+            questions: [
+                'The entity graph helped me see the key participants and concepts.',
+                'The relationships between entities clarified the case structure.',
+                'This view provided useful context for understanding the ethical situation.'
+            ]
+        },
+        'richanalysis-tab': {
+            name: 'Analysis',
+            icon: 'bi-lightbulb',
+            color: '#fd7e14',
+            questions: [
+                'The analysis view helped me understand the ethical dimensions.',
+                'The rich analysis surfaced considerations I might have missed.',
+                'This view was useful for forming my own ethical judgment.'
+            ]
+        }
+    };
+
+    var config = viewConfig[tabId] || viewConfig['provisions-tab'];
+
+    viewTitle.innerHTML = '<i class="bi ' + config.icon + '" style="color: ' + config.color + ';"></i> ' + config.name + ' View';
+
+    var html = '';
+    config.questions.forEach(function(q, idx) {
+        html += '<div class="validation-likert-question mb-4">' +
+            '<div class="likert-statement">' + q + '</div>' +
+            '<div class="likert-scale-row">';
+        for (var i = 1; i <= 7; i++) {
+            html += '<div class="likert-option">' +
+                '<input type="radio" name="demo_q' + idx + '" id="demo_q' + idx + '_' + i + '" value="' + i + '">' +
+                '<label for="demo_q' + idx + '_' + i + '">' +
+                '<span class="likert-circle">' + i + '</span>' +
+                '</label></div>';
+        }
+        html += '</div>' +
+            '<div class="scale-anchors">' +
+            '<span>Strongly Disagree</span>' +
+            '<span>Strongly Agree</span>' +
+            '</div></div>';
+    });
+
+    likertContent.innerHTML = html;
+
+    likertContent.querySelectorAll('input[type="radio"]').forEach(function(input) {
+        input.addEventListener('change', function() {
+            var val = parseInt(this.value);
+            var circle = this.nextElementSibling.querySelector('.likert-circle');
+            if (val <= 2) circle.style.background = '#dc3545';
+            else if (val === 3) circle.style.background = '#fd7e14';
+            else if (val === 4) circle.style.background = '#ffc107';
+            else if (val === 5) circle.style.background = '#20c997';
+            else circle.style.background = '#198754';
+            circle.style.borderColor = circle.style.background;
+            circle.style.color = val === 4 ? '#212529' : 'white';
+        });
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('#reviewTabs .nav-link').forEach(function(tab) {
+        tab.addEventListener('shown.bs.tab', function() {
+            if (validationDemoActive) {
+                updateValidationPanelForTab();
+            }
+        });
+    });
+
+    var urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('validation_mode') === '1') {
+        toggleValidationDemo();
+    }
+});
+</script>
+
+<!-- Validation Demo Offcanvas Panel -->
+<div id="validationDemoPanel" class="validation-demo-panel">
+    <div class="validation-demo-header">
+        <h5 class="mb-0">
+            <i class="bi bi-clipboard-check text-info"></i>
+            View Utility Assessment
+        </h5>
+        <small class="text-muted d-block">
+            <i class="bi bi-person-badge"></i> Session: {{ session.get('study_participant_id', 'N/A') }}
+        </small>
+    </div>
+
+    <div class="validation-demo-notice">
+        <i class="bi bi-info-circle"></i>
+        <strong>Study Mode:</strong> Board conclusions (Q&C tab) are withheld during evaluation.
+    </div>
+
+    <div class="validation-demo-body">
+        <h6 id="validationViewTitle" class="mb-3">
+            <i class="bi bi-file-text"></i> Provisions View
+        </h6>
+
+        <p class="text-muted small mb-3">
+            Rate how well this view helped you understand the case on a 7-point scale.
+        </p>
+
+        <div id="validationLikertContent">
+            <!-- Likert questions populated by JS -->
+        </div>
+    </div>
+
+    <div class="validation-demo-footer">
+        <div class="d-flex justify-content-between align-items-center">
+            <a href="{{ url_for('study.index') }}" class="btn btn-outline-secondary btn-sm" title="Back to study dashboard">
+                <i class="bi bi-arrow-left"></i> Study Home
+            </a>
+            <a href="{{ url_for('study.evaluate_case', case_id=case.id) }}" class="btn btn-primary btn-sm" title="Start evaluation for this case">
+                Evaluate <i class="bi bi-arrow-right"></i>
+            </a>
+        </div>
+    </div>
+</div>
+
+<style>
+.validation-demo-panel {
+    position: fixed;
+    top: 0;
+    right: -400px;
+    width: 380px;
+    height: 100vh;
+    background: #fff;
+    box-shadow: -4px 0 20px rgba(0,0,0,0.15);
+    z-index: 1050;
+    transition: right 0.3s ease;
+    display: flex;
+    flex-direction: column;
+}
+.validation-demo-panel.show {
+    right: 0;
+}
+.validation-demo-header {
+    padding: 1rem 1.25rem;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-bottom: 1px solid #dee2e6;
+}
+.validation-demo-notice {
+    padding: 0.75rem 1.25rem;
+    background: #fff3cd;
+    border-bottom: 1px solid #ffc107;
+    font-size: 0.85rem;
+}
+.validation-demo-body {
+    flex: 1;
+    padding: 1.25rem;
+    overflow-y: auto;
+}
+.validation-demo-footer {
+    padding: 0.75rem 1.25rem;
+    background: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+}
+.validation-likert-question {
+    margin-bottom: 1.5rem;
+}
+.likert-statement {
+    font-size: 0.9rem;
+    color: #212529;
+    margin-bottom: 0.75rem;
+    line-height: 1.5;
+}
+.likert-scale-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.25rem;
+    margin-bottom: 0.5rem;
+}
+.validation-demo-panel .likert-option {
+    flex: 1;
+    text-align: center;
+}
+.validation-demo-panel .likert-option input[type="radio"] {
+    display: none;
+}
+.validation-demo-panel .likert-option label {
+    display: block;
+    cursor: pointer;
+}
+.validation-demo-panel .likert-circle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    margin: 0 auto;
+    border: 2px solid #dee2e6;
+    border-radius: 50%;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #6c757d;
+    transition: all 0.2s ease;
+    background: #fff;
+}
+.validation-demo-panel .likert-option:hover .likert-circle {
+    border-color: #0d6efd;
+    color: #0d6efd;
+    transform: scale(1.08);
+}
+.validation-demo-panel .likert-option input[type="radio"]:checked + label .likert-circle {
+    color: white;
+    transform: scale(1.1);
+}
+.validation-demo-panel .scale-anchors {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.7rem;
+    color: #6c757d;
+}
+</style>

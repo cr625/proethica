@@ -1,0 +1,67 @@
+/* Step 4 Review -- view-specific styles */
+
+.bg-purple { background-color: #6F42C1 !important; }
+.applies-to-item { font-size: 0.9rem; }
+
+/* Q&C link cards */
+.qc-link-card {
+    border-left: 4px solid #FFC107;
+    transition: all 0.2s ease;
+}
+.qc-link-card:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.qc-arrow {
+    font-size: 1.5rem;
+    color: #28A745;
+}
+.linked-conclusion {
+    border-left: 4px solid #28A745;
+    background-color: #f8fff8;
+}
+.unlinked-item {
+    border-left: 4px solid #6c757d;
+    opacity: 0.8;
+}
+
+/* D3 graph fullscreen */
+#d3-graph-card.fullscreen {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 9999;
+    background: white;
+    padding: 10px;
+}
+#d3-graph-card.fullscreen #d3-graph-container {
+    height: calc(100vh - 20px) !important;
+    border: none;
+}
+#d3-graph-card.fullscreen #d3-graph-svg {
+    width: 100%;
+    height: 100%;
+}
+
+/* Cytoscape flow graph fullscreen */
+#cy-graph-card.fullscreen {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 9999;
+    background: white;
+    padding: 10px;
+}
+#cy-graph-card.fullscreen #cy {
+    height: calc(100vh - 20px) !important;
+    border: none;
+}
+
+/* Pass filter button active states */
+.d3-filter[data-pass="1"].active { background-color: #3b82f6 !important; color: white !important; }
+.d3-filter[data-pass="2"].active { background-color: #8b5cf6 !important; color: white !important; }
+.d3-filter[data-pass="3"].active { background-color: #14b8a6 !important; color: white !important; }
+.d3-filter[data-pass="4"].active { background-color: #64748b !important; color: white !important; }

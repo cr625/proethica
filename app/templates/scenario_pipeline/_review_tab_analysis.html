@@ -1,0 +1,224 @@
+{# Step 4 Review -- Analysis tab (causal-normative links, question emergence, resolution patterns, Toulmin arguments).
+   Parent provides: case, rich_analysis, entity_lookup, ontology_label macro,
+                    info_link_inline, research_caveat macros
+   Requires: step4-toulmin-arguments.js for #argumentsContainer
+#}
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-diagram-3"></i> Rich Analysis Results</h5>
+        <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}#rich_analysisSection" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> View Extraction
+        </a>
+    </div>
+    <div class="card-body">
+        {% if rich_analysis %}
+        <!-- Causal-Normative Links Section -->
+        <div class="mb-4">
+            <h6 class="border-bottom pb-2 mb-3">
+                <i class="bi bi-link-45deg text-warning me-2"></i>
+                Causal-Normative Links
+                {{ info_link_inline('causal-normative-links', 'NESS Test (Sarmiento et al. 2023)') }}
+                <span class="badge bg-warning text-dark ms-2">{{ rich_analysis.causal_links|length }}</span>
+            </h6>
+            {% if rich_analysis.causal_links %}
+            <div class="row">
+                {% for cl in rich_analysis.causal_links %}
+                <div class="col-md-6 mb-3">
+                    <div class="card border-warning">
+                        <div class="card-body py-2">
+                            <h6 class="card-title mb-2">{{ cl.action_label }}</h6>
+                            {% if cl.action_definition %}
+                            <p class="text-muted small mb-2">{{ cl.action_definition }}</p>
+                            {% endif %}
+                            <!-- Fulfills Section -->
+                            <div class="mb-2 p-2 rounded" style="background-color: rgba(25, 135, 84, 0.08);">
+                                <small class="text-success fw-bold d-block mb-1">Fulfills</small>
+                                {% if cl.fulfills_obligations %}
+                                <ul class="list-unstyled small mb-0">
+                                    {% for obl in cl.fulfills_obligations %}
+                                    <li class="py-1">{{ ontology_label(obl, entity_lookup) }}</li>
+                                    {% endfor %}
+                                </ul>
+                                {% else %}
+                                <span class="text-muted small">None</span>
+                                {% endif %}
+                            </div>
+                            <!-- Violates Section -->
+                            <div class="p-2 rounded" style="background-color: rgba(220, 53, 69, 0.08);">
+                                <small class="text-danger fw-bold d-block mb-1">Violates</small>
+                                {% if cl.violates_obligations %}
+                                <ul class="list-unstyled small mb-0">
+                                    {% for obl in cl.violates_obligations %}
+                                    <li class="py-1">{{ ontology_label(obl, entity_lookup) }}</li>
+                                    {% endfor %}
+                                </ul>
+                                {% else %}
+                                <span class="text-muted small">None</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted">No causal-normative links found.</p>
+            {% endif %}
+        </div>
+
+        <!-- Question Emergence Section -->
+        <div class="mb-4">
+            <h6 class="border-bottom pb-2 mb-3">
+                <i class="bi bi-question-circle text-info me-2"></i>
+                Question Emergence
+                {{ info_link_inline('question-emergence', 'Toulmin Warrants (1958)') }}{{ research_caveat('ethical-frameworks', 'Ethical frameworks (deontological, virtue ethics, etc.) not fully defined in ontology - research exploratory') }}
+                <span class="badge bg-info ms-2">{{ rich_analysis.question_emergence|length }}</span>
+            </h6>
+            {% if rich_analysis.question_emergence %}
+            <div class="accordion" id="questionEmergenceAccordion">
+                {% for qe in rich_analysis.question_emergence %}
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse" data-bs-target="#qe-{{ loop.index }}">
+                            <span class="me-2">{{ qe.question_text }}</span>
+                            <span class="badge bg-secondary ms-auto me-2">{{ (qe.data_events|length) + (qe.data_actions|length) }} triggers</span>
+                            <span class="badge bg-warning text-dark">{{ qe.competing_warrants|length }} competing warrants</span>
+                        </button>
+                    </h2>
+                    <div id="qe-{{ loop.index }}" class="accordion-collapse collapse" data-bs-parent="#questionEmergenceAccordion">
+                        <div class="accordion-body">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <h6 class="small fw-bold">Triggering Events</h6>
+                                    {% if qe.data_events %}
+                                    <ul class="small mb-0">
+                                        {% for evt in qe.data_events %}
+                                        <li>{{ ontology_label(evt, entity_lookup) }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                    {% else %}
+                                    <span class="text-muted small">None</span>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-4">
+                                    <h6 class="small fw-bold">Triggering Actions</h6>
+                                    {% if qe.data_actions %}
+                                    <ul class="small mb-0">
+                                        {% for act in qe.data_actions %}
+                                        <li>{{ ontology_label(act, entity_lookup) }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                    {% else %}
+                                    <span class="text-muted small">None</span>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-4">
+                                    <h6 class="small fw-bold">Competing Warrants</h6>
+                                    {% if qe.competing_warrants %}
+                                    <ul class="small mb-0 list-unstyled">
+                                        {% for cw_pair in qe.competing_warrants %}
+                                        <li class="mb-2 p-2 rounded" style="background-color: rgba(255, 193, 7, 0.1);">
+                                            {% if cw_pair is iterable and cw_pair is not string %}
+                                            <span class="d-flex align-items-center flex-wrap gap-1">
+                                                {{ ontology_label(cw_pair[0], entity_lookup) }}
+                                                <i class="bi bi-arrow-left-right text-warning mx-1"></i>
+                                                {{ ontology_label(cw_pair[1], entity_lookup) if cw_pair|length > 1 else '' }}
+                                            </span>
+                                            {% else %}
+                                            {{ ontology_label(cw_pair, entity_lookup) }}
+                                            {% endif %}
+                                        </li>
+                                        {% endfor %}
+                                    </ul>
+                                    {% else %}
+                                    <span class="text-muted small">None</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted">No question emergence data found.</p>
+            {% endif %}
+        </div>
+
+        <!-- Resolution Patterns Section -->
+        <div class="mb-4">
+            <h6 class="border-bottom pb-2 mb-3">
+                <i class="bi bi-check-circle text-success me-2"></i>
+                Resolution Patterns
+                {{ info_link_inline('argument-mining', 'Harris et al. (2018) Line-Drawing Method') }}
+                <span class="badge bg-success ms-2">{{ rich_analysis.resolution_patterns|length }}</span>
+            </h6>
+            {% if rich_analysis.resolution_patterns %}
+            <div class="accordion" id="resolutionPatternsAccordion">
+                {% for rp in rich_analysis.resolution_patterns %}
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse" data-bs-target="#rp-{{ loop.index }}">
+                            <span class="me-2">{{ rp.conclusion_text }}</span>
+                            <span class="badge bg-primary ms-auto me-2">{{ rp.determinative_principles|length }} principles</span>
+                            <span class="badge bg-dark">{{ rp.determinative_facts|length }} facts</span>
+                        </button>
+                    </h2>
+                    <div id="rp-{{ loop.index }}" class="accordion-collapse collapse" data-bs-parent="#resolutionPatternsAccordion">
+                        <div class="accordion-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6 class="small fw-bold text-primary">Determinative Principles</h6>
+                                    {% if rp.determinative_principles %}
+                                    <ul class="small mb-0">
+                                        {% for princ in rp.determinative_principles %}
+                                        <li>{{ ontology_label(princ, entity_lookup) }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                    {% else %}
+                                    <span class="text-muted small">None identified</span>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6">
+                                    <h6 class="small fw-bold">Determinative Facts</h6>
+                                    {% if rp.determinative_facts %}
+                                    <ul class="small mb-0">
+                                        {% for fact in rp.determinative_facts %}
+                                        <li>{{ ontology_label(fact, entity_lookup) }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                    {% else %}
+                                    <span class="text-muted small">None identified</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% if rp.reasoning_chain %}
+                            <div class="mt-3">
+                                <h6 class="small fw-bold">Reasoning Chain</h6>
+                                <p class="small text-muted mb-0">{{ rp.reasoning_chain }}</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted">No resolution patterns found.</p>
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle me-1"></i> No rich analysis found.
+            <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}#rich_analysisSection">Run Rich Analysis</a> on the Step 4 page first.
+        </div>
+        {% endif %}
+
+        <!-- Entity-Grounded Arguments Section (dynamically loaded) -->
+        <div id="argumentsContainer" class="mt-4">
+            <div class="text-center text-muted py-4">
+                <i class="bi bi-hourglass-split me-2"></i>Loading entity-grounded arguments...
+            </div>
+        </div>
+    </div>
+</div>

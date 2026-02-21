@@ -1,0 +1,305 @@
+{# Step 4 Review -- Questions & Conclusions tab (linked + split views).
+   Parent provides: case, questions, conclusions, research_caveat macro
+#}
+<!-- Header with link back to extraction -->
+<div class="card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h6 class="mb-0"><i class="bi bi-question-circle"></i> Questions & Conclusions</h6>
+        <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}#questionsSection" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> View Extraction
+        </a>
+    </div>
+</div>
+
+<!-- View Toggle -->
+<div class="mb-3">
+    <div class="btn-group" role="group">
+        <input type="radio" class="btn-check" name="qcView" id="linkedView" checked>
+        <label class="btn btn-outline-primary" for="linkedView">Linked View</label>
+        <input type="radio" class="btn-check" name="qcView" id="splitView">
+        <label class="btn btn-outline-primary" for="splitView">Side-by-Side</label>
+    </div>
+</div>
+
+<!-- LINKED VIEW: Shows Q->C relationships clearly -->
+<div id="linkedViewContent">
+    <div class="alert alert-info mb-3">
+        <i class="bi bi-info-circle"></i> Each question is shown with its corresponding conclusion(s). This reveals the board's reasoning flow.
+    </div>
+
+    {% if questions %}
+        {% for question in questions %}
+        {% set q_num = (question.rdf_json_ld.questionNumber|string) if (question.rdf_json_ld and question.rdf_json_ld.questionNumber) else '' %}
+        {% set q_type = question.rdf_json_ld.questionType if (question.rdf_json_ld and question.rdf_json_ld.questionType) else 'unknown' %}
+        <div class="card mb-4 qc-link-card" id="qc-pair-{{ loop.index }}">
+            <!-- Question Header -->
+            <div class="card-header {% if q_type == 'board_explicit' %}bg-warning text-dark{% else %}bg-light{% endif %}">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">
+                        <i class="bi bi-question-circle me-2"></i>
+                        Question {{ loop.index }}
+                        {% if q_type == 'board_explicit' %}
+                        <span class="badge bg-primary ms-2">Board Question</span>
+                        {% elif q_type == 'implicit' %}
+                        <span class="badge bg-secondary ms-2">Implicit</span>
+                        {% elif q_type == 'principle_tension' %}
+                        <span class="badge bg-info ms-2">Principle Tension</span>
+                        {% elif q_type == 'theoretical' %}
+                        <span class="badge bg-dark ms-2">Theoretical</span>{{ research_caveat('ethical-frameworks', 'Ethical frameworks (deontological, virtue ethics, etc.) not fully defined in ontology - research exploratory') }}
+                        {% elif q_type == 'counterfactual' %}
+                        <span class="badge bg-light text-dark ms-2">Counterfactual</span>
+                        {% endif %}
+                    </h6>
+                    {% if question.rdf_json_ld and question.rdf_json_ld.relatedProvisions %}
+                    <div>
+                        {% for prov in question.rdf_json_ld.relatedProvisions %}
+                        <span class="badge bg-secondary">{{ prov }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Question Text -->
+                <p class="mb-3">{{ question.entity_definition }}</p>
+
+                {% if question.rdf_json_ld and question.rdf_json_ld.mentionedEntities %}
+                <div class="mb-3">
+                    <small class="text-muted"><strong>Involves:</strong></small>
+                    {% for entity_type, entity_list in question.rdf_json_ld.mentionedEntities.items() %}
+                    {% for entity_name in entity_list %}
+                    <span class="badge me-1 onto-type-{{ entity_type|lower }}" title="{{ entity_type|title }}">{{ entity_name }}</span>
+                    {% endfor %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- Arrow to Conclusions -->
+                <div class="text-center my-2">
+                    <span class="qc-arrow"><i class="bi bi-arrow-down-circle-fill"></i></span>
+                    {% if q_type == 'board_explicit' %}
+                    <small class="text-muted d-block">Board's Conclusion</small>
+                    {% else %}
+                    <small class="text-muted d-block">Analysis</small>
+                    {% endif %}
+                </div>
+
+                <!-- Linked Conclusions -->
+                {% set question_num = (question.rdf_json_ld.questionNumber|string) if (question.rdf_json_ld and question.rdf_json_ld.questionNumber) else question.entity_label|replace('Question_', '')|replace('Question ', '')|replace('Q', '') %}
+                {% set matched_conclusions = [] %}
+                {% for conclusion in conclusions %}
+                    {% if conclusion.rdf_json_ld and conclusion.rdf_json_ld.answersQuestions %}
+                        {% for answered_q in conclusion.rdf_json_ld.answersQuestions %}
+                            {% if answered_q|string == question_num %}
+                                {% if conclusion not in matched_conclusions %}
+                                    {% set _ = matched_conclusions.append(conclusion) %}
+                                {% endif %}
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
+                {% endfor %}
+
+                {% for conclusion in matched_conclusions %}
+                {% set c_type = conclusion.rdf_json_ld.conclusionType if conclusion.rdf_json_ld else 'unknown' %}
+                {# Find conclusion's display index by looking it up in the full conclusions list #}
+                {% set ns_idx = namespace(val='') %}
+                {% for c in conclusions %}
+                    {% if c.id == conclusion.id %}
+                        {% set ns_idx.val = loop.index %}
+                    {% endif %}
+                {% endfor %}
+                <div class="card linked-conclusion mb-2 {% if c_type == 'board_explicit' %}border-success{% endif %}">
+                    <div class="card-body py-2">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong class="{% if c_type == 'board_explicit' %}text-success{% else %}text-secondary{% endif %}">
+                                    <i class="bi bi-check-circle me-1"></i>
+                                    Conclusion {{ ns_idx.val }}
+                                </strong>
+                                {% if c_type == 'board_explicit' %}
+                                <span class="badge bg-success ms-2">Board Conclusion</span>
+                                {% elif c_type == 'analytical_extension' %}
+                                <span class="badge bg-secondary ms-2">Analytical</span>
+                                {% elif c_type == 'question_response' %}
+                                <span class="badge bg-info ms-2">Response</span>
+                                {% elif c_type == 'principle_synthesis' %}
+                                <span class="badge bg-dark ms-2">Synthesis</span>
+                                {% endif %}
+                                <p class="mb-1 mt-1">{{ conclusion.entity_definition }}</p>
+                            </div>
+                        </div>
+                        {% if conclusion.rdf_json_ld.citedProvisions %}
+                        <div class="mt-2">
+                            <small class="text-muted">Cites:</small>
+                            {% for prov in conclusion.rdf_json_ld.citedProvisions %}
+                            <span class="badge bg-secondary badge-sm">{{ prov }}</span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+
+                {% if matched_conclusions|length == 0 %}
+                <div class="alert alert-secondary mb-0">
+                    {% if q_type == 'board_explicit' %}
+                    <small><i class="bi bi-exclamation-triangle"></i> Board's conclusion not yet extracted. Run conclusion extraction.</small>
+                    {% else %}
+                    <small><i class="bi bi-info-circle"></i> Analysis pending - insufficient information in case to address this question.</small>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+
+        <!-- Unlinked Conclusions -->
+        {% set unlinked_conclusions = [] %}
+        {% for conclusion in conclusions %}
+            {% if not conclusion.rdf_json_ld or not conclusion.rdf_json_ld.answersQuestions or conclusion.rdf_json_ld.answersQuestions|length == 0 %}
+                {% set _ = unlinked_conclusions.append(conclusion) %}
+            {% endif %}
+        {% endfor %}
+
+        {% if unlinked_conclusions|length > 0 %}
+        <div class="card mt-4 unlinked-item">
+            <div class="card-header bg-secondary text-white">
+                <h6 class="mb-0"><i class="bi bi-link-45deg"></i> Additional Conclusions (No Direct Question Link)</h6>
+            </div>
+            <div class="card-body">
+                {% for conclusion in unlinked_conclusions %}
+                <div class="mb-3 pb-3 {% if not loop.last %}border-bottom{% endif %}">
+                    <strong>{{ conclusion.entity_label }}</strong>
+                    <p class="mb-1">{{ conclusion.entity_definition }}</p>
+                    {% if conclusion.rdf_json_ld and conclusion.rdf_json_ld.citedProvisions %}
+                    <small class="text-muted">Cites:</small>
+                    {% for prov in conclusion.rdf_json_ld.citedProvisions %}
+                    <span class="badge bg-secondary badge-sm">{{ prov }}</span>
+                    {% endfor %}
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+    {% else %}
+        <div class="alert alert-warning">No questions extracted yet. Run Step 4 synthesis first.</div>
+    {% endif %}
+</div>
+
+<!-- SPLIT VIEW: Matched Q-C pairs in table format -->
+<div id="splitViewContent" style="display: none;">
+    {% if questions %}
+    <div class="table-responsive">
+        <table class="table table-bordered">
+            <thead class="table-light">
+                <tr>
+                    <th style="width: 50%"><i class="bi bi-question-circle text-warning"></i> Question</th>
+                    <th style="width: 50%"><i class="bi bi-check-circle text-success"></i> Conclusion</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for question in questions %}
+                {% set q_num = (question.rdf_json_ld.questionNumber|string) if (question.rdf_json_ld and question.rdf_json_ld.questionNumber) else '' %}
+                {% set q_type = question.rdf_json_ld.questionType if (question.rdf_json_ld and question.rdf_json_ld.questionType) else 'unknown' %}
+
+                {# Find matching conclusions for this question #}
+                {% set matched_conclusions = [] %}
+                {% for conclusion in conclusions %}
+                    {% if conclusion.rdf_json_ld and conclusion.rdf_json_ld.answersQuestions %}
+                        {% if q_num|int in conclusion.rdf_json_ld.answersQuestions %}
+                            {% set _ = matched_conclusions.append(conclusion) %}
+                        {% endif %}
+                    {% endif %}
+                {% endfor %}
+
+                <tr>
+                    <!-- Question Cell -->
+                    <td class="{% if q_type == 'board_explicit' %}table-warning{% endif %}">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <strong>Question {{ loop.index }}</strong>
+                            {% if q_type == 'board_explicit' %}
+                            <span class="badge bg-primary">Board Question</span>
+                            {% elif q_type == 'implicit' %}
+                            <span class="badge bg-secondary">Implicit</span>
+                            {% elif q_type == 'principle_tension' %}
+                            <span class="badge bg-info">Principle Tension</span>
+                            {% elif q_type == 'theoretical' %}
+                            <span class="badge bg-dark">Theoretical</span>{{ research_caveat('ethical-frameworks', 'Ethical frameworks (deontological, virtue ethics, etc.) not fully defined in ontology - research exploratory') }}
+                            {% elif q_type == 'counterfactual' %}
+                            <span class="badge bg-light text-dark">Counterfactual</span>
+                            {% endif %}
+                        </div>
+                        <p class="mb-0">{{ question.entity_definition }}</p>
+                    </td>
+
+                    <!-- Conclusion Cell -->
+                    <td class="{% if matched_conclusions and matched_conclusions[0].rdf_json_ld.conclusionType == 'board_explicit' %}table-success{% endif %}">
+                        {% if matched_conclusions %}
+                            {% for conclusion in matched_conclusions %}
+                            {% set c_type = conclusion.rdf_json_ld.conclusionType if conclusion.rdf_json_ld else 'unknown' %}
+                            {# Find conclusion's display index #}
+                            {% set ns_c_idx = namespace(val='') %}
+                            {% for c in conclusions %}
+                                {% if c.id == conclusion.id %}
+                                    {% set ns_c_idx.val = loop.index %}
+                                {% endif %}
+                            {% endfor %}
+                            <div class="{% if not loop.last %}mb-3 pb-3 border-bottom{% endif %}">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <strong>Conclusion {{ ns_c_idx.val }}</strong>
+                                    {% if c_type == 'board_explicit' %}
+                                    <span class="badge bg-success">Board Conclusion</span>
+                                    {% elif c_type == 'analytical_extension' %}
+                                    <span class="badge bg-secondary">Analytical</span>
+                                    {% elif c_type == 'question_response' %}
+                                    <span class="badge bg-info">Response</span>
+                                    {% elif c_type == 'principle_synthesis' %}
+                                    <span class="badge bg-dark">Synthesis</span>
+                                    {% endif %}
+                                </div>
+                                <p class="mb-0">{{ conclusion.entity_definition }}</p>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            {% if q_type == 'board_explicit' %}
+                            <span class="text-warning fst-italic"><i class="bi bi-exclamation-triangle"></i> Not yet extracted</span>
+                            {% else %}
+                            <span class="text-muted fst-italic"><i class="bi bi-info-circle"></i> Insufficient information</span>
+                            {% endif %}
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+        <div class="alert alert-warning">No questions extracted yet. Run Step 4 synthesis first.</div>
+    {% endif %}
+</div>
+
+<!-- Q&C View Toggle Script -->
+<script>
+(function() {
+    var linked = document.getElementById('linkedView');
+    var split = document.getElementById('splitView');
+    if (linked) {
+        linked.addEventListener('change', function() {
+            if (this.checked) {
+                document.getElementById('linkedViewContent').style.display = 'block';
+                document.getElementById('splitViewContent').style.display = 'none';
+            }
+        });
+    }
+    if (split) {
+        split.addEventListener('change', function() {
+            if (this.checked) {
+                document.getElementById('linkedViewContent').style.display = 'none';
+                document.getElementById('splitViewContent').style.display = 'block';
+            }
+        });
+    }
+})();
+</script>
