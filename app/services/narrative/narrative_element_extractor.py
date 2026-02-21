@@ -22,6 +22,7 @@ from dataclasses import dataclass, field, asdict
 from app import db
 from app.models import TemporaryRDFStorage
 from app.utils.llm_utils import get_llm_client
+from models import ModelConfig
 
 logger = logging.getLogger(__name__)
 
@@ -715,7 +716,7 @@ Output as JSON array:
         llm_trace = None
         try:
             response = self.llm_client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model=ModelConfig.get_claude_model("default"),
                 max_tokens=500,
                 temperature=0.3,
                 messages=[{"role": "user", "content": prompt}]
@@ -732,7 +733,7 @@ Output as JSON array:
                 'description': 'Enhance character descriptions with professional context',
                 'prompt': prompt,
                 'response': response_text,
-                'model': 'claude-sonnet-4-20250514'
+                'model': ModelConfig.get_claude_model("default")
             }
 
             json_match = re.search(r'```json\n(.*?)\n```', response_text, re.DOTALL)
@@ -851,7 +852,7 @@ Output as JSON array (identify 2-5 key tensions):
         llm_trace = None
         try:
             response = self.llm_client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model=ModelConfig.get_claude_model("default"),
                 max_tokens=1500,
                 temperature=0.3,
                 messages=[{"role": "user", "content": prompt}]
@@ -868,7 +869,7 @@ Output as JSON array (identify 2-5 key tensions):
                 'description': 'Identify ethical tensions with Jones (1991) moral intensity factors',
                 'prompt': prompt,
                 'response': response_text,
-                'model': 'claude-sonnet-4-20250514'
+                'model': ModelConfig.get_claude_model("default")
             }
 
             json_match = re.search(r'```json\n(.*?)\n```', response_text, re.DOTALL)

@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from sqlalchemy import text
 
 from app import db
+from models import ModelConfig
 
 logger = logging.getLogger(__name__)
 
@@ -290,7 +291,7 @@ class PrecedentSimilarityService:
 
         try:
             response = self.llm_client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model=ModelConfig.get_claude_model("default"),
                 max_tokens=500,
                 temperature=0.1,
                 messages=[{"role": "user", "content": prompt}]

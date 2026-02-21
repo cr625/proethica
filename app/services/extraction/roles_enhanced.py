@@ -11,6 +11,7 @@ import re
 from typing import List, Optional
 
 from .base import ConceptCandidate, Extractor, PostProcessor, Matcher, MatchedConcept
+from models import ModelConfig
 
 logger = logging.getLogger(__name__)
 
@@ -237,7 +238,7 @@ Focus on accuracy over quantity. Extract only clear, unambiguous roles.
             if hasattr(llm_client, 'messages') and hasattr(llm_client.messages, 'create'):
                 # Anthropic client
                 response = llm_client.messages.create(
-                    model="claude-sonnet-4-20250514",
+                    model=ModelConfig.get_claude_model("default"),
                     max_tokens=2000,  # Reduced since we're only extracting roles
                     messages=[{
                         "role": "user",

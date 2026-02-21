@@ -18,6 +18,9 @@ from flask import Blueprint, request, jsonify, Response, stream_with_context
 
 from app.models import Document, TemporaryRDFStorage, ExtractionPrompt, db
 from app.utils.llm_utils import get_llm_client
+from app.routes.scenario_pipeline.step4_config import (
+    STEP4_SECTION_TYPE, STEP4_DEFAULT_MODEL, STEP4_POWERFUL_MODEL,
+)
 from app.utils.environment_auth import auth_required_for_llm
 
 logger = logging.getLogger(__name__)
@@ -91,7 +94,7 @@ def register_transformation_routes(bp: Blueprint, get_all_case_entities: Callabl
                     'reasoning': result.reasoning
                 },
                 'metadata': {
-                    'model': 'claude-opus-4-20250514',
+                    'model': STEP4_POWERFUL_MODEL,
                     'timestamp': datetime.utcnow().isoformat()
                 }
             })
@@ -236,8 +239,8 @@ def register_transformation_routes(bp: Blueprint, get_all_case_entities: Callabl
                         prompt_text=classifier.last_prompt or '',
                         raw_response=classifier.last_response or '',
                         step_number=4,
-                        section_type='synthesis',
-                        llm_model='claude-sonnet-4-20250514',
+                        section_type=STEP4_SECTION_TYPE,
+                        llm_model=STEP4_DEFAULT_MODEL,
                         extraction_session_id=session_id
                     )
                     logger.info(f"Saved transformation extraction prompt id={saved_prompt.id}")

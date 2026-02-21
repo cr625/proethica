@@ -14,6 +14,8 @@ import re
 from typing import List, Dict, Tuple, Optional
 from dataclasses import dataclass
 
+from models import ModelConfig
+
 logger = logging.getLogger(__name__)
 
 
@@ -154,7 +156,7 @@ class QuestionConclusionLinkingService:
         try:
             # Call LLM
             response = self.llm_client.messages.create(
-                model="claude-opus-4-20250514",
+                model=ModelConfig.get_claude_model("powerful"),
                 max_tokens=4000,
                 temperature=0.0,  # Deterministic for verification
                 messages=[{

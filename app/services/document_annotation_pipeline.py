@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from app.models.guideline import Guideline
 from app.models import Document
 from app.models.document_concept_annotation import DocumentConceptAnnotation
+from models import ModelConfig
 from app.services.ontserve_annotation_service import OntServeAnnotationService
 from app.services.llm_service import LLMService
 
@@ -44,7 +45,7 @@ class DocumentAnnotationPipeline:
         self.overlap_threshold = 5  # Characters
         
         # LLM model preference
-        self.preferred_model = "claude-3-sonnet-20240229"
+        self.preferred_model = ModelConfig.get_claude_model("default")
     
     def annotate_document(self, document_type: str, document_id: int, 
                          world_id: int, force_refresh: bool = False) -> List[DocumentConceptAnnotation]:

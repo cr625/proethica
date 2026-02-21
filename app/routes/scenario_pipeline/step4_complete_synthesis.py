@@ -19,6 +19,9 @@ from flask import Response, stream_with_context
 from app.models import Document, ExtractionPrompt, db
 from app.utils.environment_auth import auth_required_for_llm
 from app.utils.llm_utils import get_llm_client
+from app.routes.scenario_pipeline.step4_config import (
+    STEP4_SECTION_TYPE, STEP4_DEFAULT_MODEL, STEP4_POWERFUL_MODEL,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -215,9 +218,9 @@ def register_complete_synthesis_routes(bp, build_entity_foundation, load_canonic
                         case_id=case_id,
                         concept_type='phase3_decision_synthesis',
                         step_number=4,
-                        section_type='synthesis',
+                        section_type=STEP4_SECTION_TYPE,
                         prompt_text=prompt_text,
-                        llm_model='claude-sonnet-4-20250514' if phase3_result.llm_prompt else 'algorithmic',
+                        llm_model=STEP4_DEFAULT_MODEL if phase3_result.llm_prompt else 'algorithmic',
                         extraction_session_id=str(uuid.uuid4()),
                         raw_response=raw_response,
                         results_summary=json.dumps({
@@ -318,9 +321,9 @@ def register_complete_synthesis_routes(bp, build_entity_foundation, load_canonic
                     case_id=case_id,
                     concept_type='phase4_narrative',
                     step_number=4,
-                    section_type='synthesis',
+                    section_type=STEP4_SECTION_TYPE,
                     prompt_text=prompt_text,
-                    llm_model='claude-sonnet-4-20250514',
+                    llm_model=STEP4_DEFAULT_MODEL,
                     extraction_session_id=session_id,
                     raw_response=json.dumps(phase4_result.to_dict()),
                     results_summary=json.dumps(phase4_result.summary())
@@ -343,9 +346,9 @@ def register_complete_synthesis_routes(bp, build_entity_foundation, load_canonic
                     case_id=case_id,
                     concept_type='whole_case_synthesis',
                     step_number=4,
-                    section_type='synthesis',
+                    section_type=STEP4_SECTION_TYPE,
                     prompt_text='Complete Four-Phase Synthesis',
-                    llm_model='claude-sonnet-4-20250514',
+                    llm_model=STEP4_DEFAULT_MODEL,
                     extraction_session_id=session_id,
                     raw_response=json.dumps(synthesis_summary),
                     results_summary=json.dumps(synthesis_summary)

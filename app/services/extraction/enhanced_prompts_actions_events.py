@@ -9,6 +9,9 @@ This module provides enhanced prompt templates that incorporate:
 - Professional decision points and temporal triggers
 """
 
+from models import ModelConfig
+
+
 def create_enhanced_actions_prompt(text: str, include_ontology_context: bool = False) -> str:
     """
     Create enhanced actions extraction prompt based on Chapter 2.2.6 literature.
@@ -245,7 +248,7 @@ class EnhancedActionsExtractor:
                     )
                 
                 response = self.llm_client.chat.completions.create(
-                    model="claude-3-sonnet-20240229",
+                    model=ModelConfig.get_claude_model("default"),
                     messages=[
                         {"role": "system", "content": "You are an expert in professional ethics and action classification."},
                         {"role": "user", "content": prompt}
@@ -345,7 +348,7 @@ class EnhancedEventsExtractor:
                     )
                 
                 response = self.llm_client.chat.completions.create(
-                    model="claude-3-sonnet-20240229",
+                    model=ModelConfig.get_claude_model("default"),
                     messages=[
                         {"role": "system", "content": "You are an expert in temporal dynamics and event classification in professional ethics."},
                         {"role": "user", "content": prompt}

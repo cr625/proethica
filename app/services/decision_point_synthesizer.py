@@ -22,6 +22,7 @@ from app import db
 from app.models import TemporaryRDFStorage, ExtractionPrompt
 from app.utils.llm_utils import get_llm_client
 from app.domains import DomainConfig, get_domain_config
+from models import ModelConfig
 
 # E1-E3 Services
 from app.services.entity_analysis import (
@@ -340,7 +341,7 @@ class DecisionPointSynthesizer:
                         algorithmic_candidates_count=0,
                         algorithmic_method="causal_links_fallback",
                         canonical_points_produced=result.canonical_count,
-                        llm_model="claude-sonnet-4-20250514",
+                        llm_model=ModelConfig.get_claude_model("default"),
                         llm_prompt_length=len(llm_prompt),
                         llm_response_length=len(llm_response),
                         mcp_server_url=os.environ.get("ONTSERVE_MCP_URL", "http://localhost:8082")
@@ -406,7 +407,7 @@ class DecisionPointSynthesizer:
             algorithmic_candidates_count=result.candidates_count,
             high_alignment_count=result.high_alignment_count,
             canonical_points_produced=result.canonical_count,
-            llm_model="claude-sonnet-4-20250514" if not skip_llm else "",
+            llm_model=ModelConfig.get_claude_model("default") if not skip_llm else "",
             llm_prompt_length=len(result.llm_prompt or ""),
             llm_response_length=len(result.llm_response or ""),
             llm_temperature=0.2,
@@ -666,7 +667,7 @@ class DecisionPointSynthesizer:
 
         try:
             response = self.llm_client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model=ModelConfig.get_claude_model("default"),
                 max_tokens=4000,
                 temperature=0.2,
                 messages=[{"role": "user", "content": prompt}]
@@ -807,7 +808,7 @@ Return as JSON array:
 
         try:
             response = self.llm_client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model=ModelConfig.get_claude_model("default"),
                 max_tokens=4000,
                 temperature=0.3,
                 messages=[{"role": "user", "content": prompt}]
@@ -1220,7 +1221,7 @@ Produce 4-6 decision points capturing the key ethical issues.
                     rdf_json_ld=dp.to_dict(),
                     provenance_metadata=provenance,
                     is_selected=True,
-                    extraction_model='claude-sonnet-4-20250514',
+                    extraction_model=ModelConfig.get_claude_model("default"),
                     ontology_target=f'proethica-case-{case_id}'
                 )
                 db.session.add(entity)

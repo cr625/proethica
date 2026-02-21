@@ -23,6 +23,7 @@ from app.models import Document
 
 from .case_feature_extractor import CaseFeatureExtractor, ExtractedFeatures
 from .similarity_service import PrecedentSimilarityService, SimilarityResult
+from models import ModelConfig
 
 logger = logging.getLogger(__name__)
 
@@ -445,7 +446,7 @@ In 2-3 sentences, explain:
 
         try:
             response = self.llm_client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model=ModelConfig.get_claude_model("default"),
                 max_tokens=200,
                 temperature=0.3,
                 messages=[{"role": "user", "content": prompt}]
@@ -506,7 +507,7 @@ Format your response with clear section headers."""
 
         try:
             response = self.llm_client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model=ModelConfig.get_claude_model("default"),
                 max_tokens=1000,
                 temperature=0.2,
                 messages=[{"role": "user", "content": prompt}]

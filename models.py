@@ -66,12 +66,15 @@ class ModelConfig:
         if old_model:
             # Map old model names to new ones
             model_mapping = {
-                "claude-3-7-sonnet-20250219": "claude-sonnet-4-20250514",
-                "claude-3-sonnet-20240229": "claude-sonnet-4-20250514",
-                "claude-3-opus-20240229": "claude-opus-4-1-20250805",  # Map to latest Opus 4.1
-                "claude-3.5-sonnet-latest": "claude-sonnet-4-20250514",
-                "claude-3.5-opus-latest": "claude-opus-4-1-20250805",  # Map to latest Opus 4.1
-                "claude-opus-4-20250514": "claude-opus-4-1-20250805",  # Auto-upgrade to Opus 4.1
+                "claude-3-7-sonnet-20250219": "claude-sonnet-4-6",
+                "claude-3-sonnet-20240229": "claude-sonnet-4-6",
+                "claude-3-opus-20240229": "claude-opus-4-6",
+                "claude-3.5-sonnet-latest": "claude-sonnet-4-6",
+                "claude-3.5-opus-latest": "claude-opus-4-6",
+                "claude-opus-4-20250514": "claude-opus-4-6",
+                "claude-sonnet-4-20250514": "claude-sonnet-4-6",
+                "claude-opus-4-1-20250805": "claude-opus-4-6",
+                "claude-sonnet-4-5-20250929": "claude-sonnet-4-6",
             }
             return model_mapping.get(old_model, old_model)
         return cls.get_claude_model("default")

@@ -25,6 +25,7 @@ import logging
 from typing import List, Dict, Optional, Any, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
+from models import ModelConfig
 
 logger = logging.getLogger(__name__)
 
@@ -327,7 +328,7 @@ class QuestionAnalyzer:
 
         try:
             response = self.llm_client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model=ModelConfig.get_claude_model("default"),
                 max_tokens=4000,
                 temperature=0.1,
                 messages=[{"role": "user", "content": prompt}]
@@ -372,7 +373,7 @@ class QuestionAnalyzer:
 
         try:
             response = self.llm_client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model=ModelConfig.get_claude_model("default"),
                 max_tokens=6000,
                 temperature=0.3,  # Slightly higher for creative analysis
                 messages=[{"role": "user", "content": prompt}]

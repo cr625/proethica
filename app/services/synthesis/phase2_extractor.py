@@ -21,6 +21,7 @@ from app.models import Document, TemporaryRDFStorage, ExtractionPrompt
 from app.utils.llm_utils import get_llm_client
 from sqlalchemy import text
 
+from models import ModelConfig
 from .base import SynthesisEvent, SynthesisResult, BaseSynthesizer
 
 # Import extraction services
@@ -255,7 +256,7 @@ class Phase2Extractor(BaseSynthesizer):
                         'provision': code,
                         'prompt': validator.last_validation_prompt,
                         'response': getattr(validator, 'last_validation_response', ''),
-                        'model': 'claude-sonnet-4-20250514',
+                        'model': ModelConfig.get_claude_model("default"),
                         'timestamp': datetime.utcnow().isoformat()
                     })
             else:
@@ -287,7 +288,7 @@ class Phase2Extractor(BaseSynthesizer):
                 'stage': 'PROVISION_LINKING',
                 'prompt': linker.last_linking_prompt,
                 'response': getattr(linker, 'last_linking_response', ''),
-                'model': 'claude-sonnet-4-20250514',
+                'model': ModelConfig.get_claude_model("default"),
                 'timestamp': datetime.utcnow().isoformat()
             })
 
@@ -339,7 +340,7 @@ class Phase2Extractor(BaseSynthesizer):
                 'stage': 'QUESTION_EXTRACTION',
                 'prompt': question_analyzer.last_prompt,
                 'response': getattr(question_analyzer, 'last_response', ''),
-                'model': 'claude-sonnet-4-20250514',
+                'model': ModelConfig.get_claude_model("default"),
                 'timestamp': datetime.utcnow().isoformat()
             })
 
@@ -385,7 +386,7 @@ class Phase2Extractor(BaseSynthesizer):
                 'stage': 'CONCLUSION_EXTRACTION',
                 'prompt': conclusion_analyzer.last_prompt,
                 'response': getattr(conclusion_analyzer, 'last_response', ''),
-                'model': 'claude-sonnet-4-20250514',
+                'model': ModelConfig.get_claude_model("default"),
                 'timestamp': datetime.utcnow().isoformat()
             })
 
@@ -420,7 +421,7 @@ class Phase2Extractor(BaseSynthesizer):
                 'stage': 'QC_LINKING',
                 'prompt': linker.last_prompt,
                 'response': getattr(linker, 'last_response', ''),
-                'model': 'claude-sonnet-4-20250514',
+                'model': ModelConfig.get_claude_model("default"),
                 'timestamp': datetime.utcnow().isoformat()
             })
 
@@ -463,7 +464,7 @@ class Phase2Extractor(BaseSynthesizer):
                     'stage': 'TRANSFORMATION_CLASSIFICATION',
                     'prompt': classifier.last_prompt,
                     'response': getattr(classifier, 'last_response', ''),
-                    'model': 'claude-sonnet-4-20250514',
+                    'model': ModelConfig.get_claude_model("default"),
                     'timestamp': datetime.utcnow().isoformat()
                 })
 
@@ -475,7 +476,7 @@ class Phase2Extractor(BaseSynthesizer):
                         step_number=4,
                         section_type='synthesis',
                         prompt_text=classifier.last_prompt,
-                        llm_model='claude-sonnet-4-20250514',
+                        llm_model=ModelConfig.get_claude_model("default"),
                         extraction_session_id=self.session_id,
                         raw_response=getattr(classifier, 'last_response', ''),
                         results_summary={'transformation_type': result.transformation_type, 'confidence': result.confidence}
@@ -542,7 +543,7 @@ class Phase2Extractor(BaseSynthesizer):
                     step_number=4,
                     section_type='synthesis',
                     prompt_text='\n\n---\n\n'.join(rich_analysis_prompts) if rich_analysis_prompts else 'Rich analysis via CaseSynthesizer',
-                    llm_model='claude-sonnet-4-20250514',
+                    llm_model=ModelConfig.get_claude_model("default"),
                     extraction_session_id=self.session_id,
                     raw_response='\n\n---\n\n'.join(rich_analysis_responses) if rich_analysis_responses else f'Causal links: {len(self._result.causal_links)}, Question emergence: {len(self._result.question_emergence)}, Resolution patterns: {len(self._result.resolution_patterns)}',
                     results_summary={
@@ -640,7 +641,7 @@ class Phase2Extractor(BaseSynthesizer):
                     'linkedEntities': p.get('linked_entities', [])
                 },
                 is_selected=True,
-                extraction_model='claude-sonnet-4-20250514',
+                extraction_model=ModelConfig.get_claude_model("default"),
                 ontology_target=f'proethica-case-{self.case_id}'
             )
             db.session.add(entity)
@@ -666,7 +667,7 @@ class Phase2Extractor(BaseSynthesizer):
                     'extractionReasoning': q.get('extraction_reasoning', '')
                 },
                 is_selected=True,
-                extraction_model='claude-sonnet-4-20250514',
+                extraction_model=ModelConfig.get_claude_model("default"),
                 ontology_target=f'proethica-case-{self.case_id}'
             )
             db.session.add(entity)
@@ -693,7 +694,7 @@ class Phase2Extractor(BaseSynthesizer):
                     'extractionReasoning': c.get('extraction_reasoning', '')
                 },
                 is_selected=True,
-                extraction_model='claude-sonnet-4-20250514',
+                extraction_model=ModelConfig.get_claude_model("default"),
                 ontology_target=f'proethica-case-{self.case_id}'
             )
             db.session.add(entity)
@@ -759,7 +760,7 @@ class Phase2Extractor(BaseSynthesizer):
             step_number=4,
             section_type='synthesis',
             prompt_text='Phase 2 Analytical Extraction',
-            llm_model='claude-sonnet-4-20250514',
+            llm_model=ModelConfig.get_claude_model("default"),
             extraction_session_id=self.session_id,
             raw_response=str(prompt_summary),
             results_summary=prompt_summary,

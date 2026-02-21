@@ -10,6 +10,7 @@ Discussion analysis uses dual approach: independent and contextual with Facts aw
 import logging
 from contextlib import nullcontext
 from flask import render_template, request, jsonify, redirect, url_for, flash, session
+from models import ModelConfig
 from app.models import db, Document
 from app.routes.scenario_pipeline.overview import _format_section_for_llm
 from app.services.pipeline_status_service import PipelineStatusService
@@ -1196,7 +1197,7 @@ def tag_entities_in_questions(case_id):
             step_number=1,  # Step 1c - Questions section
             section_type='questions',
             prompt_text=matching_service.last_matching_prompt or '',
-            llm_model='claude-opus-4-1-20250805',
+            llm_model=ModelConfig.get_claude_model("powerful"),
             extraction_session_id=session_id,
             raw_response=matching_service.last_matching_response or '',
             results_summary={
@@ -1219,7 +1220,7 @@ def tag_entities_in_questions(case_id):
                 step_number=1,  # Step 1c - Questions section
                 section_type='questions',
                 prompt_text=matching_service.last_extraction_prompt,
-                llm_model='claude-opus-4-1-20250805',
+                llm_model=ModelConfig.get_claude_model("powerful"),
                 extraction_session_id=session_id,
                 raw_response=matching_service.last_extraction_response or '',
                 results_summary={
@@ -1376,7 +1377,7 @@ def tag_entities_in_conclusions(case_id):
             step_number=1,  # Step 1d - Conclusions section
             section_type='conclusions',
             prompt_text=matching_service.last_matching_prompt or '',
-            llm_model='claude-opus-4-1-20250805',
+            llm_model=ModelConfig.get_claude_model("powerful"),
             extraction_session_id=session_id,
             raw_response=matching_service.last_matching_response or '',
             results_summary={
@@ -1400,7 +1401,7 @@ def tag_entities_in_conclusions(case_id):
                 step_number=1,  # Step 1d - Conclusions section
                 section_type='conclusions',
                 prompt_text=matching_service.last_extraction_prompt,
-                llm_model='claude-opus-4-1-20250805',
+                llm_model=ModelConfig.get_claude_model("powerful"),
                 extraction_session_id=session_id,
                 raw_response=matching_service.last_extraction_response or '',
                 results_summary={
@@ -1614,7 +1615,7 @@ def link_questions_to_conclusions(case_id):
             step_number=1,  # Step 1d - Conclusions section
             section_type='conclusions',
             prompt_text=linking_service.last_linking_prompt or '',
-            llm_model='claude-opus-4-20250514',
+            llm_model=ModelConfig.get_claude_model("powerful"),
             extraction_session_id=session_id,
             raw_response=linking_service.last_linking_response or '',
             results_summary={
@@ -1882,7 +1883,7 @@ def extract_code_provisions(case_id):
             step_number=1,  # Step 1e
             section_type='references',
             prompt_text=linker.last_linking_prompt or 'HTML parsing + LLM entity linking',
-            llm_model='claude-opus-4-20250514',
+            llm_model=ModelConfig.get_claude_model("powerful"),
             extraction_session_id=session_id,
             raw_response=linker.last_linking_response or '',
             results_summary={

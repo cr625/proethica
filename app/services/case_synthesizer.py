@@ -24,6 +24,7 @@ from app import db
 from app.models import Document, TemporaryRDFStorage, ExtractionPrompt
 from app.utils.llm_utils import get_llm_client
 from app.domains import DomainConfig, get_domain_config
+from models import ModelConfig
 
 # E1-E3 Services
 from app.services.entity_analysis import (
@@ -704,7 +705,7 @@ class CaseSynthesizer:
                 stage="LLM Refinement",
                 prompt=phase3_result.llm_prompt,
                 response=phase3_result.llm_response,
-                model="claude-sonnet-4-20250514"
+                model=ModelConfig.get_claude_model("default")
             ))
 
         logger.info(f"Phase 3: {len(canonical_points)} canonical decision points (from {algorithmic_candidates_count} candidates)")
@@ -734,7 +735,7 @@ class CaseSynthesizer:
             step_number=4,
             section_type='synthesis',
             prompt_text=f"Complete Synthesis - Phase 4 Narrative Construction (non-streaming)",
-            llm_model='claude-sonnet-4-20250514',
+            llm_model=ModelConfig.get_claude_model("default"),
             extraction_session_id=extraction_session_id,
             raw_response=json.dumps(phase4_result.to_dict()),
             results_summary=json.dumps(phase4_result.summary())
@@ -776,7 +777,7 @@ class CaseSynthesizer:
                     stage=trace.get('stage', 'unknown'),
                     prompt=trace.get('prompt', ''),
                     response=trace.get('response', ''),
-                    model=trace.get('model', 'claude-sonnet-4-20250514')
+                    model=trace.get('model', ModelConfig.get_claude_model("default"))
                 ))
             logger.info(f"Phase 4 LLM traces: {len(phase4_result.llm_traces)}")
 
@@ -1026,7 +1027,7 @@ class CaseSynthesizer:
                                     stage=f"Provision Validation ({code})",
                                     prompt=validator.last_validation_prompt,
                                     response=getattr(validator, 'last_validation_response', ''),
-                                    model="claude-sonnet-4-20250514"
+                                    model=ModelConfig.get_claude_model("default")
                                 ))
                         except Exception as e:
                             logger.warning(f"Validation failed for {code}: {e}")
@@ -1061,7 +1062,7 @@ class CaseSynthesizer:
                             stage="Provision Entity Linking",
                             prompt=linker.last_linking_prompt,
                             response=getattr(linker, 'last_linking_response', ''),
-                            model="claude-sonnet-4-20250514"
+                            model=ModelConfig.get_claude_model("default")
                         ))
 
                     logger.info(f"Phase 2A: Linked provisions to entities")
@@ -1121,7 +1122,7 @@ class CaseSynthesizer:
                         stage="Question Extraction",
                         prompt=question_analyzer.last_prompt,
                         response=getattr(question_analyzer, 'last_response', ''),
-                        model="claude-sonnet-4-20250514"
+                        model=ModelConfig.get_claude_model("default")
                     ))
 
                 logger.info(f"Phase 2B: Extracted {len(questions)} questions")
@@ -1152,7 +1153,7 @@ class CaseSynthesizer:
                         stage="Conclusion Extraction",
                         prompt=conclusion_analyzer.last_prompt,
                         response=getattr(conclusion_analyzer, 'last_response', ''),
-                        model="claude-sonnet-4-20250514"
+                        model=ModelConfig.get_claude_model("default")
                     ))
 
                 logger.info(f"Phase 2B: Extracted {len(conclusions)} conclusions")
@@ -1181,7 +1182,7 @@ class CaseSynthesizer:
                         stage="Q&C Linking",
                         prompt=linker.last_prompt,
                         response=getattr(linker, 'last_response', ''),
-                        model="claude-sonnet-4-20250514"
+                        model=ModelConfig.get_claude_model("default")
                     ))
 
                 logger.info(f"Phase 2B: Linked questions to conclusions")
@@ -1231,7 +1232,7 @@ class CaseSynthesizer:
                     stage="Transformation Classification",
                     prompt=classifier.last_prompt,
                     response=getattr(classifier, 'last_response', ''),
-                    model="claude-sonnet-4-20250514"
+                    model=ModelConfig.get_claude_model("default")
                 ))
 
             logger.info(f"Phase 2D: Transformation type = {transformation_type} (confidence: {transformation_result.confidence:.0%})")
@@ -1341,7 +1342,7 @@ class CaseSynthesizer:
                         'authoritative': True
                     },
                     is_selected=True,
-                    extraction_model='claude-sonnet-4-20250514',
+                    extraction_model=ModelConfig.get_claude_model("default"),
                     ontology_target=f'proethica-case-{case_id}'
                 )
                 db.session.add(entity)
@@ -1364,7 +1365,7 @@ class CaseSynthesizer:
                         'relatedProvisions': q.get('related_provisions', [])
                     },
                     is_selected=True,
-                    extraction_model='claude-sonnet-4-20250514',
+                    extraction_model=ModelConfig.get_claude_model("default"),
                     ontology_target=f'proethica-case-{case_id}'
                 )
                 db.session.add(entity)
@@ -1389,7 +1390,7 @@ class CaseSynthesizer:
                         'conclusionType': c.get('conclusion_type', 'determination')
                     },
                     is_selected=True,
-                    extraction_model='claude-sonnet-4-20250514',
+                    extraction_model=ModelConfig.get_claude_model("default"),
                     ontology_target=f'proethica-case-{case_id}'
                 )
                 db.session.add(entity)
@@ -1509,7 +1510,7 @@ class CaseSynthesizer:
                         'confidence': link.confidence
                     },
                     is_selected=True,
-                    extraction_model='claude-sonnet-4-20250514',
+                    extraction_model=ModelConfig.get_claude_model("default"),
                     ontology_target=f'proethica-case-{case_id}'
                 )
                 db.session.add(entity)
@@ -1543,7 +1544,7 @@ class CaseSynthesizer:
                         'confidence': qa.confidence
                     },
                     is_selected=True,
-                    extraction_model='claude-sonnet-4-20250514',
+                    extraction_model=ModelConfig.get_claude_model("default"),
                     ontology_target=f'proethica-case-{case_id}'
                 )
                 db.session.add(entity)
@@ -1572,7 +1573,7 @@ class CaseSynthesizer:
                         'confidence': rp.confidence
                     },
                     is_selected=True,
-                    extraction_model='claude-sonnet-4-20250514',
+                    extraction_model=ModelConfig.get_claude_model("default"),
                     ontology_target=f'proethica-case-{case_id}'
                 )
                 db.session.add(entity)
@@ -1766,7 +1767,7 @@ Include ALL actions even if they have empty relationships. Be precise with URI m
 
         try:
             response = self.llm_client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model=ModelConfig.get_claude_model("default"),
                 max_tokens=4000,  # Increased from 2000 - responses include long URIs
                 temperature=0.2,
                 messages=[{"role": "user", "content": prompt}]
@@ -1780,7 +1781,7 @@ Include ALL actions even if they have empty relationships. Be precise with URI m
                 stage="Causal-Normative Links",
                 prompt=prompt,
                 response=response_text,
-                model="claude-sonnet-4-20250514"
+                model=ModelConfig.get_claude_model("default")
             ))
 
             # Parse JSON from response using robust parser
@@ -1936,7 +1937,7 @@ Be precise with URI matching. Include all questions in this batch."""
 
         try:
             response = self.llm_client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model=ModelConfig.get_claude_model("default"),
                 max_tokens=3000,  # ~5 questions per batch, ~500 tokens each
                 temperature=0.2,
                 messages=[{"role": "user", "content": prompt}]
@@ -1951,7 +1952,7 @@ Be precise with URI matching. Include all questions in this batch."""
                 stage=f"Question Emergence (batch {batch_num})",
                 prompt=prompt,
                 response=response_text,
-                model="claude-sonnet-4-20250514"
+                model=ModelConfig.get_claude_model("default")
             ))
 
             # Parse JSON from response using robust parser
@@ -2062,7 +2063,7 @@ Be precise with URI matching. Include all conclusions."""
 
         try:
             response = self.llm_client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model=ModelConfig.get_claude_model("default"),
                 max_tokens=4000,  # Increased from 2000 - responses include long URIs
                 temperature=0.2,
                 messages=[{"role": "user", "content": prompt}]
@@ -2076,7 +2077,7 @@ Be precise with URI matching. Include all conclusions."""
                 stage="Resolution Pattern Analysis",
                 prompt=prompt,
                 response=response_text,
-                model="claude-sonnet-4-20250514"
+                model=ModelConfig.get_claude_model("default")
             ))
 
             # Parse JSON from response using robust parser
@@ -2287,7 +2288,7 @@ Output ONLY the 2-3 sentence summary, no additional text."""
 
         try:
             response = self.llm_client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model=ModelConfig.get_claude_model("default"),
                 max_tokens=300,
                 temperature=0.3,
                 messages=[{"role": "user", "content": summary_prompt}]
@@ -2301,7 +2302,7 @@ Output ONLY the 2-3 sentence summary, no additional text."""
                 stage="Case Summary",
                 prompt=summary_prompt,
                 response=enhanced_summary,
-                model="claude-sonnet-4-20250514"
+                model=ModelConfig.get_claude_model("default")
             ))
 
             logger.info(f"Phase 4: Generated LLM-enhanced case summary")
@@ -2343,7 +2344,7 @@ Output as JSON array:
 
         try:
             response = self.llm_client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model=ModelConfig.get_claude_model("default"),
                 max_tokens=800,
                 temperature=0.3,
                 messages=[{"role": "user", "content": timeline_prompt}]
@@ -2357,7 +2358,7 @@ Output as JSON array:
                 stage="Timeline Construction",
                 prompt=timeline_prompt,
                 response=response_text,
-                model="claude-sonnet-4-20250514"
+                model=ModelConfig.get_claude_model("default")
             ))
 
             # Parse timeline JSON
@@ -2604,7 +2605,7 @@ Output as JSON array:
                 prompt_text=self.last_prompt,
                 raw_response=self.last_response,
                 step_number=4,
-                llm_model='claude-sonnet-4-20250514',
+                llm_model=ModelConfig.get_claude_model("default"),
                 section_type='synthesis',
                 extraction_session_id=extraction_session_id
             )

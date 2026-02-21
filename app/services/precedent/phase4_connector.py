@@ -20,6 +20,7 @@ import logging
 from typing import List, Dict, Optional, Any
 from datetime import datetime
 
+from models import ModelConfig
 from app.models import db
 from app.models.case_precedent_features import CasePrecedentFeatures
 
@@ -84,7 +85,7 @@ def update_precedent_features_from_phase4(
         # Update extraction metadata
         features.extracted_at = datetime.utcnow()
         features.extraction_method = 'phase4_narrative'
-        features.llm_model_used = 'claude-sonnet-4-20250514'
+        features.llm_model_used = ModelConfig.get_claude_model("default")
 
         # Build extraction metadata
         metadata = features.extraction_metadata or {}

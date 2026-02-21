@@ -5,6 +5,7 @@ Displays the generated timeline with LLM-enhanced descriptions and expandable de
 """
 
 from flask import render_template, jsonify
+from models import ModelConfig
 from app.models import Document
 from app.services.scenario_generation.timeline_constructor import TimelineConstructor
 from app.services.direct_llm_service import DirectLLMService
@@ -96,7 +97,7 @@ Generate a narrative description:"""
             narrative_response = llm_service.generate_completion(
                 prompt=narrative_prompt,
                 provider='claude',
-                model='claude-3-5-sonnet-20241022',
+                model=ModelConfig.get_claude_model("default"),
                 max_tokens=150,
                 temperature=0.7
             )

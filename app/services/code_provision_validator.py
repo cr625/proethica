@@ -12,6 +12,8 @@ import logging
 from typing import List, Dict, Optional
 from dataclasses import dataclass
 
+from models import ModelConfig
+
 logger = logging.getLogger(__name__)
 
 
@@ -123,7 +125,7 @@ class CodeProvisionValidator:
 
         try:
             response = self.llm_client.messages.create(
-                model="claude-opus-4-20250514",
+                model=ModelConfig.get_claude_model("powerful"),
                 max_tokens=6000,
                 temperature=0.1,  # Low temperature for consistent validation
                 messages=[{

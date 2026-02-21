@@ -31,11 +31,11 @@
                     <div class="phase2-progress mt-2">
                         <div class="d-flex justify-content-center gap-1">
                             <span id="p2-provisions" class="substep-dot" title="2A: Provisions"></span>
-                            <span id="p2-precedents" class="substep-dot" title="2E: Precedents"></span>
-                            <span id="p2-questions" class="substep-dot" title="2B: Questions"></span>
-                            <span id="p2-conclusions" class="substep-dot" title="2B: Conclusions"></span>
-                            <span id="p2-transformation" class="substep-dot" title="2C: Transformation"></span>
-                            <span id="p2-rich" class="substep-dot" title="2D: Rich Analysis"></span>
+                            <span id="p2-precedents" class="substep-dot" title="2B: Precedents"></span>
+                            <span id="p2-questions" class="substep-dot" title="2C: Questions"></span>
+                            <span id="p2-conclusions" class="substep-dot" title="2C: Conclusions"></span>
+                            <span id="p2-transformation" class="substep-dot" title="2D: Transformation"></span>
+                            <span id="p2-rich" class="substep-dot" title="2E: Rich Analysis"></span>
                         </div>
                     </div>
                 </div>
@@ -179,7 +179,7 @@
                 <div class="step-header bg-dark bg-opacity-10">
                     <div class="d-flex justify-content-between align-items-center">
                         <h6 class="mb-0">
-                            <i class="bi bi-journal-bookmark text-dark"></i> 2E: Precedent Cases
+                            <i class="bi bi-journal-bookmark text-dark"></i> 2B: Precedent Cases
                             <span id="precedentsCount" class="badge bg-dark ms-2">{{ synthesis_status.precedents_count or 0 }}</span>
                         </h6>
                         {% if current_user.is_authenticated %}
@@ -190,11 +190,35 @@
                     </div>
                 </div>
                 <div class="step-content">
-                    {% if synthesis_status.precedents_count > 0 %}
-                    <div class="alert alert-success py-2 mb-2" id="precedentsExistingStatus">
-                        <i class="bi bi-check-circle-fill me-1"></i>
-                        <strong>{{ synthesis_status.precedents_count }} precedent cases</strong> extracted from case text.
-                        <a href="{{ url_for('step4.step4_review', case_id=case.id) }}#precedents" class="alert-link">View details</a>
+                    {% if precedents_json %}
+                    <div id="precedentsExistingStatus">
+                        <div class="list-group list-group-flush">
+                            {% for p in precedents_json %}
+                            {% set rdf = p.rdf_json_ld or {} %}
+                            <div class="list-group-item px-0 py-2">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        {% if rdf.get('resolved') and rdf.get('internalCaseId') %}
+                                        <a href="{{ url_for('cases.view_case', id=rdf.internalCaseId) }}" class="fw-semibold text-decoration-none">
+                                            <i class="bi bi-journal-bookmark me-1"></i>{{ p.entity_label }}
+                                        </a>
+                                        {% else %}
+                                        <span class="fw-semibold"><i class="bi bi-journal-bookmark me-1"></i>{{ p.entity_label }}</span>
+                                        {% endif %}
+                                        {% if rdf.get('citationType') %}
+                                        <span class="badge bg-{{ 'success' if rdf.citationType == 'supporting' else 'warning' if rdf.citationType == 'distinguishing' else 'info' }} ms-2">{{ rdf.citationType }}</span>
+                                        {% endif %}
+                                    </div>
+                                    {% if rdf.get('resolved') %}
+                                    <span class="badge bg-secondary" title="Resolved to case ID {{ rdf.internalCaseId }}"><i class="bi bi-link-45deg"></i> linked</span>
+                                    {% endif %}
+                                </div>
+                                {% if rdf.get('principleEstablished') %}
+                                <small class="text-muted d-block mt-1">{{ rdf.principleEstablished }}</small>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        </div>
                     </div>
                     {% else %}
                     <div class="alert alert-secondary py-2 mb-2" id="precedentsExistingStatus">
@@ -224,7 +248,7 @@
                 <div class="step-header bg-warning bg-opacity-10">
                     <div class="d-flex justify-content-between align-items-center">
                         <h6 class="mb-0">
-                            <i class="bi bi-question-circle text-warning"></i> 2B: Questions & Conclusions
+                            <i class="bi bi-question-circle text-warning"></i> 2C: Questions & Conclusions
                             <span id="questionsCount" class="badge bg-warning text-dark ms-2">{{ synthesis_status.questions_count or 0 }}</span>
                             <span id="conclusionsCount" class="badge bg-success ms-1">{{ synthesis_status.conclusions_count or 0 }}</span>
                         </h6>
@@ -271,7 +295,7 @@
                 <div class="step-header bg-purple-light">
                     <div class="d-flex justify-content-between align-items-center">
                         <h6 class="mb-0">
-                            <i class="bi bi-shuffle text-purple"></i> 2C: Transformation Classification
+                            <i class="bi bi-shuffle text-purple"></i> 2D: Transformation Classification
                             <a href="{{ url_for('tools.references') }}#transformation" class="ms-1" title="Marchais-Roubelat & Roubelat (2015)" target="_blank"><i class="bi bi-info-circle text-muted"></i></a>
                             <span id="transformationType" class="badge bg-purple ms-2">{{ synthesis_status.transformation_type or 'Not classified' }}</span>
                         </h6>
@@ -305,7 +329,7 @@
                 <div class="step-header bg-info bg-opacity-10">
                     <div class="d-flex justify-content-between align-items-center">
                         <h6 class="mb-0">
-                            <i class="bi bi-diagram-3 text-info"></i> 2D: Rich Analysis
+                            <i class="bi bi-diagram-3 text-info"></i> 2E: Rich Analysis
                             <a href="{{ url_for('tools.references') }}#nine-component" class="ms-1" title="Berreby et al. (2017), McLaren (2003), Harris et al. (2018)" target="_blank"><i class="bi bi-info-circle text-muted"></i></a>
                             <small class="text-muted">(Causal Links, Question Emergence, Resolution Patterns)</small>
                         </h6>
@@ -1494,10 +1518,10 @@ async function runCompleteSynthesis() {
             <p class="mb-2">Executing all phases in sequence:</p>
             <ol class="mb-2">
                 <li>Provisions (2A)</li>
-                <li>Precedent Cases (2E)</li>
-                <li>Questions & Conclusions (2B)</li>
-                <li>Transformation Classification (2C)</li>
-                <li>Rich Analysis (2D)</li>
+                <li>Precedent Cases (2B)</li>
+                <li>Questions & Conclusions (2C)</li>
+                <li>Transformation Classification (2D)</li>
+                <li>Rich Analysis (2E)</li>
                 <li>Phase 3: Decision Point Synthesis</li>
                 <li>Phase 4: Narrative Construction</li>
             </ol>
@@ -2805,7 +2829,7 @@ function loadSavedPrompts() {
     const completedTasks = new Set();
 
     // Track completed tasks and update phase2 indicator when core tasks complete
-    // Core tasks: transformation (2C) and rich_analysis (2D) indicate Phase 2 is done
+    // Core tasks: transformation (2D) and rich_analysis (2E) indicate Phase 2 is done
     function checkPhase2Complete() {
         const coreTasks = ['transformation', 'rich_analysis'];
         const coreComplete = coreTasks.every(t => completedTasks.has(t));

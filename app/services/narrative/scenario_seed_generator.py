@@ -12,6 +12,7 @@ from typing import List, Dict, Optional, Any, Tuple
 from dataclasses import dataclass, field, asdict
 
 from app.utils.llm_utils import get_llm_client
+from models import ModelConfig
 from app.academic_references.frameworks.transformation_classification import (
     TRANSFORMATION_TYPES,
     get_prompt_context as get_transformation_context
@@ -364,7 +365,7 @@ DESCRIPTION: [your description]"""
 
         try:
             response = self.llm_client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model=ModelConfig.get_claude_model("default"),
                 max_tokens=100,
                 temperature=0.3,
                 messages=[{"role": "user", "content": prompt}]
@@ -455,7 +456,7 @@ OPTION2_DESC: [1 sentence description]"""
 
         try:
             response = self.llm_client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model=ModelConfig.get_claude_model("default"),
                 max_tokens=200,
                 temperature=0.3,
                 messages=[{"role": "user", "content": prompt}]
@@ -602,7 +603,7 @@ Output ONLY the enhanced opening text."""
         llm_trace = None
         try:
             response = self.llm_client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model=ModelConfig.get_claude_model("default"),
                 max_tokens=200,
                 temperature=0.4,
                 messages=[{"role": "user", "content": prompt}]
@@ -616,7 +617,7 @@ Output ONLY the enhanced opening text."""
                 'description': 'Enhance scenario opening context for engagement',
                 'prompt': prompt,
                 'response': response_text,
-                'model': 'claude-sonnet-4-20250514'
+                'model': ModelConfig.get_claude_model("default")
             }
 
             logger.info(f"Enhanced scenario opening with LLM")

@@ -20,6 +20,7 @@ from dataclasses import dataclass, field, asdict
 from enum import Enum
 
 from app.utils.llm_utils import get_llm_client
+from models import ModelConfig
 from app.academic_references.frameworks.declarative_ethics import (
     get_event_trace_template,
     get_causal_analysis_template,
@@ -616,7 +617,7 @@ Output as JSON array:
         llm_trace = None
         try:
             response = self.llm_client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model=ModelConfig.get_claude_model("default"),
                 max_tokens=800,
                 temperature=0.3,
                 messages=[{"role": "user", "content": prompt}]
@@ -633,7 +634,7 @@ Output as JSON array:
                 'description': 'Enhance timeline event descriptions with narrative context',
                 'prompt': prompt,
                 'response': response_text,
-                'model': 'claude-sonnet-4-20250514'
+                'model': ModelConfig.get_claude_model("default")
             }
 
             json_match = re.search(r'```json\n(.*?)\n```', response_text, re.DOTALL)

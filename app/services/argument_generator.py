@@ -23,6 +23,7 @@ from app import db
 from app.models import Document, TemporaryRDFStorage
 from app.models.extraction_prompt import ExtractionPrompt
 from app.utils.llm_utils import get_llm_client
+from models import ModelConfig
 
 logger = logging.getLogger(__name__)
 
@@ -180,7 +181,7 @@ class ArgumentGenerator:
 
         try:
             response = self.llm_client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model=ModelConfig.get_claude_model("default"),
                 max_tokens=4000,
                 temperature=0.3,
                 messages=[{"role": "user", "content": prompt}]
@@ -427,7 +428,7 @@ OUTPUT FORMAT (JSON):
                 prompt_text=self.last_prompt,
                 raw_response=self.last_response,
                 step_number=4,  # Step 4 Part F
-                llm_model=llm_model or 'claude-sonnet-4-20250514',
+                llm_model=llm_model or ModelConfig.get_claude_model("default"),
                 section_type='synthesis',
                 extraction_session_id=extraction_session_id
             )
@@ -528,7 +529,7 @@ OUTPUT FORMAT (JSON):
                         entity_type='EthicalArgument',
                         entity_definition=f"{arg.argument_type.upper()} argument for option: {dp_args.option_description}",
                         rdf_json_ld=rdf_json_ld,
-                        extraction_model=llm_model or 'claude-sonnet-4-20250514',
+                        extraction_model=llm_model or ModelConfig.get_claude_model("default"),
                         triple_count=len(rdf_json_ld["properties"]) + len(rdf_json_ld["relationships"]) + 2,
                         property_count=len(rdf_json_ld["properties"]),
                         relationship_count=len(rdf_json_ld["relationships"]),

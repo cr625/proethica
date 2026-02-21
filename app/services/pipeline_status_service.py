@@ -36,12 +36,12 @@ class PipelineStatusService:
     # Step 4 Phase 2 concept types (Analytical Extraction)
     # These match the actual concept_type values saved in extraction_prompts
     STEP4_PHASE2_TYPES = (
-        'code_provision_reference',  # 2A provisions
-        'ethical_question',          # 2B questions
-        'ethical_conclusion',        # 2B conclusions
-        'transformation_classification',  # 2C transformation
-        'rich_analysis',             # 2D rich analysis
-        'precedent_case_reference'   # 2E precedent cases
+        'code_provision_reference',       # 2A provisions
+        'precedent_case_reference',       # 2B precedent cases
+        'ethical_question',               # 2C questions
+        'ethical_conclusion',             # 2C conclusions
+        'transformation_classification',  # 2D transformation
+        'rich_analysis',                  # 2E rich analysis
     )
 
     @classmethod
@@ -188,7 +188,7 @@ class PipelineStatusService:
         """Check if Step 4 (Whole-Case Synthesis) phases have been run.
 
         Checks:
-        - Phase 2: Analytical Extraction (provisions, questions, conclusions, transformation, rich_analysis)
+        - Phase 2: Analytical Extraction (provisions, precedents, Q&C, transformation, rich_analysis)
         - Phase 3: Decision Point Synthesis (canonical_decision_point entities)
         - Phase 4: Narrative Construction (phase4 prompts)
         """

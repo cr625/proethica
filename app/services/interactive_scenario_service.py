@@ -22,6 +22,7 @@ from typing import Dict, List, Optional, Any, Tuple
 from app.models import db, Document, TemporaryRDFStorage, ExtractionPrompt
 from app.models.scenario_exploration import ScenarioExplorationSession, ScenarioExplorationChoice
 from app.utils.llm_utils import get_llm_client
+from models import ModelConfig
 
 logger = logging.getLogger(__name__)
 
@@ -325,7 +326,7 @@ Respond in JSON format:
         try:
             client = self._get_llm_client()
             response = client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model=ModelConfig.get_claude_model("default"),
                 max_tokens=500,
                 messages=[{"role": "user", "content": prompt}]
             )
@@ -434,7 +435,7 @@ Be constructive and educational. Neither path is inherently "wrong" - explore th
         try:
             client = self._get_llm_client()
             response = client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model=ModelConfig.get_claude_model("default"),
                 max_tokens=800,
                 messages=[{"role": "user", "content": prompt}]
             )
@@ -560,7 +561,7 @@ LABEL: [label]
 DESCRIPTION: [description]"""
 
                 response = client.messages.create(
-                    model="claude-sonnet-4-20250514",
+                    model=ModelConfig.get_claude_model("default"),
                     max_tokens=100,
                     temperature=0.3,
                     messages=[{"role": "user", "content": prompt}]

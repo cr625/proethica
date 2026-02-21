@@ -16,6 +16,9 @@ from flask import jsonify, Response, stream_with_context
 from app.models import Document, TemporaryRDFStorage, ExtractionPrompt, db
 from app.utils.llm_utils import get_llm_client
 from app.utils.environment_auth import auth_required_for_llm
+from app.routes.scenario_pipeline.step4_config import (
+    STEP4_SECTION_TYPE, STEP4_DEFAULT_MODEL, STEP4_POWERFUL_MODEL,
+)
 
 from app.services.decision_point_synthesizer import (
     DecisionPointSynthesizer,
@@ -88,9 +91,9 @@ def register_phase3_routes(bp, get_all_case_entities, load_phase2_data):
                     case_id=case_id,
                     concept_type='phase3_decision_synthesis',
                     step_number=4,
-                    section_type='synthesis',
+                    section_type=STEP4_SECTION_TYPE,
                     prompt_text=prompt_text,
-                    llm_model='claude-sonnet-4-20250514' if result.llm_prompt else 'algorithmic',
+                    llm_model=STEP4_DEFAULT_MODEL if result.llm_prompt else 'algorithmic',
                     extraction_session_id=session_id,
                     raw_response=raw_response,
                     results_summary=json.dumps({
@@ -315,9 +318,9 @@ def register_phase3_routes(bp, get_all_case_entities, load_phase2_data):
                                 case_id=case_id,
                                 concept_type='phase3_decision_synthesis',
                                 step_number=4,
-                                section_type='synthesis',
+                                section_type=STEP4_SECTION_TYPE,
                                 prompt_text=llm_prompt[:10000] if llm_prompt else 'LLM fallback with causal links',
-                                llm_model='claude-sonnet-4-20250514',
+                                llm_model=STEP4_DEFAULT_MODEL,
                                 extraction_session_id=session_id,
                                 raw_response=llm_response[:10000] if llm_response else '',
                                 results_summary=json.dumps({
@@ -466,7 +469,7 @@ def register_phase3_routes(bp, get_all_case_entities, load_phase2_data):
                     algorithmic_candidates_count=candidates_count,
                     high_alignment_count=high_alignment,
                     canonical_points_produced=len(canonical_points),
-                    llm_model="claude-sonnet-4-20250514",
+                    llm_model=STEP4_DEFAULT_MODEL,
                     llm_prompt_length=len(llm_prompt) if llm_prompt else 0,
                     llm_response_length=len(llm_response) if llm_response else 0,
                     mcp_server_url=os.environ.get("ONTSERVE_MCP_URL", "http://localhost:8082")
@@ -522,7 +525,7 @@ def register_phase3_routes(bp, get_all_case_entities, load_phase2_data):
                     case_id=case_id,
                     session_id=session_id,
                     agent_type='llm_model',
-                    agent_name='claude-sonnet-4-20250514',
+                    agent_name=STEP4_DEFAULT_MODEL,
                     execution_plan={
                         'input_candidates': candidates_count,
                         'high_alignment_candidates': high_alignment,
@@ -563,9 +566,9 @@ def register_phase3_routes(bp, get_all_case_entities, load_phase2_data):
                         case_id=case_id,
                         concept_type='phase3_decision_synthesis',
                         step_number=4,
-                        section_type='synthesis',
+                        section_type=STEP4_SECTION_TYPE,
                         prompt_text=llm_prompt[:10000],
-                        llm_model='claude-sonnet-4-20250514',
+                        llm_model=STEP4_DEFAULT_MODEL,
                         extraction_session_id=session_id,
                         raw_response=llm_response[:10000] if llm_response else '',
                         results_summary=json.dumps({

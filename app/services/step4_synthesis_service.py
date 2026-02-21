@@ -26,6 +26,7 @@ from datetime import datetime
 from typing import Dict, Any, Callable, Optional
 from dataclasses import dataclass, field
 
+from models import ModelConfig
 from app.models import Document, TemporaryRDFStorage, ExtractionPrompt, db
 from app.utils.llm_utils import get_llm_client
 
@@ -152,7 +153,7 @@ def run_step4_synthesis(
         result.stages_completed.append('PROVISIONS')
 
         # =====================================================================
-        # STEP 2B: Q&C Unified
+        # STEP 2C: Q&C Unified
         # =====================================================================
         notify('QC', 'Extracting questions and conclusions')
         qc_result = _run_qc_unified(case_id, llm_client, get_all_case_entities)
@@ -164,7 +165,7 @@ def run_step4_synthesis(
         result.stages_completed.append('QC')
 
         # =====================================================================
-        # STEP 2C: Transformation
+        # STEP 2D: Transformation
         # =====================================================================
         notify('TRANSFORMATION', 'Classifying transformation type')
         transformation_result = _run_transformation(case_id, llm_client, get_all_case_entities)
@@ -172,7 +173,7 @@ def run_step4_synthesis(
         result.stages_completed.append('TRANSFORMATION')
 
         # =====================================================================
-        # STEP 2D: Rich Analysis
+        # STEP 2E: Rich Analysis
         # =====================================================================
         notify('RICH_ANALYSIS', 'Running rich analysis')
         rich_result = _run_rich_analysis(case_id, llm_client)
@@ -567,7 +568,7 @@ def _run_qc_unified(case_id: int, llm_client, get_all_case_entities) -> dict:
                 step_number=4,
                 section_type='synthesis',
                 prompt_text=q_prompt_text[:10000] if q_prompt_text else 'Question extraction',
-                llm_model='claude-sonnet-4-20250514',
+                llm_model=ModelConfig.get_claude_model("default"),
                 extraction_session_id=session_id,
                 raw_response=q_response_text[:10000] if q_response_text else '',
                 results_summary=json.dumps({
@@ -587,7 +588,7 @@ def _run_qc_unified(case_id: int, llm_client, get_all_case_entities) -> dict:
                 step_number=4,
                 section_type='synthesis',
                 prompt_text=c_prompt_text[:10000] if c_prompt_text else 'Conclusion extraction',
-                llm_model='claude-sonnet-4-20250514',
+                llm_model=ModelConfig.get_claude_model("default"),
                 extraction_session_id=session_id,
                 raw_response=c_response_text[:10000] if c_response_text else '',
                 results_summary=json.dumps({
@@ -690,7 +691,7 @@ def _run_transformation(case_id: int, llm_client, get_all_case_entities) -> dict
                     step_number=4,
                     section_type='synthesis',
                     prompt_text=classifier.last_prompt,
-                    llm_model='claude-sonnet-4-20250514',
+                    llm_model=ModelConfig.get_claude_model("default"),
                     extraction_session_id=session_id,
                     raw_response=getattr(classifier, 'last_response', ''),
                     results_summary=json.dumps({'transformation_type': result.transformation_type, 'confidence': result.confidence})
@@ -774,7 +775,7 @@ def _run_rich_analysis(case_id: int, llm_client) -> dict:
                 raw_response=combined_response,
                 step_number=4,
                 section_type='synthesis',
-                llm_model='claude-sonnet-4-20250514',
+                llm_model=ModelConfig.get_claude_model("default"),
                 extraction_session_id=session_id
             )
             logger.info(f"[Step4Synthesis] Saved rich analysis prompt id={saved_prompt.id}")
@@ -835,7 +836,7 @@ def _run_phase3(case_id: int, llm_client) -> dict:
             step_number=4,
             section_type='synthesis',
             prompt_text=prompt_text,
-            llm_model='claude-sonnet-4-20250514' if result.llm_prompt else 'algorithmic',
+            llm_model=ModelConfig.get_claude_model("default") if result.llm_prompt else 'algorithmic',
             extraction_session_id=session_id,
             raw_response=raw_response,
             results_summary=json.dumps({
@@ -926,7 +927,7 @@ def _run_phase4(case_id: int, llm_client) -> dict:
             step_number=4,
             section_type='synthesis',
             prompt_text=f"Phase 4 Narrative Construction - {len(result.stages_completed)} stages",
-            llm_model='claude-sonnet-4-20250514',
+            llm_model=ModelConfig.get_claude_model("default"),
             extraction_session_id=session_id,
             raw_response=json.dumps(result.to_dict()),
             results_summary=json.dumps(result.summary())
@@ -945,7 +946,7 @@ def _run_phase4(case_id: int, llm_client) -> dict:
             step_number=4,
             section_type='synthesis',
             prompt_text='Complete Four-Phase Synthesis',
-            llm_model='claude-sonnet-4-20250514',
+            llm_model=ModelConfig.get_claude_model("default"),
             extraction_session_id=session_id,
             raw_response=json.dumps(synthesis_summary),
             results_summary=json.dumps(synthesis_summary)

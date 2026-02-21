@@ -16,6 +16,9 @@ from datetime import datetime
 from app import db
 from app.models import Document, TemporaryRDFStorage, ExtractionPrompt
 from app.utils.llm_utils import get_llm_client
+from app.routes.scenario_pipeline.step4_config import (
+    STEP4_SECTION_TYPE, STEP4_DEFAULT_MODEL, STEP4_POWERFUL_MODEL,
+)
 
 # Import synthesis services
 from app.services.nspe_references_parser import NSPEReferencesParser
@@ -162,7 +165,7 @@ def synthesize_case_streaming(case_id):
                                     'stage': f'PROVISION_VALIDATION_{code}',
                                     'prompt': validator.last_validation_prompt,
                                     'response': validator.last_validation_response,
-                                    'model': 'claude-opus-4',
+                                    'model': STEP4_POWERFUL_MODEL,
                                     'timestamp': datetime.utcnow().isoformat()
                                 })
                         else:
@@ -203,7 +206,7 @@ def synthesize_case_streaming(case_id):
                             'stage': 'PROVISION_LINKING',
                             'prompt': linker.last_linking_prompt,
                             'response': linker.last_linking_response,
-                            'model': 'claude-opus-4',
+                            'model': STEP4_POWERFUL_MODEL,
                             'timestamp': datetime.utcnow().isoformat()
                         })
                 
@@ -238,7 +241,7 @@ def synthesize_case_streaming(case_id):
                         'stage': 'QUESTION_EXTRACTION',
                         'prompt': question_analyzer.last_prompt,
                         'response': question_analyzer.last_response,
-                        'model': 'claude-opus-4',
+                        'model': STEP4_POWERFUL_MODEL,
                         'timestamp': datetime.utcnow().isoformat()
                     })
                 
@@ -262,7 +265,7 @@ def synthesize_case_streaming(case_id):
                         'stage': 'CONCLUSION_EXTRACTION',
                         'prompt': conclusion_analyzer.last_prompt,
                         'response': conclusion_analyzer.last_response,
-                        'model': 'claude-opus-4',
+                        'model': STEP4_POWERFUL_MODEL,
                         'timestamp': datetime.utcnow().isoformat()
                     })
                 
@@ -283,7 +286,7 @@ def synthesize_case_streaming(case_id):
                         'stage': 'QC_LINKING',
                         'prompt': linker_qc.last_prompt,
                         'response': linker_qc.last_response,
-                        'model': 'claude-opus-4',
+                        'model': STEP4_POWERFUL_MODEL,
                         'timestamp': datetime.utcnow().isoformat()
                     })
                 
@@ -403,7 +406,7 @@ def synthesize_case_streaming(case_id):
                             'stage': 'TRANSFORMATION_CLASSIFICATION',
                             'prompt': classifier.last_prompt,
                             'response': classifier.last_response or '',
-                            'model': 'claude-sonnet-4',
+                            'model': STEP4_DEFAULT_MODEL,
                             'timestamp': datetime.utcnow().isoformat()
                         })
 
@@ -623,7 +626,7 @@ def save_step4_streaming_results(case_id):
                     'authoritative': True
                 },
                 is_selected=True,
-                extraction_model='claude-opus-4-20250514',
+                extraction_model=STEP4_POWERFUL_MODEL,
                 ontology_target=f'proethica-case-{case_id}'
             )
             db.session.add(rdf_entity)
@@ -652,7 +655,7 @@ def save_step4_streaming_results(case_id):
                     'relatedProvisions': q.get('related_provisions', [])
                 },
                 is_selected=True,
-                extraction_model='claude-opus-4-20250514',
+                extraction_model=STEP4_POWERFUL_MODEL,
                 ontology_target=f'proethica-case-{case_id}'
             )
             db.session.add(rdf_entity)
@@ -682,7 +685,7 @@ def save_step4_streaming_results(case_id):
                     'answersQuestions': c.get('answers_questions', [])
                 },
                 is_selected=True,
-                extraction_model='claude-opus-4-20250514',
+                extraction_model=STEP4_POWERFUL_MODEL,
                 ontology_target=f'proethica-case-{case_id}'
             )
             db.session.add(rdf_entity)
@@ -713,7 +716,7 @@ def save_step4_streaming_results(case_id):
                 step_number=4,
                 section_type='questions',
                 prompt_text=question_trace.get('prompt', ''),
-                llm_model='claude-opus-4-20250514',
+                llm_model=STEP4_POWERFUL_MODEL,
                 extraction_session_id=session_id,
                 raw_response=question_trace.get('response', ''),
                 results_summary={
@@ -735,7 +738,7 @@ def save_step4_streaming_results(case_id):
                 step_number=4,
                 section_type='conclusions',
                 prompt_text=conclusion_trace.get('prompt', ''),
-                llm_model='claude-opus-4-20250514',
+                llm_model=STEP4_POWERFUL_MODEL,
                 extraction_session_id=session_id,
                 raw_response=conclusion_trace.get('response', ''),
                 results_summary={
@@ -754,9 +757,9 @@ def save_step4_streaming_results(case_id):
             case_id=case_id,
             concept_type='whole_case_synthesis',
             step_number=4,
-            section_type='synthesis',
+            section_type=STEP4_SECTION_TYPE,
             prompt_text=combined_prompt_text,
-            llm_model='claude-opus-4-20250514',
+            llm_model=STEP4_POWERFUL_MODEL,
             extraction_session_id=session_id,
             raw_response=combined_response_text,
             results_summary={

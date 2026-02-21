@@ -50,6 +50,11 @@ from app.routes.scenario_pipeline.step4_phase4 import register_phase4_routes
 from app.routes.scenario_pipeline.step4_complete_synthesis import register_complete_synthesis_routes
 from app.routes.scenario_pipeline.step4_run_all import register_run_all_routes
 
+from app.routes.scenario_pipeline.step4_config import (  # noqa: F401
+    STEP4_SECTION_TYPE, STEP4_DEFAULT_MODEL, STEP4_POWERFUL_MODEL,
+    reset_step4_case_features,
+)
+
 logger = logging.getLogger(__name__)
 
 bp = Blueprint('step4', __name__, url_prefix='/scenario_pipeline')
@@ -209,15 +214,15 @@ def clear_step4_data(case_id):
         extraction_types_to_clear = [
             # 2A: Provisions
             'code_provision_reference',
-            # 2E: Precedent Cases
+            # 2B: Precedent Cases
             'precedent_case_reference',
-            # 2B: Questions & Conclusions
+            # 2C: Questions & Conclusions
             'ethical_question',
             'ethical_conclusion',
-            # 2D: Arguments
+            # Arguments (from Phase 3)
             'argument_generated',
             'argument_validation',
-            # Rich Analysis (2D)
+            # 2E: Rich Analysis
             'question_emergence',
             'resolution_pattern',
             'causal_normative_link',
@@ -256,14 +261,7 @@ def clear_step4_data(case_id):
         ).delete(synchronize_session=False)
 
         # Clear Step 4-related fields from CasePrecedentFeatures
-        # (transformation, principle tensions, obligation conflicts)
-        from app.models import CasePrecedentFeatures
-        features = CasePrecedentFeatures.query.filter_by(case_id=case_id).first()
-        if features:
-            features.transformation_type = None
-            features.transformation_pattern = None
-            features.principle_tensions = None
-            features.obligation_conflicts = None
+        reset_step4_case_features(case_id)
 
         # Clear Step 4 provenance data (LLM Interactions)
         from app.models.provenance import ProvenanceActivity, ProvenanceEntity, ProvenanceUsage, ProvenanceDerivation
@@ -2190,7 +2188,7 @@ def extract_and_link_provisions(case_id: int, case: Document) -> List[Dict]:
         step_number=4,
         section_type='references',
         prompt_text=linker.last_linking_prompt or 'Code provision extraction',
-        llm_model='claude-opus-4-20250514',
+        llm_model=STEP4_POWERFUL_MODEL,
         extraction_session_id=session_id,
         raw_response=linker.last_linking_response or '',
         results_summary={
@@ -2327,7 +2325,7 @@ def extract_questions_conclusions(
             step_number=4,
             section_type='questions',
             prompt_text=question_prompt_response.get('prompt', ''),
-            llm_model='claude-opus-4-20250514',
+            llm_model=STEP4_POWERFUL_MODEL,
             extraction_session_id=session_id,
             raw_response=question_prompt_response.get('response', ''),
             results_summary={
@@ -2373,7 +2371,7 @@ def extract_questions_conclusions(
             step_number=4,
             section_type='conclusions',
             prompt_text=conclusion_prompt_response.get('prompt', ''),
-            llm_model='claude-opus-4-20250514',
+            llm_model=STEP4_POWERFUL_MODEL,
             extraction_session_id=session_id,
             raw_response=conclusion_prompt_response.get('response', ''),
             results_summary={
@@ -2586,7 +2584,7 @@ def _store_synthesis_results(case_id: int, synthesis) -> None:
         case_id=case_id,
         concept_type='whole_case_synthesis',
         step_number=4,
-        section_type='synthesis',
+        section_type=STEP4_SECTION_TYPE,
         prompt_text='Whole-case synthesis integrating all passes',
         llm_model='case_synthesis_service',
         extraction_session_id=session_id,
@@ -3193,7 +3191,7 @@ def get_entity_grounded_arguments(case_id):
             case_id=case_id,
             concept_type='entity_arguments',
             step_number=4,
-            section_type='synthesis',
+            section_type=STEP4_SECTION_TYPE,
             extraction_session_id=session_id,
             prompt_text='E1-F3 algorithmic pipeline (no LLM)',
             llm_model='algorithmic',
@@ -3248,7 +3246,7 @@ def get_llm_decision_points(case_id):
         extraction_prompt = ExtractionPrompt.query.filter_by(
             case_id=case_id,
             concept_type='decision_point',
-            section_type='synthesis'
+            section_type=STEP4_SECTION_TYPE
         ).order_by(ExtractionPrompt.created_at.desc()).first()
 
         # Build response
@@ -3367,7 +3365,7 @@ def get_composed_decision_points(case_id):
             case_id=case_id,
             concept_type='decision_point_composed',
             step_number=4,
-            section_type='synthesis',
+            section_type=STEP4_SECTION_TYPE,
             extraction_session_id=session_id,
             prompt_text='E1-E3 algorithmic composition (no LLM)',
             llm_model='algorithmic',
@@ -4153,7 +4151,7 @@ def extract_precedents_streaming(case_id):
 
             # Call LLM
             response = llm_client.messages.create(
-                model='claude-sonnet-4-20250514',
+                model=STEP4_DEFAULT_MODEL,
                 max_tokens=4096,
                 messages=[{'role': 'user', 'content': prompt}]
             )
@@ -4233,9 +4231,9 @@ def extract_precedents_streaming(case_id):
                 case_id=case_id,
                 concept_type='precedent_case_reference',
                 step_number=4,
-                section_type='discussion',
+                section_type=STEP4_SECTION_TYPE,
                 prompt_text=prompt,
-                llm_model='claude-sonnet-4-20250514',
+                llm_model=STEP4_DEFAULT_MODEL,
                 extraction_session_id=session_id,
                 raw_response=raw_response,
                 results_summary={'total_precedents': len(precedents)},
@@ -4357,7 +4355,7 @@ def extract_precedents_individual(case_id):
 
         # Call LLM
         response = llm_client.messages.create(
-            model='claude-sonnet-4-20250514',
+            model=STEP4_DEFAULT_MODEL,
             max_tokens=4096,
             messages=[{'role': 'user', 'content': prompt}]
         )
@@ -4416,9 +4414,9 @@ def extract_precedents_individual(case_id):
             case_id=case_id,
             concept_type='precedent_case_reference',
             step_number=4,
-            section_type='discussion',
+            section_type=STEP4_SECTION_TYPE,
             prompt_text=prompt,
-            llm_model='claude-sonnet-4-20250514',
+            llm_model=STEP4_DEFAULT_MODEL,
             extraction_session_id=session_id,
             raw_response=raw_response,
             results_summary={'total_precedents': len(precedents)},

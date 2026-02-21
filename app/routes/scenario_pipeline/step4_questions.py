@@ -15,6 +15,7 @@ from flask import jsonify, Response, stream_with_context
 from app.models import Document, TemporaryRDFStorage, ExtractionPrompt, db
 from app.utils.llm_utils import get_llm_client
 from app.utils.environment_auth import auth_required_for_llm
+from app.routes.scenario_pipeline.step4_config import STEP4_DEFAULT_MODEL
 
 from app.services.question_analyzer import QuestionAnalyzer
 from app.services.entity_grounding_service import EntityGroundingService
@@ -95,7 +96,7 @@ def register_question_routes(bp, get_all_case_entities):
                 step_number=4,
                 section_type='questions',
                 prompt_text=analyzer.last_prompt or 'Question extraction',
-                llm_model='claude-sonnet-4-20250514',
+                llm_model=STEP4_DEFAULT_MODEL,
                 extraction_session_id=session_id,
                 raw_response=analyzer.last_response or '',
                 results_summary={'total_questions': len(questions)},
@@ -155,7 +156,7 @@ def register_question_routes(bp, get_all_case_entities):
                     ]
                 },
                 'metadata': {
-                    'model': 'claude-sonnet-4-20250514',
+                    'model': STEP4_DEFAULT_MODEL,
                     'timestamp': datetime.utcnow().isoformat()
                 }
             })
@@ -343,7 +344,7 @@ def register_question_routes(bp, get_all_case_entities):
                     step_number=4,
                     section_type='questions',
                     prompt_text=analyzer.last_prompt or 'Question analysis',
-                    llm_model='claude-sonnet-4-20250514',
+                    llm_model=STEP4_DEFAULT_MODEL,
                     extraction_session_id=session_id,
                     raw_response=analyzer.last_response or '',
                     results_summary={

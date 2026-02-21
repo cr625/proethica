@@ -25,6 +25,10 @@ from app.models import Document, TemporaryRDFStorage, ExtractionPrompt, db
 from app.utils.environment_auth import auth_required_for_llm
 from app.utils.llm_utils import get_llm_client
 from app.services.provenance_service import get_provenance_service
+from app.routes.scenario_pipeline.step4_config import (
+    STEP4_SECTION_TYPE, STEP4_DEFAULT_MODEL, STEP4_POWERFUL_MODEL,
+    reset_step4_case_features,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +80,7 @@ def register_run_all_routes(bp, get_all_case_entities):
                 }), 500
 
             # =====================================================================
-            # STEP 2E: Precedent Cases
+            # STEP 2B: Precedent Cases
             # =====================================================================
             logger.info(f"[RunAll] Running precedent case extraction for case {case_id}")
             precedents_result = _run_precedents(case_id, llm_client)
@@ -86,7 +90,7 @@ def register_run_all_routes(bp, get_all_case_entities):
             # Non-blocking - continue even on error
 
             # =====================================================================
-            # STEP 2B: Q&C Unified
+            # STEP 2C: Q&C Unified
             # =====================================================================
             logger.info(f"[RunAll] Running Q&C extraction for case {case_id}")
             qc_result = _run_qc_unified(case_id, llm_client, get_all_case_entities)
@@ -102,7 +106,7 @@ def register_run_all_routes(bp, get_all_case_entities):
                 }), 500
 
             # =====================================================================
-            # STEP 2C: Transformation
+            # STEP 2D: Transformation
             # =====================================================================
             logger.info(f"[RunAll] Running transformation classification for case {case_id}")
             transformation_result = _run_transformation(case_id, llm_client)
@@ -112,7 +116,7 @@ def register_run_all_routes(bp, get_all_case_entities):
             # Non-blocking - continue even on error
 
             # =====================================================================
-            # STEP 2D: Rich Analysis
+            # STEP 2E: Rich Analysis
             # =====================================================================
             logger.info(f"[RunAll] Running rich analysis for case {case_id}")
             rich_result = _run_rich_analysis(case_id)
@@ -219,6 +223,9 @@ def _clear_step4_data(case_id: int) -> dict:
                 concept_type=prompt_type
             ).delete(synchronize_session=False)
             prompts_deleted += count
+
+        # Clear Step 4-populated fields from CasePrecedentFeatures
+        reset_step4_case_features(case_id)
 
         db.session.commit()
 
@@ -424,7 +431,7 @@ def _run_precedents(case_id: int, llm_client) -> dict:
 
         # Call LLM
         response = llm_client.messages.create(
-            model='claude-sonnet-4-20250514',
+            model=STEP4_DEFAULT_MODEL,
             max_tokens=4096,
             messages=[{'role': 'user', 'content': prompt}]
         )
@@ -508,9 +515,9 @@ def _run_precedents(case_id: int, llm_client) -> dict:
                 case_id=case_id,
                 concept_type='precedent_case_reference',
                 step_number=4,
-                section_type='discussion',
+                section_type=STEP4_SECTION_TYPE,
                 prompt_text=prompt,
-                llm_model='claude-sonnet-4-20250514',
+                llm_model=STEP4_DEFAULT_MODEL,
                 extraction_session_id=session_id,
                 raw_response=raw_response,
                 results_summary={'total_precedents': len(precedents)},
@@ -768,9 +775,9 @@ def _run_qc_unified(case_id: int, llm_client, get_all_case_entities) -> dict:
                 case_id=case_id,
                 concept_type='ethical_question',
                 step_number=4,
-                section_type='synthesis',
+                section_type=STEP4_SECTION_TYPE,
                 prompt_text=q_prompt_text[:10000] if q_prompt_text else 'Question extraction',
-                llm_model='claude-sonnet-4-20250514',
+                llm_model=STEP4_DEFAULT_MODEL,
                 extraction_session_id=session_id,
                 raw_response=q_response_text[:10000] if q_response_text else '',
                 results_summary=json.dumps({
@@ -789,9 +796,9 @@ def _run_qc_unified(case_id: int, llm_client, get_all_case_entities) -> dict:
                 case_id=case_id,
                 concept_type='ethical_conclusion',
                 step_number=4,
-                section_type='synthesis',
+                section_type=STEP4_SECTION_TYPE,
                 prompt_text=c_prompt_text[:10000] if c_prompt_text else 'Conclusion extraction',
-                llm_model='claude-sonnet-4-20250514',
+                llm_model=STEP4_DEFAULT_MODEL,
                 extraction_session_id=session_id,
                 raw_response=c_response_text[:10000] if c_response_text else '',
                 results_summary=json.dumps({
@@ -933,9 +940,9 @@ def _run_transformation(case_id: int, llm_client) -> dict:
                         case_id=case_id,
                         concept_type='transformation_classification',
                         step_number=4,
-                        section_type='synthesis',
+                        section_type=STEP4_SECTION_TYPE,
                         prompt_text=classifier.last_prompt,
-                        llm_model='claude-sonnet-4-20250514',
+                        llm_model=STEP4_DEFAULT_MODEL,
                         extraction_session_id=session_id,
                         raw_response=getattr(classifier, 'last_response', ''),
                         results_summary=json.dumps({'transformation_type': result.transformation_type, 'confidence': result.confidence})
@@ -1063,8 +1070,8 @@ def _run_rich_analysis(case_id: int) -> dict:
                     prompt_text=combined_prompt,
                     raw_response=combined_response,
                     step_number=4,
-                    section_type='synthesis',
-                    llm_model='claude-sonnet-4-20250514',
+                    section_type=STEP4_SECTION_TYPE,
+                    llm_model=STEP4_DEFAULT_MODEL,
                     extraction_session_id=session_id
                 )
                 logger.info(f"[RunAll] Saved rich analysis prompt id={saved_prompt.id} with provenance")
@@ -1190,9 +1197,9 @@ def _run_phase3(case_id: int) -> dict:
                     case_id=case_id,
                     concept_type='phase3_decision_synthesis',
                     step_number=4,
-                    section_type='synthesis',
+                    section_type=STEP4_SECTION_TYPE,
                     prompt_text=prompt_text,
-                    llm_model='claude-sonnet-4-20250514' if result.llm_prompt else 'algorithmic',
+                    llm_model=STEP4_DEFAULT_MODEL if result.llm_prompt else 'algorithmic',
                     extraction_session_id=session_id,
                     raw_response=raw_response,
                     results_summary=json.dumps({
@@ -1353,9 +1360,9 @@ def _run_phase4(case_id: int) -> dict:
                 case_id=case_id,
                 concept_type='phase4_narrative',
                 step_number=4,
-                section_type='synthesis',
+                section_type=STEP4_SECTION_TYPE,
                 prompt_text=prompt_text,
-                llm_model='claude-sonnet-4-20250514',
+                llm_model=STEP4_DEFAULT_MODEL,
                 extraction_session_id=session_id,
                 raw_response=json.dumps(result.to_dict()),
                 results_summary=json.dumps(result.summary())
@@ -1372,9 +1379,9 @@ def _run_phase4(case_id: int) -> dict:
                 case_id=case_id,
                 concept_type='whole_case_synthesis',
                 step_number=4,
-                section_type='synthesis',
+                section_type=STEP4_SECTION_TYPE,
                 prompt_text='Complete Four-Phase Synthesis',
-                llm_model='claude-sonnet-4-20250514',
+                llm_model=STEP4_DEFAULT_MODEL,
                 extraction_session_id=session_id,
                 raw_response=json.dumps(synthesis_summary),
                 results_summary=json.dumps(synthesis_summary)

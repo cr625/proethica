@@ -722,9 +722,10 @@ def run_step4_task(self, run_id: int):
 
     Phases:
     - Phase 2A: Code Provisions
-    - Phase 2B: Questions & Conclusions
-    - Phase 2C: Transformation Classification
-    - Phase 2D: Rich Analysis (causal links, question emergence, resolution)
+    - Phase 2B: Precedent Cases
+    - Phase 2C: Questions & Conclusions
+    - Phase 2D: Transformation Classification
+    - Phase 2E: Rich Analysis (causal links, question emergence, resolution)
     - Phase 3: Decision Point Synthesis (E1-E3 + LLM fallback)
     - Phase 4: Narrative Construction (characters, timeline)
 

@@ -16,6 +16,7 @@ from dataclasses import dataclass, field, asdict
 from app import db
 from app.models import TemporaryRDFStorage
 from app.domains import DomainConfig, get_domain_config
+from models import ModelConfig
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +65,7 @@ class LLMTraceE1:
     stage: str
     prompt: str
     response: str
-    model: str = 'claude-sonnet-4-20250514'
+    model: str = ModelConfig.get_claude_model("default")
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -624,7 +625,7 @@ Return ONLY the JSON object, no other text."""
 
         try:
             response = llm_client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model=ModelConfig.get_claude_model("default"),
                 max_tokens=1000,
                 messages=[{"role": "user", "content": prompt}]
             )
@@ -660,7 +661,7 @@ Return ONLY the JSON object, no other text."""
                 stage='E1_decision_relevance_fallback',
                 prompt=prompt,
                 response=response_text,
-                model='claude-sonnet-4-20250514'
+                model=ModelConfig.get_claude_model("default")
             )
 
             logger.info(f"LLM identified {len(relevant_uris)} decision-relevant items")

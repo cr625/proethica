@@ -24,6 +24,7 @@ from app import db
 from app.models import Document, TemporaryRDFStorage
 from app.models.extraction_prompt import ExtractionPrompt
 from app.utils.llm_utils import get_llm_client
+from models import ModelConfig
 import uuid
 
 logger = logging.getLogger(__name__)
@@ -139,7 +140,7 @@ class DecisionFocusExtractor:
 
         try:
             response = self.llm_client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model=ModelConfig.get_claude_model("default"),
                 max_tokens=4000,
                 temperature=0.2,
                 messages=[{"role": "user", "content": prompt}]
@@ -430,7 +431,7 @@ This grounding connects decision points to the formal case ontology.
                 prompt_text=self.last_prompt,
                 raw_response=self.last_response,
                 step_number=4,  # Step 4 Part E
-                llm_model=llm_model or 'claude-sonnet-4-20250514',
+                llm_model=llm_model or ModelConfig.get_claude_model("default"),
                 section_type='synthesis',  # Use 'synthesis' as decision points are part of synthesis analysis
                 extraction_session_id=extraction_session_id
             )
@@ -557,7 +558,7 @@ This grounding connects decision points to the formal case ontology.
                     entity_type='DecisionPoint',
                     entity_definition=focus.decision_question,
                     rdf_json_ld=rdf_json_ld,
-                    extraction_model=llm_model or 'claude-sonnet-4-20250514',
+                    extraction_model=llm_model or ModelConfig.get_claude_model("default"),
                     triple_count=len(rdf_json_ld["properties"]) + len(rdf_json_ld["relationships"]) + 2,
                     property_count=len(rdf_json_ld["properties"]),
                     relationship_count=len(rdf_json_ld["relationships"]),
@@ -621,7 +622,7 @@ This grounding connects decision points to the formal case ontology.
                         entity_type='DecisionOption',
                         entity_definition=f"Option for: {focus.description}",
                         rdf_json_ld=opt_json_ld,
-                        extraction_model=llm_model or 'claude-sonnet-4-20250514',
+                        extraction_model=llm_model or ModelConfig.get_claude_model("default"),
                         triple_count=3 + len(opt.involved_action_uris),
                         property_count=2,
                         relationship_count=1 + len(opt.involved_action_uris),

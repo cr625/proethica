@@ -20,6 +20,7 @@ from app.services.embedding_service import EmbeddingService
 from app.models.guideline import Guideline
 from app.models.ontology import Ontology
 from sqlalchemy import text
+from models import ModelConfig
 
 # MCP Integration
 try:
@@ -1112,7 +1113,7 @@ class GuidelineAnalysisService:
             if hasattr(llm_client, 'messages') and hasattr(llm_client.messages, 'create'):
                 # Anthropic client
                 response = llm_client.messages.create(
-                    model="claude-sonnet-4-20250514",
+                    model=ModelConfig.get_claude_model("default"),
                     max_tokens=4000,
                     messages=[{
                         "role": "user",

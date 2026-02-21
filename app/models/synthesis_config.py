@@ -25,7 +25,7 @@ class SynthesisConfig(db.Model):
     skip_algorithmic_fallback = db.Column(db.Boolean, default=False)
 
     # LLM parameters
-    llm_model = db.Column(db.String(100), default='claude-sonnet-4-5-20250929')
+    llm_model = db.Column(db.String(100), default='claude-sonnet-4-6')
     llm_temperature = db.Column(db.Float, default=0.2)
     llm_max_tokens = db.Column(db.Integer, default=4000)
 
@@ -165,11 +165,11 @@ SYNTHESIS_PARAMETERS = {
         'description': 'Model to use for synthesis LLM calls',
         'type': 'select',
         'options': [
-            {'value': 'claude-sonnet-4-5-20250929', 'label': 'Sonnet 4.5 (Default)'},
+            {'value': 'claude-sonnet-4-6', 'label': 'Sonnet 4.6 (Default)'},
             {'value': 'claude-haiku-4-5-20251001', 'label': 'Haiku 4.5 (Fast)'},
             {'value': 'claude-opus-4-6', 'label': 'Opus 4.6 (Powerful)'}
         ],
-        'default': 'claude-sonnet-4-5-20250929'
+        'default': 'claude-sonnet-4-6'
     },
     'llm_temperature': {
         'label': 'LLM Temperature',

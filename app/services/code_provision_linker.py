@@ -10,6 +10,8 @@ import json
 import re
 from typing import List, Dict
 
+from models import ModelConfig
+
 logger = logging.getLogger(__name__)
 
 
@@ -104,7 +106,7 @@ class CodeProvisionLinker:
         try:
             # Call LLM
             response = self.llm_client.messages.create(
-                model="claude-opus-4-20250514",
+                model=ModelConfig.get_claude_model("powerful"),
                 max_tokens=8000,
                 temperature=0.1,  # Low temperature for consistent analysis
                 messages=[{
@@ -327,7 +329,7 @@ Respond with a JSON array where each object represents one provision:
 
         try:
             response = self.llm_client.messages.create(
-                model="claude-opus-4-20250514",
+                model=ModelConfig.get_claude_model("powerful"),
                 max_tokens=8000,
                 temperature=0.1,
                 messages=[{

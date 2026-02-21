@@ -10,6 +10,7 @@ import logging
 import re
 from typing import List, Optional
 
+from models import ModelConfig
 from .base import ConceptCandidate, Extractor, PostProcessor, Matcher, MatchedConcept
 from .atomic_extraction_mixin import AtomicExtractionMixin
 
@@ -266,7 +267,7 @@ Focus on accuracy over quantity. Extract only clear, unambiguous roles.
             # Handle different LLM client types  
             if hasattr(llm_client, 'messages') and hasattr(llm_client.messages, 'create'):
                 # Anthropic client
-                model_name = "claude-sonnet-4-20250514"
+                model_name = ModelConfig.get_claude_model("default")
                 model_params = {'max_tokens': 2000, 'provider': 'anthropic'}
                 
                 response = llm_client.messages.create(

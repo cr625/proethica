@@ -17,6 +17,9 @@ from flask import jsonify, Response, stream_with_context
 from app.models import Document, TemporaryRDFStorage, ExtractionPrompt, db
 from app.utils.llm_utils import get_llm_client
 from app.utils.environment_auth import auth_required_for_llm
+from app.routes.scenario_pipeline.step4_config import (
+    STEP4_SECTION_TYPE, STEP4_DEFAULT_MODEL, STEP4_POWERFUL_MODEL,
+)
 
 # Phase 4 Narrative Services
 from app.services.narrative import (
@@ -100,9 +103,9 @@ def register_phase4_routes(bp, build_entity_foundation, load_canonical_points, l
                 case_id=case_id,
                 concept_type='phase4_narrative',
                 step_number=4,
-                section_type='synthesis',
+                section_type=STEP4_SECTION_TYPE,
                 prompt_text=prompt_text,
-                llm_model='claude-sonnet-4-20250514',
+                llm_model=STEP4_DEFAULT_MODEL,
                 extraction_session_id=session_id,
                 raw_response=json.dumps(result.to_dict()),
                 results_summary=json.dumps(result.summary())
@@ -366,9 +369,9 @@ def register_phase4_routes(bp, build_entity_foundation, load_canonical_points, l
                         case_id=case_id,
                         concept_type='phase4_narrative',
                         step_number=4,
-                        section_type='synthesis',
+                        section_type=STEP4_SECTION_TYPE,
                         prompt_text=prompt_text,
-                        llm_model='claude-sonnet-4-20250514',
+                        llm_model=STEP4_DEFAULT_MODEL,
                         extraction_session_id=session_id,
                         raw_response=json.dumps(result.to_dict()),
                         results_summary=json.dumps(result.summary())

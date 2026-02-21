@@ -162,13 +162,13 @@ WORKFLOW_DEFINITION: Dict[str, WorkflowStepDefinition] = {
         tasks=[
             # Phase 2A: Code provisions from References section
             TaskDefinition('provisions', 'Code Provisions', ['code_provision_reference'], 'code_provision'),
-            # Phase 2B: Questions extraction
+            # Phase 2C: Questions extraction
             TaskDefinition('questions', 'Ethical Questions', ['ethical_question'], 'ethical_question',
                           prerequisites=['provisions']),
-            # Phase 2B: Conclusions extraction
+            # Phase 2C: Conclusions extraction
             TaskDefinition('conclusions', 'Board Conclusions', ['ethical_conclusion'], 'ethical_conclusion',
                           prerequisites=['provisions']),
-            # Phase 2D: Rich analysis creates causal links, question emergence, resolution patterns
+            # Phase 2E: Rich analysis creates causal links, question emergence, resolution patterns
             TaskDefinition('rich_analysis', 'Rich Analysis',
                           ['causal_normative_link', 'question_emergence', 'resolution_pattern'], 'rich_analysis',
                           prerequisites=['questions', 'conclusions']),
