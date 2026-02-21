@@ -35,13 +35,19 @@
         opacity: 0.5;
         background: #f0fdf4;
     }
-    .similarity-badge {
-        font-size: 0.875rem;
-        padding: 0.25rem 0.5rem;
-    }
     .entity-label {
         font-weight: 500;
         font-size: 0.95rem;
+    }
+    .entity-def {
+        font-size: 0.82rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+        line-height: 1.4;
+    }
+    .concept-badge {
+        font-size: 0.7rem;
+        padding: 0.15rem 0.4rem;
     }
     .commit-status {
         padding: 1rem;
@@ -56,10 +62,36 @@
         background: #fef2f2;
         border: 1px solid #fca5a5;
     }
+    .type-breakdown-table {
+        font-size: 0.85rem;
+    }
+    .type-breakdown-table td, .type-breakdown-table th {
+        padding: 0.3rem 0.6rem;
+    }
+    .llm-reason {
+        font-size: 0.8rem;
+        color: #6c757d;
+        font-style: italic;
+        padding: 0.4rem 0.6rem;
+        background: #f8f9fc;
+        border-radius: 0.25rem;
+        margin-top: 0.5rem;
+    }
 </style>
 {% endblock %}
 
 {% block step_content %}
+
+{# Concept type color map for badges -- used by JS too #}
+{% set concept_colors = {
+    'roles': '#4e73df',
+    'states': '#6f42c1',
+    'resources': '#20c9a6',
+    'principles': '#fd7e14',
+    'obligations': '#e74a3b',
+    'capabilities': '#36b9cc',
+    'constraints': '#858796'
+} %}
 
 {# Summary Card #}
 <div class="reconcile-card">
@@ -70,17 +102,17 @@
         {% endif %}
     </div>
     <div class="card-body">
-        <div class="row text-center">
+        <div class="row text-center mb-3">
             <div class="col-md-3">
-                <div class="fs-3 fw-bold text-primary">{{ unpublished_count + published_count }}</div>
+                <div class="fs-3 fw-bold text-primary" id="totalCount">{{ unpublished_count + published_count }}</div>
                 <div class="text-muted">Total Entities</div>
             </div>
             <div class="col-md-3">
-                <div class="fs-3 fw-bold text-info">{{ class_count }}</div>
+                <div class="fs-3 fw-bold text-info" id="classCount">{{ class_count }}</div>
                 <div class="text-muted">Classes (pending)</div>
             </div>
             <div class="col-md-3">
-                <div class="fs-3 fw-bold text-info">{{ individual_count }}</div>
+                <div class="fs-3 fw-bold text-info" id="individualCount">{{ individual_count }}</div>
                 <div class="text-muted">Individuals (pending)</div>
             </div>
             <div class="col-md-3">
@@ -88,79 +120,76 @@
                 <div class="text-muted">Committed</div>
             </div>
         </div>
-        {% if reconciliation.auto_merged > 0 %}
-        <div class="alert alert-info mt-3 mb-0">
-            <i class="bi bi-info-circle me-1"></i>
-            <strong>{{ reconciliation.auto_merged }}</strong> near-duplicate entities were auto-merged (similarity >= 0.85, same concept type).
-        </div>
-        {% endif %}
-        {% if reconciliation.errors %}
-        <div class="alert alert-warning mt-3 mb-0">
-            <i class="bi bi-exclamation-triangle me-1"></i>
-            {{ reconciliation.errors|length }} errors during reconciliation.
-        </div>
+
+        {# Concept type breakdown #}
+        {% if type_breakdown %}
+        <table class="table table-sm type-breakdown-table mb-0">
+            <thead>
+                <tr>
+                    <th>Concept Type</th>
+                    <th class="text-center">Classes</th>
+                    <th class="text-center">Individuals</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set ns = namespace(current_type='', class_count=0, ind_count=0, rows=[]) %}
+                {% for etype, stype, cnt in type_breakdown %}
+                    {% if etype != ns.current_type and ns.current_type %}
+                        {% set _ = ns.rows.append((ns.current_type, ns.class_count, ns.ind_count)) %}
+                        {% set ns.class_count = 0 %}
+                        {% set ns.ind_count = 0 %}
+                    {% endif %}
+                    {% set ns.current_type = etype %}
+                    {% if stype == 'class' %}
+                        {% set ns.class_count = cnt %}
+                    {% elif stype == 'individual' %}
+                        {% set ns.ind_count = cnt %}
+                    {% endif %}
+                {% endfor %}
+                {% if ns.current_type %}
+                    {% set _ = ns.rows.append((ns.current_type, ns.class_count, ns.ind_count)) %}
+                {% endif %}
+                {% for etype, ccnt, icnt in ns.rows %}
+                <tr>
+                    <td>
+                        <span class="badge concept-badge" style="background-color: {{ concept_colors.get(etype, '#858796') }};">
+                            {{ etype|replace('_', ' ')|title }}
+                        </span>
+                    </td>
+                    <td class="text-center">{{ ccnt if ccnt else '-' }}</td>
+                    <td class="text-center">{{ icnt if icnt else '-' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
         {% endif %}
     </div>
 </div>
 
-{# Review Candidates #}
-{% if reconciliation.review_candidates %}
-<div class="reconcile-card">
-    <div class="card-header">
-        <h5 class="mb-0">
-            <i class="bi bi-people me-2"></i>Review Candidates
-            <span class="badge bg-warning text-dark ms-2">{{ reconciliation.review_candidates|length }}</span>
-        </h5>
-        <small class="text-muted">These entity pairs have moderate similarity. Review and decide whether to merge or keep separate.</small>
+{# Reconciliation Section -- button-triggered #}
+<div class="reconcile-card" id="reconcileCard">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-people me-2"></i>Entity Reconciliation</h5>
     </div>
     <div class="card-body">
-        {% for candidate in reconciliation.review_candidates %}
-        <div class="candidate-row" id="candidate-{{ loop.index }}">
-            <div class="row align-items-center">
-                <div class="col-md-4">
-                    <div class="entity-label">{{ candidate.entity_a_label }}</div>
-                    <small class="text-muted">ID: {{ candidate.entity_a_id }}</small>
-                </div>
-                <div class="col-md-1 text-center">
-                    <i class="bi bi-arrow-left-right text-muted"></i>
-                </div>
-                <div class="col-md-4">
-                    <div class="entity-label">{{ candidate.entity_b_label }}</div>
-                    <small class="text-muted">ID: {{ candidate.entity_b_id }}</small>
-                </div>
-                <div class="col-md-1 text-center">
-                    <span class="badge similarity-badge {% if candidate.similarity >= 0.85 %}bg-success{% elif candidate.similarity >= 0.75 %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
-                        {{ (candidate.similarity * 100)|round(0)|int }}%
-                    </span>
-                    {% if candidate.same_concept_type %}
-                    <br><small class="text-muted">same type</small>
-                    {% endif %}
-                </div>
-                <div class="col-md-2 text-end">
-                    <button class="btn btn-sm btn-outline-primary me-1"
-                            onclick="mergeEntities({{ candidate.entity_a_id }}, {{ candidate.entity_b_id }}, {{ loop.index }})"
-                            title="Merge (keep shorter label)">
-                        <i class="bi bi-union"></i> Merge
-                    </button>
-                    <button class="btn btn-sm btn-outline-secondary"
-                            onclick="skipCandidate({{ loop.index }})"
-                            title="Keep both entities separate">
-                        <i class="bi bi-x"></i> Skip
-                    </button>
-                </div>
+        <div id="reconcileInitial">
+            <p class="text-muted mb-3">
+                Runs three-phase deduplication: groups entities by concept type, auto-merges exact label matches,
+                then uses LLM analysis to identify near-duplicate candidates for review.
+            </p>
+            <button id="reconcileBtn" class="btn btn-primary" onclick="runReconciliation()">
+                <i class="bi bi-search me-1"></i> Run Reconciliation
+            </button>
+        </div>
+        <div id="reconcileProgress" style="display: none;">
+            <div class="d-flex align-items-center gap-2">
+                <span class="spinner-border spinner-border-sm text-primary"></span>
+                <span>Running reconciliation (grouping, exact-match merges, LLM analysis)...</span>
             </div>
         </div>
-        {% endfor %}
+        <div id="reconcileResults" style="display: none;"></div>
     </div>
 </div>
-{% elif not published_count %}
-<div class="reconcile-card">
-    <div class="card-body text-center text-muted py-4">
-        <i class="bi bi-check-circle fs-3 d-block mb-2"></i>
-        No near-duplicate entities found. Ready to commit.
-    </div>
-</div>
-{% endif %}
 
 {# Commit Section #}
 <div class="reconcile-card">
@@ -178,18 +207,15 @@
         </div>
         {% elif unpublished_count > 0 %}
         <p>
-            <strong>{{ unpublished_count }}</strong> entities will be committed:
-            {{ class_count }} classes to <code>proethica-intermediate-extended.ttl</code>,
-            {{ individual_count }} individuals to <code>proethica-case-{{ case.id }}.ttl</code>.
+            <strong id="commitEntityCount">{{ unpublished_count }}</strong> entities will be committed:
+            <span id="commitClassCount">{{ class_count }}</span> classes to <code>proethica-intermediate-extended.ttl</code>,
+            <span id="commitIndividualCount">{{ individual_count }}</span> individuals to <code>proethica-case-{{ case.id }}.ttl</code>.
         </p>
         <p class="text-muted mb-3">
             After commit, entities become available via OntServe MCP for Step 4 synthesis queries.
-            The OntServe refresh script will populate parent_uri for CTE hierarchy walks.
         </p>
-        <button id="commitBtn" class="btn btn-success btn-lg"
-                onclick="commitToOntServe()"
-                {% if reconciliation.review_candidates %}disabled title="Resolve all review candidates first"{% endif %}>
-            <i class="bi bi-cloud-upload me-2"></i>Commit {{ unpublished_count }} Entities to OntServe
+        <button id="commitBtn" class="btn btn-success btn-lg" onclick="commitToOntServe()">
+            <i class="bi bi-cloud-upload me-2"></i>Commit <span id="commitBtnCount">{{ unpublished_count }}</span> Entities to OntServe
         </button>
         <div id="commitResult" class="mt-3" style="display: none;"></div>
         {% else %}
@@ -203,9 +229,179 @@
 {% block scripts %}
 {{ super() }}
 <script>
+var CONCEPT_COLORS = {
+    'roles': '#4e73df',
+    'states': '#6f42c1',
+    'resources': '#20c9a6',
+    'principles': '#fd7e14',
+    'obligations': '#e74a3b',
+    'capabilities': '#36b9cc',
+    'constraints': '#858796'
+};
+
+function runReconciliation() {
+    var btn = document.getElementById('reconcileBtn');
+    var initial = document.getElementById('reconcileInitial');
+    var progress = document.getElementById('reconcileProgress');
+    var results = document.getElementById('reconcileResults');
+
+    initial.style.display = 'none';
+    progress.style.display = 'block';
+    results.style.display = 'none';
+
+    fetch('{{ url_for("entity_review.reconcile_run", case_id=case.id) }}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'}
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        progress.style.display = 'none';
+        results.style.display = 'block';
+
+        if (!data.success) {
+            results.innerHTML = '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-1"></i> Reconciliation failed: ' + (data.error || 'Unknown error') + '</div>';
+            initial.style.display = 'block';
+            return;
+        }
+
+        // Update summary counts if merges happened
+        if (data.auto_merged > 0 && data.updated_counts) {
+            var uc = data.updated_counts;
+            document.getElementById('totalCount').textContent = uc.unpublished;
+            document.getElementById('classCount').textContent = uc.classes;
+            document.getElementById('individualCount').textContent = uc.individuals;
+            document.getElementById('commitEntityCount').textContent = uc.unpublished;
+            document.getElementById('commitClassCount').textContent = uc.classes;
+            document.getElementById('commitIndividualCount').textContent = uc.individuals;
+            document.getElementById('commitBtnCount').textContent = uc.unpublished;
+        }
+
+        var html = '';
+
+        // Auto-merge summary
+        if (data.auto_merged > 0) {
+            html += '<div class="alert alert-info mb-3">'
+                + '<i class="bi bi-info-circle me-1"></i> '
+                + '<strong>' + data.auto_merged + '</strong> exact-duplicate entities were auto-merged (identical labels within same concept type).'
+                + '</div>';
+        }
+
+        // Errors
+        if (data.errors && data.errors.length > 0) {
+            html += '<div class="alert alert-warning mb-3">'
+                + '<i class="bi bi-exclamation-triangle me-1"></i> '
+                + data.errors.length + ' error(s) during reconciliation:<ul class="mb-0 mt-1">';
+            for (var i = 0; i < data.errors.length; i++) {
+                html += '<li>' + escapeHtml(data.errors[i]) + '</li>';
+            }
+            html += '</ul></div>';
+        }
+
+        // Candidates
+        if (data.candidates && data.candidates.length > 0) {
+            html += '<div class="mb-2"><strong>' + data.candidates.length + '</strong> potential duplicates for review:</div>';
+            for (var i = 0; i < data.candidates.length; i++) {
+                html += buildCandidateRow(data.candidates[i], i + 1);
+            }
+        } else if (data.auto_merged === 0) {
+            html += '<div class="text-center text-muted py-3">'
+                + '<i class="bi bi-check-circle fs-3 d-block mb-2"></i>'
+                + 'No duplicate entities found. Ready to commit.'
+                + '</div>';
+        } else {
+            html += '<div class="text-center text-muted py-3">'
+                + '<i class="bi bi-check-circle fs-3 d-block mb-2"></i>'
+                + 'Only exact matches found (already merged above). Ready to commit.'
+                + '</div>';
+        }
+
+        results.innerHTML = html;
+    })
+    .catch(function(err) {
+        progress.style.display = 'none';
+        results.style.display = 'block';
+        results.innerHTML = '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-1"></i> Error: ' + err + '</div>';
+        initial.style.display = 'block';
+    });
+}
+
+function buildCandidateRow(c, index) {
+    var colorA = CONCEPT_COLORS[c.entity_a_context.extraction_type] || '#858796';
+    var colorB = CONCEPT_COLORS[c.entity_b_context.extraction_type] || '#858796';
+
+    var html = '<div class="candidate-row" id="candidate-' + index + '">'
+        + '<div class="row">'
+        // Entity A
+        + '<div class="col-md-5">'
+        + '<div class="entity-label">' + escapeHtml(c.entity_a_label) + '</div>'
+        + '<div class="d-flex align-items-center gap-1 mt-1">';
+    if (c.entity_a_context.extraction_type) {
+        html += '<span class="badge concept-badge" style="background-color: ' + colorA + ';">'
+            + escapeHtml(c.entity_a_context.extraction_type.replace(/_/g, ' ').replace(/\b\w/g, function(l) { return l.toUpperCase(); }))
+            + '</span>';
+    }
+    if (c.entity_a_context.storage_type) {
+        html += '<span class="badge concept-badge bg-light text-dark border">' + escapeHtml(c.entity_a_context.storage_type) + '</span>';
+    }
+    if (c.entity_a_context.source_section) {
+        html += '<span class="badge concept-badge bg-light text-dark border"><i class="bi bi-file-text"></i> ' + escapeHtml(c.entity_a_context.source_section) + '</span>';
+    }
+    html += '</div>';
+    if (c.entity_a_context.definition) {
+        html += '<div class="entity-def">' + escapeHtml(c.entity_a_context.definition) + '</div>';
+    }
+    html += '</div>'
+        // Arrow
+        + '<div class="col-md-1 text-center d-flex align-items-center justify-content-center">'
+        + '<i class="bi bi-arrow-left-right text-muted"></i>'
+        + '</div>'
+        // Entity B
+        + '<div class="col-md-4">'
+        + '<div class="entity-label">' + escapeHtml(c.entity_b_label) + '</div>'
+        + '<div class="d-flex align-items-center gap-1 mt-1">';
+    if (c.entity_b_context.extraction_type) {
+        html += '<span class="badge concept-badge" style="background-color: ' + colorB + ';">'
+            + escapeHtml(c.entity_b_context.extraction_type.replace(/_/g, ' ').replace(/\b\w/g, function(l) { return l.toUpperCase(); }))
+            + '</span>';
+    }
+    if (c.entity_b_context.storage_type) {
+        html += '<span class="badge concept-badge bg-light text-dark border">' + escapeHtml(c.entity_b_context.storage_type) + '</span>';
+    }
+    if (c.entity_b_context.source_section) {
+        html += '<span class="badge concept-badge bg-light text-dark border"><i class="bi bi-file-text"></i> ' + escapeHtml(c.entity_b_context.source_section) + '</span>';
+    }
+    html += '</div>';
+    if (c.entity_b_context.definition) {
+        html += '<div class="entity-def">' + escapeHtml(c.entity_b_context.definition) + '</div>';
+    }
+    html += '</div>'
+        // Actions
+        + '<div class="col-md-2 text-end d-flex flex-column align-items-end justify-content-center gap-1">'
+        + '<button class="btn btn-sm btn-outline-primary" onclick="mergeEntities(' + c.entity_a_id + ', ' + c.entity_b_id + ', ' + index + ')" title="Merge: combine definitions, keep shorter label">'
+        + '<i class="bi bi-union"></i> Merge</button>'
+        + '<button class="btn btn-sm btn-outline-secondary" onclick="skipCandidate(' + index + ')" title="Keep both entities separate">'
+        + '<i class="bi bi-x"></i> Skip</button>'
+        + '</div>'
+        + '</div>';
+
+    if (c.llm_reason) {
+        html += '<div class="llm-reason"><i class="bi bi-robot me-1"></i> ' + escapeHtml(c.llm_reason) + '</div>';
+    }
+
+    html += '</div>';
+    return html;
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    var div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 function mergeEntities(entityAId, entityBId, candidateIndex) {
-    const row = document.getElementById('candidate-' + candidateIndex);
-    const btn = row.querySelector('.btn-outline-primary');
+    var row = document.getElementById('candidate-' + candidateIndex);
+    var btn = row.querySelector('.btn-outline-primary');
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
 
@@ -214,11 +410,11 @@ function mergeEntities(entityAId, entityBId, candidateIndex) {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({keep_id: entityAId, merge_id: entityBId})
     })
-    .then(r => r.json())
-    .then(data => {
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
         if (data.success) {
             row.classList.add('resolved');
-            row.innerHTML = '<div class="text-center text-success"><i class="bi bi-check-circle me-1"></i> Merged</div>';
+            row.innerHTML = '<div class="text-center text-success py-2"><i class="bi bi-check-circle me-1"></i> Merged (both definitions preserved)</div>';
             checkAllResolved();
         } else {
             btn.disabled = false;
@@ -226,7 +422,7 @@ function mergeEntities(entityAId, entityBId, candidateIndex) {
             alert('Merge failed: ' + (data.error || 'Unknown error'));
         }
     })
-    .catch(err => {
+    .catch(function(err) {
         btn.disabled = false;
         btn.innerHTML = '<i class="bi bi-union"></i> Merge';
         alert('Error: ' + err);
@@ -234,24 +430,19 @@ function mergeEntities(entityAId, entityBId, candidateIndex) {
 }
 
 function skipCandidate(candidateIndex) {
-    const row = document.getElementById('candidate-' + candidateIndex);
+    var row = document.getElementById('candidate-' + candidateIndex);
     row.classList.add('resolved');
-    row.innerHTML = '<div class="text-center text-muted"><i class="bi bi-dash-circle me-1"></i> Kept separate</div>';
+    row.innerHTML = '<div class="text-center text-muted py-2"><i class="bi bi-dash-circle me-1"></i> Kept separate</div>';
     checkAllResolved();
 }
 
 function checkAllResolved() {
-    const unresolved = document.querySelectorAll('.candidate-row:not(.resolved)');
-    const commitBtn = document.getElementById('commitBtn');
-    if (commitBtn && unresolved.length === 0) {
-        commitBtn.disabled = false;
-        commitBtn.removeAttribute('title');
-    }
+    // No-op: commit button is always enabled since reconciliation is optional
 }
 
 function commitToOntServe() {
-    const btn = document.getElementById('commitBtn');
-    const resultDiv = document.getElementById('commitResult');
+    var btn = document.getElementById('commitBtn');
+    var resultDiv = document.getElementById('commitResult');
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Committing...';
 
@@ -259,40 +450,36 @@ function commitToOntServe() {
         method: 'POST',
         headers: {'Content-Type': 'application/json'}
     })
-    .then(r => r.json())
-    .then(data => {
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
         resultDiv.style.display = 'block';
         if (data.success) {
-            const r = data.result || {};
-            resultDiv.innerHTML = `
-                <div class="commit-status success">
-                    <i class="bi bi-check-circle-fill me-2 text-success"></i>
-                    <strong>Commit successful.</strong>
-                    Classes: ${r.classes_committed || 0},
-                    Individuals: ${r.individuals_committed || 0},
-                    OntServe synced: ${r.ontserve_synced ? 'Yes' : 'No'}
-                    <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}" class="btn btn-primary ms-3">
-                        <i class="bi bi-arrow-right"></i> Proceed to Step 4
-                    </a>
-                </div>`;
+            var r = data.result || {};
+            resultDiv.innerHTML = '<div class="commit-status success">'
+                + '<i class="bi bi-check-circle-fill me-2 text-success"></i>'
+                + '<strong>Commit successful.</strong> '
+                + 'Classes: ' + (r.classes_committed || 0) + ', '
+                + 'Individuals: ' + (r.individuals_committed || 0) + ', '
+                + 'OntServe synced: ' + (r.ontserve_synced ? 'Yes' : 'No')
+                + ' <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}" class="btn btn-primary ms-3">'
+                + '<i class="bi bi-arrow-right"></i> Proceed to Step 4</a>'
+                + '</div>';
             btn.style.display = 'none';
         } else {
-            resultDiv.innerHTML = `
-                <div class="commit-status error">
-                    <i class="bi bi-x-circle-fill me-2 text-danger"></i>
-                    <strong>Commit failed:</strong> ${data.error || 'Unknown error'}
-                </div>`;
+            resultDiv.innerHTML = '<div class="commit-status error">'
+                + '<i class="bi bi-x-circle-fill me-2 text-danger"></i>'
+                + '<strong>Commit failed:</strong> ' + (data.error || 'Unknown error')
+                + '</div>';
             btn.disabled = false;
             btn.innerHTML = '<i class="bi bi-cloud-upload me-2"></i>Retry Commit';
         }
     })
-    .catch(err => {
+    .catch(function(err) {
         resultDiv.style.display = 'block';
-        resultDiv.innerHTML = `
-            <div class="commit-status error">
-                <i class="bi bi-x-circle-fill me-2 text-danger"></i>
-                <strong>Error:</strong> ${err}
-            </div>`;
+        resultDiv.innerHTML = '<div class="commit-status error">'
+            + '<i class="bi bi-x-circle-fill me-2 text-danger"></i>'
+            + '<strong>Error:</strong> ' + err
+            + '</div>';
         btn.disabled = false;
         btn.innerHTML = '<i class="bi bi-cloud-upload me-2"></i>Retry Commit';
     });

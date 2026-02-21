@@ -376,6 +376,13 @@
             }
         });
         panel.style.display = 'block';
+
+        // Dispatch entity-navigate event for cross-view navigation
+        if (d.entity_uri) {
+            document.dispatchEvent(new CustomEvent('entity-navigate', {
+                detail: { uri: d.entity_uri, sourceGraph: 'd3' }
+            }));
+        }
     }
 
     function dragstarted(event, d) {

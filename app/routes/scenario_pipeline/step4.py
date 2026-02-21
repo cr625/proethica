@@ -515,7 +515,8 @@ def get_entity_graph_api(case_id):
                 'is_published': entity.is_published,
                 'is_selected': entity.is_selected,
                 'agent': agent,
-                'temporal_marker': temporal_marker
+                'temporal_marker': temporal_marker,
+                'entity_uri': entity.entity_uri or ''
             })
 
         # Build edges from RDF relationships
@@ -1289,6 +1290,12 @@ def step4_review(case_id):
             'published_count': published_count,
             'can_publish': can_publish,
             'pipeline_status': pipeline_status,
+            # Pipeline navigation (required by base_step.html)
+            'current_step': 4,
+            'step_title': 'Synthesis Review',
+            'prev_step_url': url_for('step4.step4_synthesis', case_id=case_id),
+            'next_step_url': None,
+            'next_step_name': None,
             'rich_analysis': rich_analysis,
             'decision_points': _load_decision_points_for_review(case_id),
             'narrative_data': _load_narrative_for_review(case_id),
@@ -1641,25 +1648,22 @@ def get_synthesis_status(case_id: int) -> Dict:
     Returns:
         Dict with synthesis status and results
     """
-    # Check for code provisions (only uncommitted)
+    # Check for code provisions
     provisions = TemporaryRDFStorage.query.filter_by(
         case_id=case_id,
-        extraction_type='code_provision_reference',
-        is_published=False
+        extraction_type='code_provision_reference'
     ).count()
 
-    # Check for questions (only uncommitted)
+    # Check for questions
     questions = TemporaryRDFStorage.query.filter_by(
         case_id=case_id,
-        extraction_type='ethical_question',
-        is_published=False
+        extraction_type='ethical_question'
     ).count()
 
-    # Check for conclusions (only uncommitted)
+    # Check for conclusions
     conclusions = TemporaryRDFStorage.query.filter_by(
         case_id=case_id,
-        extraction_type='ethical_conclusion',
-        is_published=False
+        extraction_type='ethical_conclusion'
     ).count()
 
     completed = provisions > 0 or questions > 0 or conclusions > 0

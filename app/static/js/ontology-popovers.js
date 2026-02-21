@@ -95,6 +95,34 @@ function initializePopovers(container) {
     });
 }
 
+/**
+ * Find all tab panes that contain an entity with the given URI.
+ * Returns array of { paneId, element } objects.
+ */
+function findEntityInTabs(uri) {
+    var results = [];
+    if (!uri) return results;
+    document.querySelectorAll('.tab-pane').forEach(function(pane) {
+        var match = pane.querySelector('[data-entity-uri="' + uri + '"]');
+        if (match) {
+            results.push({ paneId: pane.id, element: match });
+        }
+    });
+    return results;
+}
+window.findEntityInTabs = findEntityInTabs;
+
+// Delegated click handler for cross-view entity navigation
+document.addEventListener('click', function(e) {
+    var label = e.target.closest('.onto-label');
+    if (!label) return;
+    var uri = label.dataset.entityUri;
+    if (!uri) return;
+    document.dispatchEvent(new CustomEvent('entity-navigate', {
+        detail: { uri: uri, sourceElement: label }
+    }));
+});
+
 // Auto-initialize on DOMContentLoaded
 document.addEventListener('DOMContentLoaded', function() {
     setTimeout(function() {

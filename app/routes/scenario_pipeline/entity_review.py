@@ -38,6 +38,7 @@ def init_entity_review_csrf_exemption(app):
                 clear_entities_by_types,
                 clear_all_entities,
                 delete_rdf_entity,
+                reconcile_run,
                 reconcile_merge,
                 reconcile_commit_execute
             )
@@ -49,6 +50,7 @@ def init_entity_review_csrf_exemption(app):
             app.csrf.exempt(clear_entities_by_types)
             app.csrf.exempt(clear_all_entities)
             app.csrf.exempt(delete_rdf_entity)
+            app.csrf.exempt(reconcile_run)
             app.csrf.exempt(reconcile_merge)
             app.csrf.exempt(reconcile_commit_execute)
         except Exception as e:
@@ -1970,19 +1972,15 @@ def get_entity_overlap(case_id):
 def reconcile_and_commit(case_id):
     """Reconciliation and commit page between Step 3 and Step 4.
 
-    Shows auto-merge summary, review candidates for human decision,
-    and commit button to finalize entities to OntServe.
+    Page load shows entity summary only (cheap DB queries).
+    Reconciliation is triggered by user clicking Run Reconciliation button,
+    which calls the /reconcile/run AJAX endpoint.
     """
     case_doc = Document.query.get_or_404(case_id)
 
-    from app.services.entity_reconciliation_service import EntityReconciliationService
     from app.services.pipeline_status_service import PipelineStatusService
 
     pipeline_status = PipelineStatusService.get_step_status(case_id)
-
-    # Run reconciliation (auto-merges high-confidence, returns review candidates)
-    recon_service = EntityReconciliationService()
-    reconciliation = recon_service.reconcile_with_review(case_id)
 
     # Entity counts
     unpublished_count = TemporaryRDFStorage.query.filter_by(
@@ -2000,18 +1998,94 @@ def reconcile_and_commit(case_id):
         case_id=case_id, is_published=False, storage_type='individual'
     ).count()
 
+    # Concept type breakdown for summary display
+    from sqlalchemy import func
+    type_breakdown = db.session.query(
+        TemporaryRDFStorage.extraction_type,
+        TemporaryRDFStorage.storage_type,
+        func.count(TemporaryRDFStorage.id)
+    ).filter_by(
+        case_id=case_id, is_published=False
+    ).group_by(
+        TemporaryRDFStorage.extraction_type,
+        TemporaryRDFStorage.storage_type
+    ).order_by(
+        TemporaryRDFStorage.extraction_type,
+        TemporaryRDFStorage.storage_type
+    ).all()
+
     return render_template(
         'scenarios/reconcile_commit.html',
         case=case_doc,
-        reconciliation=reconciliation,
         pipeline_status=pipeline_status,
         unpublished_count=unpublished_count,
         published_count=published_count,
         class_count=class_count,
         individual_count=individual_count,
+        type_breakdown=type_breakdown,
         current_step=3.5,
         step_title='Reconcile & Commit'
     )
+
+
+@bp.route('/case/<int:case_id>/reconcile/run', methods=['POST'])
+@auth_required_for_write
+def reconcile_run(case_id):
+    """AJAX endpoint: run reconciliation (exact-match merges + LLM dedup).
+
+    Returns JSON with auto_merged count, review candidates, and errors.
+    """
+    from app.services.entity_reconciliation_service import EntityReconciliationService
+    from dataclasses import asdict
+
+    try:
+        recon_service = EntityReconciliationService()
+        reconciliation = recon_service.reconcile_with_review(case_id)
+
+        # Serialize candidates for JSON response
+        candidates = []
+        for c in reconciliation.review_candidates:
+            candidates.append({
+                'entity_a_id': c.entity_a_id,
+                'entity_b_id': c.entity_b_id,
+                'entity_a_label': c.entity_a_label,
+                'entity_b_label': c.entity_b_label,
+                'similarity': c.similarity,
+                'recommendation': c.recommendation,
+                'llm_reason': c.llm_reason,
+                'entity_a_context': c.entity_a_context,
+                'entity_b_context': c.entity_b_context,
+            })
+
+        # Updated entity counts after merges
+        unpublished_count = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id, is_published=False
+        ).count()
+        class_count = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id, is_published=False, storage_type='class'
+        ).count()
+        individual_count = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id, is_published=False, storage_type='individual'
+        ).count()
+
+        return jsonify({
+            'success': True,
+            'auto_merged': reconciliation.auto_merged,
+            'candidates': candidates,
+            'errors': reconciliation.errors,
+            'updated_counts': {
+                'unpublished': unpublished_count,
+                'classes': class_count,
+                'individuals': individual_count,
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"Reconciliation failed for case {case_id}: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 
 @bp.route('/case/<int:case_id>/reconcile/merge', methods=['POST'])

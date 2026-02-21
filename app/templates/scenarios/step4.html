@@ -219,34 +219,6 @@
             </div>
         </div>
 
-        <!-- Note: Conclusions are now extracted with Questions in 2B unified -->
-        <div class="extractor-section mb-4" id="conclusionsSection" style="display: none;">
-            <div class="step-card border-success">
-                <div class="step-header bg-success bg-opacity-10">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h6 class="mb-0">
-                            <i class="bi bi-check-circle text-success"></i> Conclusions (see 2B)
-                            <span id="conclusionsCount" class="badge bg-success ms-2">{{ synthesis_status.conclusions_count or 0 }}</span>
-                        </h6>
-                    </div>
-                </div>
-                <div class="step-content">
-                    <div class="prompt-preview mb-3" id="conclusionsPromptSection" style="display: none;">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="mb-0"><i class="bi bi-chat-left-text"></i> Extraction Prompt</h6>
-                        </div>
-                        <div class="prompt-text" id="conclusionsPromptText"></div>
-                    </div>
-                    <div class="results-preview" id="conclusionsResults" style="display: none;">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="mb-0"><i class="bi bi-chat-left-text text-success"></i> LLM Response</h6>
-                        </div>
-                        <div id="conclusionsResultsContent"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- 2C: Transformation Classification -->
         <div class="extractor-section mb-4" id="transformationSection">
             <div class="step-card border-purple">

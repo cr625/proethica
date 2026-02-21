@@ -1,218 +1,218 @@
-{% extends "base.html" %}
+{% extends "scenarios/base_step.html" %}
 {% from '_macros.html' import info_link, info_link_inline, research_caveat %}
 {% from 'macros/_ontology_label.html' import ontology_label %}
 
-{% block title %}Step 4 Review - Case {{ case.id }}{% endblock %}
+{% block step_title %}Synthesis Review{% endblock %}
+{% block step_header %}Step 4: Synthesis Review{% endblock %}
+{% block step_subtitle %}Review extracted entities, provisions, decisions, and narrative{% endblock %}
 
-{% block styles %}
+{% block step_styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/ontology-labels.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/step4-review.css') }}">
 {% endblock %}
 
-{% block content %}
-<div class="container-fluid mt-4">
-    <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2><i class="bi bi-clipboard-check"></i> Step 4: Synthesis Review</h2>
-            <p class="text-muted mb-0">Case {{ case.id }}: {{ case.title }}</p>
-        </div>
-        <div class="d-flex flex-wrap gap-2">
-            <!-- Publish to OntServe Button -->
-            {% if current_user.is_authenticated %}
-                {% if unpublished_count > 0 and can_publish %}
-                <button id="publishAllBtn" class="btn btn-primary" onclick="publishAllEntities()">
-                    <i class="bi bi-cloud-upload"></i> Publish to OntServe ({{ unpublished_count }})
-                </button>
-                {% elif unpublished_count > 0 and not can_publish %}
-                <button id="publishAllBtn" class="btn btn-secondary" disabled title="Complete Pass 1 extraction before publishing">
-                    <i class="bi bi-cloud-upload"></i> Publish (Pass 1 Required)
-                </button>
-                {% elif published_count > 0 %}
-                <button id="publishAllBtn" class="btn btn-success" disabled>
-                    <i class="bi bi-check-circle"></i> Published ({{ published_count }})
-                </button>
-                {% else %}
-                <button id="publishAllBtn" class="btn btn-secondary" disabled title="Extract entities first">
-                    <i class="bi bi-cloud-upload"></i> No Entities
-                </button>
-                {% endif %}
-            {% else %}
-            <button class="btn btn-secondary" onclick="window.location.href='{{ url_for('auth.login') }}';" title="Login required to publish">
-                <i class="bi bi-lock-fill"></i> Publish (Login Required)
-            </button>
-            {% endif %}
+{% block step_content %}
 
-            <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}" class="btn btn-outline-secondary">
-                <i class="bi bi-arrow-left"></i> Back to Step 4
-            </a>
-
-            {% if validation_study_mode %}
-            <button id="validationDemoToggle" class="btn btn-outline-info" onclick="toggleValidationDemo()">
-                <i class="bi bi-clipboard-check"></i> Validation Demo
-            </button>
-            <a href="{{ url_for('study.exit_validation_mode') }}" class="btn btn-outline-secondary btn-sm" title="Exit validation study mode">
-                <i class="bi bi-x-circle"></i>
-            </a>
-            {% endif %}
-        </div>
-    </div>
-
-    <!-- Alert for publish operations -->
-    <div id="publishAlert" class="alert alert-dismissible fade" role="alert" style="display: none;">
-        <div id="publishMessage"></div>
-        <button type="button" class="btn-close" onclick="document.getElementById('publishAlert').style.display='none'"></button>
-    </div>
-
-    <!-- Summary Cards -->
-    <div class="row mb-4">
-        <div class="col">
-            <div class="card text-center" style="border-color: #0d6efd !important; border-width: 2px;">
-                <div class="card-body py-2">
-                    <h4 class="mb-0" style="color: #0d6efd;">{{ entity_count }}</h4>
-                    <small class="text-muted">Entities</small>
-                </div>
-            </div>
-        </div>
-        <div class="col">
-            <div class="card text-center" style="border-color: #6c757d !important; border-width: 2px;">
-                <div class="card-body py-2">
-                    <h4 class="mb-0" style="color: #6c757d;">{{ provision_count }}</h4>
-                    <small class="text-muted">Provisions</small>
-                </div>
-            </div>
-        </div>
-        <div class="col">
-            <div class="card text-center" style="border-color: #0dcaf0 !important; border-width: 2px;">
-                <div class="card-body py-2">
-                    <h4 class="mb-0" style="color: #0dcaf0;">{{ question_count }}</h4>
-                    <small class="text-muted">Questions</small>
-                </div>
-            </div>
-        </div>
-        <div class="col">
-            <div class="card text-center" style="border-color: #198754 !important; border-width: 2px;">
-                <div class="card-body py-2">
-                    <h4 class="mb-0" style="color: #198754;">{{ conclusion_count }}</h4>
-                    <small class="text-muted">Conclusions</small>
-                </div>
-            </div>
-        </div>
-        <div class="col">
-            <div class="card text-center" style="border-color: #6f42c1 !important; border-width: 2px;">
-                <div class="card-body py-2">
-                    {% if transformation_data and transformation_data.type %}
-                    <h4 class="mb-0" style="color: #6f42c1;">
-                        {% if transformation_data.type == 'transfer' %}Transfer
-                        {% elif transformation_data.type == 'stalemate' %}Stalemate
-                        {% elif transformation_data.type == 'oscillation' %}Oscillation
-                        {% elif transformation_data.type == 'phase_lag' %}Phase Lag
-                        {% else %}{{ transformation_data.type|title }}{% endif %}
-                    </h4>
-                    <small class="text-muted">Transformation {{ info_link_inline('transformation', 'Marchais-Roubelat & Roubelat (2015)') }}</small>
-                    {% else %}
-                    <h4 class="text-muted mb-0">--</h4>
-                    <small class="text-muted">Transformation {{ info_link_inline('transformation', 'Marchais-Roubelat & Roubelat (2015)') }}</small>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Transformation Details (if available) -->
-    {% if transformation_data and transformation_data.type and transformation_data.type != 'unclear' %}
-    <div class="alert alert-light border mb-4">
-        <div class="d-flex align-items-center">
-            <span class="badge me-2" style="background-color: #6f42c1;">
-                {% if transformation_data.type == 'transfer' %}Transfer
-                {% elif transformation_data.type == 'stalemate' %}Stalemate
-                {% elif transformation_data.type == 'oscillation' %}Oscillation
-                {% elif transformation_data.type == 'phase_lag' %}Phase Lag
-                {% else %}{{ transformation_data.type|title }}{% endif %}
-            </span>
-            <span>
-                {% if transformation_data.type == 'transfer' %}
-                Resolution transfers obligation/responsibility to another party
-                {% elif transformation_data.type == 'stalemate' %}
-                Competing obligations remain in tension without clear resolution
-                {% elif transformation_data.type == 'oscillation' %}
-                Duties shift back and forth between parties over time
-                {% elif transformation_data.type == 'phase_lag' %}
-                Delayed consequences reveal obligations not initially apparent
-                {% endif %}
-            </span>
-        </div>
-        {% if transformation_data.pattern %}
-        <small class="text-muted d-block mt-1">{{ transformation_data.pattern }}</small>
+<!-- Action Buttons -->
+<div class="d-flex flex-wrap gap-2 mb-4">
+    {% if current_user.is_authenticated %}
+        {% if unpublished_count > 0 and can_publish %}
+        <button id="publishAllBtn" class="btn btn-primary" onclick="publishAllEntities()">
+            <i class="bi bi-cloud-upload"></i> Publish to OntServe ({{ unpublished_count }})
+        </button>
+        {% elif unpublished_count > 0 and not can_publish %}
+        <button id="publishAllBtn" class="btn btn-secondary" disabled title="Complete Pass 1 extraction before publishing">
+            <i class="bi bi-cloud-upload"></i> Publish (Pass 1 Required)
+        </button>
+        {% elif published_count > 0 %}
+        <button id="publishAllBtn" class="btn btn-success" disabled>
+            <i class="bi bi-check-circle"></i> Published ({{ published_count }})
+        </button>
+        {% else %}
+        <button id="publishAllBtn" class="btn btn-secondary" disabled title="Extract entities first">
+            <i class="bi bi-cloud-upload"></i> No Entities
+        </button>
         {% endif %}
-    </div>
+    {% else %}
+    <button class="btn btn-secondary" onclick="window.location.href='{{ url_for('auth.login') }}';" title="Login required to publish">
+        <i class="bi bi-lock-fill"></i> Publish (Login Required)
+    </button>
     {% endif %}
 
-    <!-- Tab Navigation -->
-    <ul class="nav nav-tabs nav-fill mb-3" id="reviewTabs" role="tablist">
-        <li class="nav-item" role="presentation">
-            <button class="nav-link active" id="fullgraph-tab" data-bs-toggle="tab" data-bs-target="#fullgraph" type="button">
-                <i class="bi bi-diagram-3"></i> Entities <span class="badge bg-secondary" id="entities-tab-badge">{{ entity_count }}</span>
-            </button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button class="nav-link" id="graph-tab" data-bs-toggle="tab" data-bs-target="#graph" type="button">
-                <i class="bi bi-arrow-right-circle"></i> Flow
-            </button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button class="nav-link" id="provisions-tab" data-bs-toggle="tab" data-bs-target="#provisions" type="button">
-                <i class="bi bi-file-text"></i> Provisions
-            </button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button class="nav-link" id="questions-tab" data-bs-toggle="tab" data-bs-target="#questions" type="button">
-                <i class="bi bi-question-circle"></i> Q&C
-            </button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button class="nav-link" id="richanalysis-tab" data-bs-toggle="tab" data-bs-target="#richanalysis" type="button">
-                <i class="bi bi-lightbulb"></i> Analysis
-            </button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button class="nav-link" id="decision-points-tab" data-bs-toggle="tab" data-bs-target="#decisionpoints" type="button">
-                <i class="bi bi-signpost-split"></i> Decisions <span class="badge bg-primary">{{ decision_points|length if decision_points else 0 }}</span>
-            </button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button class="nav-link" id="narrative-tab" data-bs-toggle="tab" data-bs-target="#narrative" type="button">
-                <i class="bi bi-book"></i> Narrative
-            </button>
-        </li>
-    </ul>
+    {% if validation_study_mode %}
+    <button id="validationDemoToggle" class="btn btn-outline-info" onclick="toggleValidationDemo()">
+        <i class="bi bi-clipboard-check"></i> Validation Demo
+    </button>
+    <a href="{{ url_for('study.exit_validation_mode') }}" class="btn btn-outline-secondary btn-sm" title="Exit validation study mode">
+        <i class="bi bi-x-circle"></i>
+    </a>
+    {% endif %}
+</div>
 
-    <!-- Tab Content -->
-    <div class="tab-content" id="reviewTabContent">
-        <div class="tab-pane fade show active" id="fullgraph" role="tabpanel">
-            {% include 'scenario_pipeline/_review_tab_entities.html' %}
+<!-- Alert for publish operations -->
+<div id="publishAlert" class="alert alert-dismissible fade" role="alert" style="display: none;">
+    <div id="publishMessage"></div>
+    <button type="button" class="btn-close" onclick="document.getElementById('publishAlert').style.display='none'"></button>
+</div>
+
+<!-- Summary Cards -->
+<div class="row mb-4">
+    <div class="col">
+        <div class="card text-center" style="border-color: #0d6efd !important; border-width: 2px;">
+            <div class="card-body py-2">
+                <h4 class="mb-0" style="color: #0d6efd;">{{ entity_count }}</h4>
+                <small class="text-muted">Entities</small>
+            </div>
         </div>
-        <div class="tab-pane fade" id="graph" role="tabpanel">
-            {% include 'scenario_pipeline/_review_tab_flow.html' %}
+    </div>
+    <div class="col">
+        <div class="card text-center" style="border-color: #6c757d !important; border-width: 2px;">
+            <div class="card-body py-2">
+                <h4 class="mb-0" style="color: #6c757d;">{{ provision_count }}</h4>
+                <small class="text-muted">Provisions</small>
+            </div>
         </div>
-        <div class="tab-pane fade" id="provisions" role="tabpanel">
-            {% include 'scenario_pipeline/_review_tab_provisions.html' %}
+    </div>
+    <div class="col">
+        <div class="card text-center" style="border-color: #0dcaf0 !important; border-width: 2px;">
+            <div class="card-body py-2">
+                <h4 class="mb-0" style="color: #0dcaf0;">{{ question_count }}</h4>
+                <small class="text-muted">Questions</small>
+            </div>
         </div>
-        <div class="tab-pane fade" id="questions" role="tabpanel">
-            {% include 'scenario_pipeline/_review_tab_questions.html' %}
+    </div>
+    <div class="col">
+        <div class="card text-center" style="border-color: #198754 !important; border-width: 2px;">
+            <div class="card-body py-2">
+                <h4 class="mb-0" style="color: #198754;">{{ conclusion_count }}</h4>
+                <small class="text-muted">Conclusions</small>
+            </div>
         </div>
-        <div class="tab-pane fade" id="richanalysis" role="tabpanel">
-            {% include 'scenario_pipeline/_review_tab_analysis.html' %}
-        </div>
-        <div class="tab-pane fade" id="decisionpoints" role="tabpanel">
-            {% include 'scenario_pipeline/_review_tab_decisions.html' %}
-        </div>
-        <div class="tab-pane fade" id="narrative" role="tabpanel">
-            {% include 'scenario_pipeline/_review_tab_narrative.html' %}
+    </div>
+    <div class="col">
+        <div class="card text-center" style="border-color: #6f42c1 !important; border-width: 2px;">
+            <div class="card-body py-2">
+                {% if transformation_data and transformation_data.type %}
+                <h4 class="mb-0" style="color: #6f42c1;">
+                    {% if transformation_data.type == 'transfer' %}Transfer
+                    {% elif transformation_data.type == 'stalemate' %}Stalemate
+                    {% elif transformation_data.type == 'oscillation' %}Oscillation
+                    {% elif transformation_data.type == 'phase_lag' %}Phase Lag
+                    {% else %}{{ transformation_data.type|title }}{% endif %}
+                </h4>
+                <small class="text-muted">Transformation {{ info_link_inline('transformation', 'Marchais-Roubelat & Roubelat (2015)') }}</small>
+                {% else %}
+                <h4 class="text-muted mb-0">--</h4>
+                <small class="text-muted">Transformation {{ info_link_inline('transformation', 'Marchais-Roubelat & Roubelat (2015)') }}</small>
+                {% endif %}
+            </div>
         </div>
     </div>
 </div>
 
+<!-- Transformation Details (if available) -->
+{% if transformation_data and transformation_data.type and transformation_data.type != 'unclear' %}
+<div class="alert alert-light border mb-4">
+    <div class="d-flex align-items-center">
+        <span class="badge me-2" style="background-color: #6f42c1;">
+            {% if transformation_data.type == 'transfer' %}Transfer
+            {% elif transformation_data.type == 'stalemate' %}Stalemate
+            {% elif transformation_data.type == 'oscillation' %}Oscillation
+            {% elif transformation_data.type == 'phase_lag' %}Phase Lag
+            {% else %}{{ transformation_data.type|title }}{% endif %}
+        </span>
+        <span>
+            {% if transformation_data.type == 'transfer' %}
+            Resolution transfers obligation/responsibility to another party
+            {% elif transformation_data.type == 'stalemate' %}
+            Competing obligations remain in tension without clear resolution
+            {% elif transformation_data.type == 'oscillation' %}
+            Duties shift back and forth between parties over time
+            {% elif transformation_data.type == 'phase_lag' %}
+            Delayed consequences reveal obligations not initially apparent
+            {% endif %}
+        </span>
+    </div>
+    {% if transformation_data.pattern %}
+    <small class="text-muted d-block mt-1">{{ transformation_data.pattern }}</small>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- Tab Navigation -->
+<ul class="nav nav-tabs nav-fill mb-3" id="reviewTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="fullgraph-tab" data-bs-toggle="tab" data-bs-target="#fullgraph" type="button">
+            <i class="bi bi-diagram-3"></i> Entities <span class="badge bg-secondary" id="entities-tab-badge">{{ entity_count }}</span>
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="graph-tab" data-bs-toggle="tab" data-bs-target="#graph" type="button">
+            <i class="bi bi-arrow-right-circle"></i> Flow
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="provisions-tab" data-bs-toggle="tab" data-bs-target="#provisions" type="button">
+            <i class="bi bi-file-text"></i> Provisions
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="questions-tab" data-bs-toggle="tab" data-bs-target="#questions" type="button">
+            <i class="bi bi-question-circle"></i> Q&C
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="richanalysis-tab" data-bs-toggle="tab" data-bs-target="#richanalysis" type="button">
+            <i class="bi bi-lightbulb"></i> Analysis
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="decision-points-tab" data-bs-toggle="tab" data-bs-target="#decisionpoints" type="button">
+            <i class="bi bi-signpost-split"></i> Decisions <span class="badge bg-primary">{{ decision_points|length if decision_points else 0 }}</span>
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="narrative-tab" data-bs-toggle="tab" data-bs-target="#narrative" type="button">
+            <i class="bi bi-book"></i> Narrative
+        </button>
+    </li>
+</ul>
+
+<!-- Tab Content -->
+<div class="tab-content" id="reviewTabContent">
+    <div class="tab-pane fade show active" id="fullgraph" role="tabpanel">
+        {% include 'scenario_pipeline/_review_tab_entities.html' %}
+    </div>
+    <div class="tab-pane fade" id="graph" role="tabpanel">
+        {% include 'scenario_pipeline/_review_tab_flow.html' %}
+    </div>
+    <div class="tab-pane fade" id="provisions" role="tabpanel">
+        {% include 'scenario_pipeline/_review_tab_provisions.html' %}
+    </div>
+    <div class="tab-pane fade" id="questions" role="tabpanel">
+        {% include 'scenario_pipeline/_review_tab_questions.html' %}
+    </div>
+    <div class="tab-pane fade" id="richanalysis" role="tabpanel">
+        {% include 'scenario_pipeline/_review_tab_analysis.html' %}
+    </div>
+    <div class="tab-pane fade" id="decisionpoints" role="tabpanel">
+        {% include 'scenario_pipeline/_review_tab_decisions.html' %}
+    </div>
+    <div class="tab-pane fade" id="narrative" role="tabpanel">
+        {% include 'scenario_pipeline/_review_tab_narrative.html' %}
+    </div>
+</div>
+
+{% if validation_study_mode %}
+{% include 'scenario_pipeline/_review_validation_panel.html' %}
+{% endif %}
+
+<!-- Cross-view entity navigation toast container -->
+<div id="entity-nav-toast-container" aria-live="polite" aria-atomic="true"></div>
+
+{% endblock %}
+
+{% block step_scripts %}
 <!-- CDN Libraries -->
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.23.0/cytoscape.min.js"></script>
@@ -267,8 +267,133 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-{% if validation_study_mode %}
-{% include 'scenario_pipeline/_review_validation_panel.html' %}
-{% endif %}
+<!-- Cross-View Entity Navigation -->
+<script>
+(function() {
+    var TAB_NAMES = {
+        'fullgraph': 'Entities',
+        'graph': 'Flow',
+        'provisions': 'Provisions',
+        'questions': 'Q&C',
+        'richanalysis': 'Analysis',
+        'decisionpoints': 'Decisions',
+        'narrative': 'Narrative'
+    };
 
+    var TAB_BUTTON_IDS = {
+        'fullgraph': 'fullgraph-tab',
+        'graph': 'graph-tab',
+        'provisions': 'provisions-tab',
+        'questions': 'questions-tab',
+        'richanalysis': 'richanalysis-tab',
+        'decisionpoints': 'decision-points-tab',
+        'narrative': 'narrative-tab'
+    };
+
+    function getActiveTabPaneId() {
+        var active = document.querySelector('#reviewTabContent > .tab-pane.active');
+        return active ? active.id : null;
+    }
+
+    function showEntityToast(uri, entityLabel, results) {
+        var container = document.getElementById('entity-nav-toast-container');
+        if (!container) return;
+
+        // Remove any existing toast
+        var existing = container.querySelector('.toast');
+        if (existing) {
+            var bsToast = bootstrap.Toast.getInstance(existing);
+            if (bsToast) bsToast.dispose();
+            existing.remove();
+        }
+
+        var linksHtml = '';
+        for (var i = 0; i < results.length; i++) {
+            var r = results[i];
+            var tabName = TAB_NAMES[r.paneId] || r.paneId;
+            linksHtml += '<button class="btn btn-sm btn-outline-primary me-1 mb-1" '
+                + 'data-nav-pane="' + r.paneId + '" data-nav-uri="' + uri.replace(/"/g, '&quot;') + '">'
+                + '<i class="bi bi-arrow-right-circle"></i> ' + tabName
+                + '</button>';
+        }
+
+        var toastEl = document.createElement('div');
+        toastEl.className = 'toast show';
+        toastEl.setAttribute('role', 'alert');
+        toastEl.innerHTML = '<div class="toast-header">'
+            + '<strong class="me-auto">Find in other views</strong>'
+            + '<small class="text-muted">' + entityLabel + '</small>'
+            + '<button type="button" class="btn-close" data-bs-dismiss="toast"></button>'
+            + '</div>'
+            + '<div class="toast-body">' + linksHtml + '</div>';
+
+        container.appendChild(toastEl);
+
+        var toast = new bootstrap.Toast(toastEl, { delay: 6000 });
+        toast.show();
+
+        // Handle navigation button clicks
+        toastEl.addEventListener('click', function(e) {
+            var btn = e.target.closest('[data-nav-pane]');
+            if (!btn) return;
+            var paneId = btn.dataset.navPane;
+            var navUri = btn.dataset.navUri;
+            navigateToEntityInTab(paneId, navUri);
+            toast.hide();
+        });
+    }
+
+    function navigateToEntityInTab(paneId, uri) {
+        var tabBtnId = TAB_BUTTON_IDS[paneId];
+        if (!tabBtnId) return;
+        var tabBtn = document.getElementById(tabBtnId);
+        if (!tabBtn) return;
+
+        // Switch to the tab
+        var bsTab = bootstrap.Tab.getOrCreateInstance(tabBtn);
+        bsTab.show();
+
+        // After tab transition, find and highlight the entity
+        setTimeout(function() {
+            var pane = document.getElementById(paneId);
+            if (!pane) return;
+            var target = pane.querySelector('[data-entity-uri="' + uri + '"]');
+            if (!target) return;
+
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            // Apply highlight pulse
+            target.classList.add('entity-highlight-pulse');
+            setTimeout(function() {
+                target.classList.remove('entity-highlight-pulse');
+            }, 1500);
+        }, 200);
+    }
+
+    document.addEventListener('entity-navigate', function(e) {
+        var uri = e.detail.uri;
+        if (!uri) return;
+
+        var results = window.findEntityInTabs(uri);
+        var activePaneId = getActiveTabPaneId();
+
+        // Filter out current tab
+        var otherResults = results.filter(function(r) {
+            return r.paneId !== activePaneId;
+        });
+
+        if (otherResults.length === 0) return;
+
+        // Get entity label
+        var entityLabel = uri;
+        if (window.ENTITY_LOOKUP && window.ENTITY_LOOKUP.byUri && window.ENTITY_LOOKUP.byUri[uri]) {
+            entityLabel = window.ENTITY_LOOKUP.byUri[uri].label;
+        } else if (uri.indexOf('#') !== -1) {
+            entityLabel = uri.split('#').pop();
+        }
+
+        showEntityToast(uri, entityLabel, otherResults);
+    });
+})();
+</script>
 {% endblock %}
