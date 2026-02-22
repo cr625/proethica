@@ -76,17 +76,14 @@ class QuestionConclusionLinker:
         self.last_prompt = prompt
 
         try:
-            response = self.llm_client.messages.create(
-                model=ModelConfig.get_claude_model("powerful"),
+            from app.utils.llm_utils import streaming_completion
+            response_text = streaming_completion(
+                self.llm_client,
+                model=ModelConfig.get_claude_model("default"),
                 max_tokens=4000,
+                prompt=prompt,
                 temperature=0.1,
-                messages=[{
-                    "role": "user",
-                    "content": prompt
-                }]
             )
-
-            response_text = response.content[0].text
             self.last_response = response_text
 
             # Parse response

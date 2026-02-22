@@ -1,16 +1,13 @@
 """
-Step 4 Run All - Simple Non-Streaming Complete Synthesis
+Step 4 Run All - Complete Synthesis with SSE Streaming Progress
 
-Calls the same services as the individual UI buttons in sequence.
-This ensures we use the EXACT same code paths without SSE overhead.
+Calls the same services as the individual UI buttons.
+Provides two endpoints:
+  - run_complete_synthesis (POST, blocking JSON) -- legacy
+  - run_complete_synthesis_stream (POST, SSE) -- progressive UI updates
 
-Order matches UI (http://localhost:5000/scenario_pipeline/case/<id>/step4):
-1. Provisions (2A)
-2. Q&C Unified (2B)
-3. Transformation (2C)
-4. Rich Analysis (2D)
-5. Phase 3 Decision Synthesis
-6. Phase 4 Narrative Construction
+Independent phases run in parallel:
+  2A||2B -> 2C -> 2D||2E -> Phase 3 -> Phase 4
 
 Usage: Called by "Run Complete Synthesis" button.
 """
@@ -18,8 +15,9 @@ Usage: Called by "Run Complete Synthesis" button.
 import json
 import logging
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
-from flask import jsonify
+from flask import jsonify, Response, stream_with_context, current_app
 
 from app.models import Document, TemporaryRDFStorage, ExtractionPrompt, db
 from app.utils.environment_auth import auth_required_for_llm
@@ -31,6 +29,17 @@ from app.routes.scenario_pipeline.step4_config import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _sse_msg(data):
+    """Format a dict as an SSE data line."""
+    return f"data: {json.dumps(data)}\n\n"
+
+
+def _run_in_context(app, func, *args, **kwargs):
+    """Run a function inside a Flask app context (for ThreadPoolExecutor)."""
+    with app.app_context():
+        return func(*args, **kwargs)
 
 
 def register_run_all_routes(bp, get_all_case_entities):
@@ -151,6 +160,16 @@ def register_run_all_routes(bp, get_all_case_entities):
             logger.info(f"[RunAll] Complete synthesis finished for case {case_id}")
             results['success'] = True
 
+            # Collect warnings from all phases
+            all_warnings = []
+            for phase_key in ['qc', 'rich_analysis', 'phase3', 'phase4']:
+                phase_result = results.get(phase_key, {})
+                if isinstance(phase_result, dict) and 'warnings' in phase_result:
+                    all_warnings.extend(phase_result['warnings'])
+            if all_warnings:
+                results['warnings'] = all_warnings
+                logger.warning(f"[RunAll] Completed with {len(all_warnings)} warnings")
+
             return jsonify(results)
 
         except Exception as e:
@@ -162,28 +181,218 @@ def register_run_all_routes(bp, get_all_case_entities):
                 'error': str(e)
             }), 500
 
+    @bp.route('/case/<int:case_id>/run_complete_synthesis_stream', methods=['POST'])
+    @auth_required_for_llm
+    def run_complete_synthesis_stream(case_id):
+        """Run complete Step 4 synthesis with SSE streaming progress.
+
+        Parallelizes independent phases (2A||2B, 2D||2E) and yields
+        progress events so the frontend can update the UI incrementally.
+        """
+        app = current_app._get_current_object()
+
+        def generate():
+            try:
+                case = Document.query.get_or_404(case_id)
+                yield _sse_msg({'stage': 'START', 'progress': 0,
+                                'messages': ['Starting complete synthesis...']})
+
+                # -- CLEAR --
+                yield _sse_msg({'stage': 'CLEARING', 'progress': 2,
+                                'messages': ['Clearing old Step 4 data...'],
+                                'clear_ui': True})
+                clear_result = _clear_step4_data(case_id)
+                deleted = clear_result.get('entities_deleted', 0)
+                yield _sse_msg({'stage': 'CLEARED', 'progress': 5,
+                                'messages': [f'Cleared {deleted} entities, {clear_result.get("prompts_deleted", 0)} prompts']})
+
+                llm_client = get_llm_client()
+
+                # -- 2A + 2B in parallel --
+                yield _sse_msg({'stage': 'PHASE2_AB', 'progress': 8,
+                                'messages': ['2A+2B: Extracting provisions and precedents...'],
+                                'active_dots': ['provisions', 'precedents']})
+
+                with ThreadPoolExecutor(max_workers=2) as executor:
+                    future_a = executor.submit(
+                        _run_in_context, app, _run_provisions,
+                        case_id, llm_client, get_all_case_entities)
+                    future_b = executor.submit(
+                        _run_in_context, app, _run_precedents,
+                        case_id, llm_client)
+                    provisions_result = future_a.result()
+                    precedents_result = future_b.result()
+
+                prov_count = provisions_result.get('provisions_count', 0)
+                prov_links = provisions_result.get('entity_links', 0)
+                yield _sse_msg({'stage': 'PROVISIONS_DONE', 'progress': 20,
+                                'messages': [f'2A: {prov_count} provisions, {prov_links} entity links'],
+                                'completed_dot': 'provisions',
+                                'result': provisions_result})
+
+                prec_count = precedents_result.get('precedents_count', 0)
+                yield _sse_msg({'stage': 'PRECEDENTS_DONE', 'progress': 25,
+                                'messages': [f'2B: {prec_count} precedent cases'],
+                                'completed_dot': 'precedents',
+                                'result': precedents_result})
+
+                # Provisions error is blocking
+                if provisions_result.get('error'):
+                    yield _sse_msg({'stage': 'ERROR', 'progress': 100, 'error': True,
+                                    'messages': [f'Provisions failed: {provisions_result["error"]}']})
+                    return
+
+                # -- 2C: Q&C (depends on provisions) --
+                yield _sse_msg({'stage': 'QC_START', 'progress': 28,
+                                'messages': ['2C: Extracting Questions & Conclusions...'],
+                                'active_dots': ['questions', 'conclusions']})
+                qc_result = _run_qc_unified(case_id, llm_client, get_all_case_entities)
+
+                q_count = qc_result.get('questions_count', 0)
+                c_count = qc_result.get('conclusions_count', 0)
+                links = qc_result.get('links_count', 0)
+                yield _sse_msg({'stage': 'QC_DONE', 'progress': 45,
+                                'messages': [f'2C: {q_count} questions, {c_count} conclusions, {links} Q-C links'],
+                                'completed_dots': ['questions', 'conclusions'],
+                                'result': qc_result})
+
+                if qc_result.get('error'):
+                    yield _sse_msg({'stage': 'ERROR', 'progress': 100, 'error': True,
+                                    'messages': [f'Q&C failed: {qc_result["error"]}']})
+                    return
+
+                # Report warnings
+                qc_warnings = qc_result.get('warnings', [])
+                if qc_warnings:
+                    yield _sse_msg({'stage': 'QC_WARNINGS', 'progress': 46,
+                                    'messages': [f'Warning: {w}' for w in qc_warnings]})
+
+                # -- 2D + 2E in parallel --
+                yield _sse_msg({'stage': 'PHASE2_DE', 'progress': 48,
+                                'messages': ['2D+2E: Transformation + Rich Analysis...'],
+                                'active_dots': ['transformation', 'rich_analysis']})
+
+                with ThreadPoolExecutor(max_workers=2) as executor:
+                    future_d = executor.submit(
+                        _run_in_context, app, _run_transformation,
+                        case_id, llm_client)
+                    future_e = executor.submit(
+                        _run_in_context, app, _run_rich_analysis,
+                        case_id)
+                    transformation_result = future_d.result()
+                    rich_result = future_e.result()
+
+                t_type = transformation_result.get('transformation_type', '?')
+                yield _sse_msg({'stage': 'TRANSFORMATION_DONE', 'progress': 55,
+                                'messages': [f'2D: Transformation type = {t_type}'],
+                                'completed_dot': 'transformation',
+                                'result': transformation_result})
+
+                cl = rich_result.get('causal_links', 0)
+                qe = rich_result.get('question_emergence', 0)
+                rp = rich_result.get('resolution_patterns', 0)
+                yield _sse_msg({'stage': 'RICH_DONE', 'progress': 60,
+                                'messages': [f'2E: {cl} causal links, {qe} question emergence, {rp} resolution patterns'],
+                                'completed_dot': 'rich_analysis',
+                                'result': rich_result})
+
+                # -- Phase 3 --
+                yield _sse_msg({'stage': 'PHASE3_START', 'progress': 63,
+                                'messages': ['Phase 3: Decision Point Synthesis (E1-E3 + LLM)...'],
+                                'active_phase': 'phase3'})
+                phase3_result = _run_phase3(case_id)
+
+                canonical = phase3_result.get('canonical_count', 0)
+                candidates = phase3_result.get('candidates_count', 0)
+                yield _sse_msg({'stage': 'PHASE3_DONE', 'progress': 78,
+                                'messages': [f'Phase 3: {canonical} canonical decision points (from {candidates} candidates)'],
+                                'completed_phase': 'phase3',
+                                'result': phase3_result})
+
+                # -- Phase 4 --
+                yield _sse_msg({'stage': 'PHASE4_START', 'progress': 80,
+                                'messages': ['Phase 4: Narrative Construction...'],
+                                'active_phase': 'phase4'})
+                phase4_result = _run_phase4(case_id)
+
+                chars = phase4_result.get('characters_count', 0)
+                events = phase4_result.get('timeline_events', 0)
+                yield _sse_msg({'stage': 'PHASE4_DONE', 'progress': 95,
+                                'messages': [f'Phase 4: {chars} characters, {events} timeline events'],
+                                'completed_phase': 'phase4',
+                                'result': phase4_result})
+
+                # -- COMPLETE --
+                all_results = {
+                    'provisions': provisions_result,
+                    'precedents': precedents_result,
+                    'qc': qc_result,
+                    'transformation': transformation_result,
+                    'rich_analysis': rich_result,
+                    'phase3': phase3_result,
+                    'phase4': phase4_result,
+                }
+                yield _sse_msg({'stage': 'COMPLETE', 'progress': 100,
+                                'messages': ['Synthesis complete!'],
+                                'result': all_results})
+
+            except Exception as e:
+                logger.error(f"[RunAll-Stream] Error: {e}")
+                import traceback
+                traceback.print_exc()
+                yield _sse_msg({'stage': 'ERROR', 'progress': 100, 'error': True,
+                                'messages': [f'Error: {str(e)}']})
+
+        return Response(
+            stream_with_context(generate()),
+            mimetype='text/event-stream',
+            headers={
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+                'X-Accel-Buffering': 'no',
+            }
+        )
+
     return {
-        'run_complete_synthesis': run_complete_synthesis
+        'run_complete_synthesis': run_complete_synthesis,
+        'run_complete_synthesis_stream': run_complete_synthesis_stream,
     }
 
 
 def _clear_step4_data(case_id: int) -> dict:
-    """Clear all Step 4 data (Phase 2-4) while preserving Phase 1 entities."""
+    """Clear all Step 4 data (Phase 2-4) while preserving Phase 1 entities.
+
+    Must stay in sync with clear_step4_data() in step4.py.
+    """
     try:
         extraction_types_to_clear = [
+            # 2A: Provisions
             'code_provision_reference',
+            # 2B: Precedent Cases
             'precedent_case_reference',
+            # 2C: Questions & Conclusions
             'ethical_question',
             'ethical_conclusion',
+            # Phase 3: Arguments
+            'argument_generated',
+            'argument_validation',
+            # 2E: Rich Analysis
             'question_emergence',
             'resolution_pattern',
             'causal_normative_link',
+            'rich_analysis_causal',
+            'rich_analysis_qe',
+            'rich_analysis_rp',
+            # Phase 3: Decision Points
             'canonical_decision_point',
             'decision_point',
             'decision_option',
+            # Phase 4: Narrative
             'transformation_analysis',
             'case_summary',
-            'timeline_event'
+            'timeline_event',
+            'narrative_element',
+            'scenario_seed',
         ]
 
         deleted_counts = {}
@@ -198,42 +407,67 @@ def _clear_step4_data(case_id: int) -> dict:
                 deleted_counts[extraction_type] = count
                 total_deleted += count
 
-        # Clear related extraction prompts
-        prompt_types = [
-            'code_provision',
-            'precedent_case_reference',
-            'ethical_question',
-            'ethical_conclusion',
-            'question_emergence',
-            'resolution_pattern',
-            'causal_normative_link',
-            'transformation',
-            'transformation_classification',
-            'rich_analysis',
-            'phase3_decision_synthesis',
-            'phase4_narrative',
-            'unified_synthesis',
-            'whole_case_synthesis'
-        ]
-
-        prompts_deleted = 0
-        for prompt_type in prompt_types:
-            count = ExtractionPrompt.query.filter_by(
-                case_id=case_id,
-                concept_type=prompt_type
-            ).delete(synchronize_session=False)
-            prompts_deleted += count
+        # Clear ALL Step 4 extraction prompts by step_number
+        prompts_deleted = ExtractionPrompt.query.filter_by(
+            case_id=case_id,
+            step_number=4
+        ).delete(synchronize_session=False)
 
         # Clear Step 4-populated fields from CasePrecedentFeatures
         reset_step4_case_features(case_id)
 
+        # Clear Step 4 provenance data
+        from app.models.provenance import (
+            ProvenanceActivity, ProvenanceEntity,
+            ProvenanceUsage, ProvenanceDerivation
+        )
+
+        step4_activities = ProvenanceActivity.query.filter(
+            ProvenanceActivity.case_id == case_id,
+            ProvenanceActivity.activity_name.like('step4%')
+        ).all()
+
+        activity_ids = [a.id for a in step4_activities]
+        provenance_deleted = 0
+
+        if activity_ids:
+            step4_entity_ids = [
+                e.id for e in ProvenanceEntity.query.filter(
+                    ProvenanceEntity.generating_activity_id.in_(activity_ids)
+                ).all()
+            ]
+
+            # Delete usage FIRST (FK: usage.entity_id -> entities)
+            ProvenanceUsage.query.filter(
+                ProvenanceUsage.activity_id.in_(activity_ids)
+            ).delete(synchronize_session=False)
+
+            if step4_entity_ids:
+                ProvenanceDerivation.query.filter(
+                    db.or_(
+                        ProvenanceDerivation.derived_entity_id.in_(step4_entity_ids),
+                        ProvenanceDerivation.source_entity_id.in_(step4_entity_ids)
+                    )
+                ).delete(synchronize_session=False)
+
+                entities_deleted = ProvenanceEntity.query.filter(
+                    ProvenanceEntity.id.in_(step4_entity_ids)
+                ).delete(synchronize_session=False)
+                provenance_deleted += entities_deleted
+
+            activities_deleted = ProvenanceActivity.query.filter(
+                ProvenanceActivity.id.in_(activity_ids)
+            ).delete(synchronize_session=False)
+            provenance_deleted += activities_deleted
+
         db.session.commit()
 
-        logger.info(f"[RunAll] Cleared: {total_deleted} entities, {prompts_deleted} prompts")
+        logger.info(f"[RunAll] Cleared: {total_deleted} entities, {prompts_deleted} prompts, {provenance_deleted} provenance records")
 
         return {
             'entities_deleted': total_deleted,
-            'prompts_deleted': prompts_deleted
+            'prompts_deleted': prompts_deleted,
+            'provenance_deleted': provenance_deleted
         }
 
     except Exception as e:
@@ -429,13 +663,11 @@ def _run_precedents(case_id: int, llm_client) -> dict:
         case_text = '\n\n'.join(case_text_parts)
         prompt = PRECEDENT_EXTRACTION_PROMPT.format(case_text=case_text)
 
-        # Call LLM
-        response = llm_client.messages.create(
-            model=STEP4_DEFAULT_MODEL,
-            max_tokens=4096,
-            messages=[{'role': 'user', 'content': prompt}]
+        # Call LLM (streaming to prevent WSL2 TCP idle timeout)
+        from app.utils.llm_utils import streaming_completion
+        raw_response = streaming_completion(
+            llm_client, model=STEP4_DEFAULT_MODEL, max_tokens=4096, prompt=prompt
         )
-        raw_response = response.content[0].text
 
         # Parse JSON
         cleaned = raw_response.strip()
@@ -814,11 +1046,30 @@ def _run_qc_unified(case_id: int, llm_client, get_all_case_entities) -> dict:
         except Exception as e:
             logger.warning(f"[RunAll] Could not save Q&C prompts: {e}")
 
-        return {
+        result = {
             'questions_count': len(questions),
             'conclusions_count': len(conclusions),
             'links_count': len(qc_links)
         }
+
+        # Detect degraded results from connection failures
+        warnings = []
+        if getattr(question_analyzer, 'analytical_failed', False):
+            warnings.append('Analytical question generation failed (connection error after retries)')
+        if getattr(conclusion_analyzer, 'analytical_failed', False):
+            warnings.append('Analytical conclusion generation failed (connection error after retries)')
+        analytical_q = len(questions) - board_q_count
+        analytical_c = len(conclusions) - board_c_count
+        if analytical_q == 0 and board_q_count > 0:
+            warnings.append(f'No analytical questions generated (only {board_q_count} board questions)')
+        if analytical_c == 0 and board_c_count > 0:
+            warnings.append(f'No analytical conclusions generated (only {board_c_count} board conclusions)')
+        if warnings:
+            result['warnings'] = warnings
+            for w in warnings:
+                logger.warning(f"[RunAll] Q&C WARNING: {w}")
+
+        return result
 
     except Exception as e:
         logger.error(f"[RunAll] Q&C error: {e}")

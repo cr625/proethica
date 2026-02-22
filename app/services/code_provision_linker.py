@@ -70,173 +70,162 @@ class CodeProvisionLinker:
             logger.info("No provisions to link")
             return []
 
-        # Count total entities
-        entity_counts = {
-            'roles': len(roles or []),
-            'states': len(states or []),
-            'resources': len(resources or []),
-            'principles': len(principles or []),
-            'obligations': len(obligations or []),
-            'constraints': len(constraints or []),
-            'capabilities': len(capabilities or []),
-            'actions': len(actions or []),
-            'events': len(events or [])
-        }
-        total_entities = sum(entity_counts.values())
+        # Build entity groups for batched processing
+        entity_groups = [
+            ('role', 'Roles', roles or []),
+            ('state', 'States', states or []),
+            ('resource', 'Resources', resources or []),
+            ('principle', 'Principles', principles or []),
+            ('obligation', 'Obligations', obligations or []),
+            ('constraint', 'Constraints', constraints or []),
+            ('capability', 'Capabilities', capabilities or []),
+            ('action', 'Actions', actions or []),
+            ('event', 'Events', events or []),
+        ]
 
+        total_entities = sum(len(g[2]) for g in entity_groups)
+        entity_counts = {g[1].lower(): len(g[2]) for g in entity_groups}
         logger.info(f"Linking {len(provisions)} provisions to {total_entities} total entities across 9 types")
         logger.info(f"Entity breakdown: {entity_counts}")
 
-        # Create LLM prompt
-        prompt = self._create_linking_prompt(
-            provisions,
-            roles or [],
-            states or [],
-            resources or [],
-            principles or [],
-            obligations or [],
-            constraints or [],
-            capabilities or [],
-            actions or [],
-            events or [],
-            case_text_summary
-        )
-        self.last_linking_prompt = prompt
+        # Initialize applies_to for each provision
+        for provision in provisions:
+            provision['applies_to'] = []
 
-        try:
-            # Call LLM
-            response = self.llm_client.messages.create(
-                model=ModelConfig.get_claude_model("powerful"),
-                max_tokens=8000,
-                temperature=0.1,  # Low temperature for consistent analysis
-                messages=[{
-                    "role": "user",
-                    "content": prompt
-                }]
+        # Process one entity type at a time to avoid timeout on large payloads
+        all_prompts = []
+        all_responses = []
+        for entity_type, type_label, entities in entity_groups:
+            if not entities:
+                continue
+
+            prompt = self._create_batch_linking_prompt(
+                provisions, entity_type, type_label, entities, case_text_summary
             )
+            all_prompts.append(prompt)
 
-            response_text = response.content[0].text
-            self.last_linking_response = response_text
+            try:
+                response = self.llm_client.messages.create(
+                    model=ModelConfig.get_claude_model("default"),
+                    max_tokens=2000,
+                    temperature=0.1,
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                response_text = response.content[0].text
+                all_responses.append(response_text)
 
-            # Parse LLM response
-            linked_provisions = self._parse_linking_response(response_text, provisions)
+                # Parse and merge links
+                batch_links = self._parse_batch_response(response_text, entity_type)
+                for provision in provisions:
+                    code = provision['code_provision'].rstrip('.')
+                    if code in batch_links:
+                        provision['applies_to'].extend(batch_links[code])
 
-            logger.info(f"Successfully linked provisions to entities")
-            return linked_provisions
+                logger.info(f"Linked {type_label}: {sum(len(batch_links.get(p['code_provision'].rstrip('.'), [])) for p in provisions)} links")
 
-        except Exception as e:
-            logger.error(f"Error in LLM entity linking: {e}")
-            # Return provisions without links on error
-            return provisions
+            except Exception as e:
+                logger.error(f"Error linking {type_label}: {e}")
 
-    def _create_linking_prompt(
+        self.last_linking_prompt = "\n\n---BATCH---\n\n".join(all_prompts)
+        self.last_linking_response = "\n\n---BATCH---\n\n".join(all_responses)
+
+        total_links = sum(len(p.get('applies_to', [])) for p in provisions)
+        logger.info(f"Provision linking complete: {total_links} total links across {len(provisions)} provisions")
+        return provisions
+
+    def _create_batch_linking_prompt(
         self,
         provisions: List[Dict],
-        roles: List[Dict],
-        states: List[Dict],
-        resources: List[Dict],
-        principles: List[Dict],
-        obligations: List[Dict],
-        constraints: List[Dict],
-        capabilities: List[Dict],
-        actions: List[Dict],
-        events: List[Dict],
+        entity_type: str,
+        type_label: str,
+        entities: List[Dict],
         case_summary: str
     ) -> str:
-        """Create prompt for LLM to link provisions to all entity types."""
+        """Create prompt for linking provisions to a single entity type."""
 
-        # Format all entities for prompt
-        roles_text = self._format_entities_for_prompt(roles, "Roles")
-        states_text = self._format_entities_for_prompt(states, "States")
-        resources_text = self._format_entities_for_prompt(resources, "Resources")
-        principles_text = self._format_entities_for_prompt(principles, "Principles")
-        obligations_text = self._format_entities_for_prompt(obligations, "Obligations")
-        constraints_text = self._format_entities_for_prompt(constraints, "Constraints")
-        capabilities_text = self._format_entities_for_prompt(capabilities, "Capabilities")
-        actions_text = self._format_entities_for_prompt(actions, "Actions")
-        events_text = self._format_entities_for_prompt(events, "Events")
-
-        # Format provisions
         provisions_text = ""
         for i, prov in enumerate(provisions, 1):
             provisions_text += f"{i}. **{prov['code_provision']}**: {prov['provision_text']}\n"
 
-        prompt = f"""You are analyzing NSPE Code of Ethics provisions selected by the Board of Ethical Review for this engineering ethics case.
+        entities_text = self._format_entities_for_prompt(entities, type_label)
+
+        type_descriptions = {
+            'role': 'The provision governs the professional conduct of that role',
+            'state': 'The provision addresses or relates to that ethical situation',
+            'resource': 'The provision references or requires that resource/document',
+            'principle': 'The provision embodies or relates to that principle',
+            'obligation': 'The provision specifies or relates to that obligation',
+            'constraint': 'The provision creates or relates to that constraint',
+            'capability': 'The provision requires or relates to that capability',
+            'action': 'The provision governs or prohibits that action',
+            'event': 'The provision addresses that event or occurrence',
+        }
+        applicability = type_descriptions.get(entity_type, '')
+
+        prompt = f"""Link NSPE Code provisions to extracted {type_label} entities from this engineering ethics case.
 
 **Case Context:**
-{case_summary if case_summary else "Engineering professional ethics case with entities across all concept types."}
+{case_summary if case_summary else "Engineering professional ethics case."}
 
 **NSPE Code Provisions (Board-Selected):**
 {provisions_text}
 
-**Extracted Case Entities (All Types):**
+**{type_label} Entities:**
+{entities_text}
 
-{roles_text}
+A provision applies to a {entity_type} entity if: {applicability}
 
-{states_text}
+For each provision, list which {type_label.lower()} entities it applies to (if any). Only include clear, direct connections.
 
-{resources_text}
-
-{principles_text}
-
-{obligations_text}
-
-{constraints_text}
-
-{capabilities_text}
-
-{actions_text}
-
-{events_text}
-
-**Task:**
-For each code provision, identify which specific case entities it applies to across ALL entity types. A provision "applies to" an entity if:
-- For Roles: The provision governs the professional conduct of that role
-- For States: The provision addresses or relates to that ethical situation
-- For Resources: The provision references or requires that resource/document
-- For Principles: The provision embodies or relates to that principle
-- For Obligations: The provision specifies or relates to that obligation
-- For Constraints: The provision creates or relates to that constraint
-- For Capabilities: The provision requires or relates to that capability
-- For Actions: The provision governs or prohibits that action
-- For Events: The provision addresses that event or occurrence
-
-For each provision, provide:
-1. Which entities it applies to (by label)
-2. Brief reasoning explaining why the provision applies to each entity
-
-**Output Format:**
-Respond with a JSON array where each object represents one provision:
-
+Respond with JSON:
 ```json
 [
   {{
     "code_provision": "I.1",
     "applies_to": [
-      {{
-        "entity_type": "role",
-        "entity_label": "Engineer L",
-        "reasoning": "This provision governs Engineer L's paramount duty to protect public water source safety"
-      }},
-      {{
-        "entity_type": "state",
-        "entity_label": "PublicSafetyAtRisk_WaterSource",
-        "reasoning": "This provision directly addresses the state where public welfare is endangered"
-      }}
+      {{"entity_label": "Example Entity", "reasoning": "Brief case-specific reason"}}
     ]
-  }},
-  ...
+  }}
 ]
 ```
 
-**Important:**
-- Only link provisions to entities where there's a clear, direct connection
-- It's okay if a provision doesn't apply to any entities
-- Use the exact entity labels from the lists above
-- Provide specific, case-relevant reasoning (not generic descriptions)
-"""
+Use exact entity labels. Omit provisions with no links to these entities."""
 
         return prompt
+
+    def _parse_batch_response(self, response_text: str, entity_type: str) -> Dict[str, List[Dict]]:
+        """Parse batch linking response, returning {provision_code: [links]}."""
+        from_code_block = False
+        json_match = re.search(r'```(?:json)?\s*\n(.*?)\n```', response_text, re.DOTALL)
+        if json_match:
+            from_code_block = True
+        else:
+            json_match = re.search(r'\[\s*\{.*?\}\s*\]', response_text, re.DOTALL)
+            if not json_match:
+                logger.warning(f"No JSON in {entity_type} linking response")
+                return {}
+
+        try:
+            json_text = json_match.group(1) if from_code_block else json_match.group(0)
+            linkings = json.loads(json_text)
+
+            result = {}
+            for link in linkings:
+                code = link.get('code_provision', '').rstrip('.')
+                applies_to = []
+                for item in link.get('applies_to', []):
+                    applies_to.append({
+                        'entity_type': entity_type,
+                        'entity_label': item.get('entity_label', ''),
+                        'reasoning': item.get('reasoning', ''),
+                    })
+                if applies_to:
+                    result[code] = applies_to
+            return result
+
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse {entity_type} linking JSON: {e}")
+            return {}
 
     def _format_entities_for_prompt(self, entities: List[Dict], entity_type: str) -> str:
         """Format entity list for inclusion in prompt."""
@@ -257,50 +246,6 @@ Respond with a JSON array where each object represents one provision:
             formatted += "\n"
 
         return formatted
-
-    def _parse_linking_response(
-        self,
-        response_text: str,
-        original_provisions: List[Dict]
-    ) -> List[Dict]:
-        """Parse LLM response and add 'applies_to' to provisions."""
-
-        # Extract JSON from response
-        json_match = re.search(r'```json\n(.*?)\n```', response_text, re.DOTALL)
-        if not json_match:
-            # Try without code blocks
-            json_match = re.search(r'\[\s*\{.*?\}\s*\]', response_text, re.DOTALL)
-            if not json_match:
-                logger.warning("Could not find JSON in LLM response")
-                return original_provisions
-
-        try:
-            json_text = json_match.group(1) if '```json' in response_text else json_match.group(0)
-            linkings = json.loads(json_text)
-
-            # Create a mapping from code provision to applies_to list
-            # Normalize code provisions (remove trailing periods) for matching
-            provision_links = {}
-            for link in linkings:
-                code = link.get('code_provision', '').rstrip('.')
-                applies_to = link.get('applies_to', [])
-                provision_links[code] = applies_to
-
-            # Add applies_to to original provisions
-            for provision in original_provisions:
-                code = provision['code_provision'].rstrip('.')
-                if code in provision_links:
-                    provision['applies_to'] = provision_links[code]
-                    logger.info(f"Provision {code}: {len(provision_links[code])} entity links")
-                else:
-                    provision['applies_to'] = []
-                    logger.warning(f"Provision {code} not found in LLM response")
-
-            return original_provisions
-
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse linking JSON: {e}")
-            return original_provisions
 
     def extract_relevant_excerpts(
         self,
@@ -329,7 +274,7 @@ Respond with a JSON array where each object represents one provision:
 
         try:
             response = self.llm_client.messages.create(
-                model=ModelConfig.get_claude_model("powerful"),
+                model=ModelConfig.get_claude_model("default"),
                 max_tokens=8000,
                 temperature=0.1,
                 messages=[{

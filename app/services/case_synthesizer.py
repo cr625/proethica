@@ -14,11 +14,13 @@ Reference: docs-internal/STEP4_REIMAGINED.md
 """
 
 import json
+import time
 import logging
 from typing import List, Dict, Optional, Any, Tuple
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
 
+import anthropic
 from sqlalchemy import text
 from app import db
 from app.models import Document, TemporaryRDFStorage, ExtractionPrompt
@@ -1765,50 +1767,60 @@ Output as JSON array:
 
 Include ALL actions even if they have empty relationships. Be precise with URI matching."""
 
-        try:
-            response = self.llm_client.messages.create(
-                model=ModelConfig.get_claude_model("default"),
-                max_tokens=4000,  # Increased from 2000 - responses include long URIs
-                temperature=0.2,
-                messages=[{"role": "user", "content": prompt}]
-            )
+        max_retries = 3
+        last_error = None
+        for attempt in range(max_retries):
+            try:
+                from app.utils.llm_utils import streaming_completion
+                response_text = streaming_completion(
+                    self.llm_client,
+                    model=ModelConfig.get_claude_model("default"),
+                    max_tokens=8000,
+                    prompt=prompt,
+                    temperature=0.2,
+                )
+                # Note: truncation detection not available with streaming
 
-            response_text = response.content[0].text
+                llm_traces.append(LLMTrace(
+                    phase=2,
+                    phase_name="Analytical Extraction",
+                    stage="Causal-Normative Links",
+                    prompt=prompt,
+                    response=response_text,
+                    model=ModelConfig.get_claude_model("default")
+                ))
 
-            llm_traces.append(LLMTrace(
-                phase=2,
-                phase_name="Analytical Extraction",
-                stage="Causal-Normative Links",
-                prompt=prompt,
-                response=response_text,
-                model=ModelConfig.get_claude_model("default")
-            ))
+                links_data = self._parse_json_response(response_text, "causal-normative links")
+                if links_data:
+                    uri_lookup = self._build_uri_normalization_lookup(foundation)
 
-            # Parse JSON from response using robust parser
-            links_data = self._parse_json_response(response_text, "causal-normative links")
-            if links_data:
-                # Build URI lookup for normalization (LLM may return truncated URIs)
-                uri_lookup = self._build_uri_normalization_lookup(foundation)
+                    return [
+                        CausalNormativeLink(
+                            action_id=self._normalize_uri(link.get('action_id', ''), uri_lookup),
+                            action_label=link.get('action_label', ''),
+                            fulfills_obligations=[self._normalize_uri(u, uri_lookup) for u in link.get('fulfills_obligations', [])],
+                            violates_obligations=[self._normalize_uri(u, uri_lookup) for u in link.get('violates_obligations', [])],
+                            guided_by_principles=[self._normalize_uri(u, uri_lookup) for u in link.get('guided_by_principles', [])],
+                            constrained_by=[self._normalize_uri(u, uri_lookup) for u in link.get('constrained_by', [])],
+                            agent_role=self._normalize_uri(link.get('agent_role'), uri_lookup) if link.get('agent_role') else None,
+                            reasoning=link.get('reasoning', ''),
+                            confidence=link.get('confidence', 0.5)
+                        )
+                        for link in links_data
+                    ]
+                return []
 
-                return [
-                    CausalNormativeLink(
-                        action_id=self._normalize_uri(link.get('action_id', ''), uri_lookup),
-                        action_label=link.get('action_label', ''),
-                        fulfills_obligations=[self._normalize_uri(u, uri_lookup) for u in link.get('fulfills_obligations', [])],
-                        violates_obligations=[self._normalize_uri(u, uri_lookup) for u in link.get('violates_obligations', [])],
-                        guided_by_principles=[self._normalize_uri(u, uri_lookup) for u in link.get('guided_by_principles', [])],
-                        constrained_by=[self._normalize_uri(u, uri_lookup) for u in link.get('constrained_by', [])],
-                        agent_role=self._normalize_uri(link.get('agent_role'), uri_lookup) if link.get('agent_role') else None,
-                        reasoning=link.get('reasoning', ''),
-                        confidence=link.get('confidence', 0.5)
-                    )
-                    for link in links_data
-                ]
-            return []
+            except (anthropic.APIConnectionError, anthropic.APITimeoutError, ConnectionError) as e:
+                last_error = e
+                wait = 2 ** (attempt + 1)
+                logger.warning(f"Causal links attempt {attempt + 1}/{max_retries} failed (connection): {e}. Retrying in {wait}s...")
+                time.sleep(wait)
+            except Exception as e:
+                logger.error(f"Failed to analyze causal-normative links (non-retryable): {e}")
+                return []
 
-        except Exception as e:
-            logger.error(f"Failed to analyze causal-normative links: {e}")
-            return []
+        logger.error(f"Causal-normative links failed after {max_retries} retries: {last_error}")
+        return []
 
     def _analyze_question_emergence(
         self,
@@ -1935,53 +1947,60 @@ For EACH question, output JSON with:
 
 Be precise with URI matching. Include all questions in this batch."""
 
-        try:
-            response = self.llm_client.messages.create(
-                model=ModelConfig.get_claude_model("default"),
-                max_tokens=3000,  # ~5 questions per batch, ~500 tokens each
-                temperature=0.2,
-                messages=[{"role": "user", "content": prompt}]
-            )
+        max_retries = 3
+        last_error = None
+        for attempt in range(max_retries):
+            try:
+                from app.utils.llm_utils import streaming_completion
+                response_text = streaming_completion(
+                    self.llm_client,
+                    model=ModelConfig.get_claude_model("default"),
+                    max_tokens=5000,
+                    prompt=prompt,
+                    temperature=0.2,
+                )
 
-            response_text = response.content[0].text
+                batch_num = (batch_offset // 5) + 1
+                llm_traces.append(LLMTrace(
+                    phase=2,
+                    phase_name="Analytical Extraction",
+                    stage=f"Question Emergence (batch {batch_num})",
+                    prompt=prompt,
+                    response=response_text,
+                    model=ModelConfig.get_claude_model("default")
+                ))
 
-            batch_num = (batch_offset // 5) + 1
-            llm_traces.append(LLMTrace(
-                phase=2,
-                phase_name="Analytical Extraction",
-                stage=f"Question Emergence (batch {batch_num})",
-                prompt=prompt,
-                response=response_text,
-                model=ModelConfig.get_claude_model("default")
-            ))
+                analyses_data = self._parse_json_response(response_text, "question emergence")
+                if analyses_data:
+                    return [
+                        QuestionEmergenceAnalysis(
+                            question_uri=a.get('question_uri', ''),
+                            question_text=a.get('question_text', ''),
+                            data_events=a.get('data_events', []),
+                            data_actions=a.get('data_actions', []),
+                            involves_roles=a.get('involves_roles', []),
+                            competing_warrants=[tuple(pair) for pair in a.get('competing_warrants', [])],
+                            data_warrant_tension=a.get('data_warrant_tension', ''),
+                            competing_claims=a.get('competing_claims', ''),
+                            rebuttal_conditions=a.get('rebuttal_conditions', ''),
+                            emergence_narrative=a.get('emergence_narrative', ''),
+                            confidence=a.get('confidence', 0.5)
+                        )
+                        for a in analyses_data
+                    ]
+                return []
 
-            # Parse JSON from response using robust parser
-            analyses_data = self._parse_json_response(response_text, "question emergence")
-            if analyses_data:
-                return [
-                    QuestionEmergenceAnalysis(
-                        question_uri=a.get('question_uri', ''),
-                        question_text=a.get('question_text', ''),
-                        # Toulmin DATA
-                        data_events=a.get('data_events', []),
-                        data_actions=a.get('data_actions', []),
-                        involves_roles=a.get('involves_roles', []),
-                        # Toulmin competing WARRANTS
-                        competing_warrants=[tuple(pair) for pair in a.get('competing_warrants', [])],
-                        # Toulmin analysis
-                        data_warrant_tension=a.get('data_warrant_tension', ''),
-                        competing_claims=a.get('competing_claims', ''),
-                        rebuttal_conditions=a.get('rebuttal_conditions', ''),
-                        emergence_narrative=a.get('emergence_narrative', ''),
-                        confidence=a.get('confidence', 0.5)
-                    )
-                    for a in analyses_data
-                ]
-            return []
+            except (anthropic.APIConnectionError, anthropic.APITimeoutError, ConnectionError) as e:
+                last_error = e
+                wait = 2 ** (attempt + 1)
+                logger.warning(f"Question emergence attempt {attempt + 1}/{max_retries} failed (connection): {e}. Retrying in {wait}s...")
+                time.sleep(wait)
+            except Exception as e:
+                logger.error(f"Failed to analyze question emergence (non-retryable): {e}")
+                return []
 
-        except Exception as e:
-            logger.error(f"Failed to analyze question emergence: {e}")
-            return []
+        logger.error(f"Question emergence failed after {max_retries} retries: {last_error}")
+        return []
 
     def _analyze_resolution_patterns(
         self,
@@ -2061,47 +2080,57 @@ Output as JSON array:
 
 Be precise with URI matching. Include all conclusions."""
 
-        try:
-            response = self.llm_client.messages.create(
-                model=ModelConfig.get_claude_model("default"),
-                max_tokens=4000,  # Increased from 2000 - responses include long URIs
-                temperature=0.2,
-                messages=[{"role": "user", "content": prompt}]
-            )
+        max_retries = 3
+        last_error = None
+        for attempt in range(max_retries):
+            try:
+                from app.utils.llm_utils import streaming_completion
+                response_text = streaming_completion(
+                    self.llm_client,
+                    model=ModelConfig.get_claude_model("default"),
+                    max_tokens=8000,
+                    prompt=prompt,
+                    temperature=0.2,
+                )
 
-            response_text = response.content[0].text
+                llm_traces.append(LLMTrace(
+                    phase=2,
+                    phase_name="Analytical Extraction",
+                    stage="Resolution Pattern Analysis",
+                    prompt=prompt,
+                    response=response_text,
+                    model=ModelConfig.get_claude_model("default")
+                ))
 
-            llm_traces.append(LLMTrace(
-                phase=2,
-                phase_name="Analytical Extraction",
-                stage="Resolution Pattern Analysis",
-                prompt=prompt,
-                response=response_text,
-                model=ModelConfig.get_claude_model("default")
-            ))
+                patterns_data = self._parse_json_response(response_text, "resolution patterns")
+                if patterns_data:
+                    return [
+                        ResolutionPatternAnalysis(
+                            conclusion_uri=p.get('conclusion_uri', ''),
+                            conclusion_text=p.get('conclusion_text', ''),
+                            answers_questions=p.get('answers_questions', []),
+                            determinative_principles=p.get('determinative_principles', []),
+                            determinative_facts=p.get('determinative_facts', []),
+                            cited_provisions=p.get('cited_provisions', []),
+                            weighing_process=p.get('weighing_process', ''),
+                            resolution_narrative=p.get('resolution_narrative', ''),
+                            confidence=p.get('confidence', 0.5)
+                        )
+                        for p in patterns_data
+                    ]
+                return []
 
-            # Parse JSON from response using robust parser
-            patterns_data = self._parse_json_response(response_text, "resolution patterns")
-            if patterns_data:
-                return [
-                    ResolutionPatternAnalysis(
-                        conclusion_uri=p.get('conclusion_uri', ''),
-                        conclusion_text=p.get('conclusion_text', ''),
-                        answers_questions=p.get('answers_questions', []),
-                        determinative_principles=p.get('determinative_principles', []),
-                        determinative_facts=p.get('determinative_facts', []),
-                        cited_provisions=p.get('cited_provisions', []),
-                        weighing_process=p.get('weighing_process', ''),
-                        resolution_narrative=p.get('resolution_narrative', ''),
-                        confidence=p.get('confidence', 0.5)
-                    )
-                    for p in patterns_data
-                ]
-            return []
+            except (anthropic.APIConnectionError, anthropic.APITimeoutError, ConnectionError) as e:
+                last_error = e
+                wait = 2 ** (attempt + 1)
+                logger.warning(f"Resolution patterns attempt {attempt + 1}/{max_retries} failed (connection): {e}. Retrying in {wait}s...")
+                time.sleep(wait)
+            except Exception as e:
+                logger.error(f"Failed to analyze resolution patterns (non-retryable): {e}")
+                return []
 
-        except Exception as e:
-            logger.error(f"Failed to analyze resolution patterns: {e}")
-            return []
+        logger.error(f"Resolution patterns failed after {max_retries} retries: {last_error}")
+        return []
 
     def _construct_narrative(
         self,

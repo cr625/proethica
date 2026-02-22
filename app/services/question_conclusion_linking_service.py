@@ -156,7 +156,7 @@ class QuestionConclusionLinkingService:
         try:
             # Call LLM
             response = self.llm_client.messages.create(
-                model=ModelConfig.get_claude_model("powerful"),
+                model=ModelConfig.get_claude_model("default"),
                 max_tokens=4000,
                 temperature=0.0,  # Deterministic for verification
                 messages=[{

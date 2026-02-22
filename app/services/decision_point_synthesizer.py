@@ -666,13 +666,14 @@ class DecisionPointSynthesizer:
             logger.warning(f"MCP enrichment failed, using unenriched prompt: {e}")
 
         try:
-            response = self.llm_client.messages.create(
+            from app.utils.llm_utils import streaming_completion
+            response_text = streaming_completion(
+                self.llm_client,
                 model=ModelConfig.get_claude_model("default"),
                 max_tokens=4000,
+                prompt=prompt,
                 temperature=0.2,
-                messages=[{"role": "user", "content": prompt}]
             )
-            response_text = response.content[0].text
 
             canonical_points = self._parse_refinement_response(
                 response_text,
@@ -807,13 +808,14 @@ Return as JSON array:
             logger.warning(f"MCP enrichment failed, using unenriched prompt: {e}")
 
         try:
-            response = self.llm_client.messages.create(
+            from app.utils.llm_utils import streaming_completion
+            response_text = streaming_completion(
+                self.llm_client,
                 model=ModelConfig.get_claude_model("default"),
                 max_tokens=4000,
+                prompt=prompt,
                 temperature=0.3,
-                messages=[{"role": "user", "content": prompt}]
             )
-            response_text = response.content[0].text
 
             # Parse response
             canonical_points = self._parse_causal_link_response(

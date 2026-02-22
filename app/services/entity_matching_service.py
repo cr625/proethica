@@ -308,7 +308,7 @@ class EntityMatchingService:
         try:
             from models import ModelConfig
 
-            model_name = ModelConfig.get_claude_model("powerful")
+            model_name = ModelConfig.get_claude_model("default")
             logger.info(f"Calling LLM with model: {model_name}")
 
             # Use Anthropic messages API
@@ -627,7 +627,7 @@ Return ONLY valid JSON array.
         try:
             from models import ModelConfig
 
-            model_name = ModelConfig.get_claude_model("powerful")
+            model_name = ModelConfig.get_claude_model("default")
 
             # Call LLM
             response = self.llm_client.messages.create(

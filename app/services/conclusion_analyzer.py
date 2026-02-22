@@ -20,11 +20,13 @@ Conclusion Types:
 
 import json
 import re
+import time
 import logging
 from typing import List, Dict, Optional, Any, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
 from models import ModelConfig
+import anthropic
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +89,7 @@ class ConclusionAnalyzer:
         self.last_prompt = None
         self.last_response = None
         self.stage1_source = None  # Track how Stage 1 was performed
+        self.analytical_failed = False  # Set True if analytical generation fails after retries
 
     def extract_conclusions(
         self,
@@ -409,31 +412,43 @@ class ConclusionAnalyzer:
         else:
             self.last_prompt = prompt
 
-        try:
-            response = self.llm_client.messages.create(
-                model=ModelConfig.get_claude_model("default"),
-                max_tokens=8000,
-                temperature=0.3,  # Slightly higher for analytical depth
-                messages=[{"role": "user", "content": prompt}]
-            )
+        max_retries = 3
+        last_error = None
+        for attempt in range(max_retries):
+            try:
+                from app.utils.llm_utils import streaming_completion
+                response_text = streaming_completion(
+                    self.llm_client,
+                    model=ModelConfig.get_claude_model("default"),
+                    max_tokens=8000,
+                    prompt=prompt,
+                    temperature=0.3,
+                )
+                if self.last_response:
+                    self.last_response = self.last_response + "\n\n--- ANALYTICAL RESPONSE ---\n" + response_text
+                else:
+                    self.last_response = response_text
 
-            response_text = response.content[0].text
-            # Append to last_response for full trace
-            if self.last_response:
-                self.last_response = self.last_response + "\n\n--- ANALYTICAL RESPONSE ---\n" + response_text
-            else:
-                self.last_response = response_text
+                analytical = self._parse_analytical_conclusions_response(response_text)
 
-            analytical = self._parse_analytical_conclusions_response(response_text)
+                total = sum(len(v) for v in analytical.values())
+                logger.info(f"Generated {total} analytical conclusions")
 
-            total = sum(len(v) for v in analytical.values())
-            logger.info(f"Generated {total} analytical conclusions")
+                return analytical
 
-            return analytical
+            except (anthropic.APIConnectionError, anthropic.APITimeoutError, ConnectionError) as e:
+                last_error = e
+                wait = 2 ** (attempt + 1)
+                logger.warning(f"Analytical conclusions attempt {attempt + 1}/{max_retries} failed (connection): {e}. Retrying in {wait}s...")
+                time.sleep(wait)
+            except Exception as e:
+                logger.error(f"Error generating analytical conclusions (non-retryable): {e}")
+                self.analytical_failed = True
+                return {}
 
-        except Exception as e:
-            logger.error(f"Error generating analytical conclusions: {e}")
-            return {}
+        logger.error(f"Analytical conclusion generation failed after {max_retries} retries: {last_error}")
+        self.analytical_failed = True
+        return {}
 
     def _create_board_extraction_prompt(
         self,

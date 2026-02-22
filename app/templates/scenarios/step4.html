@@ -543,30 +543,6 @@
             </div>
         </div>
 
-        <!-- LLM Interactions Section (separate from Narrative Elements card) -->
-        <div id="phase4LLMSection" style="display: none;" class="mt-3">
-            <div class="step-card border-secondary">
-                <div class="step-header bg-secondary bg-opacity-10">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h6 class="mb-0">
-                            <i class="bi bi-robot text-secondary"></i> LLM Interactions
-                            <span id="phase4LLMCount" class="badge bg-secondary ms-2">0</span>
-                        </h6>
-                        <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#phase4LLMContent">
-                            <i class="bi bi-chevron-down"></i>
-                        </button>
-                    </div>
-                </div>
-                <div class="collapse show" id="phase4LLMContent">
-                    <div class="step-content">
-                        <div id="phase4LLMTraces">
-                            <!-- LLM traces will be populated here -->
-                            <p class="text-muted small">LLM interactions will appear here as Phase 4 progresses...</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 </div>
 
@@ -1206,44 +1182,221 @@ function handleStreamingExtraction(taskType, data, streamStatus) {
     }
 }
 
-// Run complete synthesis (non-streaming, calls same services as individual buttons)
+// Streaming messages for complete synthesis
+let completeSynthMessages = [];
+
+// Clear all entity lists, badges, and indicators before reprocessing
+function clearEntityLists() {
+    // Clear entity list contents
+    ['provisionsEntityList', 'precedentsEntityList', 'questionsEntityList', 'rich_analysisEntityList'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.innerHTML = '<div class="text-muted small"><i class="bi bi-hourglass-split me-1"></i>Extracting...</div>';
+    });
+
+    // Reset count badges
+    ['provisionsCount', 'precedentsCount', 'questionsCount', 'conclusionsCount'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.textContent = '...';
+    });
+
+    // Reset transformation display
+    var typeEl = document.getElementById('transformationType');
+    if (typeEl) typeEl.textContent = '...';
+    var detailEl = document.getElementById('transformationDetail');
+    if (detailEl) detailEl.innerHTML = '';
+
+    // Hide Phase 3 results
+    var dp = document.getElementById('decisionPointsResults');
+    if (dp) dp.style.display = 'none';
+    var dpList = document.getElementById('decisionPointsList');
+    if (dpList) dpList.innerHTML = '';
+    var p3Prov = document.getElementById('phase3ProvenanceLink');
+    if (p3Prov) p3Prov.style.display = 'none';
+
+    // Hide Phase 4 results
+    var p4 = document.getElementById('phase4Results');
+    if (p4) p4.style.display = 'none';
+
+    // Reset all substep dots
+    ['provisions', 'precedents', 'questions', 'conclusions', 'transformation', 'rich_analysis'].forEach(function(t) {
+        updateSubstepDot(t, '');
+    });
+
+    // Reset phase indicators
+    ['phase2-indicator', 'phase3-indicator', 'phase4-indicator'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) {
+            el.classList.remove('phase-complete', 'phase-active');
+        }
+    });
+
+    // Reset Phase 3 stage badges
+    ['step-e1', 'step-e2', 'step-e3', 'step-align', 'step-llm'].forEach(function(id) {
+        var badge = document.getElementById(id);
+        if (badge) badge.className = 'badge bg-secondary mb-1';
+    });
+    ['e1Result', 'e2Result', 'e3Result', 'alignResult', 'llmResult'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.innerHTML = '<span class="text-muted">-</span>';
+    });
+}
+
+// Handle SSE events from complete synthesis stream
+function handleCompleteSynthesisEvent(data) {
+    // Accumulate messages
+    if (data.messages) {
+        data.messages.forEach(function(msg) {
+            completeSynthMessages.push(msg);
+        });
+    }
+
+    // Clear UI on clearing stage
+    if (data.clear_ui) {
+        clearEntityLists();
+    }
+
+    // Update substep dots
+    if (data.active_dots) {
+        data.active_dots.forEach(function(d) { updateSubstepDot(d, 'active'); });
+    }
+    if (data.completed_dot) {
+        updateSubstepDot(data.completed_dot, 'complete');
+    }
+    if (data.completed_dots) {
+        data.completed_dots.forEach(function(d) { updateSubstepDot(d, 'complete'); });
+    }
+
+    // Update phase indicators
+    if (data.active_phase) {
+        var phaseEl = document.getElementById(data.active_phase + '-indicator');
+        if (phaseEl) phaseEl.classList.add('phase-active');
+    }
+    if (data.completed_phase) {
+        var phaseEl = document.getElementById(data.completed_phase + '-indicator');
+        if (phaseEl) {
+            phaseEl.classList.remove('phase-active');
+            phaseEl.classList.add('phase-complete');
+        }
+    }
+
+    // Update count badges from results
+    if (data.result && !data.error) {
+        switch (data.stage) {
+            case 'PROVISIONS_DONE':
+                var pc = document.getElementById('provisionsCount');
+                if (pc) pc.textContent = data.result.provisions_count || 0;
+                break;
+            case 'PRECEDENTS_DONE':
+                var prc = document.getElementById('precedentsCount');
+                if (prc) prc.textContent = data.result.precedents_count || 0;
+                break;
+            case 'QC_DONE':
+                var qc = document.getElementById('questionsCount');
+                if (qc) qc.textContent = data.result.questions_count || 0;
+                var cc = document.getElementById('conclusionsCount');
+                if (cc) cc.textContent = data.result.conclusions_count || 0;
+                break;
+            case 'TRANSFORMATION_DONE':
+                var tt = document.getElementById('transformationType');
+                if (tt) tt.textContent = data.result.transformation_type || 'classified';
+                break;
+            case 'RICH_DONE':
+                // Mark Phase 2 complete
+                var p2 = document.getElementById('phase2-indicator');
+                if (p2) p2.classList.add('phase-complete');
+                break;
+        }
+    }
+
+    // Update progress display
+    updateSynthesisProgressDisplay(data);
+
+    // Handle completion
+    if (data.stage === 'COMPLETE') {
+        isProcessing = false;
+        ['phase2-indicator', 'phase3-indicator', 'phase4-indicator'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) el.classList.add('phase-complete');
+        });
+        var button = document.getElementById('run-complete-synthesis-btn');
+        button.innerHTML = '<i class="bi bi-check-circle"></i> Synthesis Complete';
+        button.classList.remove('btn-primary');
+        button.classList.add('btn-success');
+        document.getElementById('synthesis-progress-text').textContent = 'Complete! Refreshing page...';
+        setTimeout(function() { window.location.reload(); }, 1500);
+    }
+
+    // Handle errors
+    if (data.error) {
+        isProcessing = false;
+        var button = document.getElementById('run-complete-synthesis-btn');
+        button.disabled = false;
+        button.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Retry';
+        document.getElementById('synthesis-progress-text').textContent = data.messages ? data.messages[0] : 'Error';
+    }
+}
+
+// Update the streaming progress display area
+function updateSynthesisProgressDisplay(data) {
+    var synthStatus = document.getElementById('provisionsStreamStatus');
+    if (!synthStatus) return;
+
+    var html = '<div class="alert alert-primary mb-0 py-2">';
+    html += '<div class="d-flex justify-content-between align-items-center mb-2">';
+    html += '<strong><i class="bi bi-gear-fill me-1"></i> Complete Synthesis</strong>';
+    if (data.progress !== undefined) {
+        html += '<span class="badge bg-primary">' + data.progress + '%</span>';
+    }
+    html += '</div>';
+
+    // Progress bar
+    if (data.progress !== undefined) {
+        html += '<div class="progress mb-2" style="height: 6px;">';
+        html += '<div class="progress-bar progress-bar-striped progress-bar-animated" style="width: ' + data.progress + '%"></div>';
+        html += '</div>';
+    }
+
+    // Message log (scrollable)
+    html += '<div class="streaming-messages" style="max-height: 200px; overflow-y: auto; font-size: 0.85em;">';
+    completeSynthMessages.forEach(function(msg, idx) {
+        var isLatest = idx === completeSynthMessages.length - 1;
+        if (isLatest) {
+            html += '<div class="mb-1 fw-bold"><i class="bi bi-arrow-right-circle-fill text-primary me-1"></i>' + escapeHtml(msg) + '</div>';
+        } else {
+            html += '<div class="mb-1 text-muted"><i class="bi bi-check-circle text-success me-1"></i>' + escapeHtml(msg) + '</div>';
+        }
+    });
+    html += '</div></div>';
+
+    synthStatus.innerHTML = html;
+
+    // Auto-scroll to bottom
+    var messagesDiv = synthStatus.querySelector('.streaming-messages');
+    if (messagesDiv) messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+// Run complete synthesis with SSE streaming progress
 async function runCompleteSynthesis() {
-    const button = document.getElementById('run-complete-synthesis-btn');
-    const progressText = document.getElementById('synthesis-progress-text');
+    var button = document.getElementById('run-complete-synthesis-btn');
+    var progressText = document.getElementById('synthesis-progress-text');
 
-    // Set processing flag to warn on navigation
     isProcessing = true;
-
-    // Show processing state
     button.disabled = true;
     button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Running Complete Synthesis...';
-    progressText.textContent = 'Running all phases sequentially. This may take several minutes. Do not navigate away from this page.';
+    progressText.textContent = 'Starting synthesis pipeline...';
 
-    // Show interstitial in provisions stream status area
-    const synthStatus = document.getElementById('provisionsStreamStatus');
+    // Reset message accumulator
+    completeSynthMessages = [];
+
+    // Show streaming status area
+    var synthStatus = document.getElementById('provisionsStreamStatus');
     if (synthStatus) {
         synthStatus.style.display = 'block';
-        synthStatus.innerHTML = `
-            <div class="alert alert-info py-3">
-                <h5 class="mb-3"><i class="bi bi-hourglass-split me-2"></i>Running Complete Synthesis</h5>
-                <p class="mb-2">Executing all phases in sequence:</p>
-                <ol class="mb-2">
-                    <li>Provisions (2A)</li>
-                    <li>Precedent Cases (2B)</li>
-                    <li>Questions & Conclusions (2C)</li>
-                    <li>Transformation Classification (2D)</li>
-                    <li>Rich Analysis (2E)</li>
-                    <li>Phase 3: Decision Point Synthesis</li>
-                    <li>Phase 4: Narrative Construction</li>
-                </ol>
-                <p class="mb-0 text-muted small">Page will refresh automatically when complete.</p>
-            </div>
-        `;
+        synthStatus.innerHTML = '<div class="alert alert-primary py-2"><i class="bi bi-hourglass-split me-1"></i> Connecting...</div>';
     }
 
     try {
-        // Call non-streaming endpoint
-        const response = await fetch(`/scenario_pipeline/case/${currentCaseId}/run_complete_synthesis`, {
+        var response = await fetch('/scenario_pipeline/case/' + currentCaseId + '/run_complete_synthesis_stream', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1251,52 +1404,51 @@ async function runCompleteSynthesis() {
             }
         });
 
-        const result = await response.json();
-
-        if (result.success) {
-            // Success - clear processing flag and refresh
-            isProcessing = false;
-            progressText.textContent = 'Complete! Refreshing page...';
-            button.innerHTML = '<i class="bi bi-check-circle"></i> Synthesis Complete';
-            button.classList.remove('btn-primary');
-            button.classList.add('btn-success');
-            if (synthStatus) synthStatus.innerHTML = `
-                <div class="alert alert-success py-3">
-                    <h5 class="mb-2"><i class="bi bi-check-circle me-2"></i>Synthesis Complete!</h5>
-                    <p class="mb-0">Refreshing page to show results...</p>
-                </div>
-            `;
-            // Refresh page to show updated state
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000);
-        } else {
-            // Error - clear processing flag
-            isProcessing = false;
-            progressText.textContent = `Error: ${result.error || 'Unknown error'}`;
-            button.disabled = false;
-            button.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Retry';
-            if (synthStatus) synthStatus.innerHTML = `
-                <div class="alert alert-danger py-3">
-                    <h5 class="mb-2"><i class="bi bi-exclamation-triangle me-2"></i>Synthesis Failed</h5>
-                    <p class="mb-0">${result.error || 'Unknown error'}</p>
-                    ${result.results ? '<pre class="mt-2 small">' + JSON.stringify(result.results, null, 2) + '</pre>' : ''}
-                </div>
-            `;
+        if (!response.ok) {
+            throw new Error('HTTP ' + response.status);
         }
+
+        var reader = response.body.getReader();
+        var decoder = new TextDecoder();
+        var buffer = '';
+
+        while (true) {
+            var chunk = await reader.read();
+            if (chunk.done) break;
+
+            buffer += decoder.decode(chunk.value, { stream: true });
+            var lines = buffer.split('\n');
+            buffer = lines.pop();
+
+            for (var i = 0; i < lines.length; i++) {
+                var line = lines[i];
+                if (line.startsWith('data: ')) {
+                    try {
+                        var eventData = JSON.parse(line.substring(6));
+                        handleCompleteSynthesisEvent(eventData);
+                    } catch (e) {
+                        console.log('SSE parse error:', line);
+                    }
+                }
+            }
+        }
+
+        // Stream ended without COMPLETE event
+        if (isProcessing) {
+            isProcessing = false;
+            button.disabled = false;
+            button.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Re-run Synthesis';
+        }
+
     } catch (error) {
-        // Clear processing flag on error
         isProcessing = false;
-        console.error('Synthesis error:', error);
-        progressText.textContent = `Error: ${error.message}`;
+        console.error('Synthesis stream error:', error);
+        progressText.textContent = 'Error: ' + error.message;
         button.disabled = false;
         button.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Retry';
-        if (synthStatus) synthStatus.innerHTML = `
-            <div class="alert alert-danger py-3">
-                <h5 class="mb-2"><i class="bi bi-exclamation-triangle me-2"></i>Request Failed</h5>
-                <p class="mb-0">${error.message}</p>
-            </div>
-        `;
+        if (synthStatus) {
+            synthStatus.innerHTML = '<div class="alert alert-danger py-3"><h5 class="mb-2"><i class="bi bi-exclamation-triangle me-2"></i>Connection Failed</h5><p class="mb-0">' + escapeHtml(error.message) + '</p></div>';
+        }
     }
 }
 
@@ -1601,14 +1753,6 @@ async function runPhase4Narrative() {
     // Hide previous results
     document.getElementById('phase4Results').style.display = 'none';
 
-    // Reset LLM traces section
-    const llmSection = document.getElementById('phase4LLMSection');
-    const llmTraces = document.getElementById('phase4LLMTraces');
-    const llmCount = document.getElementById('phase4LLMCount');
-    if (llmSection) llmSection.style.display = 'none';
-    if (llmTraces) llmTraces.innerHTML = '<p class="text-muted small">LLM interactions will appear here as Phase 4 progresses...</p>';
-    if (llmCount) llmCount.textContent = '0';
-
     console.log('[Phase 4] Calling streaming endpoint...');
 
     // Use streaming endpoint
@@ -1749,61 +1893,6 @@ function handlePhase4StreamingData(data) {
         }
     }
 
-    // Display LLM traces in dedicated section (outside Narrative Elements card)
-    if (data.llm_traces && data.llm_traces.length > 0) {
-        const llmSection = document.getElementById('phase4LLMSection');
-        const llmTraces = document.getElementById('phase4LLMTraces');
-        const llmCount = document.getElementById('phase4LLMCount');
-
-        // Show the LLM section
-        if (llmSection) llmSection.style.display = 'block';
-
-        // Build HTML for each trace
-        let tracesHtml = '';
-        for (const trace of data.llm_traces) {
-            const promptText = trace.prompt || '';
-            const responseText = trace.response || '';
-
-            tracesHtml += `<div class="card mb-3 border-secondary">
-                <div class="card-header bg-secondary text-white py-2 d-flex justify-content-between align-items-center">
-                    <span><i class="bi bi-robot me-2"></i> <strong>${escapeHtml(trace.description || trace.stage)}</strong></span>
-                    <span class="badge bg-light text-dark">${escapeHtml(trace.model || 'claude-sonnet')}</span>
-                </div>
-                <div class="card-body p-0">
-                    <div class="row g-0">
-                        <div class="col-md-6 border-end">
-                            <div class="p-2">
-                                <h6 class="text-primary mb-2"><i class="bi bi-chat-right-text me-1"></i> Prompt</h6>
-                                <pre class="bg-light p-2 rounded mb-0" style="white-space: pre-wrap; font-size: 0.8rem; max-height: 300px; overflow-y: auto;">${escapeHtml(promptText)}</pre>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="p-2">
-                                <h6 class="text-success mb-2"><i class="bi bi-chat-left-text me-1"></i> Response</h6>
-                                <pre class="bg-light p-2 rounded mb-0" style="white-space: pre-wrap; font-size: 0.8rem; max-height: 300px; overflow-y: auto;">${escapeHtml(responseText)}</pre>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>`;
-        }
-
-        // Append to traces container
-        if (llmTraces) {
-            // Clear placeholder text on first trace
-            if (llmTraces.querySelector('.text-muted')) {
-                llmTraces.innerHTML = '';
-            }
-            llmTraces.innerHTML += tracesHtml;
-        }
-
-        // Update count badge
-        if (llmCount) {
-            const currentCount = parseInt(llmCount.textContent) || 0;
-            llmCount.textContent = currentCount + data.llm_traces.length;
-        }
-    }
-
     // Handle completion
     if (data.stage === 'COMPLETE' && data.result) {
         const resultsDiv = document.getElementById('phase4Results');
@@ -1832,15 +1921,6 @@ function handlePhase4StreamingData(data) {
         if (data.result.key_takeaways && data.result.key_takeaways.length > 0) {
             const takeawaysUl = document.getElementById('phase4Takeaways');
             takeawaysUl.innerHTML = data.result.key_takeaways.map(t => `<li>${escapeHtml(t)}</li>`).join('');
-        }
-
-        // Show LLM interaction count
-        if (data.llm_interactions_count) {
-            const statusHtml = `<div class="alert alert-success py-2 mb-2">
-                <i class="bi bi-check-circle-fill me-1"></i>
-                <strong>Phase 4 Complete</strong> - ${data.llm_interactions_count} LLM stages executed
-            </div>`;
-            promptText.innerHTML = statusHtml + promptText.innerHTML;
         }
 
         // Update phase indicator
@@ -2168,60 +2248,7 @@ function displayPhase4Data(data) {
         button.title = '';
     }
 
-    // Display saved LLM traces if available
-    if (data.llm_traces && data.llm_traces.length > 0) {
-        displaySavedLLMTraces(data.llm_traces);
-    }
-
     console.log('Phase 4 results displayed');
-}
-
-// Display saved LLM traces in the LLM Interactions section
-function displaySavedLLMTraces(traces) {
-    const llmSection = document.getElementById('phase4LLMSection');
-    const llmTracesDiv = document.getElementById('phase4LLMTraces');
-    const llmCount = document.getElementById('phase4LLMCount');
-
-    if (!llmSection || !llmTracesDiv) return;
-
-    // Show the section
-    llmSection.style.display = 'block';
-
-    // Build HTML for traces
-    let tracesHtml = '';
-    for (const trace of traces) {
-        const promptText = trace.prompt || '';
-        const responseText = trace.response || '';
-
-        tracesHtml += `<div class="card mb-3 border-secondary">
-            <div class="card-header bg-secondary text-white py-2 d-flex justify-content-between align-items-center">
-                <span><i class="bi bi-robot me-2"></i> <strong>${escapeHtml(trace.description || trace.stage)}</strong></span>
-                <span class="badge bg-light text-dark">${escapeHtml(trace.model || 'claude-sonnet')}</span>
-            </div>
-            <div class="card-body p-0">
-                <div class="row g-0">
-                    <div class="col-md-6 border-end">
-                        <div class="p-2">
-                            <h6 class="text-primary mb-2"><i class="bi bi-chat-right-text me-1"></i> Prompt</h6>
-                            <pre class="bg-light p-2 rounded mb-0" style="white-space: pre-wrap; font-size: 0.8rem; max-height: 300px; overflow-y: auto;">${escapeHtml(promptText)}</pre>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="p-2">
-                            <h6 class="text-success mb-2"><i class="bi bi-chat-left-text me-1"></i> Response</h6>
-                            <pre class="bg-light p-2 rounded mb-0" style="white-space: pre-wrap; font-size: 0.8rem; max-height: 300px; overflow-y: auto;">${escapeHtml(responseText)}</pre>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>`;
-    }
-
-    // Set traces HTML
-    llmTracesDiv.innerHTML = tracesHtml;
-
-    // Update count
-    if (llmCount) llmCount.textContent = traces.length;
 }
 
 function loadPhase3Results() {

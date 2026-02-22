@@ -233,6 +233,152 @@
 </div>
 {% endfor %}
 
+<!-- Phase 4: Narrative Elements -->
+<div class="card mb-3 phase-card" id="phase-4-card">
+    <div class="card-header d-flex justify-content-between align-items-center{% if not narrative_data or not narrative_data.has_data %} collapsed{% endif %}"
+         data-bs-toggle="collapse" data-bs-target="#phase-4-body">
+        <h5 class="mb-0">
+            <i class="bi bi-book me-1"></i>
+            Phase 4: Narrative Elements
+        </h5>
+        <div class="d-flex gap-2 align-items-center">
+            {% if narrative_data and narrative_data.has_data %}
+            <span class="badge bg-secondary">
+                {{ (narrative_data.characters|length) + (narrative_data.events|length) + (narrative_data.conflicts|length) + (narrative_data.decision_moments|length) }}
+            </span>
+            {% else %}
+            <span class="badge bg-light text-muted border">not extracted</span>
+            {% endif %}
+            <i class="bi bi-chevron-down"></i>
+        </div>
+    </div>
+    <div class="collapse{% if narrative_data and narrative_data.has_data %} show{% endif %}" id="phase-4-body">
+        <div class="card-body p-0">
+            {% if not narrative_data or not narrative_data.has_data %}
+            <p class="text-muted p-3 mb-0">No narrative elements extracted yet.</p>
+            {% else %}
+
+            {# Characters #}
+            {% if narrative_data.characters %}
+            <div class="border-bottom p-3">
+                <h6 class="type-group-header text-muted mb-3">
+                    Characters
+                    <span class="badge bg-light text-dark border ms-1">{{ narrative_data.characters|length }}</span>
+                </h6>
+                {% for char in narrative_data.characters %}
+                <div class="card mb-2 entity-card border-secondary">
+                    <div class="card-body py-2 px-3">
+                        <div>
+                            <strong>{{ char.label or char.name or 'Unnamed' }}</strong>
+                            {% if char.role_type %}
+                            <span class="badge bg-dark ms-1" style="font-size: 0.7em;">{{ char.role_type }}</span>
+                            {% endif %}
+                            {% if char.professional_position %}
+                            <span class="badge bg-secondary ms-1" style="font-size: 0.7em;">{{ char.professional_position[:60] }}{% if char.professional_position|length > 60 %}...{% endif %}</span>
+                            {% endif %}
+                        </div>
+                        {% if char.ethical_stance %}
+                        <p class="small text-muted mb-0 mt-1">{{ char.ethical_stance[:200] }}{% if char.ethical_stance|length > 200 %}...{% endif %}</p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {# Events #}
+            {% if narrative_data.events %}
+            <div class="border-bottom p-3">
+                <h6 class="type-group-header text-muted mb-3">
+                    Events
+                    <span class="badge bg-light text-dark border ms-1">{{ narrative_data.events|length }}</span>
+                </h6>
+                {% for evt in narrative_data.events %}
+                <div class="card mb-2 entity-card border-secondary">
+                    <div class="card-body py-2 px-3">
+                        <div>
+                            <strong>{{ evt.event_label or evt.event or evt.label or 'Event' }}</strong>
+                            {% if evt.event_type %}
+                            <span class="badge bg-secondary ms-1" style="font-size: 0.7em;">{{ evt.event_type }}</span>
+                            {% endif %}
+                            {% if evt.phase_label %}
+                            <span class="badge bg-light text-dark border ms-1" style="font-size: 0.7em;">{{ evt.phase_label }}</span>
+                            {% endif %}
+                        </div>
+                        {% if evt.description %}
+                        <p class="small text-muted mb-0 mt-1">{{ evt.description[:150] }}{% if evt.description|length > 150 %}...{% endif %}</p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {# Conflicts / Ethical Tensions #}
+            {% if narrative_data.conflicts %}
+            <div class="border-bottom p-3">
+                <h6 class="type-group-header text-muted mb-3">
+                    Ethical Tensions
+                    <span class="badge bg-light text-dark border ms-1">{{ narrative_data.conflicts|length }}</span>
+                </h6>
+                {% for conflict in narrative_data.conflicts %}
+                <div class="card mb-2 entity-card border-secondary">
+                    <div class="card-body py-2 px-3">
+                        <div>
+                            <strong>{{ conflict.description or 'Tension' }}</strong>
+                            {% if conflict.conflict_type %}
+                            <span class="badge bg-warning text-dark ms-1" style="font-size: 0.7em;">{{ conflict.conflict_type|replace('_', ' ') }}</span>
+                            {% endif %}
+                        </div>
+                        {% if conflict.entity1_label and conflict.entity2_label %}
+                        <div class="small text-muted mt-1">
+                            <span class="badge bg-light text-dark border me-1">{{ conflict.entity1_label }}</span>
+                            <i class="bi bi-arrow-left-right" style="font-size: 0.7em;"></i>
+                            <span class="badge bg-light text-dark border">{{ conflict.entity2_label }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {# Decision Moments #}
+            {% if narrative_data.decision_moments %}
+            <div class="p-3">
+                <h6 class="type-group-header text-muted mb-3">
+                    Decision Moments
+                    <span class="badge bg-light text-dark border ms-1">{{ narrative_data.decision_moments|length }}</span>
+                </h6>
+                {% for dm in narrative_data.decision_moments %}
+                <div class="card mb-2 entity-card border-secondary">
+                    <div class="card-body py-2 px-3">
+                        <div>
+                            <strong>{{ dm.question or dm.description or 'Decision' }}</strong>
+                        </div>
+                        {% if dm.options %}
+                        <div class="small text-muted mt-1">
+                            {{ dm.options|length }} options
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="p-3 pt-0">
+                <a href="{{ url_for('step4.step4_review', case_id=case.id) }}#narrative"
+                   class="btn btn-sm btn-outline-dark">
+                    <i class="bi bi-eye me-1"></i>Full Narrative View
+                </a>
+            </div>
+
+            {% endif %}
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block step_scripts %}

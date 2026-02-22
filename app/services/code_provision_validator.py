@@ -125,7 +125,7 @@ class CodeProvisionValidator:
 
         try:
             response = self.llm_client.messages.create(
-                model=ModelConfig.get_claude_model("powerful"),
+                model=ModelConfig.get_claude_model("default"),
                 max_tokens=6000,
                 temperature=0.1,  # Low temperature for consistent validation
                 messages=[{

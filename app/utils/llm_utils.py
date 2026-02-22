@@ -5,10 +5,33 @@ Utility functions for LLM interactions.
 import os
 import re
 import json
+import logging
 import importlib
 import importlib.metadata
 from typing import Any, Optional, Dict
 from flask import current_app
+
+logger = logging.getLogger(__name__)
+
+
+def streaming_completion(client, model: str, max_tokens: int, prompt: str,
+                         temperature: float = 0.1) -> str:
+    """Call Anthropic API with streaming to prevent WSL2 TCP idle timeout.
+
+    WSL2 kills TCP connections after ~60s of no data.  Non-streaming calls
+    that take longer than 60s to process on the server side will fail.
+    Streaming keeps data flowing throughout the request.
+
+    Returns the full response text.
+    """
+    with client.messages.stream(
+        model=model,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        messages=[{"role": "user", "content": prompt}],
+    ) as stream:
+        response = stream.get_final_message()
+    return response.content[0].text
 
 def extract_json_from_response(response_text: str) -> Dict[str, Any]:
     """
@@ -100,7 +123,7 @@ def get_llm_client():
                     except Exception:
                         anthropic_version = "unknown"
                         
-                client = anthropic.Anthropic(api_key=api_key)
+                client = anthropic.Anthropic(api_key=api_key, timeout=180.0)
                 
                 # Add version info to client for easier compatibility checks
                 # Current version structure:

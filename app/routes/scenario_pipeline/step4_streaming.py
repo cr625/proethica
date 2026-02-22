@@ -165,7 +165,7 @@ def synthesize_case_streaming(case_id):
                                     'stage': f'PROVISION_VALIDATION_{code}',
                                     'prompt': validator.last_validation_prompt,
                                     'response': validator.last_validation_response,
-                                    'model': STEP4_POWERFUL_MODEL,
+                                    'model': STEP4_DEFAULT_MODEL,
                                     'timestamp': datetime.utcnow().isoformat()
                                 })
                         else:
@@ -206,7 +206,7 @@ def synthesize_case_streaming(case_id):
                             'stage': 'PROVISION_LINKING',
                             'prompt': linker.last_linking_prompt,
                             'response': linker.last_linking_response,
-                            'model': STEP4_POWERFUL_MODEL,
+                            'model': STEP4_DEFAULT_MODEL,
                             'timestamp': datetime.utcnow().isoformat()
                         })
                 
@@ -241,7 +241,7 @@ def synthesize_case_streaming(case_id):
                         'stage': 'QUESTION_EXTRACTION',
                         'prompt': question_analyzer.last_prompt,
                         'response': question_analyzer.last_response,
-                        'model': STEP4_POWERFUL_MODEL,
+                        'model': STEP4_DEFAULT_MODEL,
                         'timestamp': datetime.utcnow().isoformat()
                     })
                 
@@ -265,7 +265,7 @@ def synthesize_case_streaming(case_id):
                         'stage': 'CONCLUSION_EXTRACTION',
                         'prompt': conclusion_analyzer.last_prompt,
                         'response': conclusion_analyzer.last_response,
-                        'model': STEP4_POWERFUL_MODEL,
+                        'model': STEP4_DEFAULT_MODEL,
                         'timestamp': datetime.utcnow().isoformat()
                     })
                 
@@ -286,7 +286,7 @@ def synthesize_case_streaming(case_id):
                         'stage': 'QC_LINKING',
                         'prompt': linker_qc.last_prompt,
                         'response': linker_qc.last_response,
-                        'model': STEP4_POWERFUL_MODEL,
+                        'model': STEP4_DEFAULT_MODEL,
                         'timestamp': datetime.utcnow().isoformat()
                     })
                 

@@ -287,7 +287,7 @@ Now extract all questions from the Questions section above. Return ONLY valid JS
         try:
             from models import ModelConfig
 
-            model_name = ModelConfig.get_claude_model("powerful")
+            model_name = ModelConfig.get_claude_model("default")
 
             # Use Anthropic messages API
             response = self.llm_client.messages.create(
