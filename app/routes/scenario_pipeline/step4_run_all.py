@@ -1258,12 +1258,9 @@ def _run_rich_analysis(case_id: int) -> dict:
 
         def _run_question_emergence():
             with rich_app.app_context():
-                results = []
-                for i, q in enumerate(questions):
-                    batch_results = analyzer.analyze_question_batch(
-                        [q], foundation, llm_traces_qe, i
-                    )
-                    results.extend(batch_results)
+                results = analyzer.analyze_question_emergence(
+                    questions, foundation, llm_traces_qe
+                )
                 logger.info(f"[RunAll] Question emergence: {len(results)}")
                 return results
 

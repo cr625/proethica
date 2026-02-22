@@ -28,6 +28,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from models import ModelConfig
 from app.utils.entity_prompt_utils import format_entities_compact, resolve_entity_labels_to_uris
+from app.utils.llm_json_utils import parse_json_response, parse_json_object
 import anthropic
 
 logger = logging.getLogger(__name__)
@@ -648,7 +649,7 @@ Generate analytical questions that deepen understanding beyond the Board's expli
         all_entities: Dict[str, List]
     ) -> List[EthicalQuestion]:
         """Parse Board questions from LLM response."""
-        json_data = self._extract_json(response_text)
+        json_data = parse_json_response(response_text, "board questions")
         if not json_data:
             return []
 
@@ -682,7 +683,7 @@ Generate analytical questions that deepen understanding beyond the Board's expli
             'counterfactual': []
         }
 
-        json_data = self._extract_json(response_text, is_object=True)
+        json_data = parse_json_object(response_text, "analytical questions")
         if not json_data:
             return result
 
@@ -708,85 +709,6 @@ Generate analytical questions that deepen understanding beyond the Board's expli
                 result[category].append(question)
 
         return result
-
-    def _extract_json(self, response_text: str, is_object: bool = False) -> Optional[Any]:
-        """Extract JSON from response text, including truncated responses."""
-        # Try code block first (flexible whitespace after ```)
-        json_match = re.search(r'```(?:json)?\s*\n(.*?)\n```', response_text, re.DOTALL)
-        if json_match:
-            parsed = self._try_parse_json(json_match.group(1), is_object)
-            if parsed is not None:
-                return parsed
-
-        # Try truncated code block (max_tokens cut off before closing ```)
-        trunc_match = re.search(r'```(?:json)?\s*\n(.*)', response_text, re.DOTALL)
-        if trunc_match and '```' not in trunc_match.group(1):
-            parsed = self._try_parse_json(trunc_match.group(1).rstrip(), is_object)
-            if parsed is not None:
-                logger.info("Recovered JSON from truncated code block")
-                return parsed
-
-        # Try raw JSON
-        pattern = r'\{.*\}' if is_object else r'\[.*\]'
-        json_match = re.search(pattern, response_text, re.DOTALL)
-        if json_match:
-            parsed = self._try_parse_json(json_match.group(0), is_object)
-            if parsed is not None:
-                return parsed
-
-        logger.warning(f"Could not find valid JSON in response (first 500 chars): {response_text[:500]}")
-        return None
-
-    def _try_parse_json(self, text: str, is_object: bool = False) -> Optional[Any]:
-        """Try to parse JSON text, with repair strategies for truncated output."""
-        # Direct parse
-        try:
-            return json.loads(text)
-        except json.JSONDecodeError:
-            pass
-
-        # Trailing comma repair
-        try:
-            repaired = re.sub(r',\s*([}\]])', r'\1', text)
-            return json.loads(repaired)
-        except json.JSONDecodeError:
-            pass
-
-        # Truncated JSON repair: close open braces/brackets
-        if is_object:
-            repaired = self._repair_truncated_json(text)
-            if repaired:
-                try:
-                    return json.loads(repaired)
-                except json.JSONDecodeError:
-                    pass
-
-        return None
-
-    def _repair_truncated_json(self, text: str) -> Optional[str]:
-        """Attempt to close truncated JSON by balancing braces/brackets.
-
-        Strips the last incomplete value, then appends closing delimiters.
-        """
-        # Remove trailing comma and incomplete value
-        text = text.rstrip()
-        # Strip incomplete trailing string value (e.g., `"question_type": "im`)
-        text = re.sub(r',?\s*"[^"]*":\s*"[^"]*$', '', text)
-        # Strip incomplete trailing key (e.g., `"question_type":`)
-        text = re.sub(r',?\s*"[^"]*":\s*$', '', text)
-        # Strip trailing comma
-        text = re.sub(r',\s*$', '', text)
-
-        # Count open/close delimiters
-        opens = text.count('{') - text.count('}')
-        open_brackets = text.count('[') - text.count(']')
-
-        if opens <= 0 and open_brackets <= 0:
-            return None
-
-        # Close inner arrays first, then objects
-        text += ']' * open_brackets + '}' * opens
-        return text
 
     def _question_to_dict(self, q: EthicalQuestion) -> Dict:
         """Convert EthicalQuestion to dict for backward compatibility."""

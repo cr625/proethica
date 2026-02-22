@@ -12,7 +12,8 @@ from typing import Optional, Any, List
 logger = logging.getLogger(__name__)
 
 
-def parse_json_response(response_text: str, context: str = "unknown") -> Optional[List]:
+def parse_json_response(response_text: str, context: str = "unknown",
+                        strict: bool = False) -> Optional[List]:
     """Parse JSON array from LLM response, handling various formats.
 
     Tries multiple strategies in order:
@@ -20,16 +21,23 @@ def parse_json_response(response_text: str, context: str = "unknown") -> Optiona
     2. ``` ... ``` code block without language marker
     3. Raw JSON array [ ... ]
     4. First [ to last ] bracket search
-    5. Truncation repair (close unclosed delimiters)
+    5. Truncation repair (close unclosed delimiters) -- skipped in strict mode
 
     Args:
         response_text: Raw LLM response text.
         context: Description for logging (e.g., "resolution patterns").
+        strict: If True, raise ValueError on parse failure instead of
+            attempting truncation repair or returning None.
 
     Returns:
-        Parsed list or None if parsing fails.
+        Parsed list or None if parsing fails (non-strict mode only).
+
+    Raises:
+        ValueError: In strict mode, if JSON cannot be parsed without repair.
     """
     if not response_text or not response_text.strip():
+        if strict:
+            raise ValueError(f"Empty response for {context}")
         logger.warning(f"Empty response for {context}")
         return None
 
@@ -65,6 +73,14 @@ def parse_json_response(response_text: str, context: str = "unknown") -> Optiona
             return json.loads(response_text[start:end + 1])
         except json.JSONDecodeError:
             pass
+
+    # Strict mode: no repair, fail loudly
+    if strict:
+        raise ValueError(
+            f"JSON parse failed for {context} (strict mode, no truncation repair). "
+            f"Response length: {len(response_text)} chars. "
+            f"Last 200 chars: ...{response_text[-200:]}"
+        )
 
     # Strategy 5: truncation repair
     repaired = repair_truncated_json(response_text)
@@ -152,60 +168,107 @@ def _try_parse_object(text: str) -> Optional[dict]:
     return None
 
 
-def _repair_truncated_object(text: str) -> Optional[str]:
-    """Repair a truncated JSON object by balancing delimiters."""
-    text = text.rstrip()
-    # Strip incomplete trailing string value
-    text = re.sub(r',?\s*"[^"]*":\s*"[^"]*$', '', text)
-    # Strip incomplete trailing key
-    text = re.sub(r',?\s*"[^"]*":\s*$', '', text)
-    # Strip trailing comma
-    text = re.sub(r',\s*$', '', text)
+def _strip_truncated_tail(text: str) -> str:
+    """Strip incomplete trailing JSON content from a truncated response.
 
+    Iteratively removes:
+    1. Incomplete string values ("key": "incomplete val)
+    2. Incomplete keys ("key":)
+    3. Trailing commas
+    4. Empty/incomplete objects left after stripping ({ or {  "key)
+
+    Repeats until stable, since stripping a value may expose another
+    incomplete element underneath (e.g., stripping the only property in
+    an object leaves a bare { that also needs removal).
+    """
+    text = text.rstrip()
+    prev = None
+    while text != prev:
+        prev = text
+        # Strip incomplete trailing string value (e.g., "key": "incomplete val)
+        text = re.sub(r',?\s*"[^"]*":\s*"[^"]*$', '', text)
+        # Strip incomplete trailing key (e.g., "key":)
+        text = re.sub(r',?\s*"[^"]*":\s*$', '', text)
+        # Strip incomplete trailing number/bool (e.g., "confidence": 0.)
+        text = re.sub(r',?\s*"[^"]*":\s*[\d.a-z]*$', '', text)
+        # Strip trailing comma
+        text = re.sub(r',\s*$', '', text)
+        # Strip trailing empty/incomplete object (e.g., ", {" or "{ " left after value removal)
+        text = re.sub(r',?\s*\{\s*$', '', text)
+    return text
+
+
+def _close_and_validate(text: str) -> Optional[str]:
+    """Close unbalanced delimiters and validate the result parses as JSON."""
     opens = text.count('{') - text.count('}')
     open_brackets = text.count('[') - text.count(']')
 
     if opens <= 0 and open_brackets <= 0:
         return None
 
-    text += ']' * open_brackets + '}' * opens
-    return text
+    closed = text + ']' * open_brackets + '}' * opens
+    try:
+        json.loads(closed)
+        return closed
+    except json.JSONDecodeError:
+        return None
+
+
+def _find_last_complete_element(text: str) -> Optional[str]:
+    """Find the last complete JSON element by searching backwards for '}'.
+
+    Tries progressively shorter prefixes ending at '}' until one produces
+    valid JSON when delimiters are closed. Handles cases where regex-based
+    tail stripping fails (escaped quotes, nested arrays, etc.).
+    """
+    pos = len(text)
+    for _ in range(30):
+        pos = text.rfind('}', 0, pos)
+        if pos == -1:
+            break
+        candidate = text[:pos + 1]
+        result = _close_and_validate(candidate)
+        if result is not None:
+            return result
+    return None
+
+
+def _repair_truncated_object(text: str) -> Optional[str]:
+    """Repair a truncated JSON object by balancing delimiters."""
+    # Strategy 1: strip tail and close
+    stripped = _strip_truncated_tail(text)
+    result = _close_and_validate(stripped)
+    if result is not None:
+        return result
+
+    # Strategy 2: find last complete element
+    return _find_last_complete_element(text)
 
 
 def repair_truncated_json(response_text: str) -> Optional[str]:
     """Repair JSON array truncated by max_tokens.
 
-    Finds JSON content, strips the incomplete trailing element,
-    and closes unclosed brackets/braces.
+    Two strategies:
+    1. Strip incomplete trailing content, close unbalanced delimiters
+    2. Search backwards for the last '}' that produces valid JSON when closed
 
     Returns repaired JSON string or None if no JSON found.
     """
     # Find the start of JSON content
     start = response_text.find('[')
     if start == -1:
-        # Try object
         start = response_text.find('{')
         if start == -1:
             return None
 
-    text = response_text[start:].rstrip()
+    text = response_text[start:]
 
-    # Strip incomplete trailing string value (e.g., "key": "incomplete val)
-    text = re.sub(r',?\s*"[^"]*":\s*"[^"]*$', '', text)
-    # Strip incomplete trailing key (e.g., "key":)
-    text = re.sub(r',?\s*"[^"]*":\s*$', '', text)
-    # Strip trailing comma
-    text = re.sub(r',\s*$', '', text)
-    # Strip trailing empty object start (e.g., ", {" left after value removal)
-    text = re.sub(r',?\s*\{\s*$', '', text)
+    # Strategy 1: strip tail and close delimiters
+    stripped = _strip_truncated_tail(text)
+    result = _close_and_validate(stripped)
+    if result is not None:
+        return result
 
-    # Count unbalanced delimiters
-    opens = text.count('{') - text.count('}')
-    open_brackets = text.count('[') - text.count(']')
-
-    if opens <= 0 and open_brackets <= 0:
-        return None  # Already balanced or no JSON structure
-
-    # Close inner arrays first, then objects
-    text += ']' * open_brackets + '}' * opens
-    return text
+    # Strategy 2: find last complete element (handles escaped quotes,
+    # truncated nested arrays, and other patterns that defeat regex stripping)
+    return _find_last_complete_element(text)

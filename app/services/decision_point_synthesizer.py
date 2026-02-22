@@ -13,7 +13,6 @@ Reference: docs-internal/PHASE3_DECISION_POINT_SYNTHESIS_PLAN.md
 import json
 import logging
 import os
-import re
 from datetime import datetime
 from typing import List, Dict, Optional, Tuple, Any
 from dataclasses import dataclass, field, asdict
@@ -21,6 +20,7 @@ from dataclasses import dataclass, field, asdict
 from app import db
 from app.models import TemporaryRDFStorage, ExtractionPrompt
 from app.utils.llm_utils import get_llm_client
+from app.utils.llm_json_utils import parse_json_response
 from app.domains import DomainConfig, get_domain_config
 from models import ModelConfig
 
@@ -670,10 +670,11 @@ class DecisionPointSynthesizer:
             response_text = streaming_completion(
                 self.llm_client,
                 model=ModelConfig.get_claude_model("default"),
-                max_tokens=4000,
+                max_tokens=8000,
                 prompt=prompt,
                 temperature=0.2,
             )
+            logger.info(f"Stage 3.3 refinement response: {len(response_text)} chars")
 
             canonical_points = self._parse_refinement_response(
                 response_text,
@@ -837,68 +838,53 @@ Return as JSON array:
         conclusions: List[Dict]
     ) -> List[CanonicalDecisionPoint]:
         """Parse LLM response from causal link generation."""
+
+        parsed = parse_json_response(
+            response_text, "causal link decision points", strict=True
+        )
+        if not parsed:
+            return []
+
+        # Build question/conclusion URI lookup
+        q_uri_map = {f"Q{i+1}": q.get('uri', '') for i, q in enumerate(questions)}
+        c_uri_map = {f"C{i+1}": c.get('uri', '') for i, c in enumerate(conclusions)}
+
         canonical_points = []
+        for i, dp_data in enumerate(parsed):
+            # Find aligned question
+            addresses = dp_data.get('addresses_questions', [])
+            aligned_q_uri = None
+            aligned_q_text = None
+            if addresses:
+                first_q = addresses[0] if isinstance(addresses, list) else addresses
+                aligned_q_uri = q_uri_map.get(first_q, '')
+                for q in questions:
+                    if q.get('uri') == aligned_q_uri:
+                        aligned_q_text = q.get('question_text', q.get('text', ''))
+                        break
 
-        try:
-            # Extract JSON from response
-            json_match = re.search(r'```json\s*(.*?)\s*```', response_text, re.DOTALL)
-            if json_match:
-                json_str = json_match.group(1)
-            else:
-                # Try to find raw JSON array
-                json_match = re.search(r'\[\s*\{.*?\}\s*\]', response_text, re.DOTALL)
-                if json_match:
-                    json_str = json_match.group(0)
-                else:
-                    logger.warning("Could not extract JSON from LLM response")
-                    return []
-
-            parsed = json.loads(json_str)
-
-            # Build question/conclusion URI lookup
-            q_uri_map = {f"Q{i+1}": q.get('uri', '') for i, q in enumerate(questions)}
-            c_uri_map = {f"C{i+1}": c.get('uri', '') for i, c in enumerate(conclusions)}
-
-            for i, dp_data in enumerate(parsed):
-                # Find aligned question
-                addresses = dp_data.get('addresses_questions', [])
-                aligned_q_uri = None
-                aligned_q_text = None
-                if addresses:
-                    first_q = addresses[0] if isinstance(addresses, list) else addresses
-                    aligned_q_uri = q_uri_map.get(first_q, '')
-                    for q in questions:
-                        if q.get('uri') == aligned_q_uri:
-                            aligned_q_text = q.get('question_text', q.get('text', ''))
-                            break
-
-                # Create canonical decision point
-                dp = CanonicalDecisionPoint(
-                    focus_id=dp_data.get('focus_id', f'DP{i+1}'),
-                    focus_number=i + 1,
-                    description=dp_data.get('description', ''),
-                    decision_question=dp_data.get('decision_question', ''),
-                    role_uri=f"case-{case_id}#Role_{dp_data.get('role_label', 'Unknown').replace(' ', '_')}",
-                    role_label=dp_data.get('role_label', 'Unknown'),
-                    obligation_uri=f"case-{case_id}#Obligation_{dp_data.get('obligation_label', 'Unknown').replace(' ', '_')}" if dp_data.get('obligation_label') else None,
-                    obligation_label=dp_data.get('obligation_label'),
-                    aligned_question_uri=aligned_q_uri,
-                    aligned_question_text=aligned_q_text,
-                    board_resolution=dp_data.get('board_resolution', ''),
-                    addresses_questions=[q_uri_map.get(q, q) for q in (addresses if isinstance(addresses, list) else [addresses])],
-                    options=[
-                        {'label': opt.get('label', f'Option {j+1}'), 'description': opt.get('description', '')}
-                        for j, opt in enumerate(dp_data.get('options', []))
-                    ],
-                    intensity_score=0.5,  # Default score for LLM-generated
-                    qc_alignment_score=0.7  # Higher since LLM explicitly aligned
-                )
-                canonical_points.append(dp)
-
-        except json.JSONDecodeError as e:
-            logger.error(f"JSON parse error in causal link response: {e}")
-        except Exception as e:
-            logger.error(f"Error parsing causal link response: {e}")
+            # Create canonical decision point
+            dp = CanonicalDecisionPoint(
+                focus_id=dp_data.get('focus_id', f'DP{i+1}'),
+                focus_number=i + 1,
+                description=dp_data.get('description', ''),
+                decision_question=dp_data.get('decision_question', ''),
+                role_uri=f"case-{case_id}#Role_{dp_data.get('role_label', 'Unknown').replace(' ', '_')}",
+                role_label=dp_data.get('role_label', 'Unknown'),
+                obligation_uri=f"case-{case_id}#Obligation_{dp_data.get('obligation_label', 'Unknown').replace(' ', '_')}" if dp_data.get('obligation_label') else None,
+                obligation_label=dp_data.get('obligation_label'),
+                aligned_question_uri=aligned_q_uri,
+                aligned_question_text=aligned_q_text,
+                board_resolution=dp_data.get('board_resolution', ''),
+                addresses_questions=[q_uri_map.get(q, q) for q in (addresses if isinstance(addresses, list) else [addresses])],
+                options=[
+                    {'label': opt.get('label', f'Option {j+1}'), 'description': opt.get('description', '')}
+                    for j, opt in enumerate(dp_data.get('options', []))
+                ],
+                intensity_score=0.5,  # Default score for LLM-generated
+                qc_alignment_score=0.7  # Higher since LLM explicitly aligned
+            )
+            canonical_points.append(dp)
 
         return canonical_points
 
@@ -1032,89 +1018,78 @@ Produce 4-6 decision points capturing the key ethical issues.
     ) -> List[CanonicalDecisionPoint]:
         """Parse LLM refinement response into canonical decision points."""
 
-        # Extract JSON
-        json_match = re.search(r'```json\n(.*?)\n```', response_text, re.DOTALL)
-        used_code_block = json_match is not None
-        if not json_match:
-            json_match = re.search(r'\[\s*\{.*?\}\s*\]', response_text, re.DOTALL)
-            if not json_match:
-                logger.warning("Could not find JSON in refinement response")
-                return []
-
-        try:
-            json_text = json_match.group(1) if used_code_block else json_match.group(0)
-            synthesis_data = json.loads(json_text)
-
-            canonical_points = []
-            for i, data in enumerate(synthesis_data, 1):
-                # Build Toulmin structure
-                toulmin = ToulminStructure(
-                    data_summary=data.get('toulmin_data', ''),
-                    warrants_summary=data.get('toulmin_warrants', ''),
-                    rebuttals_summary=data.get('toulmin_rebuttals', ''),
-                    backing_provisions=data.get('provision_labels', [])
-                )
-
-                # Map question indices to URIs
-                addresses_q = []
-                for q_ref in data.get('addresses_questions', []):
-                    if isinstance(q_ref, int) and q_ref < len(questions):
-                        addresses_q.append(questions[q_ref].get('uri', ''))
-                    elif isinstance(q_ref, str):
-                        # Could be "Q0", "Q1" format
-                        try:
-                            idx = int(q_ref.replace('Q', ''))
-                            if idx < len(questions):
-                                addresses_q.append(questions[idx].get('uri', ''))
-                        except ValueError:
-                            addresses_q.append(q_ref)  # Already a URI
-
-                # Get primary aligned Q&C
-                aligned_q = None
-                aligned_c = None
-                if addresses_q and questions:
-                    for q in questions:
-                        if q.get('uri') in addresses_q:
-                            aligned_q = q
-                            break
-
-                canonical = CanonicalDecisionPoint(
-                    focus_id=data.get('focus_id', f'DP{i}'),
-                    focus_number=i,
-                    description=data.get('description', ''),
-                    decision_question=data.get('decision_question', ''),
-                    role_uri=data.get('role_uri', ''),
-                    role_label=data.get('role_label', ''),
-                    obligation_uri=data.get('obligation_uri'),
-                    obligation_label=data.get('obligation_label'),
-                    constraint_uri=data.get('constraint_uri'),
-                    constraint_label=data.get('constraint_label'),
-                    involved_action_uris=data.get('involved_action_uris', []),
-                    provision_uris=data.get('provision_uris', []),
-                    provision_labels=data.get('provision_labels', []),
-                    toulmin=toulmin,
-                    aligned_question_uri=aligned_q.get('uri') if aligned_q else None,
-                    aligned_question_text=aligned_q.get('text') if aligned_q else None,
-                    aligned_conclusion_uri=aligned_c.get('uri') if aligned_c else None,
-                    aligned_conclusion_text=aligned_c.get('text') if aligned_c else None,
-                    addresses_questions=addresses_q,
-                    board_resolution=data.get('board_resolution', ''),
-                    options=data.get('options', []),
-                    intensity_score=data.get('intensity_score', 0.0),
-                    qc_alignment_score=data.get('qc_alignment_score', 0.0),
-                    source='unified',
-                    source_candidate_ids=data.get('source_candidate_ids', []),
-                    synthesis_method='algorithmic+llm',
-                    llm_refined_description=data.get('description'),
-                    llm_refined_question=data.get('decision_question')
-                )
-                canonical_points.append(canonical)
-
-            return canonical_points
-
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse refinement JSON: {e}")
+        synthesis_data = parse_json_response(
+            response_text, "decision point refinement", strict=True
+        )
+        if not synthesis_data:
             return []
+
+        canonical_points = []
+        for i, data in enumerate(synthesis_data, 1):
+            # Build Toulmin structure
+            toulmin = ToulminStructure(
+                data_summary=data.get('toulmin_data', ''),
+                warrants_summary=data.get('toulmin_warrants', ''),
+                rebuttals_summary=data.get('toulmin_rebuttals', ''),
+                backing_provisions=data.get('provision_labels', [])
+            )
+
+            # Map question indices to URIs
+            addresses_q = []
+            for q_ref in data.get('addresses_questions', []):
+                if isinstance(q_ref, int) and q_ref < len(questions):
+                    addresses_q.append(questions[q_ref].get('uri', ''))
+                elif isinstance(q_ref, str):
+                    # Could be "Q0", "Q1" format
+                    try:
+                        idx = int(q_ref.replace('Q', ''))
+                        if idx < len(questions):
+                            addresses_q.append(questions[idx].get('uri', ''))
+                    except ValueError:
+                        addresses_q.append(q_ref)  # Already a URI
+
+            # Get primary aligned Q&C
+            aligned_q = None
+            aligned_c = None
+            if addresses_q and questions:
+                for q in questions:
+                    if q.get('uri') in addresses_q:
+                        aligned_q = q
+                        break
+
+            canonical = CanonicalDecisionPoint(
+                focus_id=data.get('focus_id', f'DP{i}'),
+                focus_number=i,
+                description=data.get('description', ''),
+                decision_question=data.get('decision_question', ''),
+                role_uri=data.get('role_uri', ''),
+                role_label=data.get('role_label', ''),
+                obligation_uri=data.get('obligation_uri'),
+                obligation_label=data.get('obligation_label'),
+                constraint_uri=data.get('constraint_uri'),
+                constraint_label=data.get('constraint_label'),
+                involved_action_uris=data.get('involved_action_uris', []),
+                provision_uris=data.get('provision_uris', []),
+                provision_labels=data.get('provision_labels', []),
+                toulmin=toulmin,
+                aligned_question_uri=aligned_q.get('uri') if aligned_q else None,
+                aligned_question_text=aligned_q.get('text') if aligned_q else None,
+                aligned_conclusion_uri=aligned_c.get('uri') if aligned_c else None,
+                aligned_conclusion_text=aligned_c.get('text') if aligned_c else None,
+                addresses_questions=addresses_q,
+                board_resolution=data.get('board_resolution', ''),
+                options=data.get('options', []),
+                intensity_score=data.get('intensity_score', 0.0),
+                qc_alignment_score=data.get('qc_alignment_score', 0.0),
+                source='unified',
+                source_candidate_ids=data.get('source_candidate_ids', []),
+                synthesis_method='algorithmic+llm',
+                llm_refined_description=data.get('description'),
+                llm_refined_question=data.get('decision_question')
+            )
+            canonical_points.append(canonical)
+
+        return canonical_points
 
     def _convert_to_canonical_without_llm(
         self,
