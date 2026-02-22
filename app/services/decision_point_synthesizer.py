@@ -1034,6 +1034,7 @@ Produce 4-6 decision points capturing the key ethical issues.
 
         # Extract JSON
         json_match = re.search(r'```json\n(.*?)\n```', response_text, re.DOTALL)
+        used_code_block = json_match is not None
         if not json_match:
             json_match = re.search(r'\[\s*\{.*?\}\s*\]', response_text, re.DOTALL)
             if not json_match:
@@ -1041,7 +1042,7 @@ Produce 4-6 decision points capturing the key ethical issues.
                 return []
 
         try:
-            json_text = json_match.group(1) if '```json' in response_text else json_match.group(0)
+            json_text = json_match.group(1) if used_code_block else json_match.group(0)
             synthesis_data = json.loads(json_text)
 
             canonical_points = []

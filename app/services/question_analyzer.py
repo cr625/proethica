@@ -27,6 +27,7 @@ from typing import List, Dict, Optional, Any, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
 from models import ModelConfig
+from app.utils.entity_prompt_utils import format_entities_compact, resolve_entity_labels_to_uris
 import anthropic
 
 logger = logging.getLogger(__name__)
@@ -357,23 +358,57 @@ class QuestionAnalyzer:
         case_facts: str,
         case_conclusion: str
     ) -> Dict[str, List[EthicalQuestion]]:
-        """Generate analytical questions that add value beyond Board's questions."""
+        """Generate analytical questions in two focused LLM calls.
+
+        Split into two batches to keep output size manageable:
+          Batch 1: implicit + principle_tension
+          Batch 2: theoretical + counterfactual
+        """
         if not self.llm_client:
             return {}
 
-        logger.info("Generating analytical questions via LLM")
+        logger.info("Generating analytical questions via LLM (2 batches)")
 
-        prompt = self._create_analytical_prompt(
-            board_questions, all_entities, code_provisions, case_facts, case_conclusion
-        )
+        result = {
+            'implicit': [],
+            'principle_tension': [],
+            'theoretical': [],
+            'counterfactual': []
+        }
 
-        # Track both prompts
-        analytical_prompt = prompt
-        if self.last_prompt:
-            self.last_prompt = self.last_prompt + "\n\n--- ANALYTICAL PROMPT ---\n" + prompt
-        else:
-            self.last_prompt = prompt
+        batch_specs = [
+            (['implicit', 'principle_tension'], "implicit questions and principle tensions"),
+            (['theoretical', 'counterfactual'], "theoretical framings and counterfactual questions"),
+        ]
 
+        for categories, desc in batch_specs:
+            prompt = self._create_analytical_prompt(
+                board_questions, all_entities, code_provisions,
+                case_facts, case_conclusion, categories=categories
+            )
+
+            # Track prompts
+            label = f"ANALYTICAL ({'+'.join(categories)})"
+            if self.last_prompt:
+                self.last_prompt += f"\n\n--- {label} PROMPT ---\n" + prompt
+            else:
+                self.last_prompt = prompt
+
+            batch_result = self._call_analytical_batch(prompt, all_entities, desc)
+            for cat in categories:
+                result[cat] = batch_result.get(cat, [])
+
+        total = sum(len(v) for v in result.values())
+        logger.info(f"Generated {total} analytical questions across 2 batches")
+        return result
+
+    def _call_analytical_batch(
+        self,
+        prompt: str,
+        all_entities: Dict[str, List],
+        desc: str
+    ) -> Dict[str, List[EthicalQuestion]]:
+        """Execute a single analytical question batch with retries."""
         max_retries = 3
         last_error = None
         for attempt in range(max_retries):
@@ -387,28 +422,27 @@ class QuestionAnalyzer:
                     temperature=0.3,
                 )
                 if self.last_response:
-                    self.last_response = self.last_response + "\n\n--- ANALYTICAL RESPONSE ---\n" + response_text
+                    self.last_response += f"\n\n--- ANALYTICAL RESPONSE ({desc}) ---\n" + response_text
                 else:
                     self.last_response = response_text
 
                 analytical = self._parse_analytical_questions_response(response_text, all_entities)
 
                 total = sum(len(v) for v in analytical.values())
-                logger.info(f"Generated {total} analytical questions")
-
+                logger.info(f"Batch '{desc}': {total} questions")
                 return analytical
 
             except (anthropic.APIConnectionError, anthropic.APITimeoutError, ConnectionError) as e:
                 last_error = e
                 wait = 2 ** (attempt + 1)
-                logger.warning(f"Analytical questions attempt {attempt + 1}/{max_retries} failed (connection): {e}. Retrying in {wait}s...")
+                logger.warning(f"Analytical batch '{desc}' attempt {attempt + 1}/{max_retries} failed: {e}. Retrying in {wait}s...")
                 time.sleep(wait)
             except Exception as e:
-                logger.error(f"Error generating analytical questions (non-retryable): {e}")
+                logger.error(f"Analytical batch '{desc}' failed (non-retryable): {e}")
                 self.analytical_failed = True
                 return {}
 
-        logger.error(f"Analytical question generation failed after {max_retries} retries: {last_error}")
+        logger.error(f"Analytical batch '{desc}' failed after {max_retries} retries: {last_error}")
         self.analytical_failed = True
         return {}
 
@@ -419,7 +453,7 @@ class QuestionAnalyzer:
         code_provisions: List[Dict]
     ) -> str:
         """Create prompt to extract Board's explicit questions via LLM."""
-        entities_text = self._format_entities_with_uris(all_entities)
+        entities_text = format_entities_compact(all_entities)
         provisions_text = self._format_provisions(code_provisions)
 
         return f"""You are analyzing the Questions section from an NSPE Board of Ethical Review case.
@@ -427,7 +461,7 @@ class QuestionAnalyzer:
 **QUESTIONS SECTION TEXT:**
 {questions_text}
 
-**EXTRACTED CASE ENTITIES (with URIs for reference):**
+**EXTRACTED CASE ENTITIES:**
 {entities_text}
 
 {provisions_text}
@@ -438,7 +472,7 @@ These are the questions the case was asked to answer.
 
 For each question:
 1. **Question Text**: The verbatim question text
-2. **Mentioned Entities**: Which entities from the case are referenced? Include their URIs.
+2. **Mentioned Entities**: Which entities from the case are referenced? Use exact labels from the list above.
 3. **Related Provisions**: Which code provisions (if any) are mentioned?
 4. **Reasoning**: What is this question really asking?
 
@@ -452,16 +486,13 @@ For each question:
     "mentioned_entities": {{
       "roles": ["Engineer A"]
     }},
-    "mentioned_entity_uris": {{
-      "roles": ["http://proethica.org/ontology/case/X#Engineer_A"]
-    }},
     "related_provisions": ["II.4.e"],
     "extraction_reasoning": "Asks whether accepting the contract violated ethical duties."
   }}
 ]
 ```
 
-Extract ALL questions the Board was asked. Use EXACT entity labels and URIs from the lists above.
+Extract ALL questions the Board was asked. Use EXACT entity labels from the lists above.
 """
 
     def _create_analytical_prompt(
@@ -470,9 +501,17 @@ Extract ALL questions the Board was asked. Use EXACT entity labels and URIs from
         all_entities: Dict[str, List],
         code_provisions: List[Dict],
         case_facts: str,
-        case_conclusion: str
+        case_conclusion: str,
+        categories: Optional[List[str]] = None
     ) -> str:
-        """Create prompt for analytical question generation."""
+        """Create prompt for analytical question generation.
+
+        Args:
+            categories: Which question categories to generate. Defaults to all four.
+        """
+        if categories is None:
+            categories = ['implicit', 'principle_tension', 'theoretical', 'counterfactual']
+
         # Format board questions
         if board_questions:
             board_q_text = "\n".join([
@@ -481,26 +520,82 @@ Extract ALL questions the Board was asked. Use EXACT entity labels and URIs from
         else:
             board_q_text = "(No explicit Board questions identified - generate based on case facts)"
 
-        entities_text = self._format_entities_with_uris(all_entities)
+        entities_text = format_entities_compact(all_entities)
         provisions_text = self._format_provisions(code_provisions)
 
-        # Extract principles for tension analysis
-        principles = all_entities.get('principles', [])
-        principles_text = ""
-        if principles:
-            for p in principles:
-                if isinstance(p, dict):
-                    label = p.get('label', p.get('entity_label', 'Unknown'))
-                    uri = p.get('uri', p.get('entity_uri', ''))
-                else:
-                    label = getattr(p, 'entity_label', getattr(p, 'label', 'Unknown'))
-                    uri = getattr(p, 'entity_uri', getattr(p, 'uri', ''))
-                principles_text += f"- {label}"
-                if uri:
-                    principles_text += f" ({uri})"
-                principles_text += "\n"
-        else:
-            principles_text = "(none extracted)"
+        # Build category instructions and examples based on requested categories
+        category_blocks = []
+        example_blocks = []
+
+        if 'implicit' in categories:
+            category_blocks.append("""**IMPLICIT QUESTIONS**: Questions the case raises but the Board didn't explicitly ask.
+   - What ethical issues lurk beneath the surface?
+   - What questions should have been asked?""")
+            example_blocks.append("""  "implicit": [
+    {
+      "question_text": "Should Engineer A have disclosed the conflict earlier?",
+      "mentioned_entities": {"roles": ["Engineer A"]},
+      "related_provisions": [],
+      "source_question": 1
+    }
+  ]""")
+
+        if 'principle_tension' in categories:
+            from app.utils.entity_prompt_utils import _get_entity_field
+            principles = all_entities.get('principles', [])
+            principles_list = ""
+            if principles:
+                for p in principles:
+                    label = _get_entity_field(p, 'label', 'entity_label', default='Unknown')
+                    principles_list += f"  - {label}\n"
+
+            category_blocks.append(f"""**PRINCIPLE TENSIONS**: Where do extracted principles come into conflict?
+   - "Does [Principle X] conflict with [Principle Y]?"
+   Extracted principles:
+{principles_list}""")
+            example_blocks.append("""  "principle_tension": [
+    {
+      "question_text": "How should Engineer A balance client loyalty against public safety obligations?",
+      "mentioned_entities": {"principles": ["Client Loyalty", "Public Safety"]},
+      "related_provisions": ["III.1.a"],
+      "source_question": null
+    }
+  ]""")
+
+        if 'theoretical' in categories:
+            category_blocks.append("""**THEORETICAL FRAMINGS**: Frame the case in ethical theory terms.
+   - Deontological: "Did the engineer fulfill their duty of...?"
+   - Consequentialist: "Did the outcome justify...?"
+   - Virtue Ethics: "Did the engineer act with professional integrity when...?"
+   Include an "ethical_framework" field (deontological, consequentialist, virtue_ethics).""")
+            example_blocks.append("""  "theoretical": [
+    {
+      "question_text": "From a deontological perspective, did Engineer A fulfill their duty of transparency?",
+      "mentioned_entities": {"roles": ["Engineer A"], "obligations": ["Transparency"]},
+      "related_provisions": [],
+      "ethical_framework": "deontological",
+      "source_question": 1
+    }
+  ]""")
+
+        if 'counterfactual' in categories:
+            category_blocks.append("""**COUNTERFACTUAL QUESTIONS**: What-if scenarios.
+   - "Would earlier disclosure have changed the outcome?"
+   - "What if the engineer had refused the contract?"
+""")
+            example_blocks.append("""  "counterfactual": [
+    {
+      "question_text": "Would the outcome have differed if Engineer A had refused the contract?",
+      "mentioned_entities": {"roles": ["Engineer A"], "actions": ["refuse contract"]},
+      "related_provisions": [],
+      "source_question": 1
+    }
+  ]""")
+
+        numbered_categories = "\n\n".join(
+            f"{i+1}. {block}" for i, block in enumerate(category_blocks)
+        )
+        json_example = "{{\n" + ",\n".join(example_blocks) + "\n}}"
 
         return f"""You are an ethics analyst examining an NSPE Board of Ethical Review case.
 
@@ -513,141 +608,27 @@ Extract ALL questions the Board was asked. Use EXACT entity labels and URIs from
 **BOARD'S CONCLUSION (summary):**
 {case_conclusion[:1000] if case_conclusion else "(not provided)"}
 
-**EXTRACTED PRINCIPLES (with URIs):**
-{principles_text}
-
-**ALL EXTRACTED ENTITIES (with URIs):**
+**ALL EXTRACTED ENTITIES:**
 {entities_text}
 
 {provisions_text}
 
 **TASK:**
-Generate analytical questions that DEEPEN understanding beyond the Board's explicit questions.
-These should add scholarly/pedagogical value.
+Generate analytical questions that deepen understanding beyond the Board's explicit questions.
 
-Generate questions in these categories:
+{numbered_categories}
 
-1. **IMPLICIT QUESTIONS**: Questions the case raises but the Board didn't explicitly ask.
-   - What ethical issues lurk beneath the surface?
-   - What questions should have been asked?
-
-2. **PRINCIPLE TENSIONS**: Where do extracted principles come into conflict?
-   - "Does [Principle X] conflict with [Principle Y]?"
-   - Reference specific principles by label AND URI from the extracted list.
-
-3. **THEORETICAL FRAMINGS**: Frame the case in ethical theory terms.
-   - Deontological: "Did the engineer fulfill their duty of...?"
-   - Consequentialist: "Did the outcome justify...?"
-   - Virtue Ethics: "Did the engineer act with professional integrity when...?"
-
-4. **COUNTERFACTUAL QUESTIONS**: What-if scenarios.
-   - "Would earlier disclosure have changed the outcome?"
-   - "What if the engineer had refused the contract?"
-
-**IMPORTANT**: Reference entities by BOTH label AND URI where relevant. This grounds the questions in the extracted ontology.
+**FORMATTING RULES:**
+- Write questions in plain English. Do NOT embed URIs in question_text.
+- Reference entities by their exact label in the mentioned_entities field.
+- Generate 2-4 questions per category.
+- Link to source Board questions when applicable (source_question field).
 
 **OUTPUT FORMAT (JSON):**
 ```json
-{{
-  "implicit": [
-    {{
-      "question_number": 101,
-      "question_text": "Should Engineer A have disclosed the conflict earlier?",
-      "question_type": "implicit",
-      "mentioned_entities": {{"roles": ["Engineer A"]}},
-      "mentioned_entity_uris": {{"roles": ["http://proethica.org/ontology/case/X#Engineer_A"]}},
-      "related_provisions": [],
-      "extraction_reasoning": "The case facts suggest disclosure timing was significant but wasn't directly addressed.",
-      "source_question": 1
-    }}
-  ],
-  "principle_tension": [
-    {{
-      "question_number": 201,
-      "question_text": "How should Engineer A balance client loyalty against public safety obligations?",
-      "question_type": "principle_tension",
-      "mentioned_entities": {{"principles": ["Client Loyalty", "Public Safety"]}},
-      "mentioned_entity_uris": {{"principles": ["http://proethica.org/ontology/case/X#Client_Loyalty", "http://proethica.org/ontology/case/X#Public_Safety"]}},
-      "related_provisions": ["III.1.a"],
-      "extraction_reasoning": "These two principles are in direct tension in this case.",
-      "source_question": null
-    }}
-  ],
-  "theoretical": [
-    {{
-      "question_number": 301,
-      "question_text": "From a deontological perspective, did Engineer A fulfill their duty of transparency?",
-      "question_type": "theoretical",
-      "mentioned_entities": {{"roles": ["Engineer A"], "obligations": ["Transparency"]}},
-      "mentioned_entity_uris": {{"roles": ["http://..."], "obligations": ["http://..."]}},
-      "related_provisions": [],
-      "extraction_reasoning": "Kant's categorical imperative requires examining duty fulfillment.",
-      "ethical_framework": "deontological",
-      "source_question": 1
-    }}
-  ],
-  "counterfactual": [
-    {{
-      "question_number": 401,
-      "question_text": "Would the outcome have differed if Engineer A had refused the contract?",
-      "question_type": "counterfactual",
-      "mentioned_entities": {{"roles": ["Engineer A"], "actions": ["refuse contract"]}},
-      "mentioned_entity_uris": {{"roles": ["http://..."]}},
-      "related_provisions": [],
-      "extraction_reasoning": "Exploring alternative decisions helps understand the ethical implications.",
-      "source_question": 1
-    }}
-  ]
-}}
+{json_example}
 ```
-
-**GUIDELINES:**
-- Generate 2-4 questions per category
-- Make questions substantive and thought-provoking
-- ALWAYS include mentioned_entity_uris when referencing entities
-- Link to source Board questions when applicable (source_question field)
-- For theoretical questions, always include ethical_framework
 """
-
-    def _format_entities_with_uris(self, all_entities: Dict[str, List]) -> str:
-        """Format all entity types with their URIs for the prompt."""
-        entity_types = [
-            ('roles', 'Roles'),
-            ('states', 'States'),
-            ('resources', 'Resources'),
-            ('principles', 'Principles'),
-            ('obligations', 'Obligations'),
-            ('constraints', 'Constraints'),
-            ('capabilities', 'Capabilities'),
-            ('actions', 'Actions'),
-            ('events', 'Events')
-        ]
-
-        formatted = ""
-        for key, display_name in entity_types:
-            entities = all_entities.get(key, [])
-            if entities:
-                formatted += f"\n**{display_name}:**\n"
-                for entity in entities:
-                    if isinstance(entity, dict):
-                        label = entity.get('label', entity.get('entity_label', 'Unknown'))
-                        uri = entity.get('uri', entity.get('entity_uri', ''))
-                        definition = entity.get('definition', entity.get('entity_definition', ''))
-                    else:
-                        label = getattr(entity, 'entity_label', getattr(entity, 'label', 'Unknown'))
-                        uri = getattr(entity, 'entity_uri', getattr(entity, 'uri', ''))
-                        definition = getattr(entity, 'entity_definition', '')
-
-                    formatted += f"  - {label}"
-                    if uri:
-                        formatted += f"\n    URI: {uri}"
-                    if definition and len(definition) < 100:
-                        formatted += f"\n    Definition: {definition}"
-                    formatted += "\n"
-            else:
-                formatted += f"\n**{display_name}:** (none extracted)\n"
-
-        return formatted
 
     def _format_provisions(self, code_provisions: List[Dict]) -> str:
         """Format code provisions for prompt."""
@@ -673,12 +654,13 @@ Generate questions in these categories:
 
         questions = []
         for q_data in json_data:
+            mentioned = q_data.get('mentioned_entities', {})
             question = EthicalQuestion(
                 question_number=q_data.get('question_number', 0),
                 question_text=q_data.get('question_text', ''),
                 question_type=QuestionType.BOARD_EXPLICIT.value,
-                mentioned_entities=q_data.get('mentioned_entities', {}),
-                mentioned_entity_uris=q_data.get('mentioned_entity_uris', {}),
+                mentioned_entities=mentioned,
+                mentioned_entity_uris=resolve_entity_labels_to_uris(mentioned, all_entities),
                 related_provisions=q_data.get('related_provisions', []),
                 extraction_reasoning=q_data.get('extraction_reasoning', ''),
                 source=QuestionSource.LLM_EXTRACTED.value
@@ -704,16 +686,21 @@ Generate questions in these categories:
         if not json_data:
             return result
 
+        # Number offsets: implicit=101+, principle_tension=201+, theoretical=301+, counterfactual=401+
+        number_bases = {'implicit': 101, 'principle_tension': 201, 'theoretical': 301, 'counterfactual': 401}
+
         for category in result.keys():
-            for q_data in json_data.get(category, []):
+            base = number_bases.get(category, 1)
+            for idx, q_data in enumerate(json_data.get(category, [])):
+                mentioned = q_data.get('mentioned_entities', {})
                 question = EthicalQuestion(
-                    question_number=q_data.get('question_number', 0),
+                    question_number=base + idx,
                     question_text=q_data.get('question_text', ''),
-                    question_type=q_data.get('question_type', category),
-                    mentioned_entities=q_data.get('mentioned_entities', {}),
-                    mentioned_entity_uris=q_data.get('mentioned_entity_uris', {}),
+                    question_type=category,
+                    mentioned_entities=mentioned,
+                    mentioned_entity_uris=resolve_entity_labels_to_uris(mentioned, all_entities),
                     related_provisions=q_data.get('related_provisions', []),
-                    extraction_reasoning=q_data.get('extraction_reasoning', ''),
+                    extraction_reasoning='',
                     source=QuestionSource.LLM_GENERATED.value,
                     source_question=q_data.get('source_question'),
                     ethical_framework=q_data.get('ethical_framework')
@@ -723,26 +710,83 @@ Generate questions in these categories:
         return result
 
     def _extract_json(self, response_text: str, is_object: bool = False) -> Optional[Any]:
-        """Extract JSON from response text."""
-        # Try code block first
-        json_match = re.search(r'```json\n(.*?)\n```', response_text, re.DOTALL)
+        """Extract JSON from response text, including truncated responses."""
+        # Try code block first (flexible whitespace after ```)
+        json_match = re.search(r'```(?:json)?\s*\n(.*?)\n```', response_text, re.DOTALL)
         if json_match:
-            try:
-                return json.loads(json_match.group(1))
-            except json.JSONDecodeError:
-                pass
+            parsed = self._try_parse_json(json_match.group(1), is_object)
+            if parsed is not None:
+                return parsed
+
+        # Try truncated code block (max_tokens cut off before closing ```)
+        trunc_match = re.search(r'```(?:json)?\s*\n(.*)', response_text, re.DOTALL)
+        if trunc_match and '```' not in trunc_match.group(1):
+            parsed = self._try_parse_json(trunc_match.group(1).rstrip(), is_object)
+            if parsed is not None:
+                logger.info("Recovered JSON from truncated code block")
+                return parsed
 
         # Try raw JSON
         pattern = r'\{.*\}' if is_object else r'\[.*\]'
         json_match = re.search(pattern, response_text, re.DOTALL)
         if json_match:
-            try:
-                return json.loads(json_match.group(0))
-            except json.JSONDecodeError:
-                pass
+            parsed = self._try_parse_json(json_match.group(0), is_object)
+            if parsed is not None:
+                return parsed
 
-        logger.warning("Could not find valid JSON in response")
+        logger.warning(f"Could not find valid JSON in response (first 500 chars): {response_text[:500]}")
         return None
+
+    def _try_parse_json(self, text: str, is_object: bool = False) -> Optional[Any]:
+        """Try to parse JSON text, with repair strategies for truncated output."""
+        # Direct parse
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            pass
+
+        # Trailing comma repair
+        try:
+            repaired = re.sub(r',\s*([}\]])', r'\1', text)
+            return json.loads(repaired)
+        except json.JSONDecodeError:
+            pass
+
+        # Truncated JSON repair: close open braces/brackets
+        if is_object:
+            repaired = self._repair_truncated_json(text)
+            if repaired:
+                try:
+                    return json.loads(repaired)
+                except json.JSONDecodeError:
+                    pass
+
+        return None
+
+    def _repair_truncated_json(self, text: str) -> Optional[str]:
+        """Attempt to close truncated JSON by balancing braces/brackets.
+
+        Strips the last incomplete value, then appends closing delimiters.
+        """
+        # Remove trailing comma and incomplete value
+        text = text.rstrip()
+        # Strip incomplete trailing string value (e.g., `"question_type": "im`)
+        text = re.sub(r',?\s*"[^"]*":\s*"[^"]*$', '', text)
+        # Strip incomplete trailing key (e.g., `"question_type":`)
+        text = re.sub(r',?\s*"[^"]*":\s*$', '', text)
+        # Strip trailing comma
+        text = re.sub(r',\s*$', '', text)
+
+        # Count open/close delimiters
+        opens = text.count('{') - text.count('}')
+        open_brackets = text.count('[') - text.count(']')
+
+        if opens <= 0 and open_brackets <= 0:
+            return None
+
+        # Close inner arrays first, then objects
+        text += ']' * open_brackets + '}' * opens
+        return text
 
     def _question_to_dict(self, q: EthicalQuestion) -> Dict:
         """Convert EthicalQuestion to dict for backward compatibility."""

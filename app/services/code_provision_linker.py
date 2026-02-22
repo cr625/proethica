@@ -8,7 +8,8 @@ using LLM-based semantic matching.
 import logging
 import json
 import re
-from typing import List, Dict
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import List, Dict, Tuple
 
 from models import ModelConfig
 
@@ -92,39 +93,47 @@ class CodeProvisionLinker:
         for provision in provisions:
             provision['applies_to'] = []
 
-        # Process one entity type at a time to avoid timeout on large payloads
+        # Process entity types in parallel (independent LLM calls)
         all_prompts = []
         all_responses = []
-        for entity_type, type_label, entities in entity_groups:
-            if not entities:
-                continue
 
+        def _link_one_type(entity_type, type_label, entities):
+            """Call LLM for one entity type and return parsed links."""
             prompt = self._create_batch_linking_prompt(
                 provisions, entity_type, type_label, entities, case_text_summary
             )
-            all_prompts.append(prompt)
+            from app.utils.llm_utils import streaming_completion
+            response_text = streaming_completion(
+                self.llm_client,
+                model=ModelConfig.get_claude_model("default"),
+                max_tokens=2000,
+                prompt=prompt,
+                temperature=0.1,
+            )
+            batch_links = self._parse_batch_response(response_text, entity_type)
+            link_count = sum(len(v) for v in batch_links.values())
+            logger.info(f"Linked {type_label}: {link_count} links")
+            return entity_type, type_label, prompt, response_text, batch_links
 
-            try:
-                response = self.llm_client.messages.create(
-                    model=ModelConfig.get_claude_model("default"),
-                    max_tokens=2000,
-                    temperature=0.1,
-                    messages=[{"role": "user", "content": prompt}]
-                )
-                response_text = response.content[0].text
-                all_responses.append(response_text)
+        active_groups = [(et, tl, ents) for et, tl, ents in entity_groups if ents]
 
-                # Parse and merge links
-                batch_links = self._parse_batch_response(response_text, entity_type)
-                for provision in provisions:
-                    code = provision['code_provision'].rstrip('.')
-                    if code in batch_links:
-                        provision['applies_to'].extend(batch_links[code])
-
-                logger.info(f"Linked {type_label}: {sum(len(batch_links.get(p['code_provision'].rstrip('.'), [])) for p in provisions)} links")
-
-            except Exception as e:
-                logger.error(f"Error linking {type_label}: {e}")
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = {
+                executor.submit(_link_one_type, et, tl, ents): (et, tl)
+                for et, tl, ents in active_groups
+            }
+            for future in as_completed(futures):
+                et, tl = futures[future]
+                try:
+                    entity_type, type_label, prompt, response_text, batch_links = future.result()
+                    all_prompts.append(prompt)
+                    all_responses.append(response_text)
+                    for provision in provisions:
+                        code = provision['code_provision'].rstrip('.')
+                        if code in batch_links:
+                            provision['applies_to'].extend(batch_links[code])
+                except Exception as e:
+                    logger.error(f"Error linking {tl}: {e}")
 
         self.last_linking_prompt = "\n\n---BATCH---\n\n".join(all_prompts)
         self.last_linking_response = "\n\n---BATCH---\n\n".join(all_responses)
@@ -177,13 +186,14 @@ A provision applies to a {entity_type} entity if: {applicability}
 
 For each provision, list which {type_label.lower()} entities it applies to (if any). Only include clear, direct connections.
 
-Respond with JSON:
+Respond ONLY with a JSON array (no other text). Keep each reasoning value to a single short sentence with no special characters or line breaks.
+
 ```json
 [
   {{
     "code_provision": "I.1",
     "applies_to": [
-      {{"entity_label": "Example Entity", "reasoning": "Brief case-specific reason"}}
+      {{"entity_label": "Example Entity", "reasoning": "Brief reason in one sentence"}}
     ]
   }}
 ]
@@ -224,8 +234,77 @@ Use exact entity labels. Omit provisions with no links to these entities."""
             return result
 
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse {entity_type} linking JSON: {e}")
-            return {}
+            logger.warning(f"Malformed {entity_type} linking JSON, attempting repair: {e}")
+            result = self._repair_and_parse_links(json_text, entity_type)
+            if result:
+                logger.info(f"JSON repair succeeded for {entity_type}: {sum(len(v) for v in result.values())} links recovered")
+            else:
+                logger.error(f"JSON repair failed for {entity_type}")
+            return result
+
+    def _repair_and_parse_links(self, json_text: str, entity_type: str) -> Dict[str, List[Dict]]:
+        """Attempt multiple JSON repair strategies to recover linking data."""
+        # Strategy 1: fix trailing commas + close truncated arrays
+        try:
+            repaired = json_text.rstrip()
+            repaired = re.sub(r',\s*([}\]])', r'\1', repaired)
+            if not repaired.rstrip().endswith(']'):
+                last_brace = repaired.rfind('}')
+                if last_brace > 0:
+                    repaired = repaired[:last_brace + 1] + ']'
+            return self._extract_links_from_parsed(json.loads(repaired), entity_type)
+        except (json.JSONDecodeError, Exception):
+            pass
+
+        # Strategy 2: parse each top-level object individually
+        # Handles cases where one object has a malformed string but others are fine
+        result = {}
+        # Find all top-level objects in the array
+        depth = 0
+        obj_start = None
+        for i, ch in enumerate(json_text):
+            if ch == '{' and depth == 0:
+                obj_start = i
+                depth = 1
+            elif ch == '{':
+                depth += 1
+            elif ch == '}':
+                depth -= 1
+                if depth == 0 and obj_start is not None:
+                    obj_str = json_text[obj_start:i + 1]
+                    try:
+                        obj = json.loads(obj_str)
+                        code = obj.get('code_provision', '').rstrip('.')
+                        applies_to = []
+                        for item in obj.get('applies_to', []):
+                            applies_to.append({
+                                'entity_type': entity_type,
+                                'entity_label': item.get('entity_label', ''),
+                                'reasoning': item.get('reasoning', ''),
+                            })
+                        if applies_to:
+                            result.setdefault(code, []).extend(applies_to)
+                    except json.JSONDecodeError:
+                        # Skip this malformed object, continue with others
+                        pass
+                    obj_start = None
+        return result
+
+    def _extract_links_from_parsed(self, linkings: list, entity_type: str) -> Dict[str, List[Dict]]:
+        """Convert parsed JSON linkings list to result dict."""
+        result = {}
+        for link in linkings:
+            code = link.get('code_provision', '').rstrip('.')
+            applies_to = []
+            for item in link.get('applies_to', []):
+                applies_to.append({
+                    'entity_type': entity_type,
+                    'entity_label': item.get('entity_label', ''),
+                    'reasoning': item.get('reasoning', ''),
+                })
+            if applies_to:
+                result[code] = applies_to
+        return result
 
     def _format_entities_for_prompt(self, entities: List[Dict], entity_type: str) -> str:
         """Format entity list for inclusion in prompt."""

@@ -412,7 +412,7 @@ Return your analysis as JSON:
             response_text = streaming_completion(
                 self.llm_client,
                 model=ModelConfig.get_claude_model("default"),
-                max_tokens=500,
+                max_tokens=1500,
                 prompt=prompt,
                 temperature=0.2,
             )

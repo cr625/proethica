@@ -179,6 +179,13 @@ def step4_synthesis(case_id):
         return str(e), 500
 
 
+@bp.route('/case/<int:case_id>/step4/phase2_entities_json')
+@auth_optional
+def step4_phase2_entities_json(case_id):
+    """Return Phase 2 entity summaries as JSON for live card refresh during SSE synthesis."""
+    return jsonify(_load_phase2_entity_summaries(case_id))
+
+
 @bp.route('/case/<int:case_id>/step4/entities')
 @auth_optional
 def step4_entities(case_id):

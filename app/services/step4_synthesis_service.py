@@ -736,28 +736,26 @@ def _run_rich_analysis(case_id: int, llm_client) -> dict:
         # Load provisions
         provisions = synthesizer._load_provisions(case_id)
 
-        # Run rich analysis (same as streaming endpoint)
+        # Run rich analysis via RichAnalyzer (label-based prompts)
+        from app.services.rich_analysis import RichAnalyzer
+        analyzer = RichAnalyzer()
         llm_traces = []
 
-        # Causal-normative links
-        causal_links = synthesizer._analyze_causal_normative_links(foundation, llm_traces)
+        causal_links = analyzer.analyze_causal_normative_links(foundation, llm_traces)
         logger.info(f"[Step4Synthesis] Causal links: {len(causal_links)}")
 
-        # Question emergence
         question_emergence = []
         for i, q in enumerate(questions):
-            batch_results = synthesizer._analyze_question_batch([q], foundation, llm_traces, i)
+            batch_results = analyzer.analyze_question_batch([q], foundation, llm_traces, i)
             question_emergence.extend(batch_results)
         logger.info(f"[Step4Synthesis] Question emergence: {len(question_emergence)}")
 
-        # Resolution patterns
-        resolution_patterns = synthesizer._analyze_resolution_patterns(
-            conclusions, questions, provisions, llm_traces
+        resolution_patterns = analyzer.analyze_resolution_patterns(
+            conclusions, questions, provisions, foundation, llm_traces
         )
         logger.info(f"[Step4Synthesis] Resolution patterns: {len(resolution_patterns)}")
 
-        # Store rich analysis
-        synthesizer._store_rich_analysis(case_id, causal_links, question_emergence, resolution_patterns)
+        analyzer.store_rich_analysis(case_id, causal_links, question_emergence, resolution_patterns)
 
         # Save prompts for UI display
         session_id = str(uuid.uuid4())

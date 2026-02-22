@@ -9,6 +9,8 @@ Provides two endpoints:
 Independent phases run in parallel:
   2A||2B -> 2C -> 2D||2E -> Phase 3 -> Phase 4
 
+2C depends on 2A (provisions context) so must run after 2A completes.
+
 Usage: Called by "Run Complete Synthesis" button.
 """
 
@@ -186,7 +188,7 @@ def register_run_all_routes(bp, get_all_case_entities):
     def run_complete_synthesis_stream(case_id):
         """Run complete Step 4 synthesis with SSE streaming progress.
 
-        Parallelizes independent phases (2A||2B, 2D||2E) and yields
+        Parallelizes independent phases (2A||2B, then 2C, then 2D||2E) and yields
         progress events so the frontend can update the UI incrementally.
         """
         app = current_app._get_current_object()
@@ -236,22 +238,23 @@ def register_run_all_routes(bp, get_all_case_entities):
                                 'completed_dot': 'precedents',
                                 'result': precedents_result})
 
-                # Provisions error is blocking
+                # Provisions error is blocking for downstream phases
                 if provisions_result.get('error'):
                     yield _sse_msg({'stage': 'ERROR', 'progress': 100, 'error': True,
                                     'messages': [f'Provisions failed: {provisions_result["error"]}']})
                     return
 
-                # -- 2C: Q&C (depends on provisions) --
-                yield _sse_msg({'stage': 'QC_START', 'progress': 28,
-                                'messages': ['2C: Extracting Questions & Conclusions...'],
+                # -- 2C: Q&C (needs provisions context from 2A) --
+                yield _sse_msg({'stage': 'PHASE2_C', 'progress': 28,
+                                'messages': ['2C: Extracting questions and conclusions...'],
                                 'active_dots': ['questions', 'conclusions']})
+
                 qc_result = _run_qc_unified(case_id, llm_client, get_all_case_entities)
 
                 q_count = qc_result.get('questions_count', 0)
                 c_count = qc_result.get('conclusions_count', 0)
                 links = qc_result.get('links_count', 0)
-                yield _sse_msg({'stage': 'QC_DONE', 'progress': 45,
+                yield _sse_msg({'stage': 'QC_DONE', 'progress': 40,
                                 'messages': [f'2C: {q_count} questions, {c_count} conclusions, {links} Q-C links'],
                                 'completed_dots': ['questions', 'conclusions'],
                                 'result': qc_result})
@@ -264,11 +267,11 @@ def register_run_all_routes(bp, get_all_case_entities):
                 # Report warnings
                 qc_warnings = qc_result.get('warnings', [])
                 if qc_warnings:
-                    yield _sse_msg({'stage': 'QC_WARNINGS', 'progress': 46,
+                    yield _sse_msg({'stage': 'QC_WARNINGS', 'progress': 42,
                                     'messages': [f'Warning: {w}' for w in qc_warnings]})
 
                 # -- 2D + 2E in parallel --
-                yield _sse_msg({'stage': 'PHASE2_DE', 'progress': 48,
+                yield _sse_msg({'stage': 'PHASE2_DE', 'progress': 45,
                                 'messages': ['2D+2E: Transformation + Rich Analysis...'],
                                 'active_dots': ['transformation', 'rich_analysis']})
 
@@ -1216,10 +1219,9 @@ def _run_transformation(case_id: int, llm_client) -> dict:
 
 
 def _run_rich_analysis(case_id: int) -> dict:
-    """
-    Run rich analysis - SAME code as extract_rich_analysis_streaming.
-    """
+    """Run 2E rich analysis using RichAnalyzer with label-based prompts."""
     from app.services.case_synthesizer import CaseSynthesizer
+    from app.services.rich_analysis import RichAnalyzer
 
     prov = get_provenance_service()
 
@@ -1240,25 +1242,48 @@ def _run_rich_analysis(case_id: int) -> dict:
         # Load provisions
         provisions = synthesizer._load_provisions(case_id)
 
-        # Run rich analysis (same as streaming endpoint)
-        llm_traces = []
+        # Run rich analysis sub-tasks in parallel.
+        # All three are independent of each other.
+        analyzer = RichAnalyzer()
+        rich_app = current_app._get_current_object()
+        llm_traces_causal = []
+        llm_traces_qe = []
+        llm_traces_rp = []
 
-        # Causal-normative links
-        causal_links = synthesizer._analyze_causal_normative_links(foundation, llm_traces)
-        logger.info(f"[RunAll] Causal links: {len(causal_links)}")
+        def _run_causal():
+            with rich_app.app_context():
+                links = analyzer.analyze_causal_normative_links(foundation, llm_traces_causal)
+                logger.info(f"[RunAll] Causal links: {len(links)}")
+                return links
 
-        # Question emergence
-        question_emergence = []
-        for i, q in enumerate(questions):
-            batch_results = synthesizer._analyze_question_batch([q], foundation, llm_traces, i)
-            question_emergence.extend(batch_results)
-        logger.info(f"[RunAll] Question emergence: {len(question_emergence)}")
+        def _run_question_emergence():
+            with rich_app.app_context():
+                results = []
+                for i, q in enumerate(questions):
+                    batch_results = analyzer.analyze_question_batch(
+                        [q], foundation, llm_traces_qe, i
+                    )
+                    results.extend(batch_results)
+                logger.info(f"[RunAll] Question emergence: {len(results)}")
+                return results
 
-        # Resolution patterns
-        resolution_patterns = synthesizer._analyze_resolution_patterns(
-            conclusions, questions, provisions, llm_traces
-        )
-        logger.info(f"[RunAll] Resolution patterns: {len(resolution_patterns)}")
+        def _run_resolution():
+            with rich_app.app_context():
+                patterns = analyzer.analyze_resolution_patterns(
+                    conclusions, questions, provisions, foundation, llm_traces_rp
+                )
+                logger.info(f"[RunAll] Resolution patterns: {len(patterns)}")
+                return patterns
+
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            fut_causal = executor.submit(_run_causal)
+            fut_qe = executor.submit(_run_question_emergence)
+            fut_rp = executor.submit(_run_resolution)
+            causal_links = fut_causal.result()
+            question_emergence = fut_qe.result()
+            resolution_patterns = fut_rp.result()
+
+        llm_traces = llm_traces_causal + llm_traces_qe + llm_traces_rp
 
         # Store rich analysis with provenance tracking
         session_id = str(uuid.uuid4())
@@ -1269,14 +1294,13 @@ def _run_rich_analysis(case_id: int) -> dict:
             case_id=case_id,
             session_id=session_id,
             agent_type='llm_model',
-            agent_name='case_synthesizer',
+            agent_name='rich_analyzer',
             execution_plan={
                 'causal_links': len(causal_links),
                 'question_emergence': len(question_emergence),
                 'resolution_patterns': len(resolution_patterns)
             }
         ) as activity:
-            # Record combined prompts and responses from LLM traces
             combined_prompt = ""
             combined_response = ""
             for trace in llm_traces:
@@ -1298,7 +1322,6 @@ def _run_rich_analysis(case_id: int) -> dict:
                     entity_name='rich_analysis_response'
                 )
 
-            # Record analysis results
             prov.record_extraction_results(
                 results={
                     'causal_links': len(causal_links),
@@ -1310,10 +1333,8 @@ def _run_rich_analysis(case_id: int) -> dict:
                 metadata={'llm_traces_count': len(llm_traces)}
             )
 
-            # Store the actual rich analysis data
-            synthesizer._store_rich_analysis(case_id, causal_links, question_emergence, resolution_patterns)
+            analyzer.store_rich_analysis(case_id, causal_links, question_emergence, resolution_patterns)
 
-            # Save ExtractionPrompt for UI display
             try:
                 saved_prompt = ExtractionPrompt.save_prompt(
                     case_id=case_id,

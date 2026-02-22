@@ -81,6 +81,9 @@
             {% endif %}
             <div id="synthesis-progress-text" class="mt-2 text-muted"></div>
         </div>
+
+        <!-- Synthesis streaming progress (populated during complete synthesis run) -->
+        <div id="synthesisStreamStatus" class="mt-3" style="display: none;"></div>
     </div>
 </div>
 
@@ -903,6 +906,30 @@ function resetStep4UI() {
     const transformType = document.getElementById('transformationType');
     if (transformType) transformType.textContent = 'Not classified';
 
+    // Clear entity list card contents
+    const emptyMessages = {
+        'provisionsEntityList': 'No provisions extracted yet.',
+        'precedentsEntityList': 'No precedent cases extracted yet.',
+        'questionsEntityList': 'No questions or conclusions extracted yet.',
+        'rich_analysisEntityList': 'No analysis entities extracted yet.'
+    };
+    Object.entries(emptyMessages).forEach(([id, msg]) => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = '<div class="text-muted small">' + msg + '</div>';
+    });
+
+    // Clear transformation detail
+    const transformDetail = document.getElementById('transformationDetail');
+    if (transformDetail) transformDetail.innerHTML = '';
+
+    // Clear decision points list
+    const dpList = document.getElementById('decisionPointsList');
+    if (dpList) dpList.innerHTML = '';
+
+    // Hide synthesis progress area
+    const synthStream = document.getElementById('synthesisStreamStatus');
+    if (synthStream) { synthStream.style.display = 'none'; synthStream.innerHTML = ''; }
+
     // Reset streaming message trackers
     Object.keys(streamingMessages).forEach(key => {
         streamingMessages[key] = [];
@@ -1279,22 +1306,25 @@ function handleCompleteSynthesisEvent(data) {
         }
     }
 
-    // Update count badges from results
+    // Update count badges and refresh card content from results
     if (data.result && !data.error) {
         switch (data.stage) {
             case 'PROVISIONS_DONE':
                 var pc = document.getElementById('provisionsCount');
                 if (pc) pc.textContent = data.result.provisions_count || 0;
+                refreshPhase2Cards('code_provision_reference');
                 break;
             case 'PRECEDENTS_DONE':
                 var prc = document.getElementById('precedentsCount');
                 if (prc) prc.textContent = data.result.precedents_count || 0;
+                refreshPhase2Cards('precedent_case_reference');
                 break;
             case 'QC_DONE':
                 var qc = document.getElementById('questionsCount');
                 if (qc) qc.textContent = data.result.questions_count || 0;
                 var cc = document.getElementById('conclusionsCount');
                 if (cc) cc.textContent = data.result.conclusions_count || 0;
+                refreshPhase2Cards('ethical_question');
                 break;
             case 'TRANSFORMATION_DONE':
                 var tt = document.getElementById('transformationType');
@@ -1304,6 +1334,7 @@ function handleCompleteSynthesisEvent(data) {
                 // Mark Phase 2 complete
                 var p2 = document.getElementById('phase2-indicator');
                 if (p2) p2.classList.add('phase-complete');
+                refreshPhase2Cards('causal_normative_link');
                 break;
         }
     }
@@ -1336,9 +1367,112 @@ function handleCompleteSynthesisEvent(data) {
     }
 }
 
+// Fetch Phase 2 entities from server and refresh card content
+function refreshPhase2Cards(triggerType) {
+    fetch('/scenario_pipeline/case/' + currentCaseId + '/step4/phase2_entities_json')
+        .then(function(resp) { return resp.json(); })
+        .then(function(entities) {
+            // Provisions
+            var provList = document.getElementById('provisionsEntityList');
+            var provs = entities['code_provision_reference'] || [];
+            if (provList && provs.length > 0) {
+                provList.innerHTML = provs.map(function(e) {
+                    var def = e.definition || '';
+                    if (def.length > 150) def = def.substring(0, 150) + '...';
+                    return '<div class="entity-summary-item"><strong>' + escapeHtml(e.label) + '</strong>' +
+                        (def ? '<small class="text-muted d-block">' + escapeHtml(def) + '</small>' : '') + '</div>';
+                }).join('');
+            }
+
+            // Precedents
+            var precList = document.getElementById('precedentsEntityList');
+            var precs = entities['precedent_case_reference'] || [];
+            if (precList && precs.length > 0) {
+                precList.innerHTML = precs.map(function(e) {
+                    var rdf = e.rdf || {};
+                    var citationType = rdf.citationType || '';
+                    var badgeClass = citationType === 'supporting' ? 'success' : citationType === 'distinguishing' ? 'warning' : 'info';
+                    var html = '<div class="entity-summary-item"><div><strong><i class="bi bi-journal-bookmark me-1"></i>' + escapeHtml(e.label) + '</strong>';
+                    if (citationType) html += ' <span class="badge bg-' + badgeClass + ' ms-1">' + escapeHtml(citationType) + '</span>';
+                    html += '</div>';
+                    if (rdf.principleEstablished) html += '<small class="text-muted d-block mt-1">' + escapeHtml(rdf.principleEstablished) + '</small>';
+                    html += '</div>';
+                    return html;
+                }).join('');
+            }
+
+            // Questions & Conclusions
+            var qcList = document.getElementById('questionsEntityList');
+            var questions = entities['ethical_question'] || [];
+            var conclusions = entities['ethical_conclusion'] || [];
+            if (qcList && (questions.length > 0 || conclusions.length > 0)) {
+                var html = '';
+                if (questions.length > 0) {
+                    html += '<div class="mb-2"><small class="text-muted fw-semibold">Questions (' + questions.length + ')</small></div>';
+                    html += questions.map(function(e) {
+                        var def = e.definition || '';
+                        if (def.length > 150) def = def.substring(0, 150) + '...';
+                        return '<div class="entity-summary-item"><strong>' + escapeHtml(e.label) + '</strong>' +
+                            (def ? '<small class="text-muted d-block">' + escapeHtml(def) + '</small>' : '') + '</div>';
+                    }).join('');
+                }
+                if (conclusions.length > 0) {
+                    html += '<div class="mb-2 mt-3"><small class="text-muted fw-semibold">Conclusions (' + conclusions.length + ')</small></div>';
+                    html += conclusions.map(function(e) {
+                        var def = e.definition || '';
+                        if (def.length > 150) def = def.substring(0, 150) + '...';
+                        return '<div class="entity-summary-item"><strong>' + escapeHtml(e.label) + '</strong>' +
+                            (def ? '<small class="text-muted d-block">' + escapeHtml(def) + '</small>' : '') + '</div>';
+                    }).join('');
+                }
+                qcList.innerHTML = html;
+            }
+
+            // Rich Analysis (causal links, question emergence, resolution patterns)
+            var richList = document.getElementById('rich_analysisEntityList');
+            var causal = entities['causal_normative_link'] || [];
+            var emergence = entities['question_emergence'] || [];
+            var resolution = entities['resolution_pattern'] || [];
+            if (richList && (causal.length > 0 || emergence.length > 0 || resolution.length > 0)) {
+                var html = '';
+                if (causal.length > 0) {
+                    html += '<div class="mb-2"><small class="text-muted fw-semibold">Causal-Normative Links (' + causal.length + ')</small></div>';
+                    html += causal.map(function(e) {
+                        var def = e.definition || '';
+                        if (def.length > 150) def = def.substring(0, 150) + '...';
+                        return '<div class="entity-summary-item"><strong>' + escapeHtml(e.label) + '</strong>' +
+                            (def ? '<small class="text-muted d-block">' + escapeHtml(def) + '</small>' : '') + '</div>';
+                    }).join('');
+                }
+                if (emergence.length > 0) {
+                    html += '<div class="mb-2 mt-3"><small class="text-muted fw-semibold">Question Emergence (' + emergence.length + ')</small></div>';
+                    html += emergence.map(function(e) {
+                        var def = e.definition || '';
+                        if (def.length > 150) def = def.substring(0, 150) + '...';
+                        return '<div class="entity-summary-item"><strong>' + escapeHtml(e.label) + '</strong>' +
+                            (def ? '<small class="text-muted d-block">' + escapeHtml(def) + '</small>' : '') + '</div>';
+                    }).join('');
+                }
+                if (resolution.length > 0) {
+                    html += '<div class="mb-2 mt-3"><small class="text-muted fw-semibold">Resolution Patterns (' + resolution.length + ')</small></div>';
+                    html += resolution.map(function(e) {
+                        var def = e.definition || '';
+                        if (def.length > 150) def = def.substring(0, 150) + '...';
+                        return '<div class="entity-summary-item"><strong>' + escapeHtml(e.label) + '</strong>' +
+                            (def ? '<small class="text-muted d-block">' + escapeHtml(def) + '</small>' : '') + '</div>';
+                    }).join('');
+                }
+                richList.innerHTML = html;
+            }
+        })
+        .catch(function(err) {
+            console.warn('Failed to refresh phase 2 cards:', err);
+        });
+}
+
 // Update the streaming progress display area
 function updateSynthesisProgressDisplay(data) {
-    var synthStatus = document.getElementById('provisionsStreamStatus');
+    var synthStatus = document.getElementById('synthesisStreamStatus');
     if (!synthStatus) return;
 
     var html = '<div class="alert alert-primary mb-0 py-2">';
@@ -1388,8 +1522,8 @@ async function runCompleteSynthesis() {
     // Reset message accumulator
     completeSynthMessages = [];
 
-    // Show streaming status area
-    var synthStatus = document.getElementById('provisionsStreamStatus');
+    // Show streaming status area in pipeline overview card
+    var synthStatus = document.getElementById('synthesisStreamStatus');
     if (synthStatus) {
         synthStatus.style.display = 'block';
         synthStatus.innerHTML = '<div class="alert alert-primary py-2"><i class="bi bi-hourglass-split me-1"></i> Connecting...</div>';

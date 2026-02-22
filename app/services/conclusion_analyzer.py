@@ -26,6 +26,7 @@ from typing import List, Dict, Optional, Any, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
 from models import ModelConfig
+from app.utils.entity_prompt_utils import format_entities_compact, resolve_entity_labels_to_uris
 import anthropic
 
 logger = logging.getLogger(__name__)
@@ -377,7 +378,7 @@ class ConclusionAnalyzer:
             response_text = response.content[0].text
             self.last_response = response_text
 
-            conclusions = self._parse_board_conclusions_response(response_text)
+            conclusions = self._parse_board_conclusions_response(response_text, all_entities)
             logger.info(f"LLM extracted {len(conclusions)} Board conclusions")
 
             return conclusions
@@ -395,23 +396,52 @@ class ConclusionAnalyzer:
         analytical_questions: List[Dict],
         case_facts: str
     ) -> Dict[str, List[EthicalConclusion]]:
-        """Generate analytical conclusions that add value beyond Board's conclusions."""
+        """Generate analytical conclusions in three focused LLM calls (one per category)."""
         if not self.llm_client:
             return {}
 
-        logger.info("Generating analytical conclusions via LLM")
+        logger.info("Generating analytical conclusions via LLM (3 batches)")
 
-        prompt = self._create_analytical_prompt(
-            board_conclusions, all_entities, code_provisions,
-            board_questions, analytical_questions, case_facts
-        )
+        result = {
+            'analytical_extension': [],
+            'question_response': [],
+            'principle_synthesis': []
+        }
 
-        # Track both prompts
-        if self.last_prompt:
-            self.last_prompt = self.last_prompt + "\n\n--- ANALYTICAL PROMPT ---\n" + prompt
-        else:
-            self.last_prompt = prompt
+        batch_specs = [
+            (['analytical_extension'], "analytical extensions"),
+            (['question_response'], "question responses"),
+            (['principle_synthesis'], "principle synthesis"),
+        ]
 
+        for categories, desc in batch_specs:
+            prompt = self._create_analytical_prompt(
+                board_conclusions, all_entities, code_provisions,
+                board_questions, analytical_questions, case_facts,
+                categories=categories
+            )
+
+            label = f"ANALYTICAL ({'+'.join(categories)})"
+            if self.last_prompt:
+                self.last_prompt += f"\n\n--- {label} PROMPT ---\n" + prompt
+            else:
+                self.last_prompt = prompt
+
+            batch_result = self._call_analytical_batch(prompt, all_entities, desc)
+            for cat in categories:
+                result[cat] = batch_result.get(cat, [])
+
+        total = sum(len(v) for v in result.values())
+        logger.info(f"Generated {total} analytical conclusions across 3 batches")
+        return result
+
+    def _call_analytical_batch(
+        self,
+        prompt: str,
+        all_entities: Dict[str, List],
+        desc: str
+    ) -> Dict[str, List[EthicalConclusion]]:
+        """Execute a single analytical conclusion batch with retries."""
         max_retries = 3
         last_error = None
         for attempt in range(max_retries):
@@ -420,33 +450,33 @@ class ConclusionAnalyzer:
                 response_text = streaming_completion(
                     self.llm_client,
                     model=ModelConfig.get_claude_model("default"),
-                    max_tokens=8000,
+                    max_tokens=6000,
                     prompt=prompt,
                     temperature=0.3,
                 )
+                logger.info(f"Batch '{desc}' response length: {len(response_text)} chars")
                 if self.last_response:
-                    self.last_response = self.last_response + "\n\n--- ANALYTICAL RESPONSE ---\n" + response_text
+                    self.last_response += f"\n\n--- ANALYTICAL RESPONSE ({desc}) ---\n" + response_text
                 else:
                     self.last_response = response_text
 
-                analytical = self._parse_analytical_conclusions_response(response_text)
+                analytical = self._parse_analytical_conclusions_response(response_text, all_entities)
 
                 total = sum(len(v) for v in analytical.values())
-                logger.info(f"Generated {total} analytical conclusions")
-
+                logger.info(f"Batch '{desc}': {total} conclusions")
                 return analytical
 
             except (anthropic.APIConnectionError, anthropic.APITimeoutError, ConnectionError) as e:
                 last_error = e
                 wait = 2 ** (attempt + 1)
-                logger.warning(f"Analytical conclusions attempt {attempt + 1}/{max_retries} failed (connection): {e}. Retrying in {wait}s...")
+                logger.warning(f"Analytical batch '{desc}' attempt {attempt + 1}/{max_retries} failed: {e}. Retrying in {wait}s...")
                 time.sleep(wait)
             except Exception as e:
-                logger.error(f"Error generating analytical conclusions (non-retryable): {e}")
+                logger.error(f"Analytical batch '{desc}' failed (non-retryable): {e}")
                 self.analytical_failed = True
                 return {}
 
-        logger.error(f"Analytical conclusion generation failed after {max_retries} retries: {last_error}")
+        logger.error(f"Analytical batch '{desc}' failed after {max_retries} retries: {last_error}")
         self.analytical_failed = True
         return {}
 
@@ -457,7 +487,7 @@ class ConclusionAnalyzer:
         code_provisions: List[Dict]
     ) -> str:
         """Create prompt to extract Board's explicit conclusions via LLM."""
-        entities_text = self._format_entities_with_uris(all_entities)
+        entities_text = format_entities_compact(all_entities)
         provisions_text = self._format_provisions(code_provisions)
 
         return f"""You are analyzing the Conclusions section from an NSPE Board of Ethical Review case.
@@ -465,7 +495,7 @@ class ConclusionAnalyzer:
 **CONCLUSIONS SECTION TEXT:**
 {conclusions_text}
 
-**EXTRACTED CASE ENTITIES (with URIs for reference):**
+**EXTRACTED CASE ENTITIES:**
 {entities_text}
 
 {provisions_text}
@@ -476,7 +506,7 @@ These are the conclusions the Board reached on the ethical issues.
 
 For each conclusion:
 1. **Conclusion Text**: The verbatim conclusion text
-2. **Mentioned Entities**: Which entities from the case are referenced? Include their URIs.
+2. **Mentioned Entities**: Which entities from the case are referenced? Use exact labels from the list above.
 3. **Cited Provisions**: Which code provisions are cited in the reasoning?
 4. **Board Conclusion Type**: What kind of conclusion?
    - 'violation': Found a violation of ethics code
@@ -498,17 +528,13 @@ For each conclusion:
       "roles": ["Engineer A"],
       "actions": ["accepting the contract"]
     }},
-    "mentioned_entity_uris": {{
-      "roles": ["http://proethica.org/ontology/case/X#Engineer_A"],
-      "actions": ["http://proethica.org/ontology/case/X#Accepting_Contract"]
-    }},
     "cited_provisions": ["II.4.e"],
     "extraction_reasoning": "The Board found a violation based on the conflict of interest."
   }}
 ]
 ```
 
-Extract ALL conclusions the Board reached. Use EXACT entity labels and URIs from the lists above.
+Extract ALL conclusions the Board reached. Use EXACT entity labels from the lists above.
 """
 
     def _create_analytical_prompt(
@@ -518,9 +544,17 @@ Extract ALL conclusions the Board reached. Use EXACT entity labels and URIs from
         code_provisions: List[Dict],
         board_questions: List[Dict],
         analytical_questions: List[Dict],
-        case_facts: str
+        case_facts: str,
+        categories: Optional[List[str]] = None
     ) -> str:
-        """Create prompt for analytical conclusion generation."""
+        """Create prompt for analytical conclusion generation.
+
+        Args:
+            categories: Which conclusion categories to generate. Defaults to all three.
+        """
+        if categories is None:
+            categories = ['analytical_extension', 'question_response', 'principle_synthesis']
+
         # Format board conclusions
         if board_conclusions:
             board_c_text = "\n".join([
@@ -553,8 +587,59 @@ Extract ALL conclusions the Board reached. Use EXACT entity labels and URIs from
             for q in qs:
                 analytical_text += f"- Q{q.get('question_number', 0)}: {q.get('question_text', '')}\n"
 
-        entities_text = self._format_entities_with_uris(all_entities)
+        entities_text = format_entities_compact(all_entities)
         provisions_text = self._format_provisions(code_provisions)
+
+        # Build category instructions and examples based on requested categories
+        category_blocks = []
+        example_blocks = []
+
+        if 'analytical_extension' in categories:
+            category_blocks.append("""**ANALYTICAL EXTENSIONS**: Extend the Board's reasoning with additional analysis.
+   - What additional considerations apply to the Board's conclusions?
+   - What nuances did the Board not address?""")
+            example_blocks.append("""  "analytical_extension": [
+    {
+      "conclusion_text": "Beyond the Board's finding, Engineer A also demonstrated...",
+      "mentioned_entities": {"roles": ["Engineer A"]},
+      "cited_provisions": [],
+      "source_conclusion": 1,
+      "related_analytical_questions": []
+    }
+  ]""")
+
+        if 'question_response' in categories:
+            category_blocks.append("""**QUESTION RESPONSES**: Respond to analytical questions the Board didn't address.
+   - Answer implicit, theoretical, or counterfactual questions
+   - Reference the specific analytical question numbers""")
+            example_blocks.append("""  "question_response": [
+    {
+      "conclusion_text": "In response to the implicit question about disclosure timing...",
+      "mentioned_entities": {},
+      "cited_provisions": [],
+      "source_conclusion": null,
+      "related_analytical_questions": [101]
+    }
+  ]""")
+
+        if 'principle_synthesis' in categories:
+            category_blocks.append("""**PRINCIPLE SYNTHESIS**: Synthesize how principles interact in this case.
+   - How were principle tensions resolved (or not)?
+   - What does this case teach about principle prioritization?""")
+            example_blocks.append("""  "principle_synthesis": [
+    {
+      "conclusion_text": "The tension between client loyalty and public safety was resolved by...",
+      "mentioned_entities": {"principles": ["Client Loyalty", "Public Safety"]},
+      "cited_provisions": [],
+      "source_conclusion": null,
+      "related_analytical_questions": [201, 202]
+    }
+  ]""")
+
+        numbered_categories = "\n\n".join(
+            f"{i+1}. {block}" for i, block in enumerate(category_blocks)
+        )
+        json_example = "{{\n" + ",\n".join(example_blocks) + "\n}}"
 
         return f"""You are an ethics analyst examining an NSPE Board of Ethical Review case.
 
@@ -570,126 +655,28 @@ Extract ALL conclusions the Board reached. Use EXACT entity labels and URIs from
 **CASE FACTS (summary):**
 {case_facts[:2000] if case_facts else "(not provided)"}
 
-**ALL EXTRACTED ENTITIES (with URIs):**
+**ALL EXTRACTED ENTITIES:**
 {entities_text}
 
 {provisions_text}
 
 **TASK:**
-Generate analytical conclusions that DEEPEN understanding beyond the Board's explicit conclusions.
-These should add scholarly/pedagogical value.
+Generate analytical conclusions that deepen understanding beyond the Board's explicit conclusions.
 
-Generate conclusions in these categories:
+{numbered_categories}
 
-1. **ANALYTICAL EXTENSIONS**: Extend the Board's reasoning with additional analysis.
-   - What additional considerations apply to the Board's conclusions?
-   - What nuances did the Board not address?
-
-2. **QUESTION RESPONSES**: Respond to analytical questions the Board didn't address.
-   - Answer implicit, theoretical, or counterfactual questions
-   - Reference the specific analytical question numbers
-
-3. **PRINCIPLE SYNTHESIS**: Synthesize how principles interact in this case.
-   - How were principle tensions resolved (or not)?
-   - What does this case teach about principle prioritization?
-
-**IMPORTANT**:
-- Reference entities by BOTH label AND URI where relevant
-- Link to source Board conclusions or analytical questions
-- Ground conclusions in the extracted ontology
+**FORMATTING RULES:**
+- Write conclusions in plain English. Do NOT embed URIs in conclusion_text.
+- Reference entities by their exact label in the mentioned_entities field.
+- Generate 1-3 conclusions per category.
+- Link to source_conclusion (Board conclusion number) when extending Board's reasoning.
+- Link to related_analytical_questions (question numbers) when responding to them.
 
 **OUTPUT FORMAT (JSON):**
 ```json
-{{
-  "analytical_extension": [
-    {{
-      "conclusion_number": 101,
-      "conclusion_text": "Beyond the Board's finding, Engineer A also demonstrated...",
-      "conclusion_type": "analytical_extension",
-      "mentioned_entities": {{"roles": ["Engineer A"]}},
-      "mentioned_entity_uris": {{"roles": ["http://..."]}},
-      "cited_provisions": [],
-      "extraction_reasoning": "This extends the Board's conclusion by considering...",
-      "source_conclusion": 1,
-      "related_analytical_questions": []
-    }}
-  ],
-  "question_response": [
-    {{
-      "conclusion_number": 201,
-      "conclusion_text": "In response to the implicit question about disclosure timing...",
-      "conclusion_type": "question_response",
-      "mentioned_entities": {{}},
-      "mentioned_entity_uris": {{}},
-      "cited_provisions": [],
-      "extraction_reasoning": "This addresses analytical question Q101.",
-      "source_conclusion": null,
-      "related_analytical_questions": [101]
-    }}
-  ],
-  "principle_synthesis": [
-    {{
-      "conclusion_number": 301,
-      "conclusion_text": "The tension between client loyalty and public safety was resolved by...",
-      "conclusion_type": "principle_synthesis",
-      "mentioned_entities": {{"principles": ["Client Loyalty", "Public Safety"]}},
-      "mentioned_entity_uris": {{"principles": ["http://...", "http://..."]}},
-      "cited_provisions": [],
-      "extraction_reasoning": "This synthesizes how the Board handled the principle conflict.",
-      "source_conclusion": null,
-      "related_analytical_questions": [201, 202]
-    }}
-  ]
-}}
+{json_example}
 ```
-
-**GUIDELINES:**
-- Generate 1-3 conclusions per category
-- Make conclusions substantive and scholarly
-- ALWAYS include mentioned_entity_uris when referencing entities
-- Link to source_conclusion when extending Board's reasoning
-- Link to related_analytical_questions when responding to them
 """
-
-    def _format_entities_with_uris(self, all_entities: Dict[str, List]) -> str:
-        """Format all entity types with their URIs for the prompt."""
-        entity_types = [
-            ('roles', 'Roles'),
-            ('states', 'States'),
-            ('resources', 'Resources'),
-            ('principles', 'Principles'),
-            ('obligations', 'Obligations'),
-            ('constraints', 'Constraints'),
-            ('capabilities', 'Capabilities'),
-            ('actions', 'Actions'),
-            ('events', 'Events')
-        ]
-
-        formatted = ""
-        for key, display_name in entity_types:
-            entities = all_entities.get(key, [])
-            if entities:
-                formatted += f"\n**{display_name}:**\n"
-                for entity in entities:
-                    if isinstance(entity, dict):
-                        label = entity.get('label', entity.get('entity_label', 'Unknown'))
-                        uri = entity.get('uri', entity.get('entity_uri', ''))
-                        definition = entity.get('definition', entity.get('entity_definition', ''))
-                    else:
-                        label = getattr(entity, 'entity_label', getattr(entity, 'label', 'Unknown'))
-                        uri = getattr(entity, 'entity_uri', getattr(entity, 'uri', ''))
-                        definition = getattr(entity, 'entity_definition', '')
-
-                    formatted += f"  - {label}"
-                    if uri:
-                        formatted += f"\n    URI: {uri}"
-                    if definition and len(definition) < 100:
-                        formatted += f"\n    Definition: {definition}"
-                    formatted += "\n"
-            else:
-                formatted += f"\n**{display_name}:** (none extracted)\n"
-
-        return formatted
 
     def _format_provisions(self, code_provisions: List[Dict]) -> str:
         """Format code provisions for prompt."""
@@ -703,7 +690,11 @@ Generate conclusions in these categories:
             text += f"- {code}: {provision_text[:100]}...\n"
         return text
 
-    def _parse_board_conclusions_response(self, response_text: str) -> List[EthicalConclusion]:
+    def _parse_board_conclusions_response(
+        self,
+        response_text: str,
+        all_entities: Optional[Dict[str, List]] = None
+    ) -> List[EthicalConclusion]:
         """Parse Board conclusions from LLM response."""
         json_data = self._extract_json(response_text)
         if not json_data:
@@ -711,13 +702,15 @@ Generate conclusions in these categories:
 
         conclusions = []
         for c_data in json_data:
+            mentioned = c_data.get('mentioned_entities', {})
+            resolved_uris = resolve_entity_labels_to_uris(mentioned, all_entities) if all_entities else {}
             conclusion = EthicalConclusion(
                 conclusion_number=c_data.get('conclusion_number', 0),
                 conclusion_text=c_data.get('conclusion_text', ''),
                 conclusion_type=ConclusionType.BOARD_EXPLICIT.value,
                 board_conclusion_type=c_data.get('board_conclusion_type', 'unknown'),
-                mentioned_entities=c_data.get('mentioned_entities', {}),
-                mentioned_entity_uris=c_data.get('mentioned_entity_uris', {}),
+                mentioned_entities=mentioned,
+                mentioned_entity_uris=resolved_uris,
                 cited_provisions=c_data.get('cited_provisions', []),
                 extraction_reasoning=c_data.get('extraction_reasoning', ''),
                 source=ConclusionSource.LLM_EXTRACTED.value,
@@ -729,7 +722,8 @@ Generate conclusions in these categories:
 
     def _parse_analytical_conclusions_response(
         self,
-        response_text: str
+        response_text: str,
+        all_entities: Optional[Dict[str, List]] = None
     ) -> Dict[str, List[EthicalConclusion]]:
         """Parse analytical conclusions from LLM response."""
         result = {
@@ -742,16 +736,22 @@ Generate conclusions in these categories:
         if not json_data:
             return result
 
+        # Number offsets: analytical_extension=101+, question_response=201+, principle_synthesis=301+
+        number_bases = {'analytical_extension': 101, 'question_response': 201, 'principle_synthesis': 301}
+
         for category in result.keys():
-            for c_data in json_data.get(category, []):
+            base = number_bases.get(category, 1)
+            for idx, c_data in enumerate(json_data.get(category, [])):
+                mentioned = c_data.get('mentioned_entities', {})
+                resolved_uris = resolve_entity_labels_to_uris(mentioned, all_entities) if all_entities else {}
                 conclusion = EthicalConclusion(
-                    conclusion_number=c_data.get('conclusion_number', 0),
+                    conclusion_number=base + idx,
                     conclusion_text=c_data.get('conclusion_text', ''),
-                    conclusion_type=c_data.get('conclusion_type', category),
-                    mentioned_entities=c_data.get('mentioned_entities', {}),
-                    mentioned_entity_uris=c_data.get('mentioned_entity_uris', {}),
+                    conclusion_type=category,
+                    mentioned_entities=mentioned,
+                    mentioned_entity_uris=resolved_uris,
                     cited_provisions=c_data.get('cited_provisions', []),
-                    extraction_reasoning=c_data.get('extraction_reasoning', ''),
+                    extraction_reasoning='',
                     source=ConclusionSource.LLM_GENERATED.value,
                     source_conclusion=c_data.get('source_conclusion'),
                     related_analytical_questions=c_data.get('related_analytical_questions', [])
@@ -761,26 +761,83 @@ Generate conclusions in these categories:
         return result
 
     def _extract_json(self, response_text: str, is_object: bool = False) -> Optional[Any]:
-        """Extract JSON from response text."""
-        # Try code block first
-        json_match = re.search(r'```json\n(.*?)\n```', response_text, re.DOTALL)
+        """Extract JSON from response text, including truncated responses."""
+        # Try code block first (flexible whitespace after ```)
+        json_match = re.search(r'```(?:json)?\s*\n(.*?)\n```', response_text, re.DOTALL)
         if json_match:
-            try:
-                return json.loads(json_match.group(1))
-            except json.JSONDecodeError:
-                pass
+            parsed = self._try_parse_json(json_match.group(1), is_object)
+            if parsed is not None:
+                return parsed
+
+        # Try truncated code block (max_tokens cut off before closing ```)
+        trunc_match = re.search(r'```(?:json)?\s*\n(.*)', response_text, re.DOTALL)
+        if trunc_match and '```' not in trunc_match.group(1):
+            parsed = self._try_parse_json(trunc_match.group(1).rstrip(), is_object)
+            if parsed is not None:
+                logger.info("Recovered JSON from truncated code block")
+                return parsed
 
         # Try raw JSON
         pattern = r'\{.*\}' if is_object else r'\[.*\]'
         json_match = re.search(pattern, response_text, re.DOTALL)
         if json_match:
-            try:
-                return json.loads(json_match.group(0))
-            except json.JSONDecodeError:
-                pass
+            parsed = self._try_parse_json(json_match.group(0), is_object)
+            if parsed is not None:
+                return parsed
 
-        logger.warning("Could not find valid JSON in response")
+        logger.warning(f"Could not find valid JSON in response (first 500 chars): {response_text[:500]}")
         return None
+
+    def _try_parse_json(self, text: str, is_object: bool = False) -> Optional[Any]:
+        """Try to parse JSON text, with repair strategies for truncated output."""
+        # Direct parse
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            pass
+
+        # Trailing comma repair
+        try:
+            repaired = re.sub(r',\s*([}\]])', r'\1', text)
+            return json.loads(repaired)
+        except json.JSONDecodeError:
+            pass
+
+        # Truncated JSON repair: close open braces/brackets
+        if is_object:
+            repaired = self._repair_truncated_json(text)
+            if repaired:
+                try:
+                    return json.loads(repaired)
+                except json.JSONDecodeError:
+                    pass
+
+        return None
+
+    def _repair_truncated_json(self, text: str) -> Optional[str]:
+        """Attempt to close truncated JSON by balancing braces/brackets.
+
+        Strips the last incomplete value, then appends closing delimiters.
+        """
+        # Remove trailing comma and incomplete value
+        text = text.rstrip()
+        # Strip incomplete trailing string value (e.g., `"conclusion_type": "an`)
+        text = re.sub(r',?\s*"[^"]*":\s*"[^"]*$', '', text)
+        # Strip incomplete trailing key (e.g., `"conclusion_type":`)
+        text = re.sub(r',?\s*"[^"]*":\s*$', '', text)
+        # Strip trailing comma
+        text = re.sub(r',\s*$', '', text)
+
+        # Count open/close delimiters
+        opens = text.count('{') - text.count('}')
+        open_brackets = text.count('[') - text.count(']')
+
+        if opens <= 0 and open_brackets <= 0:
+            return None
+
+        # Close inner arrays first, then objects
+        text += ']' * open_brackets + '}' * opens
+        return text
 
     def _conclusion_to_dict(self, c: EthicalConclusion) -> Dict:
         """Convert EthicalConclusion to dict for backward compatibility."""

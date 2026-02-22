@@ -738,11 +738,11 @@ Output as JSON array:
 
             json_match = re.search(r'```json\n(.*?)\n```', response_text, re.DOTALL)
 
+            enhanced_count = 0
             if json_match:
                 enhancements = json.loads(json_match.group(1))
 
                 # Apply enhancements
-                enhanced_count = 0
                 for enhancement in enhancements:
                     role_label = enhancement.get('role', '')
                     for char in characters:
