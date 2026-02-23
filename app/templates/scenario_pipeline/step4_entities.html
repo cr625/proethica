@@ -6,24 +6,79 @@
 
 {% block step_styles %}
 <style>
+    /* Entity cards */
     .entity-card {
-        transition: border-color 0.2s;
+        transition: all 0.2s;
+        border-left: 3px solid #dee2e6 !important;
     }
     .entity-card:hover {
-        border-color: #6c757d !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
     }
-    .rdf-property {
-        font-size: 0.85em;
-        line-height: 1.4;
+    .entity-card.published {
+        border-left-color: #198754 !important;
     }
-    .rdf-property .prop-name {
+    .entity-card.rejected {
+        border-left-color: #dc3545 !important;
+        opacity: 0.5;
+    }
+    .entity-card.rejected .entity-label {
+        text-decoration: line-through;
+    }
+
+    /* Review button group */
+    .review-controls .btn {
+        padding: 0.15rem 0.35rem;
+        font-size: 0.75rem;
+        line-height: 1;
+    }
+    .review-controls .btn-accept.active {
+        background-color: #198754;
+        border-color: #198754;
+        color: white;
+    }
+    .review-controls .btn-reject.active {
+        background-color: #dc3545;
+        border-color: #dc3545;
+        color: white;
+    }
+
+    /* Details toggle chevron */
+    .details-toggle .bi-chevron-right {
+        transition: transform 0.2s;
+        font-size: 0.7em;
+    }
+    .details-toggle[aria-expanded="true"] .bi-chevron-right {
+        transform: rotate(90deg);
+    }
+
+    /* Details section */
+    .entity-details {
+        font-size: 0.8rem;
+        background: #f8f9fa;
+        border-radius: 4px;
+        padding: 8px 10px;
+    }
+    .entity-details .prop-row {
+        display: flex;
+        gap: 8px;
+        padding: 2px 0;
+        border-bottom: 1px solid #eee;
+    }
+    .entity-details .prop-row:last-child {
+        border-bottom: none;
+    }
+    .entity-details .prop-name {
         color: #6c757d;
-        min-width: 120px;
+        min-width: 100px;
         flex-shrink: 0;
+        font-weight: 500;
     }
-    .rdf-property .prop-value {
+    .entity-details .prop-value {
         word-break: break-word;
+        color: #495057;
     }
+
+    /* Phase card */
     .phase-card .card-header {
         cursor: pointer;
         user-select: none;
@@ -41,12 +96,17 @@
         font-size: 0.9em;
         text-transform: capitalize;
     }
-    .commit-status.success {
-        color: #198754;
+
+    /* Edit form */
+    .edit-form {
+        border-top: 1px solid #dee2e6;
+        padding-top: 8px;
+        margin-top: 8px;
     }
-    .commit-status.error {
-        color: #dc3545;
-    }
+
+    /* Commit status */
+    .commit-status.success { color: #198754; }
+    .commit-status.error { color: #dc3545; }
 </style>
 {% endblock %}
 
@@ -66,9 +126,17 @@
             </a>
         </div>
         <div class="d-flex gap-2 align-items-center">
-            {% if unpublished_count > 0 %}
-            <span class="badge bg-warning text-dark">{{ unpublished_count }} unpublished</span>
-            {% elif published_count > 0 %}
+            <span id="nav-ready-badge">
+                {% if unpublished_count > 0 %}
+                <span class="badge bg-warning text-dark">{{ unpublished_count }} ready</span>
+                {% endif %}
+            </span>
+            <span id="nav-rejected-badge">
+                {% if rejected_count > 0 %}
+                <span class="badge bg-light text-danger border">{{ rejected_count }} rejected</span>
+                {% endif %}
+            </span>
+            {% if published_count > 0 %}
             <span class="badge bg-success">{{ published_count }} committed</span>
             {% endif %}
             <a href="{{ url_for('step4.step4_review', case_id=case.id) }}"
@@ -89,6 +157,9 @@
         <div class="commit-status success">
             <i class="bi bi-check-circle-fill me-2 text-success"></i>
             All {{ published_count }} entities have been committed to OntServe.
+            {% if rejected_count > 0 %}
+            <span class="text-muted ms-1">({{ rejected_count }} rejected, not committed)</span>
+            {% endif %}
             <div class="mt-2">
                 <button class="btn btn-outline-danger btn-sm" onclick="uncommitEntities()">
                     <i class="bi bi-arrow-counterclockwise me-1"></i>Uncommit
@@ -97,13 +168,17 @@
         </div>
         <div id="uncommitResult" class="mt-3" style="display: none;"></div>
         {% elif unpublished_count > 0 %}
-        <p>
-            <strong>{{ unpublished_count }}</strong> entities ready to commit:
-            {{ class_count }} classes,
-            {{ individual_count }} individuals.
+        <p class="mb-2">
+            <strong id="commit-ready-count">{{ unpublished_count }}</strong> entities ready to commit:
+            {{ class_count }} classes, {{ individual_count }} individuals.
+            {% if rejected_count > 0 %}
+            <span class="text-muted">({{ rejected_count }} rejected, will not be committed)</span>
+            {% endif %}
         </p>
         <button id="commitBtn" class="btn btn-success" onclick="commitToOntServe()">
-            <i class="bi bi-cloud-upload me-2"></i>Commit {{ unpublished_count }} Entities to OntServe
+            <i class="bi bi-cloud-upload me-2"></i>Commit
+            <span id="commit-btn-count">{{ unpublished_count }}</span>
+            Entities to OntServe
         </button>
         <div id="commitResult" class="mt-3" style="display: none;"></div>
         {% else %}
@@ -152,10 +227,10 @@
         </h5>
         <div class="d-flex gap-2 align-items-center">
             {% if group.count > 0 %}
-            <span class="badge bg-secondary">{{ group.count }}</span>
-            {% if group.unpublished_count > 0 %}
-            <span class="badge bg-warning text-dark">{{ group.unpublished_count }} unpublished</span>
-            {% endif %}
+            <span class="badge bg-secondary phase-count" data-phase="{{ group.phase }}">
+                {{ group.count - group.rejected_count }}
+                {%- if group.rejected_count > 0 %}, {{ group.rejected_count }} rejected{% endif %}
+            </span>
             {% if group.published_count > 0 %}
             <span class="badge bg-success">{{ group.published_count }} committed</span>
             {% endif %}
@@ -177,49 +252,110 @@
                         <span class="badge bg-light text-dark border ms-1">{{ type_entities | length }}</span>
                     </h6>
                     {% for entity in type_entities %}
-                    <div class="card mb-2 entity-card border-{{ 'success' if entity.is_published else 'secondary' }}"
+                    {% set is_rejected = (not entity.is_selected and entity.is_reviewed) %}
+                    <div class="card mb-2 entity-card{% if entity.is_published %} published{% elif is_rejected %} rejected{% endif %}"
                          data-entity-id="{{ entity.id }}"
-                         data-extraction-type="{{ entity.extraction_type }}"
-                         data-storage-type="{{ entity.storage_type or '' }}">
+                         data-selected="{{ 'false' if is_rejected else 'true' }}"
+                         data-published="{{ 'true' if entity.is_published else 'false' }}">
                         <div class="card-body py-2 px-3">
                             <div class="d-flex justify-content-between align-items-start">
-                                <div>
-                                    <strong>{{ entity.entity_label }}</strong>
+                                <div class="flex-grow-1 me-2">
+                                    <span class="entity-label"><strong>{{ entity.entity_label }}</strong></span>
                                     {% if entity.storage_type %}
                                     <span class="badge bg-{{ 'primary' if entity.storage_type == 'class' else 'info' }} ms-1"
-                                          style="font-size: 0.7em;">{{ entity.storage_type }}</span>
+                                          style="font-size: 0.65em;">{{ entity.storage_type }}</span>
                                     {% endif %}
                                     {% if entity.is_published %}
-                                    <span class="badge bg-success ms-1" style="font-size: 0.7em;">committed</span>
+                                    <span class="badge bg-success ms-1" style="font-size: 0.65em;">committed</span>
+                                    {% endif %}
+                                    {% if entity.is_reviewed and not is_rejected %}
+                                    <span class="badge bg-light text-dark border ms-1" style="font-size: 0.65em;">reviewed</span>
                                     {% endif %}
                                 </div>
-                                <!-- Future edit hook -->
-                                <button class="entity-edit-btn btn btn-sm btn-outline-secondary"
-                                        data-entity-id="{{ entity.id }}" style="display: none;">
-                                    <i class="bi bi-pencil"></i>
-                                </button>
+                                {% if not entity.is_published %}
+                                <div class="review-controls btn-group btn-group-sm ms-2" role="group">
+                                    <button type="button"
+                                            class="btn btn-outline-success btn-accept{% if not is_rejected %} active{% endif %}"
+                                            onclick="reviewEntity({{ entity.id }}, 'accept')"
+                                            title="Accept entity">
+                                        <i class="bi bi-check-lg"></i>
+                                    </button>
+                                    <button type="button"
+                                            class="btn btn-outline-danger btn-reject{% if is_rejected %} active{% endif %}"
+                                            onclick="reviewEntity({{ entity.id }}, 'reject')"
+                                            title="Reject entity">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                    <button type="button"
+                                            class="btn btn-outline-secondary btn-edit"
+                                            onclick="toggleEdit({{ entity.id }})"
+                                            title="Edit label and definition">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                </div>
+                                {% endif %}
                             </div>
+
                             {% if entity.entity_definition %}
                             <p class="small text-muted mb-1 mt-1">
-                                {{ entity.entity_definition[:250] }}{% if entity.entity_definition|length > 250 %}...{% endif %}
+                                {{ entity.entity_definition[:200] }}{% if entity.entity_definition|length > 200 %}...{% endif %}
                             </p>
                             {% endif %}
-                            {% if entity.rdf_json_ld %}
-                            <div class="mt-1">
-                                {% for key, val in entity.rdf_json_ld.items() if key not in ['@type', '@context', '@id'] and val %}
-                                <div class="rdf-property d-flex gap-2">
-                                    <span class="prop-name">{{ key }}:</span>
-                                    <span class="prop-value">
-                                        {% if val is string %}
-                                            {{ val[:150] }}{% if val|length > 150 %}...{% endif %}
-                                        {% elif val is iterable and val is not mapping %}
-                                            {{ val|length }} items
-                                        {% else %}
-                                            {{ val }}
-                                        {% endif %}
-                                    </span>
+
+                            {# Expandable details #}
+                            {% if entity.rdf_json_ld or entity.entity_uri %}
+                            <a class="small text-muted text-decoration-none details-toggle"
+                               data-bs-toggle="collapse" href="#details-{{ entity.id }}"
+                               role="button" aria-expanded="false">
+                                <i class="bi bi-chevron-right"></i> Details
+                            </a>
+                            <div class="collapse" id="details-{{ entity.id }}">
+                                <div class="entity-details mt-2">
+                                    {% if entity.entity_uri %}
+                                    <div class="prop-row">
+                                        <span class="prop-name">URI</span>
+                                        <span class="prop-value" style="font-size: 0.85em; color: #6c757d;">{{ entity.entity_uri }}</span>
+                                    </div>
+                                    {% endif %}
+                                    {% if entity.rdf_json_ld %}
+                                    {% for key, val in entity.rdf_json_ld.items() if key not in ['@type', '@context', '@id', 'entity_label', 'entity_uri', 'entity_definition'] and val %}
+                                    <div class="prop-row">
+                                        <span class="prop-name">{{ key | replace('proeth:', '') | replace('proeth-scenario:', '') | replace('rdfs:', '') | replace('_', ' ') }}</span>
+                                        <span class="prop-value">
+                                            {% if val is string %}
+                                                {{ val[:200] }}{% if val|length > 200 %}...{% endif %}
+                                            {% elif val is iterable and val is not mapping %}
+                                                {{ val|length }} items
+                                            {% elif val is mapping %}
+                                                {{ val|tojson|truncate(200) }}
+                                            {% else %}
+                                                {{ val }}
+                                            {% endif %}
+                                        </span>
+                                    </div>
+                                    {% endfor %}
+                                    {% endif %}
                                 </div>
-                                {% endfor %}
+                            </div>
+                            {% endif %}
+
+                            {# Inline edit form (hidden by default) #}
+                            {% if not entity.is_published %}
+                            <div class="edit-form" id="edit-{{ entity.id }}" style="display: none;">
+                                <div class="mb-2">
+                                    <label class="form-label small mb-0 text-muted">Label</label>
+                                    <input type="text" class="form-control form-control-sm edit-label"
+                                           value="{{ entity.entity_label }}">
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label small mb-0 text-muted">Definition</label>
+                                    <textarea class="form-control form-control-sm edit-definition"
+                                              rows="2">{{ entity.entity_definition or '' }}</textarea>
+                                </div>
+                                <div class="d-flex gap-2 justify-content-end">
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="cancelEdit({{ entity.id }})">Cancel</button>
+                                    <button class="btn btn-sm btn-success" onclick="saveEdit({{ entity.id }})">Save</button>
+                                </div>
                             </div>
                             {% endif %}
                         </div>
@@ -266,15 +402,15 @@
                     <span class="badge bg-light text-dark border ms-1">{{ narrative_data.characters|length }}</span>
                 </h6>
                 {% for char in narrative_data.characters %}
-                <div class="card mb-2 entity-card border-secondary">
+                <div class="card mb-2 entity-card" style="border-left-color: #6c757d !important;">
                     <div class="card-body py-2 px-3">
                         <div>
                             <strong>{{ char.label or char.name or 'Unnamed' }}</strong>
                             {% if char.role_type %}
-                            <span class="badge bg-dark ms-1" style="font-size: 0.7em;">{{ char.role_type }}</span>
+                            <span class="badge bg-dark ms-1" style="font-size: 0.65em;">{{ char.role_type }}</span>
                             {% endif %}
                             {% if char.professional_position %}
-                            <span class="badge bg-secondary ms-1" style="font-size: 0.7em;">{{ char.professional_position[:60] }}{% if char.professional_position|length > 60 %}...{% endif %}</span>
+                            <span class="badge bg-secondary ms-1" style="font-size: 0.65em;">{{ char.professional_position[:60] }}{% if char.professional_position|length > 60 %}...{% endif %}</span>
                             {% endif %}
                         </div>
                         {% if char.ethical_stance %}
@@ -294,15 +430,15 @@
                     <span class="badge bg-light text-dark border ms-1">{{ narrative_data.events|length }}</span>
                 </h6>
                 {% for evt in narrative_data.events %}
-                <div class="card mb-2 entity-card border-secondary">
+                <div class="card mb-2 entity-card" style="border-left-color: #6c757d !important;">
                     <div class="card-body py-2 px-3">
                         <div>
                             <strong>{{ evt.event_label or evt.event or evt.label or 'Event' }}</strong>
                             {% if evt.event_type %}
-                            <span class="badge bg-secondary ms-1" style="font-size: 0.7em;">{{ evt.event_type }}</span>
+                            <span class="badge bg-secondary ms-1" style="font-size: 0.65em;">{{ evt.event_type }}</span>
                             {% endif %}
                             {% if evt.phase_label %}
-                            <span class="badge bg-light text-dark border ms-1" style="font-size: 0.7em;">{{ evt.phase_label }}</span>
+                            <span class="badge bg-light text-dark border ms-1" style="font-size: 0.65em;">{{ evt.phase_label }}</span>
                             {% endif %}
                         </div>
                         {% if evt.description %}
@@ -322,12 +458,12 @@
                     <span class="badge bg-light text-dark border ms-1">{{ narrative_data.conflicts|length }}</span>
                 </h6>
                 {% for conflict in narrative_data.conflicts %}
-                <div class="card mb-2 entity-card border-secondary">
+                <div class="card mb-2 entity-card" style="border-left-color: #6c757d !important;">
                     <div class="card-body py-2 px-3">
                         <div>
                             <strong>{{ conflict.description or 'Tension' }}</strong>
                             {% if conflict.conflict_type %}
-                            <span class="badge bg-warning text-dark ms-1" style="font-size: 0.7em;">{{ conflict.conflict_type|replace('_', ' ') }}</span>
+                            <span class="badge bg-warning text-dark ms-1" style="font-size: 0.65em;">{{ conflict.conflict_type|replace('_', ' ') }}</span>
                             {% endif %}
                         </div>
                         {% if conflict.entity1_label and conflict.entity2_label %}
@@ -351,7 +487,7 @@
                     <span class="badge bg-light text-dark border ms-1">{{ narrative_data.decision_moments|length }}</span>
                 </h6>
                 {% for dm in narrative_data.decision_moments %}
-                <div class="card mb-2 entity-card border-secondary">
+                <div class="card mb-2 entity-card" style="border-left-color: #6c757d !important;">
                     <div class="card-body py-2 px-3">
                         <div>
                             <strong>{{ dm.question or dm.description or 'Decision' }}</strong>
@@ -383,20 +519,172 @@
 
 {% block step_scripts %}
 <script>
-const currentCaseId = {{ case.id }};
+var currentCaseId = {{ case.id }};
 
 function getCsrfToken() {
     var meta = document.querySelector('meta[name="csrf-token"]');
     return meta ? meta.getAttribute('content') : '';
 }
 
+/* ---- Review (accept/reject) ---- */
+function reviewEntity(entityId, action) {
+    fetch('/scenario_pipeline/case/' + currentCaseId + '/entities/' + entityId + '/review', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify({ action: action })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            var card = document.querySelector('[data-entity-id="' + entityId + '"]');
+            var acceptBtn = card.querySelector('.btn-accept');
+            var rejectBtn = card.querySelector('.btn-reject');
+
+            if (action === 'reject') {
+                card.classList.add('rejected');
+                card.dataset.selected = 'false';
+                if (acceptBtn) acceptBtn.classList.remove('active');
+                if (rejectBtn) rejectBtn.classList.add('active');
+            } else {
+                card.classList.remove('rejected');
+                card.dataset.selected = 'true';
+                if (acceptBtn) acceptBtn.classList.add('active');
+                if (rejectBtn) rejectBtn.classList.remove('active');
+            }
+            updateGlobalCounts();
+        }
+    })
+    .catch(function(err) { console.error('Review failed:', err); });
+}
+
+/* ---- Inline edit ---- */
+function toggleEdit(entityId) {
+    var form = document.getElementById('edit-' + entityId);
+    if (form) {
+        form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    }
+}
+
+function cancelEdit(entityId) {
+    var form = document.getElementById('edit-' + entityId);
+    if (form) form.style.display = 'none';
+}
+
+function saveEdit(entityId) {
+    var form = document.getElementById('edit-' + entityId);
+    var label = form.querySelector('.edit-label').value.trim();
+    var definition = form.querySelector('.edit-definition').value.trim();
+
+    fetch('/scenario_pipeline/case/' + currentCaseId + '/entities/' + entityId + '/edit', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify({ label: label, definition: definition })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            var card = document.querySelector('[data-entity-id="' + entityId + '"]');
+
+            // Update label display
+            var labelEl = card.querySelector('.entity-label');
+            if (labelEl) labelEl.innerHTML = '<strong>' + escapeHtml(data.entity_label) + '</strong>';
+
+            // Update definition display
+            var defEl = card.querySelector('p.text-muted');
+            if (defEl && data.entity_definition) {
+                var truncated = data.entity_definition.length > 200
+                    ? data.entity_definition.substring(0, 200) + '...'
+                    : data.entity_definition;
+                defEl.textContent = truncated;
+            }
+
+            // Add reviewed badge if not present
+            var badgeArea = card.querySelector('.entity-label').parentElement;
+            if (!badgeArea.querySelector('.badge-reviewed')) {
+                var badge = document.createElement('span');
+                badge.className = 'badge bg-light text-dark border ms-1 badge-reviewed';
+                badge.style.fontSize = '0.65em';
+                badge.textContent = 'reviewed';
+                badgeArea.appendChild(badge);
+            }
+
+            form.style.display = 'none';
+        } else {
+            alert('Save failed: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(function(err) { alert('Error: ' + err); });
+}
+
+function escapeHtml(text) {
+    var div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+/* ---- Count updates ---- */
+function updateGlobalCounts() {
+    var allCards = document.querySelectorAll('.entity-card[data-entity-id]');
+    var accepted = 0, rejected = 0;
+    allCards.forEach(function(card) {
+        if (card.dataset.published === 'true') return;
+        if (card.dataset.selected === 'false') rejected++;
+        else accepted++;
+    });
+
+    // Nav badges
+    var navReady = document.getElementById('nav-ready-badge');
+    if (navReady) {
+        navReady.innerHTML = accepted > 0
+            ? '<span class="badge bg-warning text-dark">' + accepted + ' ready</span>'
+            : '';
+    }
+    var navRej = document.getElementById('nav-rejected-badge');
+    if (navRej) {
+        navRej.innerHTML = rejected > 0
+            ? '<span class="badge bg-light text-danger border">' + rejected + ' rejected</span>'
+            : '';
+    }
+
+    // Commit section counts
+    var readyCount = document.getElementById('commit-ready-count');
+    if (readyCount) readyCount.textContent = accepted;
+    var btnCount = document.getElementById('commit-btn-count');
+    if (btnCount) btnCount.textContent = accepted;
+
+    // Phase-level counts
+    document.querySelectorAll('.phase-card').forEach(function(phaseCard) {
+        var cards = phaseCard.querySelectorAll('.entity-card[data-entity-id]');
+        if (cards.length === 0) return;
+        var pa = 0, pr = 0;
+        cards.forEach(function(c) {
+            if (c.dataset.published === 'true') return;
+            if (c.dataset.selected === 'false') pr++;
+            else pa++;
+        });
+        var countBadge = phaseCard.querySelector('.phase-count');
+        if (countBadge) {
+            var text = pa + '';
+            if (pr > 0) text += ', ' + pr + ' rejected';
+            countBadge.textContent = text;
+        }
+    });
+}
+
+/* ---- Commit / Uncommit ---- */
 function commitToOntServe() {
     var btn = document.getElementById('commitBtn');
     var resultDiv = document.getElementById('commitResult');
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Committing...';
 
-    fetch(`/scenario_pipeline/case/${currentCaseId}/reconcile/commit`, {
+    fetch('/scenario_pipeline/case/' + currentCaseId + '/reconcile/commit', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -415,7 +703,6 @@ function commitToOntServe() {
                 + 'Individuals: ' + (r.individuals_committed || 0) + ', '
                 + 'OntServe synced: ' + (r.ontserve_synced ? 'Yes' : 'No')
                 + '</div>';
-            // Reload after short delay to reflect committed state
             setTimeout(function() { location.reload(); }, 1500);
         } else {
             resultDiv.innerHTML = '<div class="commit-status error">'
@@ -444,7 +731,7 @@ function uncommitEntities() {
     var resultDiv = document.getElementById('uncommitResult');
     if (resultDiv) resultDiv.style.display = 'block';
 
-    fetch(`/scenario_pipeline/case/${currentCaseId}/reconcile/uncommit`, {
+    fetch('/scenario_pipeline/case/' + currentCaseId + '/reconcile/uncommit', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

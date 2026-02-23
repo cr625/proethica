@@ -234,6 +234,15 @@ class AutoCommitService:
         if not include_committed:
             query = query.filter_by(is_published=False)
 
+        # Exclude explicitly rejected entities (is_selected=False AND is_reviewed=True)
+        # Legacy entities with is_selected=False, is_reviewed=False are still included
+        query = query.filter(
+            db.or_(
+                TemporaryRDFStorage.is_selected == True,   # noqa: E712
+                TemporaryRDFStorage.is_reviewed == False    # noqa: E712
+            )
+        )
+
         # Order by extraction type to group similar entities
         entities = query.order_by(
             TemporaryRDFStorage.extraction_type,

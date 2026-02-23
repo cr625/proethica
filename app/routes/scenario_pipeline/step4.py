@@ -203,20 +203,35 @@ def step4_entities(case_id):
         pipeline_status = PipelineStatusService.get_step_status(case_id)
         narrative_data = _load_narrative_for_review(case_id)
 
-        # Commit counts -- all entities for this case (Steps 1-4).
-        # The commit action publishes everything, and users may defer
-        # committing until the end of the pipeline.
-        unpublished_count = TemporaryRDFStorage.query.filter_by(
+        # Commit counts
+        # Rejected = explicitly rejected by user (is_selected=False AND is_reviewed=True)
+        rejected_count = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id, is_published=False, is_selected=False, is_reviewed=True
+        ).count()
+        total_unpublished = TemporaryRDFStorage.query.filter_by(
             case_id=case_id, is_published=False
         ).count()
+        unpublished_count = total_unpublished - rejected_count
         published_count = TemporaryRDFStorage.query.filter_by(
             case_id=case_id, is_published=True
         ).count()
-        class_count = TemporaryRDFStorage.query.filter_by(
-            case_id=case_id, is_published=False, storage_type='class'
+        class_count = TemporaryRDFStorage.query.filter(
+            TemporaryRDFStorage.case_id == case_id,
+            TemporaryRDFStorage.is_published == False,  # noqa: E712
+            TemporaryRDFStorage.storage_type == 'class',
+            db.not_(db.and_(
+                TemporaryRDFStorage.is_selected == False,  # noqa: E712
+                TemporaryRDFStorage.is_reviewed == True     # noqa: E712
+            ))
         ).count()
-        individual_count = TemporaryRDFStorage.query.filter_by(
-            case_id=case_id, is_published=False, storage_type='individual'
+        individual_count = TemporaryRDFStorage.query.filter(
+            TemporaryRDFStorage.case_id == case_id,
+            TemporaryRDFStorage.is_published == False,  # noqa: E712
+            TemporaryRDFStorage.storage_type == 'individual',
+            db.not_(db.and_(
+                TemporaryRDFStorage.is_selected == False,  # noqa: E712
+                TemporaryRDFStorage.is_reviewed == True     # noqa: E712
+            ))
         ).count()
 
         return render_template(
@@ -227,6 +242,7 @@ def step4_entities(case_id):
             synthesis_status=synthesis_status,
             pipeline_status=pipeline_status,
             unpublished_count=unpublished_count,
+            rejected_count=rejected_count,
             published_count=published_count,
             class_count=class_count,
             individual_count=individual_count,
@@ -292,6 +308,7 @@ def _build_step4_entity_groups(case_id: int) -> List[Dict]:
         for e in entities:
             by_type[e.extraction_type].append(e)
 
+        rej = sum(1 for e in entities if not e.is_published and not e.is_selected and e.is_reviewed)
         groups.append({
             'phase': defn['phase'],
             'label': defn['label'],
@@ -301,6 +318,7 @@ def _build_step4_entity_groups(case_id: int) -> List[Dict]:
             'count': len(entities),
             'published_count': sum(1 for e in entities if e.is_published),
             'unpublished_count': sum(1 for e in entities if not e.is_published),
+            'rejected_count': rej,
         })
 
     return groups
@@ -1550,6 +1568,50 @@ def _load_decision_points_for_review(case_id: int) -> List[Dict]:
     return decision_points
 
 
+def _enrich_decision_moment_options(case_id: int, decision_moments: List[Dict]) -> List[Dict]:
+    """Enrich decision moment options with descriptions from canonical decision points.
+
+    The narrative extractor stores options with 'label', but older runs left labels
+    empty because canonical DPs use 'description' not 'label'. This fills in missing
+    labels by matching decision moments to their source canonical DPs by question text.
+    """
+    # Check if enrichment is needed (any option with empty label)
+    needs_enrichment = any(
+        not opt.get('label')
+        for dm in decision_moments
+        for opt in dm.get('options', [])
+    )
+    if not needs_enrichment:
+        return decision_moments
+
+    # Load canonical decision point options keyed by question text
+    dp_rows = TemporaryRDFStorage.query.filter_by(
+        case_id=case_id, extraction_type='canonical_decision_point'
+    ).all()
+
+    dp_options_by_question = {}
+    for row in dp_rows:
+        rdf = row.rdf_json_ld or {}
+        q_text = rdf.get('decision_question', '')
+        if q_text and rdf.get('options'):
+            dp_options_by_question[q_text] = rdf['options']
+
+    # Enrich each decision moment
+    for dm in decision_moments:
+        q_text = dm.get('question', '')
+        dp_opts = dp_options_by_question.get(q_text, [])
+        dm_opts = dm.get('options', [])
+        if dp_opts and len(dp_opts) == len(dm_opts):
+            for i, opt in enumerate(dm_opts):
+                if not opt.get('label') and i < len(dp_opts):
+                    opt['label'] = dp_opts[i].get('description', '')
+                    # Also carry over action_uri if missing
+                    if not opt.get('action_uris') and dp_opts[i].get('action_uri'):
+                        opt['action_uris'] = [dp_opts[i]['action_uri']]
+
+    return decision_moments
+
+
 def _load_narrative_for_review(case_id: int) -> Optional[Dict]:
     """Load Phase 4 narrative data for the review page."""
     try:
@@ -1567,6 +1629,11 @@ def _load_narrative_for_review(case_id: int) -> Optional[Dict]:
             characters = ne.get('characters', []) if isinstance(ne, dict) else []
             conflicts = ne.get('conflicts', []) if isinstance(ne, dict) else []
             decision_moments = ne.get('decision_moments', []) if isinstance(ne, dict) else []
+
+            # Enrich decision moment options: the narrative extractor may have
+            # stored options with empty labels (old code read 'label' but canonical
+            # DPs use 'description'). Pull descriptions from canonical DPs.
+            decision_moments = _enrich_decision_moment_options(case_id, decision_moments)
 
             # Extract timeline
             tl = data.get('timeline', {})
@@ -3041,6 +3108,60 @@ def commit_step4_entities(case_id):
             'success': False,
             'error': str(e)
         }), 500
+
+
+# ============================================================================
+# ENTITY REVIEW API
+# ============================================================================
+
+@bp.route('/case/<int:case_id>/entities/<int:entity_id>/review', methods=['POST'])
+def update_entity_review(case_id, entity_id):
+    """Toggle accept/reject status for an entity."""
+    entity = TemporaryRDFStorage.query.filter_by(
+        id=entity_id, case_id=case_id
+    ).first_or_404()
+
+    data = request.get_json(silent=True) or {}
+    action = data.get('action', 'accept')
+
+    if action == 'reject':
+        entity.is_selected = False
+        entity.is_reviewed = True
+    else:
+        entity.is_selected = True
+        entity.is_reviewed = True
+
+    db.session.commit()
+    return jsonify({'success': True, 'is_selected': entity.is_selected})
+
+
+@bp.route('/case/<int:case_id>/entities/<int:entity_id>/edit', methods=['POST'])
+def edit_entity(case_id, entity_id):
+    """Update entity label and/or definition."""
+    entity = TemporaryRDFStorage.query.filter_by(
+        id=entity_id, case_id=case_id
+    ).first_or_404()
+
+    if entity.is_published:
+        return jsonify({'success': False, 'error': 'Cannot edit committed entities'}), 400
+
+    data = request.get_json(silent=True) or {}
+    label = data.get('label', '').strip()
+    definition = data.get('definition', '').strip()
+
+    if label:
+        entity.entity_label = label
+    if definition:
+        entity.entity_definition = definition
+
+    entity.is_reviewed = True
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'entity_label': entity.entity_label,
+        'entity_definition': entity.entity_definition
+    })
 
 
 # ============================================================================

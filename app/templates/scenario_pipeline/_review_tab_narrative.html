@@ -210,16 +210,16 @@
                         <span class="text-muted">Affects:</span>
                         {% if role_uris %}
                             {% for uri in role_uris %}
-                            <span class="badge bg-secondary bg-opacity-50 text-dark">{{ ontology_label(uri, entity_lookup) }}</span>
+                            <span class="badge bg-light text-dark border">{{ ontology_label(uri, entity_lookup) }}</span>
                             {% endfor %}
                         {% else %}
                             {% for role in role_labels %}
                             {# Try to find entity by label for popover support #}
                             {% set role_entity = entity_lookup_by_label.get(role|lower) if entity_lookup_by_label else none %}
                             {% if role_entity and role_entity.uri %}
-                            <span class="badge bg-secondary bg-opacity-50 text-dark">{{ ontology_label(role_entity.uri, entity_lookup) }}</span>
+                            <span class="badge bg-light text-dark border">{{ ontology_label(role_entity.uri, entity_lookup) }}</span>
                             {% else %}
-                            <span class="badge bg-secondary bg-opacity-50 text-dark">{{ role }}</span>
+                            <span class="badge bg-light text-dark border">{{ role }}</span>
                             {% endif %}
                             {% endfor %}
                         {% endif %}
@@ -345,9 +345,17 @@
         <div class="mb-3 pb-3 border-bottom">
             <strong>{{ loop.index }}. {{ dm.question if dm.question else (dm.description if dm.description else dm) }}</strong>
             {% if dm.options %}
-            <ul class="mb-0 mt-2 small">
+            <ul class="mb-0 mt-2 small list-unstyled">
                 {% for opt in dm.options %}
-                <li>{{ opt.label if opt.label else opt }}</li>
+                <li class="mb-1 ps-3 position-relative">
+                    {%- if opt.is_board_choice -%}
+                    <i class="bi bi-check-circle-fill text-success position-absolute" style="left: 0;"></i>
+                    {%- else -%}
+                    <i class="bi bi-circle text-muted position-absolute" style="left: 0;"></i>
+                    {%- endif -%}
+                    {{ opt.label if opt.label else (opt.description if opt.description else '') }}
+                    {%- if opt.is_board_choice %} <span class="badge bg-light text-dark border border-success ms-1">Actual outcome</span>{% endif -%}
+                </li>
                 {% endfor %}
             </ul>
             {% endif %}

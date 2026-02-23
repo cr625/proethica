@@ -214,6 +214,7 @@ Required context variables:
     {# Provenance - always available #}
     <hr class="my-2">
     <a href="{{ url_for('provenance.case_provenance', case_id=case.id) }}"
+       target="_blank"
        class="pipeline-step {% if request.endpoint == 'provenance.case_provenance' %}active{% endif %}">
         <span class="step-icon">
             <i class="bi bi-diagram-3"></i>

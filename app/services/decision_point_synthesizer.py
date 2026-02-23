@@ -281,6 +281,21 @@ class DecisionPointSynthesizer:
             self._llm_client = get_llm_client()
         return self._llm_client
 
+    def _build_entity_uri_lookup(self, case_id: int) -> Dict[str, str]:
+        """Build lowercase-label -> URI lookup from case entities (roles, obligations, constraints).
+
+        Used to resolve LLM-generated labels back to proper extraction URIs.
+        """
+        lookup = {}
+        for etype in ('roles', 'obligations', 'constraints'):
+            entities = TemporaryRDFStorage.query.filter_by(
+                case_id=case_id, extraction_type=etype
+            ).all()
+            for e in entities:
+                if e.entity_label and e.entity_uri:
+                    lookup[e.entity_label.lower()] = e.entity_uri
+        return lookup
+
     def synthesize(
         self,
         case_id: int,
@@ -849,6 +864,9 @@ Return as JSON array:
         q_uri_map = {f"Q{i+1}": q.get('uri', '') for i, q in enumerate(questions)}
         c_uri_map = {f"C{i+1}": c.get('uri', '') for i, c in enumerate(conclusions)}
 
+        # Resolve LLM labels to real extraction URIs
+        entity_uri_lookup = self._build_entity_uri_lookup(case_id)
+
         canonical_points = []
         for i, dp_data in enumerate(parsed):
             # Find aligned question
@@ -863,16 +881,22 @@ Return as JSON array:
                         aligned_q_text = q.get('question_text', q.get('text', ''))
                         break
 
+            # Resolve role/obligation labels to proper extraction URIs
+            role_label = dp_data.get('role_label', 'Unknown')
+            role_uri = entity_uri_lookup.get(role_label.lower(), '') if role_label else ''
+            obl_label = dp_data.get('obligation_label')
+            obl_uri = entity_uri_lookup.get(obl_label.lower(), '') if obl_label else None
+
             # Create canonical decision point
             dp = CanonicalDecisionPoint(
                 focus_id=dp_data.get('focus_id', f'DP{i+1}'),
                 focus_number=i + 1,
                 description=dp_data.get('description', ''),
                 decision_question=dp_data.get('decision_question', ''),
-                role_uri=f"case-{case_id}#Role_{dp_data.get('role_label', 'Unknown').replace(' ', '_')}",
-                role_label=dp_data.get('role_label', 'Unknown'),
-                obligation_uri=f"case-{case_id}#Obligation_{dp_data.get('obligation_label', 'Unknown').replace(' ', '_')}" if dp_data.get('obligation_label') else None,
-                obligation_label=dp_data.get('obligation_label'),
+                role_uri=role_uri,
+                role_label=role_label,
+                obligation_uri=obl_uri,
+                obligation_label=obl_label,
                 aligned_question_uri=aligned_q_uri,
                 aligned_question_text=aligned_q_text,
                 board_resolution=dp_data.get('board_resolution', ''),
@@ -1024,6 +1048,27 @@ Produce 4-6 decision points capturing the key ethical issues.
         if not synthesis_data:
             return []
 
+        # Build label->URI lookup from algorithmic candidates so we don't
+        # trust the LLM's fabricated URIs (e.g. "case-74#Engineer" instead
+        # of the real extraction URI).
+        entity_uri_lookup = {}  # lowercase label -> URI
+        for candidate, _ in top_candidates:
+            g = candidate.grounding
+            if g.role_label and g.role_uri:
+                entity_uri_lookup[g.role_label.lower()] = g.role_uri
+            if g.obligation_label and g.obligation_uri:
+                entity_uri_lookup[g.obligation_label.lower()] = g.obligation_uri
+            if g.constraint_label and g.constraint_uri:
+                entity_uri_lookup[g.constraint_label.lower()] = g.constraint_uri
+
+        def _resolve_uri(label: str, llm_uri: str) -> str:
+            """Resolve label to real URI via candidate lookup, falling back to LLM URI."""
+            if label:
+                resolved = entity_uri_lookup.get(label.lower())
+                if resolved:
+                    return resolved
+            return llm_uri
+
         canonical_points = []
         for i, data in enumerate(synthesis_data, 1):
             # Build Toulmin structure
@@ -1062,11 +1107,11 @@ Produce 4-6 decision points capturing the key ethical issues.
                 focus_number=i,
                 description=data.get('description', ''),
                 decision_question=data.get('decision_question', ''),
-                role_uri=data.get('role_uri', ''),
+                role_uri=_resolve_uri(data.get('role_label', ''), data.get('role_uri', '')),
                 role_label=data.get('role_label', ''),
-                obligation_uri=data.get('obligation_uri'),
+                obligation_uri=_resolve_uri(data.get('obligation_label'), data.get('obligation_uri', '')),
                 obligation_label=data.get('obligation_label'),
-                constraint_uri=data.get('constraint_uri'),
+                constraint_uri=_resolve_uri(data.get('constraint_label'), data.get('constraint_uri', '')),
                 constraint_label=data.get('constraint_label'),
                 involved_action_uris=data.get('involved_action_uris', []),
                 provision_uris=data.get('provision_uris', []),

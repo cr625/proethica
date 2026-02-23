@@ -606,9 +606,15 @@ class NarrativeElementExtractor:
             options = []
             if hasattr(dp, 'options') and dp.options:
                 for opt in dp.options:
+                    # Options come from LLM with 'description' + 'action_uri' (singular),
+                    # or from algorithmic path with 'description' + 'action_uri'.
+                    # Normalize to 'label' + 'action_uris' (list) for template.
+                    label = opt.get('label') or opt.get('description', '')
+                    action_uri = opt.get('action_uri', '')
+                    action_uris = opt.get('action_uris', [action_uri] if action_uri else [])
                     options.append({
-                        'label': opt.get('label', ''),
-                        'action_uris': opt.get('action_uris', []),
+                        'label': label,
+                        'action_uris': action_uris,
                         'is_board_choice': opt.get('is_board_choice', False)
                     })
 
@@ -742,19 +748,30 @@ Output as JSON array:
             if json_match:
                 enhancements = json.loads(json_match.group(1))
 
-                # Apply enhancements
+                # Apply enhancements -- fuzzy match since LLM may shorten labels
                 for enhancement in enhancements:
-                    role_label = enhancement.get('role', '')
+                    role_label = enhancement.get('role', '').lower().strip()
+                    if not role_label:
+                        continue
+                    best_char = None
                     for char in characters:
-                        if char.label.lower() == role_label.lower() or \
-                           role_label.lower() in char.label.lower():
-                            if enhancement.get('description'):
-                                char.professional_position = enhancement['description']
-                            if enhancement.get('motivation'):
-                                char.motivations.insert(0, enhancement['motivation'])
-                            char.llm_enhanced = True
-                            enhanced_count += 1
+                        cl = char.label.lower()
+                        if cl == role_label or role_label in cl or cl in role_label:
+                            best_char = char
                             break
+                        # Also match on first significant word(s)
+                        role_words = set(role_label.split())
+                        char_words = set(cl.split())
+                        if role_words and char_words and len(role_words & char_words) >= min(2, len(role_words)):
+                            best_char = char
+                            break
+                    if best_char:
+                        if enhancement.get('description'):
+                            best_char.professional_position = enhancement['description']
+                        if enhancement.get('motivation'):
+                            best_char.motivations.insert(0, enhancement['motivation'])
+                        best_char.llm_enhanced = True
+                        enhanced_count += 1
 
             logger.info(f"Enhanced {enhanced_count} characters with LLM")
 

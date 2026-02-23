@@ -149,6 +149,12 @@
                     </div>
                 </div>
                 <div class="step-content">
+                    <div class="pipeline-lineage mb-2">
+                        <span class="badge bg-light text-dark border"><i class="bi bi-chat-dots"></i> LLM detect</span>
+                        <span class="badge bg-light text-dark border"><i class="bi bi-cpu"></i> algorithmic linking</span>
+                        <span class="pipeline-arrow"><i class="bi bi-arrow-left"></i></span>
+                        <small class="text-muted">Case text + Phase 1 entities</small>
+                    </div>
                     <div id="provisionsStreamStatus" style="display: none;"></div>
                     <div id="provisionsEntityList">
                     {% set prov_entities = phase2_entities.get('code_provision_reference', []) %}
@@ -186,6 +192,11 @@
                     </div>
                 </div>
                 <div class="step-content">
+                    <div class="pipeline-lineage mb-2">
+                        <span class="badge bg-light text-dark border"><i class="bi bi-chat-dots"></i> LLM extraction</span>
+                        <span class="pipeline-arrow"><i class="bi bi-arrow-left"></i></span>
+                        <small class="text-muted">Case text</small>
+                    </div>
                     <div id="precedentsStreamStatus" style="display: none;"></div>
                     <div id="precedentsEntityList">
                     {% set prec_entities = phase2_entities.get('precedent_case_reference', []) %}
@@ -240,6 +251,13 @@
                     </div>
                 </div>
                 <div class="step-content">
+                    <div class="pipeline-lineage mb-2">
+                        <span class="badge bg-light text-dark border"><i class="bi bi-cpu"></i> Board text parsed</span>
+                        <span class="badge bg-light text-dark border"><i class="bi bi-chat-dots"></i> LLM analytical Q&C</span>
+                        <span class="badge bg-light text-dark border"><i class="bi bi-chat-dots"></i> LLM Q-C linking</span>
+                        <span class="pipeline-arrow"><i class="bi bi-arrow-left"></i></span>
+                        <small class="text-muted">Case text + 2A provisions</small>
+                    </div>
                     <div id="questionsStreamStatus" style="display: none;"></div>
                     <div id="questionsEntityList">
                     {% set q_entities = phase2_entities.get('ethical_question', []) %}
@@ -300,6 +318,11 @@
                     </div>
                 </div>
                 <div class="step-content">
+                    <div class="pipeline-lineage mb-2">
+                        <span class="badge bg-light text-dark border"><i class="bi bi-chat-dots"></i> LLM classification</span>
+                        <span class="pipeline-arrow"><i class="bi bi-arrow-left"></i></span>
+                        <small class="text-muted">Phase 1 entities + 2C Q&C</small>
+                    </div>
                     <div id="transformationStreamStatus" style="display: none;"></div>
                     {% if synthesis_status.transformation_detail and synthesis_status.transformation_detail.pattern_description %}
                     <div id="transformationDetail" class="mt-1">
@@ -334,6 +357,12 @@
                     </div>
                 </div>
                 <div class="step-content">
+                    <div class="pipeline-lineage mb-2">
+                        <span class="badge bg-light text-dark border"><i class="bi bi-chat-dots"></i> LLM batched analysis</span>
+                        <span class="badge bg-light text-dark border"><i class="bi bi-cpu"></i> label-to-URI resolution</span>
+                        <span class="pipeline-arrow"><i class="bi bi-arrow-left"></i></span>
+                        <small class="text-muted">Phase 1 entities + 2C Q&C + 2A provisions</small>
+                    </div>
                     <div id="rich_analysisStreamStatus" style="display: none;"></div>
                     <div id="rich_analysisEntityList">
                     {% set cl_entities = phase2_entities.get('causal_normative_link', []) %}
@@ -409,9 +438,13 @@
                     </div>
                 </div>
                 <div class="step-content">
-                    <p class="text-muted small mb-3">
-                        Composes decision points algorithmically (E1-E3), scores against Q&C using Toulmin analysis, then refines via LLM.
-                    </p>
+                    <div class="pipeline-lineage mb-2">
+                        <span class="badge bg-light text-dark border"><i class="bi bi-cpu"></i> E1-E3 algorithmic</span>
+                        <span class="badge bg-light text-dark border"><i class="bi bi-cpu"></i> Q&C scoring</span>
+                        <span class="badge bg-light text-dark border"><i class="bi bi-chat-dots"></i> LLM refinement</span>
+                        <span class="pipeline-arrow"><i class="bi bi-arrow-left"></i></span>
+                        <small class="text-muted">Phase 1 entities + 2C Q&C + 2E rich analysis</small>
+                    </div>
 
                     <!-- Synthesis Pipeline Stages -->
                     <div class="row text-center small mb-3" id="algorithmicSteps">
@@ -489,9 +522,12 @@
                     </div>
                 </div>
                 <div class="step-content">
-                    <p class="text-muted small mb-3">
-                        Transforms entities into narrative elements using Berreby's Event Calculus framework, then generates scenario seeds for Step 5.
-                    </p>
+                    <div class="pipeline-lineage mb-2">
+                        <span class="badge bg-light text-dark border"><i class="bi bi-cpu"></i> algorithmic base</span>
+                        <span class="badge bg-light text-dark border"><i class="bi bi-chat-dots"></i> LLM enhancement</span>
+                        <span class="pipeline-arrow"><i class="bi bi-arrow-left"></i></span>
+                        <small class="text-muted">Phase 1 entities + Phase 3 decision points</small>
+                    </div>
 
                     <!-- Phase 4 Pipeline Stages -->
                     <div class="row text-center small mb-3" id="phase4Steps">
@@ -663,6 +699,30 @@
 
     .extractor-section .step-content {
         padding: 1rem;
+    }
+
+    .pipeline-lineage {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+        font-size: 0.78rem;
+    }
+
+    .pipeline-lineage .badge {
+        font-weight: 400;
+        font-size: 0.72rem;
+        padding: 0.2em 0.5em;
+    }
+
+    .pipeline-lineage .badge i {
+        font-size: 0.7rem;
+    }
+
+    .pipeline-arrow {
+        color: #999;
+        font-size: 0.7rem;
+        margin: 0 0.15rem;
     }
 
     .prompt-preview {

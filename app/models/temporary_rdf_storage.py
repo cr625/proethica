@@ -46,7 +46,7 @@ class TemporaryRDFStorage(db.Model):
     entity_definition = db.Column(db.Text)
 
     # Review status
-    is_selected = db.Column(db.Boolean, default=False)
+    is_selected = db.Column(db.Boolean, default=True)
     is_reviewed = db.Column(db.Boolean, default=False)
     is_published = db.Column(db.Boolean, default=False)  # Renamed from is_published (2025-12-10)
     review_notes = db.Column(db.Text)
