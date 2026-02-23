@@ -373,17 +373,16 @@ Output as JSON:
 
         llm_trace = None
         try:
-            response = self.llm_client.messages.create(
+            from app.utils.llm_utils import streaming_completion
+            from app.utils.llm_json_utils import parse_json_object
+
+            response_text = streaming_completion(
+                self.llm_client,
                 model=ModelConfig.get_claude_model("default"),
                 max_tokens=600,
-                temperature=0.3,
-                messages=[{"role": "user", "content": prompt}]
+                prompt=prompt,
+                temperature=0.3
             )
-
-            import json
-            import re
-
-            response_text = response.content[0].text
 
             # Capture LLM trace
             llm_trace = {
@@ -394,10 +393,9 @@ Output as JSON:
                 'model': ModelConfig.get_claude_model("default")
             }
 
-            json_match = re.search(r'```json\n(.*?)\n```', response_text, re.DOTALL)
+            data = parse_json_object(response_text, context="insight_generation")
 
-            if json_match:
-                data = json.loads(json_match.group(1))
+            if data:
 
                 novel_aspects = [
                     NovelAspect(

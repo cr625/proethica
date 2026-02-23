@@ -603,11 +603,11 @@ Extract ALL questions the Board was asked. Use EXACT entity labels from the list
 **BOARD'S EXPLICIT QUESTIONS:**
 {board_q_text}
 
-**CASE FACTS (summary):**
-{case_facts[:2000] if case_facts else "(not provided)"}
+**CASE FACTS:**
+{case_facts if case_facts else "(not provided)"}
 
-**BOARD'S CONCLUSION (summary):**
-{case_conclusion[:1000] if case_conclusion else "(not provided)"}
+**BOARD'S CONCLUSION:**
+{case_conclusion if case_conclusion else "(not provided)"}
 
 **ALL EXTRACTED ENTITIES:**
 {entities_text}

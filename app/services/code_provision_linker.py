@@ -6,8 +6,6 @@ using LLM-based semantic matching.
 """
 
 import logging
-import json
-import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Tuple
 
@@ -205,90 +203,14 @@ Use exact entity labels. Omit provisions with no links to these entities."""
 
     def _parse_batch_response(self, response_text: str, entity_type: str) -> Dict[str, List[Dict]]:
         """Parse batch linking response, returning {provision_code: [links]}."""
-        from_code_block = False
-        json_match = re.search(r'```(?:json)?\s*\n(.*?)\n```', response_text, re.DOTALL)
-        if json_match:
-            from_code_block = True
-        else:
-            json_match = re.search(r'\[\s*\{.*?\}\s*\]', response_text, re.DOTALL)
-            if not json_match:
-                logger.warning(f"No JSON in {entity_type} linking response")
-                return {}
+        from app.utils.llm_json_utils import parse_json_response
 
-        try:
-            json_text = json_match.group(1) if from_code_block else json_match.group(0)
-            linkings = json.loads(json_text)
+        linkings = parse_json_response(response_text, context=f"{entity_type}_linking")
+        if linkings is None:
+            logger.warning(f"No JSON in {entity_type} linking response")
+            return {}
 
-            result = {}
-            for link in linkings:
-                code = link.get('code_provision', '').rstrip('.')
-                applies_to = []
-                for item in link.get('applies_to', []):
-                    applies_to.append({
-                        'entity_type': entity_type,
-                        'entity_label': item.get('entity_label', ''),
-                        'reasoning': item.get('reasoning', ''),
-                    })
-                if applies_to:
-                    result[code] = applies_to
-            return result
-
-        except json.JSONDecodeError as e:
-            logger.warning(f"Malformed {entity_type} linking JSON, attempting repair: {e}")
-            result = self._repair_and_parse_links(json_text, entity_type)
-            if result:
-                logger.info(f"JSON repair succeeded for {entity_type}: {sum(len(v) for v in result.values())} links recovered")
-            else:
-                logger.error(f"JSON repair failed for {entity_type}")
-            return result
-
-    def _repair_and_parse_links(self, json_text: str, entity_type: str) -> Dict[str, List[Dict]]:
-        """Attempt multiple JSON repair strategies to recover linking data."""
-        # Strategy 1: fix trailing commas + close truncated arrays
-        try:
-            repaired = json_text.rstrip()
-            repaired = re.sub(r',\s*([}\]])', r'\1', repaired)
-            if not repaired.rstrip().endswith(']'):
-                last_brace = repaired.rfind('}')
-                if last_brace > 0:
-                    repaired = repaired[:last_brace + 1] + ']'
-            return self._extract_links_from_parsed(json.loads(repaired), entity_type)
-        except (json.JSONDecodeError, Exception):
-            pass
-
-        # Strategy 2: parse each top-level object individually
-        # Handles cases where one object has a malformed string but others are fine
-        result = {}
-        # Find all top-level objects in the array
-        depth = 0
-        obj_start = None
-        for i, ch in enumerate(json_text):
-            if ch == '{' and depth == 0:
-                obj_start = i
-                depth = 1
-            elif ch == '{':
-                depth += 1
-            elif ch == '}':
-                depth -= 1
-                if depth == 0 and obj_start is not None:
-                    obj_str = json_text[obj_start:i + 1]
-                    try:
-                        obj = json.loads(obj_str)
-                        code = obj.get('code_provision', '').rstrip('.')
-                        applies_to = []
-                        for item in obj.get('applies_to', []):
-                            applies_to.append({
-                                'entity_type': entity_type,
-                                'entity_label': item.get('entity_label', ''),
-                                'reasoning': item.get('reasoning', ''),
-                            })
-                        if applies_to:
-                            result.setdefault(code, []).extend(applies_to)
-                    except json.JSONDecodeError:
-                        # Skip this malformed object, continue with others
-                        pass
-                    obj_start = None
-        return result
+        return self._extract_links_from_parsed(linkings, entity_type)
 
     def _extract_links_from_parsed(self, linkings: list, entity_type: str) -> Dict[str, List[Dict]]:
         """Convert parsed JSON linkings list to result dict."""
@@ -352,17 +274,15 @@ Use exact entity labels. Omit provisions with no links to these entities."""
         prompt = self._create_excerpt_prompt(provisions, case_sections)
 
         try:
-            response = self.llm_client.messages.create(
+            from app.utils.llm_utils import streaming_completion
+
+            response_text = streaming_completion(
+                self.llm_client,
                 model=ModelConfig.get_claude_model("default"),
                 max_tokens=8000,
-                temperature=0.1,
-                messages=[{
-                    "role": "user",
-                    "content": prompt
-                }]
+                prompt=prompt,
+                temperature=0.1
             )
-
-            response_text = response.content[0].text
 
             # Parse excerpts from response
             provisions_with_excerpts = self._parse_excerpts_response(response_text, provisions)
@@ -444,22 +364,14 @@ Respond with JSON where each provision has its relevant excerpts:
         original_provisions: List[Dict]
     ) -> List[Dict]:
         """Parse LLM response with excerpts and add to provisions."""
+        from app.utils.llm_json_utils import parse_json_response
 
-        import json
-        import re
-
-        # Extract JSON
-        json_match = re.search(r'```json\n(.*?)\n```', response_text, re.DOTALL)
-        if not json_match:
-            json_match = re.search(r'\[\s*\{.*?\}\s*\]', response_text, re.DOTALL)
-            if not json_match:
-                logger.warning("Could not find JSON in excerpts response")
-                return original_provisions
+        excerpts_data = parse_json_response(response_text, context="provision_excerpts")
+        if excerpts_data is None:
+            logger.warning("Could not find JSON in excerpts response")
+            return original_provisions
 
         try:
-            json_text = json_match.group(1) if '```json' in response_text else json_match.group(0)
-            excerpts_data = json.loads(json_text)
-
             # Create mapping
             excerpts_by_code = {}
             for item in excerpts_data:
@@ -478,8 +390,8 @@ Respond with JSON where each provision has its relevant excerpts:
 
             return original_provisions
 
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse excerpts JSON: {e}")
+        except Exception as e:
+            logger.error(f"Failed to process excerpts response: {e}")
             return original_provisions
 
     def get_last_prompt_and_response(self) -> Dict:

@@ -396,25 +396,61 @@ class ObligationCoverageAnalyzer:
                 role_uri = f"case-{case_id}#{role_display.replace(' ', '_')}"
                 return role_display, role_uri
 
-        # Second pass: check definition text for role references
+        # Second pass: check definition text for case-specific role references
         if definition_lower:
             for role_key, role_label in role_lookup.items():
                 if role_key in definition_lower:
                     role_uri = f"case-{case_id}#{role_label.replace(' ', '_')}"
                     return role_label, role_uri
 
-        # Final fallback for engineering domain: generic obligations likely apply to Engineer A
-        # (the primary role being evaluated in NSPE cases)
-        if 'Engineer A' in role_lookup.values():
-            # Check if this is an engineering-related obligation
+        # Third pass: check definition for generic role vocabulary, then map to best case role
+        if definition_lower:
+            for role_term in self.role_vocabulary:
+                if role_term in definition_lower:
+                    # Find the best matching case role for this vocabulary term
+                    best_role = self._find_best_case_role(role_term, role_lookup)
+                    if best_role:
+                        role_uri = f"case-{case_id}#{best_role.replace(' ', '_')}"
+                        return best_role, role_uri
+                    # No case role matches the vocabulary term; use the term directly
+                    role_display = role_term.title()
+                    role_uri = f"case-{case_id}#{role_display.replace(' ', '_')}"
+                    return role_display, role_uri
+
+        # Final fallback for engineering domain: generic obligations likely bind to
+        # the primary engineer role (the subject of evaluation in NSPE BER cases)
+        primary_engineer = self._find_primary_engineer(role_lookup)
+        if primary_engineer:
             combined = f"{label_lower} {definition_lower}"
             eng_keywords = ['engineer', 'design', 'review', 'verification', 'safety',
                            'disclosure', 'competence', 'ai', 'technical']
             if any(kw in combined for kw in eng_keywords):
-                role_uri = f"case-{case_id}#Engineer_A"
-                return 'Engineer A', role_uri
+                role_uri = f"case-{case_id}#{primary_engineer.replace(' ', '_')}"
+                return primary_engineer, role_uri
 
         return None, None
+
+    def _find_best_case_role(self, vocab_term: str, role_lookup: Dict[str, str]) -> Optional[str]:
+        """Find the best case-specific role matching a vocabulary term."""
+        # Prefer roles whose label starts with the term (e.g., "engineer" -> "Engineer A ...")
+        candidates = []
+        for role_key, role_label in role_lookup.items():
+            if role_key.startswith(vocab_term):
+                candidates.append(role_label)
+        if candidates:
+            # Shortest label is likely the most primary role
+            return min(candidates, key=len)
+        return None
+
+    def _find_primary_engineer(self, role_lookup: Dict[str, str]) -> Optional[str]:
+        """Find the primary engineer role in a case (shortest label starting with 'Engineer')."""
+        engineer_roles = [
+            label for label in role_lookup.values()
+            if label.lower().startswith('engineer')
+        ]
+        if engineer_roles:
+            return min(engineer_roles, key=len)
+        return None
 
     def _classify_decision_type(self, label: str, definition: str) -> str:
         """Classify the decision type based on keywords."""

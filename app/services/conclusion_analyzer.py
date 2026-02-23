@@ -653,8 +653,8 @@ Extract ALL conclusions the Board reached. Use EXACT entity labels from the list
 **ANALYTICAL QUESTIONS (generated):**
 {analytical_text if analytical_text else "(none provided)"}
 
-**CASE FACTS (summary):**
-{case_facts[:2000] if case_facts else "(not provided)"}
+**CASE FACTS:**
+{case_facts if case_facts else "(not provided)"}
 
 **ALL EXTRACTED ENTITIES:**
 {entities_text}

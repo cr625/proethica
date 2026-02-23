@@ -109,8 +109,12 @@ def init_step4_csrf_exemption(app):
         app.csrf.exempt('step4.get_phase4_data')
         # Complete synthesis streaming
         app.csrf.exempt('step4.synthesize_complete_streaming')
-        # Non-streaming complete synthesis (run all)
+        # Complete synthesis (run all) - both streaming and non-streaming
         app.csrf.exempt(run_complete_synthesis_func)
+        app.csrf.exempt(run_complete_synthesis_stream_func)
+        # Also exempt by view name in case function ref doesn't match
+        app.csrf.exempt('step4.run_complete_synthesis')
+        app.csrf.exempt('step4.run_complete_synthesis_stream')
         # Utility endpoints
         app.csrf.exempt('step4.clear_step4_data')
 
@@ -2227,6 +2231,7 @@ register_complete_synthesis_routes(
 # Register Run All (non-streaming complete synthesis)
 _run_all_funcs = register_run_all_routes(bp, get_all_case_entities)
 run_complete_synthesis_func = _run_all_funcs['run_complete_synthesis']
+run_complete_synthesis_stream_func = _run_all_funcs['run_complete_synthesis_stream']
 
 
 # ============================================================================
@@ -4385,28 +4390,20 @@ def extract_precedents_streaming(case_id):
             response = llm_client.messages.create(
                 model=STEP4_DEFAULT_MODEL,
                 max_tokens=4096,
+                temperature=0.1,
                 messages=[{'role': 'user', 'content': prompt}]
             )
             raw_response = response.content[0].text
             yield sse_msg({'stage': 'RECEIVED', 'progress': 60, 'messages': ['LLM response received, parsing...']})
 
             # Parse JSON response
-            try:
-                # Handle potential markdown code blocks
-                cleaned = raw_response.strip()
-                if cleaned.startswith('```'):
-                    cleaned = cleaned.split('\n', 1)[1] if '\n' in cleaned else cleaned[3:]
-                    if cleaned.endswith('```'):
-                        cleaned = cleaned[:-3].strip()
-                precedents = json_mod.loads(cleaned)
-            except json_mod.JSONDecodeError:
+            from app.utils.llm_json_utils import parse_json_response
+            precedents = parse_json_response(raw_response, context="precedent_extraction")
+            if precedents is None:
                 logger.error(f"Failed to parse precedent extraction response: {raw_response[:500]}")
                 yield sse_msg({'stage': 'ERROR', 'progress': 100,
                                'messages': ['Failed to parse LLM response as JSON'], 'error': True})
                 return
-
-            if not isinstance(precedents, list):
-                precedents = []
 
             yield sse_msg({'stage': 'PARSED', 'progress': 70,
                            'messages': [f'Found {len(precedents)} cited precedent cases']})
@@ -4589,19 +4586,15 @@ def extract_precedents_individual(case_id):
         response = llm_client.messages.create(
             model=STEP4_DEFAULT_MODEL,
             max_tokens=4096,
+            temperature=0.1,
             messages=[{'role': 'user', 'content': prompt}]
         )
         raw_response = response.content[0].text
 
         # Parse
-        import json as json_mod
-        cleaned = raw_response.strip()
-        if cleaned.startswith('```'):
-            cleaned = cleaned.split('\n', 1)[1] if '\n' in cleaned else cleaned[3:]
-            if cleaned.endswith('```'):
-                cleaned = cleaned[:-3].strip()
-        precedents = json_mod.loads(cleaned)
-        if not isinstance(precedents, list):
+        from app.utils.llm_json_utils import parse_json_response
+        precedents = parse_json_response(raw_response, context="precedent_extraction")
+        if precedents is None:
             precedents = []
 
         # Resolve + store

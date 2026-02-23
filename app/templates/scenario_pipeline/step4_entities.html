@@ -1,7 +1,7 @@
 {% extends "scenarios/base_step.html" %}
 
-{% block step_title %}Step 4: Entity Review{% endblock %}
-{% block step_header %}Step 4: Entity Review{% endblock %}
+{% block step_title %}Step 4: Review{% endblock %}
+{% block step_header %}Step 4: Review{% endblock %}
 {% block step_subtitle %}Review extracted entities and commit to OntServe{% endblock %}
 
 {% block step_styles %}
@@ -141,7 +141,7 @@
             {% endif %}
             <a href="{{ url_for('step4.step4_review', case_id=case.id) }}"
                class="btn btn-sm btn-primary">
-                Review <i class="bi bi-arrow-right"></i>
+                Full View <i class="bi bi-arrow-right"></i>
             </a>
         </div>
     </div>
@@ -298,7 +298,7 @@
 
                             {% if entity.entity_definition %}
                             <p class="small text-muted mb-1 mt-1">
-                                {{ entity.entity_definition[:200] }}{% if entity.entity_definition|length > 200 %}...{% endif %}
+                                {{ entity.entity_definition }}
                             </p>
                             {% endif %}
 
@@ -414,7 +414,7 @@
                             {% endif %}
                         </div>
                         {% if char.ethical_stance %}
-                        <p class="small text-muted mb-0 mt-1">{{ char.ethical_stance[:200] }}{% if char.ethical_stance|length > 200 %}...{% endif %}</p>
+                        <p class="small text-muted mb-0 mt-1">{{ char.ethical_stance }}</p>
                         {% endif %}
                     </div>
                 </div>
@@ -426,8 +426,9 @@
             {% if narrative_data.events %}
             <div class="border-bottom p-3">
                 <h6 class="type-group-header text-muted mb-3">
-                    Events
+                    Timeline Events
                     <span class="badge bg-light text-dark border ms-1">{{ narrative_data.events|length }}</span>
+                    <span class="text-muted fw-normal" style="font-size: 0.8em; text-transform: none;"> -- synthesized from Step 3 temporal dynamics</span>
                 </h6>
                 {% for evt in narrative_data.events %}
                 <div class="card mb-2 entity-card" style="border-left-color: #6c757d !important;">
@@ -440,9 +441,14 @@
                             {% if evt.phase_label %}
                             <span class="badge bg-light text-dark border ms-1" style="font-size: 0.65em;">{{ evt.phase_label }}</span>
                             {% endif %}
+                            {% if evt.source == 'extracted' %}
+                            <span class="badge bg-info text-white ms-1" style="font-size: 0.65em;">Step 3</span>
+                            {% else %}
+                            <span class="badge bg-light text-muted border ms-1" style="font-size: 0.65em;">synthesized</span>
+                            {% endif %}
                         </div>
                         {% if evt.description %}
-                        <p class="small text-muted mb-0 mt-1">{{ evt.description[:150] }}{% if evt.description|length > 150 %}...{% endif %}</p>
+                        <p class="small text-muted mb-0 mt-1">{{ evt.description }}</p>
                         {% endif %}
                     </div>
                 </div>
@@ -491,11 +497,29 @@
                     <div class="card-body py-2 px-3">
                         <div>
                             <strong>{{ dm.question or dm.description or 'Decision' }}</strong>
+                            {% if dm.decision_maker_label %}
+                            <span class="badge bg-dark ms-1" style="font-size: 0.65em;">{{ dm.decision_maker_label }}</span>
+                            {% endif %}
                         </div>
-                        {% if dm.options %}
+                        {% if dm.competing_obligations %}
+                        {% set obligations = dm.competing_obligations|reject('none')|list %}
+                        {% if obligations %}
                         <div class="small text-muted mt-1">
-                            {{ dm.options|length }} options
+                            Competing obligations: {{ obligations|join(', ') }}
                         </div>
+                        {% endif %}
+                        {% endif %}
+                        {% if dm.options %}
+                        <ul class="small text-muted mt-1 mb-0 ps-3">
+                            {% for opt in dm.options %}
+                            <li>
+                                {{ opt.label or opt.get('description', 'Option') }}
+                                {% if opt.is_board_choice %}
+                                <span class="badge bg-success ms-1" style="font-size: 0.85em;">board choice</span>
+                                {% endif %}
+                            </li>
+                            {% endfor %}
+                        </ul>
                         {% endif %}
                     </div>
                 </div>
@@ -598,10 +622,7 @@ function saveEdit(entityId) {
             // Update definition display
             var defEl = card.querySelector('p.text-muted');
             if (defEl && data.entity_definition) {
-                var truncated = data.entity_definition.length > 200
-                    ? data.entity_definition.substring(0, 200) + '...'
-                    : data.entity_definition;
-                defEl.textContent = truncated;
+                defEl.textContent = data.entity_definition;
             }
 
             // Add reviewed badge if not present

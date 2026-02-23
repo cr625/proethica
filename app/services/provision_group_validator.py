@@ -5,8 +5,6 @@ Validates that grouped provision mentions actually discuss the provision's conte
 Simpler than the original validator because we already know which provision is mentioned.
 """
 
-import json
-import re
 import logging
 from typing import List, Dict
 from dataclasses import dataclass
@@ -132,17 +130,15 @@ class ProvisionGroupValidator:
         self.last_validation_prompt = prompt
 
         try:
-            response = self.llm_client.messages.create(
+            from app.utils.llm_utils import streaming_completion
+
+            response_text = streaming_completion(
+                self.llm_client,
                 model=ModelConfig.get_claude_model("default"),
                 max_tokens=6000,
-                temperature=0.1,  # Low temperature for consistent validation
-                messages=[{
-                    "role": "user",
-                    "content": prompt
-                }]
+                prompt=prompt,
+                temperature=0.1
             )
-
-            response_text = response.content[0].text
             self.last_validation_response = response_text
 
             # Parse response
@@ -257,28 +253,26 @@ Excerpt: "{mention.excerpt}"
             List of ValidatedMention objects
         """
         # Extract JSON
-        json_match = re.search(r'```json\n(.*?)\n```', response_text, re.DOTALL)
-        if not json_match:
-            json_match = re.search(r'\[\s*\{.*?\}\s*\]', response_text, re.DOTALL)
-            if not json_match:
-                logger.warning("Could not find JSON in validation response")
-                # Return all as unvalidated
-                return [
-                    ValidatedMention(
-                        section=m.section,
-                        excerpt=m.excerpt,
-                        citation_text=m.citation_text,
-                        is_relevant=True,
-                        confidence=0.6,
-                        reasoning="Could not parse validation response",
-                        content_type="unvalidated"
-                    )
-                    for m in mentions
-                ]
+        from app.utils.llm_json_utils import parse_json_response
+
+        validations = parse_json_response(response_text, context="provision_validation")
+        if validations is None:
+            logger.warning("Could not find JSON in validation response")
+            # Return all as unvalidated
+            return [
+                ValidatedMention(
+                    section=m.section,
+                    excerpt=m.excerpt,
+                    citation_text=m.citation_text,
+                    is_relevant=True,
+                    confidence=0.6,
+                    reasoning="Could not parse validation response",
+                    content_type="unvalidated"
+                )
+                for m in mentions
+            ]
 
         try:
-            json_text = json_match.group(1) if '```json' in response_text else json_match.group(0)
-            validations = json.loads(json_text)
 
             # Create mapping
             validation_map = {v.get('mention_number'): v for v in validations}
@@ -319,8 +313,8 @@ Excerpt: "{mention.excerpt}"
 
             return results
 
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse validation JSON: {e}")
+        except Exception as e:
+            logger.error(f"Failed to process validation response: {e}")
             # Return all as unvalidated
             return [
                 ValidatedMention(
@@ -329,7 +323,7 @@ Excerpt: "{mention.excerpt}"
                     citation_text=m.citation_text,
                     is_relevant=True,
                     confidence=0.6,
-                    reasoning=f"JSON parse error: {str(e)}",
+                    reasoning=f"Validation processing error: {str(e)}",
                     content_type="unvalidated"
                 )
                 for m in mentions
