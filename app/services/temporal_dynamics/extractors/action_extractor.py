@@ -9,7 +9,6 @@ This split reduces timeout risk by making each LLM call smaller and faster.
 """
 
 from typing import Dict, List, Optional
-import json
 import logging
 import os
 
@@ -49,8 +48,8 @@ def extract_actions_with_metadata(
         api_key = os.getenv('ANTHROPIC_API_KEY')
         if not api_key:
             raise RuntimeError("ANTHROPIC_API_KEY not found in environment")
-        llm_client = anthropic.Anthropic(api_key=api_key, timeout=180.0, max_retries=0)
-        model_name = ModelConfig.get_claude_model('powerful')
+        llm_client = anthropic.Anthropic(api_key=api_key, timeout=180.0, max_retries=2)
+        model_name = ModelConfig.get_claude_model('default')
         logger.info(f"[Stage 3] Initialized Anthropic client with model {model_name}")
     except Exception as e:
         logger.error(f"[Stage 3] Failed to initialize LLM client: {e}")
@@ -97,6 +96,7 @@ def _call_llm_with_streaming(
     with llm_client.messages.stream(
         model=model_name,
         max_tokens=8000,
+        temperature=0.7,
         messages=[{"role": "user", "content": prompt}]
     ) as stream:
         response = stream.get_final_message()
@@ -370,140 +370,33 @@ def _merge_enrichments(actions: List[Dict], enrichments: List[Dict]) -> List[Dic
 
 
 def _parse_action_response(response_text: str) -> List[Dict]:
-    """Parse LLM response to extract actions."""
-    import re
+    """Parse LLM response to extract actions using shared JSON parser."""
+    from app.utils.llm_json_utils import parse_json_object
 
     if not response_text or not response_text.strip():
         logger.error("[Stage 3] Empty response text")
         return []
 
-    logger.info(f"[Stage 3] Parsing response ({len(response_text)} chars)")
+    result = parse_json_object(response_text, context="action_extraction")
+    if result is None:
+        logger.error(f"[Stage 3] All parsing failed. Preview: {response_text[:500]}")
+        return []
 
-    # Strategy 1: Direct JSON parse
-    try:
-        result = json.loads(response_text)
-        actions = result.get('actions', [])
-        logger.info(f"[Stage 3] Direct parse: {len(actions)} actions")
-        return actions
-    except json.JSONDecodeError:
-        pass
-
-    # Strategy 2: Markdown code block
-    json_match = re.search(r'```(?:json)?\s*\n(.*?)\n```', response_text, re.DOTALL)
-    if json_match:
-        json_str = json_match.group(1).strip()
-        try:
-            result = json.loads(json_str)
-            actions = result.get('actions', [])
-            logger.info(f"[Stage 3] Markdown parse: {len(actions)} actions")
-            return actions
-        except json.JSONDecodeError:
-            actions = _try_fix_and_parse(json_str, "markdown")
-            if actions is not None:
-                return actions
-
-    # Strategy 3: Find JSON with "actions" key
-    start_idx = response_text.find('{')
-    if start_idx != -1:
-        depth = 0
-        end_idx = start_idx
-        for i, char in enumerate(response_text[start_idx:], start_idx):
-            if char == '{':
-                depth += 1
-            elif char == '}':
-                depth -= 1
-                if depth == 0:
-                    end_idx = i + 1
-                    break
-
-        if end_idx > start_idx:
-            json_str = response_text[start_idx:end_idx]
-            try:
-                result = json.loads(json_str)
-                actions = result.get('actions', [])
-                logger.info(f"[Stage 3] Brace matching: {len(actions)} actions")
-                return actions
-            except json.JSONDecodeError:
-                actions = _try_fix_and_parse(json_str, "brace")
-                if actions is not None:
-                    return actions
-
-    logger.error(f"[Stage 3] All parsing failed. Preview: {response_text[:500]}")
-    return []
+    actions = result.get('actions', [])
+    logger.info(f"[Stage 3] Parsed {len(actions)} actions")
+    return actions
 
 
 def _parse_enrichment_response(response_text: str) -> List[Dict]:
-    """Parse Phase 2 enrichment response."""
-    import re
+    """Parse Phase 2 enrichment response using shared JSON parser."""
+    from app.utils.llm_json_utils import parse_json_object
 
     if not response_text or not response_text.strip():
         return []
 
-    # Strategy 1: Direct JSON
-    try:
-        result = json.loads(response_text)
-        return result.get('enrichments', [])
-    except json.JSONDecodeError:
-        pass
+    result = parse_json_object(response_text, context="action_enrichment")
+    if result is None:
+        logger.warning("[Stage 3] Enrichment parsing failed")
+        return []
 
-    # Strategy 2: Markdown code block
-    json_match = re.search(r'```(?:json)?\s*\n(.*?)\n```', response_text, re.DOTALL)
-    if json_match:
-        json_str = json_match.group(1).strip()
-        try:
-            result = json.loads(json_str)
-            return result.get('enrichments', [])
-        except json.JSONDecodeError:
-            pass
-
-    # Strategy 3: Find JSON object
-    start_idx = response_text.find('{')
-    if start_idx != -1:
-        depth = 0
-        end_idx = start_idx
-        for i, char in enumerate(response_text[start_idx:], start_idx):
-            if char == '{':
-                depth += 1
-            elif char == '}':
-                depth -= 1
-                if depth == 0:
-                    end_idx = i + 1
-                    break
-
-        if end_idx > start_idx:
-            json_str = response_text[start_idx:end_idx]
-            try:
-                result = json.loads(json_str)
-                return result.get('enrichments', [])
-            except json.JSONDecodeError:
-                pass
-
-    logger.warning(f"[Stage 3] Enrichment parsing failed")
-    return []
-
-
-def _try_fix_and_parse(json_str: str, source: str) -> List[Dict]:
-    """Attempt to fix common JSON issues."""
-    import re
-
-    # Fix trailing commas
-    fixed = re.sub(r',\s*([}\]])', r'\1', json_str)
-    try:
-        result = json.loads(fixed)
-        actions = result.get('actions', [])
-        logger.info(f"[Stage 3] Fixed trailing commas ({source}): {len(actions)} actions")
-        return actions
-    except json.JSONDecodeError:
-        pass
-
-    # Fix single quotes
-    fixed = re.sub(r"(?<=[{,:\[])\s*'([^']*?)'\s*(?=[,}\]:])", r'"\1"', json_str)
-    try:
-        result = json.loads(fixed)
-        actions = result.get('actions', [])
-        logger.info(f"[Stage 3] Fixed quotes ({source}): {len(actions)} actions")
-        return actions
-    except json.JSONDecodeError:
-        pass
-
-    return None
+    return result.get('enrichments', [])

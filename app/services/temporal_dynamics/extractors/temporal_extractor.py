@@ -6,7 +6,6 @@ the unified temporal narrative.
 """
 
 from typing import Dict, Tuple
-import json
 import logging
 import os
 from datetime import datetime
@@ -51,7 +50,7 @@ def analyze_combined_sections(facts: str, discussion: str) -> Tuple[Dict, Dict]:
         api_key = os.getenv('ANTHROPIC_API_KEY')
         if not api_key:
             raise RuntimeError("ANTHROPIC_API_KEY not found in environment")
-        llm_client = anthropic.Anthropic(api_key=api_key, timeout=180.0, max_retries=0)
+        llm_client = anthropic.Anthropic(api_key=api_key, timeout=180.0, max_retries=2)
         logger.info("[Extractor] Initialized Anthropic client")
     except Exception as e:
         logger.error(f"[Extractor] Failed to initialize LLM client: {e}")
@@ -98,12 +97,13 @@ JSON Response:"""
     try:
         # Capture timestamp before LLM call
         call_timestamp = datetime.utcnow().isoformat()
-        model_name = ModelConfig.get_claude_model('powerful')
+        model_name = ModelConfig.get_claude_model('default')
 
         # Use Anthropic messages API (streaming to prevent WSL2 TCP idle timeout)
         with llm_client.messages.stream(
             model=model_name,
             max_tokens=4000,
+            temperature=0.3,
             messages=[{"role": "user", "content": prompt}],
         ) as stream:
             response = stream.get_final_message()
@@ -118,27 +118,11 @@ JSON Response:"""
             'total_tokens': (response.usage.input_tokens + response.usage.output_tokens) if hasattr(response, 'usage') else 0
         }
 
-        # Try to parse JSON directly
-        analysis = None
-        try:
-            analysis = json.loads(response_text)
-            logger.info("[Extractor] Successfully parsed JSON directly")
-        except json.JSONDecodeError:
-            # Try to extract JSON from markdown code block
-            import re
-            json_match = re.search(r'```json\n(.*?)\n```', response_text, re.DOTALL)
-            if json_match:
-                analysis = json.loads(json_match.group(1))
-                logger.info("[Extractor] Successfully parsed JSON from code block")
-            else:
-                # Try to find JSON object anywhere in response
-                json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
-                if json_match:
-                    analysis = json.loads(json_match.group(0))
-                    logger.info("[Extractor] Successfully parsed JSON from response body")
-                else:
-                    logger.error("[Extractor] No valid JSON found in response")
-                    raise ValueError("LLM did not return valid JSON")
+        # Parse JSON using shared utility
+        from app.utils.llm_json_utils import parse_json_object
+        analysis = parse_json_object(response_text, context="section_analysis")
+        if analysis is None:
+            raise ValueError("LLM did not return valid JSON for section analysis")
 
         # Build trace record
         trace = {
@@ -167,7 +151,7 @@ JSON Response:"""
             'timestamp': datetime.utcnow().isoformat(),
             'prompt': prompt if 'prompt' in locals() else '',
             'response': f'ERROR: {str(e)}',
-            'model': ModelConfig.get_claude_model('powerful'),
+            'model': ModelConfig.get_claude_model('default'),
             'parsed_output': error_analysis,
             'tokens': {}
         }

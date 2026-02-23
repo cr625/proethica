@@ -4,8 +4,9 @@ Enhanced Step 2 implementation with retry logic, partial success, and real-time 
 import json
 import uuid
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, Any
-from flask import request, Response, stream_with_context
+from flask import current_app, request, Response, stream_with_context
 from app.models import db
 import logging
 logger = logging.getLogger(__name__)
@@ -289,7 +290,9 @@ def normative_pass_execute_streaming(case_id: int):
                     agent_name='proethica_normative_pass_streaming',
                 ) as main_activity:
 
-                    for idx, concept_type in enumerate(concept_types):
+                    # Stage 1-2: P then O (sequential, dependency chain)
+                    sequential_concepts = ['principles', 'obligations']
+                    for idx, concept_type in enumerate(sequential_concepts):
                         yield f"data: {json.dumps({
                             'status': 'extracting',
                             'current': concept_type,
@@ -315,6 +318,65 @@ def normative_pass_execute_streaming(case_id: int):
                             'progress': idx + 1,
                             'total': len(concept_types),
                         })}\n\n"
+
+                    # Stage 3: Cs + Ca in parallel -- both depend on O
+                    # but are independent of each other.
+                    parallel_concepts = ['constraints', 'capabilities']
+
+                    # Signal both starting (spinners appear simultaneously)
+                    for concept_type in parallel_concepts:
+                        yield f"data: {json.dumps({
+                            'status': 'extracting',
+                            'current': concept_type,
+                            'progress': 2,
+                            'total': len(concept_types),
+                        })}\n\n"
+
+                    app = current_app._get_current_object()
+
+                    def _extract_in_context(ct):
+                        with app.app_context():
+                            return extract_concept_type(
+                                concept_type=ct,
+                                section_text=section_text,
+                                case_id=case_id,
+                                session_id=session_id,
+                                prov_service=None,
+                                section_type=section_type,
+                            )
+
+                    with ThreadPoolExecutor(max_workers=2) as executor:
+                        futures = {
+                            executor.submit(_extract_in_context, ct): ct
+                            for ct in parallel_concepts
+                        }
+                        completed = 2  # P and O already done
+                        for future in as_completed(futures):
+                            concept_type = futures[future]
+                            try:
+                                result = future.result()
+                            except Exception as e:
+                                logger.error(
+                                    f"Unexpected error extracting {concept_type}: {e}"
+                                )
+                                result = {
+                                    'type': concept_type,
+                                    'success': False,
+                                    'data': None,
+                                    'error': str(e),
+                                    'retry_count': 0,
+                                    'extraction_time': 0,
+                                }
+                            completed += 1
+                            all_results.append(result)
+
+                            yield f"data: {json.dumps({
+                                'status': 'extracted',
+                                'concept_type': concept_type,
+                                'result': result,
+                                'progress': completed,
+                                'total': len(concept_types),
+                            })}\n\n"
 
             db.session.commit()
 

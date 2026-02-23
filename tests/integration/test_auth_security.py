@@ -256,7 +256,6 @@ class TestExtractionRoutesRequireAuth:
         # Pass 1 extraction
         '/scenario_pipeline/case/1/entities_pass_execute',
         '/scenario_pipeline/case/1/entities_pass_execute_streaming',
-        '/scenario_pipeline/case/1/entities_pass_execute_discussion',
 
         # Pass 2 extraction
         '/scenario_pipeline/case/1/normative_pass_execute',

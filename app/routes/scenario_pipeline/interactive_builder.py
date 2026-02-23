@@ -171,19 +171,6 @@ def entities_pass_execute_streaming(case_id):
     from .step1_enhanced import entities_pass_execute_streaming as streaming_handler
     return streaming_handler(case_id)
 
-@interactive_scenario_bp.route('/case/<int:case_id>/entities_pass_prompt_discussion', methods=['POST'])
-def entities_pass_prompt_discussion(case_id):
-    """API endpoint to generate entities pass prompt for Discussion section"""
-    from .step1 import entities_pass_prompt_discussion as prompt_handler
-    return prompt_handler(case_id)
-
-@interactive_scenario_bp.route('/case/<int:case_id>/entities_pass_execute_discussion', methods=['POST'])
-@auth_required_for_llm
-def entities_pass_execute_discussion(case_id):
-    """API endpoint to execute entities pass extraction for Discussion section"""
-    from .step1 import entities_pass_execute_discussion as execute_handler
-    return execute_handler(case_id)
-
 # NOTE: extract_questions route removed - now handled by step4.py with streaming support
 # The step4.py version auto-loads question text from case metadata
 # @interactive_scenario_bp.route('/case/<int:case_id>/extract_questions', methods=['POST'])

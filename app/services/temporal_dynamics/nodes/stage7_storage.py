@@ -61,7 +61,7 @@ def store_rdf_entities(state: TemporalDynamicsState) -> Dict:
                     extraction_model = trace_entry['model']
                     break
             if not extraction_model:
-                extraction_model = ModelConfig.get_claude_model('powerful')
+                extraction_model = ModelConfig.get_claude_model('default')
 
             # Initialize counters
             actions_stored = 0

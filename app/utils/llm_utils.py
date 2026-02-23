@@ -115,13 +115,9 @@ def get_llm_client():
             # Determine Anthropic API version using multiple methods for reliability
             try:
                 try:
-                    import pkg_resources
-                    anthropic_version = pkg_resources.get_distribution("anthropic").version
+                    anthropic_version = importlib.metadata.version("anthropic")
                 except Exception:
-                    try:
-                        anthropic_version = importlib.metadata.version("anthropic")
-                    except Exception:
-                        anthropic_version = "unknown"
+                    anthropic_version = "unknown"
                         
                 client = anthropic.Anthropic(api_key=api_key, timeout=180.0)
                 

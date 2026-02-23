@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 CONCEPT_CONFIG: Dict[str, Dict[str, Any]] = {
     'roles': {
         'step': 1,
-        'model_tier': 'powerful',
+        'model_tier': 'default',
         'temperature': 0.3,
         'max_tokens': 8192,
         'classes_key': 'new_role_classes',
@@ -44,7 +44,7 @@ CONCEPT_CONFIG: Dict[str, Dict[str, Any]] = {
     },
     'states': {
         'step': 1,
-        'model_tier': 'powerful',
+        'model_tier': 'default',
         'temperature': 0.3,
         'max_tokens': 8192,
         'classes_key': 'new_state_classes',
@@ -53,7 +53,7 @@ CONCEPT_CONFIG: Dict[str, Dict[str, Any]] = {
     },
     'resources': {
         'step': 1,
-        'model_tier': 'powerful',
+        'model_tier': 'default',
         'temperature': 0.3,
         'max_tokens': 8192,
         'classes_key': 'new_resource_classes',
@@ -62,7 +62,7 @@ CONCEPT_CONFIG: Dict[str, Dict[str, Any]] = {
     },
     'principles': {
         'step': 2,
-        'model_tier': 'powerful',
+        'model_tier': 'default',
         'temperature': 0.5,
         'max_tokens': 8192,
         'classes_key': 'new_principle_classes',
@@ -71,7 +71,7 @@ CONCEPT_CONFIG: Dict[str, Dict[str, Any]] = {
     },
     'obligations': {
         'step': 2,
-        'model_tier': 'powerful',
+        'model_tier': 'default',
         'temperature': 0.2,
         'max_tokens': 8192,
         'classes_key': 'new_obligation_classes',
@@ -80,7 +80,7 @@ CONCEPT_CONFIG: Dict[str, Dict[str, Any]] = {
     },
     'constraints': {
         'step': 2,
-        'model_tier': 'powerful',
+        'model_tier': 'default',
         'temperature': 0.2,
         'max_tokens': 8192,
         'classes_key': 'new_constraint_classes',
@@ -89,7 +89,7 @@ CONCEPT_CONFIG: Dict[str, Dict[str, Any]] = {
     },
     'capabilities': {
         'step': 2,
-        'model_tier': 'powerful',
+        'model_tier': 'default',
         'temperature': 0.2,
         'max_tokens': 8192,
         'classes_key': 'new_capability_classes',

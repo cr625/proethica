@@ -2,11 +2,10 @@
 Temporal Marker Extractor - Stage 2
 
 Extracts dates, times, temporal phrases, and Allen interval relations from text.
-Uses LLM for extraction with optional NLTK validation.
+Uses LLM for extraction with optional dateutil validation.
 """
 
 from typing import Dict, List
-import json
 import logging
 import os
 
@@ -43,7 +42,7 @@ def extract_temporal_markers_llm(facts: str, discussion: str, timeline_summary: 
         api_key = os.getenv('ANTHROPIC_API_KEY')
         if not api_key:
             raise RuntimeError("ANTHROPIC_API_KEY not found in environment")
-        llm_client = anthropic.Anthropic(api_key=api_key, timeout=180.0, max_retries=0)
+        llm_client = anthropic.Anthropic(api_key=api_key, timeout=180.0, max_retries=2)
         logger.info("[Temporal Extractor] Initialized Anthropic client")
     except Exception as e:
         logger.error(f"[Temporal Extractor] Failed to initialize LLM client: {e}")
@@ -55,10 +54,10 @@ TIMELINE SUMMARY FROM PREVIOUS ANALYSIS:
 {timeline_summary}
 
 FACTS SECTION:
-{facts[:2000]}...
+{facts}
 
 DISCUSSION SECTION:
-{discussion[:2000]}...
+{discussion}
 
 Extract all temporal information:
 
@@ -102,7 +101,7 @@ Focus on precision. If unsure about a temporal marker, note it as "approximate" 
 JSON Response:"""
 
     # Record prompt in trace
-    model_name = ModelConfig.get_claude_model('powerful')
+    model_name = ModelConfig.get_claude_model('default')
     trace_entry = {
         'stage': 'temporal_markers',
         'timestamp': datetime.utcnow().isoformat(),
@@ -116,6 +115,7 @@ JSON Response:"""
         with llm_client.messages.stream(
             model=model_name,
             max_tokens=4000,
+            temperature=0.3,
             messages=[{"role": "user", "content": prompt}],
         ) as stream:
             response = stream.get_final_message()
@@ -134,52 +134,22 @@ JSON Response:"""
 
         logger.info(f"[Temporal Extractor] LLM response length: {len(response_text)} chars")
 
-        # Parse JSON
-        try:
-            markers = json.loads(response_text)
-            logger.info("[Temporal Extractor] Successfully parsed JSON directly")
-            trace_entry['parsed_output'] = {
-                'explicit_dates': len(markers.get('explicit_dates', [])),
-                'temporal_phrases': len(markers.get('temporal_phrases', [])),
-                'durations': len(markers.get('durations', [])),
-                'allen_relations': len(markers.get('allen_relations', []))
-            }
+        # Parse JSON using shared utility
+        from app.utils.llm_json_utils import parse_json_object
+        markers = parse_json_object(response_text, context="temporal_markers")
+        if markers is None:
+            trace_entry['error'] = "No valid JSON found in response"
             llm_trace.append(trace_entry)
-            return markers
-        except json.JSONDecodeError:
-            # Try to extract JSON from markdown code block
-            import re
-            json_match = re.search(r'```json\n(.*?)\n```', response_text, re.DOTALL)
-            if json_match:
-                markers = json.loads(json_match.group(1))
-                logger.info("[Temporal Extractor] Successfully parsed JSON from code block")
-                trace_entry['parsed_output'] = {
-                    'explicit_dates': len(markers.get('explicit_dates', [])),
-                    'temporal_phrases': len(markers.get('temporal_phrases', [])),
-                    'durations': len(markers.get('durations', [])),
-                    'allen_relations': len(markers.get('allen_relations', []))
-                }
-                llm_trace.append(trace_entry)
-                return markers
-            else:
-                # Try to find JSON object anywhere in response
-                json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
-                if json_match:
-                    markers = json.loads(json_match.group(0))
-                    logger.info("[Temporal Extractor] Successfully parsed JSON from response body")
-                    trace_entry['parsed_output'] = {
-                        'explicit_dates': len(markers.get('explicit_dates', [])),
-                        'temporal_phrases': len(markers.get('temporal_phrases', [])),
-                        'durations': len(markers.get('durations', [])),
-                        'allen_relations': len(markers.get('allen_relations', []))
-                    }
-                    llm_trace.append(trace_entry)
-                    return markers
-                else:
-                    logger.error("[Temporal Extractor] No valid JSON found in response")
-                    trace_entry['error'] = "No valid JSON found in response"
-                    llm_trace.append(trace_entry)
-                    raise ValueError("LLM did not return valid JSON")
+            raise ValueError("LLM did not return valid JSON for temporal markers")
+
+        trace_entry['parsed_output'] = {
+            'explicit_dates': len(markers.get('explicit_dates', [])),
+            'temporal_phrases': len(markers.get('temporal_phrases', [])),
+            'durations': len(markers.get('durations', [])),
+            'allen_relations': len(markers.get('allen_relations', []))
+        }
+        llm_trace.append(trace_entry)
+        return markers
 
     except Exception as e:
         logger.error(f"[Temporal Extractor] Error: {e}", exc_info=True)
@@ -194,9 +164,9 @@ JSON Response:"""
         }
 
 
-def validate_with_nltk(temporal_markers: Dict) -> List[str]:
+def validate_dates(temporal_markers: Dict) -> List[str]:
     """
-    Validate temporal markers using NLTK date parsing
+    Validate temporal markers using dateutil date parsing.
 
     Args:
         temporal_markers: Temporal markers from LLM extraction
@@ -207,10 +177,9 @@ def validate_with_nltk(temporal_markers: Dict) -> List[str]:
     warnings = []
 
     try:
-        # Try to import dateutil for date parsing (lightweight alternative to NLTK)
         from dateutil import parser as date_parser
 
-        logger.info("[NLTK Validator] Validating dates with dateutil")
+        logger.info("[Date Validator] Validating dates with dateutil")
 
         # Validate explicit dates
         for date_item in temporal_markers.get('explicit_dates', []):
@@ -218,17 +187,17 @@ def validate_with_nltk(temporal_markers: Dict) -> List[str]:
             try:
                 # Try to parse the date
                 parsed_date = date_parser.parse(date_str, fuzzy=True)
-                logger.debug(f"[NLTK Validator] Parsed '{date_str}' as {parsed_date}")
+                logger.debug(f"[Date Validator] Parsed '{date_str}' as {parsed_date}")
             except Exception as e:
                 warning = f"Could not parse date '{date_str}': {str(e)}"
                 warnings.append(warning)
-                logger.warning(f"[NLTK Validator] {warning}")
+                logger.warning(f"[Date Validator] {warning}")
 
     except ImportError:
-        logger.info("[NLTK Validator] dateutil not available, skipping validation")
+        logger.info("[Date Validator] dateutil not available, skipping validation")
         # Not an error - validation is optional
     except Exception as e:
-        logger.warning(f"[NLTK Validator] Validation error: {e}")
+        logger.warning(f"[Date Validator] Validation error: {e}")
         warnings.append(f"Date validation error: {str(e)}")
 
     return warnings

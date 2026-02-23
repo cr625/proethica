@@ -9,7 +9,6 @@ Extracts occurrences (non-volitional events) with:
 """
 
 from typing import Dict, List
-import json
 import logging
 from datetime import datetime
 
@@ -55,8 +54,8 @@ def extract_events_with_classification(
         api_key = os.getenv('ANTHROPIC_API_KEY')
         if not api_key:
             raise RuntimeError("ANTHROPIC_API_KEY not found in environment")
-        llm_client = anthropic.Anthropic(api_key=api_key, timeout=180.0, max_retries=0)
-        model_name = ModelConfig.get_claude_model('powerful')
+        llm_client = anthropic.Anthropic(api_key=api_key, timeout=180.0, max_retries=2)
+        model_name = ModelConfig.get_claude_model('default')
         logger.info(f"[Stage 4] Initialized Anthropic client with model {model_name}")
     except Exception as e:
         logger.error(f"[Stage 4] Failed to initialize LLM client: {e}")
@@ -79,6 +78,7 @@ def extract_events_with_classification(
         with llm_client.messages.stream(
             model=model_name,
             max_tokens=8000,
+            temperature=0.7,
             messages=[{"role": "user", "content": prompt}],
         ) as stream:
             response = stream.get_final_message()
@@ -285,137 +285,24 @@ JSON Response:"""
 
 
 def _parse_event_response(response_text: str) -> List[Dict]:
-    """
-    Parse LLM response to extract events.
-
-    Handles various JSON formats with robust error handling:
-    - Direct JSON
-    - Markdown code blocks (```json ... ```)
-    - JSON embedded in text
-    - Common JSON formatting issues (trailing commas, etc.)
-    """
-    import re
+    """Parse LLM response to extract events using shared JSON parser."""
+    from app.utils.llm_json_utils import parse_json_object
 
     if not response_text or not response_text.strip():
         logger.error("[Stage 4] Empty response text received")
         return []
 
-    # Log response length for debugging
     logger.info(f"[Stage 4] Parsing response of {len(response_text)} characters")
 
-    # Strategy 1: Try direct JSON parse
-    try:
-        result = json.loads(response_text)
-        events = result.get('events', [])
-        logger.info(f"[Stage 4] Direct JSON parse successful: {len(events)} events")
-        return events
-    except json.JSONDecodeError as e:
-        logger.debug(f"[Stage 4] Direct JSON parse failed: {e}")
+    result = parse_json_object(response_text, context="event_extraction")
+    if result is None:
+        logger.error(f"[Stage 4] All JSON parsing strategies failed")
+        logger.error(f"[Stage 4] Response preview (first 500 chars): {response_text[:500]}")
+        return []
 
-    # Strategy 2: Extract from markdown code block (```json ... ```)
-    json_match = re.search(r'```(?:json)?\s*\n(.*?)\n```', response_text, re.DOTALL)
-    if json_match:
-        json_str = json_match.group(1).strip()
-        try:
-            result = json.loads(json_str)
-            events = result.get('events', [])
-            logger.info(f"[Stage 4] Markdown block parse successful: {len(events)} events")
-            return events
-        except json.JSONDecodeError as e:
-            logger.debug(f"[Stage 4] Markdown block parse failed: {e}")
-            # Try fixing common issues
-            events = _try_fix_and_parse_events(json_str, "markdown block")
-            if events is not None:
-                return events
-
-    # Strategy 3: Find outermost JSON object containing "events"
-    json_match = re.search(r'(\{[^{}]*"events"\s*:\s*\[.*?\][^{}]*\})', response_text, re.DOTALL)
-    if json_match:
-        json_str = json_match.group(1)
-        try:
-            result = json.loads(json_str)
-            events = result.get('events', [])
-            logger.info(f"[Stage 4] Regex extraction successful: {len(events)} events")
-            return events
-        except json.JSONDecodeError as e:
-            logger.debug(f"[Stage 4] Regex extraction failed: {e}")
-            events = _try_fix_and_parse_events(json_str, "regex extraction")
-            if events is not None:
-                return events
-
-    # Strategy 4: Find any JSON object and look for events key
-    start_idx = response_text.find('{')
-    if start_idx != -1:
-        depth = 0
-        end_idx = start_idx
-        for i, char in enumerate(response_text[start_idx:], start_idx):
-            if char == '{':
-                depth += 1
-            elif char == '}':
-                depth -= 1
-                if depth == 0:
-                    end_idx = i + 1
-                    break
-
-        if end_idx > start_idx:
-            json_str = response_text[start_idx:end_idx]
-            try:
-                result = json.loads(json_str)
-                events = result.get('events', [])
-                logger.info(f"[Stage 4] Brace matching parse successful: {len(events)} events")
-                return events
-            except json.JSONDecodeError as e:
-                logger.debug(f"[Stage 4] Brace matching parse failed: {e}")
-                events = _try_fix_and_parse_events(json_str, "brace matching")
-                if events is not None:
-                    return events
-
-    # All strategies failed
-    logger.error(f"[Stage 4] All JSON parsing strategies failed")
-    logger.error(f"[Stage 4] Response preview (first 500 chars): {response_text[:500]}")
-    logger.error(f"[Stage 4] Response preview (last 200 chars): {response_text[-200:]}")
-    return []
-
-
-def _try_fix_and_parse_events(json_str: str, source: str) -> List[Dict]:
-    """
-    Attempt to fix common JSON issues and parse for events.
-
-    Returns list of events if successful, None if failed.
-    """
-    import re
-
-    # Fix 1: Remove trailing commas
-    fixed = re.sub(r',\s*([}\]])', r'\1', json_str)
-    try:
-        result = json.loads(fixed)
-        events = result.get('events', [])
-        logger.info(f"[Stage 4] Fixed trailing commas from {source}: {len(events)} events")
-        return events
-    except json.JSONDecodeError:
-        pass
-
-    # Fix 2: Replace single quotes with double quotes
-    fixed = re.sub(r"(?<=[{,:\[])\s*'([^']*?)'\s*(?=[,}\]:])", r'"\1"', json_str)
-    try:
-        result = json.loads(fixed)
-        events = result.get('events', [])
-        logger.info(f"[Stage 4] Fixed single quotes from {source}: {len(events)} events")
-        return events
-    except json.JSONDecodeError:
-        pass
-
-    # Fix 3: Handle unescaped newlines
-    fixed = json_str.replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
-    try:
-        result = json.loads(fixed)
-        events = result.get('events', [])
-        logger.info(f"[Stage 4] Fixed newlines from {source}: {len(events)} events")
-        return events
-    except json.JSONDecodeError:
-        pass
-
-    return None
+    events = result.get('events', [])
+    logger.info(f"[Stage 4] Parsed {len(events)} events")
+    return events
 
 
 def _apply_emergency_keywords(events: List[Dict]) -> List[Dict]:

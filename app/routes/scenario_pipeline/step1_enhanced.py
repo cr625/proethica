@@ -4,8 +4,9 @@ Enhanced Step 1 implementation with retry logic, partial success, and real-time 
 import json
 import uuid
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, Any
-from flask import request, Response, stream_with_context
+from flask import current_app, request, Response, stream_with_context
 from app.models import db
 import logging
 logger = logging.getLogger(__name__)
@@ -272,32 +273,63 @@ def entities_pass_execute_streaming(case_id: int):
                     agent_name='proethica_entities_pass_streaming',
                 ) as main_activity:
 
+                    # Signal all concepts starting (spinners appear simultaneously)
                     for idx, entity_type in enumerate(entity_types):
                         yield f"data: {json.dumps({
                             'status': 'extracting',
                             'current': entity_type,
-                            'progress': idx,
+                            'progress': 0,
                             'total': len(entity_types),
                         })}\n\n"
 
-                        result = extract_entity_type(
-                            entity_type=entity_type,
-                            section_text=section_text,
-                            case_id=case_id,
-                            session_id=session_id,
-                            prov_service=prov,
-                            section_type=req_section_type,
-                        )
+                    # Run all 3 concepts in parallel -- they have no
+                    # cross-concept dependencies (CROSS_CONCEPT_DEPS is
+                    # empty for roles, states, resources).
+                    app = current_app._get_current_object()
 
-                        all_results.append(result)
+                    def _extract_in_context(et):
+                        with app.app_context():
+                            return extract_entity_type(
+                                entity_type=et,
+                                section_text=section_text,
+                                case_id=case_id,
+                                session_id=session_id,
+                                prov_service=None,
+                                section_type=req_section_type,
+                            )
 
-                        yield f"data: {json.dumps({
-                            'status': 'extracted',
-                            'entity_type': entity_type,
-                            'result': result,
-                            'progress': idx + 1,
-                            'total': len(entity_types),
-                        })}\n\n"
+                    with ThreadPoolExecutor(max_workers=3) as executor:
+                        futures = {
+                            executor.submit(_extract_in_context, et): et
+                            for et in entity_types
+                        }
+                        completed = 0
+                        for future in as_completed(futures):
+                            entity_type = futures[future]
+                            try:
+                                result = future.result()
+                            except Exception as e:
+                                logger.error(
+                                    f"Unexpected error extracting {entity_type}: {e}"
+                                )
+                                result = {
+                                    'type': entity_type,
+                                    'success': False,
+                                    'data': None,
+                                    'error': str(e),
+                                    'retry_count': 0,
+                                    'extraction_time': 0,
+                                }
+                            completed += 1
+                            all_results.append(result)
+
+                            yield f"data: {json.dumps({
+                                'status': 'extracted',
+                                'entity_type': entity_type,
+                                'result': result,
+                                'progress': completed,
+                                'total': len(entity_types),
+                            })}\n\n"
 
             db.session.commit()
 

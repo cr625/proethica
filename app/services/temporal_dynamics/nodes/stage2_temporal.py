@@ -2,7 +2,7 @@
 Stage 2: Temporal Marker Extraction
 
 Extracts temporal markers (dates, times, durations) and identifies Allen temporal relations.
-Uses LLM for extraction with optional NLTK validation.
+Uses LLM for extraction with optional dateutil validation.
 """
 
 from typing import Dict
@@ -29,7 +29,7 @@ def extract_temporal_markers(state: TemporalDynamicsState) -> Dict:
         # Import extractors here to avoid circular dependencies
         from ..extractors.temporal_marker_extractor import (
             extract_temporal_markers_llm,
-            validate_with_nltk
+            validate_dates
         )
 
         # Get unified narrative from Stage 1
@@ -54,11 +54,11 @@ def extract_temporal_markers(state: TemporalDynamicsState) -> Dict:
         logger.info(f"[Stage 2] Extracted {len(temporal_markers.get('temporal_phrases', []))} temporal phrases")
         logger.info(f"[Stage 2] Identified {len(temporal_markers.get('allen_relations', []))} Allen relations")
 
-        # Validate dates with NLTK (warnings only, non-blocking)
-        validation_warnings = validate_with_nltk(temporal_markers)
+        # Validate dates with dateutil (warnings only, non-blocking)
+        validation_warnings = validate_dates(temporal_markers)
 
         if validation_warnings:
-            logger.warning(f"[Stage 2] NLTK validation warnings: {len(validation_warnings)}")
+            logger.warning(f"[Stage 2] Date validation warnings: {len(validation_warnings)}")
 
         # Prepare messages
         messages = [
@@ -69,7 +69,7 @@ def extract_temporal_markers(state: TemporalDynamicsState) -> Dict:
         ]
 
         if validation_warnings:
-            messages.append(f'  ⚠ NLTK validation warnings: {len(validation_warnings)}')
+            messages.append(f'  Date validation warnings: {len(validation_warnings)}')
 
         # Return state updates (including accumulated llm_trace)
         return {
