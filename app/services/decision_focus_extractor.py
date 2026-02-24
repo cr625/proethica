@@ -693,19 +693,59 @@ This grounding connects decision points to the formal case ontology.
             List of DecisionFocus objects with entity URI references
         """
         try:
-            # Load decision points
+            # Load canonical decision points (new pipeline format, options embedded)
+            canonical_entities = TemporaryRDFStorage.query.filter_by(
+                case_id=case_id,
+                extraction_type='canonical_decision_point'
+            ).order_by(TemporaryRDFStorage.id).all()
+
+            if canonical_entities:
+                # New format: options are embedded in the JSON-LD
+                focuses = []
+                for entity in canonical_entities:
+                    json_ld = entity.rdf_json_ld or {}
+
+                    # Parse embedded options
+                    options = []
+                    for opt in json_ld.get('options', []):
+                        options.append(DecisionOption(
+                            option_id=opt.get('option_id', ''),
+                            description=opt.get('description', ''),
+                            is_board_choice=opt.get('is_board_choice', False),
+                            involved_action_uris=[opt.get('action_uri', '')] if opt.get('action_uri') else []
+                        ))
+
+                    focus = DecisionFocus(
+                        focus_id=json_ld.get('focus_id', ''),
+                        focus_number=json_ld.get('focus_number', 0),
+                        description=entity.entity_label,
+                        decision_question=json_ld.get('decision_question', entity.entity_definition or ''),
+                        involved_roles=json_ld.get('involved_roles', []),
+                        applicable_provisions=json_ld.get('provision_labels', json_ld.get('applicable_provisions', [])),
+                        options=options,
+                        board_resolution=json_ld.get('board_resolution', ''),
+                        board_reasoning=json_ld.get('board_reasoning', ''),
+                        confidence=json_ld.get('confidence', 0.0),
+                        involved_role_uris=[json_ld.get('role_uri', '')] if json_ld.get('role_uri') else [],
+                        involved_obligation_uris=[json_ld.get('obligation_uri', '')] if json_ld.get('obligation_uri') else [],
+                        involved_constraint_uris=[json_ld.get('constraint_uri', '')] if json_ld.get('constraint_uri') else [],
+                        involved_action_uris=json_ld.get('involved_action_uris', [])
+                    )
+                    focuses.append(focus)
+                return focuses
+
+            # Fallback: old format (decision_point + decision_option entities)
             dp_entities = TemporaryRDFStorage.query.filter_by(
                 case_id=case_id,
                 extraction_type='decision_point'
             ).order_by(TemporaryRDFStorage.id).all()
 
-            # Load all options for this case
             opt_entities = TemporaryRDFStorage.query.filter_by(
                 case_id=case_id,
                 extraction_type='decision_option'
             ).all()
 
-            # Group options by parent decision point, including entity grounding
+            # Group options by parent decision point
             options_by_dp = {}
             for opt in opt_entities:
                 json_ld = opt.rdf_json_ld or {}
@@ -716,7 +756,6 @@ This grounding connects decision points to the formal case ontology.
                     option_id=json_ld.get('option_id', ''),
                     description=opt.entity_label,
                     is_board_choice=json_ld.get('is_board_choice', False),
-                    # Entity grounding
                     involved_action_uris=json_ld.get('involved_action_uris', [])
                 ))
 
@@ -724,7 +763,6 @@ This grounding connects decision points to the formal case ontology.
             for entity in dp_entities:
                 json_ld = entity.rdf_json_ld or {}
 
-                # Get options for this decision point
                 dp_uri = entity.entity_uri or ''
                 options = options_by_dp.get(dp_uri, [])
 
@@ -739,7 +777,6 @@ This grounding connects decision points to the formal case ontology.
                     board_resolution=json_ld.get('board_resolution', ''),
                     board_reasoning=json_ld.get('board_reasoning', ''),
                     confidence=json_ld.get('confidence', 0.0),
-                    # Entity grounding
                     involved_role_uris=json_ld.get('involved_role_uris', []),
                     involved_obligation_uris=json_ld.get('involved_obligation_uris', []),
                     involved_constraint_uris=json_ld.get('involved_constraint_uris', []),

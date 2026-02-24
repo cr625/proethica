@@ -47,7 +47,7 @@ class PipelineRun(db.Model):
 
     # Status tracking
     status = db.Column(db.String(50), nullable=False, default=PIPELINE_STATUS['PENDING'])
-    current_step = db.Column(db.String(50))
+    current_step = db.Column(db.String(100))
 
     # Celery integration
     celery_task_id = db.Column(db.String(255))

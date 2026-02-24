@@ -114,6 +114,7 @@ def analyze_causal_chains(
 
     finally:
         # Always append trace entry
+        trace_entry['end_timestamp'] = datetime.utcnow().isoformat()
         llm_trace.append(trace_entry)
 
 

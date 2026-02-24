@@ -526,60 +526,7 @@ def _run_provisions(case_id: int, llm_client, get_all_case_entities) -> dict:
         grouper = ProvisionGrouper()
         grouped_mentions = grouper.group_mentions_by_provision(all_mentions, provisions)
 
-        # Validate each provision
-        validator = ProvisionGroupValidator(llm_client)
-        for provision in provisions:
-            code = provision['code_provision']
-            mentions = grouped_mentions.get(code, [])
-
-            if mentions:
-                validated = validator.validate_group(code, provision['provision_text'], mentions)
-                provision['relevant_excerpts'] = [
-                    {
-                        'section': v.section,
-                        'text': v.excerpt,
-                        'matched_citation': v.citation_text,
-                        'mention_type': v.content_type,
-                        'confidence': v.confidence,
-                        'validation_reasoning': v.reasoning
-                    }
-                    for v in validated
-                ]
-            else:
-                provision['relevant_excerpts'] = []
-
-        # Link to entities
-        all_entities = get_all_case_entities(case_id)
-        linker = CodeProvisionLinker(llm_client)
-
-        def format_entities(entities):
-            return [
-                {
-                    'label': e.entity_label,
-                    'definition': e.entity_definition or '',
-                    'uri': e.rdf_json_ld.get('@id', '') if e.rdf_json_ld else ''
-                }
-                for e in entities
-            ]
-
-        provisions = linker.link_provisions_to_entities(
-            provisions,
-            roles=format_entities(all_entities.get('roles', [])),
-            states=format_entities(all_entities.get('states', [])),
-            resources=format_entities(all_entities.get('resources', [])),
-            principles=format_entities(all_entities.get('principles', [])),
-            obligations=format_entities(all_entities.get('obligations', [])),
-            constraints=format_entities(all_entities.get('constraints', [])),
-            capabilities=format_entities(all_entities.get('capabilities', [])),
-            actions=format_entities(all_entities.get('actions', [])),
-            events=format_entities(all_entities.get('events', [])),
-            case_text_summary=f"Case {case_id}: {case.title}"
-        )
-
-        total_links = sum(len(p.get('applies_to', [])) for p in provisions)
-        logger.info(f"[RunAll] Linked provisions to {total_links} entities")
-
-        # Store provisions with provenance tracking
+        # Validate each provision (LLM calls) + link + store -- all inside provenance tracking
         session_id = str(uuid.uuid4())
 
         with prov.track_activity(
@@ -589,8 +536,61 @@ def _run_provisions(case_id: int, llm_client, get_all_case_entities) -> dict:
             session_id=session_id,
             agent_type='extraction_service',
             agent_name='provisions_extractor',
-            execution_plan={'provisions_count': len(provisions), 'entity_links': total_links}
         ) as activity:
+            validator = ProvisionGroupValidator(llm_client)
+            for provision in provisions:
+                code = provision['code_provision']
+                mentions = grouped_mentions.get(code, [])
+
+                if mentions:
+                    validated = validator.validate_group(code, provision['provision_text'], mentions)
+                    provision['relevant_excerpts'] = [
+                        {
+                            'section': v.section,
+                            'text': v.excerpt,
+                            'matched_citation': v.citation_text,
+                            'mention_type': v.content_type,
+                            'confidence': v.confidence,
+                            'validation_reasoning': v.reasoning
+                        }
+                        for v in validated
+                    ]
+                else:
+                    provision['relevant_excerpts'] = []
+
+            # Link to entities
+            all_entities = get_all_case_entities(case_id)
+            linker = CodeProvisionLinker(llm_client)
+
+            def format_entities(entities):
+                return [
+                    {
+                        'label': e.entity_label,
+                        'definition': e.entity_definition or '',
+                        'uri': e.rdf_json_ld.get('@id', '') if e.rdf_json_ld else ''
+                    }
+                    for e in entities
+                ]
+
+            provisions = linker.link_provisions_to_entities(
+                provisions,
+                roles=format_entities(all_entities.get('roles', [])),
+                states=format_entities(all_entities.get('states', [])),
+                resources=format_entities(all_entities.get('resources', [])),
+                principles=format_entities(all_entities.get('principles', [])),
+                obligations=format_entities(all_entities.get('obligations', [])),
+                constraints=format_entities(all_entities.get('constraints', [])),
+                capabilities=format_entities(all_entities.get('capabilities', [])),
+                actions=format_entities(all_entities.get('actions', [])),
+                events=format_entities(all_entities.get('events', [])),
+                case_text_summary=f"Case {case_id}: {case.title}"
+            )
+
+            total_links = sum(len(p.get('applies_to', [])) for p in provisions)
+            logger.info(f"[RunAll] Linked provisions to {total_links} entities")
+
+            activity.execution_plan = {'provisions_count': len(provisions), 'entity_links': total_links}
+
             # Record the extraction results
             prov.record_extraction_results(
                 results=[{
@@ -666,37 +666,7 @@ def _run_precedents(case_id: int, llm_client) -> dict:
         case_text = '\n\n'.join(case_text_parts)
         prompt = PRECEDENT_EXTRACTION_PROMPT.format(case_text=case_text)
 
-        # Call LLM (streaming to prevent WSL2 TCP idle timeout)
-        from app.utils.llm_utils import streaming_completion
-        raw_response = streaming_completion(
-            llm_client, model=STEP4_DEFAULT_MODEL, max_tokens=4096, prompt=prompt
-        )
-
-        # Parse JSON
-        cleaned = raw_response.strip()
-        if cleaned.startswith('```'):
-            cleaned = cleaned.split('\n', 1)[1] if '\n' in cleaned else cleaned[3:]
-            if cleaned.endswith('```'):
-                cleaned = cleaned[:-3].strip()
-        precedents = json_mod.loads(cleaned)
-        if not isinstance(precedents, list):
-            precedents = []
-
-        # Resolve case numbers
-        for p in precedents:
-            case_number = p.get('caseNumber', '')
-            if case_number:
-                try:
-                    resolved = Document.query.filter(
-                        Document.doc_metadata['case_number'].astext == case_number
-                    ).first()
-                    p['internalCaseId'] = resolved.id if resolved else None
-                    p['resolved'] = resolved is not None
-                except Exception:
-                    p['internalCaseId'] = None
-                    p['resolved'] = False
-
-        # Store with provenance
+        # Call LLM + parse + store -- all inside provenance tracking
         session_id = str(uuid.uuid4())
 
         with prov.track_activity(
@@ -706,8 +676,39 @@ def _run_precedents(case_id: int, llm_client) -> dict:
             session_id=session_id,
             agent_type='llm',
             agent_name='precedent_extractor',
-            execution_plan={'precedents_count': len(precedents)}
         ) as activity:
+            # Call LLM (streaming to prevent WSL2 TCP idle timeout)
+            from app.utils.llm_utils import streaming_completion
+            raw_response = streaming_completion(
+                llm_client, model=STEP4_DEFAULT_MODEL, max_tokens=4096, prompt=prompt
+            )
+
+            # Parse JSON
+            cleaned = raw_response.strip()
+            if cleaned.startswith('```'):
+                cleaned = cleaned.split('\n', 1)[1] if '\n' in cleaned else cleaned[3:]
+                if cleaned.endswith('```'):
+                    cleaned = cleaned[:-3].strip()
+            precedents = json_mod.loads(cleaned)
+            if not isinstance(precedents, list):
+                precedents = []
+
+            # Resolve case numbers
+            for p in precedents:
+                case_number = p.get('caseNumber', '')
+                if case_number:
+                    try:
+                        resolved = Document.query.filter(
+                            Document.doc_metadata['case_number'].astext == case_number
+                        ).first()
+                        p['internalCaseId'] = resolved.id if resolved else None
+                        p['resolved'] = resolved is not None
+                    except Exception:
+                        p['internalCaseId'] = None
+                        p['resolved'] = False
+
+            activity.execution_plan = {'precedents_count': len(precedents)}
+
             prov.record_extraction_results(
                 results=[{
                     'caseCitation': p.get('caseCitation'),
@@ -830,89 +831,95 @@ def _run_qc_unified(case_id: int, llm_client, get_all_case_entities) -> dict:
         ).delete(synchronize_session=False)
         db.session.commit()
 
-        # Extract questions
-        question_analyzer = QuestionAnalyzer(llm_client)
-        questions_result = question_analyzer.extract_questions_with_analysis(
-            questions_text=questions_text,
-            all_entities=all_entities,
-            code_provisions=provisions,
-            case_facts=facts_text,
-            case_conclusion=conclusions_text
-        )
-
-        # Flatten all question types
-        questions = []
-        for q_type in ['board_explicit', 'implicit', 'principle_tension', 'theoretical', 'counterfactual']:
-            for q in questions_result.get(q_type, []):
-                q_dict = question_analyzer._question_to_dict(q) if hasattr(q, 'question_number') else q
-                questions.append(q_dict)
-
-        board_q_count = len(questions_result.get('board_explicit', []))
-        logger.info(f"[RunAll] Extracted {board_q_count} Board + {len(questions) - board_q_count} analytical = {len(questions)} questions")
-
-        # Get questions for conclusion context
-        board_questions = [question_analyzer._question_to_dict(q) if hasattr(q, 'question_number') else q
-                          for q in questions_result.get('board_explicit', [])]
-        analytical_questions = [q for q in questions if q.get('question_type') != 'board_explicit']
-
-        # Extract conclusions
-        conclusion_analyzer = ConclusionAnalyzer(llm_client)
-        conclusions_result = conclusion_analyzer.extract_conclusions_with_analysis(
-            conclusions_text=conclusions_text,
-            all_entities=all_entities,
-            code_provisions=provisions,
-            board_questions=board_questions,
-            analytical_questions=analytical_questions,
-            case_facts=facts_text
-        )
-
-        # Flatten all conclusion types
-        conclusions = []
-        for c_type in ['board_explicit', 'analytical_extension', 'question_response', 'principle_synthesis']:
-            for c in conclusions_result.get(c_type, []):
-                c_dict = conclusion_analyzer._conclusion_to_dict(c) if hasattr(c, 'conclusion_number') else c
-                conclusions.append(c_dict)
-
-        board_c_count = len(conclusions_result.get('board_explicit', []))
-        logger.info(f"[RunAll] Extracted {board_c_count} Board + {len(conclusions) - board_c_count} analytical = {len(conclusions)} conclusions")
-
-        # Link Q to C
-        linker = QuestionConclusionLinker(llm_client)
-        qc_links = linker.link_questions_to_conclusions(questions, conclusions)
-        conclusions = linker.apply_links_to_conclusions(conclusions, qc_links)
-        logger.info(f"[RunAll] Created {len(qc_links)} Q-C links")
-
-        # Store everything with provenance tracking
+        # Extract questions + conclusions + link + store -- all inside provenance tracking
         session_id = str(uuid.uuid4())
 
-        # Track questions extraction
         with prov.track_activity(
             activity_type='extraction',
-            activity_name='step4_questions',
+            activity_name='step4_qc_unified',
             case_id=case_id,
             session_id=session_id,
             agent_type='llm_model',
-            agent_name='question_analyzer',
-            execution_plan={'board_count': board_q_count, 'analytical_count': len(questions) - board_q_count}
-        ) as q_activity:
-            # Record prompt and response if available
+            agent_name='qc_unified_analyzer',
+        ) as activity:
+            # Extract questions
+            question_analyzer = QuestionAnalyzer(llm_client)
+            questions_result = question_analyzer.extract_questions_with_analysis(
+                questions_text=questions_text,
+                all_entities=all_entities,
+                code_provisions=provisions,
+                case_facts=facts_text,
+                case_conclusion=conclusions_text
+            )
+
+            # Flatten all question types
+            questions = []
+            for q_type in ['board_explicit', 'implicit', 'principle_tension', 'theoretical', 'counterfactual']:
+                for q in questions_result.get(q_type, []):
+                    q_dict = question_analyzer._question_to_dict(q) if hasattr(q, 'question_number') else q
+                    questions.append(q_dict)
+
+            board_q_count = len(questions_result.get('board_explicit', []))
+            logger.info(f"[RunAll] Extracted {board_q_count} Board + {len(questions) - board_q_count} analytical = {len(questions)} questions")
+
+            # Get questions for conclusion context
+            board_questions = [question_analyzer._question_to_dict(q) if hasattr(q, 'question_number') else q
+                              for q in questions_result.get('board_explicit', [])]
+            analytical_questions = [q for q in questions if q.get('question_type') != 'board_explicit']
+
+            # Extract conclusions
+            conclusion_analyzer = ConclusionAnalyzer(llm_client)
+            conclusions_result = conclusion_analyzer.extract_conclusions_with_analysis(
+                conclusions_text=conclusions_text,
+                all_entities=all_entities,
+                code_provisions=provisions,
+                board_questions=board_questions,
+                analytical_questions=analytical_questions,
+                case_facts=facts_text
+            )
+
+            # Flatten all conclusion types
+            conclusions = []
+            for c_type in ['board_explicit', 'analytical_extension', 'question_response', 'principle_synthesis']:
+                for c in conclusions_result.get(c_type, []):
+                    c_dict = conclusion_analyzer._conclusion_to_dict(c) if hasattr(c, 'conclusion_number') else c
+                    conclusions.append(c_dict)
+
+            board_c_count = len(conclusions_result.get('board_explicit', []))
+            logger.info(f"[RunAll] Extracted {board_c_count} Board + {len(conclusions) - board_c_count} analytical = {len(conclusions)} conclusions")
+
+            # Link Q to C
+            linker = QuestionConclusionLinker(llm_client)
+            qc_links = linker.link_questions_to_conclusions(questions, conclusions)
+            conclusions = linker.apply_links_to_conclusions(conclusions, qc_links)
+            logger.info(f"[RunAll] Created {len(qc_links)} Q-C links")
+
+            activity.execution_plan = {
+                'board_q_count': board_q_count,
+                'analytical_q_count': len(questions) - board_q_count,
+                'board_c_count': board_c_count,
+                'analytical_c_count': len(conclusions) - board_c_count,
+                'qc_links': len(qc_links)
+            }
+
+            # Record questions prompt and response
             q_prompt_text = getattr(question_analyzer, 'last_prompt', None)
             q_response_text = getattr(question_analyzer, 'last_response', None)
 
             prompt_entity = None
             if q_prompt_text:
-                prompt_entity = prov.record_prompt(q_prompt_text[:10000], q_activity, entity_name='questions_extraction_prompt')
+                prompt_entity = prov.record_prompt(q_prompt_text[:10000], activity, entity_name='questions_extraction_prompt')
             if q_response_text:
-                prov.record_response(q_response_text[:10000], q_activity, derived_from=prompt_entity, entity_name='questions_extraction_response')
+                prov.record_response(q_response_text[:10000], activity, derived_from=prompt_entity, entity_name='questions_extraction_response')
 
-            # Record extraction results
+            # Record questions extraction results
             prov.record_extraction_results(
                 results=[{
                     'question_number': q['question_number'],
                     'question_type': q.get('question_type', 'unknown'),
                     'question_text': q['question_text'][:200]
                 } for q in questions],
-                activity=q_activity,
+                activity=activity,
                 entity_type='extracted_questions',
                 metadata={'total': len(questions), 'board_explicit': board_q_count}
             )
@@ -940,34 +947,24 @@ def _run_qc_unified(case_id: int, llm_client, get_all_case_entities) -> dict:
                 )
                 db.session.add(rdf_entity)
 
-        # Track conclusions extraction
-        with prov.track_activity(
-            activity_type='extraction',
-            activity_name='step4_conclusions',
-            case_id=case_id,
-            session_id=session_id,
-            agent_type='llm_model',
-            agent_name='conclusion_analyzer',
-            execution_plan={'board_count': board_c_count, 'analytical_count': len(conclusions) - board_c_count}
-        ) as c_activity:
-            # Record prompt and response if available
+            # Record conclusions prompt and response
             c_prompt_text = getattr(conclusion_analyzer, 'last_prompt', None)
             c_response_text = getattr(conclusion_analyzer, 'last_response', None)
 
             prompt_entity = None
             if c_prompt_text:
-                prompt_entity = prov.record_prompt(c_prompt_text[:10000], c_activity, entity_name='conclusions_extraction_prompt')
+                prompt_entity = prov.record_prompt(c_prompt_text[:10000], activity, entity_name='conclusions_extraction_prompt')
             if c_response_text:
-                prov.record_response(c_response_text[:10000], c_activity, derived_from=prompt_entity, entity_name='conclusions_extraction_response')
+                prov.record_response(c_response_text[:10000], activity, derived_from=prompt_entity, entity_name='conclusions_extraction_response')
 
-            # Record extraction results
+            # Record conclusions extraction results
             prov.record_extraction_results(
                 results=[{
                     'conclusion_number': c['conclusion_number'],
                     'conclusion_type': c.get('conclusion_type', 'unknown'),
                     'conclusion_text': c['conclusion_text'][:200]
                 } for c in conclusions],
-                activity=c_activity,
+                activity=activity,
                 entity_type='extracted_conclusions',
                 metadata={'total': len(conclusions), 'board_explicit': board_c_count, 'qc_links': len(qc_links)}
             )
@@ -996,8 +993,8 @@ def _run_qc_unified(case_id: int, llm_client, get_all_case_entities) -> dict:
                 )
                 db.session.add(rdf_entity)
 
-        db.session.commit()
-        logger.info(f"[RunAll] Stored {len(questions)} questions and {len(conclusions)} conclusions with provenance")
+            db.session.commit()
+            logger.info(f"[RunAll] Stored {len(questions)} questions and {len(conclusions)} conclusions with provenance")
 
         # Save ExtractionPrompts for UI display (questions and conclusions)
         # Capture actual LLM prompts from analyzers
@@ -1135,20 +1132,7 @@ def _run_transformation(case_id: int, llm_client) -> dict:
         from app.routes.scenario_pipeline.step4 import get_all_case_entities
         all_entities = get_all_case_entities(case_id)
 
-        # Classify transformation
-        classifier = TransformationClassifier(llm_client)
-        result = classifier.classify(
-            case_id=case_id,
-            questions=q_list,
-            conclusions=c_list,
-            case_title=case.title,
-            case_facts=facts_text,
-            all_entities=all_entities
-        )
-
-        logger.info(f"[RunAll] Transformation type: {result.transformation_type} (confidence: {result.confidence})")
-
-        # Save with provenance tracking
+        # Classify transformation + store -- all inside provenance tracking
         session_id = str(uuid.uuid4())
 
         with prov.track_activity(
@@ -1158,8 +1142,21 @@ def _run_transformation(case_id: int, llm_client) -> dict:
             session_id=session_id,
             agent_type='llm_model',
             agent_name='transformation_classifier',
-            execution_plan={'questions_count': len(q_list), 'conclusions_count': len(c_list)}
         ) as activity:
+            classifier = TransformationClassifier(llm_client)
+            result = classifier.classify(
+                case_id=case_id,
+                questions=q_list,
+                conclusions=c_list,
+                case_title=case.title,
+                case_facts=facts_text,
+                all_entities=all_entities
+            )
+
+            logger.info(f"[RunAll] Transformation type: {result.transformation_type} (confidence: {result.confidence})")
+
+            activity.execution_plan = {'questions_count': len(q_list), 'conclusions_count': len(c_list)}
+
             # Record prompt and response if available
             prompt_entity = None
             if hasattr(classifier, 'last_prompt') and classifier.last_prompt:
@@ -1242,47 +1239,7 @@ def _run_rich_analysis(case_id: int) -> dict:
         # Load provisions
         provisions = synthesizer._load_provisions(case_id)
 
-        # Run rich analysis sub-tasks in parallel.
-        # All three are independent of each other.
-        analyzer = RichAnalyzer()
-        rich_app = current_app._get_current_object()
-        llm_traces_causal = []
-        llm_traces_qe = []
-        llm_traces_rp = []
-
-        def _run_causal():
-            with rich_app.app_context():
-                links = analyzer.analyze_causal_normative_links(foundation, llm_traces_causal)
-                logger.info(f"[RunAll] Causal links: {len(links)}")
-                return links
-
-        def _run_question_emergence():
-            with rich_app.app_context():
-                results = analyzer.analyze_question_emergence(
-                    questions, foundation, llm_traces_qe
-                )
-                logger.info(f"[RunAll] Question emergence: {len(results)}")
-                return results
-
-        def _run_resolution():
-            with rich_app.app_context():
-                patterns = analyzer.analyze_resolution_patterns(
-                    conclusions, questions, provisions, foundation, llm_traces_rp
-                )
-                logger.info(f"[RunAll] Resolution patterns: {len(patterns)}")
-                return patterns
-
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            fut_causal = executor.submit(_run_causal)
-            fut_qe = executor.submit(_run_question_emergence)
-            fut_rp = executor.submit(_run_resolution)
-            causal_links = fut_causal.result()
-            question_emergence = fut_qe.result()
-            resolution_patterns = fut_rp.result()
-
-        llm_traces = llm_traces_causal + llm_traces_qe + llm_traces_rp
-
-        # Store rich analysis with provenance tracking
+        # Run rich analysis sub-tasks in parallel + store -- all inside provenance tracking
         session_id = str(uuid.uuid4())
 
         with prov.track_activity(
@@ -1292,12 +1249,51 @@ def _run_rich_analysis(case_id: int) -> dict:
             session_id=session_id,
             agent_type='llm_model',
             agent_name='rich_analyzer',
-            execution_plan={
+        ) as activity:
+            analyzer = RichAnalyzer()
+            rich_app = current_app._get_current_object()
+            llm_traces_causal = []
+            llm_traces_qe = []
+            llm_traces_rp = []
+
+            def _run_causal():
+                with rich_app.app_context():
+                    links = analyzer.analyze_causal_normative_links(foundation, llm_traces_causal)
+                    logger.info(f"[RunAll] Causal links: {len(links)}")
+                    return links
+
+            def _run_question_emergence():
+                with rich_app.app_context():
+                    results = analyzer.analyze_question_emergence(
+                        questions, foundation, llm_traces_qe
+                    )
+                    logger.info(f"[RunAll] Question emergence: {len(results)}")
+                    return results
+
+            def _run_resolution():
+                with rich_app.app_context():
+                    patterns = analyzer.analyze_resolution_patterns(
+                        conclusions, questions, provisions, foundation, llm_traces_rp
+                    )
+                    logger.info(f"[RunAll] Resolution patterns: {len(patterns)}")
+                    return patterns
+
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                fut_causal = executor.submit(_run_causal)
+                fut_qe = executor.submit(_run_question_emergence)
+                fut_rp = executor.submit(_run_resolution)
+                causal_links = fut_causal.result()
+                question_emergence = fut_qe.result()
+                resolution_patterns = fut_rp.result()
+
+            llm_traces = llm_traces_causal + llm_traces_qe + llm_traces_rp
+
+            activity.execution_plan = {
                 'causal_links': len(causal_links),
                 'question_emergence': len(question_emergence),
                 'resolution_patterns': len(resolution_patterns)
             }
-        ) as activity:
+
             combined_prompt = ""
             combined_response = ""
             for trace in llm_traces:
@@ -1387,52 +1383,61 @@ def _run_phase3(case_id: int) -> dict:
         qe_dicts = [qe.to_dict() if hasattr(qe, 'to_dict') else vars(qe) for qe in question_emergence]
         rp_dicts = [rp.to_dict() if hasattr(rp, 'to_dict') else vars(rp) for rp in resolution_patterns]
 
-        # Run E1-E2 separately to capture intermediate values for UI display
-        e1_obligations = 0
-        e1_decision_relevant = 0
-        e2_action_sets = 0
-        try:
-            coverage = get_obligation_coverage(case_id, 'engineering')
-            e1_obligations = len(coverage.obligations)
-            e1_decision_relevant = coverage.decision_relevant_count
-            logger.info(f"[RunAll] E1: {e1_obligations} obligations, {e1_decision_relevant} decision-relevant")
-
-            action_map = get_action_option_map(case_id, 'engineering')
-            e2_action_sets = len(action_map.action_sets)
-            logger.info(f"[RunAll] E2: {e2_action_sets} action sets")
-        except Exception as e:
-            logger.warning(f"[RunAll] Could not get E1-E2 values: {e}")
-
-        # Run Phase 3 synthesis
-        result = synthesize_decision_points(
-            case_id=case_id,
-            questions=questions,
-            conclusions=conclusions,
-            question_emergence=qe_dicts,
-            resolution_patterns=rp_dicts,
-            domain='engineering',
-            skip_llm=False
-        )
-
-        logger.info(f"[RunAll] Phase 3: {result.canonical_count} canonical decision points")
-
-        # Save with provenance tracking
-        session_id = result.extraction_session_id or str(uuid.uuid4())
+        # Run E1-E2 + Phase 3 synthesis + store -- all inside provenance tracking
+        session_id = str(uuid.uuid4())
 
         with prov.track_activity(
             activity_type='synthesis',
             activity_name='step4_phase3_decision',
             case_id=case_id,
             session_id=session_id,
-            agent_type='llm_model' if result.llm_prompt else 'algorithmic',
+            agent_type='llm_model',
             agent_name='decision_point_synthesizer',
-            execution_plan={
+        ) as activity:
+            # Run E1-E2 separately to capture intermediate values for UI display
+            e1_obligations = 0
+            e1_decision_relevant = 0
+            e2_action_sets = 0
+            try:
+                coverage = get_obligation_coverage(case_id, 'engineering')
+                e1_obligations = len(coverage.obligations)
+                e1_decision_relevant = coverage.decision_relevant_count
+                logger.info(f"[RunAll] E1: {e1_obligations} obligations, {e1_decision_relevant} decision-relevant")
+
+                action_map = get_action_option_map(case_id, 'engineering')
+                e2_action_sets = len(action_map.action_sets)
+                logger.info(f"[RunAll] E2: {e2_action_sets} action sets")
+            except Exception as e:
+                logger.warning(f"[RunAll] Could not get E1-E2 values: {e}")
+
+            # Run Phase 3 synthesis
+            result = synthesize_decision_points(
+                case_id=case_id,
+                questions=questions,
+                conclusions=conclusions,
+                question_emergence=qe_dicts,
+                resolution_patterns=rp_dicts,
+                domain='engineering',
+                skip_llm=False
+            )
+
+            logger.info(f"[RunAll] Phase 3: {result.canonical_count} canonical decision points")
+
+            # Use session_id from synthesis result if available
+            if result.extraction_session_id:
+                session_id = result.extraction_session_id
+
+            activity.execution_plan = {
                 'questions_count': len(questions),
                 'conclusions_count': len(conclusions),
                 'question_emergence': len(qe_dicts),
                 'resolution_patterns': len(rp_dicts)
             }
-        ) as activity:
+
+            # Update agent_type based on whether LLM was used
+            if not result.llm_prompt:
+                activity.agent_type = 'algorithmic'
+
             # Build description of what Phase 3 did
             if result.llm_prompt:
                 prompt_text = result.llm_prompt[:10000]
@@ -1555,20 +1560,7 @@ def _run_phase4(case_id: int) -> dict:
             for link in links_raw
         ]
 
-        # Run Phase 4 pipeline
-        result = construct_phase4_narrative(
-            case_id=case_id,
-            foundation=foundation,
-            canonical_points=canonical_points,
-            conclusions=conclusions,
-            transformation_type=transformation_type,
-            causal_normative_links=causal_links,
-            use_llm=True
-        )
-
-        logger.info(f"[RunAll] Phase 4: {len(result.narrative_elements.characters)} characters, {len(result.timeline.events)} events")
-
-        # Save with provenance tracking
+        # Run Phase 4 pipeline + store -- all inside provenance tracking
         session_id = str(uuid.uuid4())
 
         with prov.track_activity(
@@ -1578,12 +1570,25 @@ def _run_phase4(case_id: int) -> dict:
             session_id=session_id,
             agent_type='llm_model',
             agent_name='narrative_constructor',
-            execution_plan={
+        ) as activity:
+            result = construct_phase4_narrative(
+                case_id=case_id,
+                foundation=foundation,
+                canonical_points=canonical_points,
+                conclusions=conclusions,
+                transformation_type=transformation_type,
+                causal_normative_links=causal_links,
+                use_llm=True
+            )
+
+            logger.info(f"[RunAll] Phase 4: {len(result.narrative_elements.characters)} characters, {len(result.timeline.events)} events")
+
+            activity.execution_plan = {
                 'canonical_points': len(canonical_points),
                 'causal_links': len(causal_links),
                 'transformation_type': transformation_type
             }
-        ) as activity:
+
             # Extract actual LLM prompts from llm_traces
             actual_prompts = []
             actual_responses = []

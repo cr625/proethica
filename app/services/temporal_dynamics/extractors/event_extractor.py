@@ -119,6 +119,7 @@ def extract_events_with_classification(
 
     finally:
         # Always append trace entry
+        trace_entry['end_timestamp'] = datetime.utcnow().isoformat()
         llm_trace.append(trace_entry)
 
 

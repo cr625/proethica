@@ -294,23 +294,31 @@ class UnifiedEntityResolver:
         Build label-based index for text matching.
 
         Creates index mapping lowercase labels to entity data.
+        Skips entries with empty definitions (they produce useless popovers).
         """
         self._label_index = {}
 
         for uri, data in lookup.items():
             label = data.get('label', '')
-            if label:
-                # Lowercase for case-insensitive matching
-                label_key = label.lower().strip()
-                # Case entities take precedence
-                if label_key not in self._label_index or data.get('source') == 'case':
-                    self._label_index[label_key] = data
+            definition = data.get('definition', '')
+            if not label:
+                continue
+            # Skip ontology entries with no definition -- these are stale
+            # concepts that produce "No definition available" popovers
+            if not definition and data.get('source') == 'ontology':
+                continue
 
-                # Also index without underscores
-                label_no_underscore = label_key.replace('_', ' ')
-                if label_no_underscore != label_key:
-                    if label_no_underscore not in self._label_index or data.get('source') == 'case':
-                        self._label_index[label_no_underscore] = data
+            # Lowercase for case-insensitive matching
+            label_key = label.lower().strip()
+            # Case entities take precedence
+            if label_key not in self._label_index or data.get('source') == 'case':
+                self._label_index[label_key] = data
+
+            # Also index without underscores
+            label_no_underscore = label_key.replace('_', ' ')
+            if label_no_underscore != label_key:
+                if label_no_underscore not in self._label_index or data.get('source') == 'case':
+                    self._label_index[label_no_underscore] = data
 
     @staticmethod
     def clear_ontserve_cache():

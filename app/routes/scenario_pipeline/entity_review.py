@@ -2062,7 +2062,13 @@ def reconcile_run(case_id):
 
     try:
         recon_service = EntityReconciliationService()
-        reconciliation = recon_service.reconcile_with_review(case_id)
+        data = request.get_json(silent=True) or {}
+        mode = data.get('mode', 'review')  # 'auto' = exact-match only, 'review' = + LLM dedup
+
+        if mode == 'auto':
+            reconciliation = recon_service.reconcile_auto(case_id)
+        else:
+            reconciliation = recon_service.reconcile_with_review(case_id)
 
         # Serialize candidates for JSON response
         candidates = []

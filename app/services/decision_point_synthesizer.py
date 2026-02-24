@@ -630,6 +630,8 @@ class DecisionPointSynthesizer:
     # STAGE 3.3: LLM REFINEMENT
     # =========================================================================
 
+    REFINEMENT_BATCH_SIZE = 5
+
     def _llm_refine(
         self,
         case_id: int,
@@ -642,6 +644,10 @@ class DecisionPointSynthesizer:
     ) -> Tuple[List[CanonicalDecisionPoint], str, str, Optional[EnrichmentResult]]:
         """
         Use LLM to refine top-scoring candidates into canonical decision points.
+
+        When more than REFINEMENT_BATCH_SIZE candidates qualify, they are split
+        into batches and each batch is refined in a separate LLM call. This
+        prevents response truncation from exceeding max_tokens.
 
         Returns:
             Tuple of (canonical_points, prompt, response, enrichment_result)
@@ -659,57 +665,105 @@ class DecisionPointSynthesizer:
             top_candidates = [(c, score_map.get(c.focus_id, QCAlignmentScore(c.focus_id, 0.0)))
                             for c in candidates[:8]]
 
-        # Build prompt
-        prompt = self._build_refinement_prompt(
-            case_id,
-            top_candidates,
-            questions,
-            conclusions,
-            question_emergence,
-            resolution_patterns
-        )
+        # Batch candidates if there are too many for a single LLM call
+        batch_size = self.REFINEMENT_BATCH_SIZE
+        if len(top_candidates) <= batch_size:
+            batches = [top_candidates]
+        else:
+            batches = [
+                top_candidates[i:i + batch_size]
+                for i in range(0, len(top_candidates), batch_size)
+            ]
+            logger.info(f"Stage 3.3: Splitting {len(top_candidates)} candidates into {len(batches)} batches")
 
-        # Enrich prompt with entity definitions from OntServe MCP
+        all_canonical = []
+        all_prompts = []
+        all_responses = []
         enrichment_result = None
-        try:
-            enrichment_result = enrich_prompt_with_metadata(prompt, mode="glossary")
-            prompt = enrichment_result.enriched_text
-            logger.info(f"Enriched refinement prompt: {enrichment_result.mcp_resolved_count} from MCP, "
-                       f"{enrichment_result.local_resolved_count} from local, "
-                       f"{enrichment_result.not_found_count} not found")
-        except Exception as e:
-            logger.warning(f"MCP enrichment failed, using unenriched prompt: {e}")
 
-        try:
-            from app.utils.llm_utils import streaming_completion
-            response_text = streaming_completion(
-                self.llm_client,
-                model=ModelConfig.get_claude_model("default"),
-                max_tokens=8000,
-                prompt=prompt,
-                temperature=0.2,
-            )
-            logger.info(f"Stage 3.3 refinement response: {len(response_text)} chars")
+        for batch_idx, batch in enumerate(batches):
+            batch_label = f"batch {batch_idx + 1}/{len(batches)}" if len(batches) > 1 else "single batch"
 
-            canonical_points = self._parse_refinement_response(
-                response_text,
-                top_candidates,
+            # Calculate how many decision points this batch should produce
+            # Distribute evenly: aim for 2-3 per batch, min 1
+            if len(batches) == 1:
+                target_count = "4-6"
+            else:
+                per_batch = max(1, round(len(batch) * 0.5))
+                target_count = f"{per_batch}-{per_batch + 1}"
+
+            prompt = self._build_refinement_prompt(
+                case_id,
+                batch,
                 questions,
                 conclusions,
                 question_emergence,
-                resolution_patterns
+                resolution_patterns,
+                target_count=target_count,
             )
 
-            return canonical_points, prompt, response_text, enrichment_result
+            # Enrich only the first batch prompt (enrichment applies globally)
+            if batch_idx == 0:
+                try:
+                    enrichment_result = enrich_prompt_with_metadata(prompt, mode="glossary")
+                    prompt = enrichment_result.enriched_text
+                    logger.info(f"Enriched refinement prompt: {enrichment_result.mcp_resolved_count} from MCP, "
+                               f"{enrichment_result.local_resolved_count} from local, "
+                               f"{enrichment_result.not_found_count} not found")
+                except Exception as e:
+                    logger.warning(f"MCP enrichment failed, using unenriched prompt: {e}")
 
-        except Exception as e:
-            logger.error(f"LLM refinement failed: {e}")
-            # Fall back to algorithmic conversion
-            canonical_points = self._convert_to_canonical_without_llm(
+            try:
+                from app.utils.llm_utils import streaming_completion
+                response_text = streaming_completion(
+                    self.llm_client,
+                    model=ModelConfig.get_claude_model("default"),
+                    max_tokens=8000,
+                    prompt=prompt,
+                    temperature=0.2,
+                )
+                logger.info(f"Stage 3.3 {batch_label} response: {len(response_text)} chars")
+
+                batch_points = self._parse_refinement_response(
+                    response_text,
+                    batch,
+                    questions,
+                    conclusions,
+                    question_emergence,
+                    resolution_patterns
+                )
+                all_canonical.extend(batch_points)
+                all_prompts.append(prompt)
+                all_responses.append(response_text)
+
+            except Exception as e:
+                logger.error(f"LLM refinement failed for {batch_label}: {e}")
+                # Fall back to algorithmic conversion for this batch only
+                batch_candidates = [c for c, _ in batch]
+                batch_scores = [s for _, s in batch]
+                fallback_points = self._convert_to_canonical_without_llm(
+                    batch_candidates, batch_scores, questions, conclusions,
+                    question_emergence, resolution_patterns
+                )
+                all_canonical.extend(fallback_points)
+                all_responses.append(f"ERROR: {e}")
+
+        # Renumber focus_ids sequentially across batches
+        for i, dp in enumerate(all_canonical, 1):
+            dp.focus_id = f"DP{i}"
+            dp.focus_number = i
+
+        combined_prompt = "\n---\n".join(all_prompts) if all_prompts else ""
+        combined_response = "\n---\n".join(all_responses) if all_responses else ""
+
+        if not all_canonical:
+            logger.warning("All batches failed - full algorithmic fallback")
+            all_canonical = self._convert_to_canonical_without_llm(
                 candidates, alignment_scores, questions, conclusions,
                 question_emergence, resolution_patterns
             )
-            return canonical_points, prompt, f"ERROR: {e}", enrichment_result
+
+        return all_canonical, combined_prompt, combined_response, enrichment_result
 
     def _llm_generate_from_causal_links(
         self,
@@ -919,7 +973,8 @@ Return as JSON array:
         questions: List[Dict],
         conclusions: List[Dict],
         question_emergence: List[Dict],
-        resolution_patterns: List[Dict]
+        resolution_patterns: List[Dict],
+        target_count: str = "4-6",
     ) -> str:
         """Build LLM prompt for decision point refinement."""
 
@@ -983,7 +1038,7 @@ These are the actual ethical questions with their Toulmin structure:
 
 ## TASK
 
-Synthesize 4-6 decision points that:
+Synthesize {target_count} decision points that:
 
 1. **Preserve entity grounding** - Keep URI references from candidates
 2. **Align with Q&C** - Each point should address real board concerns
@@ -1028,7 +1083,7 @@ CRITICAL: Option descriptions must be ACTION PHRASES (verb form), not policy sta
 ]
 ```
 
-Produce 4-6 decision points capturing the key ethical issues.
+Produce exactly {target_count} decision points capturing the key ethical issues. Do NOT produce more than the requested count.
 """
 
     def _parse_refinement_response(

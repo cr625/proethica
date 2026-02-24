@@ -23,6 +23,8 @@ Usage:
     )
 """
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 from celery_config import get_celery
 from app import db
 from app.models.pipeline_run import PipelineRun, PIPELINE_STATUS
@@ -115,6 +117,46 @@ def run_extraction(case_text: str, case_id: int,
     }
 
 
+def run_extraction_parallel(entity_types, case_text, case_id, section_type,
+                            step_number, max_workers=3):
+    """
+    Run multiple entity type extractions in parallel using ThreadPoolExecutor.
+
+    Mirrors the parallelization pattern from step1_enhanced.py and
+    step2_enhanced.py SSE routes. Each thread gets its own Flask app context.
+
+    Args:
+        entity_types: List of entity types to extract (e.g., ['roles', 'states', 'resources'])
+        case_text: Text to extract from
+        case_id: Case ID
+        section_type: 'facts' or 'discussion'
+        step_number: Pipeline step number (1 or 2)
+        max_workers: Number of parallel threads
+
+    Returns:
+        dict mapping entity_type -> extraction result dict
+    """
+    from flask import current_app
+    app = current_app._get_current_object()
+
+    def _extract_in_context(et):
+        with app.app_context():
+            return et, run_extraction(case_text, case_id, section_type, et, step_number)
+
+    results = {}
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(_extract_in_context, et): et for et in entity_types}
+        for future in as_completed(futures):
+            entity_type = futures[future]
+            try:
+                _, result = future.result()
+                results[entity_type] = result
+            except Exception as e:
+                logger.error(f"Parallel extraction failed for {entity_type}: {e}")
+                results[entity_type] = {'classes': 0, 'individuals': 0, 'error': str(e)}
+    return results
+
+
 @celery.task(bind=True, name='proethica.tasks.run_step1')
 def run_step1_task(self, run_id: int, section_type: str = 'facts'):
     """
@@ -163,17 +205,21 @@ def run_step1_task(self, run_id: int, section_type: str = 'facts'):
             else:
                 logger.warning(f"[Task {self.request.id}] Auto-clear pass1 failed: {clear_result.get('error', 'Unknown')}")
 
-        results = {}
-        for entity_type in STEP1_ENTITY_TYPES:
-            # Update granular status for UI
-            run.current_step = f"Extracting {entity_type} from {section_type}"
-            db.session.commit()
+        # Extract all 3 concept types in parallel (R||S||Rs)
+        # Mirrors step1_enhanced.py ThreadPoolExecutor pattern
+        run.current_step = f"step1_{section_type}_parallel"
+        db.session.commit()
+        logger.info(f"[Task {self.request.id}] Extracting R||S||Rs from {section_type} in parallel")
 
-            logger.info(f"[Task {self.request.id}] Extracting {entity_type} from {section_type}")
-            results[entity_type] = run_extraction(
-                case_text, run.case_id, section_type, entity_type,
-                step_number=1
-            )
+        results = run_extraction_parallel(
+            STEP1_ENTITY_TYPES, case_text, run.case_id, section_type,
+            step_number=1, max_workers=3
+        )
+
+        # Check for extraction errors
+        for et, result in results.items():
+            if 'error' in result:
+                raise RuntimeError(f"Extraction failed for {et}: {result['error']}")
 
         run.mark_step_complete(step_name, results)
         db.session.commit()
@@ -236,17 +282,34 @@ def run_step2_task(self, run_id: int, section_type: str = 'facts'):
             else:
                 logger.warning(f"[Task {self.request.id}] Auto-clear pass2 failed: {clear_result.get('error', 'Unknown')}")
 
+        # Phase 1: P then O sequential (O depends on P context)
+        # Mirrors step2_enhanced.py hybrid pattern
         results = {}
-        for entity_type in STEP2_ENTITY_TYPES:
-            # Update granular status for UI
+        for entity_type in ['principles', 'obligations']:
             run.current_step = f"Extracting {entity_type} from {section_type}"
             db.session.commit()
-
             logger.info(f"[Task {self.request.id}] Extracting {entity_type} from {section_type}")
             results[entity_type] = run_extraction(
                 case_text, run.case_id, section_type, entity_type,
                 step_number=2
             )
+
+        # Phase 2: Cs and Ca in parallel (both depend on O, independent of each other)
+        run.current_step = f"step2_{section_type}_Cs_Ca_parallel"
+        db.session.commit()
+        logger.info(f"[Task {self.request.id}] Extracting Cs||Ca from {section_type} in parallel")
+
+        parallel_results = run_extraction_parallel(
+            ['constraints', 'capabilities'], case_text, run.case_id, section_type,
+            step_number=2, max_workers=2
+        )
+
+        # Check for extraction errors
+        for et, result in parallel_results.items():
+            if 'error' in result:
+                raise RuntimeError(f"Extraction failed for {et}: {result['error']}")
+
+        results.update(parallel_results)
 
         run.mark_step_complete(step_name, results)
         db.session.commit()
@@ -523,6 +586,18 @@ def run_full_pipeline_task(self, case_id: int, config: dict = None, user_id: int
     run_id = run.id
     logger.info(f"[Task {self.request.id}] Created PipelineRun {run_id}")
 
+    # Clean up previous OntServe data for this case before re-extraction
+    if commit_to_ontserve:
+        try:
+            from app.services.ontserve_commit_service import OntServeCommitService
+            svc = OntServeCommitService()
+            ur = svc.uncommit_case(case_id)
+            logger.info(f"[Task {self.request.id}] Pre-extraction uncommit: "
+                        f"ttl={ur.get('ttl_deleted')}, db={ur.get('ontserve_cleared')}, "
+                        f"reset={ur.get('entities_reset')}")
+        except Exception as e:
+            logger.warning(f"[Task {self.request.id}] Pre-extraction uncommit (non-fatal): {e}")
+
     try:
         # Step 1: Pass 1 extraction
         logger.info(f"[Task {self.request.id}] Running Step 1 facts...")
@@ -555,6 +630,11 @@ def run_full_pipeline_task(self, case_id: int, config: dict = None, user_id: int
         if include_step4:
             logger.info(f"[Task {self.request.id}] Running Step 4 (Case Synthesis)...")
             run_step4_task.apply(args=[run_id])
+
+            # Second commit: commit Step 4 synthesis entities to OntServe
+            if commit_to_ontserve:
+                logger.info(f"[Task {self.request.id}] Committing Step 4 entities to OntServe...")
+                run_commit_task.apply(args=[run_id])
 
         # Mark as completed or extracted based on what was run
         run = PipelineRun.query.get(run_id)

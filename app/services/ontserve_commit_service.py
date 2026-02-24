@@ -204,7 +204,8 @@ class OntServeCommitService:
 
                 # Check if class already exists
                 if (class_uri, RDF.type, OWL.Class) in g:
-                    logger.info(f"Class {label} already exists, skipping")
+                    # Accumulate: add new case's discoveredInCase and context
+                    self._accumulate_class_context(g, class_uri, entity, rdf_data, PROETHICA_PROV)
                     continue
 
                 # Add class triple
@@ -308,6 +309,55 @@ class OntServeCommitService:
         except Exception as e:
             logger.error(f"Error committing classes: {e}")
             return {'count': 0, 'error': str(e)}
+
+    def _accumulate_class_context(self, g: Graph, class_uri: URIRef,
+                                     entity, rdf_data: Dict,
+                                     PROETHICA_PROV: Namespace) -> None:
+        """
+        When a class already exists in the extended TTL, accumulate new case context
+        rather than skipping entirely.
+
+        Adds:
+        - proeth-prov:discoveredInCase (new case ID, if not already present)
+        - skos:scopeNote with case-tagged definition (if definition differs)
+        """
+        props = (rdf_data or {}).get('properties', {})
+
+        # Add discoveredInCase if not already present for this case
+        case_ids_in_props = props.get('discoveredInCase', [])
+        if not case_ids_in_props and props.get('firstDiscoveredInCase'):
+            case_ids_in_props = props['firstDiscoveredInCase']
+
+        for case_id_val in case_ids_in_props:
+            case_literal = Literal(int(case_id_val), datatype=XSD.integer)
+            if (class_uri, PROETHICA_PROV.discoveredInCase, case_literal) not in g:
+                g.add((class_uri, PROETHICA_PROV.discoveredInCase, case_literal))
+                logger.info(f"Class {entity.entity_label}: added discoveredInCase {case_id_val}")
+
+        # Add case-specific definition as skos:scopeNote if it differs from existing
+        new_definition = ''
+        definitions = (rdf_data or {}).get('definitions', [])
+        if definitions:
+            primary = next((d for d in definitions if d.get('is_primary')), definitions[0])
+            new_definition = primary.get('text', '')
+        if not new_definition:
+            new_definition = entity.entity_definition or ''
+
+        if new_definition:
+            # Check if this exact text is already present as definition or scopeNote
+            existing_notes = set()
+            for _, _, obj in g.triples((class_uri, SKOS.definition, None)):
+                existing_notes.add(str(obj).strip())
+            for _, _, obj in g.triples((class_uri, SKOS.scopeNote, None)):
+                existing_notes.add(str(obj).strip())
+            for _, _, obj in g.triples((class_uri, RDFS.comment, None)):
+                existing_notes.add(str(obj).strip())
+
+            if new_definition.strip() not in existing_notes:
+                case_tag = case_ids_in_props[0] if case_ids_in_props else '?'
+                tagged = f"[Case {case_tag}] {new_definition}"
+                g.add((class_uri, SKOS.scopeNote, Literal(tagged)))
+                logger.info(f"Class {entity.entity_label}: added scopeNote from Case {case_tag}")
 
     def _commit_individuals_to_case_ontology(self, case_id: int, individuals: List[Tuple[Any, Dict]]) -> Dict[str, Any]:
         """

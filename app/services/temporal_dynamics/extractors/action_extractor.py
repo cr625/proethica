@@ -160,6 +160,7 @@ def _extract_core_actions(
         return []
 
     finally:
+        trace_entry['end_timestamp'] = datetime.utcnow().isoformat()
         llm_trace.append(trace_entry)
 
 
@@ -224,6 +225,7 @@ def _enrich_with_scenario_metadata(
         return actions
 
     finally:
+        trace_entry['end_timestamp'] = datetime.utcnow().isoformat()
         llm_trace.append(trace_entry)
 
 

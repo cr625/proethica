@@ -139,6 +139,7 @@ JSON Response:"""
         markers = parse_json_object(response_text, context="temporal_markers")
         if markers is None:
             trace_entry['error'] = "No valid JSON found in response"
+            trace_entry['end_timestamp'] = datetime.utcnow().isoformat()
             llm_trace.append(trace_entry)
             raise ValueError("LLM did not return valid JSON for temporal markers")
 
@@ -148,12 +149,14 @@ JSON Response:"""
             'durations': len(markers.get('durations', [])),
             'allen_relations': len(markers.get('allen_relations', []))
         }
+        trace_entry['end_timestamp'] = datetime.utcnow().isoformat()
         llm_trace.append(trace_entry)
         return markers
 
     except Exception as e:
         logger.error(f"[Temporal Extractor] Error: {e}", exc_info=True)
         trace_entry['error'] = str(e)
+        trace_entry['end_timestamp'] = datetime.utcnow().isoformat()
         llm_trace.append(trace_entry)
         # Return empty structure
         return {
