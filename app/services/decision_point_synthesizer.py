@@ -715,26 +715,42 @@ class DecisionPointSynthesizer:
 
             try:
                 from app.utils.llm_utils import streaming_completion
-                response_text = streaming_completion(
-                    self.llm_client,
-                    model=ModelConfig.get_claude_model("default"),
-                    max_tokens=8000,
-                    prompt=prompt,
-                    temperature=0.2,
-                )
-                logger.info(f"Stage 3.3 {batch_label} response: {len(response_text)} chars")
 
-                batch_points = self._parse_refinement_response(
-                    response_text,
-                    batch,
-                    questions,
-                    conclusions,
-                    question_emergence,
-                    resolution_patterns
-                )
-                all_canonical.extend(batch_points)
-                all_prompts.append(prompt)
-                all_responses.append(response_text)
+                # Retry once on failure (streaming timeout, JSON parse error, etc.)
+                response_text = None
+                last_error = None
+                for attempt in range(2):
+                    try:
+                        response_text = streaming_completion(
+                            self.llm_client,
+                            model=ModelConfig.get_claude_model("default"),
+                            max_tokens=16000,
+                            prompt=prompt,
+                            temperature=0.2,
+                        )
+                        logger.info(f"Stage 3.3 {batch_label} response: {len(response_text)} chars")
+
+                        batch_points = self._parse_refinement_response(
+                            response_text,
+                            batch,
+                            questions,
+                            conclusions,
+                            question_emergence,
+                            resolution_patterns
+                        )
+                        all_canonical.extend(batch_points)
+                        all_prompts.append(prompt)
+                        all_responses.append(response_text)
+                        last_error = None
+                        break
+                    except Exception as retry_err:
+                        last_error = retry_err
+                        if attempt == 0:
+                            logger.warning(f"Stage 3.3 {batch_label} attempt 1 failed: {retry_err}, retrying...")
+                            continue
+
+                if last_error:
+                    raise last_error
 
             except Exception as e:
                 logger.error(f"LLM refinement failed for {batch_label}: {e}")
@@ -988,8 +1004,12 @@ Return as JSON array:
 - Role: {candidate.grounding.role_label} [{candidate.grounding.role_uri}]
 - Obligation: {candidate.grounding.obligation_label or 'N/A'} [{candidate.grounding.obligation_uri or 'N/A'}]
 - Matched Questions: {', '.join(score.matched_questions) or 'None'}
-- Options: {len(candidate.options)} available
-""")
+- Options:
+""" + "\n".join(
+                f"    O{j+1}: {opt.description} [{'chosen' if opt.is_extracted_action else 'alternative'}]"
+                for j, opt in enumerate(candidate.options)
+            ))
+
 
         # Format questions with Toulmin analysis
         qe_map = {qe.get('question_uri', ''): qe for qe in question_emergence}
@@ -1046,9 +1066,28 @@ Synthesize {target_count} decision points that:
 4. **Include Toulmin structure** - Show DATA, WARRANTs, and REBUTTAL for each
 5. **Use action-form options** - Options must be verb phrases describing actions
 
-CRITICAL: Option descriptions must be ACTION PHRASES (verb form), not policy statements.
-- Good: "Disclose AI tool usage to client", "Verify code with subject matter expert"
-- Bad: "No disclosure required unless contractually specified", "AI Tool Adoption Strategy"
+CRITICAL OPTION REQUIREMENTS:
+
+1. Option descriptions must be ACTION PHRASES (verb form), not policy statements.
+   - Good: "Disclose AI tool usage to client", "Verify code with subject matter expert"
+   - Bad: "No disclosure required unless contractually specified", "AI Tool Adoption Strategy"
+
+2. Each decision point MUST have 2-3 options that represent GENUINELY DEFENSIBLE positions.
+   Do NOT create straw-man alternatives. Each option should be an action a reasonable
+   professional could plausibly choose given competing pressures (time, cost, client
+   relationship, scope of duty, professional judgment).
+
+   - BAD (straw-man negation):
+     O1: "Conduct rigorous line-by-line review before sealing"
+     O2: "Seal without any verification"
+   - GOOD (genuine tension):
+     O1: "Conduct full independent technical review of all AI outputs before sealing"
+     O2: "Apply standard firm QA protocols to AI outputs at the same level as conventional CAD software"
+     O3: "Engage a third-party reviewer with AI expertise for safety-critical elements while applying standard review to remaining outputs"
+
+   The non-board-choice options must represent positions with real justifications
+   (efficiency, precedent, scope limitation, competing obligations) -- not simply
+   omitting or refusing to perform the ethical action.
 
 ## OUTPUT FORMAT (JSON)
 
@@ -1076,8 +1115,9 @@ CRITICAL: Option descriptions must be ACTION PHRASES (verb form), not policy sta
     "qc_alignment_score": 0.85,
     "intensity_score": 0.7,
     "options": [
-      {{"option_id": "O1", "description": "Disclose AI tool usage to client", "action_uri": "URI", "is_board_choice": true}},
-      {{"option_id": "O2", "description": "Do not disclose AI tool usage", "action_uri": "URI", "is_board_choice": false}}
+      {{"option_id": "O1", "description": "Proactively disclose AI tool usage and identify AI-generated sections to client before submission", "action_uri": "URI", "is_board_choice": true}},
+      {{"option_id": "O2", "description": "Treat AI tool as internal drafting software equivalent to CAD, disclosing only upon direct client inquiry", "action_uri": "URI", "is_board_choice": false}},
+      {{"option_id": "O3", "description": "Disclose AI usage in project documentation without separate client notification, following existing firm software disclosure policy", "action_uri": "URI", "is_board_choice": false}}
     ]
   }}
 ]
@@ -1098,10 +1138,10 @@ Produce exactly {target_count} decision points capturing the key ethical issues.
         """Parse LLM refinement response into canonical decision points."""
 
         synthesis_data = parse_json_response(
-            response_text, "decision point refinement", strict=True
+            response_text, "decision point refinement", strict=False
         )
         if not synthesis_data:
-            return []
+            raise ValueError("No JSON found in LLM refinement response")
 
         # Build label->URI lookup from algorithmic candidates so we don't
         # trust the LLM's fabricated URIs (e.g. "case-74#Engineer" instead

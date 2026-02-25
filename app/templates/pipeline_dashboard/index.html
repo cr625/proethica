@@ -144,12 +144,12 @@
                             </div>
                         </div>
                         {% else %}
-                        <!-- Extraction Progress: 5 base steps + optional commit + optional step4 -->
+                        <!-- Extraction Progress: 6 base steps + optional commits + optional step4 -->
                         {% set completed_count = (run.steps_completed or [])|length %}
                         {% set run_config = run.config or {} %}
                         {% set has_commit = run_config.get('commit_to_ontserve', true) %}
                         {% set has_step4 = run_config.get('include_step4', true) and not run_config.get('skip_step4', false) %}
-                        {% set total_steps = 5 + (1 if has_commit else 0) + (1 if has_step4 else 0) %}
+                        {% set total_steps = 6 + (1 if has_commit else 0) + (1 if has_step4 else 0) + (1 if has_commit and has_step4 else 0) %}
                         {% set progress_pct = (completed_count / total_steps * 100)|int %}
                         <div class="progress mb-2" style="height: 30px;">
                             <div class="progress-bar progress-bar-striped progress-bar-animated bg-success" style="width: {{ progress_pct }}%; min-width: 120px;">
@@ -184,7 +184,10 @@
                                         'step2_facts': 'Normative (Facts)',
                                         'step2_discussion': 'Normative (Discussion)',
                                         'step3': 'Temporal',
+                                        'reconcile': 'Reconcile',
                                         'commit': 'OntServe Commit',
+                                        'commit_extraction': 'Commit Extraction',
+                                        'commit_synthesis': 'Commit Synthesis',
                                         'step4': 'Synthesis'
                                     } %}
                                     {% for step in (run.steps_completed or []) %}
@@ -289,8 +292,15 @@
                                 </td>
                                 <td>{{ (run.steps_completed or [])|length }}</td>
                                 <td>
-                                    {% if 'commit' in (run.steps_completed or []) %}
-                                    <span class="badge bg-success">Yes</span>
+                                    {% set steps = run.steps_completed or [] %}
+                                    {% set has_ext = 'commit_extraction' in steps or 'commit' in steps %}
+                                    {% set has_syn = 'commit_synthesis' in steps %}
+                                    {% if has_ext and has_syn %}
+                                    <span class="badge bg-success">Both</span>
+                                    {% elif has_ext %}
+                                    <span class="badge bg-info">Extraction</span>
+                                    {% elif has_syn %}
+                                    <span class="badge bg-info">Synthesis</span>
                                     {% elif run.config and run.config.get('commit_to_ontserve') == false %}
                                     <span class="badge bg-secondary">Skipped</span>
                                     {% else %}

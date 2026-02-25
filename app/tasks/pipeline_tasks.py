@@ -623,8 +623,8 @@ def run_full_pipeline_task(self, case_id: int, config: dict = None, user_id: int
 
         # Commit to OntServe (optional) - after reconciliation, before synthesis
         if commit_to_ontserve:
-            logger.info(f"[Task {self.request.id}] Committing entities to OntServe...")
-            run_commit_task.apply(args=[run_id])
+            logger.info(f"[Task {self.request.id}] Committing extraction entities to OntServe...")
+            run_commit_task.apply(args=[run_id, 'commit_extraction'])
 
         # Step 4: Case Synthesis (optional)
         if include_step4:
@@ -633,8 +633,8 @@ def run_full_pipeline_task(self, case_id: int, config: dict = None, user_id: int
 
             # Second commit: commit Step 4 synthesis entities to OntServe
             if commit_to_ontserve:
-                logger.info(f"[Task {self.request.id}] Committing Step 4 entities to OntServe...")
-                run_commit_task.apply(args=[run_id])
+                logger.info(f"[Task {self.request.id}] Committing synthesis entities to OntServe...")
+                run_commit_task.apply(args=[run_id, 'commit_synthesis'])
 
         # Mark as completed or extracted based on what was run
         run = PipelineRun.query.get(run_id)
@@ -748,15 +748,20 @@ def resume_pipeline_task(self, run_id: int):
             logger.info(f"[Task {self.request.id}] Running entity reconciliation...")
             run_reconcile_task.apply(args=[run_id])
 
-        # Commit to OntServe (if configured)
-        if commit_to_ontserve and 'commit' not in completed:
-            logger.info(f"[Task {self.request.id}] Committing to OntServe...")
-            run_commit_task.apply(args=[run_id])
+        # Commit extraction entities to OntServe (if configured)
+        if commit_to_ontserve and 'commit_extraction' not in completed and 'commit' not in completed:
+            logger.info(f"[Task {self.request.id}] Committing extraction entities to OntServe...")
+            run_commit_task.apply(args=[run_id, 'commit_extraction'])
 
         # Step 4 (if configured)
         if include_step4 and 'step4' not in completed:
             logger.info(f"[Task {self.request.id}] Running Step 4 (Case Synthesis)...")
             run_step4_task.apply(args=[run_id])
+
+            # Commit synthesis entities to OntServe
+            if commit_to_ontserve and 'commit_synthesis' not in completed:
+                logger.info(f"[Task {self.request.id}] Committing synthesis entities to OntServe...")
+                run_commit_task.apply(args=[run_id, 'commit_synthesis'])
 
         # Mark as completed
         run = PipelineRun.query.get(run_id)
@@ -874,7 +879,7 @@ def run_step4_task(self, run_id: int):
 
 
 @celery.task(bind=True, name='proethica.tasks.run_commit')
-def run_commit_task(self, run_id: int):
+def run_commit_task(self, run_id: int, step_name: str = "commit_extraction"):
     """
     Commit extracted entities to OntServe using full commit service.
 
@@ -887,18 +892,20 @@ def run_commit_task(self, run_id: int):
 
     Args:
         run_id: PipelineRun ID
+        step_name: Step name for tracking ('commit_extraction' after Step 3,
+                   'commit_synthesis' after Step 4)
 
     Returns:
         dict with commit results
     """
-    logger.info(f"[Task {self.request.id}] Starting OntServe commit for run {run_id}")
+    logger.info(f"[Task {self.request.id}] Starting OntServe commit ({step_name}) for run {run_id}")
 
     run = PipelineRun.query.get(run_id)
     if not run:
         raise ValueError(f"Run {run_id} not found")
 
-    step_name = "commit"
-    run.current_step = "Committing to OntServe"
+    label = "extraction" if step_name == "commit_extraction" else "synthesis"
+    run.current_step = f"Committing {label} entities to OntServe"
     db.session.commit()
 
     try:

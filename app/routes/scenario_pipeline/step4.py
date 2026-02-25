@@ -292,9 +292,9 @@ def _build_step4_entity_groups(case_id: int) -> List[Dict]:
             'types': ['causal_normative_link', 'question_emergence', 'resolution_pattern'],
         },
         {
-            'phase': '3', 'label': 'Decision Points & Arguments',
+            'phase': '3', 'label': 'Decision Points',
             'icon': 'bi-signpost-split',
-            'types': ['canonical_decision_point', 'argument_generated', 'argument_validation'],
+            'types': ['canonical_decision_point'],
         },
     ]
 
@@ -3375,72 +3375,11 @@ def get_entity_grounded_arguments(case_id):
             }
         }
 
-        # Persist results to database
-        import uuid
-        from datetime import datetime
-
-        session_id = str(uuid.uuid4())
-
-        # Clear previous arguments and validations for this case
-        TemporaryRDFStorage.query.filter_by(
-            case_id=case_id,
-            extraction_type='argument_generated'
-        ).delete()
-        TemporaryRDFStorage.query.filter_by(
-            case_id=case_id,
-            extraction_type='argument_validation'
-        ).delete()
-
-        # Save each argument to temporary storage
-        for arg in arguments.arguments:
-            rdf_entity = TemporaryRDFStorage(
-                case_id=case_id,
-                extraction_session_id=session_id,
-                extraction_type='argument_generated',
-                storage_type='individual',
-                entity_type='Argument',
-                entity_label=arg.argument_id,
-                entity_definition=arg.claim.text if arg.claim else '',
-                entity_uri=f"case-{case_id}#{arg.argument_id}",
-                rdf_json_ld=arg.to_dict(),
-                is_selected=True
-            )
-            db.session.add(rdf_entity)
-
-        # Save validations
-        for val in validation.validations:
-            rdf_entity = TemporaryRDFStorage(
-                case_id=case_id,
-                extraction_session_id=session_id,
-                extraction_type='argument_validation',
-                storage_type='individual',
-                entity_type='ArgumentValidation',
-                entity_label=f"val_{val.argument_id}",
-                entity_definition=f"Valid: {val.is_valid}, Score: {val.validation_score:.2f}",
-                entity_uri=f"case-{case_id}#val_{val.argument_id}",
-                rdf_json_ld=val.to_dict(),
-                is_selected=True
-            )
-            db.session.add(rdf_entity)
-
-        # Record the pipeline run
-        pipeline_record = ExtractionPrompt(
-            case_id=case_id,
-            concept_type='entity_arguments',
-            step_number=4,
-            section_type=STEP4_SECTION_TYPE,
-            extraction_session_id=session_id,
-            prompt_text='E1-F3 algorithmic pipeline (no LLM)',
-            llm_model='algorithmic',
-            raw_response=f'Generated {len(arguments.arguments)} arguments, {validation.valid_arguments} valid',
-            created_at=datetime.utcnow()
-        )
-        db.session.add(pipeline_record)
-        db.session.commit()
-
+        # Arguments are computed on-the-fly for display only (not persisted).
+        # The E1-F3 pipeline is algorithmic (no LLM) so recomputing is cheap.
         logger.info(
             f"E1-F3 pipeline complete for case {case_id}: "
-            f"{len(arguments.arguments)} arguments, {validation.valid_arguments} valid (persisted)"
+            f"{len(arguments.arguments)} arguments, {validation.valid_arguments} valid"
         )
 
         return jsonify(response_data)

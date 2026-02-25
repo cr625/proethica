@@ -627,6 +627,10 @@ def _run_provisions(case_id: int, llm_client, get_all_case_entities) -> dict:
             db.session.commit()
             logger.info(f"[RunAll] Stored {len(provisions)} provisions with provenance")
 
+        # Commit provenance 'completed' status (track_activity flushes but doesn't commit;
+        # needed because this function runs in a ThreadPoolExecutor thread)
+        db.session.commit()
+
         return {
             'provisions_count': len(provisions),
             'entity_links': total_links
@@ -1203,6 +1207,10 @@ def _run_transformation(case_id: int, llm_client) -> dict:
                 except Exception as e:
                     logger.warning(f"[RunAll] Could not save transformation prompt: {e}")
 
+        # Commit provenance 'completed' status (track_activity flushes but doesn't commit;
+        # needed because this function runs in a ThreadPoolExecutor thread)
+        db.session.commit()
+
         return {
             'transformation_type': result.transformation_type,
             'confidence': result.confidence
@@ -1343,6 +1351,10 @@ def _run_rich_analysis(case_id: int) -> dict:
             except Exception as e:
                 logger.warning(f"[RunAll] Could not save rich analysis prompt: {e}")
 
+        # Commit provenance 'completed' status (track_activity flushes but doesn't commit;
+        # needed because this function runs in a ThreadPoolExecutor thread)
+        db.session.commit()
+
         return {
             'causal_links': len(causal_links),
             'question_emergence': len(question_emergence),
@@ -1443,8 +1455,14 @@ def _run_phase3(case_id: int) -> dict:
                 prompt_text = result.llm_prompt[:10000]
                 raw_response = result.llm_response[:10000] if result.llm_response else ''
             else:
-                prompt_text = f'Phase 3 Decision Point Synthesis (E1-E3 Algorithmic Composition)\n\nInput:\n- Questions: {len(questions)}\n- Conclusions: {len(conclusions)}\n- Question Emergence: {len(qe_dicts)}\n- Resolution Patterns: {len(rp_dicts)}\n\nE1-E3 Algorithm found 0 matching candidates.\nLLM fallback using causal_normative_links was attempted but produced no results.'
-                raw_response = f'Phase 3 Result:\n- Algorithmic candidates: 0\n- Canonical decision points: {result.canonical_count}'
+                prompt_text = (
+                    f'Phase 3 Decision Point Synthesis (Algorithmic Fallback)\n\n'
+                    f'Input: {len(questions)} questions, {len(conclusions)} conclusions, '
+                    f'{len(qe_dicts)} question emergence, {len(rp_dicts)} resolution patterns\n\n'
+                    f'E1-E3 found {result.candidates_count} candidates. '
+                    f'LLM refinement was not used or failed.'
+                )
+                raw_response = f'Phase 3 Result:\n- Algorithmic candidates: {result.candidates_count}\n- Canonical decision points: {result.canonical_count}'
 
             # Record prompt and response
             prompt_entity = None
@@ -1491,6 +1509,9 @@ def _run_phase3(case_id: int) -> dict:
                 logger.info(f"[RunAll] Saved Phase 3 prompt with provenance (candidates: {result.candidates_count})")
             except Exception as e:
                 logger.warning(f"[RunAll] Could not save Phase 3 prompt: {e}")
+
+        # Commit provenance 'completed' status (track_activity flushes but doesn't commit)
+        db.session.commit()
 
         return {
             'canonical_count': result.canonical_count,
@@ -1663,6 +1684,9 @@ def _run_phase4(case_id: int) -> dict:
             db.session.add(whole_case_prompt)
             db.session.commit()
             logger.info(f"[RunAll] Saved Phase 4 prompts with provenance")
+
+        # Commit provenance 'completed' status (track_activity flushes but doesn't commit)
+        db.session.commit()
 
         # Update precedent features
         try:

@@ -94,7 +94,7 @@
                     <div class="row">
                         <div class="col-12">
                             <div class="form-check form-check-inline">
-                                <input class="form-check-input" type="checkbox" id="commitToOntserve">
+                                <input class="form-check-input" type="checkbox" id="commitToOntserve" checked>
                                 <label class="form-check-label" for="commitToOntserve">
                                     Commit to OntServe
                                 </label>
@@ -109,7 +109,7 @@
                     </div>
                     <div class="row mt-1">
                         <div class="col-12">
-                            <small class="text-muted">Commit saves entities to OntServe. Step 4 runs synthesis phases (provisions, Q&C, transformation, decision points, narrative).</small>
+                            <small class="text-muted">Commit saves entities to OntServe after Steps 1-3 (for class accumulation) and again after Step 4 (synthesis entities). Step 4 runs synthesis phases (provisions, Q&C, transformation, decision points, narrative).</small>
                         </div>
                     </div>
                 </div>
@@ -155,8 +155,10 @@
                                     {% else %}
                                     <span class="badge bg-light text-dark" title="Contextual + Normative + Temporal (extraction only)">1-3</span>
                                     {% endif %}
-                                    {% if has_commit %}
-                                    <span class="badge bg-success" title="Commits to OntServe">C</span>
+                                    {% if has_commit and has_step4 %}
+                                    <span class="badge bg-success" title="Commits after extraction and after synthesis">C x2</span>
+                                    {% elif has_commit %}
+                                    <span class="badge bg-success" title="Commits after extraction">C</span>
                                     {% endif %}
                                 </td>
                                 <td>

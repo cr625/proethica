@@ -443,11 +443,12 @@ class ActionOptionMapper:
                     downstream_events=[]
                 )
 
-        # Generic alternative: "Alternative approach"
+        # Generic alternative: negate the action as an actionable phrase
+        action_def = action_label.replace('_', ' ')
         return ActionOption(
             uri=f"case-{case_id}#{action_label.replace(' ', '_')}_Alternative",
-            label=f"{action_label} Alternative",
-            description=f"Alternative approach to {action_label}",
+            label=f"Do not {action_def[:1].lower()}{action_def[1:]}",
+            description=f"Decline or refrain from taking the action: {action_def}",
             was_chosen=False,
             is_extracted=False,
             downstream_events=[]

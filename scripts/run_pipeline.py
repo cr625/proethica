@@ -92,9 +92,9 @@ def collect_sse(response):
         status = data.get("status", data.get("stage", ""))
         if status in ("extracted", "stored"):
             etype = data.get("entity_type", "?")
-            result = data.get("result", {})
-            classes = result.get("data", {}).get("classes", [])
-            individuals = result.get("data", {}).get("individuals", [])
+            result = data.get("result") or {}
+            classes = (result.get("data") or {}).get("classes", [])
+            individuals = (result.get("data") or {}).get("individuals", [])
             if classes or individuals:
                 print(f"    {etype}: {len(classes)} classes, {len(individuals)} individuals")
         elif "_DONE" in str(status) or status in ("COMPLETE", "complete"):
