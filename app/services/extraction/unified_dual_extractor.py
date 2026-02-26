@@ -64,7 +64,7 @@ CONCEPT_CONFIG: Dict[str, Dict[str, Any]] = {
         'step': 2,
         'model_tier': 'default',
         'temperature': 0.5,
-        'max_tokens': 8192,
+        'max_tokens': 16384,
         'classes_key': 'new_principle_classes',
         'individuals_key': 'principle_individuals',
         'class_ref_field': 'principle_class',
@@ -73,7 +73,7 @@ CONCEPT_CONFIG: Dict[str, Dict[str, Any]] = {
         'step': 2,
         'model_tier': 'default',
         'temperature': 0.2,
-        'max_tokens': 8192,
+        'max_tokens': 16384,
         'classes_key': 'new_obligation_classes',
         'individuals_key': 'obligation_individuals',
         'class_ref_field': 'obligation_class',
@@ -91,7 +91,7 @@ CONCEPT_CONFIG: Dict[str, Dict[str, Any]] = {
         'step': 2,
         'model_tier': 'default',
         'temperature': 0.2,
-        'max_tokens': 8192,
+        'max_tokens': 16384,
         'classes_key': 'new_capability_classes',
         'individuals_key': 'capability_individuals',
         'class_ref_field': 'capability_class',
@@ -1457,8 +1457,8 @@ class UnifiedDualExtractor:
         """
         Attempt to repair JSON that was truncated by max_tokens.
 
-        Strategy: strip markdown fences, find the last complete object
-        in the array, close the array.
+        Strategy: strip markdown fences, find the last complete nested
+        object, close any open arrays and the outer object.
         """
         import json
         import re
@@ -1474,9 +1474,10 @@ class UnifiedDualExtractor:
         except json.JSONDecodeError:
             pass
 
-        # Find the last complete object by tracking brace depth
+        # Track brace/bracket depth and find last complete nested object
         depth = 0
-        last_complete_end = -1
+        bracket_depth = 0
+        last_complete_at_depth = {}  # depth -> last position where an object closed
         in_string = False
         escape_next = False
 
@@ -1496,19 +1497,60 @@ class UnifiedDualExtractor:
                 depth += 1
             elif ch == '}':
                 depth -= 1
-                if depth == 0:
-                    last_complete_end = i
+                last_complete_at_depth[depth] = i
+            elif ch == '[':
+                bracket_depth += 1
+            elif ch == ']':
+                bracket_depth -= 1
 
-        if last_complete_end > 0:
-            repaired = cleaned[:last_complete_end + 1]
-            # Close any open array
+        # Best case: outer object completed at depth 0
+        if 0 in last_complete_at_depth:
+            repaired = cleaned[:last_complete_at_depth[0] + 1]
             if repaired.lstrip().startswith('['):
                 repaired = repaired.rstrip().rstrip(',') + '\n]'
             try:
                 json.loads(repaired)
                 logger.info(
                     f"Repaired truncated JSON: kept "
-                    f"{last_complete_end + 1}/{len(cleaned)} chars"
+                    f"{last_complete_at_depth[0] + 1}/{len(cleaned)} chars"
+                )
+                return repaired
+            except json.JSONDecodeError:
+                pass
+
+        # Dict-style truncation: find last complete object at depth 1
+        # (inside the outer dict), then close open arrays and outer dict
+        if 1 in last_complete_at_depth:
+            cut_pos = last_complete_at_depth[1] + 1
+            repaired = cleaned[:cut_pos]
+            # Close any open array brackets, then close outer dict
+            repaired = repaired.rstrip().rstrip(',')
+            # Count unclosed brackets and braces
+            bd, bkd = 0, 0
+            s_in_str, s_esc = False, False
+            for ch in repaired:
+                if s_esc:
+                    s_esc = False
+                    continue
+                if ch == '\\':
+                    s_esc = True
+                    continue
+                if ch == '"':
+                    s_in_str = not s_in_str
+                    continue
+                if s_in_str:
+                    continue
+                if ch == '{': bd += 1
+                elif ch == '}': bd -= 1
+                elif ch == '[': bkd += 1
+                elif ch == ']': bkd -= 1
+            repaired += '\n' + ']' * bkd + '}' * bd
+            try:
+                json.loads(repaired)
+                logger.info(
+                    f"Repaired truncated dict JSON: kept "
+                    f"{cut_pos}/{len(cleaned)} chars, "
+                    f"closed {bkd} arrays + {bd} objects"
                 )
                 return repaired
             except json.JSONDecodeError:
