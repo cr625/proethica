@@ -36,12 +36,14 @@ def extract_actions(state: TemporalDynamicsState) -> Dict:
         logger.warning(f"[Stage 3] WARNING: Empty or missing unified_narrative for case {state['case_id']}")
 
     try:
-        # Extract actions using unified narrative and temporal markers
+        # Extract actions using unified narrative, temporal markers, and raw text
         actions = extract_actions_with_metadata(
             narrative=narrative,
             temporal_markers=temporal_markers,
             case_id=state['case_id'],
-            llm_trace=state.get('llm_trace', [])
+            llm_trace=state.get('llm_trace', []),
+            facts_text=state.get('facts_text', ''),
+            discussion_text=state.get('discussion_text', '')
         )
 
         logger.info(f"[Stage 3] Extracted {len(actions)} actions")

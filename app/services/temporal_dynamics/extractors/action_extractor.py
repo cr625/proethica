@@ -22,7 +22,9 @@ def extract_actions_with_metadata(
     narrative: Dict,
     temporal_markers: Dict,
     case_id: int,
-    llm_trace: List[Dict]
+    llm_trace: List[Dict],
+    facts_text: str = '',
+    discussion_text: str = ''
 ) -> List[Dict]:
     """
     Extract actions (volitional professional decisions) with rich metadata.
@@ -36,6 +38,8 @@ def extract_actions_with_metadata(
         temporal_markers: Temporal markers from Stage 2
         case_id: Case ID for logging
         llm_trace: List to append LLM interactions to
+        facts_text: Raw facts section text (grounding context)
+        discussion_text: Raw discussion section text (grounding context)
 
     Returns:
         List of action dictionaries with full metadata
@@ -57,7 +61,8 @@ def extract_actions_with_metadata(
 
     # Phase 1: Extract core actions
     actions = _extract_core_actions(
-        narrative, temporal_markers, case_id, llm_client, model_name, llm_trace
+        narrative, temporal_markers, case_id, llm_client, model_name, llm_trace,
+        facts_text=facts_text, discussion_text=discussion_text
     )
 
     if not actions:
@@ -110,14 +115,17 @@ def _extract_core_actions(
     case_id: int,
     llm_client,
     model_name: str,
-    llm_trace: List[Dict]
+    llm_trace: List[Dict],
+    facts_text: str = '',
+    discussion_text: str = ''
 ) -> List[Dict]:
     """
     Phase 1: Extract core action data (no scenario metadata).
 
-    Smaller, faster prompt for reliability.
+    Includes raw case text for grounding when narrative summary is available,
+    and as primary source when narrative summary is missing or degraded.
     """
-    prompt = _build_phase1_prompt(narrative, temporal_markers)
+    prompt = _build_phase1_prompt(narrative, temporal_markers, facts_text, discussion_text)
     logger.info(f"[Stage 3] Phase 1 prompt length: {len(prompt)} chars")
 
     trace_entry = {
@@ -229,8 +237,9 @@ def _enrich_with_scenario_metadata(
         llm_trace.append(trace_entry)
 
 
-def _build_phase1_prompt(narrative: Dict, temporal_markers: Dict) -> str:
-    """Build Phase 1 prompt - core action extraction (compact)."""
+def _build_phase1_prompt(narrative: Dict, temporal_markers: Dict,
+                         facts_text: str = '', discussion_text: str = '') -> str:
+    """Build Phase 1 prompt - core action extraction with source text grounding."""
 
     temporal_context = ""
     if temporal_markers.get('absolute'):
@@ -238,17 +247,37 @@ def _build_phase1_prompt(narrative: Dict, temporal_markers: Dict) -> str:
     if temporal_markers.get('relative'):
         temporal_context += f"\nRelative markers: {len(temporal_markers['relative'])}"
 
-    return f"""Extract ACTIONS (volitional professional decisions) from this ethics case.
+    # Include raw case text for grounding
+    source_text_section = ""
+    if facts_text or discussion_text:
+        source_text_section = f"""
+CASE FACTS:
+{facts_text}
 
-NARRATIVE:
-{narrative.get('unified_timeline_summary', '')}
+CASE DISCUSSION:
+{discussion_text}
+"""
+
+    # Narrative summary (may be empty/degraded if Stage 1 failed)
+    narrative_summary = narrative.get('unified_timeline_summary', '')
+    decision_points = narrative.get('decision_points', [])
+    competing = narrative.get('competing_priorities_mentioned', [])
+
+    narrative_section = ""
+    if narrative_summary and narrative_summary != 'Error analyzing timeline':
+        narrative_section = f"""
+NARRATIVE SUMMARY:
+{narrative_summary}
 
 DECISION POINTS:
-{chr(10).join(f"- {dp}" for dp in narrative.get('decision_points', []))}
+{chr(10).join(f"- {dp}" for dp in decision_points)}
 
 COMPETING PRIORITIES:
-{chr(10).join(f"- {cp}" for cp in narrative.get('competing_priorities_mentioned', []))}
-{temporal_context}
+{chr(10).join(f"- {cp}" for cp in competing)}
+"""
+
+    return f"""Extract ACTIONS (volitional professional decisions) from this ethics case.
+{source_text_section}{narrative_section}{temporal_context}
 
 For each ACTION, extract:
 1. label: Concise name (3-5 words)
