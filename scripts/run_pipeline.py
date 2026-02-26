@@ -11,6 +11,7 @@ Usage:
     python scripts/run_pipeline.py <case_id> --step commit    # Commit to OntServe only
     python scripts/run_pipeline.py <case_id> --step uncommit  # Uncommit from OntServe only
     python scripts/run_pipeline.py <case_id> --step 4         # Step 4 only
+    python scripts/run_pipeline.py <case_id> --step qc        # Run QC audit only
     python scripts/run_pipeline.py --list                     # List unextracted cases
     python scripts/run_pipeline.py --status <case_id>         # Show extraction status
     python scripts/run_pipeline.py --batch                    # Full batch: clean + extract all cases
@@ -256,6 +257,49 @@ def run_commit(case_id):
         return {}
 
 
+def run_qc(case_id):
+    """Run QC audit via HTTP API (uses running Flask server context)."""
+    print("  QC Audit (V0-V9)...")
+    t0 = time.time()
+    try:
+        resp = http_post(f"/api/qc/audit/{case_id}")
+        data = json.loads(resp.read().decode())
+        elapsed = time.time() - t0
+
+        if not data.get('success'):
+            print(f"    QC audit failed: {data.get('error', 'unknown')} ({elapsed:.0f}s)")
+            return None
+
+        audit = data['audit']
+        status = audit['overall_status']
+        total = audit['entity_count_total']
+        types = audit['extraction_types_count']
+        cc = audit['critical_count']
+        wc = audit['warning_count']
+        ic = audit['info_count']
+
+        symbol = '[+]' if status == 'PASS' else '[!]' if status == 'ISSUES_FOUND' else '[X]'
+        print(f"    {symbol} {status}  ({total} entities, {types} types, {cc}C/{wc}W/{ic}I)")
+
+        # Print issue details
+        for check in audit.get('check_results', []):
+            if check['status'] in ('FAIL', 'INFO') and check['check_id'] != 'V1':
+                print(f"    {check['check_id']} {check['name']}: {check['status']} [{check['severity']}]")
+                if check.get('message'):
+                    print(f"      {check['message'][:120]}")
+
+        print(f"    Completed in {elapsed:.0f}s")
+        return audit
+    except urllib.error.HTTPError as e:
+        elapsed = time.time() - t0
+        print(f"    QC audit HTTP error {e.code} ({elapsed:.0f}s)")
+        return None
+    except Exception as e:
+        elapsed = time.time() - t0
+        print(f"    QC audit failed: {e} ({elapsed:.0f}s)")
+        return None
+
+
 def clear_old_entities(case_id):
     """Delete pre-existing entities and prompts for a case before re-extraction."""
     result = subprocess.run(
@@ -291,6 +335,9 @@ def run_full_pipeline(case_id):
     run_commit(case_id)
     run_step4(case_id)
     run_commit(case_id)  # Second commit: Step 4 synthesis entities
+
+    # QC audit (V0-V9) - stored as provenance
+    run_qc(case_id)
 
     total_elapsed = time.time() - total_start
     print(f"\nTotal wall time: {total_elapsed:.0f}s ({total_elapsed/60:.1f}m)")
@@ -663,7 +710,7 @@ def check_server():
 def main():
     parser = argparse.ArgumentParser(description="Run ProEthica extraction pipeline")
     parser.add_argument("case_id", nargs="?", type=int, help="Case ID to process")
-    parser.add_argument("--step", choices=["1", "2", "3", "reconcile", "commit", "uncommit", "4"],
+    parser.add_argument("--step", choices=["1", "2", "3", "reconcile", "commit", "uncommit", "4", "qc"],
                         help="Run a specific step only")
     parser.add_argument("--section", choices=["facts", "discussion"],
                         help="Section type for Steps 1-2 (default: both)")
@@ -756,6 +803,8 @@ def main():
     elif args.step == "4":
         run_step4(case_id)
         print_status(case_id)
+    elif args.step == "qc":
+        run_qc(case_id)
 
     return 0
 

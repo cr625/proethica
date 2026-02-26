@@ -617,6 +617,16 @@ def write_report(audits, path):
 
 
 # ---------------------------------------------------------------------------
+# App context helper (for import by run_pipeline.py)
+# ---------------------------------------------------------------------------
+
+def create_app_context():
+    """Return a Flask app context for running QC checks outside the main script."""
+    app = create_app()
+    return app.app_context()
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 

@@ -3,7 +3,7 @@ Provenance viewer routes for PROV-O tracking visualization.
 """
 
 from flask import Blueprint, render_template, jsonify, request, redirect, url_for
-from sqlalchemy import desc, func
+from sqlalchemy import desc, func, text
 import json
 from datetime import datetime
 
@@ -88,6 +88,28 @@ ENTITY_COLORS = {
 }
 
 provenance_bp = Blueprint('provenance', __name__)
+
+
+def init_provenance_csrf_exemption(app):
+    """Exempt API endpoints from CSRF for programmatic access."""
+    app.csrf.exempt(run_qc_audit_api)
+
+
+@provenance_bp.route('/api/qc/audit/<int:case_id>', methods=['POST'])
+@auth_optional
+def run_qc_audit_api(case_id):
+    """Run V0-V9 QC audit for a case and store results."""
+    import sys
+    import os
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'scripts'))
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'scripts', 'analysis'))
+    try:
+        from run_qc_audit import run_audit, store_audit
+        audit = run_audit(case_id)
+        store_audit(audit)
+        return jsonify({'success': True, 'audit': audit})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @provenance_bp.route('/tools/provenance')
@@ -519,13 +541,37 @@ def get_case_pipeline(case_id):
 
     pipeline.append(step4_data)
 
+    # QC verification results (latest audit for this case)
+    qc_result = None
+    qc_row = db.session.execute(text("""
+        SELECT verification_date, protocol_version, overall_status,
+               entity_count_total, extraction_types_count,
+               critical_count, warning_count, info_count, check_results
+        FROM case_verification_results
+        WHERE case_id = :case_id
+        ORDER BY verification_date DESC LIMIT 1
+    """), {'case_id': case_id}).fetchone()
+    if qc_row:
+        qc_result = {
+            'verification_date': qc_row[0].isoformat() if qc_row[0] else None,
+            'protocol_version': qc_row[1],
+            'overall_status': qc_row[2],
+            'entity_count_total': qc_row[3],
+            'extraction_types_count': qc_row[4],
+            'critical_count': qc_row[5],
+            'warning_count': qc_row[6],
+            'info_count': qc_row[7],
+            'check_results': json.loads(qc_row[8]) if isinstance(qc_row[8], str) else qc_row[8],
+        }
+
     return jsonify({
         'case': {
             'id': document.id,
             'title': document.title
         },
         'pipeline': pipeline,
-        'entity_colors': ENTITY_COLORS
+        'entity_colors': ENTITY_COLORS,
+        'qc_verification': qc_result
     })
 
 
