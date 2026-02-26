@@ -31,9 +31,11 @@
                         <thead>
                             <tr>
                                 <th style="width: 40px;"><input type="checkbox" id="selectAllCheckbox"></th>
+                                <th>#</th>
                                 <th>ID</th>
                                 <th>Title</th>
-                                <th>Status</th>
+                                <th>Extraction</th>
+                                <th>QC</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -43,21 +45,51 @@
                                     <input type="checkbox" class="case-checkbox" value="{{ case.id }}"
                                         {% if case.is_queued %}disabled{% endif %}>
                                 </td>
-                                <td>{{ case.id }}</td>
-                                <td>{{ case.title[:50] }}{% if case.title|length > 50 %}...{% endif %}</td>
+                                <td class="text-muted">{{ loop.index }}</td>
+                                <td>
+                                    {% if case.extraction %}
+                                    <a href="/scenario_pipeline/case/{{ case.id }}/step4" title="View synthesis">{{ case.id }}</a>
+                                    {% else %}
+                                    {{ case.id }}
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ case.title[:50] }}{% if case.title|length > 50 %}...{% endif %}
+                                    {% if case.is_label_only %}
+                                    <span class="badge bg-warning text-dark" title="Extracted with label-only injection mode">L</span>
+                                    {% endif %}
+                                </td>
                                 <td>
                                     {% if case.is_queued %}
                                     <span class="badge bg-info">Queued</span>
-                                    {% elif case.latest_run %}
-                                        {% if case.latest_run.status == 'completed' %}
-                                        <span class="badge bg-success">Done</span>
-                                        {% elif case.latest_run.status == 'failed' %}
-                                        <span class="badge bg-danger">Failed</span>
+                                    {% elif case.extraction %}
+                                        {% if case.extraction.types >= 16 %}
+                                        <span class="badge bg-success" title="{{ case.extraction.total }} entities, {{ case.extraction.published }} published">{{ case.extraction.total }} / {{ case.extraction.types }}/16</span>
+                                        {% elif case.extraction.types >= 8 %}
+                                        <span class="badge bg-warning text-dark" title="{{ case.extraction.total }} entities, {{ case.extraction.types }}/16 types">{{ case.extraction.total }} / {{ case.extraction.types }}/16</span>
                                         {% else %}
-                                        <span class="badge bg-warning">{{ case.latest_run.status }}</span>
+                                        <span class="badge bg-secondary" title="{{ case.extraction.total }} entities, {{ case.extraction.types }}/16 types">{{ case.extraction.total }} / {{ case.extraction.types }}/16</span>
+                                        {% endif %}
+                                        {% if case.extraction.published < case.extraction.total %}
+                                        <span class="badge bg-outline-warning text-warning" title="{{ case.extraction.total - case.extraction.published }} unpublished"><i class="bi bi-exclamation-triangle"></i></span>
+                                        {% endif %}
+                                    {% elif case.latest_run and case.latest_run.status == 'failed' %}
+                                    <span class="badge bg-danger">Failed</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">--</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if case.qc %}
+                                        {% if case.qc.status == 'PASS' %}
+                                        <span class="badge bg-success" title="{{ case.qc.critical }}C/{{ case.qc.warning }}W/{{ case.qc.info }}I"><i class="bi bi-check-circle"></i></span>
+                                        {% elif case.qc.status == 'FAIL' %}
+                                        <span class="badge bg-danger" title="{{ case.qc.critical }}C/{{ case.qc.warning }}W/{{ case.qc.info }}I"><i class="bi bi-x-circle"></i></span>
+                                        {% else %}
+                                        <span class="badge bg-warning text-dark" title="{{ case.qc.status }}: {{ case.qc.critical }}C/{{ case.qc.warning }}W/{{ case.qc.info }}I"><i class="bi bi-exclamation-circle"></i></span>
                                         {% endif %}
                                     {% else %}
-                                    <span class="badge bg-secondary">Not processed</span>
+                                    <span class="badge bg-secondary">--</span>
                                     {% endif %}
                                 </td>
                             </tr>

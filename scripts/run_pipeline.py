@@ -766,12 +766,16 @@ def main():
         print("Start with: cd proethica && source venv-proethica/bin/activate && python run.py")
         return 1
 
-    # Set injection mode on the Flask server
+    # Set injection mode on the Flask server and tag case metadata
     if args.injection_mode != 'full':
         resp = http_post(
             "/pipeline/api/set_injection_mode",
             {"mode": args.injection_mode},
         )
+        # Tag the case with the extraction mode in doc_metadata
+        if args.case_id:
+            psql(f"UPDATE documents SET doc_metadata = jsonb_set(COALESCE(doc_metadata, '{{}}'::jsonb), "
+                 f"'{{extraction_mode}}', '\"label_only\"') WHERE id = {args.case_id}")
         if resp and resp.status == 200:
             print(f"Injection mode set to: {args.injection_mode}")
         else:

@@ -205,7 +205,9 @@ def main():
         app = create_app()
         
         # Get configuration from environment variables
-        debug = os.environ.get('DEBUG', 'False').lower() == 'true'
+        # Default to debug=True in development (auto-reload on code changes)
+        # Production uses gunicorn, so this only affects `python run.py`
+        debug = os.environ.get('DEBUG', 'True').lower() == 'true'
         host = os.environ.get('FLASK_HOST', '0.0.0.0')
         port = int(os.environ.get('FLASK_PORT', 5000))
         

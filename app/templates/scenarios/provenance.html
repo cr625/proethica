@@ -468,6 +468,80 @@ function displayPipeline(data) {
             }
         }
     });
+
+    // QC Verification results
+    if (data.qc_verification) {
+        container.appendChild(createQCCard(data.qc_verification));
+    }
+}
+
+function createQCCard(qc) {
+    const div = document.createElement('div');
+    div.className = 'pipeline-card';
+    div.dataset.step = 'qc';
+    div.dataset.type = 'qc-verification';
+
+    const statusColor = qc.overall_status === 'PASS' ? '#198754'
+        : qc.overall_status === 'FAIL' ? '#dc3545' : '#ffc107';
+    const statusIcon = qc.overall_status === 'PASS' ? 'bi-check-circle-fill'
+        : qc.overall_status === 'FAIL' ? 'bi-x-circle-fill' : 'bi-exclamation-circle-fill';
+
+    let checksHtml = '';
+    if (qc.check_results && qc.check_results.length > 0) {
+        const rows = qc.check_results.map(check => {
+            const rowClass = check.status === 'FAIL' ? 'table-danger'
+                : check.status === 'INFO' ? 'table-info'
+                : check.status === 'PASS' ? '' : 'table-warning';
+            const badge = check.status === 'PASS'
+                ? '<span class="badge bg-success">PASS</span>'
+                : check.status === 'FAIL'
+                ? '<span class="badge bg-danger">FAIL</span>'
+                : check.status === 'SKIP'
+                ? '<span class="badge bg-secondary">SKIP</span>'
+                : `<span class="badge bg-info">${check.status}</span>`;
+            const severity = check.severity ? `<span class="text-muted small">${check.severity}</span>` : '';
+            const message = check.message ? `<div class="text-muted small">${check.message}</div>` : '';
+            return `<tr class="${rowClass}">
+                <td><code>${check.check_id}</code></td>
+                <td>${check.name} ${severity}</td>
+                <td>${badge}</td>
+                <td>${message}</td>
+            </tr>`;
+        }).join('');
+        checksHtml = `
+            <table class="table table-sm mb-0 mt-2">
+                <thead><tr><th>Check</th><th>Name</th><th>Result</th><th>Details</th></tr></thead>
+                <tbody>${rows}</tbody>
+            </table>`;
+    }
+
+    const dateStr = qc.verification_date
+        ? new Date(qc.verification_date).toLocaleDateString('en-US', {year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'})
+        : '';
+
+    div.innerHTML = `
+        <div class="card" style="border-left: 4px solid ${statusColor};">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="mb-0" style="color: ${statusColor};">
+                        <i class="bi ${statusIcon} me-2"></i>QC Verification (${qc.protocol_version || 'V0-V9'})
+                    </h5>
+                    <div>
+                        <span class="badge" style="background-color: ${statusColor};">${qc.overall_status}</span>
+                        <span class="text-muted small ms-2">${dateStr}</span>
+                    </div>
+                </div>
+                <div class="d-flex gap-3 mb-2">
+                    <span><strong>${qc.entity_count_total}</strong> entities</span>
+                    <span><strong>${qc.extraction_types_count}</strong>/16 types</span>
+                    <span class="text-danger"><strong>${qc.critical_count}</strong> critical</span>
+                    <span class="text-warning"><strong>${qc.warning_count}</strong> warnings</span>
+                    <span class="text-info"><strong>${qc.info_count}</strong> info</span>
+                </div>
+                ${checksHtml}
+            </div>
+        </div>`;
+    return div;
 }
 
 function createStepHeader(step) {
