@@ -46,6 +46,10 @@ class ExtractionPrompt(db.Model):
     # Results summary (JSON)
     results_summary = db.Column(db.JSON)  # e.g., {'classes_found': 2, 'individuals_found': 5}
 
+    # Phase 2 tool-use provenance
+    injection_mode = db.Column(db.String(50), default='full')  # 'full' or 'label_only'
+    tool_call_log = db.Column(db.JSON)  # List of tool calls made during extraction
+
     # Index for faster lookups of active prompts
     __table_args__ = (
         db.Index('ix_active_prompts', 'case_id', 'section_type', 'concept_type', 'is_active'),
@@ -67,7 +71,8 @@ class ExtractionPrompt(db.Model):
     @classmethod
     def save_prompt(cls, case_id, concept_type, prompt_text, step_number=1,
                    section_type='facts', llm_model=None, extraction_session_id=None,
-                   results_summary=None, raw_response=None):
+                   results_summary=None, raw_response=None,
+                   injection_mode='full', tool_call_log=None):
         """Save a new prompt, deactivating any previous active prompt."""
         # Deactivate any existing active prompts for this section
         existing = cls.query.filter_by(
@@ -91,6 +96,8 @@ class ExtractionPrompt(db.Model):
             llm_model=llm_model,
             extraction_session_id=extraction_session_id,
             results_summary=results_summary,
+            injection_mode=injection_mode,
+            tool_call_log=tool_call_log,
             is_active=True,
             times_used=1
         )

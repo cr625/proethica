@@ -285,13 +285,16 @@ class PromptVariableResolver:
         return []
 
     def format_existing_entities(self, entities: List[Dict[str, Any]],
-                                  concept_type: str) -> str:
+                                  concept_type: str,
+                                  label_only_tier2: bool = False) -> str:
         """Delegate to module-level function."""
-        return format_existing_entities(entities, concept_type)
+        return format_existing_entities(entities, concept_type,
+                                        label_only_tier2=label_only_tier2)
 
 
 def format_existing_entities(entities: List[Dict[str, Any]],
-                             concept_type: str) -> str:
+                             concept_type: str,
+                             label_only_tier2: bool = False) -> str:
     """
     Format existing ontology entities for inclusion in a prompt.
 
@@ -306,6 +309,9 @@ def format_existing_entities(entities: List[Dict[str, Any]],
     Args:
         entities: List of entity dictionaries from MCP
         concept_type: Concept type (roles, states, etc.)
+        label_only_tier2: If True, Tier 2 entities emit labels only (no definitions).
+            Used in Phase 2 extraction where definitions are retrieved on demand
+            via the get_class_definition tool.
 
     Returns:
         Formatted string for prompt inclusion
@@ -334,8 +340,10 @@ def format_existing_entities(entities: List[Dict[str, Any]],
         else:
             canonical.append(entity)  # default to canonical
 
-    def _format_entity_line(entity):
+    def _format_entity_line(entity, label_only=False):
         label = entity.get('label', entity.get('name', 'Unknown'))
+        if label_only:
+            return f"- {label}"
         definition = (
             entity.get('definition')
             or entity.get('description')
@@ -357,9 +365,16 @@ def format_existing_entities(entities: List[Dict[str, Any]],
         if lines:
             lines.append('')
         lines.append(f"=== PREVIOUSLY EXTRACTED CLASSES (from other cases) ===")
-        lines.append("Auto-extracted from prior case analyses and approved. Match if the same concept appears.")
+        if label_only_tier2:
+            lines.append(
+                "Auto-extracted from prior case analyses. Labels listed below. "
+                "Use the get_class_definition tool to retrieve full definitions "
+                "when you need to disambiguate between similar class names."
+            )
+        else:
+            lines.append("Auto-extracted from prior case analyses and approved. Match if the same concept appears.")
         for e in extracted:
-            lines.append(_format_entity_line(e))
+            lines.append(_format_entity_line(e, label_only=label_only_tier2))
 
     if external:
         if lines:

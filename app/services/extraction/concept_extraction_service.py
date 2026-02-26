@@ -50,6 +50,8 @@ class ExtractionResult:
     extraction_time: float = 0.0
     success: bool = False
     error: Optional[str] = None
+    injection_mode: str = 'full'
+    tool_call_log: list = field(default_factory=list)
 
 
 def extract_concept(
@@ -59,6 +61,7 @@ def extract_concept(
     section_type: str = 'facts',
     step_number: int = 1,
     session_id: Optional[str] = None,
+    injection_mode: str = 'full',
 ) -> ExtractionResult:
     """
     Extract a single concept from case text and store results.
@@ -86,7 +89,7 @@ def extract_concept(
 
     start = time.time()
 
-    extractor = UnifiedDualExtractor(concept_type)
+    extractor = UnifiedDualExtractor(concept_type, injection_mode=injection_mode)
     classes, individuals = extractor.extract(
         case_text=case_text,
         case_id=case_id,
@@ -116,7 +119,26 @@ def extract_concept(
         session_id=session_id,
         extraction_time=time.time() - start,
         success=True,
+        injection_mode=extractor.injection_mode,
+        tool_call_log=extractor.tool_call_log,
     )
+
+
+def get_injection_mode() -> str:
+    """Get the current injection mode from Flask config or environment.
+
+    Priority: Flask app.config > environment variable > default ('full').
+    The pipeline runner sets this via /pipeline/api/set_injection_mode.
+    """
+    try:
+        from flask import current_app
+        mode = current_app.config.get('INJECTION_MODE')
+        if mode:
+            return mode
+    except (ImportError, RuntimeError):
+        pass
+    import os
+    return os.environ.get('PROETHICA_INJECTION_MODE', 'full')
 
 
 def extract_concept_with_retry(
@@ -126,6 +148,7 @@ def extract_concept_with_retry(
     section_type: str = 'facts',
     step_number: int = 1,
     session_id: Optional[str] = None,
+    injection_mode: Optional[str] = None,
 ) -> ExtractionResult:
     """
     Extract with tenacity retry on timeout/connection errors.
@@ -133,6 +156,7 @@ def extract_concept_with_retry(
     Wraps extract_concept() with exponential backoff for transient LLM
     failures. Non-transient errors propagate immediately.
     """
+    mode = injection_mode or get_injection_mode()
 
     @retry(
         stop=stop_after_attempt(RETRY_ATTEMPTS),
@@ -148,6 +172,7 @@ def extract_concept_with_retry(
                 section_type=section_type,
                 step_number=step_number,
                 session_id=session_id,
+                injection_mode=mode,
             )
         except Exception as e:
             error_str = str(e).lower()

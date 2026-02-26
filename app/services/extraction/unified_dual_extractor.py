@@ -546,6 +546,7 @@ class UnifiedDualExtractor:
         concept_type: str,
         llm_client: Any = None,
         model: Optional[str] = None,
+        injection_mode: str = 'full',
     ):
         if concept_type not in CONCEPT_CONFIG:
             raise ValueError(
@@ -599,9 +600,15 @@ class UnifiedDualExtractor:
         self.last_raw_response: Optional[str] = None
         self.last_prompt: Optional[str] = None
 
+        # -- Injection mode (Phase 2 label-only support) --
+        self.injection_mode = injection_mode
+        self.tool_call_count = 0
+        self.tool_call_log: List[Dict[str, Any]] = []
+
         logger.info(
             f"UnifiedDualExtractor({concept_type}) initialized: "
             f"model={self.model_name}, "
+            f"injection_mode={self.injection_mode}, "
             f"template={'DB' if self.template else 'NONE'}, "
             f"existing_classes={len(self.existing_classes)}"
         )
@@ -757,7 +764,10 @@ class UnifiedDualExtractor:
 
     def _format_existing_entities(self) -> str:
         """Format existing ontology entities for prompt inclusion."""
-        return format_existing_entities(self.existing_classes, self.concept_type)
+        return format_existing_entities(
+            self.existing_classes, self.concept_type,
+            label_only_tier2=(self.injection_mode == 'label_only'),
+        )
 
     def _format_prior_section_classes(
         self, case_id: int, current_section: str,
@@ -889,7 +899,16 @@ class UnifiedDualExtractor:
     # ------------------------------------------------------------------
 
     def _call_llm(self, prompt: str) -> Dict[str, Any]:
-        """Call the LLM and parse JSON from the response."""
+        """Call the LLM and parse JSON from the response.
+
+        Delegates to _call_llm_with_tools() when injection_mode is
+        'label_only', enabling on-demand class definition retrieval.
+        """
+        if (self.injection_mode == 'label_only'
+                and self.llm_client is None
+                and self.mcp_client is not None):
+            return self._call_llm_with_tools(prompt)
+
         try:
             # Mock client path (testing)
             if self.llm_client is not None:
@@ -974,6 +993,218 @@ class UnifiedDualExtractor:
             import traceback
             logger.error(f"  Traceback: {traceback.format_exc()}")
             return {}
+
+    # ------------------------------------------------------------------
+    # Tool-use LLM call (Phase 2 label-only injection)
+    # ------------------------------------------------------------------
+
+    # Tool definition sent to the Anthropic API so Claude can request
+    # class definitions on demand during label-only extraction.
+    ONTOLOGY_LOOKUP_TOOLS = [
+        {
+            "name": "get_class_definition",
+            "description": (
+                "Retrieve the full definition of an ontology class by its "
+                "label. Use when you need to check whether an existing class "
+                "matches a concept found in the case text, especially when "
+                "two or more labels could plausibly apply."
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "label": {
+                        "type": "string",
+                        "description": (
+                            "The exact class label from the PREVIOUSLY "
+                            "EXTRACTED CLASSES list"
+                        ),
+                    }
+                },
+                "required": ["label"],
+            },
+        }
+    ]
+
+    def _call_llm_with_tools(self, prompt: str) -> Dict[str, Any]:
+        """Call the LLM with tool-use support for on-demand definition retrieval.
+
+        Used in Phase 2 (label-only injection). The LLM sees class labels
+        without definitions and can call get_class_definition to retrieve
+        definitions for disambiguation.
+
+        Uses non-streaming messages.create() with a tool-use conversation
+        loop. Max 10 tool-call round-trips to prevent runaway.
+        """
+        from app.utils.llm_utils import get_llm_client
+
+        client = get_llm_client()
+        if not client:
+            logger.error("No LLM client available")
+            return {}
+
+        logger.info(
+            f"_call_llm_with_tools: sending {len(prompt)} chars, "
+            f"model={self.model_name}, "
+            f"max_tokens={self.config['max_tokens']}, "
+            f"tools={len(self.ONTOLOGY_LOOKUP_TOOLS)}"
+        )
+
+        messages = [{"role": "user", "content": prompt}]
+        max_rounds = 10
+
+        try:
+            for round_num in range(max_rounds):
+                response = client.messages.create(
+                    model=self.model_name,
+                    max_tokens=self.config['max_tokens'],
+                    temperature=self.config['temperature'],
+                    messages=messages,
+                    tools=self.ONTOLOGY_LOOKUP_TOOLS,
+                )
+
+                logger.info(
+                    f"Tool-use round {round_num + 1}: "
+                    f"{response.usage.input_tokens} in / "
+                    f"{response.usage.output_tokens} out, "
+                    f"stop={response.stop_reason}"
+                )
+
+                if response.stop_reason == 'end_turn':
+                    # Extract text content from the response
+                    response_text = ""
+                    for block in response.content:
+                        if block.type == 'text':
+                            response_text += block.text
+
+                    self.last_raw_response = response_text
+                    logger.info(
+                        f"Tool-use complete after {round_num + 1} rounds, "
+                        f"{self.tool_call_count} tool calls this extraction"
+                    )
+                    return extract_json_from_response(response_text)
+
+                if response.stop_reason == 'max_tokens':
+                    # Truncated -- extract what we can
+                    response_text = ""
+                    for block in response.content:
+                        if block.type == 'text':
+                            response_text += block.text
+                    self.last_raw_response = response_text
+                    logger.warning(
+                        f"Tool-use response truncated at "
+                        f"{self.config['max_tokens']} tokens"
+                    )
+                    response_text = self._repair_truncated_json(response_text)
+                    return extract_json_from_response(response_text)
+
+                if response.stop_reason == 'tool_use':
+                    # Process tool calls and continue the conversation
+                    # Add assistant's response (with tool_use blocks) to messages
+                    messages.append({
+                        "role": "assistant",
+                        "content": response.content,
+                    })
+
+                    # Execute each tool call and collect results
+                    tool_results = []
+                    for block in response.content:
+                        if block.type != 'tool_use':
+                            continue
+
+                        tool_result = self._execute_tool_call(
+                            block.name, block.input
+                        )
+                        tool_results.append({
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": tool_result,
+                        })
+
+                    messages.append({
+                        "role": "user",
+                        "content": tool_results,
+                    })
+                    continue
+
+                # Unexpected stop reason
+                logger.warning(
+                    f"Unexpected stop_reason: {response.stop_reason}"
+                )
+                response_text = ""
+                for block in response.content:
+                    if block.type == 'text':
+                        response_text += block.text
+                self.last_raw_response = response_text
+                return extract_json_from_response(response_text)
+
+            # Exhausted max rounds
+            logger.warning(
+                f"Tool-use loop hit max rounds ({max_rounds}) "
+                f"for {self.concept_type}"
+            )
+            return {}
+
+        except Exception as e:
+            logger.error(
+                f"Tool-use LLM call failed for {self.concept_type}: "
+                f"{type(e).__name__}: {e}"
+            )
+            import traceback
+            logger.error(f"  Traceback: {traceback.format_exc()}")
+            return {}
+
+    def _execute_tool_call(
+        self, tool_name: str, tool_input: Dict[str, Any]
+    ) -> str:
+        """Execute a tool call against OntServe and return the result text.
+
+        Maps the LLM-facing tool name (get_class_definition) to the
+        OntServe MCP tool (get_entity_by_label). The ExternalMCPClient
+        already parses the JSON-RPC response, returning
+        {'success': True, 'result': <dict>}.
+        """
+        if tool_name != 'get_class_definition':
+            return f"Unknown tool: {tool_name}"
+
+        label = tool_input.get('label', '')
+        self.tool_call_count += 1
+
+        try:
+            result = self.mcp_client.call_tool(
+                'get_entity_by_label', {'label': label}
+            )
+
+            if not (isinstance(result, dict) and result.get('success')):
+                logger.warning(f"MCP call failed for label '{label}': {result}")
+                return f"Failed to retrieve definition for '{label}'."
+
+            content = result['result']
+            found = content.get('found', False)
+            self.tool_call_log.append({
+                'label': label,
+                'found': found,
+                'source': content.get('source_ontology', ''),
+                'concept_type': self.concept_type,
+            })
+
+            if found:
+                definition = content.get('definition', 'No definition available')
+                source = content.get('source_ontology', 'unknown')
+                parent = content.get('parent_type', '')
+                logger.debug(f"Tool call: '{label}' -> found in {source}")
+                return (
+                    f"Class: {label}\n"
+                    f"Definition: {definition}\n"
+                    f"Source ontology: {source}\n"
+                    f"Parent class: {parent}"
+                )
+            else:
+                logger.debug(f"Tool call: '{label}' -> not found")
+                return f"Class '{label}' not found in the ontology."
+
+        except Exception as e:
+            logger.error(f"Tool call error for '{label}': {e}")
+            return f"Error retrieving definition for '{label}': {str(e)}"
 
     # ------------------------------------------------------------------
     # Parsing + validation

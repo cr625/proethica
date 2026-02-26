@@ -36,6 +36,32 @@ def init_pipeline_csrf_exemption(app):
         app.csrf.exempt(api_cancel_run)
         app.csrf.exempt(api_service_status)
         app.csrf.exempt(api_reprocess_case)
+        app.csrf.exempt(api_set_injection_mode)
+
+
+@pipeline_bp.route('/api/set_injection_mode', methods=['POST'])
+def api_set_injection_mode():
+    """Set the ontology injection mode for extraction.
+
+    Used by run_pipeline.py --injection-mode to switch between
+    'full' (Phase 1) and 'label_only' (Phase 2).
+    """
+    from flask import current_app
+    data = request.get_json() or {}
+    mode = data.get('mode', 'full')
+    if mode not in ('full', 'label_only'):
+        return jsonify({'error': f'Invalid mode: {mode}'}), 400
+    current_app.config['INJECTION_MODE'] = mode
+    logger.info(f"Injection mode set to: {mode}")
+    return jsonify({'mode': mode, 'success': True})
+
+
+@pipeline_bp.route('/api/get_injection_mode', methods=['GET'])
+def api_get_injection_mode():
+    """Get the current ontology injection mode."""
+    from flask import current_app
+    mode = current_app.config.get('INJECTION_MODE', 'full')
+    return jsonify({'mode': mode})
 
 
 # Web Pages

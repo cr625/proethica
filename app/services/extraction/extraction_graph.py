@@ -359,6 +359,8 @@ def store_extraction_result(
                 'classes': len(classes),
                 'individuals': len(individuals),
             },
+            injection_mode=getattr(extractor, 'injection_mode', 'full'),
+            tool_call_log=getattr(extractor, 'tool_call_log', None) or None,
         )
     except Exception as e:
         logger.warning(f"Could not save extraction prompt for {concept_type}: {e}")
@@ -659,6 +661,8 @@ def _save_extraction_prompt(
                 'classes': classes_count,
                 'individuals': individuals_count,
             },
+            injection_mode=getattr(extractor, 'injection_mode', 'full'),
+            tool_call_log=getattr(extractor, 'tool_call_log', None) or None,
         )
     except Exception as e:
         logger.warning(f"Could not save extraction prompt for {concept_type}: {e}")

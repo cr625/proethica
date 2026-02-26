@@ -677,6 +677,9 @@ def main():
                         help="Resume batch from this case ID (implies --skip-clean)")
     parser.add_argument("--clean", action="store_true",
                         help="Run cleanup only (reset TTL, clear DB state)")
+    parser.add_argument("--injection-mode", choices=["full", "label_only"],
+                        default="full",
+                        help="Ontology injection mode: full (Phase 1) or label_only (Phase 2)")
 
     args = parser.parse_args()
 
@@ -692,6 +695,14 @@ def main():
         if not check_server():
             print("ERROR: ProEthica server not running on localhost:5000")
             return 1
+        # Set injection mode on the Flask server for batch
+        if args.injection_mode != 'full':
+            resp = http_post(
+                "/pipeline/api/set_injection_mode",
+                {"mode": args.injection_mode},
+            )
+            if resp and resp.status == 200:
+                print(f"Injection mode set to: {args.injection_mode}")
         skip_clean = args.skip_clean or args.start_from is not None
         return run_batch(start_from=args.start_from, skip_clean=skip_clean)
 
@@ -707,6 +718,17 @@ def main():
         print("ERROR: ProEthica server not running on localhost:5000")
         print("Start with: cd proethica && source venv-proethica/bin/activate && python run.py")
         return 1
+
+    # Set injection mode on the Flask server
+    if args.injection_mode != 'full':
+        resp = http_post(
+            "/pipeline/api/set_injection_mode",
+            {"mode": args.injection_mode},
+        )
+        if resp and resp.status == 200:
+            print(f"Injection mode set to: {args.injection_mode}")
+        else:
+            print(f"WARNING: Failed to set injection mode to {args.injection_mode}")
 
     case_id = args.case_id
 
