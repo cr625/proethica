@@ -503,7 +503,8 @@ def _run_provisions(case_id: int, llm_client, get_all_case_entities) -> dict:
                 break
 
         if not references_html:
-            return {'error': 'No references section found'}
+            logger.warning(f"[RunAll] No references section found for case {case_id}")
+            return {'provisions_count': 0, 'entity_links': 0, 'provisions': []}
 
         # Parse provisions
         parser = NSPEReferencesParser()
