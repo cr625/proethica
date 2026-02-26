@@ -336,25 +336,35 @@ class DecisionPointSynthesizer:
         logger.info(f"Stage 3.1: {result.candidates_count} candidates composed")
 
         if result.candidates_count == 0:
-            logger.warning("No algorithmic candidates - trying LLM fallback with causal links")
-            # LLM fallback: generate decision points from causal_normative_links
             if not skip_llm:
+                # Fallback 1: try causal_normative_links
+                logger.warning("No algorithmic candidates - trying LLM fallback with causal links")
                 canonical_points, llm_prompt, llm_response, fallback_enrichment = self._llm_generate_from_causal_links(
                     case_id, questions, conclusions, question_emergence, resolution_patterns
                 )
+
+                # Fallback 2: if no causal links, synthesize from Q&C + QE + RP directly
+                if not canonical_points:
+                    logger.warning("Causal link fallback produced nothing - trying Q&C direct synthesis")
+                    canonical_points, llm_prompt, llm_response, fallback_enrichment = self._llm_generate_from_qc_direct(
+                        case_id, questions, conclusions, question_emergence, resolution_patterns
+                    )
+                    fallback_method = "qc_direct_fallback"
+                else:
+                    fallback_method = "causal_links_fallback"
+
                 if canonical_points:
                     result.canonical_decision_points = canonical_points
                     result.canonical_count = len(canonical_points)
                     result.llm_prompt = llm_prompt
                     result.llm_response = llm_response
-                    logger.info(f"LLM fallback generated {result.canonical_count} decision points")
+                    logger.info(f"LLM fallback ({fallback_method}) generated {result.canonical_count} decision points")
 
-                    # Build minimal synthesis trace for fallback path
                     fallback_trace = SynthesisTrace(
                         synthesis_started=result.synthesis_timestamp.isoformat() if result.synthesis_timestamp else None,
                         synthesis_completed=datetime.now().isoformat(),
                         algorithmic_candidates_count=0,
-                        algorithmic_method="causal_links_fallback",
+                        algorithmic_method=fallback_method,
                         canonical_points_produced=result.canonical_count,
                         llm_model=ModelConfig.get_claude_model("default"),
                         llm_prompt_length=len(llm_prompt),
@@ -367,7 +377,6 @@ class DecisionPointSynthesizer:
                         fallback_trace.local_resolved_count = fallback_enrichment.local_resolved_count
                         fallback_trace.entities_not_found = fallback_enrichment.not_found_count
 
-                    # Store the generated points
                     self._store_canonical_points(case_id, canonical_points, session_id, fallback_trace)
                     return result
             logger.warning("No decision points generated - returning empty result")
@@ -981,6 +990,162 @@ Return as JSON array:
             canonical_points.append(dp)
 
         return canonical_points
+
+    def _llm_generate_from_qc_direct(
+        self,
+        case_id: int,
+        questions: List[Dict],
+        conclusions: List[Dict],
+        question_emergence: List[Dict],
+        resolution_patterns: List[Dict]
+    ) -> Tuple[List[CanonicalDecisionPoint], str, str, Optional[EnrichmentResult]]:
+        """
+        Last-resort fallback: Generate decision points directly from Q&C + QE + RP
+        when both E1-E3 and causal link fallback produce nothing.
+
+        This path uses the rich analysis data (questions, conclusions, question emergence,
+        resolution patterns) plus obligation/role context to synthesize decision points.
+        """
+        logger.info(f"Q&C direct fallback: Synthesizing decision points for case {case_id}")
+
+        # Load obligations and roles for grounding
+        obligations = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id, extraction_type='obligations'
+        ).all()
+        roles = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id, extraction_type='roles'
+        ).all()
+
+        # Format questions
+        questions_text = []
+        for i, q in enumerate(questions[:15]):
+            q_text = q.get('question_text', q.get('text', ''))
+            source = q.get('source', '')
+            source_tag = f" [{source}]" if source else ""
+            questions_text.append(f"Q{i+1}{source_tag}: {q_text[:250]}")
+
+        # Format conclusions
+        conclusions_text = []
+        for i, c in enumerate(conclusions[:15]):
+            c_text = c.get('conclusion_text', c.get('text', ''))
+            source = c.get('source', '')
+            source_tag = f" [{source}]" if source else ""
+            conclusions_text.append(f"C{i+1}{source_tag}: {c_text[:250]}")
+
+        # Format question emergence (how questions arise)
+        qe_text = []
+        for i, qe in enumerate(question_emergence[:10]):
+            qe_str = qe.get('description', qe.get('text', ''))
+            q_ref = qe.get('question_ref', '')
+            qe_text.append(f"QE{i+1} (re {q_ref}): {qe_str[:200]}")
+
+        # Format resolution patterns (how board resolved)
+        rp_text = []
+        for i, rp in enumerate(resolution_patterns[:10]):
+            rp_str = rp.get('description', rp.get('text', ''))
+            c_ref = rp.get('conclusion_ref', '')
+            rp_text.append(f"RP{i+1} (re {c_ref}): {rp_str[:200]}")
+
+        # Format obligations
+        obl_text = []
+        for i, o in enumerate(obligations[:15]):
+            obl_text.append(f"O{i+1}: {o.entity_label} -- {(o.entity_definition or '')[:150]}")
+
+        # Format roles
+        role_text = []
+        for i, r in enumerate(roles[:10]):
+            role_text.append(f"R{i+1}: {r.entity_label}")
+
+        prompt = f"""You are analyzing an ethics case to identify key decision points where ethical choices must be made.
+
+The algorithmic composition and causal link analysis found no decision point candidates for this case.
+However, the case has rich analytical data. Synthesize decision points from the following context.
+
+ETHICAL QUESTIONS identified in the case:
+{chr(10).join(questions_text)}
+
+BOARD CONCLUSIONS:
+{chr(10).join(conclusions_text)}
+
+QUESTION EMERGENCE (how ethical questions arise from case facts):
+{chr(10).join(qe_text)}
+
+RESOLUTION PATTERNS (how the board resolved questions):
+{chr(10).join(rp_text)}
+
+OBLIGATIONS extracted from the case:
+{chr(10).join(obl_text)}
+
+ROLES in the case:
+{chr(10).join(role_text)}
+
+Based on this analysis, generate 3-5 canonical decision points. Each should represent
+a moment where an agent must choose between actions with ethical implications.
+
+For each decision point, provide:
+1. A focus_id (e.g., "DP1", "DP2")
+2. A description of the decision situation
+3. A decision_question (what choice must be made?)
+4. The primary role/agent facing the decision (use exact role labels from above)
+5. The relevant obligation (use exact obligation labels from above)
+6. 2-3 options available to the decision-maker
+7. Which question(s) this addresses (reference Q numbers)
+8. How the board resolved it (reference C numbers)
+
+CRITICAL: Option descriptions must be ACTION PHRASES (verb form), not policy statements.
+- Good: "Disclose the conflict of interest to the client", "Recuse from the project"
+- Bad: "No disclosure required", "Conflict of Interest Policy"
+
+Return as JSON array:
+```json
+[
+  {{
+    "focus_id": "DP1",
+    "description": "...",
+    "decision_question": "...",
+    "role_label": "...",
+    "obligation_label": "...",
+    "options": [
+      {{"label": "Option A", "description": "Action phrase here"}},
+      {{"label": "Option B", "description": "Alternative action phrase"}}
+    ],
+    "addresses_questions": ["Q1", "Q2"],
+    "board_resolution": "The board concluded that... (C1)"
+  }}
+]
+```
+"""
+
+        enrichment_result = None
+        try:
+            enrichment_result = enrich_prompt_with_metadata(prompt, mode="glossary")
+            prompt = enrichment_result.enriched_text
+            logger.info(f"Enriched Q&C direct prompt: {enrichment_result.mcp_resolved_count} from MCP, "
+                       f"{enrichment_result.local_resolved_count} from local")
+        except Exception as e:
+            logger.warning(f"MCP enrichment failed: {e}")
+
+        try:
+            from app.utils.llm_utils import streaming_completion
+            response_text = streaming_completion(
+                self.llm_client,
+                model=ModelConfig.get_claude_model("default"),
+                max_tokens=4000,
+                prompt=prompt,
+                temperature=0.3,
+            )
+
+            # Reuse the same parser as the causal link fallback
+            canonical_points = self._parse_causal_link_response(
+                response_text, case_id, questions, conclusions
+            )
+
+            logger.info(f"Q&C direct fallback generated {len(canonical_points)} decision points")
+            return canonical_points, prompt, response_text, enrichment_result
+
+        except Exception as e:
+            logger.error(f"Q&C direct fallback failed: {e}")
+            return [], prompt, f"ERROR: {e}", enrichment_result
 
     def _build_refinement_prompt(
         self,
