@@ -223,7 +223,13 @@ def main():
             port=port,
             debug=debug,
             use_reloader=debug,
-            use_debugger=debug
+            use_debugger=debug,
+            exclude_patterns=[
+                "*/tests/*",
+                "*/docs-internal/*",
+                "*/backups/*",
+                "*.tmp.*",
+            ] if debug else None,
         )
         
     except ImportError as e:

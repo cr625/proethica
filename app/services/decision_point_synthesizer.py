@@ -1087,18 +1087,26 @@ a moment where an agent must choose between actions with ethical implications.
 For each decision point, provide:
 1. A focus_id (e.g., "DP1", "DP2")
 2. A description of the decision situation
-3. A decision_question (what choice must be made?)
+3. A decision_question -- an actionable choice framed as "Should [role] do X or Y?"
 4. The primary role/agent facing the decision (use exact role labels from above)
 5. The relevant obligation (use exact obligation labels from above)
-6. 2-3 options available to the decision-maker
+6. 2-3 options that DIRECTLY ANSWER the decision_question
 7. Which question(s) this addresses (reference Q numbers)
 8. How the board resolved it (reference C numbers)
 
-CRITICAL: Option labels and descriptions must be ACTION PHRASES (verb form), not generic placeholders.
-- Labels must be short descriptive action phrases, NEVER "Option A", "Option B", "Option C".
+CRITICAL COHERENCE: The decision_question and options must form a coherent decision:
+- The question must present an actionable choice the named role faces.
+  BAD: "Whether the obligation arose at point X" (analytical, not a choice)
+  GOOD: "Should Engineer Doe submit full findings or limit disclosure to correcting false data?"
+- Each option must be a direct answer to that question. Reading the question then the option,
+  the option must be a plausible course of action the role could choose.
+- The role_label must be the agent making the decision, not a passive party.
+
+CRITICAL OPTION FORMAT:
+- Labels must be 3-8 words, Title Case, starting with a verb. NEVER "Option A", "Option B".
 - Good labels: "Disclose Conflict to Client", "Recuse from Project", "Seek Independent Review"
-- Bad labels: "Option A", "Option B", "Alternative Approach"
-- Descriptions expand on the label with case-specific detail.
+- Descriptions expand on the label with 1-2 sentences of case-specific detail.
+- Options must represent genuinely defensible positions, not straw-man alternatives.
 
 Return as JSON array:
 ```json
@@ -1233,13 +1241,37 @@ Synthesize {target_count} decision points that:
 2. **Align with Q&C** - Each point should address real board concerns
 3. **Merge similar candidates** - Combine candidates addressing the same issue
 4. **Include Toulmin structure** - Show DATA, WARRANTs, and REBUTTAL for each
-5. **Use action-form options** - Options must be verb phrases describing actions
+5. **Coherent question-option structure** - Options must directly answer the question
+
+CRITICAL COHERENCE REQUIREMENT:
+
+The decision_question, description, and options must form a coherent decision structure:
+
+1. The "decision_question" must be framed as an actionable choice the named role faces:
+   - Format: "Should [role] [action A] or [action B]?" or "Must [role] [choice]?"
+   - The question must present the core tension between competing courses of action.
+   - BAD: "Whether the obligation arose at point X or point Y" (analytical, not actionable)
+   - BAD: "The interaction between principle X and principle Y" (abstract, no agent choosing)
+   - GOOD: "Should Engineer A disclose the conflict to the client before accepting the project, or rely on internal firewalls?"
+
+2. Each option must be a DIRECT ANSWER to the decision_question. If you read the question
+   then read each option, the option must be a plausible response the named role could choose.
+   - BAD: Question asks "when did the obligation arise?" but options are "Submit Report" / "Limit Disclosure"
+   - GOOD: Question asks "Should Doe submit full findings or limit disclosure?" and options are
+     "Submit Full Report" / "Limit Disclosure to Correcting False Data" / "Seek Ethics Guidance First"
+
+3. The role_label must be the agent who faces the decision. Do not assign a decision to a party
+   who is not making the choice (e.g., do not assign a disclosure decision to the "Client"
+   when it is the engineer who must decide whether to disclose).
 
 CRITICAL OPTION REQUIREMENTS:
 
-1. Option descriptions must be ACTION PHRASES (verb form), not policy statements.
-   - Good: "Disclose AI tool usage to client", "Verify code with subject matter expert"
-   - Bad: "No disclosure required unless contractually specified", "AI Tool Adoption Strategy"
+1. Each option MUST have a short "label" (3-8 words, Title Case, action phrase starting with a verb)
+   and a longer "description" (1-2 sentences elaborating the action).
+   The label is a DISCRETE CHOICE that a decision-maker selects from a list.
+   - Good labels: "Disclose Conflict to Client", "Recuse from Evaluation", "Report to State Agency"
+   - Bad labels: "Option A", "Proactively disclose AI tool usage and identify AI-generated sections to client before submission"
+   The label must be distinct enough to distinguish options at a glance.
 
 2. Each decision point MUST have 2-3 options that represent GENUINELY DEFENSIBLE positions.
    Do NOT create straw-man alternatives. Each option should be an action a reasonable
@@ -1284,9 +1316,9 @@ CRITICAL OPTION REQUIREMENTS:
     "qc_alignment_score": 0.85,
     "intensity_score": 0.7,
     "options": [
-      {{"option_id": "O1", "description": "Proactively disclose AI tool usage and identify AI-generated sections to client before submission", "action_uri": "URI", "is_board_choice": true}},
-      {{"option_id": "O2", "description": "Treat AI tool as internal drafting software equivalent to CAD, disclosing only upon direct client inquiry", "action_uri": "URI", "is_board_choice": false}},
-      {{"option_id": "O3", "description": "Disclose AI usage in project documentation without separate client notification, following existing firm software disclosure policy", "action_uri": "URI", "is_board_choice": false}}
+      {{"option_id": "O1", "label": "Disclose AI Usage to Client Before Submission", "description": "Proactively disclose AI tool usage and identify AI-generated sections to client before submission", "action_uri": "URI", "is_board_choice": true}},
+      {{"option_id": "O2", "label": "Treat AI as Internal Drafting Tool", "description": "Treat AI tool as internal drafting software equivalent to CAD, disclosing only upon direct client inquiry", "action_uri": "URI", "is_board_choice": false}},
+      {{"option_id": "O3", "label": "Disclose in Project Documentation Only", "description": "Disclose AI usage in project documentation without separate client notification, following existing firm software disclosure policy", "action_uri": "URI", "is_board_choice": false}}
     ]
   }}
 ]
@@ -1452,6 +1484,7 @@ Produce exactly {target_count} decision points capturing the key ethical issues.
             for opt in candidate.options:
                 options.append({
                     'option_id': opt.option_id,
+                    'label': opt.action_label,
                     'description': opt.description,
                     'action_uri': opt.action_uri,
                     'is_board_choice': opt.is_board_choice

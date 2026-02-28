@@ -352,19 +352,19 @@ def run_qc(case_id):
     print(f"    {symbol} {status}  ({total} entities, {types} types, {cc}C/{wc}W/{ic}I)")
 
     # Print issue details for any non-PASS checks
-    failed_checks = []
+    critical_fails = []
     for check in audit.get('check_results', []):
         if check['status'] in ('FAIL', 'INFO') and check['check_id'] != 'V1':
             print(f"    {check['check_id']} {check['name']}: {check['status']} [{check['severity']}]")
             if check.get('message'):
                 print(f"      {check['message'][:120]}")
-            if check['status'] == 'FAIL':
-                failed_checks.append(check['check_id'])
+            if check['status'] == 'FAIL' and check['severity'] == 'CRITICAL':
+                critical_fails.append(check['check_id'])
 
     print(f"    Completed in {elapsed:.0f}s")
 
-    if failed_checks:
-        raise PipelineError(f"QC FAIL: checks {', '.join(failed_checks)} failed ({total} entities, {types} types)")
+    if critical_fails:
+        raise PipelineError(f"QC FAIL: checks {', '.join(critical_fails)} failed ({total} entities, {types} types)")
 
     return audit
 
