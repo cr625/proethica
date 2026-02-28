@@ -191,6 +191,57 @@ class Phase2Extractor(BaseSynthesizer):
             traceback.print_exc()
             yield self._emit('ERROR', 100, [f'Error: {str(e)}'], error=True)
 
+    def _lookup_provisions_from_db(self, provision_codes: list) -> list:
+        """
+        Look up provision texts from previously extracted cases in the database.
+
+        Queries temporary_rdf_storage for code_provision_reference entities whose
+        entity_label matches the given codes. The 54 stored provisions cover the
+        full NSPE Code of Ethics.
+
+        Args:
+            provision_codes: List of normalized codes (e.g., ["II.1", "III.4.a"])
+
+        Returns:
+            List of provision dicts matching parse_references_html() format
+        """
+        provisions = []
+        seen = set()
+
+        for code in provision_codes:
+            if code in seen:
+                continue
+
+            # DB labels have trailing dot (e.g., "II.1." not "II.1")
+            label_with_dot = code if code.endswith('.') else code + '.'
+
+            row = db.session.execute(
+                text("""
+                    SELECT entity_label, entity_definition
+                    FROM temporary_rdf_storage
+                    WHERE extraction_type = 'code_provision_reference'
+                      AND is_selected = true
+                      AND entity_label = :label
+                    LIMIT 1
+                """),
+                {'label': label_with_dot}
+            ).fetchone()
+
+            if row:
+                # Strip trailing dot from label for consistency
+                clean_code = row[0].rstrip('.')
+                provisions.append({
+                    'code_provision': clean_code,
+                    'provision_text': row[1],
+                    'subject_references': []
+                })
+                seen.add(code)
+                logger.info(f"DB lookup matched provision: {clean_code}")
+            else:
+                logger.warning(f"Provision {code} not found in DB - skipping")
+
+        return provisions
+
     def _extract_provisions(self) -> Generator[SynthesisEvent, None, None]:
         """Part A: Extract and validate code provisions."""
         yield self._emit('PART_A_START', 5, ['Part A: Extracting Code Provisions...'])
@@ -202,24 +253,41 @@ class Phase2Extractor(BaseSynthesizer):
                 references_html = self._get_section_html(section_key)
                 break
 
-        if not references_html:
-            yield self._emit('PART_A_WARNING', 10, ['No references section found - skipping provisions'])
-            return
+        # Try parsing references HTML (includes plain-text fallback)
+        provisions = []
+        if references_html:
+            parser = NSPEReferencesParser()
+            provisions = parser.parse_references_html(references_html)
+            yield self._emit('PART_A_PARSED', 10, [f'Parsed {len(provisions)} NSPE code provisions from references'])
 
-        # Parse NSPE provisions
-        parser = NSPEReferencesParser()
-        provisions = parser.parse_references_html(references_html)
-        yield self._emit('PART_A_PARSED', 10, [f'Parsed {len(provisions)} NSPE code provisions from references'])
-
-        if not provisions:
-            return
-
-        # Get case sections for provision detection
+        # Build case_sections and detect mentions (used by both fallback and validation)
         case_sections = {}
         for section_key in ['facts', 'discussion', 'question', 'conclusion']:
             case_sections[section_key] = self._get_section_text(section_key)
 
-        # Detect provision mentions in case text
+        # Fallback: scan case text for provision codes and look up from DB
+        if not provisions:
+            yield self._emit('PART_A_FALLBACK', 8, ['No provisions from references - scanning case text for Code citations...'])
+
+            detector = UniversalProvisionDetector()
+            all_mentions = detector.detect_all_provisions(case_sections)
+            unique_codes = detector.get_all_mentioned_provisions()
+
+            if unique_codes:
+                yield self._emit('PART_A_FALLBACK_FOUND', 10, [
+                    f'Found {len(unique_codes)} unique provision codes in case text: {", ".join(unique_codes)}'
+                ])
+                provisions = self._lookup_provisions_from_db(unique_codes)
+                yield self._emit('PART_A_FALLBACK_RESOLVED', 12, [
+                    f'Resolved {len(provisions)}/{len(unique_codes)} provisions from DB'
+                ])
+            else:
+                yield self._emit('PART_A_WARNING', 10, ['No provision citations found in case text'])
+
+        if not provisions:
+            return
+
+        # Detect provision mentions in case text (for grouping and validation)
         detector = UniversalProvisionDetector()
         all_mentions = detector.detect_all_provisions(case_sections)
         yield self._emit('PART_A_MENTIONS', 15, [f'Detected {len(all_mentions)} provision mentions in case text'])

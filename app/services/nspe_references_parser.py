@@ -25,6 +25,10 @@ class NSPEReferencesParser:
         """
         Parse NSPE references HTML to extract code provisions and subject references.
 
+        Tries structured HTML parsing first (div.field__item + H2 tags). If that
+        returns 0 results, falls back to plain-text parsing for cases where
+        references are stored as unstructured text (e.g., "II.1. Engineers shall...").
+
         Args:
             html_content: HTML string from the references section
 
@@ -58,6 +62,13 @@ class NSPEReferencesParser:
             if provision_data:
                 provisions.append(provision_data)
                 logger.info(f"Parsed provision: {provision_data['code_provision']}")
+
+        # Fallback: if structured parsing found nothing, try plain-text parsing
+        if not provisions:
+            plain_text = soup.get_text(separator=' ', strip=True)
+            if plain_text:
+                logger.info("Structured parsing returned 0 provisions, trying plain-text fallback")
+                provisions = self._parse_references_plaintext(plain_text)
 
         self.parsed_provisions = provisions
         logger.info(f"Total provisions parsed: {len(provisions)}")
@@ -139,6 +150,57 @@ class NSPEReferencesParser:
             'provision_text': provision_text,
             'subject_references': subject_references
         }
+
+    def _parse_references_plaintext(self, text: str) -> List[Dict]:
+        """
+        Parse plain-text references to extract code provisions.
+
+        Handles cases where the references section contains unstructured text
+        like "II.1. Engineers shall hold paramount..." rather than structured
+        HTML with div.field__item and H2 tags.
+
+        Splits text on provision code boundaries, captures each code and its
+        following provision text.
+
+        Args:
+            text: Plain text from the references section (HTML tags stripped)
+
+        Returns:
+            List of provision dicts with same format as parse_references_html()
+        """
+        provisions = []
+        seen_codes = set()
+
+        # Pattern: provision code at a boundary, followed by provision text
+        # Matches: "II.1." or "II.1.f." at start-of-string or after whitespace
+        provision_pattern = re.compile(
+            r'(?:^|\s)([IVX]+\.\d+\.(?:[a-z]\.)?)\s+'
+            r'(Engineers\s.+?)(?=\s+[IVX]+\.\d+\.|$)',
+            re.DOTALL
+        )
+
+        for match in provision_pattern.finditer(text):
+            raw_code = match.group(1).strip().rstrip('.')
+            provision_text = match.group(2).strip()
+
+            # Normalize: ensure no trailing dot on code for consistency with
+            # _is_valid_code_provision, but store with trailing dot for DB match
+            if not self._is_valid_code_provision(raw_code):
+                continue
+
+            if raw_code in seen_codes:
+                continue
+            seen_codes.add(raw_code)
+
+            provisions.append({
+                'code_provision': raw_code,
+                'provision_text': provision_text,
+                'subject_references': []
+            })
+            logger.info(f"Plain-text parsed provision: {raw_code}")
+
+        logger.info(f"Plain-text fallback found {len(provisions)} provisions")
+        return provisions
 
     def _is_valid_code_provision(self, text: str) -> bool:
         """
