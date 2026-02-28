@@ -32,6 +32,11 @@ import urllib.request
 import urllib.error
 
 BASE_URL = "http://localhost:5000"
+
+
+class PipelineError(Exception):
+    """Raised when a pipeline step fails. Halts further processing."""
+    pass
 DB_ENV = {"PGPASSWORD": "PASS", "PATH": "/usr/bin:/bin"}
 ONTSERVE_PATH = "/home/chris/onto/OntServe"
 EXTENDED_TTL = os.path.join(ONTSERVE_PATH, "ontologies", "proethica-intermediate-extended.ttl")
@@ -61,7 +66,7 @@ def http_post(path, data=None, stream=False):
             "Accept": "text/event-stream" if stream else "application/json",
         },
     )
-    return urllib.request.urlopen(req, timeout=600)
+    return urllib.request.urlopen(req, timeout=1200)
 
 
 def http_get(path, stream=False):
@@ -71,7 +76,7 @@ def http_get(path, stream=False):
         url,
         headers={"Accept": "text/event-stream" if stream else "application/json"},
     )
-    return urllib.request.urlopen(req, timeout=600)
+    return urllib.request.urlopen(req, timeout=1200)
 
 
 def parse_sse_events(response):
@@ -86,8 +91,13 @@ def parse_sse_events(response):
 
 
 def collect_sse(response):
-    """Collect all SSE events and return summary."""
+    """Collect all SSE events and return (events, error_message).
+
+    Returns a tuple: (events_list, error_string_or_None).
+    Error is set if any SSE event indicates failure.
+    """
     events = []
+    error_msg = None
     for data in parse_sse_events(response):
         events.append(data)
         status = data.get("status", data.get("stage", ""))
@@ -103,80 +113,127 @@ def collect_sse(response):
             if isinstance(msg, list):
                 msg = msg[0] if msg else ""
             print(f"    {status}: {msg}")
-        elif status == "error":
-            print(f"    ERROR: {json.dumps(data)[:300]}")
-    return events
+        elif status == "error" or status == "ERROR" or data.get("error"):
+            err = data.get("error", data.get("message", data.get("messages", "unknown error")))
+            if isinstance(err, list):
+                err = err[0] if err else "unknown error"
+            elif err is True:
+                err = data.get("message", data.get("messages", "unknown error"))
+                if isinstance(err, list):
+                    err = err[0] if err else "unknown error"
+            error_msg = str(err)
+            print(f"    ERROR: {error_msg[:300]}")
+    return events, error_msg
 
 
 def run_step1(case_id, section_type):
-    """Run Step 1 extraction for a section."""
+    """Run Step 1 extraction for a section. Raises PipelineError on failure."""
     print(f"  Step 1 {section_type}...")
     t0 = time.time()
-    resp = http_post(
-        f"/scenario_pipeline/case/{case_id}/entities_pass_execute_streaming",
-        {"section_type": section_type},
-        stream=True,
-    )
-    events = collect_sse(resp)
+    try:
+        resp = http_post(
+            f"/scenario_pipeline/case/{case_id}/entities_pass_execute_streaming",
+            {"section_type": section_type},
+            stream=True,
+        )
+    except (urllib.error.HTTPError, urllib.error.URLError) as e:
+        elapsed = time.time() - t0
+        print(f"    FAILED: HTTP error ({elapsed:.0f}s)")
+        raise PipelineError(f"Step 1 {section_type} HTTP error: {e}")
+    events, error = collect_sse(resp)
     elapsed = time.time() - t0
+    if error:
+        print(f"    FAILED in {elapsed:.0f}s")
+        raise PipelineError(f"Step 1 {section_type} failed: {error}")
     print(f"    Completed in {elapsed:.0f}s")
     return events
 
 
 def run_step2(case_id, section_type):
-    """Run Step 2 extraction for a section."""
+    """Run Step 2 extraction for a section. Raises PipelineError on failure."""
     print(f"  Step 2 {section_type}...")
     t0 = time.time()
-    resp = http_post(
-        f"/scenario_pipeline/case/{case_id}/normative_pass_execute_streaming",
-        {"section_type": section_type},
-        stream=True,
-    )
-    events = collect_sse(resp)
+    try:
+        resp = http_post(
+            f"/scenario_pipeline/case/{case_id}/normative_pass_execute_streaming",
+            {"section_type": section_type},
+            stream=True,
+        )
+    except (urllib.error.HTTPError, urllib.error.URLError) as e:
+        elapsed = time.time() - t0
+        print(f"    FAILED: HTTP error ({elapsed:.0f}s)")
+        raise PipelineError(f"Step 2 {section_type} HTTP error: {e}")
+    events, error = collect_sse(resp)
     elapsed = time.time() - t0
+    if error:
+        print(f"    FAILED in {elapsed:.0f}s")
+        raise PipelineError(f"Step 2 {section_type} failed: {error}")
     print(f"    Completed in {elapsed:.0f}s")
     return events
 
 
 def run_step3(case_id):
-    """Run Step 3 (temporal dynamics via LangGraph)."""
+    """Run Step 3 (temporal dynamics via LangGraph). Raises PipelineError on failure."""
     print("  Step 3 (LangGraph temporal dynamics)...")
     t0 = time.time()
-    resp = http_get(
-        f"/scenario_pipeline/case/{case_id}/step3/extract_enhanced",
-        stream=True,
-    )
-    events = collect_sse(resp)
+    try:
+        resp = http_get(
+            f"/scenario_pipeline/case/{case_id}/step3/extract_enhanced",
+            stream=True,
+        )
+    except (urllib.error.HTTPError, urllib.error.URLError) as e:
+        elapsed = time.time() - t0
+        print(f"    FAILED: HTTP error ({elapsed:.0f}s)")
+        raise PipelineError(f"Step 3 HTTP error: {e}")
+    events, error = collect_sse(resp)
     elapsed = time.time() - t0
+    if error:
+        print(f"    FAILED in {elapsed:.0f}s")
+        raise PipelineError(f"Step 3 failed: {error}")
     print(f"    Completed in {elapsed:.0f}s")
     return events
 
 
 def run_reconcile(case_id, mode="auto"):
-    """Run reconciliation. mode='auto' for exact-match only, 'review' for LLM dedup."""
+    """Run reconciliation. Raises PipelineError on failure."""
     print(f"  Reconciliation (mode={mode})...")
     t0 = time.time()
-    resp = http_post(f"/scenario_pipeline/case/{case_id}/reconcile/run", {"mode": mode})
-    data = json.loads(resp.read().decode())
+    try:
+        resp = http_post(f"/scenario_pipeline/case/{case_id}/reconcile/run", {"mode": mode})
+        data = json.loads(resp.read().decode())
+    except urllib.error.HTTPError as e:
+        elapsed = time.time() - t0
+        print(f"    FAILED: reconcile returned {e.code} ({elapsed:.0f}s)")
+        raise PipelineError(f"Reconciliation failed (HTTP {e.code})")
     elapsed = time.time() - t0
     success = data.get("success", False)
     candidates = len(data.get("candidates", []))
     auto_merged = data.get("auto_merged", 0)
     print(f"    Success={success}, candidates={candidates}, auto_merged={auto_merged}")
     print(f"    Completed in {elapsed:.0f}s")
+    if not success:
+        raise PipelineError(f"Reconciliation failed: {data.get('error', 'unknown')}")
     return data
 
 
 def run_step4(case_id):
-    """Run Step 4 complete synthesis stream."""
+    """Run Step 4 complete synthesis stream. Raises PipelineError on failure."""
     print("  Step 4 (complete synthesis)...")
     t0 = time.time()
-    resp = http_post(
-        f"/scenario_pipeline/case/{case_id}/run_complete_synthesis_stream",
-        stream=True,
-    )
-    events = collect_sse(resp)
+    try:
+        resp = http_post(
+            f"/scenario_pipeline/case/{case_id}/run_complete_synthesis_stream",
+            stream=True,
+        )
+    except (urllib.error.HTTPError, urllib.error.URLError) as e:
+        elapsed = time.time() - t0
+        print(f"    FAILED: HTTP error ({elapsed:.0f}s)")
+        raise PipelineError(f"Step 4 HTTP error: {e}")
+    events, error = collect_sse(resp)
     elapsed = time.time() - t0
+    if error:
+        print(f"    FAILED in {elapsed:.0f}s")
+        raise PipelineError(f"Step 4 failed: {error}")
     print(f"    Completed in {elapsed:.0f}s")
     return events
 
@@ -231,7 +288,7 @@ def run_uncommit(case_id):
 
 
 def run_commit(case_id):
-    """Commit entities to OntServe."""
+    """Commit entities to OntServe. Raises PipelineError on failure."""
     print("  Committing to OntServe...")
     t0 = time.time()
     try:
@@ -247,57 +304,69 @@ def run_commit(case_id):
     except urllib.error.HTTPError as e:
         elapsed = time.time() - t0
         body = e.read().decode() if e.fp else ''
-        print(f"    Warning: commit returned {e.code} ({elapsed:.0f}s)")
+        err_detail = ''
         if body:
             try:
                 err_data = json.loads(body)
-                print(f"    {err_data.get('error', body[:200])}")
+                err_detail = err_data.get('error', body[:200])
             except json.JSONDecodeError:
-                print(f"    {body[:200]}")
-        return {}
+                err_detail = body[:200]
+        print(f"    FAILED: commit returned {e.code} ({elapsed:.0f}s)")
+        if err_detail:
+            print(f"    {err_detail}")
+        raise PipelineError(f"OntServe commit failed (HTTP {e.code}): {err_detail}")
 
 
 def run_qc(case_id):
-    """Run QC audit via HTTP API (uses running Flask server context)."""
+    """Run QC audit via HTTP API. Raises PipelineError on FAIL or error."""
     print("  QC Audit (V0-V9)...")
     t0 = time.time()
     try:
         resp = http_post(f"/api/qc/audit/{case_id}")
         data = json.loads(resp.read().decode())
-        elapsed = time.time() - t0
-
-        if not data.get('success'):
-            print(f"    QC audit failed: {data.get('error', 'unknown')} ({elapsed:.0f}s)")
-            return None
-
-        audit = data['audit']
-        status = audit['overall_status']
-        total = audit['entity_count_total']
-        types = audit['extraction_types_count']
-        cc = audit['critical_count']
-        wc = audit['warning_count']
-        ic = audit['info_count']
-
-        symbol = '[+]' if status == 'PASS' else '[!]' if status == 'ISSUES_FOUND' else '[X]'
-        print(f"    {symbol} {status}  ({total} entities, {types} types, {cc}C/{wc}W/{ic}I)")
-
-        # Print issue details
-        for check in audit.get('check_results', []):
-            if check['status'] in ('FAIL', 'INFO') and check['check_id'] != 'V1':
-                print(f"    {check['check_id']} {check['name']}: {check['status']} [{check['severity']}]")
-                if check.get('message'):
-                    print(f"      {check['message'][:120]}")
-
-        print(f"    Completed in {elapsed:.0f}s")
-        return audit
     except urllib.error.HTTPError as e:
         elapsed = time.time() - t0
-        print(f"    QC audit HTTP error {e.code} ({elapsed:.0f}s)")
-        return None
+        print(f"    FAILED: QC audit HTTP error {e.code} ({elapsed:.0f}s)")
+        raise PipelineError(f"QC audit HTTP error {e.code}")
     except Exception as e:
         elapsed = time.time() - t0
-        print(f"    QC audit failed: {e} ({elapsed:.0f}s)")
-        return None
+        print(f"    FAILED: QC audit error: {e} ({elapsed:.0f}s)")
+        raise PipelineError(f"QC audit error: {e}")
+
+    elapsed = time.time() - t0
+
+    if not data.get('success'):
+        err = data.get('error', 'unknown')
+        print(f"    FAILED: QC audit error: {err} ({elapsed:.0f}s)")
+        raise PipelineError(f"QC audit error: {err}")
+
+    audit = data['audit']
+    status = audit['overall_status']
+    total = audit['entity_count_total']
+    types = audit['extraction_types_count']
+    cc = audit['critical_count']
+    wc = audit['warning_count']
+    ic = audit['info_count']
+
+    symbol = '[+]' if status == 'PASS' else '[!]' if status == 'ISSUES_FOUND' else '[X]'
+    print(f"    {symbol} {status}  ({total} entities, {types} types, {cc}C/{wc}W/{ic}I)")
+
+    # Print issue details for any non-PASS checks
+    failed_checks = []
+    for check in audit.get('check_results', []):
+        if check['status'] in ('FAIL', 'INFO') and check['check_id'] != 'V1':
+            print(f"    {check['check_id']} {check['name']}: {check['status']} [{check['severity']}]")
+            if check.get('message'):
+                print(f"      {check['message'][:120]}")
+            if check['status'] == 'FAIL':
+                failed_checks.append(check['check_id'])
+
+    print(f"    Completed in {elapsed:.0f}s")
+
+    if failed_checks:
+        raise PipelineError(f"QC FAIL: checks {', '.join(failed_checks)} failed ({total} entities, {types} types)")
+
+    return audit
 
 
 def clear_old_entities(case_id):
@@ -318,7 +387,11 @@ def clear_old_entities(case_id):
 
 
 def run_full_pipeline(case_id):
-    """Run the complete pipeline for a case."""
+    """Run the complete pipeline for a case.
+
+    Raises PipelineError if any step fails, halting further processing.
+    Returns wall time on success.
+    """
     total_start = time.time()
 
     print(f"\nPipeline run for case {case_id}")
@@ -335,8 +408,6 @@ def run_full_pipeline(case_id):
     run_commit(case_id)
     run_step4(case_id)
     run_commit(case_id)  # Second commit: Step 4 synthesis entities
-
-    # QC audit (V0-V9) - stored as provenance
     run_qc(case_id)
 
     total_elapsed = time.time() - total_start
@@ -783,32 +854,42 @@ def main():
 
     case_id = args.case_id
 
-    if args.step is None:
-        run_full_pipeline(case_id)
-    elif args.step == "1":
-        sections = [args.section] if args.section else ["facts", "discussion"]
-        for s in sections:
-            run_step1(case_id, s)
+    try:
+        if args.step is None:
+            run_full_pipeline(case_id)
+        elif args.step == "1":
+            sections = [args.section] if args.section else ["facts", "discussion"]
+            for s in sections:
+                run_step1(case_id, s)
+            run_commit(case_id)
+            print_status(case_id)
+        elif args.step == "2":
+            sections = [args.section] if args.section else ["facts", "discussion"]
+            for s in sections:
+                run_step2(case_id, s)
+            run_commit(case_id)
+            print_status(case_id)
+        elif args.step == "3":
+            run_step3(case_id)
+            run_commit(case_id)
+            print_status(case_id)
+        elif args.step == "reconcile":
+            run_reconcile(case_id)
+        elif args.step == "commit":
+            run_commit(case_id)
+        elif args.step == "uncommit":
+            run_uncommit(case_id)
+        elif args.step == "4":
+            run_step4(case_id)
+            run_commit(case_id)
+            run_qc(case_id)
+            print_status(case_id)
+        elif args.step == "qc":
+            run_qc(case_id)
+    except PipelineError as e:
+        print(f"\nPIPELINE HALTED: {e}")
         print_status(case_id)
-    elif args.step == "2":
-        sections = [args.section] if args.section else ["facts", "discussion"]
-        for s in sections:
-            run_step2(case_id, s)
-        print_status(case_id)
-    elif args.step == "3":
-        run_step3(case_id)
-        print_status(case_id)
-    elif args.step == "reconcile":
-        run_reconcile(case_id)
-    elif args.step == "commit":
-        run_commit(case_id)
-    elif args.step == "uncommit":
-        run_uncommit(case_id)
-    elif args.step == "4":
-        run_step4(case_id)
-        print_status(case_id)
-    elif args.step == "qc":
-        run_qc(case_id)
+        return 1
 
     return 0
 

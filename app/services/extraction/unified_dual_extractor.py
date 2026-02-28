@@ -1032,8 +1032,11 @@ class UnifiedDualExtractor:
         without definitions and can call get_class_definition to retrieve
         definitions for disambiguation.
 
-        Uses non-streaming messages.create() with a tool-use conversation
-        loop. Max 10 tool-call round-trips to prevent runaway.
+        Uses streaming messages.stream() with a tool-use conversation
+        loop to avoid WSL2 TCP timeout on long responses.
+        Max 25 tool-call round-trips to prevent runaway. Concept types
+        with 300+ existing classes (capabilities, constraints, obligations)
+        routinely need 10-15 rounds for definition lookups.
         """
         from app.utils.llm_utils import get_llm_client
 
@@ -1050,17 +1053,22 @@ class UnifiedDualExtractor:
         )
 
         messages = [{"role": "user", "content": prompt}]
-        max_rounds = 10
+        max_rounds = 25
 
         try:
             for round_num in range(max_rounds):
-                response = client.messages.create(
+                # Use streaming to avoid WSL2 TCP timeout on long responses.
+                # client.messages.stream() supports tool_use and end_turn
+                # stop reasons identically to messages.create().
+                with client.messages.stream(
                     model=self.model_name,
                     max_tokens=self.config['max_tokens'],
                     temperature=self.config['temperature'],
                     messages=messages,
                     tools=self.ONTOLOGY_LOOKUP_TOOLS,
-                )
+                ) as stream:
+                    # Consume the stream to get the final message
+                    response = stream.get_final_message()
 
                 logger.info(
                     f"Tool-use round {round_num + 1}: "
@@ -1137,11 +1145,57 @@ class UnifiedDualExtractor:
                 self.last_raw_response = response_text
                 return extract_json_from_response(response_text)
 
-            # Exhausted max rounds
+            # Exhausted max rounds -- try one final call without tools
+            # to force the LLM to produce its JSON response.
             logger.warning(
                 f"Tool-use loop hit max rounds ({max_rounds}) "
-                f"for {self.concept_type}"
+                f"for {self.concept_type}, forcing final response"
             )
+            try:
+                messages.append({
+                    "role": "assistant",
+                    "content": response.content,
+                })
+                # Add stub results for any pending tool calls so the
+                # conversation is valid, then call without tools.
+                tool_stubs = []
+                for block in response.content:
+                    if block.type == 'tool_use':
+                        tool_stubs.append({
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": "Definition not available. Proceed with extraction using the labels you already have.",
+                        })
+                if tool_stubs:
+                    messages.append({"role": "user", "content": tool_stubs})
+
+                with client.messages.stream(
+                    model=self.model_name,
+                    max_tokens=self.config['max_tokens'],
+                    temperature=self.config['temperature'],
+                    messages=messages,
+                ) as final_stream:
+                    final_response = final_stream.get_final_message()
+
+                response_text = ""
+                for block in final_response.content:
+                    if block.type == 'text':
+                        response_text += block.text
+                if response_text:
+                    self.last_raw_response = response_text
+                    logger.info(
+                        f"Forced final response: {len(response_text)} chars, "
+                        f"stop={final_response.stop_reason}"
+                    )
+                    if final_response.stop_reason == 'max_tokens':
+                        response_text = self._repair_truncated_json(
+                            response_text
+                        )
+                    return extract_json_from_response(response_text)
+            except Exception as fallback_err:
+                logger.error(
+                    f"Forced final response failed: {fallback_err}"
+                )
             return {}
 
         except Exception as e:

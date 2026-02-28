@@ -473,6 +473,127 @@ function displayPipeline(data) {
     if (data.qc_verification) {
         container.appendChild(createQCCard(data.qc_verification));
     }
+
+    // Review Log
+    if (data.review_log && data.review_log.length > 0) {
+        container.appendChild(createReviewLogCard(data.review_log));
+    }
+}
+
+function formatQCDetails(check) {
+    const d = check.details;
+    if (!d) return '';
+    const parts = [];
+    switch (check.check_id) {
+        case 'V0':
+            if (d.facts_len !== undefined) parts.push(`facts: ${d.facts_len} chars`);
+            if (d.discussion_len !== undefined) parts.push(`discussion: ${d.discussion_len} chars`);
+            if (d.issues) parts.push(d.issues.join('; '));
+            break;
+        case 'V1':
+            if (d.multi_session_types && d.multi_session_types.length > 0)
+                parts.push(`multi-session: ${d.multi_session_types.join(', ')}`);
+            if (d.actual_duplicates && d.actual_duplicates.length > 0)
+                parts.push(`${d.actual_duplicates.length} actual duplicates`);
+            break;
+        case 'V4':
+            if (d.non_action_count !== undefined) parts.push(`${d.non_action_count} non-action options`);
+            break;
+        case 'V6':
+            if (d.type_count !== undefined) parts.push(`${d.type_count}/16 types`);
+            if (d.missing_types && d.missing_types.length > 0)
+                parts.push(`missing: ${d.missing_types.join(', ')}`);
+            break;
+        case 'V7':
+            if (d.total !== undefined) parts.push(`${d.total} entities`);
+            if (d.out_of_range && d.out_of_range.length > 0)
+                parts.push(`${d.out_of_range.length} out of range`);
+            break;
+        case 'V8':
+            if (d.note) parts.push(d.note);
+            else if (d.prompt_models && d.prompt_models.length > 0) parts.push(d.prompt_models[0]);
+            break;
+        case 'V9':
+            if (d.total !== undefined) parts.push(`${d.published || 0}/${d.total} published`);
+            break;
+    }
+    return parts.length > 0 ? `<div class="text-muted small">${escapeHtml(parts.join(' | '))}</div>` : '';
+}
+
+function createReviewLogCard(entries) {
+    const div = document.createElement('div');
+    div.className = 'pipeline-card';
+    div.dataset.step = 'review';
+    div.dataset.type = 'review-log';
+
+    const ENTRY_ICONS = {
+        'agent_check': 'bi-robot',
+        'qc_script': 'bi-clipboard-check',
+        'manual_review': 'bi-person',
+        'revision': 'bi-pencil-square'
+    };
+    const ENTRY_COLORS = {
+        'agent_check': '#0d6efd',
+        'qc_script': '#6f42c1',
+        'manual_review': '#198754',
+        'revision': '#fd7e14'
+    };
+    const STATUS_BADGES = {
+        'PASS': '<span class="badge bg-success">PASS</span>',
+        'FAIL': '<span class="badge bg-danger">FAIL</span>',
+        'INFO': '<span class="badge bg-info">INFO</span>'
+    };
+
+    const rows = entries.map((entry, idx) => {
+        const icon = ENTRY_ICONS[entry.entry_type] || 'bi-journal';
+        const color = ENTRY_COLORS[entry.entry_type] || '#6c757d';
+        const statusBadge = entry.status ? (STATUS_BADGES[entry.status] || `<span class="badge bg-secondary">${escapeHtml(entry.status)}</span>`) : '';
+        const keyBadge = entry.entry_key ? `<code class="me-1">${escapeHtml(entry.entry_key)}</code>` : '';
+        const dateStr = entry.created_at
+            ? new Date(entry.created_at).toLocaleDateString('en-US', {year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'})
+            : '';
+        const detailId = `review-detail-${idx}`;
+        let detailHtml = '';
+        if (entry.details) {
+            detailHtml = `
+                <div id="${detailId}" style="display: none;" class="mt-1 ms-4">
+                    <pre class="bg-light p-2 rounded small mb-0" style="max-height: 200px; overflow: auto;">${escapeHtml(JSON.stringify(entry.details, null, 2))}</pre>
+                </div>`;
+        }
+        const expandBtn = entry.details
+            ? `<i class="bi bi-chevron-down ms-1 small" style="cursor:pointer;" onclick="document.getElementById('${detailId}').style.display = document.getElementById('${detailId}').style.display === 'none' ? 'block' : 'none';"></i>`
+            : '';
+
+        return `
+            <div class="d-flex align-items-start gap-2 py-2 ${idx < entries.length - 1 ? 'border-bottom' : ''}">
+                <i class="bi ${icon} mt-1" style="color: ${color}; font-size: 1.1rem;"></i>
+                <div class="flex-grow-1">
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        ${keyBadge}
+                        ${statusBadge}
+                        <span class="small">${escapeHtml(entry.summary)}</span>
+                        ${expandBtn}
+                    </div>
+                    <div class="text-muted" style="font-size: 0.75rem;">
+                        ${escapeHtml(entry.author || '')} &middot; ${dateStr}
+                    </div>
+                    ${detailHtml}
+                </div>
+            </div>`;
+    }).join('');
+
+    div.innerHTML = `
+        <div class="card" style="border-left: 4px solid #0d6efd;">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="mb-0" style="color: #0d6efd;">
+                        <i class="bi bi-journal-text me-2"></i>Review Log (${entries.length})
+                    </h5>
+                </div>
+                ${rows}
+            </div>
+        </div>`;
+    return div;
 }
 
 function createQCCard(qc) {
@@ -500,12 +621,12 @@ function createQCCard(qc) {
                 ? '<span class="badge bg-secondary">SKIP</span>'
                 : `<span class="badge bg-info">${check.status}</span>`;
             const severity = check.severity ? `<span class="text-muted small">${check.severity}</span>` : '';
-            const message = check.message ? `<div class="text-muted small">${check.message}</div>` : '';
+            const detailText = formatQCDetails(check);
             return `<tr class="${rowClass}">
                 <td><code>${check.check_id}</code></td>
                 <td>${check.name} ${severity}</td>
                 <td>${badge}</td>
-                <td>${message}</td>
+                <td>${detailText}</td>
             </tr>`;
         }).join('');
         checksHtml = `

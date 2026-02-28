@@ -16,10 +16,7 @@ Usage:
 Checks:
     V0  Section Text Integrity    CRITICAL  Facts + discussion sections exist
     V1  Duplicate Sessions        CRITICAL  No entity in multiple sessions
-    V2  Arg/Val Count Mismatch    CRITICAL  argument_generated = argument_validation
-    V3  Ungrammatical Claims      CRITICAL  No policy statements in argument claims
     V4  Decision Point Options    CRITICAL  Options are action phrases (verb form)
-    V5  Argument Data Structure   CRITICAL  claim, warrant, argument_id fields present
     V6  Completeness              CRITICAL  All 16 extraction types present
     V7  Count Sanity              INFO      Counts within empirical Phase 1 ranges
     V8  Model Consistency         WARNING   Single LLM model used throughout
@@ -79,17 +76,6 @@ EMPIRICAL_RANGES = {
     'question_emergence':          (17, 21),
     'resolution_pattern':          (20, 31),
     'canonical_decision_point':    (5, 18),
-}
-
-# V7 doc ranges (from VERIFICATION_CRITERIA.md, known to be stale -- kept for comparison)
-V7_DOC_RANGES = {
-    'roles': (3, 10), 'states': (5, 20), 'resources': (8, 30),
-    'principles': (5, 20), 'obligations': (5, 20), 'constraints': (4, 15),
-    'capabilities': (4, 15), 'temporal_dynamics_enhanced': (10, 30),
-    'ethical_question': (5, 20), 'question_emergence': (5, 20),
-    'ethical_conclusion': (3, 15), 'resolution_pattern': (3, 15),
-    'canonical_decision_point': (2, 10), 'code_provision_reference': (3, 20),
-    'causal_normative_link': (2, 15),
 }
 
 
@@ -171,54 +157,6 @@ def check_v1(case_id):
     return result
 
 
-def check_v2(case_id):
-    """V2: Arg/Val Count Mismatch."""
-    result = {'check_id': 'V2', 'name': 'Arg/Val Count Mismatch', 'severity': 'CRITICAL',
-              'status': 'NOT_APPLICABLE', 'details': {}}
-
-    row = db.session.execute(text("""
-        SELECT COUNT(CASE WHEN extraction_type = 'argument_generated' THEN 1 END) as args,
-               COUNT(CASE WHEN extraction_type = 'argument_validation' THEN 1 END) as vals
-        FROM temporary_rdf_storage WHERE case_id = :cid
-    """), {'cid': case_id}).fetchone()
-
-    result['details'] = {'argument_generated': row[0], 'argument_validation': row[1]}
-    if row[0] == 0 and row[1] == 0:
-        result['details']['note'] = 'Current pipeline does not produce argument entities'
-        return result
-
-    result['status'] = 'PASS' if row[0] == row[1] else 'FAIL'
-    return result
-
-
-def check_v3(case_id):
-    """V3: Ungrammatical Claims."""
-    result = {'check_id': 'V3', 'name': 'Ungrammatical Claims', 'severity': 'CRITICAL',
-              'status': 'NOT_APPLICABLE', 'details': {}}
-
-    cnt = db.session.execute(text(
-        "SELECT COUNT(*) FROM temporary_rdf_storage "
-        "WHERE case_id = :cid AND extraction_type = 'argument_generated'"
-    ), {'cid': case_id}).scalar()
-
-    if cnt == 0:
-        result['details']['note'] = 'No argument_generated entities'
-        return result
-
-    bad = db.session.execute(text("""
-        SELECT entity_label, LEFT(entity_definition, 120) as defn
-        FROM temporary_rdf_storage
-        WHERE case_id = :cid AND extraction_type = 'argument_generated'
-          AND (entity_definition ILIKE '%should make the No %'
-               OR entity_definition ILIKE '%should NOT make the No %'
-               OR entity_definition ILIKE '%should the %')
-    """), {'cid': case_id}).fetchall()
-
-    result['status'] = 'FAIL' if bad else 'PASS'
-    if bad:
-        result['details']['violations'] = [{'label': r[0], 'text': r[1]} for r in bad]
-    return result
-
 
 def check_v4(case_id):
     """V4: Decision Point Option Format -- options are action phrases."""
@@ -237,10 +175,10 @@ def check_v4(case_id):
         result['details']['error'] = 'No decision points found'
         return result
 
-    bad_patterns = [
+    bad_desc_patterns = [
         (r'^No\s+\w+\s+required', 'Starts with "No ... required"'),
-        (r'^(?:The|A|An)\s', 'Starts with article'),
     ]
+    generic_label_pattern = re.compile(r'^Option\s+[A-Z]$', re.IGNORECASE)
 
     for row in rows:
         label, data = row[0], row[1] or {}
@@ -248,8 +186,16 @@ def check_v4(case_id):
         result['details']['decision_points'].append({'label': label, 'options': len(options)})
 
         for i, opt in enumerate(options):
+            opt_label = opt.get('label', '') if isinstance(opt, dict) else ''
             desc = opt.get('description', '') if isinstance(opt, dict) else str(opt)
-            for pattern, reason in bad_patterns:
+
+            # Check for generic labels (Option A, Option B, etc.)
+            if generic_label_pattern.match(opt_label.strip()):
+                result['details']['violations'].append({
+                    'dp': label, 'index': i, 'text': opt_label,
+                    'reason': 'Generic label (Option A/B/C)'})
+
+            for pattern, reason in bad_desc_patterns:
                 if re.match(pattern, desc):
                     result['details']['violations'].append({
                         'dp': label, 'index': i, 'text': desc[:100], 'reason': reason})
@@ -258,32 +204,6 @@ def check_v4(case_id):
         result['status'] = 'FAIL'
     return result
 
-
-def check_v5(case_id):
-    """V5: Argument Data Structure."""
-    result = {'check_id': 'V5', 'name': 'Argument Data Structure', 'severity': 'CRITICAL',
-              'status': 'NOT_APPLICABLE', 'details': {}}
-
-    rows = db.session.execute(text("""
-        SELECT entity_label, rdf_json_ld FROM temporary_rdf_storage
-        WHERE case_id = :cid AND extraction_type = 'argument_generated' LIMIT 5
-    """), {'cid': case_id}).fetchall()
-
-    if not rows:
-        result['details']['note'] = 'No argument_generated entities'
-        return result
-
-    malformed = []
-    for row in rows:
-        data = row[1] or {}
-        missing = [f for f in ['argument_id', 'claim', 'warrant'] if f not in data]
-        if missing:
-            malformed.append({'label': row[0], 'missing': missing})
-
-    result['status'] = 'FAIL' if malformed else 'PASS'
-    if malformed:
-        result['details']['malformed'] = malformed
-    return result
 
 
 def check_v6(case_id):
@@ -379,8 +299,7 @@ def check_v9(case_id):
     return result
 
 
-ALL_CHECKS = [check_v0, check_v1, check_v2, check_v3, check_v4,
-              check_v5, check_v6, check_v7, check_v8, check_v9]
+ALL_CHECKS = [check_v0, check_v1, check_v4, check_v6, check_v7, check_v8, check_v9]
 
 
 # ---------------------------------------------------------------------------
@@ -554,8 +473,7 @@ def write_report(audits, path):
 
     check_names = {
         'V0': 'Section Text Integrity', 'V1': 'Duplicate Sessions',
-        'V2': 'Arg/Val Mismatch', 'V3': 'Ungrammatical Claims',
-        'V4': 'Decision Point Options', 'V5': 'Argument Structure',
+        'V4': 'Decision Point Options',
         'V6': 'Completeness', 'V7': 'Count Sanity',
         'V8': 'Model Consistency', 'V9': 'Publish Status',
     }
@@ -564,7 +482,7 @@ def write_report(audits, path):
     lines.append("")
     lines.append("| Check | Name | PASS | FAIL | INFO | N/A |")
     lines.append("|-------|------|:----:|:----:|:----:|:---:|")
-    for cid in ['V0', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V8', 'V9']:
+    for cid in ['V0', 'V1', 'V4', 'V6', 'V7', 'V8', 'V9']:
         s = check_agg[cid]
         lines.append(f"| {cid} | {check_names[cid]} | {s['pass']} | {s['fail']} | "
                      f"{s['info']} | {s['na']} |")

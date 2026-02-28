@@ -867,9 +867,11 @@ For each decision point, provide:
 7. Which question(s) this addresses (reference Q numbers)
 8. How the board resolved it (reference C numbers)
 
-CRITICAL: Option descriptions must be ACTION PHRASES (verb form), not policy statements.
-- Good: "Disclose AI tool usage to client", "Verify code with subject matter expert"
-- Bad: "No disclosure required unless contractually specified", "AI Tool Adoption Strategy"
+CRITICAL: Option labels and descriptions must be ACTION PHRASES (verb form), not generic placeholders.
+- Labels must be short descriptive action phrases, NEVER "Option A", "Option B", "Option C".
+- Good labels: "Disclose AI Tool Usage", "Verify Code with Expert", "Withdraw from Project"
+- Bad labels: "Option A", "Option B", "Alternative Approach"
+- Descriptions expand on the label with case-specific detail.
 
 Return as JSON array:
 ```json
@@ -881,8 +883,8 @@ Return as JSON array:
     "role_label": "...",
     "obligation_label": "...",
     "options": [
-      {{"label": "Option A", "description": "Disclose X to stakeholders"}},
-      {{"label": "Option B", "description": "Do not disclose X"}}
+      {{"label": "Disclose X to Stakeholders", "description": "Formally notify all affected stakeholders of X through written communication"}},
+      {{"label": "Withhold Disclosure of X", "description": "Continue without disclosure, relying on existing contractual scope limitations"}}
     ],
     "addresses_questions": ["Q1", "Q2"],
     "board_resolution": "The board concluded that... (C1)"
@@ -1092,9 +1094,11 @@ For each decision point, provide:
 7. Which question(s) this addresses (reference Q numbers)
 8. How the board resolved it (reference C numbers)
 
-CRITICAL: Option descriptions must be ACTION PHRASES (verb form), not policy statements.
-- Good: "Disclose the conflict of interest to the client", "Recuse from the project"
-- Bad: "No disclosure required", "Conflict of Interest Policy"
+CRITICAL: Option labels and descriptions must be ACTION PHRASES (verb form), not generic placeholders.
+- Labels must be short descriptive action phrases, NEVER "Option A", "Option B", "Option C".
+- Good labels: "Disclose Conflict to Client", "Recuse from Project", "Seek Independent Review"
+- Bad labels: "Option A", "Option B", "Alternative Approach"
+- Descriptions expand on the label with case-specific detail.
 
 Return as JSON array:
 ```json
@@ -1106,8 +1110,8 @@ Return as JSON array:
     "role_label": "...",
     "obligation_label": "...",
     "options": [
-      {{"label": "Option A", "description": "Action phrase here"}},
-      {{"label": "Option B", "description": "Alternative action phrase"}}
+      {{"label": "Disclose Conflict to Client", "description": "Formally notify the client of the conflict of interest and recommend independent oversight"}},
+      {{"label": "Recuse from Project", "description": "Withdraw from the project entirely to avoid any appearance of compromised judgment"}}
     ],
     "addresses_questions": ["Q1", "Q2"],
     "board_resolution": "The board concluded that... (C1)"
@@ -1312,10 +1316,16 @@ Produce exactly {target_count} decision points capturing the key ethical issues.
         # trust the LLM's fabricated URIs (e.g. "case-74#Engineer" instead
         # of the real extraction URI).
         entity_uri_lookup = {}  # lowercase label -> URI
+        uri_to_label = {}  # URI -> shortest canonical label
         for candidate, _ in top_candidates:
             g = candidate.grounding
             if g.role_label and g.role_uri:
                 entity_uri_lookup[g.role_label.lower()] = g.role_uri
+                # Keep the shortest label per URI (prefer "Engineer A" over
+                # "Engineer A Water Rights Analysis Engineer")
+                existing = uri_to_label.get(g.role_uri)
+                if existing is None or len(g.role_label) < len(existing):
+                    uri_to_label[g.role_uri] = g.role_label
             if g.obligation_label and g.obligation_uri:
                 entity_uri_lookup[g.obligation_label.lower()] = g.obligation_uri
             if g.constraint_label and g.constraint_uri:
@@ -1328,6 +1338,13 @@ Produce exactly {target_count} decision points capturing the key ethical issues.
                 if resolved:
                     return resolved
             return llm_uri
+
+        def _resolve_role_label(label: str, resolved_uri: str) -> str:
+            """Normalize role label to the canonical (shortest) form for the URI."""
+            canonical = uri_to_label.get(resolved_uri)
+            if canonical:
+                return canonical
+            return label
 
         canonical_points = []
         for i, data in enumerate(synthesis_data, 1):
@@ -1367,8 +1384,8 @@ Produce exactly {target_count} decision points capturing the key ethical issues.
                 focus_number=i,
                 description=data.get('description', ''),
                 decision_question=data.get('decision_question', ''),
-                role_uri=_resolve_uri(data.get('role_label', ''), data.get('role_uri', '')),
-                role_label=data.get('role_label', ''),
+                role_uri=(resolved_role_uri := _resolve_uri(data.get('role_label', ''), data.get('role_uri', ''))),
+                role_label=_resolve_role_label(data.get('role_label', ''), resolved_role_uri),
                 obligation_uri=_resolve_uri(data.get('obligation_label'), data.get('obligation_uri', '')),
                 obligation_label=data.get('obligation_label'),
                 constraint_uri=_resolve_uri(data.get('constraint_label'), data.get('constraint_uri', '')),
