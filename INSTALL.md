@@ -7,7 +7,7 @@ Quick installation guide for ProEthica.
 ## Prerequisites
 
 - **Python 3.11 or 3.12** (Ubuntu 24.04 LTS default: 3.12)
-- **PostgreSQL** (localhost:5432)
+- **PostgreSQL 16+** with **pgvector extension** (localhost:5432)
 - **Anthropic API key** (for Claude LLM)
 
 ---
@@ -71,13 +71,70 @@ ONTSERVE_WEB_URL=http://localhost:5003
 
 ### 2. Database Setup
 
-```bash
-# Create database
-export PGPASSWORD=PASS
-createdb -h localhost -U postgres ai_ethical_dm
+#### Install PostgreSQL + pgvector
 
-# Apply migrations
+On Ubuntu/Debian (including GitHub Codespaces):
+
+```bash
+sudo apt-get update
+sudo apt-get install -y --allow-unauthenticated postgresql postgresql-contrib
+sudo apt-get install -y --allow-unauthenticated postgresql-16-pgvector
+sudo service postgresql start
+```
+
+> **Note:** Replace `16` with your installed PostgreSQL version (`pg_lsclusters` to check).
+
+#### Create database user and database
+
+In GitHub Codespaces, `sudo -u postgres psql` may prompt for the codespace
+user password. If you don't know it, set a password for the postgres OS user
+first, then use `su`:
+
+```bash
+sudo passwd postgres   # set a password
+su - postgres          # switch to postgres user
+psql                   # open psql prompt
+```
+
+Then run each command **one at a time** inside psql:
+
+```sql
+CREATE USER proethica_user WITH PASSWORD 'ProEthicaSecure2025';
+CREATE DATABASE ai_ethical_dm OWNER proethica_user;
+GRANT ALL PRIVILEGES ON DATABASE ai_ethical_dm TO proethica_user;
+```
+
+```sql
+\connect ai_ethical_dm
+```
+
+```sql
+CREATE EXTENSION IF NOT EXISTS vector;
+```
+
+```sql
+\dx
+```
+
+You should see `vector` listed under installed extensions. Exit with `\q`.
+
+> **Important:** Run `\connect ai_ethical_dm` and `CREATE EXTENSION ...`
+> as separate commands — pasting them together causes a psql parse error.
+
+#### Apply migrations
+
+```bash
 psql -h localhost -U postgres -d ai_ethical_dm -f db_migration/*.sql
+```
+
+---
+
+### 3. Redis Setup
+
+```bash
+sudo apt-get install -y --allow-unauthenticated redis-server
+sudo service redis-server start
+redis-cli ping  # should return PONG
 ```
 
 ---
