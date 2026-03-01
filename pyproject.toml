@@ -111,10 +111,6 @@ exclude = [
     "build",
     "dist",
     "*.egg-info",
-    "archive",
-    "backups",
-    "realm",  # Marked for removal
-    "mclaren",  # Marked for removal
 ]
 
 [tool.ruff.lint]
@@ -146,10 +142,7 @@ warn_unused_configs = true
 disallow_untyped_defs = false  # Start permissive, gradually enable
 check_untyped_defs = true
 exclude = [
-    "archive/",
-    "backups/",
-    "realm/",
-    "mclaren/",
+    "venv-proethica/",
 ]
 
 [[tool.mypy.overrides]]
@@ -195,11 +188,6 @@ filterwarnings = [
 source = ["app"]
 omit = [
     "*/tests/*",
-    "*/migrations/*",
-    "archive/*",
-    "backups/*",
-    "realm/*",
-    "mclaren/*",
 ]
 
 [tool.coverage.report]
