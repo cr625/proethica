@@ -511,15 +511,10 @@ class ProvenanceService:
         return entity
 
 
-# Singleton instance
-_provenance_service = None
-
 def get_provenance_service(session: Optional[Session] = None) -> ProvenanceService:
-    """Get or create the provenance service singleton."""
-    global _provenance_service
-    if _provenance_service is None:
-        _provenance_service = ProvenanceService(session)
-    elif session is not None:
-        # Update the session if a new one is provided
-        _provenance_service.session = session
-    return _provenance_service
+    """Create a provenance service instance.
+
+    Returns a fresh instance per call to avoid shared mutable state
+    (_current_version, session) across concurrent requests.
+    """
+    return ProvenanceService(session)

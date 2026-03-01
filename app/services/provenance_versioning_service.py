@@ -538,15 +538,10 @@ class VersionedProvenanceService(ProvenanceService):
         return query.order_by(ProvenanceVersion.created_at.desc()).all()
 
 
-# Singleton instance
-_versioned_service = None
-
 def get_versioned_provenance_service(session: Optional[Session] = None) -> VersionedProvenanceService:
-    """Get or create the versioned provenance service singleton."""
-    global _versioned_service
-    if _versioned_service is None:
-        _versioned_service = VersionedProvenanceService(session)
-    elif session is not None:
-        # Update the session if a new one is provided
-        _versioned_service.session = session
-    return _versioned_service
+    """Create a versioned provenance service instance.
+
+    Returns a fresh instance per call to avoid shared mutable state
+    (_current_version, session) across concurrent Flask requests.
+    """
+    return VersionedProvenanceService(session)
