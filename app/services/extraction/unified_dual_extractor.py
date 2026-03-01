@@ -82,7 +82,7 @@ CONCEPT_CONFIG: Dict[str, Dict[str, Any]] = {
         'step': 2,
         'model_tier': 'default',
         'temperature': 0.2,
-        'max_tokens': 8192,
+        'max_tokens': 16384,
         'classes_key': 'new_constraint_classes',
         'individuals_key': 'constraint_individuals',
         'class_ref_field': 'constraint_class',
