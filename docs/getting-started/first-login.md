@@ -21,15 +21,19 @@ The top navigation provides access to main features:
 | Menu Item | Type | Contents |
 |-----------|------|----------|
 | **Home** | Link | Return to home page |
-| **[Domain]** | Dropdown | Current domain (e.g., Engineering), Manage Domains, Create New |
+| **[Domain]** | Dropdown | Current domain (e.g., Engineering) |
 | **Cases** | Link | Case repository |
-| **Precedents** | Dropdown | Find Precedents, Similarity Network |
+| **Case Relations** | Dropdown | Similar Cases, Similarity Network, Lineage Graph |
 | **Guidelines** | Link | Browse ethical guidelines and codes of ethics |
 | **Docs** | Link | This documentation |
-| **Tools** | Dropdown | Academic References, OntServe Web, Browse Ontologies; Admin Tools (admin only): Pipeline Dashboard, Queue Management, Validation Studies |
+| **Tools** | Dropdown | Academic References; Linked Data (OntServe Web, Browse ProEthica Ontologies); Admin Tools (Batch Processing, Batch Queue, Validation Studies, Prompt Editor) |
 | **[User]** | Dropdown | User menu with Logout |
 
-The domain dropdown (e.g., "Engineering") reflects the currently active professional domain and provides access to domain management.
+![Case Relations Dropdown](../assets/images/screenshots/navbar-case-relations-dropdown.png)
+
+![Tools Dropdown](../assets/images/screenshots/navbar-tools-dropdown.png)
+
+The domain dropdown (e.g., "Engineering") reflects the currently active professional domain. A "Development" badge appears in development mode with full access enabled without authentication.
 
 ## Cases Section
 
@@ -67,36 +71,39 @@ The Structure view (`/cases/<id>/structure`) provides:
 
 ## Extraction Pipeline
 
-The pipeline (`/scenario_pipeline/<case_id>`) provides step-by-step case analysis:
+The pipeline (`/scenario_pipeline/<case_id>`) provides step-by-step case analysis. A sidebar navigation shows all steps and their completion status.
 
-| Step | Name | Description | Status |
-|------|------|-------------|--------|
-| 1 | Contextual Framework | Extract Roles, States, Resources from Facts and Discussion | Implemented |
-| 2 | Normative Requirements | Extract Principles, Obligations, Constraints, Capabilities | Implemented |
-| 3 | Temporal Dynamics | Extract Actions, Events, Causal Relationships | Implemented |
-| 4 | Case Synthesis | Four-phase analysis: provisions, questions, decision points, narrative | Implemented |
+| Step | Name | Description | Entity Types |
+|------|------|-------------|-------------|
+| 1 | Contextual Framework | Extract from Facts and Discussion sections | Roles (R), States (S), Resources (Rs) |
+| 2 | Normative Requirements | Extract from Facts and Discussion sections | Principles (P), Obligations (O), Constraints (Cs), Capabilities (Ca) |
+| 3 | Temporal Dynamics | Unified extraction via LangGraph | Actions (A), Events (E), causal chains, Allen relations |
+| Reconcile | Entity Deduplication | Merge overlapping entities across passes | - |
+| 4 | Whole-Case Synthesis | Multi-phase analysis (2A-2E, Phase 3, Phase 4) | Provisions, Precedents, Questions, Conclusions, Decision Points, Resolution Patterns, Causal-Normative Links, Question Emergence |
 
-### Pipeline Overview
+### Pipeline Sidebar
 
-Step buttons at the top of case pages indicate completion status:
-
-- **Green (btn-success)** - Step completed
-- **Blue outline** - Step available, ready to run
-- **Gray outline (disabled)** - Prerequisites not met
+The sidebar shows all pipeline steps with checkmarks for completed steps. Step 4 has three sub-views: Extraction, Review, and Full View.
 
 ![Pipeline Overview](../assets/images/screenshots/pipeline-overview-content.png)
 
-### Entity Review
+### Step Views
 
-After each extraction, the review page displays:
+Each step displays extracted entities organized by concept type with:
 
-- Extracted entities organized by concept type
-- Section toggle (Facts vs Discussion)
-- Delete controls for each entity
-- Re-run button to return to extraction
-- View Extraction button to see the original LLM prompt and response
+- **Facts/Discussion toggle** (Steps 1-2) for section-specific extraction
+- **Entity counts** showing classes and individuals per concept
+- **Re-run Extraction** button to re-extract
+- **Provenance** link to view extraction history
+- **Draft/Committed** status badge
 
-![Entity Review](../assets/images/screenshots/entity-review-pass1-content.png)
+![Step 1 Extraction](../assets/images/screenshots/step1-extraction-content.png)
+
+### Step 4 Full View
+
+The Full View provides a tabbed interface with 8 tabs: Entities (interactive graph), Flow, Provisions, Precedents, Q&C, Analysis, Decisions, and Narrative.
+
+![Step 4 Full View](../assets/images/screenshots/step4-review-content.png)
 
 ## Precedent Discovery
 

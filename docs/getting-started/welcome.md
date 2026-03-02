@@ -59,15 +59,14 @@ The left panel displays available professional domains. The current implementati
 
 The folder icon opens the case browser for a domain.
 
-## Linked Ontologies
+## Linked Data
 
-The right panel provides access to the underlying ontologies:
+The right panel shows the connection to OntServe and the primary ontology:
 
-- **ProEthica Core** - The nine-component framework for ethical analysis
-- **ProEthica Intermediate** - Professional role definitions and relationships
-- **Engineering Ethics** - Domain-specific codes and precedents
+- **ProEthica Intermediate Ontology** - Nine-Component Framework for professional ethics analysis. Entities extracted from cases are linked to this ontology.
+- **MCP Connected** badge indicates OntServe is reachable
 
-These ontologies are managed by OntServe and provide the semantic foundation for case analysis.
+A "View Ontology" link opens the ontology browser on OntServe. Ontologies are managed via the [OntServe](https://ontserve.ontorealm.net) web interface.
 
 ## Analysis Workflow
 

@@ -33,8 +33,9 @@ postgresql://postgres:PASS@localhost:5432/ai_ethical_dm
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `ANTHROPIC_API_KEY` | (required) | Claude API key |
-| `CLAUDE_DEFAULT_MODEL` | claude-sonnet-4-20250514 | Default Claude model |
-| `CLAUDE_POWERFUL_MODEL` | claude-opus-4-1-20250805 | Powerful model for complex tasks |
+| `CLAUDE_DEFAULT_MODEL` | claude-sonnet-4-6 | Default Claude model |
+| `CLAUDE_POWERFUL_MODEL` | claude-opus-4-6 | Powerful model for complex tasks |
+| `CLAUDE_FAST_MODEL` | claude-haiku-4-5-20251001 | Fast model for simple tasks |
 | `OPENAI_API_KEY` | (optional) | OpenAI fallback |
 | `ENABLE_GEMINI` | false | Enable Google Gemini |
 | `GOOGLE_API_KEY` | (optional) | Gemini API key |
@@ -92,17 +93,17 @@ task_soft_time_limit = 6000
 
 | Model | Use Case |
 |-------|----------|
-| `claude-sonnet-4-*` | Default extraction tasks |
-| `claude-opus-4-*` | Complex analysis tasks |
-| `claude-haiku-*` | Simple, fast tasks |
+| `claude-sonnet-4-6` | All extraction tasks (Steps 1-4) |
+| `claude-opus-4-6` | Complex analysis tasks (reserved for high-stakes operations) |
+| `claude-haiku-4-5-20251001` | Simple, fast tasks |
 
 ### Changing Models
 
 Edit environment variables:
 
 ```bash
-CLAUDE_DEFAULT_MODEL=claude-sonnet-4-20250514
-CLAUDE_POWERFUL_MODEL=claude-opus-4-1-20250805
+CLAUDE_DEFAULT_MODEL=claude-sonnet-4-6
+CLAUDE_POWERFUL_MODEL=claude-opus-4-6
 ```
 
 Or update at runtime via Admin interface.

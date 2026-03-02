@@ -6,21 +6,21 @@ This document defines the standardized terminology for the ProEthica extraction 
 
 ```
 Pipeline
-├── Step (1-5) - Major pipeline stages
+├── Step (1-4) - Major pipeline stages (Step 5 planned)
 │   ├── Pass (1-2) - Sub-extraction within Steps 1-3
 │   │   └── Concept Types - Entity categories extracted
-│   ├── Phase (2A-4) - Sub-stages within Step 4 only
-│   └── View (1-3) - Interface tabs within Step 5 only
+│   ├── Reconcile - Entity deduplication between Steps 3 and 4
+│   └── Phase (2A-4) - Sub-stages within Step 4 only
 ```
 
 ## Term Definitions
 
 | Term | Scope | Definition |
 |------|-------|------------|
-| **Step** | Pipeline | Major pipeline stage (1-5). Each step produces distinct outputs. |
+| **Step** | Pipeline | Major pipeline stage (1-4, with Step 5 planned). Each step produces distinct outputs. |
 | **Pass** | Steps 1-3 | Sub-extraction within a step. Pass 1 extracts from Facts section; Pass 2 extracts from Discussion section. |
-| **Phase** | Step 4 only | Sub-stages of synthesis operations. Phases 2A-2D, 3, and 4 perform different analysis tasks. |
-| **View** | Step 5 only | Interface tabs for interactive scenario exploration. |
+| **Reconcile** | Between Steps 3-4 | Deduplication of overlapping entities across sections and passes before synthesis. |
+| **Phase** | Step 4 only | Sub-stages of synthesis operations. Phases 2A-2E, 3, and 4 perform different analysis tasks. |
 
 ---
 
@@ -64,8 +64,9 @@ Pipeline
 | Property | Value |
 |----------|-------|
 | Color | Teal (#14b8a6) |
-| Pass 1 | Extract from Facts section |
-| Pass 2 | Extract from Discussion section |
+| Extraction | Single pass using LangGraph orchestration |
+
+Step 3 extracts from the full case text (both Facts and Discussion) as a unified temporal analysis, unlike Steps 1-2 which use separate passes.
 
 **Concepts Extracted**:
 
@@ -74,41 +75,44 @@ Pipeline
 | Actions | A | Professional responses and decisions |
 | Events | E | Precipitating occurrences and triggers |
 
-### Step 4: Synthesis and Analysis
+The extraction also produces **causal chains** (NESS test analysis), **Allen temporal relations** (OWL-Time standard), and a **timeline** sequencing actions and events.
+
+### Reconcile
+
+Between Steps 3 and 4, entity deduplication resolves overlapping entities across sections and passes. Reconcile can run in auto mode (batch pipeline) or interactive mode (manual review).
+
+### Step 4: Whole-Case Synthesis
 
 | Property | Value |
 |----------|-------|
-| Color | Slate (#64748b) |
-| Input | Entities from Steps 1-3 |
+| Color | Slate/Purple gradient |
+| Input | Entities from Steps 1-3 + case text |
 
-Step 4 operates on previously extracted entities rather than case text directly.
+Step 4 operates on both previously extracted entities and case text. It produces 7 additional entity types beyond the base 9.
 
 **Phases**:
 
-| Phase | Name | Description |
-|-------|------|-------------|
-| 2A | Code Provisions | NSPE code reference extraction |
-| 2B | Questions and Conclusions | Ethical questions and board conclusions |
-| 2C | Transformation Analysis | Case transformation classification |
-| 2D | Rich Analysis | Toulmin argumentation and causal-normative links |
-| 3 | Decision Point Synthesis | E1-E3 algorithmic composition |
-| 4 | Narrative Construction | Characters, timeline, moral intensity |
+| Phase | Name | Description | Parallelism |
+|-------|------|-------------|-------------|
+| 2A | Code Provisions | NSPE code reference extraction | 2A runs in parallel with 2B |
+| 2B | Precedent Cases | Precedent case reference extraction | 2B runs in parallel with 2A |
+| 2C | Questions and Conclusions | Ethical questions and board conclusions | After 2A |
+| 2D | Transformation Analysis | Case transformation classification | 2D runs in parallel with 2E |
+| 2E | Rich Analysis | Causal-normative links, question emergence, resolution patterns | 2E runs in parallel with 2D (3 sub-tasks) |
+| 3 | Decision Point Synthesis | E1-E3 algorithmic composition + LLM fallback | Sequential |
+| 4 | Narrative Construction | Timeline and scenario seed | Sequential |
 
-### Step 5: Interactive Scenario
+**Step 4 Sub-navigation** (sidebar labels):
 
-| Property | Value |
-|----------|-------|
-| Input | Complete analysis from Steps 1-4 |
+| Label | URL | Description |
+|-------|-----|-------------|
+| Extraction | `/step4` | Phase overview and re-run controls |
+| Review | `/step4/entities` | Entity review and OntServe commit |
+| Full View | `/step4/review` | Tabbed view: Entities, Flow, Provisions, Precedents, Q&C, Analysis, Decisions, Narrative |
 
-Transforms analyzed cases into interactive teaching scenarios.
+### Step 5: Interactive Scenario (Planned)
 
-**Views**:
-
-| View | Name | Description |
-|------|------|-------------|
-| 1 | Narrative Overview | Case story with characters |
-| 2 | Event Timeline | Chronological visualization |
-| 3 | Decision Wizard | Step through ethical choices |
+Step 5 is planned for interactive scenario exploration. Currently displays a placeholder page.
 
 ---
 
@@ -116,13 +120,15 @@ Transforms analyzed cases into interactive teaching scenarios.
 
 The pipeline executes in strict order:
 
-1. **Step 1 Pass 1** (Facts) then **Step 1 Pass 2** (Discussion)
-2. **Step 2 Pass 1** (Facts) then **Step 2 Pass 2** (Discussion)
-3. **Step 3 Pass 1** (Facts) then **Step 3 Pass 2** (Discussion)
-4. **Step 4 Phases 2A, 2B, 2C, 2D, 3, 4**
-5. **Step 5 Views 1, 2, 3**
+1. **Step 1**: Pass 1 (Facts) then Pass 2 (Discussion). Within each pass: S and Rs run in parallel after R completes.
+2. **Step 2**: Pass 1 (Facts) then Pass 2 (Discussion). Within each pass: Cs and Ca run in parallel after O completes.
+3. **Step 3**: Single unified extraction using LangGraph orchestration.
+4. **Reconcile**: Deduplicate overlapping entities across all passes.
+5. **OntServe Commit**: Commit Steps 1-3 entities to ontology.
+6. **Step 4**: Phases 2A||2B, then 2C, then 2D||2E, then Phase 3, then Phase 4.
+7. **OntServe Commit**: Commit Step 4 entities to ontology.
 
-Each Pass extracts concepts from both Facts and Discussion sections of the NSPE case. Discussion extraction becomes available after Facts extraction completes for that step.
+Steps 1-2 extract from both Facts and Discussion sections via separate passes. Step 3 extracts from the full case text. Step 4 synthesizes across all extracted entities and case text.
 
 ---
 
@@ -139,6 +145,8 @@ Each Pass extracts concepts from both Facts and Discussion sections of the NSPE 
 
 ### Entity Type Colors
 
+**Steps 1-3 (9 base concepts)**:
+
 | Entity | Code | Hex | Bootstrap Class |
 |--------|------|-----|-----------------|
 | Role | R | #0d6efd | bg-primary |
@@ -150,6 +158,19 @@ Each Pass extracts concepts from both Facts and Discussion sections of the NSPE 
 | Capability | Ca | #0dcaf0 | bg-info |
 | Action | A | #198754 | bg-success |
 | Event | E | #ffc107 | bg-warning |
+
+**Step 4 (7 additional entity types)**:
+
+| Entity | Phase | Description |
+|--------|-------|-------------|
+| Code Provision Reference | 2A | NSPE code sections cited |
+| Precedent Case Reference | 2B | BER cases referenced in discussion |
+| Ethical Question | 2C | Questions posed to the Board |
+| Ethical Conclusion | 2C | Board's formal determinations |
+| Canonical Decision Point | Phase 3 | Points where ethical choices must be made |
+| Resolution Pattern | 2E | How tensions are resolved |
+| Causal-Normative Link | 2E | Connections between causes and norms |
+| Question Emergence | 2E | How ethical questions arise from case facts |
 
 ---
 

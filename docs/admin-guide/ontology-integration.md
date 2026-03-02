@@ -72,6 +72,8 @@ async with OntServeMCPClient() as client:
 
 ## Available Methods
 
+OntServe MCP provides 8 tools. The three most commonly used in ProEthica's extraction pipeline are documented below. See [Architecture](architecture.md) for the full tool list.
+
 ### get_entities_by_category
 
 Retrieves entities of a specific type from the ontology.
@@ -189,14 +191,18 @@ proeth-int:NSPECodeProvision rdfs:subClassOf proeth-core:Resource .
 
 ### Case Analysis Classes (Step 4)
 
-Added for Step 4 enhanced analysis:
+Step 4 produces 7 additional entity types beyond the 9 base concepts:
 
-| Class | Parent | Description |
-|-------|--------|-------------|
-| `EthicalQuestion` | BFO generically dependent continuant | Questions posed to Board for ethical review |
-| `BoardConclusion` | BFO generically dependent continuant | Board's formal determinations |
-| `DecisionPoint` | proeth-core:Event | Points where ethical choices must be made |
-| `DecisionOption` | BFO generically dependent continuant | Available options at decision points |
+| Class | Phase | Description |
+|-------|-------|-------------|
+| `CodeProvisionReference` | 2A | NSPE code sections cited in the case |
+| `PrecedentCaseReference` | 2B | BER cases referenced in the discussion |
+| `EthicalQuestion` | 2C | Questions posed to Board for ethical review |
+| `EthicalConclusion` | 2C | Board's formal determinations |
+| `CanonicalDecisionPoint` | Phase 3 | Points where ethical choices must be made (E1-E3 synthesis) |
+| `ResolutionPattern` | 2E | Patterns of how ethical tensions are resolved |
+| `CausalNormativeLink` | 2E | Connections between causal factors and normative principles |
+| `QuestionEmergence` | 2E | How ethical questions arise from case facts |
 
 Properties:
 
@@ -207,6 +213,8 @@ Properties:
 | `appliesProvision` | DecisionPoint | EthicalCode | Applicable code provisions |
 | `isBoardChoice` | DecisionOption | boolean | Whether this option was chosen |
 | `answersQuestion` | BoardConclusion | EthicalQuestion | Links conclusion to question |
+
+The full extraction pipeline produces **16 entity types** across all 4 steps (9 base concepts + 7 Step 4 types).
 
 ## Entity Review Integration
 

@@ -63,30 +63,34 @@ ProEthica is a multi-service application combining Flask web interface, PostgreS
 |                        Extraction Pipeline                            |
 +-----------------------------------------------------------------------+
 |                                                                       |
-|   +---------+    +---------+    +---------+    +---------+            |
-|   | Step 1  |--->| Step 2  |--->| Step 3  |--->| Step 4  |            |
-|   | Context |    |Normative|    |Temporal |    |Synthesis|            |
-|   +----+----+    +----+----+    +----+----+    +----+----+            |
-|        |              |              |              |                 |
-|        v              v              v              v                 |
-|   +-----------------------------------------------------------+       |
-|   |                 temporary_rdf_storage                     |       |
-|   |  (R, S, Rs, P, O, Cs, Ca, A, E, Provisions, Q, C)         |       |
-|   +-----------------------------------------------------------+       |
+|  +--------+  +--------+  +--------+  +---------+  +--------+         |
+|  | Step 1 |->| Step 2 |->| Step 3 |->|Reconcile|->| Step 4 |         |
+|  |Context |  |Normative| |Temporal|  |Dedup    |  |Synthesis|        |
+|  +---+----+  +---+----+  +---+----+  +----+----+  +---+----+         |
+|      |           |           |             |           |              |
+|      v           v           v             |           v              |
+|  +-----------------------------------------------------------+       |
+|  |              temporary_rdf_storage (16 types)              |       |
+|  |  Steps 1-3: R, S, Rs, P, O, Cs, Ca, A, E                 |       |
+|  |  Step 4: provisions, precedents, questions, conclusions,   |       |
+|  |    decision_points, resolution_patterns,                   |       |
+|  |    causal_normative_links, question_emergence              |       |
+|  +-----------------------------------------------------------+       |
 |                              |                                        |
 +------------------------------+----------------------------------------+
                                |
                                v
-                      +----------------+
-                      | Entity Review  |
-                      |   & Commit     |
-                      +----------------+
+                   +-----------------------+
+                   | OntServe Commit       |
+                   | (2 passes: Steps 1-3  |
+                   |  then Step 4 entities)|
+                   +-----------------------+
                                |
                                v
-                      +----------------+
-                      | OntServe Push  |
-                      |   (optional)   |
-                      +----------------+
+                   +-----------------------+
+                   |   QC Audit (V0-V9)    |
+                   | Verify all 16 types   |
+                   +-----------------------+
 ```
 
 ## Database Schema Diagram
@@ -164,14 +168,18 @@ LLM Request Flow:
 
 ### OntServe Integration
 
-MCP (Model Context Protocol) provides ontology services:
+MCP (Model Context Protocol) provides ontology services via 8 tools:
 
 | Tool | Purpose |
 |------|---------|
-| `get_entities_by_category` | Fetch existing ontology classes |
-| `search_entities` | Find matching classes |
-| `add_candidate_concept` | Submit new class proposals |
+| `get_entities_by_category` | Fetch existing ontology classes by concept type |
+| `search_entities` | Find matching classes by label or URI |
+| `submit_candidate_concept` | Submit new class proposals |
 | `list_ontologies` | Available ontology graphs |
+| `sparql_query` | Execute SPARQL queries against ontologies |
+| `commit_case_entities` | Commit extracted entities to ontology (TTL + DB) |
+| `uncommit_case_entities` | Remove previously committed case entities |
+| `get_ontology_stats` | Ontology statistics (class counts, entity counts) |
 
 ## Environment Configuration
 

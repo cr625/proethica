@@ -1,22 +1,21 @@
 # Running Extractions
 
-Steps 1-3 perform multi-pass concept extraction using ontology-validated definitions via MCP queries to OntServe. This guide covers running the extraction pipeline on cases.
+Steps 1-3 perform concept extraction using ontology-validated definitions via MCP queries to OntServe. All extractions use SSE streaming for real-time progress display. This guide covers running the extraction pipeline on cases.
 
 !!! note "Login Required"
     Running extractions requires authentication. Unauthenticated users can view completed extractions but cannot run new ones.
 
 ## Overview
 
-Steps 1-3 extract the nine concepts. Each step has two passes:
+Steps 1-3 extract the nine base concepts. Steps 1-2 extract separately from the Facts and Discussion sections. Step 3 performs a unified extraction from the full case text using LangGraph orchestration.
 
-- **Pass 1 (Facts)** - Extracts from the Facts section
-- **Pass 2 (Discussion)** - Extracts from the Discussion section
-
-| Step | Name | Concepts | Passes |
-|------|------|----------|--------|
+| Step | Name | Concepts | Extraction Mode |
+|------|------|----------|----------------|
 | Step 1 | Contextual Framework | Roles, States, Resources | Pass 1 (Facts), Pass 2 (Discussion) |
 | Step 2 | Normative Requirements | Principles, Obligations, Constraints, Capabilities | Pass 1 (Facts), Pass 2 (Discussion) |
-| Step 3 | Temporal Dynamics | Actions, Events | Pass 1 (Facts), Pass 2 (Discussion) |
+| Step 3 | Temporal Dynamics | Actions, Events, causal chains, temporal relations | Unified (full case text) |
+
+After Steps 1-3, the pipeline continues with Reconcile (entity deduplication), OntServe commit, Step 4 (whole-case synthesis), a second OntServe commit, and QC audit. See [Pipeline Terminology](../concepts/terminology.md) for definitions.
 
 ## Starting Extraction
 
