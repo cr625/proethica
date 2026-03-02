@@ -48,8 +48,8 @@ Navigate to **Tools** > **Queue Management** or direct URL: `/pipeline/queue`
 
 1. Navigate to Pipeline Dashboard
 2. Select cases for processing
-3. Choose extraction steps to run
-4. Click **Start Batch**
+3. Click **Add to Queue** to queue selected cases
+4. Processing runs the full pipeline (Steps 1-4, Reconcile, OntServe commits, QC audit)
 
 ### Monitoring Progress
 

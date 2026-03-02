@@ -75,7 +75,7 @@ Below the case title, numbered step buttons show extraction pipeline progress:
 | **1** | Contextual | Roles, States, Resources |
 | **2** | Normative | Principles, Obligations, Constraints, Capabilities |
 | **3** | Temporal | Actions, Events, Causal Relationships |
-| **4** | Synthesis | Provisions, questions, decisions, narrative |
+| **4** | Synthesis | Provisions, Precedents, Questions, Conclusions, Decision Points, Resolution Patterns |
 
 Step button states indicate completion:
 

@@ -86,11 +86,11 @@ Typical extraction time per case:
 
 | Metric | Time |
 |--------|------|
-| **Average** | ~10 minutes |
-| **Range** | 8-15 minutes depending on case complexity |
-| **Steps** | 5 extraction passes (Steps 1, 1b, 2, 2b, 3) |
+| **Average** | ~15-20 minutes |
+| **Range** | 12-30 minutes depending on case complexity |
+| **Steps** | Steps 1-4, Reconcile, 2x OntServe commits, QC audit |
 
-Processing is currently sequential (one case at a time). Parallel processing across multiple workers is planned for future releases to reduce batch processing time.
+Processing is sequential (one case at a time).
 
 ## Service Status
 
@@ -198,7 +198,7 @@ Cases processed in queue order. For priority:
 
 Active runs show:
 
-- Current step (1, 1b, 2, 2b, 3)
+- Current step (1 Facts, 1 Discussion, 2 Facts, 2 Discussion, 3, Reconcile, Commit, 4, Commit, QC)
 - Entity count extracted
 - Progress percentage
 - Estimated time remaining
@@ -255,15 +255,29 @@ Queue Request
     ↓
 Celery Task Created
     ↓
-Step 1: Facts (Roles, States, Resources)
+Uncommit (clear any previous OntServe entities)
     ↓
-Step 1b: Discussion (Roles, States, Resources)
+Clear old entities from temporary storage
     ↓
-Step 2: Facts (Principles, Obligations, Constraints, Capabilities)
+Step 1: Facts (Roles → States || Resources)
     ↓
-Step 2b: Discussion (Principles, Obligations, Constraints, Capabilities)
+Step 1: Discussion (Roles → States || Resources)
     ↓
-Step 3: Temporal (Actions, Events, Causal Relationships)
+Step 2: Facts (Obligations → Constraints || Capabilities, Principles)
+    ↓
+Step 2: Discussion (same)
+    ↓
+Step 3: Unified temporal extraction (LangGraph)
+    ↓
+Reconcile: Entity deduplication
+    ↓
+OntServe Commit #1 (Steps 1-3 entities)
+    ↓
+Step 4: Whole-case synthesis (Phases 2A-2E, 3, 4)
+    ↓
+OntServe Commit #2 (Step 4 entities)
+    ↓
+QC Audit (V0-V9 checks across 16 entity types)
     ↓
 Complete
 ```
@@ -275,6 +289,7 @@ During pipeline:
 - Entities stored in `temporary_rdf_storage`
 - Linked by `extraction_session_id`
 - Prompts stored in `extraction_prompts`
+- Published flag set on OntServe commit
 
 ### Pipeline Run Record
 

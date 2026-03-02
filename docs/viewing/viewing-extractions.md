@@ -8,8 +8,8 @@ From any case detail page, click the numbered step buttons to view extraction re
 
 - **Step 1** - Contextual Framework (Roles, States, Resources)
 - **Step 2** - Normative Requirements (Principles, Obligations, Constraints, Capabilities)
-- **Step 3** - Temporal Dynamics (Actions, Events)
-- **Step 4** - Case Synthesis (Provisions, Questions, Decisions, Arguments)
+- **Step 3** - Temporal Dynamics (Actions, Events, causal chains, temporal relations)
+- **Step 4** - Whole-Case Synthesis (Code Provisions, Precedent References, Ethical Questions, Conclusions, Decision Points, Resolution Patterns, Causal-Normative Links, Question Emergence)
 
 Completed steps show a green filled button. Click any completed step to view its results.
 
@@ -40,15 +40,9 @@ The entity table displays extracted concepts with their labels, definitions, typ
 
 ### Section Toggle
 
-Each extraction step processes two case sections:
+Steps 1-2 extract from Facts and Discussion sections separately. Toggle between sections to view entities from each pass.
 
-- **Facts** - Background circumstances
-- **Discussion** - Board's ethical analysis
-
-Toggle between sections to view entities extracted from each.
-
-![Entity Review - Step 1 Discussion](../assets/images/screenshots/entity-review-pass1-discussion-content.png)
-*Discussion section extractions showing different entity distribution*
+Step 3 extracts from the full case text in a single unified pass and does not have a section toggle.
 
 ## Extraction Steps
 
@@ -78,15 +72,15 @@ Identifies ethical guidance elements:
 
 ### Step 3: Temporal Dynamics
 
-Identifies action and event elements:
+Identifies action and event elements via unified LangGraph extraction:
 
 | Type | Symbol | Description |
 |------|--------|-------------|
 | **Actions** | A | Volitional professional interventions |
 | **Events** | E | Occurrences outside agent control |
-
-![Step 3 Entity Review](../assets/images/screenshots/entity-review-pass3-content.png)
-*Temporal dynamics with actions and events*
+| **Causal Chains** | - | NESS test causal analysis |
+| **Allen Relations** | - | OWL-Time temporal ordering |
+| **Timeline** | - | Chronological sequence of actions and events |
 
 ## View Extraction Details
 
@@ -123,16 +117,30 @@ The "Available Classes" section shows existing ontology classes from OntServe. E
 | **Existing** | Check | Matched to existing ontology class |
 | **Modified** | Pencil | User-edited after extraction |
 
-## Step 4: Case Synthesis
+## Step 4: Whole-Case Synthesis
 
-Step 4 provides higher-level analysis beyond entity extraction:
+Step 4 analyzes extracted entities and case text to produce 7 additional entity types:
 
-- Code provisions identified in the case
-- Ethical questions and board conclusions
-- Decision points and arguments
-- Narrative summary
+| Entity Type | Phase | Description |
+|-------------|-------|-------------|
+| Code Provision Reference | 2A | NSPE code sections cited in the case |
+| Precedent Case Reference | 2B | BER cases referenced in discussion |
+| Ethical Question | 2C | Questions posed to the Board |
+| Ethical Conclusion | 2C | Board's formal determinations |
+| Canonical Decision Point | Phase 3 | Points where ethical choices must be made |
+| Resolution Pattern | 2E | How ethical tensions are resolved |
+| Causal-Normative Link | 2E | Connections between causal factors and norms |
+| Question Emergence | 2E | How ethical questions arise from case facts |
 
-Click the **Step 4** button on any completed case to view the synthesis results.
+Step 4 has three sub-views accessible from the pipeline sidebar:
+
+| View | Description |
+|------|-------------|
+| **Extraction** | Phase overview and re-run controls |
+| **Review** | Entity review and OntServe commit |
+| **Full View** | Tabbed interface: Entities (graph), Flow, Provisions, Precedents, Q&C, Analysis, Decisions, Narrative |
+
+![Step 4 Full View](../assets/images/screenshots/step4-review-content.png)
 
 ## Related Pages
 

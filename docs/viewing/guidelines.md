@@ -50,7 +50,7 @@ Guidelines are referenced throughout case analysis:
 
 ### Step 1: Resources Extraction
 
-Pass 1 extracts Resources including code references:
+Step 1 extracts Resources including code references:
 
 - NSPE Code sections mentioned in case text
 - Licensing requirements

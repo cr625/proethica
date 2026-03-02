@@ -33,10 +33,11 @@ Steps must be processed in sequence. Completed steps display as green; incomplet
 
 1. Click the **Step 1** button on the case page
 2. The extraction page displays the Facts section text
-3. Click individual extraction buttons:
-   - **Extract Roles** - Professional positions
-   - **Extract States** - Situational conditions
-   - **Extract Resources** - Referenced standards
+3. Click **Full Contextual Framework Pass** to extract all three concept types. Roles extract first, then States and Resources run in parallel.
+
+Individual extraction buttons (**Extract Roles**, **Extract States**, **Extract Resources**) are also available for targeted re-extraction.
+
+![Step 1 Extraction](../assets/images/screenshots/step1-extraction-content.png)
 
 Expected entity counts:
 
@@ -48,22 +49,16 @@ Expected entity counts:
 
 ### Pass 2 (Discussion)
 
-After completing Pass 1 (Facts) extraction:
-
-1. Click **Discussion Section** on the extraction page
-2. Extract concepts from the Discussion section using the same buttons
-3. Review using the Discussion toggle
+After completing Pass 1 (Facts), click **Discussion Section** to run the same extraction against the Discussion section text.
 
 ## Step 2: Normative Requirements
 
 ### Pass 1 (Facts)
 
 1. Click the **Step 2** button on the case page
-2. Click individual extraction buttons:
-   - **Extract Principles** - Abstract ethical standards
-   - **Extract Obligations** - Concrete duties
-   - **Extract Constraints** - Prohibitions and limits
-   - **Extract Capabilities** - Permissions and options
+2. Click **Full Normative Requirements Pass** to extract all four concept types. Obligations extract first, then Constraints and Capabilities run in parallel.
+
+Unlike Step 1, Step 2 does not have individual per-concept buttons.
 
 Expected entity counts:
 
@@ -80,27 +75,40 @@ Click **Discussion Section** after completing Pass 1 (Facts) to extract from the
 
 ## Step 3: Temporal Dynamics
 
-### Pass 1 (Facts) and Pass 2 (Discussion)
+Step 3 uses LangGraph orchestration to extract from the full case text (Facts and Discussion combined) in a single unified pass, unlike Steps 1-2 which use separate passes per section.
 
 1. Click the **Step 3** button on the case page
-2. Extract temporal concepts:
+2. Click **Extract Temporal Dynamics** to run the unified extraction
 
-| Concept | Description | Typical Count |
-|---------|-------------|---------------|
+The extraction produces five output types displayed as separate progress cards:
+
+| Output | Description | Typical Count |
+|--------|-------------|---------------|
 | **Actions** | Professional responses and decisions | 5-12 entities |
 | **Events** | Precipitating occurrences | 3-8 entities |
+| **Causal Chains** | NESS test causal analysis | 3-6 chains |
+| **Allen Relations** | OWL-Time temporal ordering | 10-20 relations |
+| **Timeline** | Chronological event/action sequence | 1 timeline |
 
-The temporal extraction also identifies causal relationships and timeline sequences.
+## Reconcile
+
+After Steps 1-3, entity deduplication merges overlapping entities across sections and passes. In manual mode, reconcile is triggered from the pipeline sidebar. In pipeline mode, reconcile runs automatically.
+
+## Step 4: Whole-Case Synthesis
+
+Step 4 analyzes the full case text together with entities from Steps 1-3. It produces 7 additional entity types across multiple phases. See [Pipeline Terminology](../concepts/terminology.md) for phase details.
+
+Step 4 is accessed from the pipeline sidebar after reconcile completes.
 
 ## Extraction Options
 
 ### Re-run Extraction
 
-The review page includes a **Re-run** button to return to extraction and run again if results need improvement.
+Each step page includes a **Re-run Extraction** button to clear existing entities and run again if results need improvement.
 
 ### Progress Tracking
 
-During extraction, a progress indicator shows completion status. Entity counts update after each extraction completes.
+During extraction, SSE streaming displays real-time progress with per-concept cards showing spinners, entity counts, and completion status.
 
 ## Extraction Metrics
 

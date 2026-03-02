@@ -32,11 +32,16 @@ ProEthica extracts 9 entity types (the Nine-Component Framework) organized into 
 
 ### Step 4 - Synthesis (Analysis)
 
-| Type | Color |
-|------|-------|
-| Code Provision | <span style="display:inline-block;width:80px;height:24px;background:#6c757d;border-radius:4px;vertical-align:middle;color:white;text-align:center;line-height:24px;font-size:12px;">Gray</span> |
-| Ethical Question | <span style="display:inline-block;width:80px;height:24px;background:#0dcaf0;border-radius:4px;vertical-align:middle;color:#212529;text-align:center;line-height:24px;font-size:12px;">Cyan</span> |
-| Ethical Conclusion | <span style="display:inline-block;width:80px;height:24px;background:#198754;border-radius:4px;vertical-align:middle;color:white;text-align:center;line-height:24px;font-size:12px;">Green</span> |
+| Type | Phase | Color |
+|------|-------|-------|
+| Code Provision Reference | 2A | <span style="display:inline-block;width:80px;height:24px;background:#6c757d;border-radius:4px;vertical-align:middle;color:white;text-align:center;line-height:24px;font-size:12px;">Gray</span> |
+| Precedent Case Reference | 2B | <span style="display:inline-block;width:80px;height:24px;background:#6c757d;border-radius:4px;vertical-align:middle;color:white;text-align:center;line-height:24px;font-size:12px;">Gray</span> |
+| Ethical Question | 2C | <span style="display:inline-block;width:80px;height:24px;background:#0dcaf0;border-radius:4px;vertical-align:middle;color:#212529;text-align:center;line-height:24px;font-size:12px;">Cyan</span> |
+| Ethical Conclusion | 2C | <span style="display:inline-block;width:80px;height:24px;background:#198754;border-radius:4px;vertical-align:middle;color:white;text-align:center;line-height:24px;font-size:12px;">Green</span> |
+| Canonical Decision Point | Phase 3 | <span style="display:inline-block;width:80px;height:24px;background:#64748b;border-radius:4px;vertical-align:middle;color:white;text-align:center;line-height:24px;font-size:12px;">Slate</span> |
+| Resolution Pattern | 2E | <span style="display:inline-block;width:80px;height:24px;background:#64748b;border-radius:4px;vertical-align:middle;color:white;text-align:center;line-height:24px;font-size:12px;">Slate</span> |
+| Causal-Normative Link | 2E | <span style="display:inline-block;width:80px;height:24px;background:#64748b;border-radius:4px;vertical-align:middle;color:white;text-align:center;line-height:24px;font-size:12px;">Slate</span> |
+| Question Emergence | 2E | <span style="display:inline-block;width:80px;height:24px;background:#64748b;border-radius:4px;vertical-align:middle;color:white;text-align:center;line-height:24px;font-size:12px;">Slate</span> |
 
 ## Pipeline Step Colors (Standardized Terminology)
 
@@ -47,30 +52,31 @@ The extraction pipeline uses consistent colors for each step. Each step contains
 | Step 1 | Contextual Framework | #3b82f6 (Blue) | Roles (R), States (S), Resources (Rs) |
 | Step 2 | Normative Framework | #8b5cf6 (Purple) | Principles (P), Obligations (O), Constraints (Cs), Capabilities (Ca) |
 | Step 3 | Temporal Framework | #14b8a6 (Teal) | Actions (A), Events (E) |
-| Step 4 | Synthesis & Analysis | #64748b (Slate) | Provisions, Questions, Conclusions, Decision Points |
+| Step 4 | Synthesis & Analysis | #64748b (Slate) | Provisions, Precedents, Questions, Conclusions, Decision Points, Resolution Patterns, Causal-Normative Links, Question Emergence |
 
 ### Terminology Reference
 
 | Term | Meaning |
 |------|---------|
-| **Step** | Major pipeline stage (1-5) |
-| **Pass 1** | Facts section extraction within a step |
-| **Pass 2** | Discussion section extraction within a step |
-| **Phase** | Sub-stages within Step 4 (2A, 2B, 2C, 2D, 3, 4) |
-| **View** | Interface tabs within Step 5 (1-3) |
+| **Step** | Major pipeline stage (1-4, Step 5 planned) |
+| **Pass 1** | Facts section extraction within Steps 1-2 |
+| **Pass 2** | Discussion section extraction within Steps 1-2 |
+| **Phase** | Sub-stages within Step 4 (2A-2E, 3, 4) |
+| **Reconcile** | Entity deduplication between Steps 3 and 4 |
 
 See [Pipeline Terminology](terminology.md) for complete definitions.
 
 ### Step 4 Phases
 
-| Phase | Name | Description |
-|-------|------|-------------|
-| 2A | Code Provisions | NSPE code references |
-| 2B | Questions & Conclusions | Ethical questions and board conclusions |
-| 2C | Transformation | Case transformation analysis |
-| 2D | Rich Analysis | Arguments and causal links |
-| 3 | Decision Points | E1-E3 algorithmic synthesis |
-| 4 | Narrative | Case narrative construction |
+| Phase | Name | Description | Parallelism |
+|-------|------|-------------|-------------|
+| 2A | Code Provisions | NSPE code reference extraction | 2A runs in parallel with 2B |
+| 2B | Precedent Cases | Precedent case reference extraction | 2B runs in parallel with 2A |
+| 2C | Questions & Conclusions | Ethical questions and board conclusions | After 2A |
+| 2D | Transformation | Case transformation classification | 2D runs in parallel with 2E |
+| 2E | Rich Analysis | Resolution patterns, causal-normative links, question emergence | 2E runs in parallel with 2D |
+| 3 | Decision Points | E1-E3 algorithmic synthesis + LLM fallback | Sequential |
+| 4 | Narrative | Timeline and scenario seed | Sequential |
 
 ## Step Filter Colors
 
@@ -81,7 +87,7 @@ The graph filter buttons use neutral colors that group entity types by their ext
 | 1 | Context | <span style="display:inline-block;width:80px;height:24px;background:#3b82f6;border-radius:4px;vertical-align:middle;color:white;text-align:center;line-height:24px;font-size:12px;">Blue</span> | R, S, Rs |
 | 2 | Normative | <span style="display:inline-block;width:80px;height:24px;background:#8b5cf6;border-radius:4px;vertical-align:middle;color:white;text-align:center;line-height:24px;font-size:12px;">Purple</span> | P, O, Cs, Ca |
 | 3 | Temporal | <span style="display:inline-block;width:80px;height:24px;background:#14b8a6;border-radius:4px;vertical-align:middle;color:white;text-align:center;line-height:24px;font-size:12px;">Teal</span> | A, E |
-| 4 | Synthesis | <span style="display:inline-block;width:80px;height:24px;background:#64748b;border-radius:4px;vertical-align:middle;color:white;text-align:center;line-height:24px;font-size:12px;">Slate</span> | Provisions, Q, C |
+| 4 | Synthesis | <span style="display:inline-block;width:80px;height:24px;background:#64748b;border-radius:4px;vertical-align:middle;color:white;text-align:center;line-height:24px;font-size:12px;">Slate</span> | Provisions, Precedents, Q, C, Decision Points, etc. |
 
 ## Flow Graph (Reasoning Flow)
 

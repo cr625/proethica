@@ -47,11 +47,8 @@ The `@admin_required_production` decorator protects administrative endpoints. Se
 
 ## Tools Menu
 
-Admin users see additional options under the Tools menu:
+The Tools dropdown organizes into three groups:
 
-- **Pipeline Dashboard** - Batch processing status and controls
-- **Queue Management** - View and manage extraction queue
-- **Validation Studies** - Inter-rater reliability experiments
-- **Prompt Editor** - Extraction template management
-
-These options appear only when authenticated with admin privileges.
+- **Academic References** - Available to all users
+- **Linked Data** - OntServe Web, Browse ProEthica Ontologies
+- **Admin Tools** (admin login required) - Batch Processing, Batch Queue, Validation Studies, Prompt Editor

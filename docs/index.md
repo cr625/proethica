@@ -80,9 +80,10 @@ ProEthica guides case analysis through a structured workflow:
 | 1 | Contextual Framework | Extract Roles, States, Resources |
 | 2 | Normative Requirements | Extract Principles, Obligations, Constraints, Capabilities |
 | 3 | Temporal Dynamics | Extract Actions, Events, Causal Relationships |
-| 4 | Case Synthesis | Provisions, questions, decision points, narrative |
+| Reconcile | Entity Deduplication | Merge overlapping entities across passes |
+| 4 | Whole-Case Synthesis | Provisions, Precedents, Questions, Conclusions, Decision Points, Resolution Patterns, Causal-Normative Links, Question Emergence |
 
-Each step (1-3) processes both Facts and Discussion sections. Step 4 synthesizes extracted entities into structured analysis.
+Steps 1-2 extract from Facts and Discussion sections separately. Step 3 performs a unified extraction from the full case text. Step 4 synthesizes across all extracted entities and case text, producing 7 additional entity types (16 total).
 
 ![Pipeline Overview](assets/images/screenshots/pipeline-overview-content.png)
 

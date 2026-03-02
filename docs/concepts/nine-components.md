@@ -214,11 +214,11 @@ Events capture temporal dynamics and external triggers. The Event Calculus frame
 
 ## Extraction Process
 
-ProEthica extracts these nine concepts through three steps. Each step extracts from both Pass 1 (Facts section) and Pass 2 (Discussion section):
+ProEthica extracts these nine concepts through three extraction steps, followed by reconciliation and synthesis.
 
 ### Step 1: Contextual Framework
 
-Extracts foundational elements that establish the scenario context:
+Extracts from Facts and Discussion sections separately (Pass 1, Pass 2). Within each pass, Roles extract first, then States and Resources run in parallel.
 
 | Concept | Typical Count | Focus |
 |---------|--------------|-------|
@@ -228,7 +228,7 @@ Extracts foundational elements that establish the scenario context:
 
 ### Step 2: Normative Requirements
 
-Extracts ethical framework elements:
+Extracts from Facts and Discussion sections separately (Pass 1, Pass 2). Within each pass, Obligations extract first, then Constraints and Capabilities run in parallel.
 
 | Concept | Typical Count | Focus |
 |---------|--------------|-------|
@@ -239,17 +239,22 @@ Extracts ethical framework elements:
 
 ### Step 3: Temporal Dynamics
 
-Extracts action and event sequences:
+Extracts from the full case text (Facts and Discussion combined) in a single unified pass using LangGraph orchestration.
 
 | Concept | Typical Count | Focus |
 |---------|--------------|-------|
-| Events | 3-8 | Precipitating occurrences |
 | Actions | 5-12 | Professional responses |
-| Relations | 10-20 | Temporal and causal links |
+| Events | 3-8 | Precipitating occurrences |
+| Causal Chains | 3-6 | NESS test analysis |
+| Allen Relations | 10-20 | Temporal ordering |
 
-### Step 4: Synthesis
+### Reconcile
 
-Analyzes extracted entities to produce decision points, arguments, and narrative structures.
+Entity deduplication merges overlapping entities across sections and passes before synthesis.
+
+### Step 4: Whole-Case Synthesis
+
+Analyzes extracted entities and case text across multiple phases (2A-2E, Phase 3, Phase 4) to produce 7 additional entity types: Code Provision References, Precedent Case References, Ethical Questions, Ethical Conclusions, Canonical Decision Points, Resolution Patterns, Causal-Normative Links, and Question Emergence. The full extraction pipeline produces **16 entity types** across all 4 steps.
 
 ---
 

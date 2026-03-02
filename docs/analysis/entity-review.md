@@ -17,180 +17,96 @@ After each extraction pass, entities enter a review queue:
 
 ## Accessing Review
 
-After extraction completes, the Entity Review page displays automatically. Access it via:
+After extraction completes, the entity review page displays automatically. Access it via:
 
-- Pipeline step completion
-- Entity Review link in sidebar
+- Pipeline step completion redirect
+- Entity review link in the pipeline sidebar
 - Direct URL: `/scenario_pipeline/<case_id>/entity_review/<pass>`
 
-![Entity Review Interface](../assets/images/screenshots/entity-review-pass1-facts-content.png)
+![Entity Review Interface](../assets/images/screenshots/entity-review-content.png)
 
 ## Interface Layout
 
+Entities display as cards organized by concept type (e.g., Roles, States, Resources). Each concept type section shows a count of classes and individuals.
+
 | Section | Description |
 |---------|-------------|
-| **Available Classes** | Existing classes from OntServe ontology |
-| **Extracted Entities** | New entities from extraction |
-| **Entity Details** | Edit form for selected entity |
-| **Actions** | Commit, clear, re-run controls |
+| **Concept Type Sections** | Cards grouped by type with color-coded headers |
+| **Available Classes** | Existing ontology classes (collapsed by default) |
+| **Section Toggle** | Switch between Facts and Discussion results (Steps 1-2) |
+| **Actions** | Re-run Extraction, Provenance, Commit controls |
 
-## Entity Table
+## Entity Cards
 
-The entity table displays extracted concepts:
+Each entity displays as a card with a 4px color-coded left border matching its concept type.
 
-| Column | Description |
-|--------|-------------|
-| **Select** | Checkbox for bulk actions |
-| **Label** | Short entity identifier |
-| **Type** | Concept type (Role, State, etc.) |
-| **Definition** | Full description |
-| **Status** | New, Existing, Modified |
-| **Actions** | Edit, Delete, View Extraction buttons |
+**Card contents:**
 
-### Status Indicators
+| Element | Description |
+|---------|-------------|
+| **Label** | Entity name (e.g., "Engineer") |
+| **Type** | `rdfs:subClassOf` classification |
+| **Definition** | Full description from extraction |
+| **Properties** | RDF properties grid (domain, range, etc.) |
+| **Source Text** | Original case text quotes |
+| **Match Badge** | Ontology match status |
+| **Delete Button** | Remove unpublished entities |
 
-| Status | Icon | Meaning |
-|--------|------|---------|
-| **New** | Star | Extracted this session, no ontology match |
-| **Existing** | Check | Matches existing ontology class |
-| **Modified** | Pencil | User-edited entity |
-| **Pending** | Clock | Awaiting review |
+### Match Status Badges
 
-## Editing Entities
+| Badge | Color | Meaning |
+|-------|-------|---------|
+| **Linked** | Green | High-confidence match to ontology class (>= 0.90) |
+| **Review** | Clickable | Lower-confidence match requiring manual review |
+| **New** | Gray | No matching ontology class found |
 
-### Edit Dialog
+Clicking a **Review** badge opens the match details modal showing the proposed ontology class and confidence score.
 
-Click **Edit** on any entity to open the edit dialog:
+## Entity Management
 
-| Field | Description |
-|-------|-------------|
-| **Label** | Short identifier (edit freely) |
-| **Definition** | Full description (edit freely) |
-| **Class** | Ontology class assignment |
-| **Source** | Original extraction source |
+### Deleting Entities
 
-### Best Practices
+Unpublished entities show a delete button (X icon). Published entities display a green check badge and cannot be deleted from the review interface.
 
-When editing entities:
+### Duplicate Entities
 
-- **Labels** - Keep concise (2-5 words)
-- **Definitions** - Be specific and complete
-- **Class** - Match to existing when appropriate
-- **Source** - Preserve for provenance
-
-### Merging Entities
-
-If duplicate entities extracted:
-
-1. Identify duplicates
-2. Keep most accurate version
-3. Delete duplicates
-4. Or use Clear and Re-run
+The Reconcile step (between Steps 3 and 4) handles deduplication automatically. For manual cleanup, delete duplicates individually from the review cards.
 
 ## Class Assignment
 
-### Matching Existing Classes
+Entities are automatically matched to existing ontology classes during extraction. The match confidence determines the badge displayed:
 
-To assign entity to existing class:
-
-1. Click **Edit** on entity
-2. Open Class dropdown
-3. Select matching class from list
-4. Save changes
-
-### Approving New Classes
-
-When LLM identifies genuinely novel concept:
-
-1. Entity marked "New Class"
-2. Review definition carefully
-3. Click **Approve New Class**
-4. Entity will create new ontology class on commit
-
-### When to Approve New
-
-Approve new class when:
-
-- Concept not in existing ontology
-- Definition is clear and specific
-- Concept is genuinely distinct
-- Will be useful for future cases
-
-### When to Reassign
-
-Reassign to existing class when:
-
-- Similar class exists in ontology
-- Difference is merely wording
-- Can be subsumed by existing concept
-
-## Bulk Operations
-
-### Select All
-
-Use header checkbox to select all entities.
-
-### Bulk Delete
-
-Select multiple entities and click **Delete Selected**.
-
-### Bulk Approve
-
-Select multiple new classes and click **Approve Selected**.
+- **Linked** (>= 0.90) - Automatically assigned to the matching ontology class
+- **Review** (< 0.90) - Requires manual confirmation via the match details modal
+- **New** - No match found; entity creates a new ontology class on commit
 
 ## Committing Entities
 
-### Commit Process
+### OntServe Commit
 
-After review complete:
+The OntServe commit publishes entities from `temporary_rdf_storage` to the ontology. The pipeline performs two commits:
 
-1. Ensure all entities reviewed
-2. Click **Commit Entities**
-3. Entities saved to temporary storage
-4. Linked to extraction session
-5. Ready for next pipeline step
+1. **First commit** (after Reconcile) - Steps 1-3 base entities (9 concept types)
+2. **Second commit** (after Step 4) - Step 4 synthesis entities (7 additional types)
+
+Each commit generates a TTL file and registers entities in the OntServe database.
 
 ### What Commit Does
 
 | Action | Result |
 |--------|--------|
-| **Saves** | Entities to `temporary_rdf_storage` |
-| **Links** | Entities to `extraction_session_id` |
-| **Records** | Prompt and response in `extraction_prompts` |
-| **Enables** | Next pipeline step |
+| **Generates** | TTL (Turtle) file with RDF triples |
+| **Registers** | Entities in OntServe database |
+| **Marks** | Entities as published in `temporary_rdf_storage` |
+| **Links** | Case to ontology graph |
 
-### Temporary vs Permanent
+### Uncommit
 
-Committed entities remain in temporary storage until explicitly pushed to OntServe ontology. This allows:
+Previously committed entities can be removed via the uncommit operation, which deletes the TTL file and OntServe database registrations.
 
-- Further review and editing
-- Rollback if needed
-- Batch ontology updates
+## Re-run Extraction
 
-## Clear and Re-run
-
-### When to Use
-
-Use Clear and Re-run when:
-
-- Extraction quality poor
-- Major changes needed
-- Starting fresh preferred
-
-### Clear Process
-
-1. Click **Clear and Re-run**
-2. Existing entities removed
-3. Extraction runs again
-4. New entities replace old
-
-### Preserving Work
-
-If partial work should be preserved:
-
-1. Export entities first
-2. Or commit before clearing
-3. Then clear and re-run
+Each step page includes a **Re-run Extraction** button that clears existing entities for that step and runs extraction again.
 
 ## OntServe Integration
 

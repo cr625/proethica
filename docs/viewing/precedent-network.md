@@ -15,7 +15,7 @@ Precedent discovery identifies cases with similar:
 
 ### From Navigation
 
-Navigate to **Precedents** > **Find Precedents** in the navigation bar.
+Navigate to **Case Relations** > **Similar Cases** in the navigation bar.
 
 Direct URL: `/cases/precedents/`
 
@@ -88,7 +88,7 @@ Cases with limited connection but potential insights.
 
 The Similarity Network provides a visual overview of all cases and their relationships.
 
-Navigate to **Precedents** > **Similarity Network** or direct URL: `/cases/precedents/network`
+Navigate to **Case Relations** > **Similarity Network** or direct URL: `/cases/precedents/network`
 
 ![Similarity Network](../assets/images/screenshots/similarity-network-content.png)
 *Force-directed graph showing case relationships with color-coded outcomes*
