@@ -168,3 +168,6 @@ docs/diagrams/
 database_backups/
 *.sql.gz
 *.sql.bak
+
+# MkDocs build output
+site/
