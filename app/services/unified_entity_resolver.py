@@ -245,6 +245,12 @@ class UnifiedEntityResolver:
                     if isinstance(cp, dict):
                         definition = cp.get('proeth:priorityConflict', '')
 
+            # Extract textReferences for alias detection
+            text_refs = []
+            if entity.rdf_json_ld and isinstance(entity.rdf_json_ld, dict):
+                props = entity.rdf_json_ld.get('properties', {})
+                text_refs = props.get('textReferences', [])
+
             entity_data = {
                 'label': entity.entity_label,
                 'definition': definition,
@@ -254,6 +260,7 @@ class UnifiedEntityResolver:
                 'source_pass': source_pass,
                 'provenance': entity.provenance_metadata or {},
                 'uri': entity.entity_uri,
+                'text_references': text_refs,
                 # Additional RDF metadata for richer display
                 'rdf_agent': entity.rdf_json_ld.get('proeth:hasAgent') if entity.rdf_json_ld else None,
                 'rdf_temporal': entity.rdf_json_ld.get('proeth:temporalMarker') if entity.rdf_json_ld else None
@@ -319,6 +326,154 @@ class UnifiedEntityResolver:
             if label_no_underscore != label_key:
                 if label_no_underscore not in self._label_index or data.get('source') == 'case':
                     self._label_index[label_no_underscore] = data
+
+        # Extract text-reference-grounded aliases from compound labels
+        self._extract_text_aliases(lookup)
+
+    def _extract_text_aliases(self, lookup: Dict[str, Dict]) -> None:
+        """
+        Extract short aliases from entity labels, validated by textReferences.
+
+        Entity labels are compound descriptions (e.g., "Engineer A Engineer in
+        Responsible Charge") but case text uses short forms ("Engineer A"). This
+        method extracts 2-4 word sub-phrases from labels and keeps only those
+        that appear in the entity's textReferences passages. Cross-type filtering
+        (2+ entities across 2+ extraction types) eliminates noise.
+        """
+        from collections import defaultdict
+
+        # Stop words that invalidate a sub-phrase at boundaries.
+        # Single uppercase letters (A, B, W) are identifiers, not stop words.
+        stop_words = {'in', 'of', 'the', 'and', 'for', 'to', 'an', 'or',
+                      'by', 'on', 'at', 'is', 'was', 'has', 'had', 'with',
+                      'from', 'that', 'this', 'its', 'their', 'over', 'into',
+                      'non', 'not', 'no', 'per', 'via', 'between'}
+
+        # phrase -> list of (entity_data, extraction_type) tuples
+        phrase_sources = defaultdict(list)
+        # Track unique entities per phrase to avoid double-counting from URI variants
+        phrase_entity_labels = defaultdict(set)
+
+        for uri, data in lookup.items():
+            if data.get('source') != 'case':
+                continue
+            label = data.get('label', '')
+            text_refs = data.get('text_references', [])
+            if not label or not text_refs:
+                continue
+
+            words = label.split()
+            if len(words) < 3:
+                continue  # Need sub-phrase + remaining words
+
+            # Concatenate all textReferences for matching
+            ref_text = ' '.join(str(r) for r in text_refs)
+
+            # Generate 2-4 word sub-phrases from the label
+            for phrase_len in range(2, min(5, len(words))):
+                for start in range(len(words) - phrase_len + 1):
+                    phrase_words = words[start:start + phrase_len]
+                    first_w = phrase_words[0].lower()
+                    last_w = phrase_words[-1].lower()
+
+                    # Skip if starts/ends with stop word (but allow single uppercase letters)
+                    if first_w in stop_words and len(first_w) > 1:
+                        continue
+                    if last_w in stop_words and len(last_w) > 1:
+                        continue
+
+                    phrase = ' '.join(phrase_words)
+
+                    # Skip if phrase equals the full label
+                    if phrase == label:
+                        continue
+
+                    # Skip if already in label index as a full label
+                    if phrase.lower() in self._label_index:
+                        continue
+
+                    # Word-boundary match in textReferences
+                    pattern = r'\b' + re.escape(phrase) + r'\b'
+                    if re.search(pattern, ref_text, re.IGNORECASE):
+                        entity_key = (data.get('label', ''), data.get('extraction_type', ''))
+                        if entity_key not in phrase_entity_labels[phrase]:
+                            phrase_entity_labels[phrase].add(entity_key)
+                            phrase_sources[phrase].append(data)
+
+        # Filter: keep phrases referenced by 2+ entities across 2+ extraction types
+        validated = {}
+        for phrase, sources in phrase_sources.items():
+            if len(sources) < 2:
+                continue
+            types = {d.get('extraction_type') for d in sources}
+            if len(types) < 2:
+                continue
+            # Keep shortest phrase per prefix group
+            phrase_lower = phrase.lower()
+            skip = False
+            for existing in list(validated.keys()):
+                existing_lower = existing.lower()
+                if phrase_lower.startswith(existing_lower + ' '):
+                    skip = True  # Longer version of existing shorter alias
+                    break
+                if existing_lower.startswith(phrase_lower + ' '):
+                    del validated[existing]  # Replace longer with shorter
+            if not skip:
+                validated[phrase] = sources
+
+        # Type priority: roles first since aliases like "Engineer A" are actors
+        type_priority = [
+            'roles', 'states', 'principles', 'obligations',
+            'constraints', 'capabilities', 'resources'
+        ]
+
+        # Add to label index
+        for phrase, sources in validated.items():
+            key = phrase.lower().strip()
+            if key in self._label_index:
+                continue
+
+            # Collect all contributing extraction types
+            alias_types = sorted({s.get('extraction_type', '') for s in sources})
+
+            # Pick primary type by priority order
+            primary_type = alias_types[0]  # fallback
+            for t in type_priority:
+                if t in alias_types:
+                    primary_type = t
+                    break
+
+            # Pick best definition from entities of the primary type
+            best_def = ''
+            primary_source = sources[0]
+            for s in sources:
+                if s.get('extraction_type') == primary_type:
+                    d = s.get('definition', '')
+                    if d and (not best_def or len(d) > len(best_def)):
+                        best_def = d
+                        primary_source = s
+            # Fall back to any definition if primary type had none
+            if not best_def:
+                for s in sources:
+                    d = s.get('definition', '')
+                    if d and len(d) > len(best_def):
+                        best_def = d
+                        primary_source = s
+
+            self._label_index[key] = {
+                'label': phrase,
+                'definition': best_def or f'Referenced in {len(sources)} entities',
+                'entity_type': primary_source.get('entity_type', ''),
+                'extraction_type': primary_type,
+                'source': 'case',
+                'source_pass': primary_source.get('source_pass'),
+                'uri': primary_source.get('uri', ''),
+                'is_published': any(s.get('is_published') for s in sources),
+                'alias_types': alias_types,
+            }
+
+        if validated:
+            logger.debug(f"Added {len(validated)} text-grounded aliases: {list(validated.keys())}")
 
     @staticmethod
     def clear_ontserve_cache():

@@ -7,6 +7,7 @@ import json
 import time
 from datetime import datetime
 from typing import Dict, List, Any, Optional
+from bs4 import BeautifulSoup
 from .embedding_service import EmbeddingService
 from app.models.document_section import DocumentSection
 from sqlalchemy import text
@@ -66,9 +67,10 @@ class SectionEmbeddingService(EmbeddingService):
                     logger.warning(f"Empty content for section {section_uri}")
                     continue
                 
-                # Log what type of content we're embedding
-                logger.debug(f"Generating embedding for {section_uri} using {content_type} content")
-                
+                # Strip any HTML tags before embedding
+                if '<' in content and '>' in content:
+                    content = BeautifulSoup(content, 'html.parser').get_text(separator=' ', strip=True)
+
                 # Generate embedding for this section
                 embedding = self.get_embedding(content)
                 section_embeddings[section_uri] = embedding

@@ -2707,7 +2707,7 @@ def view_case_structure(id):
     if sections_with_embeddings > 0:
         try:
             service = SectionEmbeddingService()
-            discussion_section = next((s for s in sections if s.section_type == 'discussion' and s.embedding), None)
+            discussion_section = next((s for s in sections if s.section_type == 'discussion' and s.embedding is not None), None)
             if discussion_section:
                 similar = service.find_similar_sections(
                     discussion_section.content,

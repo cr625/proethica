@@ -570,7 +570,8 @@
             entityType: "{{ (entity.extraction_type or entity.entity_type or '')|e }}",
             source: "{{ (entity.source or 'case')|e }}",
             sourcePass: {{ entity.source_pass or 'null' }},
-            uri: "{{ (entity.uri or '')|e }}"
+            uri: "{{ (entity.uri or '')|e }}",
+            aliasTypes: {{ (entity.alias_types or [])|tojson }}
         }{% if not loop.last %},{% endif %}
         {% endfor %}
     };
@@ -672,6 +673,7 @@
                         span.setAttribute('data-entity-source', m.entity.source);
                         span.setAttribute('data-entity-definition', m.entity.definition);
                         span.setAttribute('data-entity-uri', m.entity.uri);
+                        span.setAttribute('data-alias-types', JSON.stringify(m.entity.aliasTypes || []));
                         span.setAttribute('title', m.entity.label || m.text);
 
                         fragment.appendChild(span);
@@ -698,9 +700,13 @@
             const uri = el.getAttribute('data-entity-uri') || '';
             const typeClass = 'onto-type-' + type.toLowerCase().replace(/\s+/g, '-');
 
+            const aliasTypes = JSON.parse(el.getAttribute('data-alias-types') || '[]');
+            const extraCount = aliasTypes.length > 1 ? aliasTypes.length - 1 : 0;
+
             const popoverContent = `<div class="onto-popover-content">
                 <div class="d-flex gap-1 mb-2">
                     <span class="badge onto-type-badge ${typeClass}">${type}</span>
+                    ${extraCount > 0 ? '<span class="badge bg-light text-muted onto-type-badge border">+' + extraCount + ' more</span>' : ''}
                     ${source === 'ontology' ? '<span class="badge bg-primary onto-type-badge">Ontology</span>' : '<span class="badge bg-secondary onto-type-badge">Case</span>'}
                 </div>
                 <div class="onto-definition">${definition}</div>
