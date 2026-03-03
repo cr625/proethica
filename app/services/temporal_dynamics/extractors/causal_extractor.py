@@ -14,7 +14,7 @@ from datetime import datetime
 
 import os
 
-from models import ModelConfig
+from model_config import ModelConfig
 
 logger = logging.getLogger(__name__)
 

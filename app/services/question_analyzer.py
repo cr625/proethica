@@ -26,7 +26,7 @@ import logging
 from typing import List, Dict, Optional, Any, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
-from models import ModelConfig
+from model_config import ModelConfig
 from app.utils.entity_prompt_utils import format_entities_compact, resolve_entity_labels_to_uris
 from app.utils.llm_json_utils import parse_json_response, parse_json_object
 import anthropic

@@ -24,7 +24,7 @@ try:
 except Exception:  # broad: we only care if not importable
     ROUTER_AVAILABLE = False
 
-from models import ModelConfig
+from model_config import ModelConfig
 
 logger = logging.getLogger(__name__)
 

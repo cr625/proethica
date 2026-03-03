@@ -10,7 +10,7 @@ import logging
 import re
 from typing import List, Optional
 
-from models import ModelConfig
+from model_config import ModelConfig
 from .base import ConceptCandidate, Extractor, PostProcessor, Matcher, MatchedConcept
 from .atomic_extraction_mixin import AtomicExtractionMixin
 

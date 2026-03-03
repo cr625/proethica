@@ -11,7 +11,7 @@ from typing import List, Dict, Optional, Any, Tuple
 from dataclasses import dataclass, field, asdict
 
 from app.utils.llm_utils import get_llm_client
-from models import ModelConfig
+from model_config import ModelConfig
 
 logger = logging.getLogger(__name__)
 

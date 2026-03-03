@@ -22,7 +22,7 @@ from dataclasses import dataclass, field, asdict
 from app import db
 from app.models import TemporaryRDFStorage
 from app.utils.llm_utils import get_llm_client
-from models import ModelConfig
+from model_config import ModelConfig
 
 logger = logging.getLogger(__name__)
 

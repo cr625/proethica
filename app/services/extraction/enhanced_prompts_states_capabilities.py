@@ -420,7 +420,7 @@ class EnhancedStatesExtractor:
                     )
                 
                 # Import ModelConfig to get the proper model
-                from models import ModelConfig
+                from model_config import ModelConfig
 
                 # Check which type of client we have and use appropriate API
                 if hasattr(self.llm_client, 'messages') and hasattr(self.llm_client.messages, 'create'):

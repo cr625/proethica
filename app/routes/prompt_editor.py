@@ -525,7 +525,7 @@ def test_run_template(template_id):
 
         # Call the LLM
         from app.utils.llm_utils import get_llm_client
-        from models import ModelConfig
+        from model_config import ModelConfig
         import json as json_module
 
         model_name = ModelConfig.get_claude_model("default")  # Sonnet - faster for testing

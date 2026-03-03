@@ -10,7 +10,7 @@ import logging
 import os
 from datetime import datetime
 
-from models import ModelConfig
+from model_config import ModelConfig
 
 logger = logging.getLogger(__name__)
 

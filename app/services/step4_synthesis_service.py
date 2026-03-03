@@ -26,7 +26,7 @@ from datetime import datetime
 from typing import Dict, Any, Callable, Optional
 from dataclasses import dataclass, field
 
-from models import ModelConfig
+from model_config import ModelConfig
 from app.models import Document, TemporaryRDFStorage, ExtractionPrompt, db
 from app.utils.llm_utils import get_llm_client
 

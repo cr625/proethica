@@ -5,7 +5,7 @@ Separate module to avoid circular imports between step4.py and its
 sub-modules (step4_run_all, step4_phase3, etc.).
 """
 
-from models import ModelConfig
+from model_config import ModelConfig
 
 # All Step 4 extraction prompts use this section_type for consistency.
 # Steps 1-2 use 'facts'/'discussion'; Step 4 always uses 'synthesis'

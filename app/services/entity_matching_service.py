@@ -306,7 +306,7 @@ class EntityMatchingService:
         logger.info(f"Prompt created, length: {len(prompt)} chars")
 
         try:
-            from models import ModelConfig
+            from model_config import ModelConfig
 
             model_name = ModelConfig.get_claude_model("default")
             logger.info(f"Calling LLM with model: {model_name}")
@@ -625,7 +625,7 @@ Return ONLY valid JSON array.
         self.last_extraction_prompt = prompt
 
         try:
-            from models import ModelConfig
+            from model_config import ModelConfig
 
             model_name = ModelConfig.get_claude_model("default")
 

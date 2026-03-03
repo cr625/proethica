@@ -23,7 +23,7 @@ from app import db
 from app.models import Document, TemporaryRDFStorage, ExtractionPrompt
 from app.utils.llm_utils import get_llm_client
 from app.domains import DomainConfig, get_domain_config
-from models import ModelConfig
+from model_config import ModelConfig
 
 # Data models (extracted to separate module for modularity)
 from app.services.case_synthesis_models import (  # noqa: F401 -- re-exported for backward compatibility

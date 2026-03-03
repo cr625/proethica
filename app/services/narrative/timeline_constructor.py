@@ -20,7 +20,7 @@ from dataclasses import dataclass, field, asdict
 from enum import Enum
 
 from app.utils.llm_utils import get_llm_client
-from models import ModelConfig
+from model_config import ModelConfig
 from app.academic_references.frameworks.declarative_ethics import (
     get_event_trace_template,
     get_causal_analysis_template,

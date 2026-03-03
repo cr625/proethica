@@ -486,7 +486,7 @@ Return ONLY valid JSON:
 
     def _call_llm(self, prompt: str) -> Dict[str, Any]:
         """Call Haiku for dedup evaluation."""
-        from models import ModelConfig
+        from model_config import ModelConfig
         from app.utils.llm_utils import extract_json_from_response
 
         api_key = os.getenv('ANTHROPIC_API_KEY')

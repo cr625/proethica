@@ -23,7 +23,7 @@ from app.models import Document
 
 from .case_feature_extractor import CaseFeatureExtractor, ExtractedFeatures
 from .similarity_service import PrecedentSimilarityService, SimilarityResult
-from models import ModelConfig
+from model_config import ModelConfig
 
 logger = logging.getLogger(__name__)
 

@@ -296,7 +296,7 @@ Focus on identifying principles that serve as abstract ethical foundations requi
         """
         try:
             # Import ModelConfig to get the proper model
-            from models import ModelConfig
+            from model_config import ModelConfig
 
             # Call LLM with proper API based on client type
             if hasattr(self.llm_client, 'messages') and hasattr(self.llm_client.messages, 'create'):

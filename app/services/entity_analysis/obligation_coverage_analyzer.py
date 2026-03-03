@@ -16,7 +16,7 @@ from dataclasses import dataclass, field, asdict
 from app import db
 from app.models import TemporaryRDFStorage
 from app.domains import DomainConfig, get_domain_config
-from models import ModelConfig
+from model_config import ModelConfig
 
 logger = logging.getLogger(__name__)
 

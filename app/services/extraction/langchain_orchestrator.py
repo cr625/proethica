@@ -29,7 +29,7 @@ except ImportError:
 # ProEthica imports
 from .base import ConceptCandidate
 from .concept_splitter import GeneralizedConceptSplitter, SplitResult
-from models import ModelConfig
+from model_config import ModelConfig
 
 try:
     from app.utils.llm_utils import get_llm_client

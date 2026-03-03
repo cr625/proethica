@@ -9,7 +9,7 @@ from typing import Dict, List
 import logging
 import os
 
-from models import ModelConfig
+from model_config import ModelConfig
 
 logger = logging.getLogger(__name__)
 

@@ -22,7 +22,7 @@ from typing import Dict, List, Optional, Any, Tuple
 from app.models import db, Document, TemporaryRDFStorage, ExtractionPrompt
 from app.models.scenario_exploration import ScenarioExplorationSession, ScenarioExplorationChoice
 from app.utils.llm_utils import get_llm_client
-from models import ModelConfig
+from model_config import ModelConfig
 
 logger = logging.getLogger(__name__)
 

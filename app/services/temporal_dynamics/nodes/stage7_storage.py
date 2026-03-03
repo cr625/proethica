@@ -10,7 +10,7 @@ import logging
 from datetime import datetime
 from flask import current_app
 
-from models import ModelConfig
+from model_config import ModelConfig
 
 from ..state import TemporalDynamicsState
 from ..utils.rdf_converter import (

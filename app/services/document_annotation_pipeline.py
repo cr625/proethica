@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from app.models.guideline import Guideline
 from app.models import Document
 from app.models.document_concept_annotation import DocumentConceptAnnotation
-from models import ModelConfig
+from model_config import ModelConfig
 from app.services.ontserve_annotation_service import OntServeAnnotationService
 from app.services.llm_service import LLMService
 

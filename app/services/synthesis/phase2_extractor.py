@@ -21,7 +21,7 @@ from app.models import Document, TemporaryRDFStorage, ExtractionPrompt
 from app.utils.llm_utils import get_llm_client
 from sqlalchemy import text
 
-from models import ModelConfig
+from model_config import ModelConfig
 from .base import SynthesisEvent, SynthesisResult, BaseSynthesizer
 
 # Import extraction services

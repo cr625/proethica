@@ -22,7 +22,7 @@ from app.models import TemporaryRDFStorage, ExtractionPrompt
 from app.utils.llm_utils import get_llm_client
 from app.utils.llm_json_utils import parse_json_response
 from app.domains import DomainConfig, get_domain_config
-from models import ModelConfig
+from model_config import ModelConfig
 
 # E1-E3 Services
 from app.services.entity_analysis import (

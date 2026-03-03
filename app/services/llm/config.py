@@ -64,7 +64,7 @@ class LLMConfig:
             LLM_TRACK_USAGE: Enable usage tracking (default true)
             LLM_LOG_REQUESTS: Enable request logging (default false)
         """
-        from models import ModelConfig
+        from model_config import ModelConfig
 
         return cls(
             default_model=os.getenv("LLM_DEFAULT_MODEL") or ModelConfig.get_default_model(),

@@ -285,7 +285,7 @@ Now extract all questions from the Questions section above. Return ONLY valid JS
     def _call_llm(self, prompt: str) -> str:
         """Call LLM with the extraction prompt."""
         try:
-            from models import ModelConfig
+            from model_config import ModelConfig
 
             model_name = ModelConfig.get_claude_model("default")
 

@@ -12,7 +12,7 @@ from typing import Dict, List
 import logging
 from datetime import datetime
 
-from models import ModelConfig
+from model_config import ModelConfig
 
 import os
 

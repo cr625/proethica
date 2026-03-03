@@ -11,7 +11,7 @@ import logging
 from typing import List, Dict, Tuple
 from dataclasses import dataclass
 
-from models import ModelConfig
+from model_config import ModelConfig
 
 logger = logging.getLogger(__name__)
 

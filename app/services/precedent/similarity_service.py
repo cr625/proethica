@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from sqlalchemy import text
 
 from app import db
-from models import ModelConfig
+from model_config import ModelConfig
 
 logger = logging.getLogger(__name__)
 

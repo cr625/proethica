@@ -44,7 +44,7 @@ class LangChainClaudeService:
         
         # Use centralized model configuration if model not specified
         if model is None:
-            from models import ModelConfig
+            from model_config import ModelConfig
             model = ModelConfig.get_claude_model("default")
         self.model = model
         

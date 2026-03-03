@@ -566,7 +566,7 @@ class UnifiedDualExtractor:
         self.data_source = get_current_data_source()
 
         # -- Model selection --
-        from models import ModelConfig
+        from model_config import ModelConfig
         if model:
             self.model_name = model
         else:

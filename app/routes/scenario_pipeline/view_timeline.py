@@ -5,7 +5,7 @@ Displays the generated timeline with LLM-enhanced descriptions and expandable de
 """
 
 from flask import render_template, jsonify
-from models import ModelConfig
+from model_config import ModelConfig
 from app.models import Document
 from app.services.scenario_generation.timeline_constructor import TimelineConstructor
 from app.services.direct_llm_service import DirectLLMService

@@ -20,7 +20,7 @@ import logging
 from typing import List, Dict, Optional, Any
 from datetime import datetime
 
-from models import ModelConfig
+from model_config import ModelConfig
 from app.models import db
 from app.models.case_precedent_features import CasePrecedentFeatures
 

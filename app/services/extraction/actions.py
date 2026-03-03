@@ -14,7 +14,7 @@ from slugify import slugify
 
 from .base import ConceptCandidate, MatchedConcept, SemanticTriple, Extractor, Linker
 from .policy_gatekeeper import RelationshipPolicyGatekeeper
-from models import ModelConfig
+from model_config import ModelConfig
 
 # LLM utils are optional at runtime; import guarded
 try:
