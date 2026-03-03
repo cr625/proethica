@@ -152,6 +152,7 @@ def debug_overview_route(case_id):
 #     return analyze_section_langextract(case_id)
 
 @interactive_scenario_bp.route('/case/<int:case_id>/entities_pass_prompt', methods=['POST'])
+@auth_required_for_write
 def entities_pass_prompt(case_id):
     """API endpoint to generate entities pass prompt"""
     from .step1 import entities_pass_prompt as prompt_handler
@@ -242,6 +243,7 @@ def step2e(case_id):
     return step2e_handler(case_id)
 
 @interactive_scenario_bp.route('/case/<int:case_id>/normative_pass_prompt', methods=['POST'])
+@auth_required_for_write
 def normative_pass_prompt(case_id):
     """API endpoint to generate normative pass prompt"""
     from .step2 import normative_pass_prompt as prompt_handler
@@ -288,6 +290,7 @@ def step2_get_saved_prompt(case_id):
     return prompt_handler(case_id)
 
 @interactive_scenario_bp.route('/case/<int:case_id>/step2/clear_prompt', methods=['POST'])
+@auth_required_for_write
 def step2_clear_prompt(case_id):
     """API endpoint to clear saved extraction prompt for Step 2"""
     from .step2 import clear_saved_prompt as clear_handler
@@ -335,6 +338,7 @@ def complete_analysis(case_id):
     return complete_handler(case_id)
 
 @interactive_scenario_bp.route('/case/<int:case_id>/complete_analysis_execute', methods=['POST'])
+@auth_required_for_llm
 def execute_complete_analysis(case_id):
     """API endpoint to execute complete modular analysis"""
     from .complete_analysis import execute_complete_analysis as execute_handler

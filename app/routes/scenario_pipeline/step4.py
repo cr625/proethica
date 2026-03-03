@@ -19,7 +19,7 @@ from flask import Blueprint, render_template, request, jsonify, redirect, url_fo
 from app.models import Document, TemporaryRDFStorage, ExtractionPrompt, db
 from app.services.pipeline_status_service import PipelineStatusService
 from app.utils.llm_utils import get_llm_client
-from app.utils.environment_auth import auth_required_for_llm, auth_optional
+from app.utils.environment_auth import auth_required_for_llm, auth_required_for_write, auth_optional
 
 # Import synthesis services
 from app.services.nspe_references_parser import NSPEReferencesParser
@@ -329,6 +329,7 @@ def _build_step4_entity_groups(case_id: int) -> List[Dict]:
 
 
 @bp.route('/case/<int:case_id>/clear_step4', methods=['POST'])
+@auth_required_for_write
 def clear_step4_data(case_id):
     """
     Clear all Step 4 extractions (Phase 2-4) while preserving Steps 1-3 entities.
@@ -3120,6 +3121,7 @@ def commit_step4_entities(case_id):
 # ============================================================================
 
 @bp.route('/case/<int:case_id>/entities/<int:entity_id>/review', methods=['POST'])
+@auth_required_for_write
 def update_entity_review(case_id, entity_id):
     """Toggle accept/reject status for an entity."""
     entity = TemporaryRDFStorage.query.filter_by(
@@ -3141,6 +3143,7 @@ def update_entity_review(case_id, entity_id):
 
 
 @bp.route('/case/<int:case_id>/entities/<int:entity_id>/edit', methods=['POST'])
+@auth_required_for_write
 def edit_entity(case_id, entity_id):
     """Update entity label and/or definition."""
     entity = TemporaryRDFStorage.query.filter_by(

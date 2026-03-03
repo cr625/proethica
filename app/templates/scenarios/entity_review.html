@@ -246,6 +246,7 @@
                         {% endif %}
                     </div>
                     <div class="d-flex gap-2 align-items-center">
+                        {% if current_user.is_authenticated %}
                         <!-- Re-run Extraction (with ?force=1 to bypass redirect) -->
                         {% if section_type == 'discussion' %}
                         <a href="{{ url_for('scenario_pipeline.step1b', case_id=case.id, force=1) }}"
@@ -257,6 +258,7 @@
                            class="btn btn-sm btn-outline-info" title="Re-run extraction">
                             <i class="bi bi-arrow-repeat"></i> Re-run Extraction
                         </a>
+                        {% endif %}
                         {% endif %}
                         <a href="{{ url_for('provenance.case_provenance', case_id=case.id, step=1) }}"
                            class="btn btn-sm btn-outline-secondary" title="View provenance (opens in new tab)" target="_blank">

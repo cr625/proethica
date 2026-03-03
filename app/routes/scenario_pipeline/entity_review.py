@@ -66,6 +66,7 @@ def init_entity_review_csrf_exemption(app):
 
 
 @bp.route('/case/<int:case_id>/rdf_entities/update_selection', methods=['POST'])
+@auth_required_for_write
 def update_rdf_entity_selection(case_id):
     """Update the selection status of an RDF entity."""
     try:
@@ -89,6 +90,7 @@ def update_rdf_entity_selection(case_id):
 
 
 @bp.route('/case/<int:case_id>/rdf_entities/<int:entity_id>/delete', methods=['DELETE', 'POST'])
+@auth_required_for_write
 def delete_rdf_entity(case_id, entity_id):
     """Delete a single RDF entity from temporary storage.
 
@@ -665,6 +667,7 @@ def review_session_entities(case_id, session_id):
 
 
 @bp.route('/case/<int:case_id>/entities/update_selection', methods=['POST'])
+@auth_required_for_write
 def update_entity_selection(case_id):
     """Update entity selection status."""
     try:

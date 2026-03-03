@@ -153,7 +153,15 @@
         <h5 class="mb-0"><i class="bi bi-cloud-upload me-2"></i>Commit to OntServe</h5>
     </div>
     <div class="card-body">
-        {% if published_count > 0 and unpublished_count == 0 %}
+        {% if not current_user.is_authenticated %}
+        <div class="text-muted">
+            <i class="bi bi-lock-fill me-1"></i>
+            <a href="{{ url_for('auth.login') }}">Login</a> to commit entities to OntServe.
+            {% if published_count > 0 %}
+            <span class="ms-2">({{ published_count }} entities already committed)</span>
+            {% endif %}
+        </div>
+        {% elif published_count > 0 and unpublished_count == 0 %}
         <div class="commit-status success">
             <i class="bi bi-check-circle-fill me-2 text-success"></i>
             All {{ published_count }} entities have been committed to OntServe.
@@ -272,7 +280,7 @@
                                     <span class="badge bg-light text-dark border ms-1" style="font-size: 0.65em;">reviewed</span>
                                     {% endif %}
                                 </div>
-                                {% if not entity.is_published %}
+                                {% if not entity.is_published and current_user.is_authenticated %}
                                 <div class="review-controls btn-group btn-group-sm ms-2" role="group">
                                     <button type="button"
                                             class="btn btn-outline-success btn-accept{% if not is_rejected %} active{% endif %}"
@@ -340,7 +348,7 @@
                             {% endif %}
 
                             {# Inline edit form (hidden by default) #}
-                            {% if not entity.is_published %}
+                            {% if not entity.is_published and current_user.is_authenticated %}
                             <div class="edit-form" id="edit-{{ entity.id }}" style="display: none;">
                                 <div class="mb-2">
                                     <label class="form-label small mb-0 text-muted">Label</label>
