@@ -16,7 +16,7 @@ from datetime import datetime
 from app import db
 from app.models import Document, TemporaryRDFStorage, ExtractionPrompt
 from app.utils.llm_utils import get_llm_client
-from app.routes.scenario_pipeline.step4_config import (
+from app.routes.scenario_pipeline.step4.config import (
     STEP4_SECTION_TYPE, STEP4_DEFAULT_MODEL, STEP4_POWERFUL_MODEL,
 )
 

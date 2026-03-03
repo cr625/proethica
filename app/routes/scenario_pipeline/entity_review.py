@@ -139,7 +139,7 @@ def review_all_case_entities(case_id):
             return redirect(url_for('index.index'))
 
         # Get entity counts from Step 4 helper
-        from app.routes.scenario_pipeline.step4 import get_entities_summary
+        from app.routes.scenario_pipeline.step4.helpers import get_entities_summary
         entities_summary = get_entities_summary(case_id)
 
         return render_template(

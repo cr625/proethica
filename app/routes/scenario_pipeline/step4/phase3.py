@@ -16,7 +16,7 @@ from flask import jsonify, Response, stream_with_context
 from app.models import Document, TemporaryRDFStorage, ExtractionPrompt, db
 from app.utils.llm_utils import get_llm_client
 from app.utils.environment_auth import auth_required_for_llm
-from app.routes.scenario_pipeline.step4_config import (
+from app.routes.scenario_pipeline.step4.config import (
     STEP4_SECTION_TYPE, STEP4_DEFAULT_MODEL, STEP4_POWERFUL_MODEL,
 )
 

@@ -25,7 +25,7 @@ from app.models import Document, TemporaryRDFStorage, ExtractionPrompt, db
 from app.utils.environment_auth import auth_required_for_llm
 from app.utils.llm_utils import get_llm_client
 from app.services.provenance_service import get_provenance_service
-from app.routes.scenario_pipeline.step4_config import (
+from app.routes.scenario_pipeline.step4.config import (
     STEP4_SECTION_TYPE, STEP4_DEFAULT_MODEL, STEP4_POWERFUL_MODEL,
     reset_step4_case_features,
 )
@@ -647,7 +647,7 @@ def _run_provisions(case_id: int, llm_client, get_all_case_entities) -> dict:
 def _run_precedents(case_id: int, llm_client) -> dict:
     """Run precedent case extraction -- same logic as extract_precedents_streaming."""
     import json as json_mod
-    from app.routes.scenario_pipeline.step4 import (
+    from app.routes.scenario_pipeline.step4.precedents import (
         PRECEDENT_EXTRACTION_PROMPT, _update_cited_cases
     )
 
@@ -1134,7 +1134,7 @@ def _run_transformation(case_id: int, llm_client) -> dict:
                 facts_text = f_data.get('text', '') if isinstance(f_data, dict) else str(f_data)
 
         # Get all entities for context
-        from app.routes.scenario_pipeline.step4 import get_all_case_entities
+        from app.routes.scenario_pipeline.step4.helpers import get_all_case_entities
         all_entities = get_all_case_entities(case_id)
 
         # Classify transformation + store -- all inside provenance tracking
