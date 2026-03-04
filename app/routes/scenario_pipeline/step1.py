@@ -133,8 +133,7 @@ def step1_data(case_id, section_type='facts'):
 
     except Exception as e:
         logger.error(f"Error loading step 1 for case {case_id}: {str(e)}")
-        flash(f'Error loading step 1: {str(e)}', 'danger')
-        return redirect(url_for('cases.view_case', id=case_id))
+        raise
 
 def _load_existing_extractions(case_id, concept_types, step_number=1, section_type=None):
     """Load extraction results from temporary_rdf_storage for page-load display.

@@ -323,6 +323,7 @@ class NarrativeElementExtractor:
         - Meta-authority (Board of Ethical Review) - this reviews all cases, not a case character
         """
         characters = []
+        protagonist_assigned = False
 
         # Build role -> obligation bindings
         obligation_map = self._build_obligation_map(foundation)
@@ -340,7 +341,13 @@ class NarrativeElementExtractor:
                 continue
 
             # Determine role type based on position in case
+            # Only allow one protagonist per case
             role_type = self._classify_role_type(role.label)
+            if role_type == 'protagonist':
+                if protagonist_assigned:
+                    role_type = 'decision-maker'
+                else:
+                    protagonist_assigned = True
 
             # Get bound obligations as motivations
             motivations = []

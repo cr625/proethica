@@ -580,9 +580,11 @@ OPTION2_DESC: [1 sentence description]"""
         if not self.llm_client:
             return opening_context, None
 
-        protagonist = None
-        if narrative_elements.characters:
+        protagonist = self._identify_protagonist(narrative_elements.characters)
+        if not protagonist and narrative_elements.characters:
             protagonist = narrative_elements.characters[0]
+
+        protagonist_name = protagonist.label if protagonist else "an engineer"
 
         prompt = f"""Rewrite this scenario opening to be more engaging while maintaining professional tone.
 
@@ -592,10 +594,12 @@ CURRENT OPENING:
 SETTING DETAILS:
 {narrative_elements.setting.description if narrative_elements.setting else 'Professional context'}
 
+PROTAGONIST: {protagonist_name}
+
 Write a 2-3 sentence opening that:
-1. Establishes the professional context
-2. Hints at the ethical dilemma ahead
-3. Uses second person ("You are...")
+1. MUST begin with "You are {protagonist_name}" — the narrative is written from this character's perspective. Do NOT switch to a different character or a third party.
+2. Establishes the professional context
+3. Hints at the ethical dilemma ahead
 4. Maintains objective, professional tone
 
 Output ONLY the enhanced opening text."""

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}404 - Page Not Found{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card border-warning">
+                <div class="card-header bg-warning text-dark">
+                    <h4 class="mb-0">
+                        <i class="bi bi-question-circle me-2"></i>
+                        Page Not Found (404)
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-4">
+                        <i class="bi bi-signpost-split text-warning" style="font-size: 4rem;"></i>
+                    </div>
+
+                    <h5 class="text-center mb-3">The requested page could not be found</h5>
+
+                    <div class="alert alert-info">
+                        <p class="mb-0">The page you are looking for may have been moved, removed, or the URL may be incorrect.</p>
+                    </div>
+
+                    <div class="text-center mt-4">
+                        <a href="{{ url_for('index.index') }}" class="btn btn-primary me-2">
+                            <i class="bi bi-house me-2"></i>Go Home
+                        </a>
+                        <a href="{{ url_for('cases.list_cases') }}" class="btn btn-outline-primary me-2">
+                            <i class="bi bi-folder me-2"></i>Browse Cases
+                        </a>
+                        <button onclick="history.back()" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left me-2"></i>Go Back
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
