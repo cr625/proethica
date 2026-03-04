@@ -1,7 +1,7 @@
 """
 Routes for document concept annotation functionality.
 """
-from flask import Blueprint, request, jsonify, flash, redirect, url_for, render_template
+from flask import Blueprint, request, jsonify, flash, redirect, url_for
 from flask_login import login_required, current_user
 from app.models.guideline import Guideline
 from app.models import Document
@@ -320,47 +320,6 @@ def check_ontology_updates():
         logger.exception(f"Error checking ontology updates: {e}")
         return jsonify({'error': str(e)}), 500
 
-@annotations_bp.route('/validation-dashboard')
-@login_required
-def validation_dashboard():
-    """Dashboard for managing annotation validations."""
-    try:
-        # Get pending validations
-        pending_annotations = DocumentConceptAnnotation.get_pending_validations()
-        
-        # Filter by user permissions
-        accessible_annotations = []
-        for annotation in pending_annotations:
-            document = annotation.get_document()
-            if document and document.world.can_view(current_user):
-                accessible_annotations.append(annotation)
-        
-        # Group by world and document type
-        by_world = {}
-        for annotation in accessible_annotations:
-            world_id = annotation.world_id
-            if world_id not in by_world:
-                by_world[world_id] = {
-                    'world_name': annotation.world.name if annotation.world else 'Unknown',
-                    'guidelines': [],
-                    'cases': []
-                }
-            
-            if annotation.document_type == 'guideline':
-                by_world[world_id]['guidelines'].append(annotation)
-            elif annotation.document_type == 'case':
-                by_world[world_id]['cases'].append(annotation)
-        
-        return render_template('annotations/validation_dashboard.html',
-                             pending_annotations=accessible_annotations,
-                             by_world=by_world,
-                             total_pending=len(accessible_annotations))
-        
-    except Exception as e:
-        logger.exception(f"Error loading validation dashboard: {e}")
-        flash(f'Error loading validation dashboard: {str(e)}', 'error')
-        return redirect(url_for('dashboard.index'))
-
 @annotations_bp.route('/clear/<document_type>/<int:document_id>', methods=['POST'])
 @login_required
 def clear_annotations(document_type, document_id):
@@ -419,52 +378,3 @@ def clear_annotations(document_type, document_id):
         flash(message, 'error')
         return redirect(url_for('dashboard.index'))
 
-@annotations_bp.route('/statistics')
-@login_required
-def annotation_statistics():
-    """View annotation statistics across all accessible worlds."""
-    try:
-        # Get accessible worlds
-        if current_user.is_admin:
-            worlds = World.query.all()
-        else:
-            worlds = World.query.filter_by(created_by=current_user.id).all()
-        
-        world_stats = []
-        total_stats = {
-            'total_annotations': 0,
-            'by_ontology': {},
-            'by_confidence': {'high': 0, 'medium': 0, 'low': 0},
-            'by_status': {'pending': 0, 'approved': 0, 'rejected': 0}
-        }
-        
-        for world in worlds:
-            stats = DocumentConceptAnnotation.get_annotation_statistics(world.id)
-            stats['world_name'] = world.name
-            stats['world_id'] = world.id
-            world_stats.append(stats)
-            
-            # Aggregate totals
-            total_stats['total_annotations'] += stats['total']
-            
-            for ontology, count in stats['ontology_counts'].items():
-                if ontology not in total_stats['by_ontology']:
-                    total_stats['by_ontology'][ontology] = 0
-                total_stats['by_ontology'][ontology] += count
-            
-            for level, count in stats['confidence_levels'].items():
-                total_stats['by_confidence'][level] += count
-            
-            total_stats['by_status']['approved'] += stats['approved']
-            total_stats['by_status']['rejected'] += stats['rejected']
-            total_stats['by_status']['pending'] += stats['pending']
-        
-        return render_template('annotations/statistics.html',
-                             world_stats=world_stats,
-                             total_stats=total_stats,
-                             worlds_count=len(worlds))
-        
-    except Exception as e:
-        logger.exception(f"Error loading annotation statistics: {e}")
-        flash(f'Error loading statistics: {str(e)}', 'error')
-        return redirect(url_for('dashboard.index'))

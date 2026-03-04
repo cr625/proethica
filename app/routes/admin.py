@@ -454,34 +454,6 @@ def data_overview():
     
     return render_template('admin/data_overview.html', data_stats=data_stats)
 
-@admin_bp.route('/audit-log')
-@admin_required_production
-def audit_log():
-    """View audit log of admin actions."""
-    
-    # For now, this is a placeholder
-    # In a full implementation, you'd have an audit log table
-    # that tracks all admin actions with timestamps and details
-    
-    audit_entries = [
-        {
-            'timestamp': datetime.utcnow() - timedelta(hours=2),
-            'admin_user': current_user.username,
-            'action': 'User Data Reset',
-            'target': 'test@proethica.org',
-            'details': 'Reset user data: 3 worlds, 5 documents, 2 guidelines deleted'
-        },
-        {
-            'timestamp': datetime.utcnow() - timedelta(days=1),
-            'admin_user': current_user.username,
-            'action': 'Bulk User Reset',
-            'target': 'All test users',
-            'details': 'Bulk reset completed: 2 users processed'
-        }
-    ]
-    
-    return render_template('admin/audit_log.html', audit_entries=audit_entries)
-
 @admin_bp.route('/system-health')
 @admin_required_production
 def system_health():

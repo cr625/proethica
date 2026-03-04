@@ -145,16 +145,11 @@ def create_app(config_name=None):
     from app.routes.dashboard import dashboard_bp
     from app.routes.worlds import worlds_bp
     from app.routes.domains import domains_bp
-    from app.routes.roles import roles_bp
-    from app.routes.resources import resources_bp
-    from app.routes.conditions import conditions_bp
     from app.routes.scenarios import scenarios_bp
     from app.routes.scenario_pipeline import interactive_scenario_bp
     from app.routes.scenario_pipeline.entity_review import bp as entity_review_bp
     from app.routes.scenario_pipeline.step4 import bp as step4_bp
     from app.routes.scenario_pipeline.step5 import bp as step5_bp
-    from app.routes.characters import characters_bp
-    from app.routes.events import events_bp
     from app.routes.simulation import simulation_bp
     # STUB ROUTES: Ontology functionality moved to OntServe - these redirect to OntServe
     from app.routes.ontology import ontology_bp
@@ -170,7 +165,6 @@ def create_app(config_name=None):
     from app.routes.wizard import wizard_bp
     from app.routes.guidelines import guidelines_bp
     from app.routes.admin import admin_bp
-    from app.routes.admin_prompts import admin_prompts_bp
     from app.routes.prompt_builder import prompt_builder_bp
     from app.routes.worlds.extraction import worlds_extract_only_bp
     from app.routes.annotations import annotations_bp
@@ -209,16 +203,11 @@ def create_app(config_name=None):
     app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
     app.register_blueprint(worlds_bp, url_prefix='/worlds')
     app.register_blueprint(domains_bp, url_prefix='/domains')
-    app.register_blueprint(roles_bp, url_prefix='/roles')
-    app.register_blueprint(resources_bp, url_prefix='/resources')
-    app.register_blueprint(conditions_bp, url_prefix='/conditions')
     app.register_blueprint(scenarios_bp, url_prefix='/scenarios')
     app.register_blueprint(interactive_scenario_bp)  # Uses /scenario_pipeline prefix from blueprint
     app.register_blueprint(entity_review_bp, url_prefix='/scenario_pipeline')
     app.register_blueprint(step4_bp)  # Uses /scenario_pipeline prefix from blueprint
     app.register_blueprint(step5_bp)  # Step 5: Scenario Generation
-    app.register_blueprint(characters_bp, url_prefix='/characters')
-    app.register_blueprint(events_bp, url_prefix='/events')
     app.register_blueprint(simulation_bp, url_prefix='/simulation')
     # STUB ROUTES: Ontology routes redirect to OntServe
     app.register_blueprint(ontology_bp, url_prefix='/ontology')
@@ -234,7 +223,6 @@ def create_app(config_name=None):
     app.register_blueprint(test_bp)
     app.register_blueprint(guidelines_bp)
     app.register_blueprint(admin_bp)
-    app.register_blueprint(admin_prompts_bp)
     app.register_blueprint(prompt_builder_bp)
     app.register_blueprint(worlds_extract_only_bp)
     app.register_blueprint(annotations_bp)
