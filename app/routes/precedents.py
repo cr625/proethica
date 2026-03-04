@@ -449,32 +449,10 @@ def api_similarity_network():
                     'matching_provisions': matching_provs
                 })
 
-        # Compute missing pairs if needed (skip if filtering by component - use cache only)
+        # On-demand computation disabled to prevent OOM on large case sets.
+        # The similarity cache should be pre-populated via:
+        #   python scripts/populate_similarity_cache.py
         computed_count = 0
-        if not component_filter:
-            for i, src_id in enumerate(case_ids):
-                for tgt_id in case_ids[i + 1:]:
-                    if (src_id, tgt_id) not in cached_pairs:
-                        # Compute similarity
-                        result = similarity_service.calculate_similarity(src_id, tgt_id)
-                        if result.overall_similarity >= min_score:
-                            # Determine primary component
-                            components = {
-                                k: round(v, 3) for k, v in result.component_scores.items()
-                            }
-                            primary_component = max(components, key=components.get)
-
-                            edges.append({
-                                'source': src_id,
-                                'target': tgt_id,
-                                'similarity': round(result.overall_similarity, 3),
-                                'components': components,
-                                'primary_component': primary_component,
-                                'matching_provisions': result.matching_provisions
-                            })
-                            # Cache the result
-                            similarity_service.cache_similarity(result)
-                            computed_count += 1
 
         # Entity-based filtering (if entity_type_filter is set)
         if entity_type_filter:

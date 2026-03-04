@@ -11,11 +11,11 @@ ProEthica is a multi-service application combining Flask web interface, PostgreS
 | Narrative     |--+-------->| Steps 1-3 |---------->| + CBR         |
 | (NSPE BER)    |  | parse   | Extraction|           | Index         |
 +---------------+  |         +-----------+           +---------------+
-                   |               |
-                   |               | entities
-                   |               v
-                   |         +-----------+  8 types
-                   |         |  Step 4   |---------->
+                   |               |                  ^
+                   |               | entities         |
+                   |               v                  |   
+                   |         +-----------+  8 types   |
+                   |         |  Step 4   |------------+
                    |         | Synthesis |
                    |         +-----------+
                    |
