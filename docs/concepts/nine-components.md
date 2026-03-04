@@ -254,7 +254,7 @@ Entity deduplication merges overlapping entities across sections and passes befo
 
 ### Step 4: Whole-Case Synthesis
 
-Analyzes extracted entities and case text across multiple phases (2A-2E, Phase 3, Phase 4) to produce 7 additional entity types: Code Provision References, Precedent Case References, Ethical Questions, Ethical Conclusions, Canonical Decision Points, Resolution Patterns, Causal-Normative Links, and Question Emergence. The full extraction pipeline produces **16 entity types** across all 4 steps.
+Analyzes extracted entities and case text across multiple phases (2A-2E, Phase 3, Phase 4) to produce 8 additional entity types: Code Provision References, Precedent Case References, Ethical Questions, Ethical Conclusions, Canonical Decision Points, Resolution Patterns, Causal-Normative Links, and Question Emergence. The full extraction pipeline produces **17 entity types** across all 4 steps.
 
 ---
 

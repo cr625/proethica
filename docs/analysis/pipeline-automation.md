@@ -237,14 +237,7 @@ To reprocess a completed case:
 
 ### Clear Case
 
-To clear without reprocessing:
-
-```bash
-python scripts/clear_case_extractions.py <case_id>
-```
-
-Options:
-- `--include-runs`: Also clear pipeline_run records
+To clear without reprocessing, use the Reprocess button on the Pipeline Dashboard which clears existing entities before re-running extraction.
 
 ## Pipeline Architecture
 
@@ -263,7 +256,7 @@ Step 1: Facts (Roles → States || Resources)
     ↓
 Step 1: Discussion (Roles → States || Resources)
     ↓
-Step 2: Facts (Obligations → Constraints || Capabilities, Principles)
+Step 2: Facts (Principles → Obligations → Constraints || Capabilities)
     ↓
 Step 2: Discussion (same)
     ↓
@@ -277,7 +270,7 @@ Step 4: Whole-case synthesis (Phases 2A-2E, 3, 4)
     ↓
 OntServe Commit #2 (Step 4 entities)
     ↓
-QC Audit (V0-V9 checks across 16 entity types)
+QC Audit (V0-V9 checks across 17 entity types)
     ↓
 Complete
 ```
@@ -354,18 +347,6 @@ After failure:
 
 ## Utility Scripts
 
-### Clear Case Extractions
-
-```bash
-python scripts/clear_case_extractions.py <case_id> [--include-runs]
-```
-
-### Cleanup Orphaned Entities
-
-```bash
-python scripts/cleanup_orphaned_entities.py [--delete]
-```
-
 ### Check Queue
 
 ```bash
@@ -398,14 +379,6 @@ Long-running tasks may use memory:
 1. Monitor worker memory
 2. Restart workers periodically
 3. Process fewer cases at once
-
-### Orphaned Entities
-
-If entities without sessions:
-
-```bash
-python scripts/cleanup_orphaned_entities.py --delete
-```
 
 ## Related Guides
 

@@ -44,24 +44,26 @@ postgresql://postgres:PASS@localhost:5432/ai_ethical_dm
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ONTSERVE_MCP_ENABLED` | auto | Auto-detected on startup |
 | `ONTSERVE_MCP_URL` | http://localhost:8082 | MCP server URL |
-| `ONTSERVE_MCP_PORT` | 8082 | MCP server port for auto-detection |
+| `ONTSERVE_MCP_PORT` | 8082 | Port used by `run.py` for auto-detection at startup |
+
+`ONTSERVE_MCP_ENABLED` is set automatically at runtime by `run.py` based on whether the MCP server responds. It is not a user-configurable setting.
 
 ### Extraction Settings
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `EXTRACTION_MODE` | multi_pass | Extraction mode |
 | `MOCK_LLM_ENABLED` | false | Use mock LLM for testing |
 | `USE_DATABASE_LANGEXTRACT_EXAMPLES` | true | Load examples from database |
 
 ### Pipeline Settings
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `CELERY_BROKER_URL` | redis://localhost:6379/1 | Celery broker |
-| `CELERY_RESULT_BACKEND` | redis://localhost:6379/1 | Result storage |
+Celery uses Redis DB 1 as both broker and result backend. These values are hardcoded in `celery_config.py`:
+
+```python
+broker='redis://localhost:6379/1'
+backend='redis://localhost:6379/1'
+```
 
 ## Configuration Files
 
@@ -81,10 +83,11 @@ class Config:
 Celery configuration in `/celery_config.py`:
 
 ```python
-broker_url = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/1')
-result_backend = os.environ.get('CELERY_RESULT_BACKEND', 'redis://localhost:6379/1')
-task_time_limit = 7200
-task_soft_time_limit = 6000
+broker = 'redis://localhost:6379/1'
+backend = 'redis://localhost:6379/1'
+task_time_limit = 7200       # 2 hour hard limit
+task_soft_time_limit = 6000  # 100 minute soft limit
+worker_prefetch_multiplier = 1  # One task at a time
 ```
 
 ## Model Selection
@@ -236,15 +239,6 @@ Store API keys securely:
 
 ## Performance Tuning
 
-### Database Connections
-
-SQLAlchemy pool settings:
-
-```python
-SQLALCHEMY_POOL_SIZE = 10
-SQLALCHEMY_MAX_OVERFLOW = 20
-```
-
 ### Celery Workers
 
 Adjust worker count:
@@ -320,9 +314,9 @@ PGPASSWORD=PASS psql -h localhost -U postgres -d ai_ethical_dm -c "SELECT 1"
 
 ```bash
 python -c "
-from app.services.claude_service import ClaudeService
-svc = ClaudeService()
-print(svc.test_connection())
+from app.services.llm import get_llm_manager
+mgr = get_llm_manager()
+print(f'LLM manager loaded, default model: {mgr.default_model}')
 "
 ```
 

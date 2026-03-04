@@ -35,7 +35,7 @@ Steps must be processed in sequence. Completed steps display as green; incomplet
 2. The extraction page displays the Facts section text
 3. Click **Full Contextual Framework Pass** to extract all three concept types. Roles extract first, then States and Resources run in parallel.
 
-Individual extraction buttons (**Extract Roles**, **Extract States**, **Extract Resources**) are also available for targeted re-extraction.
+The full pass extracts all three concept types in sequence.
 
 ![Step 1 Extraction](../assets/images/screenshots/step1-extraction-content.png)
 
@@ -56,7 +56,7 @@ After completing Pass 1 (Facts), click **Discussion Section** to run the same ex
 ### Pass 1 (Facts)
 
 1. Click the **Step 2** button on the case page
-2. Click **Full Normative Requirements Pass** to extract all four concept types. Obligations extract first, then Constraints and Capabilities run in parallel.
+2. Click **Full Normative Requirements Pass** to extract all four concept types. Principles extract first, then Obligations, then Constraints and Capabilities run in parallel.
 
 Unlike Step 1, Step 2 does not have individual per-concept buttons.
 
@@ -96,7 +96,7 @@ After Steps 1-3, entity deduplication merges overlapping entities across section
 
 ## Step 4: Whole-Case Synthesis
 
-Step 4 analyzes the full case text together with entities from Steps 1-3. It produces 7 additional entity types across multiple phases. See [Pipeline Terminology](../concepts/terminology.md) for phase details.
+Step 4 analyzes the full case text together with entities from Steps 1-3. It produces 8 additional entity types across multiple phases. See [Pipeline Terminology](../concepts/terminology.md) for phase details.
 
 Step 4 is accessed from the pipeline sidebar after reconcile completes.
 

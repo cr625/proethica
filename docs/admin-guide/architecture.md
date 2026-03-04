@@ -2,7 +2,36 @@
 
 ProEthica is a multi-service application combining Flask web interface, PostgreSQL storage, Redis task queuing, and OntServe ontology integration.
 
-## System Overview Diagram
+## High-Level Architecture
+
+```text
+                         ProEthica Pipeline
++---------------+                                    +---------------+
+| Case          |  upload    +-----------+  9 types  | 7 Views       |
+| Narrative     |--+-------->| Steps 1-3 |---------->| + CBR         |
+| (NSPE BER)    |  | parse   | Extraction|           | Index         |
++---------------+  |         +-----------+           +---------------+
+                   |               |
+                   |               | entities
+                   |               v
+                   |         +-----------+  8 types
+                   |         |  Step 4   |---------->
+                   |         | Synthesis |
+                   |         +-----------+
+                   |
+   PROCESSING      |      KNOWLEDGE            INFRASTRUCTURE
++----------+       |    +----------+           +----------+
+| LLM      |       |    | Ontology |--serves-->| MCP      |
+| Claude   |<......|....| ProEthica|   via     | OntServe |
+| API      | constrains | Core     |           | :8082    |
++----------+       |    +----------+           +----------+
++----------+       |    +----------+           +----------+
+| LangGraph|       |    | Case     |--CBR----->| Database |
+| Orchestr.|       |    | Base     |  index    | SQL+Vec  |
++----------+       |    +----------+           +----------+
+```
+
+## System Overview
 
 ```text
 +-----------------------------------------------------------------------+
@@ -36,8 +65,6 @@ ProEthica is a multi-service application combining Flask web interface, PostgreS
 +-----------------------------------------------------------------------+
 ```
 
-## Service Architecture
-
 | Service | Port | Purpose |
 |---------|------|---------|
 | ProEthica (Flask) | 5000 | Main web application |
@@ -46,7 +73,9 @@ ProEthica is a multi-service application combining Flask web interface, PostgreS
 | Redis | 6379 | Task queue for pipeline automation |
 | Celery Worker | - | Background task processing |
 
-## Data Flow Diagram
+## Extraction Pipeline
+
+The pipeline extracts nine concept types across three steps, then synthesizes seven additional entity types in Step 4. For the full concept framework see [Nine-Component Framework](../concepts/nine-components.md); for step/pass/phase terminology see [Pipeline Terminology](../concepts/terminology.md).
 
 ```text
 +-----------------------------------------------------------------------+
@@ -63,19 +92,19 @@ ProEthica is a multi-service application combining Flask web interface, PostgreS
 |                        Extraction Pipeline                            |
 +-----------------------------------------------------------------------+
 |                                                                       |
-|  +--------+  +--------+  +--------+  +---------+  +--------+         |
-|  | Step 1 |->| Step 2 |->| Step 3 |->|Reconcile|->| Step 4 |         |
-|  |Context |  |Normative| |Temporal|  |Dedup    |  |Synthesis|        |
-|  +---+----+  +---+----+  +---+----+  +----+----+  +---+----+         |
+|  +--------+  +--------+  +--------+  +---------+  +--------+          |
+|  | Step 1 |->| Step 2 |->| Step 3 |->|Reconcile|->| Step 4 |          |
+|  |Context |  |Normative| |Temporal|  |Dedup    |  |Synthesis|         |
+|  +---+----+  +---+----+  +---+----+  +----+----+  +---+----+          |
 |      |           |           |             |           |              |
 |      v           v           v             |           v              |
-|  +-----------------------------------------------------------+       |
-|  |              temporary_rdf_storage (16 types)              |       |
-|  |  Steps 1-3: R, S, Rs, P, O, Cs, Ca, A, E                 |       |
+|  +-----------------------------------------------------------+        |
+|  |              temporary_rdf_storage (17 types)              |       |
+|  |  Steps 1-3: R, S, Rs, P, O, Cs, Ca, A, E                   |       |
 |  |  Step 4: provisions, precedents, questions, conclusions,   |       |
 |  |    decision_points, resolution_patterns,                   |       |
 |  |    causal_normative_links, question_emergence              |       |
-|  +-----------------------------------------------------------+       |
+|  +-----------------------------------------------------------+        |
 |                              |                                        |
 +------------------------------+----------------------------------------+
                                |
@@ -89,16 +118,33 @@ ProEthica is a multi-service application combining Flask web interface, PostgreS
                                v
                    +-----------------------+
                    |   QC Audit (V0-V9)    |
-                   | Verify all 16 types   |
+                   | Verify all 17 types   |
                    +-----------------------+
 ```
 
-## Database Schema Diagram
+### LLM Request Flow
+
+All extraction calls use `claude-sonnet-4-6` via streaming. Prompts are stored as database templates editable through the Prompt Editor (`/tools/prompts`).
 
 ```text
-+-----------------------------------------------------------------------+
-|                  ProEthica Database (ai_ethical_dm)                   |
-+-----------------------------------------------------------------------+
+   +----------+    +----------+    +----------+
+   |  Prompt  |--->|  Claude  |--->| Response |
+   |  Builder |    |   API    |    |  Parser  |
+   +----------+    +----------+    +----------+
+        |                               |
+        v                               v
+   +----------+                    +----------+
+   | OntServe |                    |  Entity  |
+   |   Defs   |                    |Extraction|
+   +----------+                    +----------+
+```
+
+## Database Schema
+
+```text
++-------------------------------------------------------+
+|         ProEthica Database (ai_ethical_dm)            |
++-------------------------------------------------------+
 
 +--------------+    +--------------+    +--------------+
 |  documents   |    |doc_sections  |    |case_features |
@@ -137,34 +183,57 @@ ProEthica is a multi-service application combining Flask web interface, PostgreS
                     +--------------+    +--------------+
 ```
 
-## Component Details
+### Key Models
 
-### Web Application (Flask)
+| Model | Table | Purpose |
+|-------|-------|---------|
+| `Document` | `documents` | Cases and guidelines |
+| `DocumentSection` | `document_sections` | Parsed case sections (Facts, Discussion) |
+| `TemporaryRDFStorage` | `temporary_rdf_storage` | Extracted entities with RDF representation |
+| `ExtractionPrompt` | `extraction_prompts` | LLM prompts and responses |
+| `PipelineRun` | `pipeline_run` | Background pipeline execution tracking |
+| `World` | `worlds` | Domain containers (e.g., Engineering Ethics) |
+| `Guideline` | `guidelines` | Professional codes of conduct |
+| `User` | `users` | Authentication and authorization |
+| `CaseFeatures` | `case_features` | Embedding vectors (384D, all-MiniLM-L6-v2) |
+
+## Code Organization
+
+### Application Structure
 
 | Component | Location | Purpose |
 |-----------|----------|---------|
-| Routes | `app/routes/` | URL handlers for all features |
+| Routes | `app/routes/` | Flask blueprints (42 registered) |
 | Templates | `app/templates/` | Jinja2 HTML templates |
 | Services | `app/services/` | Business logic and extraction |
 | Models | `app/models/` | SQLAlchemy database models |
+| Tasks | `app/tasks/` | Celery task definitions |
 | Utils | `app/utils/` | Helpers and authentication |
 
-### Extraction Pipeline
+### Route Packages
 
-```text
-LLM Request Flow:
+Large route files are decomposed into sub-module packages. Each package follows the same pattern: `__init__.py` creates the Blueprint and imports `register_*_routes()` functions from sub-modules.
 
-   +----------+    +----------+    +----------+
-   |  Prompt  |--->|  Claude  |--->| Response |
-   |  Builder |    |   API    |    |  Parser  |
-   +----------+    +----------+    +----------+
-        |                               |
-        v                               v
-   +----------+                    +----------+
-   | OntServe |                    |  Entity  |
-   |   Defs   |                    |Extraction|
-   +----------+                    +----------+
-```
+| Package | Modules | Purpose |
+|---------|---------|---------|
+| `cases/` | 10 | Case listing, viewing, creation, editing, scenario generation |
+| `worlds/` | 8 | World management, guidelines, triples, concept mapping |
+| `scenario_pipeline/step4/` | 19 | Step 4 synthesis, entity management, streaming |
+| `entity_review/` | 4 | Entity selection, OntServe matching, reconciliation |
+| `scenarios/` | 6 | Scenario characters, resources, actions, events, decisions |
+
+Single-file routes handle focused concerns: `admin.py`, `annotations.py`, `dashboard.py`, `documents.py`, `guidelines.py`, `health.py`, `pipeline_dashboard.py`.
+
+### Service Groups
+
+| Group | Location | Purpose |
+|-------|----------|---------|
+| Extraction | `services/extraction/` | Unified dual extractor, prompt templates |
+| LLM | `services/llm/` | Model management, streaming, response parsing |
+| MCP Clients | `services/mcp_client.py`, `external_mcp_client.py`, `ontserve_mcp_client.py` | OntServe communication |
+| Annotation | 14 service files | Document concept annotation pipeline |
+| Synthesis | `services/case_synthesizer.py`, `decision_point_synthesizer.py` | Step 4 analysis |
+| OntServe | `services/ontserve_commit_service.py`, `auto_commit_service.py` | Entity commit workflow |
 
 ### OntServe Integration
 
@@ -181,17 +250,7 @@ MCP (Model Context Protocol) provides ontology services via 8 tools:
 | `uncommit_case_entities` | Remove previously committed case entities |
 | `get_ontology_stats` | Ontology statistics (class counts, entity counts) |
 
-## Environment Configuration
-
-| Variable | Purpose |
-|----------|---------|
-| `FLASK_ENV` | development/production mode |
-| `SQLALCHEMY_DATABASE_URI` | PostgreSQL connection |
-| `ANTHROPIC_API_KEY` | Claude API access |
-| `ONTSERVE_MCP_URL` | OntServe server location |
-| `REDIS_URL` | Redis connection for Celery |
-
-## Deployment Topology
+## Deployment
 
 ```text
 Production (proethica.org):
@@ -218,8 +277,18 @@ Production (proethica.org):
 +-----------------------------------------------------------------------+
 ```
 
+| Variable | Purpose |
+|----------|---------|
+| `FLASK_ENV` | development/production mode |
+| `SQLALCHEMY_DATABASE_URI` | PostgreSQL connection |
+| `ANTHROPIC_API_KEY` | Claude API access |
+| `ONTSERVE_MCP_URL` | OntServe server location |
+| `REDIS_URL` | Redis connection for Celery |
+
 ## Related Documentation
 
+- [Nine-Component Framework](../concepts/nine-components.md) - The 9 concept types and theoretical foundations
+- [Pipeline Terminology](../concepts/terminology.md) - Step/Pass/Phase definitions and processing order
 - [Ontology Integration](ontology-integration.md) - OntServe MCP details
 - [Installation & Deployment](installation.md) - Setup instructions
 - [Pipeline Automation](../analysis/pipeline-automation.md) - Background processing

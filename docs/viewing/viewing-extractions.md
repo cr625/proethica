@@ -119,7 +119,7 @@ The "Available Classes" section shows existing ontology classes from OntServe. E
 
 ## Step 4: Whole-Case Synthesis
 
-Step 4 analyzes extracted entities and case text to produce 7 additional entity types:
+Step 4 analyzes extracted entities and case text to produce 8 additional entity types:
 
 | Entity Type | Phase | Description |
 |-------------|-------|-------------|

@@ -71,7 +71,7 @@ The Structure view (`/cases/<id>/structure`) provides:
 
 ## Extraction Pipeline
 
-The pipeline (`/scenario_pipeline/<case_id>`) provides step-by-step case analysis. A sidebar navigation shows all steps and their completion status.
+The pipeline (`/scenario_pipeline/case/<case_id>`) provides step-by-step case analysis. A sidebar navigation shows all steps and their completion status.
 
 | Step | Name | Description | Entity Types |
 |------|------|-------------|-------------|

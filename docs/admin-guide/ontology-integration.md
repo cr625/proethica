@@ -191,7 +191,7 @@ proeth-int:NSPECodeProvision rdfs:subClassOf proeth-core:Resource .
 
 ### Case Analysis Classes (Step 4)
 
-Step 4 produces 7 additional entity types beyond the 9 base concepts:
+Step 4 produces 8 additional entity types beyond the 9 base concepts:
 
 | Class | Phase | Description |
 |-------|-------|-------------|
@@ -214,7 +214,7 @@ Properties:
 | `isBoardChoice` | DecisionOption | boolean | Whether this option was chosen |
 | `answersQuestion` | BoardConclusion | EthicalQuestion | Links conclusion to question |
 
-The full extraction pipeline produces **16 entity types** across all 4 steps (9 base concepts + 7 Step 4 types).
+The full extraction pipeline produces **17 entity types** across all 4 steps (9 base concepts + 8 Step 4 types).
 
 ## Entity Review Integration
 

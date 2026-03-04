@@ -17,7 +17,7 @@ Cases are organized by year with expandable cards displaying:
 |---------|-------------|
 | **Title** | Case name with robot icon if agent-generated |
 | **Case Number** | Badge showing identifier (e.g., "Case #24-02") |
-| **Analyzed Badge** | Green "Analyzed" or gray "Not Analyzed" |
+| **Status Badge** | Green "Synthesized", blue "Extracted", or gray "Not Started" |
 | **Subject Tags** | Clickable tags for filtering (yellow badges) |
 | **Find Similar** | Link to precedent discovery |
 | **Questions** | Ethical questions posed to the board |
@@ -30,7 +30,7 @@ The filter bar provides several options:
 | Filter | Description |
 |--------|-------------|
 | **World Filter** | Dropdown to filter by domain (e.g., Engineering Ethics) |
-| **Analyzed Only** | Checkbox to show only cases with Step 4 synthesis complete |
+| **Status Filter** | Dropdown with "All Cases", "Extracted+", "Synthesized" options |
 | **Tag Filter** | Clickable tags to filter by subject category |
 
 #### Tag Filtering

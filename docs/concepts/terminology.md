@@ -42,7 +42,7 @@ Pipeline
 | States | S | Situational conditions and circumstances |
 | Resources | Rs | Referenced standards, codes, regulations |
 
-### Step 2: Normative Framework
+### Step 2: Normative Requirements
 
 | Property | Value |
 |----------|-------|
@@ -59,7 +59,7 @@ Pipeline
 | Constraints | Cs | Prohibitions and limitations |
 | Capabilities | Ca | Permissions and available options |
 
-### Step 3: Temporal Framework
+### Step 3: Temporal Dynamics
 
 | Property | Value |
 |----------|-------|
@@ -88,7 +88,7 @@ Between Steps 3 and 4, entity deduplication resolves overlapping entities across
 | Color | Slate/Purple gradient |
 | Input | Entities from Steps 1-3 + case text |
 
-Step 4 operates on both previously extracted entities and case text. It produces 7 additional entity types beyond the base 9.
+Step 4 operates on both previously extracted entities and case text. It produces 8 additional entity types beyond the base 9.
 
 **Phases**:
 
@@ -121,7 +121,7 @@ Step 5 is planned for interactive scenario exploration. Currently displays a pla
 The pipeline executes in strict order:
 
 1. **Step 1**: Pass 1 (Facts) then Pass 2 (Discussion). Within each pass: S and Rs run in parallel after R completes.
-2. **Step 2**: Pass 1 (Facts) then Pass 2 (Discussion). Within each pass: Cs and Ca run in parallel after O completes.
+2. **Step 2**: Pass 1 (Facts) then Pass 2 (Discussion). Within each pass: P then O sequentially, then Cs and Ca run in parallel.
 3. **Step 3**: Single unified extraction using LangGraph orchestration.
 4. **Reconcile**: Deduplicate overlapping entities across all passes.
 5. **OntServe Commit**: Commit Steps 1-3 entities to ontology.
@@ -159,7 +159,7 @@ Steps 1-2 extract from both Facts and Discussion sections via separate passes. S
 | Action | A | #198754 | bg-success |
 | Event | E | #ffc107 | bg-warning |
 
-**Step 4 (7 additional entity types)**:
+**Step 4 (8 additional entity types)**:
 
 | Entity | Phase | Description |
 |--------|-------|-------------|

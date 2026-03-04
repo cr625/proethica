@@ -50,8 +50,8 @@ The extraction pipeline uses consistent colors for each step. Each step contains
 | Step | Name | Hex | Entities Extracted |
 |------|------|-----|-------------------|
 | Step 1 | Contextual Framework | #3b82f6 (Blue) | Roles (R), States (S), Resources (Rs) |
-| Step 2 | Normative Framework | #8b5cf6 (Purple) | Principles (P), Obligations (O), Constraints (Cs), Capabilities (Ca) |
-| Step 3 | Temporal Framework | #14b8a6 (Teal) | Actions (A), Events (E) |
+| Step 2 | Normative Requirements | #8b5cf6 (Purple) | Principles (P), Obligations (O), Constraints (Cs), Capabilities (Ca) |
+| Step 3 | Temporal Dynamics | #14b8a6 (Teal) | Actions (A), Events (E) |
 | Step 4 | Synthesis & Analysis | #64748b (Slate) | Provisions, Precedents, Questions, Conclusions, Decision Points, Resolution Patterns, Causal-Normative Links, Question Emergence |
 
 ### Terminology Reference
