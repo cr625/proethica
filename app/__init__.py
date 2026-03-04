@@ -172,7 +172,7 @@ def create_app(config_name=None):
     from app.routes.admin import admin_bp
     from app.routes.admin_prompts import admin_prompts_bp
     from app.routes.prompt_builder import prompt_builder_bp
-    from app.routes.worlds_extract_only import worlds_extract_only_bp
+    from app.routes.worlds.extraction import worlds_extract_only_bp
     from app.routes.annotations import annotations_bp
     from app.routes.agent import agent_bp
     # Enhanced intelligent annotations
