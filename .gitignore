@@ -140,7 +140,6 @@ temp_*/
 *_temp/
 add_decision_points*.sql
 check_decisions.py
-*_analysis.py
 *_refined.py
 
 # Server-specific configuration
