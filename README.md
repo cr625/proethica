@@ -33,7 +33,7 @@ python run.py
 
 Access at: http://localhost:5000
 
-See [INSTALL.md](INSTALL.md) for full setup instructions.
+See the [Installation Guide](https://proethica.org/docs/admin-guide/installation/) for full setup instructions including PostgreSQL, Redis, Celery, and OntServe configuration.
 
 ## License
 
