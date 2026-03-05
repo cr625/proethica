@@ -2,8 +2,7 @@
 
 {% block title %}Enhanced Temporal Review - Case {{ case.id }}{% endblock %}
 
-{% block head %}
-{{ super() }}
+{% block styles %}
 <style>
     .page-header {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -23,6 +22,127 @@
         padding: 10px;
         border-radius: 4px;
         overflow-x: auto;
+    }
+    .temporal-timeline {
+        position: relative;
+        margin-left: 12px;
+        padding-left: 36px;
+        border-left: 3px solid #e2e8f0;
+    }
+    .timeline-node {
+        position: relative;
+        padding: 8px 12px 8px 20px;
+        margin-bottom: 2px;
+        background: #f8fafc;
+        border-radius: 6px;
+        border: 1px solid #f1f5f9;
+    }
+    .timeline-node:hover {
+        background: #f1f5f9;
+    }
+    .timeline-node .timeline-icon {
+        position: absolute;
+        left: -30px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.85rem;
+        color: #0d6efd;
+        background: white;
+        z-index: 1;
+    }
+    .timeline-node::after {
+        content: '';
+        position: absolute;
+        left: -14px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 14px;
+        height: 2px;
+        background: #e2e8f0;
+    }
+    .timeline-node.is-event .timeline-icon {
+        color: #dc3545;
+    }
+    .timeline-node .timeline-content {
+        display: flex;
+        align-items: baseline;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+    .timeline-node .timeline-entity {
+        font-weight: 600;
+        font-size: 0.95rem;
+    }
+    .timeline-node .timeline-marker {
+        font-size: 0.82rem;
+        color: #64748b;
+    }
+    .owl-time-summary {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+        border: 1px solid #ddd6fe;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: #5b21b6;
+        user-select: none;
+    }
+    .owl-time-summary:hover {
+        background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+    }
+    details[open] .owl-time-summary {
+        border-radius: 6px 6px 0 0;
+        border-bottom-color: transparent;
+    }
+    .owl-time-chain {
+        border: 1px solid #ddd6fe;
+        border-top: none;
+        border-radius: 0 0 6px 6px;
+        overflow: hidden;
+    }
+    .owl-time-triple {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 12px;
+        font-size: 0.8rem;
+    }
+    .owl-time-triple:nth-child(odd) {
+        background: #faf5ff;
+    }
+    .owl-time-triple:nth-child(even) {
+        background: white;
+    }
+    .owl-time-entity {
+        font-weight: 500;
+        color: #1e293b;
+        max-width: 280px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .owl-time-prop {
+        font-family: 'SFMono-Regular', Consolas, monospace;
+        font-size: 0.72rem;
+        color: #7c3aed;
+        background: white;
+        border: 1px solid #ddd6fe;
+        padding: 1px 6px;
+        border-radius: 3px;
+        white-space: nowrap;
+    }
+    .owl-time-arrow {
+        color: #c4b5fd;
+        font-size: 0.7rem;
     }
 </style>
 {% endblock %}
@@ -83,16 +203,12 @@
     </div>
     {% else %}
 
-    <div class="alert alert-success">
-        <h5 class="mb-2"><i class="bi bi-check-circle"></i> Extraction Complete</h5>
-        <div class="mb-2"><strong>Total Entities:</strong> {{ summary.total_entities }}</div>
-        <div class="d-flex flex-wrap gap-4">
-            <div><strong>Actions:</strong> {{ summary.actions }}</div>
-            <div><strong>Events:</strong> {{ summary.events }}</div>
-            <div><strong>Causal Chains:</strong> {{ summary.causal_chains }}</div>
-            <div><strong>Allen Relations:</strong> {{ summary.allen_relations }}</div>
-            <div><strong>Timeline:</strong> {{ timeline.total_elements if timeline else 0 }}</div>
-        </div>
+    <div class="d-flex flex-wrap gap-3 mb-3 small">
+        <span class="badge bg-light text-dark border">{{ summary.total_entities }} entities</span>
+        <span class="badge bg-light text-dark border"><i class="bi bi-play-circle me-1" style="color: #0d6efd;"></i>{{ summary.actions }} actions</span>
+        <span class="badge bg-light text-dark border"><i class="bi bi-lightning me-1" style="color: #dc3545;"></i>{{ summary.events }} events</span>
+        <span class="badge bg-light text-dark border"><i class="bi bi-link-45deg me-1"></i>{{ summary.causal_chains }} causal chains</span>
+        <span class="badge bg-light text-dark border"><i class="bi bi-arrow-left-right me-1"></i>{{ summary.allen_relations }} temporal relations</span>
     </div>
 
     <!-- Timeline Visualization -->
@@ -102,66 +218,61 @@
             <h5 class="mb-0"><i class="bi bi-clock-history"></i> Timeline Overview</h5>
         </div>
         <div class="card-body">
-            <div class="alert alert-info mb-3">
-                <i class="bi bi-info-circle"></i>
-                <strong>Note:</strong> The timeline includes only actions and events with clear temporal markers that could be sequenced chronologically.
+            <div class="d-flex gap-3 mb-3 small text-muted align-items-center">
+                <span><i class="bi bi-play-circle me-1" style="color: #0d6efd;"></i>Action</span>
+                <span><i class="bi bi-lightning me-1" style="color: #dc3545;"></i>Event</span>
+                <span>{{ timeline.total_elements }} sequenced markers</span>
                 {% if summary.actions > timeline.action_count or summary.events > timeline.event_count %}
-                Some extracted entities ({{ summary.actions - timeline.action_count }} actions, {{ summary.events - timeline.event_count }} events) did not have sufficient temporal information for timeline placement but are shown below in the full lists.
+                <span class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>{{ summary.actions - timeline.action_count + summary.events - timeline.event_count }} lack temporal markers</span>
                 {% endif %}
             </div>
-            <div class="row mb-3">
-                <div class="col-md-4">
-                    <strong>Timeline Elements:</strong> {{ timeline.total_elements }}
-                </div>
-                <div class="col-md-4">
-                    <strong>Actions on Timeline:</strong> {{ timeline.action_count }} <small class="text-muted">(of {{ summary.actions }} extracted)</small>
-                </div>
-                <div class="col-md-4">
-                    <strong>Events on Timeline:</strong> {{ timeline.event_count }} <small class="text-muted">(of {{ summary.events }} extracted)</small>
-                </div>
-            </div>
 
-            <h6 class="mt-3">Temporal Markers</h6>
-            <ul class="list-group">
+            <div class="temporal-timeline">
                 {% for timepoint in timeline.timepoints %}
-                <li class="list-group-item d-flex justify-content-between align-items-center">
-                    <span><strong>{{ timepoint['proeth:timepoint'] }}</strong></span>
-                    <span class="badge bg-secondary">{{ timepoint['proeth:elementCount'] }} elements</span>
-                </li>
+                {% set marker = timepoint['proeth:timepoint'] %}
+                {% set entity = timeline_entity_map.get(marker) %}
+                <div class="timeline-node {{ 'is-event' if entity and entity.kind == 'event' else '' }} {{ 'is-interval' if timepoint.get('proeth:isInterval') else '' }}">
+                    <span class="timeline-icon">
+                        {% if entity and entity.kind == 'event' %}
+                        <i class="bi bi-lightning"></i>
+                        {% else %}
+                        <i class="bi bi-play-circle"></i>
+                        {% endif %}
+                    </span>
+                    <div class="timeline-content">
+                        {% if entity %}
+                        <span class="timeline-entity">{{ entity.label }}</span>
+                        <span class="timeline-marker">{{ marker }}</span>
+                        {% else %}
+                        <span class="timeline-marker">{{ marker }}</span>
+                        {% endif %}
+                    </div>
+                </div>
                 {% endfor %}
-            </ul>
-
-            {% if timeline.temporal_consistency %}
-            <div class="mt-3">
-                <h6>Temporal Consistency Check</h6>
-                {% if timeline.temporal_consistency.get('proeth:valid', False) %}
-                <span class="badge bg-success">Valid</span>
-                {% else %}
-                <span class="badge bg-danger">Issues Found</span>
-                {% endif %}
-
-                {% if timeline.temporal_consistency.get('proeth:warnings', []) %}
-                <div class="alert alert-warning mt-2">
-                    <strong>Warnings:</strong>
-                    <ul class="mb-0">
-                        {% for warning in timeline.temporal_consistency['proeth:warnings'] %}
-                        <li>{{ warning }}</li>
-                        {% endfor %}
-                    </ul>
-                </div>
-                {% endif %}
-
-                {% if timeline.temporal_consistency.get('proeth:contradictions', []) %}
-                <div class="alert alert-danger mt-2">
-                    <strong>Contradictions:</strong>
-                    <ul class="mb-0">
-                        {% for contradiction in timeline.temporal_consistency['proeth:contradictions'] %}
-                        <li>{{ contradiction }}</li>
-                        {% endfor %}
-                    </ul>
-                </div>
-                {% endif %}
             </div>
+
+            {% if allen_relations %}
+            <details class="mt-3">
+                <summary class="owl-time-summary">
+                    <i class="bi bi-diagram-3"></i>
+                    OWL-Time Temporal Structure
+                    <span class="badge rounded-pill" style="background: #7c3aed; font-size: 0.7rem;">{{ allen_relations|length }} relations</span>
+                    <span style="font-weight: normal; font-size: 0.7rem; color: #7c3aed; margin-left: auto;">
+                        <span style="font-family: monospace;">time:</span> = <a href="http://www.w3.org/2006/time#" class="text-decoration-none" style="color: #7c3aed;" target="_blank" onclick="event.stopPropagation();">w3.org/2006/time</a>
+                    </span>
+                </summary>
+                <div class="owl-time-chain">
+                    {% for rel in allen_relations %}
+                    <div class="owl-time-triple">
+                        <span class="owl-time-entity" title="{{ rel.from_entity }}">{{ rel.from_entity }}</span>
+                        <span class="owl-time-arrow"><i class="bi bi-arrow-right"></i></span>
+                        <span class="owl-time-prop" title="{{ rel.owl_time_uri }}">{{ rel.owl_time_property }}</span>
+                        <span class="owl-time-arrow"><i class="bi bi-arrow-right"></i></span>
+                        <span class="owl-time-entity" title="{{ rel.to_entity }}">{{ rel.to_entity }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </details>
             {% endif %}
         </div>
     </div>
@@ -569,7 +680,14 @@
                             </td>
                             <td>
                                 {% if relation.evidence %}
-                                <small>{{ relation.evidence[:100] }}{% if relation.evidence|length > 100 %}...{% endif %}</small>
+                                {% if relation.evidence|length > 100 %}
+                                <small>
+                                    <span id="ev-short-{{ loop.index }}">{{ relation.evidence[:100] }}... <a href="#" class="text-decoration-none" onclick="event.preventDefault(); document.getElementById('ev-short-{{ loop.index }}').style.display='none'; document.getElementById('ev-full-{{ loop.index }}').style.display='inline';">[more]</a></span>
+                                    <span id="ev-full-{{ loop.index }}" style="display:none;">{{ relation.evidence }} <a href="#" class="text-decoration-none" onclick="event.preventDefault(); document.getElementById('ev-full-{{ loop.index }}').style.display='none'; document.getElementById('ev-short-{{ loop.index }}').style.display='inline';">[less]</a></span>
+                                </small>
+                                {% else %}
+                                <small>{{ relation.evidence }}</small>
+                                {% endif %}
                                 {% else %}
                                 <span class="text-muted">-</span>
                                 {% endif %}

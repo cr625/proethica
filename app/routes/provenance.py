@@ -936,7 +936,7 @@ def _get_step4_phase_data(case_id: int, phase_def: dict) -> dict:
         'name': phase_def['name'],
         'concept_type': concept_type,
         'color': PIPELINE_STRUCTURE['step4_color'],
-        'has_data': prompt is not None,
+        'has_data': prompt is not None or len(entities) > 0,
         'prompt': {
             'id': prompt.id,
             'text': prompt.prompt_text,
@@ -981,6 +981,28 @@ def _build_algorithmic_trace(case_id: int, concept_type: str, prompt) -> dict:
     no algorithmic component exists for this phase.
     """
     rs = _parse_results_summary(prompt)
+
+    if concept_type == 'code_provision_reference':
+        # Phase 2A: Algorithmic provision detection + entity linking
+        prov_entities = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id, extraction_type='code_provision_reference'
+        ).all()
+        if not prov_entities:
+            return None
+        total_links = sum(
+            len((e.rdf_json_ld or {}).get('appliesTo', []))
+            for e in prov_entities
+        )
+        return {
+            'type': 'code_provision_extraction',
+            'total': len(prov_entities),
+            'total_links': total_links,
+            'provisions': [{
+                'code': e.entity_label,
+                'text': (e.entity_definition or '')[:120],
+                'link_count': len((e.rdf_json_ld or {}).get('appliesTo', [])),
+            } for e in prov_entities]
+        }
 
     if concept_type == 'precedent_case_reference':
         # Phase 2B: Case number resolution against internal document DB

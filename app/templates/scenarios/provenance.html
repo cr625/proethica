@@ -45,6 +45,8 @@
                             <option value="2" {% if initial_step == 2 %}selected{% endif %}>Step 2: Normative</option>
                             <option value="3" {% if initial_step == 3 %}selected{% endif %}>Step 3: Temporal</option>
                             <option value="4">Step 4: Synthesis</option>
+                            <option value="qc">QC Verification</option>
+                            <option value="refinements">Manual Refinements</option>
                         </select>
                         <select id="filter-section" class="form-select form-select-sm" style="width: auto;" onchange="applyFilters()">
                             <option value="">All Sections</option>
@@ -474,9 +476,18 @@ function displayPipeline(data) {
         container.appendChild(createQCCard(data.qc_verification));
     }
 
-    // Review Log
+    // Manual Refinements (revision entries from review log)
+    if (data.review_log) {
+        const revisions = data.review_log.filter(e => e.entry_type === 'revision');
+        container.appendChild(createRefinementsCard(revisions));
+    }
+
+    // Review Log (non-revision entries)
     if (data.review_log && data.review_log.length > 0) {
-        container.appendChild(createReviewLogCard(data.review_log));
+        const nonRevisions = data.review_log.filter(e => e.entry_type !== 'revision');
+        if (nonRevisions.length > 0) {
+            container.appendChild(createReviewLogCard(nonRevisions));
+        }
     }
 }
 
@@ -491,13 +502,22 @@ function formatQCDetails(check) {
             if (d.issues) parts.push(d.issues.join('; '));
             break;
         case 'V1':
-            if (d.multi_session_types && d.multi_session_types.length > 0)
-                parts.push(`multi-session: ${d.multi_session_types.join(', ')}`);
+            if (d.multi_session_types && d.multi_session_types.length > 0) {
+                const typeNames = d.multi_session_types.map(t =>
+                    typeof t === 'object' ? `${t.type} (${t.sessions} sessions)` : t
+                );
+                parts.push(`multi-session: ${typeNames.join(', ')}`);
+            }
             if (d.actual_duplicates && d.actual_duplicates.length > 0)
                 parts.push(`${d.actual_duplicates.length} actual duplicates`);
+            else if (d.multi_session_types && d.multi_session_types.length > 0)
+                parts.push('no actual label duplicates');
             break;
         case 'V4':
-            if (d.non_action_count !== undefined) parts.push(`${d.non_action_count} non-action options`);
+            if (d.violations && d.violations.length > 0)
+                parts.push(`${d.violations.length} violations`);
+            else if (d.decision_points)
+                parts.push(`${d.decision_points.length} DPs checked`);
             break;
         case 'V6':
             if (d.type_count !== undefined) parts.push(`${d.type_count}/16 types`);
@@ -510,14 +530,82 @@ function formatQCDetails(check) {
                 parts.push(`${d.out_of_range.length} out of range`);
             break;
         case 'V8':
-            if (d.note) parts.push(d.note);
-            else if (d.prompt_models && d.prompt_models.length > 0) parts.push(d.prompt_models[0]);
+            if (d.prompt_models && d.prompt_models.length > 0) parts.push(d.prompt_models.join(', '));
             break;
         case 'V9':
             if (d.total !== undefined) parts.push(`${d.published || 0}/${d.total} published`);
             break;
+        default:
+            if (d.note) parts.push(d.note);
+            break;
     }
     return parts.length > 0 ? `<div class="text-muted small">${escapeHtml(parts.join(' | '))}</div>` : '';
+}
+
+function createRefinementsCard(revisions) {
+    const div = document.createElement('div');
+    div.className = 'pipeline-card';
+    div.dataset.step = 'refinements';
+    div.dataset.type = 'refinements';
+
+    let contentHtml = '';
+    if (revisions.length > 0) {
+        const rows = revisions.map(rev => {
+            const dateStr = rev.created_at
+                ? new Date(rev.created_at).toLocaleDateString('en-US', {month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'})
+                : '';
+            const statusBadge = rev.status === 'APPLIED'
+                ? '<span class="badge bg-success" style="font-size: 0.7em;">APPLIED</span>'
+                : rev.status === 'REVERTED'
+                ? '<span class="badge bg-warning text-dark" style="font-size: 0.7em;">REVERTED</span>'
+                : `<span class="badge bg-secondary" style="font-size: 0.7em;">${rev.status || 'LOGGED'}</span>`;
+            const keyBadge = rev.entry_key
+                ? `<code class="me-1" style="font-size: 0.8em;">${escapeHtml(rev.entry_key)}</code>`
+                : '';
+            let detailHtml = '';
+            if (rev.details) {
+                const detailId = `refinement-${rev.id || Math.random().toString(36).substr(2, 6)}`;
+                detailHtml = `
+                    <div class="mt-1" id="${detailId}" style="display: none;">
+                        <pre class="bg-light p-2 rounded small mb-0" style="white-space: pre-wrap;">${escapeHtml(JSON.stringify(rev.details, null, 2))}</pre>
+                    </div>`;
+            }
+            return `<div class="d-flex align-items-start gap-2 py-1 border-bottom" style="border-color: #f0f0f0 !important;">
+                <i class="bi bi-pencil-square mt-1" style="color: #fd7e14; font-size: 0.85rem;"></i>
+                <div class="flex-grow-1">
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        ${keyBadge} ${statusBadge}
+                        <span class="small">${escapeHtml(rev.summary || '')}</span>
+                        ${rev.details ? `<a href="#" class="small text-muted" onclick="event.preventDefault(); document.getElementById('${rev.details ? `refinement-${rev.id || ''}` : ''}').style.display = document.getElementById('${rev.details ? `refinement-${rev.id || ''}` : ''}').style.display === 'none' ? 'block' : 'none';">details</a>` : ''}
+                    </div>
+                    <div class="text-muted" style="font-size: 0.75rem;">
+                        ${escapeHtml(rev.author || '')} &middot; ${dateStr}
+                    </div>
+                    ${detailHtml}
+                </div>
+            </div>`;
+        }).join('');
+        contentHtml = rows;
+    } else {
+        contentHtml = '<div class="text-muted small py-2">No manual refinements recorded. Post-extraction edits to entity data will appear here.</div>';
+    }
+
+    div.innerHTML = `
+        <div class="card" style="border-left: 4px solid #fd7e14;">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="mb-0" style="color: #fd7e14;">
+                        <i class="bi bi-pencil-square me-2"></i>Manual Refinements (${revisions.length})
+                    </h5>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <span class="badge" style="background: #e5e7eb; color: #374151; font-size: 0.7em;"><i class="bi bi-person me-1"></i>Human-in-the-loop</span>
+                        <span class="badge" style="background: #dbeafe; color: #1e40af; font-size: 0.7em;"><i class="bi bi-database me-1"></i>Direct DB edits</span>
+                    </div>
+                </div>
+                ${contentHtml}
+            </div>
+        </div>`;
+    return div;
 }
 
 function createReviewLogCard(entries) {
@@ -609,7 +697,10 @@ function createQCCard(qc) {
 
     let checksHtml = '';
     if (qc.check_results && qc.check_results.length > 0) {
-        const rows = qc.check_results.map(check => {
+        // Filter out deprecated checks (argument generation removed from pipeline)
+        const DEPRECATED_CHECKS = ['V2', 'V3', 'V5'];
+        const activeChecks = qc.check_results.filter(c => !DEPRECATED_CHECKS.includes(c.check_id));
+        const rows = activeChecks.map(check => {
             const rowClass = check.status === 'FAIL' ? 'table-danger'
                 : check.status === 'INFO' ? 'table-info'
                 : check.status === 'PASS' ? '' : 'table-warning';
@@ -869,6 +960,7 @@ function createPhaseCard(step, phase) {
             </div>
             ${provBar}
             <div class="card-body">
+                ${prompt ? `
                 <div class="prompt-section">
                     <div class="section-header" onclick="toggleSection(this)">
                         <span><i class="bi bi-cpu me-2"></i>LLM Prompt</span>
@@ -886,7 +978,7 @@ function createPhaseCard(step, phase) {
                     <div class="section-content" style="display: none;">
                         <pre class="response-text">${escapeHtml(prompt.response || 'No response available')}</pre>
                     </div>
-                </div>
+                </div>` : ''}
                 ${phase.algorithmic_trace ? renderAlgorithmicTrace(phase.algorithmic_trace) : ''}
                 ${phase.synthesis_trace ? renderSynthesisTrace(phase.synthesis_trace) : ''}
                 ${entityHtml ? `
@@ -896,9 +988,11 @@ function createPhaseCard(step, phase) {
                 </div>` : ''}
             </div>
             <div class="metadata-bar">
+                ${prompt ? `
                 <i class="bi bi-clock me-1"></i>${prompt.created_at ? new Date(prompt.created_at).toLocaleString() : 'N/A'}
                 <span class="mx-2">|</span>
                 <i class="bi bi-robot me-1"></i>${prompt.model || 'Unknown model'}
+                ` : `<i class="bi bi-gear me-1"></i>Algorithmic`}
             </div>
         </div>`;
     return div;
@@ -1075,6 +1169,13 @@ function renderAlgorithmicTrace(trace) {
     case 'precedent_resolution':
         html += '<h6><i class="bi bi-journal-bookmark me-2"></i>Case Resolution</h6>';
         html += '<div class="small">';
+        html += `<div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+            <span class="badge" style="background: #fef3c7; color: #92400e;"><i class="bi bi-cpu me-1"></i>LLM citation extraction</span>
+            <i class="bi bi-arrow-right text-muted" style="font-size: 0.7rem;"></i>
+            <span class="badge" style="background: #e5e7eb; color: #374151;"><i class="bi bi-regex me-1"></i>Case number parsing</span>
+            <i class="bi bi-arrow-right text-muted" style="font-size: 0.7rem;"></i>
+            <span class="badge" style="background: #dbeafe; color: #1e40af;"><i class="bi bi-database me-1"></i>Internal DB resolution</span>
+        </div>`;
         html += `<div class="mb-1">
             <span class="badge bg-primary">${trace.total}</span> precedents extracted,
             <span class="badge bg-success">${trace.resolved}</span> resolved to internal documents`;
@@ -1097,8 +1198,39 @@ function renderAlgorithmicTrace(trace) {
         html += '</div>';
         break;
 
+    case 'code_provision_extraction':
+        html += '<h6><i class="bi bi-book me-2"></i>Code Provision Detection</h6>';
+        html += '<div class="small">';
+        html += `<div class="mb-2">
+            <span class="badge bg-primary">${trace.total}</span> NSPE Code provisions detected,
+            <span class="badge bg-info">${trace.total_links}</span> entity linkages
+        </div>`;
+        html += `<div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+            <span class="badge" style="background: #e5e7eb; color: #374151;"><i class="bi bi-code-slash me-1"></i>HTML reference parsing</span>
+            <i class="bi bi-arrow-right text-muted" style="font-size: 0.7rem;"></i>
+            <span class="badge" style="background: #dbeafe; color: #1e40af;"><i class="bi bi-database me-1"></i>Provision code matching</span>
+            <i class="bi bi-arrow-right text-muted" style="font-size: 0.7rem;"></i>
+            <span class="badge" style="background: #fef3c7; color: #92400e;"><i class="bi bi-cpu me-1"></i>LLM entity linking</span>
+        </div>`;
+        if (trace.provisions && trace.provisions.length > 0) {
+            trace.provisions.forEach(p => {
+                html += `<div class="d-flex align-items-start gap-2 mb-1">
+                    <span class="badge bg-secondary" style="font-size: 0.75em; min-width: 50px;">${escapeHtml(p.code)}</span>
+                    <span>${escapeHtml(p.text)}</span>
+                    <span class="badge bg-info" style="font-size: 0.65em;" title="Entity linkages">${p.link_count} links</span>
+                </div>`;
+            });
+        }
+        html += '</div>';
+        break;
+
     case 'question_classification':
         html += '<h6><i class="bi bi-tag me-2"></i>Question Classification</h6>';
+        html += `<div class="d-flex align-items-center gap-2 flex-wrap mb-2 small">
+            <span class="badge" style="background: #fef3c7; color: #92400e;"><i class="bi bi-cpu me-1"></i>LLM question extraction</span>
+            <i class="bi bi-arrow-right text-muted" style="font-size: 0.7rem;"></i>
+            <span class="badge" style="background: #e5e7eb; color: #374151;"><i class="bi bi-funnel me-1"></i>Source classification</span>
+        </div>`;
         html += `<div class="d-flex gap-3 small">
             <div><span class="text-muted">Total:</span> <span class="badge bg-primary">${trace.total}</span></div>
             <div><span class="text-muted">Board-explicit:</span> <span class="badge bg-success">${trace.board_explicit}</span></div>
@@ -1109,6 +1241,13 @@ function renderAlgorithmicTrace(trace) {
 
     case 'conclusion_classification':
         html += '<h6><i class="bi bi-tag me-2"></i>Conclusion Classification</h6>';
+        html += `<div class="d-flex align-items-center gap-2 flex-wrap mb-2 small">
+            <span class="badge" style="background: #fef3c7; color: #92400e;"><i class="bi bi-cpu me-1"></i>LLM conclusion extraction</span>
+            <i class="bi bi-arrow-right text-muted" style="font-size: 0.7rem;"></i>
+            <span class="badge" style="background: #e5e7eb; color: #374151;"><i class="bi bi-funnel me-1"></i>Source classification</span>
+            <i class="bi bi-arrow-right text-muted" style="font-size: 0.7rem;"></i>
+            <span class="badge" style="background: #dbeafe; color: #1e40af;"><i class="bi bi-link-45deg me-1"></i>Q-C linking</span>
+        </div>`;
         html += `<div class="d-flex gap-3 small">
             <div><span class="text-muted">Total:</span> <span class="badge bg-primary">${trace.total}</span></div>
             <div><span class="text-muted">Board-explicit:</span> <span class="badge bg-success">${trace.board_explicit}</span></div>
@@ -1122,6 +1261,9 @@ function renderAlgorithmicTrace(trace) {
 
     case 'transformation_classification':
         html += '<h6><i class="bi bi-shuffle me-2"></i>Transformation Classification</h6>';
+        html += `<div class="d-flex align-items-center gap-2 flex-wrap mb-2 small">
+            <span class="badge" style="background: #fef3c7; color: #92400e;"><i class="bi bi-cpu me-1"></i>LLM classification</span>
+        </div>`;
         if (trace.transformation_type) {
             const typeLabels = {
                 'transfer': 'Transfer -- resolution transfers obligation to another party',
@@ -1141,6 +1283,11 @@ function renderAlgorithmicTrace(trace) {
 
     case 'rich_analysis':
         html += '<h6><i class="bi bi-diagram-3 me-2"></i>Cross-Entity Analysis</h6>';
+        html += `<div class="d-flex align-items-center gap-2 flex-wrap mb-2 small">
+            <span class="badge" style="background: #fef3c7; color: #92400e;"><i class="bi bi-cpu me-1"></i>LLM batched extraction</span>
+            <i class="bi bi-arrow-right text-muted" style="font-size: 0.7rem;"></i>
+            <span class="badge" style="background: #e5e7eb; color: #374151;"><i class="bi bi-columns-gap me-1"></i>3 parallel sub-types</span>
+        </div>`;
         html += '<div class="row g-2 small">';
         html += `<div class="col-md-4">
             <div class="card h-100">
@@ -1174,6 +1321,13 @@ function renderAlgorithmicTrace(trace) {
 
     case 'narrative_structure':
         html += '<h6><i class="bi bi-book me-2"></i>Narrative Structure</h6>';
+        html += `<div class="d-flex align-items-center gap-2 flex-wrap mb-2 small">
+            <span class="badge" style="background: #fef3c7; color: #92400e;"><i class="bi bi-cpu me-1"></i>LLM character enhancement</span>
+            <i class="bi bi-arrow-right text-muted" style="font-size: 0.7rem;"></i>
+            <span class="badge" style="background: #fef3c7; color: #92400e;"><i class="bi bi-cpu me-1"></i>LLM event synthesis</span>
+            <i class="bi bi-arrow-right text-muted" style="font-size: 0.7rem;"></i>
+            <span class="badge" style="background: #fef3c7; color: #92400e;"><i class="bi bi-cpu me-1"></i>LLM narrative construction</span>
+        </div>`;
         html += '<div class="row g-2 small">';
         const items = [
             {label: 'Characters', count: trace.characters, icon: 'bi-people'},
@@ -1237,6 +1391,12 @@ function applyFilters() {
             const stepMatch = !stepFilter || cardStep === stepFilter;
             const sectionMatch = !sectionFilter || cardSection === sectionFilter;
             card.style.display = (stepMatch && sectionMatch) ? '' : 'none';
+            return;
+        }
+
+        // QC, refinements, review-log cards: match by step value
+        if (cardType === 'qc-verification' || cardType === 'refinements' || cardType === 'review-log') {
+            card.style.display = (!stepFilter || cardStep === stepFilter) ? '' : 'none';
             return;
         }
 

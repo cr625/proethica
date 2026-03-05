@@ -15,7 +15,7 @@ Usage:
 
 Checks:
     V0  Section Text Integrity    CRITICAL  Facts + discussion sections exist
-    V1  Duplicate Sessions        CRITICAL  No entity in multiple sessions
+    V1  Cross-Session Integrity        CRITICAL  No entity in multiple sessions
     V4  Decision Point Options    CRITICAL  Options are action phrases (verb form)
     V6  Completeness              CRITICAL  All 16 extraction types present
     V7  Count Sanity              INFO      Counts within empirical Phase 1 ranges
@@ -120,8 +120,8 @@ def check_v0(case_id):
 
 
 def check_v1(case_id):
-    """V1: Duplicate Sessions -- no entity appears in multiple extraction sessions."""
-    result = {'check_id': 'V1', 'name': 'Duplicate Sessions', 'severity': 'CRITICAL',
+    """V1: Cross-Session Integrity -- no entity appears in multiple extraction sessions."""
+    result = {'check_id': 'V1', 'name': 'Cross-Session Integrity', 'severity': 'CRITICAL',
               'status': 'PASS', 'details': {'multi_session_types': [], 'actual_duplicates': []}}
 
     multi = db.session.execute(text("""
@@ -472,7 +472,7 @@ def write_report(audits, path):
                 check_agg[cid]['na'] += 1
 
     check_names = {
-        'V0': 'Section Text Integrity', 'V1': 'Duplicate Sessions',
+        'V0': 'Section Text Integrity', 'V1': 'Cross-Session Integrity',
         'V4': 'Decision Point Options',
         'V6': 'Completeness', 'V7': 'Count Sanity',
         'V8': 'Model Consistency', 'V9': 'Publish Status',

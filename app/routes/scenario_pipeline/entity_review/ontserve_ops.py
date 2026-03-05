@@ -293,6 +293,17 @@ def register_ontserve_ops_routes(bp):
                 'all_committed': all_committed
             }
 
+            # Build mapping from temporal marker -> entity for timeline display
+            timeline_entity_map = {}
+            for a in actions:
+                marker = a.get('temporal_marker', '')
+                if marker:
+                    timeline_entity_map[marker] = {'label': a['label'], 'kind': 'action'}
+            for e in events:
+                marker = e.get('temporal_marker', '')
+                if marker:
+                    timeline_entity_map[marker] = {'label': e['label'], 'kind': 'event'}
+
             context = {
                 'case': case,
                 'current_step': 3,
@@ -303,6 +314,7 @@ def register_ontserve_ops_routes(bp):
                 'allen_relations': allen_relations,
                 'causal_chains': causal_chains,
                 'timeline': timeline,
+                'timeline_entity_map': timeline_entity_map,
                 'summary': summary,
                 'all_committed': all_committed
             }
