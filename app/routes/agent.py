@@ -1,8 +1,6 @@
 from flask import Blueprint, render_template, request, jsonify, session
 from flask_login import login_required
-from app.services.unified_agent_service import get_unified_agent_service
 from app.services.llm_service import Conversation, Message  # Keep for compatibility
-from app.services.application_context_service import ApplicationContextService
 from app.models.world import World
 import json
 import os
@@ -10,11 +8,14 @@ import os
 # Create blueprint
 agent_bp = Blueprint('agent', __name__, url_prefix='/agent')
 
-# Initialize unified agent service
-unified_agent_service = get_unified_agent_service()
-
 # Service selection flag - now handled by the unified service internally
 active_service = 'claude'  # Default preference (unified service handles fallback)
+
+
+def _get_agent_service():
+    """Lazy-initialize the unified agent service on first use."""
+    from app.services.unified_agent_service import get_unified_agent_service
+    return get_unified_agent_service()
 
 @agent_bp.route('/', methods=['GET'])
 @login_required
@@ -78,7 +79,7 @@ def send_message():
     
     try:
         # Send message using unified agent service
-        response = unified_agent_service.send_message(
+        response = _get_agent_service().send_message(
             message=message,
             conversation=conversation,
             world_id=conversation.metadata.get('world_id'),
@@ -128,7 +129,7 @@ def get_options():
     
     try:
         # Get prompt options using unified agent service
-        options = unified_agent_service.get_prompt_options(
+        options = _get_agent_service().get_prompt_options(
             conversation=conversation,
             world_id=conversation.metadata.get('world_id'),
             service=active_service
@@ -187,7 +188,7 @@ def get_guidelines():
     
     try:
         # Get guidelines using unified agent service
-        guidelines = unified_agent_service.get_guidelines_for_world(world_id=world_id)
+        guidelines = _get_agent_service().get_guidelines_for_world(world_id=world_id)
         
         # Return guidelines
         return jsonify({
@@ -227,7 +228,7 @@ def select_service():
     
     # Get available providers to validate the selection
     try:
-        providers_info = unified_agent_service.get_available_providers()
+        providers_info = _get_agent_service().get_available_providers()
         available_services = [p['id'] for p in providers_info]
     except Exception:
         # Fallback to basic validation if we can't get providers
@@ -260,7 +261,7 @@ def generate_suggestions():
         conversation = Conversation(messages=[])
         
         # Get suggestions using unified agent service
-        options = unified_agent_service.get_prompt_options(
+        options = _get_agent_service().get_prompt_options(
             conversation=conversation,
             world_id=world_id,
             service=service
@@ -282,7 +283,7 @@ def generate_suggestions():
 def get_service_info():
     """Get information about the current LLM service configuration."""
     try:
-        info = unified_agent_service.get_service_info()
+        info = _get_agent_service().get_service_info()
         return jsonify({
             'status': 'success',
             'service_info': info,
@@ -299,7 +300,7 @@ def get_service_info():
 def get_available_providers():
     """Get available LLM providers with their status."""
     try:
-        providers_info = unified_agent_service.get_available_providers()
+        providers_info = _get_agent_service().get_available_providers()
         return jsonify({
             'status': 'success',
             'providers': providers_info,
@@ -342,14 +343,14 @@ def test_mcp_tool():
             # Add context about the integration
             if isinstance(result, dict):
                 result['demo_note'] = 'Shows ProEthica→MCPClient integration working'
-                result['unified_llm_status'] = unified_agent_service.get_service_info()
+                result['unified_llm_status'] = _get_agent_service().get_service_info()
             tool_name = 'get_ontology_status'
             
         elif tool_type == 'sparql':
             # For SPARQL, show what our unified orchestration system provides
             # Since MCPClient doesn't have SPARQL, demonstrate unified system integration
             try:
-                service_info = unified_agent_service.get_service_info()
+                service_info = _get_agent_service().get_service_info()
                 result = {
                     "unified_orchestration_available": service_info.get('unified_available', False),
                     "service_type": service_info.get('service_type', 'unknown'),

@@ -426,7 +426,7 @@ def get_simplified_system_status():
     status = {
         'mcp_server': False,
         'database': False,
-        'mcp_url': os.environ.get('MCP_SERVER_URL', 'http://localhost:5001')
+        'mcp_url': os.environ.get('ONTSERVE_MCP_URL', 'http://localhost:8082')
     }
     
     # Check MCP server

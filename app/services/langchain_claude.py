@@ -13,7 +13,6 @@ from langchain_anthropic import ChatAnthropic
 from langchain_classic.chains import LLMChain
 from langchain_classic.prompts import PromptTemplate
 from flask import current_app
-from app.config import Config
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -97,15 +96,11 @@ class LangChainClaudeService:
             Chain output
         """
         # Check if we should use Claude or return a mock response
-        # Use Flask app config if available, fall back to Config class
         use_claude = True
         try:
             use_claude = current_app.config.get('USE_CLAUDE', True)
-            logger.info(f"Using USE_CLAUDE setting from app config: {use_claude}")
         except RuntimeError:
-            # We're outside of application context, use Config class instead
-            use_claude = Config.USE_CLAUDE
-            logger.info(f"Using USE_CLAUDE setting from Config class: {use_claude}")
+            use_claude = os.environ.get('USE_CLAUDE', 'true').lower() == 'true'
         
         if use_claude:
             try:

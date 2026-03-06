@@ -160,42 +160,48 @@ def start_mcp_server():
 
 def main():
     """Main entry point for the ProEthica application."""
-    # Check pipeline services (Redis, Celery)
-    check_pipeline_services()
+    # Skip service checks in the master reloader process.
+    # When debug=True, Werkzeug spawns a master process (watches files) and a child
+    # process (runs Flask). Only the child has WERKZEUG_RUN_MAIN=true.
+    # Running checks in the master wastes ~4s and produces duplicate log output.
+    is_reloader_child = os.environ.get('WERKZEUG_RUN_MAIN') == 'true'
+    is_non_debug = os.environ.get('DEBUG', 'True').lower() != 'true'
 
-    # Check if MCP server integration should be skipped entirely
-    skip_mcp = os.environ.get('SKIP_MCP', 'false').lower() == 'true'
+    run_checks = is_reloader_child or is_non_debug
 
-    if skip_mcp:
-        logger.info("MCP server integration disabled (SKIP_MCP=true)")
-        os.environ['ONTSERVE_MCP_ENABLED'] = 'false'
-    else:
-        # Check OntServe MCP Server dependency
-        mcp_port = int(os.environ.get('ONTSERVE_MCP_PORT', 8082))
-        
-        if not check_mcp_server(port=mcp_port):
-            # Check if we should auto-start the MCP server
-            auto_start_mcp = os.environ.get('AUTO_START_MCP', 'false').lower() == 'true'
-            
-            if auto_start_mcp:
-                logger.info("Attempting to auto-start OntServe MCP server...")
-                if start_mcp_server():
-                    # Set environment variables for ProEthica
-                    os.environ['ONTSERVE_MCP_ENABLED'] = 'true'
-                    os.environ['ONTSERVE_MCP_URL'] = f'http://localhost:{mcp_port}'
+    if run_checks:
+        # Check pipeline services (Redis, Celery)
+        check_pipeline_services()
+
+        # Check if MCP server integration should be skipped entirely
+        skip_mcp = os.environ.get('SKIP_MCP', 'false').lower() == 'true'
+
+        if skip_mcp:
+            logger.info("MCP server integration disabled (SKIP_MCP=true)")
+            os.environ['ONTSERVE_MCP_ENABLED'] = 'false'
+        else:
+            # Check OntServe MCP Server dependency
+            mcp_port = int(os.environ.get('ONTSERVE_MCP_PORT', 8082))
+
+            if not check_mcp_server(port=mcp_port):
+                # Check if we should auto-start the MCP server
+                auto_start_mcp = os.environ.get('AUTO_START_MCP', 'false').lower() == 'true'
+
+                if auto_start_mcp:
+                    logger.info("Attempting to auto-start OntServe MCP server...")
+                    if start_mcp_server():
+                        os.environ['ONTSERVE_MCP_ENABLED'] = 'true'
+                        os.environ['ONTSERVE_MCP_URL'] = f'http://localhost:{mcp_port}'
+                    else:
+                        logger.info("MCP server not available. Running without ontology features.")
+                        os.environ['ONTSERVE_MCP_ENABLED'] = 'false'
                 else:
-                    logger.info("MCP server not available. ProEthica will run without ontology features.")
-                    logger.info("To start MCP manually: cd ../OntServe && python servers/mcp_server.py")
+                    logger.info(f"MCP server not detected on port {mcp_port}. Running without ontology features.")
                     os.environ['ONTSERVE_MCP_ENABLED'] = 'false'
             else:
-                logger.info(f"MCP server not detected on port {mcp_port}. ProEthica will run without ontology features.")
-                logger.info("To enable auto-start: export AUTO_START_MCP=true")
-                logger.info("To skip this check: export SKIP_MCP=true")
-                os.environ['ONTSERVE_MCP_ENABLED'] = 'false'
-        else:
-            logger.info(f"✓ OntServe MCP server detected on port {mcp_port}")
-            os.environ['ONTSERVE_MCP_ENABLED'] = 'true'
-            os.environ['ONTSERVE_MCP_URL'] = f'http://localhost:{mcp_port}'
+                logger.info(f"OntServe MCP server detected on port {mcp_port}")
+                os.environ['ONTSERVE_MCP_ENABLED'] = 'true'
+                os.environ['ONTSERVE_MCP_URL'] = f'http://localhost:{mcp_port}'
     
     try:
         # Import the Flask app factory

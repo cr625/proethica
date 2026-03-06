@@ -12,7 +12,6 @@ from typing import Dict, List, Any, Optional, Union
 from anthropic import Anthropic
 from app.services.llm_service import Message, Conversation
 from app.services.mcp_client import MCPClient
-from app.config import Config
 import os
 import time
 import json

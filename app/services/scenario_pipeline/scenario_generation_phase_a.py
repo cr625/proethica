@@ -50,38 +50,27 @@ enhanced_services = {}
 try:
     from .enhanced_llm_scenario_service import EnhancedLLMScenarioService
     enhanced_services['enhanced_llm'] = True
-    logging.getLogger(__name__).info("✅ EnhancedLLMScenarioService imported successfully")
-except ImportError as e:
+except ImportError:
     enhanced_services['enhanced_llm'] = False
-    logging.getLogger(__name__).warning(f"❌ EnhancedLLMScenarioService import failed: {e}")
 
 try:
     from .enhanced_scenario_model_generator import EnhancedScenarioModelGenerator
     enhanced_services['model_generator'] = True
-    logging.getLogger(__name__).info("✅ EnhancedScenarioModelGenerator imported successfully")
-except ImportError as e:
+except ImportError:
     enhanced_services['model_generator'] = False
-    logging.getLogger(__name__).warning(f"❌ EnhancedScenarioModelGenerator import failed: {e}")
 
-# Import LLM-mediated temporal reasoning
 try:
     from app.services.llm_mediated_temporal_reasoning import LLMMediatedTemporalReasoningService
     enhanced_services['llm_temporal'] = True
     LLM_TEMPORAL_AVAILABLE = True
-    logging.getLogger(__name__).info("✅ LLMMediatedTemporalReasoningService imported successfully")
-except ImportError as e:
+except ImportError:
     enhanced_services['llm_temporal'] = False
     LLM_TEMPORAL_AVAILABLE = False
-    logging.getLogger(__name__).warning(f"❌ LLMMediatedTemporalReasoningService import failed: {e}")
 
-# Enable enhanced features if we have at least basic LLM service
 if enhanced_services.get('enhanced_llm', False):
     ENHANCED_FEATURES_AVAILABLE = True
-    logging.getLogger(__name__).info("Enhanced features enabled with available services")
-else:
-    logging.getLogger(__name__).warning("Enhanced features disabled - missing required services")
 
-logging.getLogger(__name__).info(f"Enhanced services status: {enhanced_services}")
+logging.getLogger(__name__).debug(f"Enhanced services status: {enhanced_services}")
 
 PIPELINE_VERSION = 'phase_a_v1'
 ENHANCED_PIPELINE_VERSION = 'enhanced_llm_v1'

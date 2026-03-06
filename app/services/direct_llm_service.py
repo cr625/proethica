@@ -31,42 +31,23 @@ class DirectLLMService:
             try:
                 import anthropic
                 self.claude_client = anthropic.Anthropic(api_key=anthropic_key)
-                logger.info("✅ Claude client initialized successfully")
+                logger.debug("Claude client initialized")
             except ImportError:
-                logger.error("❌ Anthropic library not installed")
+                logger.error("Anthropic library not installed")
             except Exception as e:
-                logger.error(f"❌ Failed to initialize Claude client: {e}")
-        else:
-            logger.warning("⚠️ Claude API key not configured")
-            
+                logger.error(f"Failed to initialize Claude client: {e}")
+
         # Initialize OpenAI
         openai_key = os.environ.get("OPENAI_API_KEY")
         if openai_key and not openai_key.startswith("your-"):
             try:
                 import openai
                 self.openai_client = openai.OpenAI(api_key=openai_key)
-                logger.info("✅ OpenAI client initialized successfully")
+                logger.debug("OpenAI client initialized")
             except ImportError:
-                logger.error("❌ OpenAI library not installed")
+                logger.debug("OpenAI library not installed")
             except Exception as e:
-                logger.error(f"❌ Failed to initialize OpenAI client: {e}")
-        else:
-            logger.warning("⚠️ OpenAI API key not configured")
-            
-        # Initialize Gemini (optional - only if explicitly enabled)
-        # Gemini is not used in the current pipeline, so skip unless configured
-        enable_gemini = os.environ.get("ENABLE_GEMINI", "false").lower() == "true"
-        google_key = os.environ.get("GOOGLE_API_KEY")
-        if enable_gemini and google_key and not google_key.startswith("your-"):
-            try:
-                import google.generativeai as genai
-                genai.configure(api_key=google_key)
-                self.gemini_client = genai.GenerativeModel('gemini-1.5-flash')
-                logger.info("Gemini client initialized successfully")
-            except ImportError:
-                logger.debug("Gemini library not installed (optional)")
-            except Exception as e:
-                logger.debug(f"Gemini initialization skipped: {e}")
+                logger.error(f"Failed to initialize OpenAI client: {e}")
     
     def send_message_with_context(self, 
                                  message: str,
