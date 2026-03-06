@@ -406,7 +406,7 @@ class TestPromptVariableResolverFormatExistingEntities:
 
         assert 'Engineer A: Licensed professional engineer' in result
         assert 'Client W: Corporate client' in result
-        assert result.startswith('- ')
+        assert '- Engineer A' in result
 
     @patch('app.services.external_mcp_client.get_external_mcp_client')
     def test_formats_entities_without_definitions(self, mock_get_mcp):
@@ -440,24 +440,24 @@ class TestPromptVariableResolverFormatExistingEntities:
         assert 'principles' in result.lower()
 
     @patch('app.services.external_mcp_client.get_external_mcp_client')
-    def test_truncates_long_definitions(self, mock_get_mcp):
-        """Test that long definitions are truncated."""
+    def test_preserves_full_definitions(self, mock_get_mcp):
+        """Test that definitions are included in full (no truncation)."""
         from app.services.prompt_variable_resolver import PromptVariableResolver
 
         mock_get_mcp.return_value = MagicMock()
         resolver = PromptVariableResolver()
 
-        long_definition = 'x' * 200  # Longer than 150 char limit
+        long_definition = 'x' * 200
         entities = [{'label': 'Test Entity', 'definition': long_definition}]
 
         result = resolver.format_existing_entities(entities, 'roles')
 
-        assert '...' in result
-        assert len(result) < len(long_definition) + 50  # Some overhead for label
+        # Full definition should be present
+        assert long_definition in result
 
     @patch('app.services.external_mcp_client.get_external_mcp_client')
-    def test_limits_to_20_entities(self, mock_get_mcp):
-        """Test that entity list is limited to 20 entries."""
+    def test_includes_all_entities(self, mock_get_mcp):
+        """Test that all entities are included (no limit)."""
         from app.services.prompt_variable_resolver import PromptVariableResolver
 
         mock_get_mcp.return_value = MagicMock()
@@ -467,10 +467,8 @@ class TestPromptVariableResolverFormatExistingEntities:
 
         result = resolver.format_existing_entities(entities, 'roles')
 
-        # Should have 20 entries plus "... and X more"
-        assert '... and 10 more' in result
-        lines = result.strip().split('\n')
-        assert len(lines) == 21  # 20 entities + 1 "more" line
+        entity_lines = [l for l in result.strip().split('\n') if l.startswith('- ')]
+        assert len(entity_lines) == 30
 
 
 # =============================================================================

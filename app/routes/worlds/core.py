@@ -354,7 +354,6 @@ def register_core_routes(bp):
                 world_id=world.id,
                 content=guidelines_text,
                 file_type="txt",
-                guideline_metadata={},
                 processing_status=PROCESSING_STATUS['PENDING']
             )
             db.session.add(document)
@@ -423,8 +422,7 @@ def register_core_routes(bp):
                         document_type="guideline",
                         world_id=world.id,
                         source=guidelines['url'],
-                        file_type="url",
-                        guideline_metadata={}
+                        file_type="url"
                     )
                     db.session.add(document)
 
@@ -436,8 +434,7 @@ def register_core_routes(bp):
                     document_type="guideline",
                     world_id=world.id,
                     content=guidelines['text'],
-                    file_type="txt",
-                    guideline_metadata={}
+                    file_type="txt"
                 )
                 db.session.add(document)
 

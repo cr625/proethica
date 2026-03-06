@@ -308,8 +308,7 @@ class BackgroundTaskQueue:
                 logger.info(f"Completed background processing for {entity_type} {document_id}")
         
         except Exception as e:
-            entity_type = "guideline" if document and document.document_type == "guideline" else "document"
-            logger.error(f"Error processing {entity_type} {document_id} in background: {str(e)}")
+            logger.error(f"Error processing document {document_id} in background: {str(e)}")
             
             try:
                 # Update document status to failed

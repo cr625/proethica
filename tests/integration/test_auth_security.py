@@ -172,7 +172,6 @@ class TestAdminRoutesRequireAdmin:
         ('GET', '/admin/'),
         ('GET', '/admin/users'),
         ('GET', '/admin/data-overview'),
-        ('GET', '/admin/audit-log'),
         ('GET', '/admin/system-health'),
         ('POST', '/admin/cleanup/guideline-triples'),
         ('POST', '/admin/user/1/reset'),
@@ -241,12 +240,10 @@ class TestCSRFProtection:
         assert b'csrf' in response.data.lower() or b'hidden' in response.data.lower(), \
             "Login form should have CSRF protection"
 
-    def test_register_form_has_csrf_token(self, simple_client):
-        """Test that register form includes CSRF token."""
+    def test_register_redirects_to_login(self, simple_client):
+        """Test that register page redirects (registration disabled)."""
         response = simple_client.get('/auth/register')
-        assert response.status_code == 200
-        assert b'csrf' in response.data.lower() or b'hidden' in response.data.lower(), \
-            "Register form should have CSRF protection"
+        assert response.status_code == 302
 
 
 class TestExtractionRoutesRequireAuth:

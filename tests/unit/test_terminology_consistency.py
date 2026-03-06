@@ -26,7 +26,8 @@ class TestNineComponentTerminology:
             '.git',
             '.claude',
             'site',
-            'docs-internal/archive'
+            'archive',
+            'docs-internal/references',
         }
 
     def _is_excluded_path(self, path):

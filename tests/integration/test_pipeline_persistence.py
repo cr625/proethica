@@ -14,11 +14,47 @@ import pytest
 from unittest.mock import patch, MagicMock
 from app import db
 from app.models.extraction_prompt import ExtractionPrompt
+from app.models.extraction_prompt_template import ExtractionPromptTemplate
 from app.models.document import Document
+from app.models.world import World
 from tests.mocks.llm_client import MockLLMClient
 
 
 # Note: app, client fixtures inherited from tests/conftest.py
+
+
+@pytest.fixture(autouse=True)
+def pipeline_test_data(app_context):
+    """Create test documents and prompt templates that pipeline tests need."""
+    world = World.query.first()
+    if not world:
+        world = World(name="Pipeline Test World", description="test", metadata={})
+        db.session.add(world)
+        db.session.flush()
+
+    for case_id in [7, 97, 98, 99]:
+        if not Document.query.get(case_id):
+            doc = Document(id=case_id, title=f"Test Case {case_id}", document_type="case", world_id=world.id)
+            db.session.add(doc)
+
+    # Ensure a roles prompt template exists for extraction tests
+    existing = ExtractionPromptTemplate.get_active_template(step_number=1, concept_type='roles')
+    if not existing:
+        template = ExtractionPromptTemplate(
+            extraction_type='case',
+            step_number=1,
+            concept_type='roles',
+            pass_type='all',
+            name='Test Roles Template',
+            template_text='Extract roles from the following text:\n\n{{ case_text }}',
+            variables_schema={'case_text': {'type': 'string'}},
+            is_active=True,
+            domain='engineering'
+        )
+        db.session.add(template)
+
+    db.session.commit()
+    yield
 
 
 @pytest.fixture

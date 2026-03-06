@@ -395,7 +395,7 @@ class TestGetTemplatesAPI:
 
         # Should have step entries
         steps = data['steps']
-        assert len(steps) == 3  # 3 pipeline steps
+        assert len(steps) == 4  # Steps 1-3 + Step 4 (Synthesis)
 
     def test_get_templates_includes_concept_info(self, auth_client, create_test_template):
         """Test that template response includes concept information."""

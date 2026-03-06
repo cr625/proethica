@@ -31,20 +31,40 @@ def setup_test_database():
     print("Setting up test database with db.create_all()...")
 
     with app.app_context():
-        # Drop all tables first to ensure clean slate
-        # This handles schema changes between test runs
-        try:
-            db.drop_all()
-            print("Dropped existing tables.")
-        except Exception as e:
-            print(f"Note: Could not drop tables (may not exist): {e}")
+        # Full schema reset: drop everything and recreate from models.
+        # CASCADE handles views and other dependent objects.
+        db.session.execute(db.text('DROP SCHEMA IF EXISTS public CASCADE'))
+        db.session.execute(db.text('CREATE SCHEMA public'))
+        db.session.execute(db.text('CREATE EXTENSION IF NOT EXISTS vector'))
+        db.session.commit()
+        print("Reset public schema.")
 
         # Create all tables from models
         db.create_all()
-        print("Created all tables from SQLAlchemy models.")
 
-        # Commit to ensure tables are created
+        # Create raw SQL tables not in SQLAlchemy models
+        db.session.execute(db.text("""
+            CREATE TABLE IF NOT EXISTS precedent_similarity_cache (
+                id SERIAL PRIMARY KEY,
+                source_case_id INTEGER REFERENCES documents(id) ON DELETE CASCADE,
+                target_case_id INTEGER REFERENCES documents(id) ON DELETE CASCADE,
+                facts_similarity DOUBLE PRECISION,
+                discussion_similarity DOUBLE PRECISION,
+                conclusion_similarity DOUBLE PRECISION,
+                provision_overlap DOUBLE PRECISION,
+                outcome_alignment DOUBLE PRECISION,
+                tag_overlap DOUBLE PRECISION,
+                principle_overlap DOUBLE PRECISION,
+                overall_similarity DOUBLE PRECISION,
+                weights_used JSONB,
+                computed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                computation_method VARCHAR(50),
+                UNIQUE (source_case_id, target_case_id)
+            )
+        """))
+
         db.session.commit()
+        print("Created all tables from SQLAlchemy models.")
 
     print("Test database setup complete.")
 

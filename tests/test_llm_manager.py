@@ -23,7 +23,7 @@ class TestLLMConfig:
         """Test default configuration values."""
         config = LLMConfig()
 
-        assert config.default_model == "claude-sonnet-4-20250514"
+        assert config.default_model == "claude-sonnet-4-6"
         assert config.read_timeout == 180.0
         assert config.max_retries == 3
         assert config.track_usage is True
@@ -77,14 +77,14 @@ class TestLLMResponse:
         usage = Usage(input_tokens=100, output_tokens=50)
         response = LLMResponse(
             text="Test response",
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-6",
             provider="anthropic",
             usage=usage,
             metadata={"test": "data"}
         )
 
         assert response.text == "Test response"
-        assert response.model == "claude-sonnet-4-20250514"
+        assert response.model == "claude-sonnet-4-6"
         assert response.provider == "anthropic"
         assert response.usage.total_tokens == 150
 
@@ -93,7 +93,7 @@ class TestLLMResponse:
         usage = Usage(input_tokens=100, output_tokens=50, estimated_cost_usd=0.001)
         response = LLMResponse(
             text="Test",
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-6",
             provider="anthropic",
             usage=usage
         )
@@ -101,7 +101,7 @@ class TestLLMResponse:
         data = response.to_dict()
 
         assert data['text'] == "Test"
-        assert data['model'] == "claude-sonnet-4-20250514"
+        assert data['model'] == "claude-sonnet-4-6"
         assert data['usage']['total_tokens'] == 150
         assert 'timestamp' in data
 
@@ -121,7 +121,7 @@ class TestLLMManager:
 
         manager = LLMManager()
 
-        assert manager.model == "claude-sonnet-4-20250514"
+        assert manager.model == "claude-sonnet-4-6"
         assert manager.provider == "anthropic"
         assert manager.client is not None
 
@@ -133,7 +133,7 @@ class TestLLMManager:
 
         manager = LLMManager()
 
-        assert manager._detect_provider("claude-sonnet-4-20250514") == "anthropic"
+        assert manager._detect_provider("claude-sonnet-4-6") == "anthropic"
         assert manager._detect_provider("gpt-4") == "openai"
         assert manager._detect_provider("unknown-model") == "anthropic"  # Default
 
@@ -149,7 +149,7 @@ class TestLLMManager:
         cost = manager._estimate_cost_anthropic(
             input_tokens=1000,
             output_tokens=1000,
-            model="claude-sonnet-4-20250514"
+            model="claude-sonnet-4-6"
         )
 
         # Should be (1000/1M * 3) + (1000/1M * 15) = 0.003 + 0.015 = 0.018
@@ -181,11 +181,11 @@ class TestLLMManager:
         if not os.getenv('ANTHROPIC_API_KEY'):
             pytest.skip("ANTHROPIC_API_KEY not set")
 
-        manager = LLMManager(model="claude-sonnet-4-20250514")
-        assert manager.model == "claude-sonnet-4-20250514"
+        manager = LLMManager(model="claude-sonnet-4-6")
+        assert manager.model == "claude-sonnet-4-6"
 
-        manager.switch_model("claude-opus-4-1-20250805")
-        assert manager.model == "claude-opus-4-1-20250805"
+        manager.switch_model("claude-opus-4-6")
+        assert manager.model == "claude-opus-4-6"
 
     def test_singleton_access(self):
         """Test singleton get_llm_manager function."""

@@ -3,7 +3,9 @@
 
 import requests
 import json
+import pytest
 
+@pytest.mark.skipif(True, reason="Requires running ProEthica server on localhost:5000")
 def test_step3_extraction():
     """Test the Step 3 actions and events extraction"""
 

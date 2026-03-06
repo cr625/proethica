@@ -171,8 +171,7 @@ def get_creator_name(item):
     """Get the creator's name for the given item."""
     if hasattr(item, 'creator') and item.creator:
         return item.creator.username
-    elif hasattr(item, 'created_by'):
-        # If creator relationship is not loaded, try to get user by ID
+    elif hasattr(item, 'created_by') and item.created_by is not None:
         from app.models.user import User
         user = User.query.get(item.created_by)
         return user.username if user else 'Unknown User'
