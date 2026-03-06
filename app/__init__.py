@@ -269,6 +269,8 @@ def create_app(config_name=None):
     from app.routes.prompt_editor import init_prompt_editor_csrf_exemption
     init_prompt_editor_csrf_exemption(app)
 
+    from app.routes.annotations import init_annotations_csrf_exemption
+    init_annotations_csrf_exemption(app)
 
     # Make db accessible at app level for imports in other modules
     app.db = db

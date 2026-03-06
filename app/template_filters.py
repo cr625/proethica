@@ -203,3 +203,26 @@ def init_app(app):
         return Markup(
             f'<span class="local-time" data-utc="{iso_timestamp}" data-format="{format}">{fallback}</span>'
         )
+
+    @app.template_filter('annotate_entities')
+    def annotate_entities_filter(text, case_id):
+        """Annotate text with ontology entity popovers.
+
+        Usage in templates:
+            {{ some_text | annotate_entities(case_id) }}
+
+        Caches the TextAnnotator per case_id for the duration of the request.
+        """
+        if not text or not case_id:
+            return text or ''
+        try:
+            from flask import g
+            from app.services.annotation import TextAnnotator
+            cache_key = f'_text_annotator_{case_id}'
+            annotator = getattr(g, cache_key, None)
+            if annotator is None:
+                annotator = TextAnnotator(case_id=int(case_id))
+                setattr(g, cache_key, annotator)
+            return annotator.annotate_html(str(text))
+        except Exception:
+            return text

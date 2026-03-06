@@ -16,6 +16,12 @@ logger = logging.getLogger(__name__)
 
 annotations_bp = Blueprint('annotations', __name__, url_prefix='/annotations')
 
+
+def init_annotations_csrf_exemption(app):
+    """Exempt annotation API endpoints from CSRF protection."""
+    if hasattr(app, 'csrf') and app.csrf:
+        app.csrf.exempt(annotations_bp)
+
 @annotations_bp.route('/guideline/<int:guideline_id>/annotate', methods=['POST'])
 @login_required
 def annotate_guideline(guideline_id):
@@ -319,6 +325,56 @@ def check_ontology_updates():
     except Exception as e:
         logger.exception(f"Error checking ontology updates: {e}")
         return jsonify({'error': str(e)}), 500
+
+@annotations_bp.route('/api/annotate_text', methods=['POST'])
+def annotate_text():
+    """Annotate arbitrary text against a case's ontology entities.
+
+    Request JSON:
+        case_id: int -- case to source entities from
+        text: str -- text to annotate
+        format: str -- 'spans' (default) or 'html'
+
+    Returns:
+        spans format: list of {start, end, matched_text, entity_label, entity_type, ...}
+        html format: annotated HTML string with onto-label spans
+    """
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'JSON body required'}), 400
+
+        case_id = data.get('case_id')
+        text = data.get('text', '')
+        output_format = data.get('format', 'spans')
+
+        if not case_id:
+            return jsonify({'error': 'case_id is required'}), 400
+        if not text:
+            return jsonify({'success': True, 'spans': [], 'html': ''})
+
+        from app.services.annotation import TextAnnotator
+        annotator = TextAnnotator(case_id=int(case_id))
+
+        if output_format == 'html':
+            html = annotator.annotate_html(text)
+            return jsonify({
+                'success': True,
+                'html': str(html),
+                'entity_count': annotator.get_entity_count()
+            })
+        else:
+            spans = annotator.annotate(text)
+            return jsonify({
+                'success': True,
+                'spans': [s.to_dict() for s in spans],
+                'entity_count': annotator.get_entity_count()
+            })
+
+    except Exception as e:
+        logger.exception(f"Error annotating text: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 @annotations_bp.route('/clear/<document_type>/<int:document_id>', methods=['POST'])
 @login_required
