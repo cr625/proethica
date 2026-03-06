@@ -6,7 +6,7 @@ from flask import Blueprint, request, jsonify, render_template
 from sqlalchemy import and_
 
 from ..services.document_annotation_service import DocumentAnnotationService
-from ..services.simplified_llm_annotation_service import SimplifiedLLMAnnotationService
+from ..services.simple_annotation_service import SimpleAnnotationService
 from ..models.document_concept_annotation import DocumentConceptAnnotation
 from ..utils.environment_auth import auth_required_for_llm, auth_required_for_write
 from .. import db
@@ -51,33 +51,24 @@ def generate_annotations(document_type, document_id):
         if not world_id:
             world_id = getattr(document, 'world_id', None)
         
-        # Initialize LLM annotation service
-        llm_service = SimplifiedLLMAnnotationService()
-        
-        # Generate annotations using simplified method
-        result = llm_service.annotate_document(
-            document_id=document_id,
+        # Generate annotations using keyword matching
+        service = SimpleAnnotationService()
+        annotations = service.annotate_document(
             document_type=document_type,
-            content=content,
+            document_id=document_id,
             world_id=world_id,
-            ontologies=ontologies
+            force_refresh=True
         )
-        
-        if result.get('success'):
-            return jsonify({
-                'success': True,
-                'message': f'Generated {result.get("annotations_created", 0)} annotations',
-                'statistics': {
-                    'annotations_created': result.get('annotations_created', 0),
-                    'ontologies_used': result.get('ontologies_used', []),
-                    'method': 'simplified_llm'
-                }
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'error': result.get('error', 'Unknown error occurred')
-            }), 500
+
+        return jsonify({
+            'success': True,
+            'message': f'Generated {len(annotations)} annotations',
+            'statistics': {
+                'annotations_created': len(annotations),
+                'ontologies_used': [],
+                'method': 'keyword_match'
+            }
+        })
     
     except Exception as e:
         logger.error(f"Error generating annotations for {document_type} {document_id}: {str(e)}")

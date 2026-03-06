@@ -93,13 +93,13 @@ Minimum-intervention approach: delete confirmed dead files first, rename for cla
 | `ontserve_mcp_client.py` | 485 | 1 | Keep -- OntServe-specific API |
 | `mcp_entity_enrichment_service.py` | 418 | 1 | Keep if imported; merge candidate |
 
-#### 4b. Annotation Services (14 files, ~6,697 lines)
+#### 4b. Annotation Services -- DONE (2026-03-05)
 
-All 14 files are actively imported. Consolidation candidates (verify overlap first):
-- `simple_annotation_service.py` (271) + `simplified_llm_annotation_service.py` (501)
-- `intelligent_annotation_service.py` (585) + `llm_enhanced_annotation_service.py` (452)
-
-**Target**: Reduce from 14 to ~10 files by merging confirmed duplicates.
+Deleted 13 dead files (-6,039 lines): 8 service files + 5 route files + 5 blueprint unregistrations.
+Remaining live annotation code: `simple_annotation_service.py`, `ontserve_annotation_service.py`,
+`document_annotation_service.py`, `document_annotation_pipeline.py`, `unified_entity_resolver.py`.
+`api_document_annotations.py` rewired from deleted `SimplifiedLLMAnnotationService` to `SimpleAnnotationService`.
+Full plan for further consolidation: `docs-internal/SERVICE_CONSOLIDATION_PLAN.md`.
 
 #### 4c. LLM Services
 
@@ -168,15 +168,15 @@ These are all single-concern files where further splitting would add complexity 
 
 ## Metrics History
 
-| Metric | Pre-cleanup (Mar 1) | Post-cleanup (Mar 1) | Current (Mar 3) |
-|--------|---------------------|---------------------|-----------------|
-| Python files (`app/`) | ~457 | 424 | 446 |
-| LOC (`app/`) | ~175,000 | 165,962 | 162,538 |
-| Largest route file | 5,180 | 5,180 | 1,884 |
-| Files > 1,000 lines | -- | 24 | 21 |
-| Templates (total / archived) | ~256 / 29 | 227 / 29 | 174 / 0 |
-| Registered blueprints | -- | 47 | 42 |
-| URL rules | -- | 574 | 540 |
+| Metric | Pre-cleanup (Mar 1) | Post-cleanup (Mar 1) | Mar 3 | Mar 5  |
+|--------|---------------------|----------------------|-------|--------|
+| Python files (`app/`) | ~457 | 424 | 446 | 433 |
+| LOC (`app/`) | ~175,000 | 165,962 | 162,538 | 156,476 |
+| Largest route file | 5,180 | 5,180 | 1,884 | 1,884 |
+| Files > 1,000 lines | -- | 24 | 21 | 21 |
+| Templates (total / archived) | ~256 / 29 | 227 / 29 | 174 / 0 | 174 / 0 |
+| Registered blueprints | -- | 47 | 42 | 37 |
+| URL rules | -- | 574 | 540 | 511 |
 
 ---
 

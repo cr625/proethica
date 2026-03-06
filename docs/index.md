@@ -89,4 +89,15 @@ Steps 1-2 extract from Facts and Discussion sections separately. Step 3 performs
 
 ## Citation
 
-> Rauch, C. B., & Weber, R. O. (2026). ProEthica: A Professional Role-Based Ethical Analysis Tool Using LLM-Orchestrated, Ontology Supported Case-Based Reasoning. In *Proceedings of the AAAI Conference on Artificial Intelligence*. Singapore: AAAI Press.
+> Rauch, C. B., & Weber, R. O. (2026). ProEthica: A Professional Role-Based Ethical Analysis Tool Using LLM-Orchestrated, Ontology-Supported Case-Based Reasoning. *Proceedings of the AAAI Conference on Artificial Intelligence*, 40.
+
+```bibtex
+@article{rauch_weber_2026,
+  title     = {ProEthica: A Professional Role-Based Ethical Analysis Tool
+               Using LLM-Orchestrated, Ontology-Supported Case-Based Reasoning},
+  author    = {Rauch, Christopher B. and Weber, Rosina O.},
+  journal   = {Proceedings of the AAAI Conference on Artificial Intelligence},
+  volume    = {40},
+  year      = {2026}
+}
+```

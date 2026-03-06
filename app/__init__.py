@@ -169,16 +169,6 @@ def create_app(config_name=None):
     from app.routes.worlds.extraction import worlds_extract_only_bp
     from app.routes.annotations import annotations_bp
     from app.routes.agent import agent_bp
-    # Enhanced intelligent annotations
-    from app.routes.intelligent_annotations import intelligent_annotations_bp
-    # Enhanced guideline annotations with multi-agent orchestration
-    from app.routes.enhanced_annotations import bp as enhanced_annotations_bp
-    # LLM-enhanced annotation routes
-    from app.routes.llm_annotations import bp as llm_annotations_bp
-    # Annotation review routes
-    from app.routes.annotation_review import bp as annotation_review_bp
-    # Annotation versioning API routes
-    from app.routes.annotation_versions import annotation_versions_bp
     # Unified document annotation API routes
     from app.routes.api_document_annotations import bp as api_document_annotations_bp
     # Reasoning inspector routes
@@ -227,11 +217,6 @@ def create_app(config_name=None):
     app.register_blueprint(worlds_extract_only_bp)
     app.register_blueprint(annotations_bp)
     app.register_blueprint(agent_bp)  # Register the agent blueprint
-    app.register_blueprint(intelligent_annotations_bp)  # Register intelligent annotations
-    app.register_blueprint(enhanced_annotations_bp)  # Register enhanced annotations with MCP integration
-    app.register_blueprint(llm_annotations_bp)  # Register LLM-enhanced annotations
-    app.register_blueprint(annotation_review_bp)  # Register annotation review endpoints
-    app.register_blueprint(annotation_versions_bp)  # Register annotation versioning API
     app.register_blueprint(api_document_annotations_bp)  # Register unified document annotation API
     app.register_blueprint(reasoning_bp)  # Register reasoning inspector routes
     app.register_blueprint(provenance_bp)  # Register PROV-O provenance viewer routes

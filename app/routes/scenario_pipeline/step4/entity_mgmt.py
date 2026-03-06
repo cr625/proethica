@@ -370,30 +370,3 @@ def register_entity_mgmt_routes(bp):
         from app.routes.scenario_pipeline.step4.streaming import save_step4_streaming_results
         return save_step4_streaming_results(case_id)
 
-    @bp.route('/case/<int:case_id>/step4/generate_synthesis_annotations', methods=['POST'])
-    @auth_required_for_llm
-    def generate_synthesis_annotations(case_id):
-        """Generate synthesis annotations for Step 4 artifacts."""
-        try:
-            from app.services.synthesis_annotation_service import SynthesisAnnotationService
-
-            logger.info(f"Generating synthesis annotations for case {case_id}")
-
-            service = SynthesisAnnotationService(case_id)
-            counts = service.generate_all_synthesis_annotations()
-
-            return jsonify({
-                'success': True,
-                'counts': counts,
-                'message': f"Successfully generated {counts['total']} synthesis annotations"
-            })
-
-        except Exception as e:
-            logger.error(f"Error generating synthesis annotations for case {case_id}: {e}")
-            import traceback
-            traceback.print_exc()
-
-            return jsonify({
-                'success': False,
-                'error': str(e)
-            }), 500
