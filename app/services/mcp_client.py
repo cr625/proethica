@@ -66,37 +66,27 @@ class MCPClient:
         if debug_mode:
             print(f"Testing connection to MCP server at {clean_url}...")
         
-        # Try JSON-RPC endpoint with proper POST request
-        jsonrpc_endpoint = f"{clean_url}/jsonrpc"
+        # Check health endpoint
+        health_endpoint = f"{clean_url}/health"
         try:
             if debug_mode:
-                print(f"  Checking JSON-RPC endpoint: {jsonrpc_endpoint}")
-            
-            # Use POST with proper JSON-RPC request format
-            response = self.session.post(
-                jsonrpc_endpoint, 
-                json={
-                    "jsonrpc": "2.0",
-                    "method": "list_tools",
-                    "params": {},
-                    "id": 1
-                },
-                timeout=5
-            )
-            
+                print(f"  Checking health endpoint: {health_endpoint}")
+
+            response = self.session.get(health_endpoint, timeout=5)
+
             if response.status_code == 200:
                 if debug_mode:
-                    print(f"Successfully connected to MCP server at {jsonrpc_endpoint}")
+                    print(f"Successfully connected to MCP server at {health_endpoint}")
                 return True
             else:
                 if debug_mode:
-                    print(f"  JSON-RPC endpoint returned status code {response.status_code}")
+                    print(f"  Health endpoint returned status code {response.status_code}")
         except requests.exceptions.ConnectionError:
             if debug_mode:
-                print(f"  Could not connect to {jsonrpc_endpoint}")
+                print(f"  Could not connect to {health_endpoint}")
         except Exception as e:
             if debug_mode:
-                print(f"  Error checking JSON-RPC endpoint: {str(e)}")
+                print(f"  Error checking health endpoint: {str(e)}")
         
         if debug_mode:
             print(f"All connection attempts to MCP server failed")
@@ -236,25 +226,16 @@ class MCPClient:
             Dictionary with status info including 'status' key with value 'current', 'deprecated', or 'unknown'
         """
         try:
-            # First try to get the status using JSON-RPC
+            # Try MCP tool call for ontology status
             try:
-                response = self.session.post(
-                    f"{self.mcp_url}/jsonrpc",
-                    json={
-                        "jsonrpc": "2.0",
-                        "method": "get_ontology_status",
-                        "params": {"ontology_id": ontology_source},
-                        "id": 1
-                    },
-                    timeout=5
+                from app.services.mcp_transport import MCPTransport
+                transport = MCPTransport(base_url=self.mcp_url)
+                result = transport.call_tool(
+                    "get_domain_info", {"domain_id": ontology_source}
                 )
-                
-                if response.status_code == 200:
-                    result = response.json()
-                    if "result" in result:
-                        return result["result"]
-            except Exception as e:
-                # Silently catch errors and continue to database check
+                if result and not result.get("error"):
+                    return result
+            except Exception:
                 pass
                 
             # If JSON-RPC fails, check directly in the database

@@ -290,35 +290,22 @@ class OntologyMatcher:
         
         return matches
     
-    async def _get_candidates_from_mcp(self, 
+    async def _get_candidates_from_mcp(self,
                                       category: str,
                                       domain: str) -> List[Dict[str, Any]]:
         """Get candidate concepts from MCP server."""
-        url = f"{self.mcp_server_url}/jsonrpc"
-        payload = {
-            "jsonrpc": "2.0",
-            "method": "call_tool",
-            "params": {
-                "name": "get_entities_by_category",
-                "arguments": {
-                    "category": category,
-                    "domain_id": domain,
-                    "status": "approved"
-                }
-            },
-            "id": 1
-        }
-        
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(url, json=payload) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        result = json.loads(data['result']['content'][0]['text'])
-                        return result.get('entities', [])
+            from app.services.mcp_transport import MCPTransport
+            transport = MCPTransport(base_url=self.mcp_server_url)
+            result = transport.call_tool("get_entities_by_category", {
+                "category": category,
+                "domain_id": domain,
+                "status": "approved",
+            })
+            return result.get('entities', [])
         except Exception as e:
             logger.error(f"Failed to get candidates from MCP: {e}")
-        
+
         return []
     
     def _calculate_similarity(self, text: str, candidate: Dict[str, Any]) -> float:

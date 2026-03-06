@@ -431,16 +431,7 @@ def get_simplified_system_status():
     
     # Check MCP server
     try:
-        response = requests.post(
-            f"{status['mcp_url']}/jsonrpc",
-            json={
-                "jsonrpc": "2.0",
-                "method": "list_tools",
-                "params": {},
-                "id": 1
-            },
-            timeout=2
-        )
+        response = requests.get(f"{status['mcp_url']}/health", timeout=2)
         if response.status_code == 200:
             status['mcp_server'] = True
     except:

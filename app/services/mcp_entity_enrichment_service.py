@@ -177,34 +177,17 @@ class MCPEntityEnrichmentService:
 
     def _call_mcp_tool(self, tool_name: str, arguments: dict) -> dict:
         """Call an MCP tool on the OntServe server."""
-        payload = {
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "call_tool",
-            "params": {
-                "name": tool_name,
-                "arguments": arguments
-            }
-        }
+        from app.services.mcp_transport import MCPTransport, MCPTransportError
 
-        response = requests.post(
-            self.mcp_url,
-            json=payload,
-            headers={"Content-Type": "application/json"},
-            timeout=self.timeout
-        )
-        response.raise_for_status()
+        if not hasattr(self, '_transport'):
+            self._transport = MCPTransport(
+                base_url=self.mcp_url, timeout=self.timeout
+            )
 
-        result = response.json()
-
-        # Extract tool result from MCP response format
-        if "result" in result and "content" in result["result"]:
-            content = result["result"]["content"]
-            if content and len(content) > 0:
-                text = content[0].get("text", "{}")
-                return json.loads(text)
-
-        return {"error": "Unexpected MCP response format"}
+        try:
+            return self._transport.call_tool(tool_name, arguments)
+        except MCPTransportError as e:
+            return {"error": str(e)}
 
     def build_glossary(self, entities: Dict[str, Dict]) -> str:
         """

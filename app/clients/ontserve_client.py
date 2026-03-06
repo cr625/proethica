@@ -60,39 +60,71 @@ class OntServeClient:
     
     async def _make_mcp_request(self, method: str, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Make MCP JSON-RPC 2.0 request to OntServe.
-        
-        Args:
-            method: MCP method name
-            params: Method parameters
-            
-        Returns:
-            Response data
+        Make MCP Streamable HTTP request to OntServe.
+
+        Handles SSE response parsing and session management.
         """
         session = await self._get_session()
-        
+
         payload = {
             "jsonrpc": "2.0",
             "id": 1,
             "method": method,
-            "params": params
+            "params": params,
         }
-        
+
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json, text/event-stream",
+        }
+        if hasattr(self, '_mcp_session_id') and self._mcp_session_id:
+            headers["Mcp-Session-Id"] = self._mcp_session_id
+
         try:
-            async with session.post(f"{self.base_url}/jsonrpc", json=payload) as response:
+            async with session.post(
+                f"{self.base_url}/mcp", json=payload, headers=headers
+            ) as response:
                 if response.status != 200:
-                    raise aiohttp.ClientError(f"HTTP {response.status}: {await response.text()}")
-                
-                result = await response.json()
-                
+                    raise aiohttp.ClientError(
+                        f"HTTP {response.status}: {await response.text()}"
+                    )
+
+                # Capture session ID
+                sid = response.headers.get("Mcp-Session-Id")
+                if sid:
+                    self._mcp_session_id = sid
+
+                # Parse SSE or plain JSON
+                ct = response.headers.get("content-type", "")
+                if "text/event-stream" in ct:
+                    text = await response.text()
+                    for line in text.splitlines():
+                        if line.startswith("data: "):
+                            result = json.loads(line[6:])
+                            break
+                    else:
+                        raise Exception("No data in SSE response")
+                else:
+                    result = await response.json()
+
                 if "error" in result:
                     raise Exception(f"MCP Error: {result['error']}")
-                
+
                 return result.get("result", {})
-                
+
         except Exception as e:
             logger.error(f"OntServe MCP request failed ({method}): {e}")
             raise
+
+    async def _ensure_initialized(self):
+        """Send MCP initialize if not yet done."""
+        if not getattr(self, '_mcp_initialized', False):
+            await self._make_mcp_request("initialize", {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {"name": "proethica-ontserve-client", "version": "1.0"},
+            })
+            self._mcp_initialized = True
     
     async def get_entities_by_category(self, domain_name: str, category: str, limit: int = 1000) -> List[Dict]:
         """
@@ -116,12 +148,12 @@ class OntServeClient:
                 return cached_data
         
         try:
-            result = await self._make_mcp_request("call_tool", {
+            await self._ensure_initialized()
+            result = await self._make_mcp_request("tools/call", {
                 "name": "get_entities_by_category",
                 "arguments": {
-                    "domain_name": domain_name,
+                    "domain_id": domain_name,
                     "category": category,
-                    "limit": limit
                 }
             })
             
