@@ -1,17 +1,17 @@
 # ProEthica Codebase Improvement Roadmap
 
-**Last verified**: 2026-03-03
+**Last verified**: 2026-03-05
 **Branch**: `development`
 
 ## Current Metrics
 
 | Metric | Value |
 |--------|-------|
-| Python files (`app/`) | 446 |
-| Lines of code (`app/`) | 162,538 |
-| Templates (total / archived) | 174 / 0 |
-| Registered blueprints | 42 |
-| URL rules | 540 |
+| Python files (`app/`) | 433 |
+| Lines of code (`app/`) | 156,418 |
+| Templates (total / archived) | 170 / 0 |
+| Registered blueprints | 37 |
+| URL rules | 512 |
 | Files > 1,000 lines | 21 |
 | Largest route file | `step1.py` (1,884 lines) |
 | Largest service file | `guideline_analysis_service.py` (1,951 lines) |
@@ -109,37 +109,32 @@ Two independent patterns (`app/services/llm/` package vs `app/services/llm_servi
 
 Distinct collaborating services. No merge needed. `decision_point_synthesizer.py` (1,609 lines) is a candidate for internal modularization if it grows.
 
-### Phase 5: Configuration Cleanup
+### Phase 5: Configuration Cleanup -- DONE (2026-03-05)
 
-| File | Lines | Status |
-|------|-------|--------|
-| `config.py` (root) | 110 | Canonical Flask config |
-| `app/config/__init__.py` | 108 | Compat shim; duplicates some settings from root config |
-| `app/config/codespace.py` | 66 | Codespace-specific, 0 external importers |
-| `app/services/llm/config.py` | 87 | LLM-specific, internal |
-| `celery_config.py` (root) | 109 | Actively imported by 3 files |
-| `model_config.py` (root) | 79 | Renamed from models.py |
+Deleted `app/config.py` (shadowed by `app/config/` package), `app/config/codespace.py` (0 importers).
+Gutted `app/config/__init__.py` (109 -> 5 lines) after removing its 2 importers (`claude_service.py`, `langchain_claude.py`).
+Cleaned `.env` (143 -> 62 lines): removed 30+ dead/duplicate vars (duplicate Gemini keys, `CLAUDE_API_KEY` alias, unused extraction flags, unused provenance vars, stale MCP vars).
+Created `.env.example`, updated `.env.production.example`.
 
-**Recommended**: Audit `app/config/__init__.py` importers. If few remain, inline and delete. `celery_config.py` is NOT dead -- imported by `health.py`, `pipeline_dashboard.py`, `pipeline_tasks.py`.
+Remaining config files (all actively used):
+- `config.py` (root): canonical Flask config
+- `app/services/llm/config.py`: LLM-specific, internal
+- `celery_config.py` (root): imported by `health.py`, `pipeline_dashboard.py`, `pipeline_tasks.py`
+- `model_config.py` (root): centralized model name registry
 
-### Phase 6: Documentation Cleanup
+Also in this session: startup optimization (`run.py` reloader guard, `agent.py` lazy init, `direct_llm_service.py` quiet logging, `scenario_generation_phase_a.py` quiet imports).
 
-#### Stale planning documents
+### Phase 6: Documentation & Template Cleanup -- DONE (2026-03-05)
 
-11 completed-plan files in `docs-internal/` should move to `docs-internal/archive/`:
-POST_DEMO_TODO, ENTITY_RESOLUTION_PLAN, EXTRACTION_QUALITY_IMPROVEMENTS, GUIDELINES_IMPROVEMENT_PLAN, PIPELINE_NAVIGATION, PIPELINE_STATE_ARCHITECTURE, PROVENANCE_VISUALIZATION_RESEARCH, STEP4_PIPELINE_REFERENCE, VALIDATION_FRAMEWORK_UNIFIED, PHASE2_EXTRACTION_PLAN, PHASE2_IMPLEMENTATION_STEPS.
+Archived 4 stale upgrade docs (`step4-partial-extraction-tracker`, `scenario-pipeline-unification-plan`, `scenario-generation-status`, `fix-capabilities-gap`). Only `MULTI_VIEW_DESIGN_GUIDE.md` kept in `upgrades/` (active HT 2026 reference).
 
-Also review `docs-internal/upgrades/` -- `step4-partial-extraction-tracker.md` and `scenario-pipeline-unification-plan.md` are likely stale.
+All 11 stale planning docs were already archived in prior sessions.
 
-#### Active reference documents (keep)
+Deleted 5 orphaned templates: `world_dashboard.html`, `case_extracted_content.html`, `create_case_triple.html`, `guideline_triples_review.html`, `scenarios/step1.html`. (`scenarios/step4.html` and `scenarios/step5.html` are actively rendered -- removed from orphan list.)
 
-ONTOLOGY_OBJECT_PROPERTIES, VERIFICATION_CRITERIA, verify-case-reference, SERVER_SETUP, STYLE, TERMINOLOGY_SUMMARY, ACADEMIC_FRAMEWORKS, EXTRACTION_QUEUE, PIPELINE_PROMPT, NGINX_CACHING, CODEBASE_ANALYSIS, ONTSERVE_INTEGRATION_GUIDE.
+Removed unregistered `documents_web_bp` blueprint and its 2 dead routes from `documents.py` (download was duplicated in `documents_bp`).
 
 ### Other Known Issues
-
-**Unregistered blueprint**: `documents_web_bp` defined in `app/routes/documents.py` (line 26) but never registered. Routes `/documents/download/<id>` and `/documents/status/<id>` are unreachable. Either register or fold into `documents_bp`.
-
-**Orphaned templates** (7 confirmed): `world_dashboard.html`, `case_extracted_content.html`, `create_case_triple.html`, `guideline_triples_review.html`, `scenarios/step1.html`, `scenarios/step4.html`, `scenarios/step5.html`.
 
 **`ttl_triple_association/`** at project root: Actively imported by `document_structure.py` and `prediction_service.py`. Should be relocated into `app/` for consistency, but is not dead code.
 
@@ -168,15 +163,15 @@ These are all single-concern files where further splitting would add complexity 
 
 ## Metrics History
 
-| Metric | Pre-cleanup (Mar 1) | Post-cleanup (Mar 1) | Mar 3 | Mar 5  |
-|--------|---------------------|----------------------|-------|--------|
-| Python files (`app/`) | ~457 | 424 | 446 | 433 |
-| LOC (`app/`) | ~175,000 | 165,962 | 162,538 | 156,476 |
-| Largest route file | 5,180 | 5,180 | 1,884 | 1,884 |
-| Files > 1,000 lines | -- | 24 | 21 | 21 |
-| Templates (total / archived) | ~256 / 29 | 227 / 29 | 174 / 0 | 174 / 0 |
-| Registered blueprints | -- | 47 | 42 | 37 |
-| URL rules | -- | 574 | 540 | 511 |
+| Metric | Pre-cleanup (Mar 1) | Post-cleanup (Mar 1) | Mar 3 | Mar 5 (ann.) | Mar 5 (config) |
+|--------|---------------------|----------------------|-------|--------------|----------------|
+| Python files (`app/`) | ~457 | 424 | 446 | 433 | 433 |
+| LOC (`app/`) | ~175,000 | 165,962 | 162,538 | 156,476 | 156,418 |
+| Largest route file | 5,180 | 5,180 | 1,884 | 1,884 | 1,884 |
+| Files > 1,000 lines | -- | 24 | 21 | 21 | 21 |
+| Templates | ~256 / 29 | 227 / 29 | 174 / 0 | 174 / 0 | 170 / 0 |
+| Registered blueprints | -- | 47 | 42 | 37 | 37 |
+| URL rules | -- | 574 | 540 | 511 | 512 |
 
 ---
 

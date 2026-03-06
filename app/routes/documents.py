@@ -23,7 +23,6 @@ logger = logging.getLogger(__name__)
 
 # Create blueprints
 documents_bp = Blueprint('api_documents', __name__, url_prefix='/api/documents')
-documents_web_bp = Blueprint('documents', __name__, url_prefix='/documents')
 
 # Configure upload folder
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads')
@@ -278,56 +277,4 @@ def process_url():
     
     except Exception as e:
         logger.error(f"Error processing URL: {str(e)}")
-        return jsonify({"error": str(e)}), 500
-
-# Web routes for documents
-@documents_web_bp.route('/download/<int:document_id>', methods=['GET'])
-def download_document_web(document_id):
-    """Web route to download a document."""
-    try:
-        document = Document.query.get_or_404(document_id)
-        
-        if not document.file_path or not os.path.exists(document.file_path):
-            return jsonify({"error": "Document file not found"}), 404
-        
-        return send_file(document.file_path, as_attachment=True, download_name=os.path.basename(document.file_path))
-    
-    except Exception as e:
-        logger.error(f"Error downloading document {document_id}: {str(e)}")
-        return jsonify({"error": str(e)}), 500
-
-@documents_web_bp.route('/status/<int:document_id>', methods=['GET'])
-def document_status(document_id):
-    """Get the processing status of a document."""
-    try:
-        document = Document.query.get_or_404(document_id)
-        
-        # Check if document has content but status is still processing
-        if document.content and document.processing_status == PROCESSING_STATUS['PROCESSING']:
-            # Update status to completed if content exists but status is still processing
-            document.processing_status = PROCESSING_STATUS['COMPLETED']
-            document.processing_progress = 100
-            document.processing_phase = 'completed'
-            db.session.commit()
-            logger.info(f"Auto-corrected document {document_id} status to completed based on content presence")
-        
-        # Calculate estimated time remaining based on progress
-        estimated_time = None
-        if document.processing_status == PROCESSING_STATUS['PROCESSING']:
-            # Rough estimate: 2 minutes for a full process, scaled by remaining progress
-            remaining_progress = 100 - (document.processing_progress or 0)
-            estimated_time = int((remaining_progress / 100) * 120)  # seconds
-        
-        return jsonify({
-            "id": document.id,
-            "status": document.processing_status,
-            "phase": document.processing_phase,
-            "progress": document.processing_progress or 0,
-            "estimated_time": estimated_time,  # in seconds
-            "error": document.processing_error,
-            "has_content": bool(document.content)
-        })
-    
-    except Exception as e:
-        logger.error(f"Error getting document status {document_id}: {str(e)}")
         return jsonify({"error": str(e)}), 500
