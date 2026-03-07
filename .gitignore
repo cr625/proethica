@@ -4,7 +4,6 @@ __pycache__/
 *$py.class
 *.so
 .Python
-env/
 build/
 develop-eggs/
 dist/
@@ -36,7 +35,6 @@ instance/
 *.sqlite
 
 # Environment variables
-.env
 *.env
 .env.backup
 !.env.example
@@ -51,49 +49,31 @@ instance/
 
 # OS
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
 
 # Logs and temporary files
 logs/
 .pids/
 *.log
-app.log
-server.log
 .outfile
 *.pid
-.mcp_server.pid
-mcp/profile.out
-mcp/server.log
 
 # Temporary HTML/output files
 *.html
 !app/templates/**/*.html
-pass3_output.html
-pass3_page.html
-login_page.html
-scenario_demo.html
 
 # Lock files
 *.lock
 tmp/
 
-# Node.js (not used - Python project)
-node_modules/
-package.json
-package-lock.json
-
-# External Repositories
-_src/
-
 # Backup files
 *.bak*
+backups/
+database_backups/
+*.sql.gz
+*.sql.bak
 
-# Claude AI related files (synced via OneDrive - see scripts/docs_pull.sh)
+# Claude AI related files (synced via OneDrive)
 .claude/
 CLAUDE.md
 **/CLAUDE.md
@@ -104,9 +84,7 @@ PROGRESS.md
 docs-internal/
 */docs-internal/
 
-# Public documentation is tracked (docs/)
-
-# Sensitive scripts (moved to docs-internal/scripts-internal/, synced via OneDrive)
+# Development scripts and scratch
 scripts/refresh_test_db.sh
 scratch/
 */scratch/
@@ -116,7 +94,6 @@ pending_delete/
 # Archive directories
 archive/
 */archive/
-# Exception: keep test archives for documentation
 !tests/archive/
 
 # Cache directories
@@ -125,23 +102,14 @@ cache/
 *_cache/
 */*_cache/
 
-# Test directories and files
-# Note: We allow /tests/ at root (standard Python project structure)
-# but ignore tests/ in subdirectories
-!tests/  # Exception: Allow root-level tests directory
+# Subdirectory tests (root /tests/ is tracked)
+!tests/
 */tests/
-# Ignore test files outside of /tests/ directory
-# test_*.py and *_test.py in /tests/ are allowed
-# **/test_*.py  # Commented: we want tests in /tests/
-# **/*_test.py  # Commented: we want tests in /tests/
 
 # Temporary files
 *.temp
 temp_*/
 *_temp/
-add_decision_points*.sql
-check_decisions.py
-*_refined.py
 
 # Server-specific configuration
 server_config/
@@ -149,25 +117,12 @@ run_with_agents_gunicorn.sh
 .secrets
 migrations
 
-# Ontology editor and legacy directories
-ontology_editor/
-mclaren/
-realm/
-nspe-pipeline/
-ttl_triple_association/
-demo/
-database_backups/
-backups/
-# docs/  # COMMENTED OUT 2025-11-16 - docs now exposed for cleanup work
-
 # Documentation artifacts (LaTeX diagrams, PDFs - local only)
 docs/diagrams/
 
-# Database backups (synced via OneDrive - see scripts/docs_pull.sh)
-/backups/
-database_backups/
-*.sql.gz
-*.sql.bak
-
 # MkDocs build output
 site/
+
+# Local tool configuration
+pyproject.toml
+pytest.ini
