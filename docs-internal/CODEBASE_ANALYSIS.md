@@ -1,14 +1,14 @@
 # ProEthica Codebase Improvement Roadmap
 
-**Last verified**: 2026-03-05
+**Last verified**: 2026-03-07
 **Branch**: `development`
 
 ## Current Metrics
 
 | Metric | Value |
 |--------|-------|
-| Python files (`app/`) | 433 |
-| Lines of code (`app/`) | 156,418 |
+| Python files (`app/`) | 442 |
+| Lines of code (`app/`) | 158,622 |
 | Templates (total / archived) | 170 / 0 |
 | Registered blueprints | 37 |
 | URL rules | 512 |
@@ -136,7 +136,9 @@ Removed unregistered `documents_web_bp` blueprint and its 2 dead routes from `do
 
 ### Other Known Issues
 
-**`ttl_triple_association/`** at project root: Actively imported by `document_structure.py` and `prediction_service.py`. Should be relocated into `app/` for consistency, but is not dead code.
+**`ttl_triple_association/`** -- DONE (2026-03-07). Relocated from project root to `app/services/ttl_triple_association/`. Internal imports converted to relative. External imports updated in `document_structure.py` and `prediction_service.py`.
+
+**Stale CSRF exemption** -- DONE (2026-03-07). Removed `step4.generate_synthesis_annotations` from `step4/__init__.py` CSRF exempt list (no matching route exists).
 
 ---
 
@@ -163,15 +165,17 @@ These are all single-concern files where further splitting would add complexity 
 
 ## Metrics History
 
-| Metric | Pre-cleanup (Mar 1) | Post-cleanup (Mar 1) | Mar 3 | Mar 5 (ann.) | Mar 5 (config) |
-|--------|---------------------|----------------------|-------|--------------|----------------|
-| Python files (`app/`) | ~457 | 424 | 446 | 433 | 433 |
-| LOC (`app/`) | ~175,000 | 165,962 | 162,538 | 156,476 | 156,418 |
-| Largest route file | 5,180 | 5,180 | 1,884 | 1,884 | 1,884 |
-| Files > 1,000 lines | -- | 24 | 21 | 21 | 21 |
-| Templates | ~256 / 29 | 227 / 29 | 174 / 0 | 174 / 0 | 170 / 0 |
-| Registered blueprints | -- | 47 | 42 | 37 | 37 |
-| URL rules | -- | 574 | 540 | 511 | 512 |
+| Metric | Pre-cleanup (Mar 1) | Post-cleanup (Mar 1) | Mar 3 | Mar 5 (ann.) | Mar 5 (config) | Mar 7 |
+|--------|---------------------|----------------------|-------|--------------|----------------|-------|
+| Python files (`app/`) | ~457 | 424 | 446 | 433 | 433 | 442* |
+| LOC (`app/`) | ~175,000 | 165,962 | 162,538 | 156,476 | 156,418 | 158,622* |
+| Largest route file | 5,180 | 5,180 | 1,884 | 1,884 | 1,884 | 1,884 |
+| Files > 1,000 lines | -- | 24 | 21 | 21 | 21 | 21 |
+| Templates | ~256 / 29 | 227 / 29 | 174 / 0 | 174 / 0 | 170 / 0 | 170 / 0 |
+| Registered blueprints | -- | 47 | 42 | 37 | 37 | 37 |
+| URL rules | -- | 574 | 540 | 511 | 512 | 512 |
+
+*Mar 7 increase reflects `ttl_triple_association/` (9 files, ~2,200 lines) relocated from project root into `app/services/`.
 
 ---
 

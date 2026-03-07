@@ -22,8 +22,8 @@ from datetime import datetime
 from app import db
 
 # Import the section triple association service
-from ttl_triple_association.section_triple_association_service import SectionTripleAssociationService
-from ttl_triple_association.section_triple_association_storage import SectionTripleAssociationStorage
+from app.services.ttl_triple_association.section_triple_association_service import SectionTripleAssociationService
+from app.services.ttl_triple_association.section_triple_association_storage import SectionTripleAssociationStorage
 
 # Create blueprint
 doc_structure_bp = Blueprint('doc_structure', __name__, url_prefix='/structure')

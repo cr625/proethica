@@ -92,7 +92,6 @@ def init_step4_csrf_exemption(app):
         csrf_exempt_views = [
             # Entity management
             'step4.save_streaming_results',
-            'step4.generate_synthesis_annotations',
             'step4.clear_step4_data',
             'step4.commit_step4_entities',
             # Provision extraction

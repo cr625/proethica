@@ -17,7 +17,7 @@ from app.models.document_section import DocumentSection
 from app.services.llm_service import LLMService
 from app.services.section_embedding_service import SectionEmbeddingService
 from app.services.guideline_section_service import GuidelineSectionService
-from ttl_triple_association.section_triple_association_service import SectionTripleAssociationService
+from app.services.ttl_triple_association.section_triple_association_service import SectionTripleAssociationService
 from app.services.experiment.find_similar_cases import find_similar_cases
 
 # Configure logging
