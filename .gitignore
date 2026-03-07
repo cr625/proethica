@@ -60,6 +60,7 @@ Thumbs.db
 
 # Logs and temporary files
 logs/
+.pids/
 *.log
 app.log
 server.log
