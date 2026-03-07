@@ -214,7 +214,7 @@ Events capture temporal dynamics and external triggers. The Event Calculus frame
 
 ## Extraction Process
 
-ProEthica extracts these nine concepts through three extraction steps, followed by reconciliation and synthesis.
+ProEthica extracts these nine components through three extraction steps, followed by reconciliation and synthesis.
 
 ### Step 1: Contextual Framework
 

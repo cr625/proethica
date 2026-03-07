@@ -1,6 +1,6 @@
 # Viewing Extractions
 
-Completed cases display extracted entities organized by pipeline step. The extraction results show the nine concept types identified from case text.
+Completed cases display extracted entities organized by pipeline step. The extraction results show the nine component types identified from case text.
 
 ## Accessing Extraction Results
 

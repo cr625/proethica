@@ -1,6 +1,6 @@
 # Prompt Editor
 
-The Prompt Editor provides a web interface for editing extraction prompt templates used in Steps 1-3 of the pipeline. Each of the nine concepts has an editable template stored in the database.
+The Prompt Editor provides a web interface for editing extraction prompt templates used in Steps 1-3 of the pipeline. Each of the nine components has an editable template stored in the database.
 
 ## Accessing the Prompt Editor
 

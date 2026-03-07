@@ -86,7 +86,7 @@ Entities are automatically matched to existing ontology classes during extractio
 
 The OntServe commit publishes entities from `temporary_rdf_storage` to the ontology. The pipeline performs two commits:
 
-1. **First commit** (after Reconcile) - Steps 1-3 base entities (9 concept types)
+1. **First commit** (after Reconcile) - Steps 1-3 base entities (9 component types)
 2. **Second commit** (after Step 4) - Step 4 synthesis entities (8 additional types)
 
 Each commit generates a TTL file and registers entities in the OntServe database.

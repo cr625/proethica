@@ -51,7 +51,7 @@ ProEthica is a multi-service application combining Flask web interface, PostgreS
 |                                                                       |
 +-----------------------------------------------------------------------+
                                    |
-                                   | MCP (JSON-RPC)
+                                   | MCP (Streamable HTTP)
                                    v
 +-----------------------------------------------------------------------+
 |                           OntServe System                             |
@@ -75,7 +75,7 @@ ProEthica is a multi-service application combining Flask web interface, PostgreS
 
 ## Extraction Pipeline
 
-The pipeline extracts nine concept types across three steps, then synthesizes seven additional entity types in Step 4. For the full concept framework see [Nine-Component Framework](../concepts/nine-components.md); for step/pass/phase terminology see [Pipeline Terminology](../concepts/terminology.md).
+The pipeline extracts nine component types across three steps, then synthesizes seven additional entity types in Step 4. For the full concept framework see [Nine-Component Framework](../concepts/nine-components.md); for step/pass/phase terminology see [Pipeline Terminology](../concepts/terminology.md).
 
 ```text
 +-----------------------------------------------------------------------+
@@ -230,25 +230,28 @@ Single-file routes handle focused concerns: `admin.py`, `annotations.py`, `dashb
 |-------|----------|---------|
 | Extraction | `services/extraction/` | Unified dual extractor, prompt templates |
 | LLM | `services/llm/` | Model management, streaming, response parsing |
-| MCP Clients | `services/mcp_client.py`, `external_mcp_client.py`, `ontserve_mcp_client.py` | OntServe communication |
+| MCP Clients | `services/mcp_transport.py`, `external_mcp_client.py` | OntServe communication (FastMCP Streamable HTTP) |
 | Annotation | 14 service files | Document concept annotation pipeline |
 | Synthesis | `services/case_synthesizer.py`, `decision_point_synthesizer.py` | Step 4 analysis |
 | OntServe | `services/ontserve_commit_service.py`, `auto_commit_service.py` | Entity commit workflow |
 
 ### OntServe Integration
 
-MCP (Model Context Protocol) provides ontology services via 8 tools:
+MCP (Model Context Protocol) provides ontology services via 11 tools over FastMCP Streamable HTTP:
 
 | Tool | Purpose |
 |------|---------|
-| `get_entities_by_category` | Fetch existing ontology classes by concept type |
-| `search_entities` | Find matching classes by label or URI |
+| `get_entities_by_category` | Fetch existing ontology classes by component type |
+| `get_entity_by_label` | Resolve entity definition by label |
+| `get_entity_by_uri` | Resolve entity definition by URI |
+| `get_entities_by_uris` | Batch resolve up to 20 entities by URI |
 | `submit_candidate_concept` | Submit new class proposals |
-| `list_ontologies` | Available ontology graphs |
+| `update_concept_status` | Approve or reject candidate concepts |
+| `get_candidate_concepts` | Retrieve pending concepts for review |
+| `get_domain_info` | Domain metadata and statistics |
 | `sparql_query` | Execute SPARQL queries against ontologies |
-| `commit_case_entities` | Commit extracted entities to ontology (TTL + DB) |
-| `uncommit_case_entities` | Remove previously committed case entities |
-| `get_ontology_stats` | Ontology statistics (class counts, entity counts) |
+| `store_extracted_entities` | Store ProEthica extraction results |
+| `get_case_entities` | Retrieve stored entities for a specific case |
 
 ## Deployment
 
@@ -287,7 +290,7 @@ Production (proethica.org):
 
 ## Related Documentation
 
-- [Nine-Component Framework](../concepts/nine-components.md) - The 9 concept types and theoretical foundations
+- [Nine-Component Framework](../concepts/nine-components.md) - The 9 component types and theoretical foundations
 - [Pipeline Terminology](../concepts/terminology.md) - Step/Pass/Phase definitions and processing order
 - [Ontology Integration](ontology-integration.md) - OntServe MCP details
 - [Installation & Deployment](installation.md) - Setup instructions

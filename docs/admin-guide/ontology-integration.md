@@ -16,8 +16,8 @@ ProEthica uses OntServe as its central ontology repository. The integration prov
 ```text
 ProEthica                            OntServe
 +------------+                      +------------+
-| MCP Client |---- JSON-RPC ------->| MCP Server |
-|            |<---------------------|   :8082    |
+| MCP Client |-- Streamable HTTP -->| FastMCP 3  |
+|            |<------ SSE ----------|   :8082    |
 +------------+                      +------+-----+
                                            |
                                            v
@@ -31,13 +31,13 @@ ProEthica                            OntServe
 
 ### Connection
 
-ProEthica connects to OntServe via MCP (JSON-RPC 2.0):
+ProEthica connects to OntServe via the MCP Streamable HTTP transport:
 
 | Setting | Default |
 |---------|---------|
 | URL | http://localhost:8082 |
-| Protocol | JSON-RPC 2.0 |
-| Transport | HTTP POST |
+| Protocol | MCP (JSON-RPC 2.0 over Streamable HTTP) |
+| Server | FastMCP 3.x |
 
 ### Configuration
 
@@ -53,26 +53,25 @@ ProEthica auto-detects OntServe availability on startup and sets `ONTSERVE_MCP_E
 
 ### Client Implementation
 
-Located at: `app/services/ontserve_mcp_client.py`
+Two layers handle MCP communication:
 
-Features:
-- Async/await support with aiohttp
-- Connection pooling
-- Retry with exponential backoff
-- Graceful error handling
+| File | Purpose |
+|------|---------|
+| `app/services/mcp_transport.py` | Low-level MCP Streamable HTTP transport (session management, SSE parsing) |
+| `app/services/external_mcp_client.py` | High-level tool wrappers used by extraction pipeline |
 
 ### Connection Management
 
 ```python
-from app.services.ontserve_mcp_client import OntServeMCPClient
+from app.services.external_mcp_client import get_external_mcp_client
 
-async with OntServeMCPClient() as client:
-    entities = await client.get_entities_by_category("Role")
+client = get_external_mcp_client()
+result = client.get_entities_by_category("Role")
 ```
 
 ## Available Methods
 
-OntServe MCP provides 8 tools. The three most commonly used in ProEthica's extraction pipeline are documented below. See [Architecture](architecture.md) for the full tool list.
+OntServe MCP provides 11 tools. The three most commonly used in ProEthica's extraction pipeline are documented below. See [Architecture](architecture.md) for the full tool list.
 
 ### get_entities_by_category
 
@@ -165,7 +164,7 @@ ProEthica uses a three-layer ontology:
 
 ### Core Ontology (proethica-core)
 
-Defines the 9 concept types:
+Defines the 9 component types:
 
 | Class | URI | Description |
 |-------|-----|-------------|
@@ -224,9 +223,11 @@ During entity review, ProEthica fetches available classes:
 
 ```python
 # In entity_review.py
-async def get_available_classes(category):
-    async with OntServeMCPClient() as client:
-        return await client.get_entities_by_category(category)
+from app.services.external_mcp_client import get_external_mcp_client
+
+def get_available_classes(category):
+    client = get_external_mcp_client()
+    return client.get_entities_by_category(category)
 ```
 
 ### Class Assignment
@@ -305,11 +306,9 @@ except MCPConnectionError:
 Configurable timeout with retry:
 
 ```python
-client = OntServeMCPClient(
-    timeout=30,
-    max_retries=3,
-    retry_delay=1
-)
+from app.services.mcp_transport import MCPTransport
+
+transport = MCPTransport(timeout=30)
 ```
 
 ### Graceful Degradation
@@ -370,9 +369,7 @@ async def health_check():
 
 1. Check OntServe MCP is running:
    ```bash
-   curl -X POST http://localhost:8082 \
-     -H "Content-Type: application/json" \
-     -d '{"jsonrpc":"2.0","method":"list_tools","id":1}'
+   curl -s http://localhost:8082/health
    ```
 
 2. Verify port 8082 not blocked
