@@ -130,6 +130,10 @@ def register_view_routes(bp):
 
             ontserve_web_url = os.environ.get('ONTSERVE_WEB_URL', 'http://localhost:5003')
 
+            # Entity change detection (compare committed hashes vs OntServe current)
+            from app.services.entity_change_detector import get_changed_entity_uris
+            changed_entity_uris = get_changed_entity_uris(case_id) if published_count > 0 else set()
+
             return render_template(
                 'scenario_pipeline/step4_entities.html',
                 case=case,
@@ -143,6 +147,7 @@ def register_view_routes(bp):
                 class_count=class_count,
                 individual_count=individual_count,
                 ontserve_web_url=ontserve_web_url,
+                changed_entity_uris=changed_entity_uris,
                 current_step=4,
                 step_title='Step 4 Entities',
                 prev_step_url=url_for('step4.step4_synthesis', case_id=case_id),

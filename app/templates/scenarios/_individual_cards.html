@@ -14,6 +14,11 @@
                 <span class="badge bg-success rounded-circle p-1 mt-1" title="Published to OntServe">
                     <i class="bi bi-check-lg"></i>
                 </span>
+                {% if indiv.entity_uri and changed_entity_uris is defined and changed_entity_uris and indiv.entity_uri in changed_entity_uris %}
+                <span class="badge bg-warning text-dark rounded-pill p-1 mt-1" style="font-size: 0.65em;" title="Definition has changed in OntServe since this case was committed">
+                    <i class="bi bi-exclamation-triangle"></i> changed
+                </span>
+                {% endif %}
                 {% else %}
                 <button type="button" class="btn btn-outline-secondary btn-sm rounded-circle delete-entity-btn p-0 mt-1"
                         style="width: 24px; height: 24px; line-height: 1;"

@@ -286,6 +286,9 @@
                                     {% if entity.is_published %}
                                     <span class="badge bg-success ms-1" style="font-size: 0.65em;">committed</span>
                                     {% endif %}
+                                    {% if entity.is_published and entity.entity_uri and changed_entity_uris and entity.entity_uri in changed_entity_uris %}
+                                    <span class="badge bg-warning text-dark ms-1" style="font-size: 0.65em;" title="Definition has changed in OntServe since this case was committed"><i class="bi bi-exclamation-triangle"></i> changed</span>
+                                    {% endif %}
                                     {% if entity.is_reviewed and not is_rejected %}
                                     <span class="badge bg-light text-dark border ms-1" style="font-size: 0.65em;">reviewed</span>
                                     {% endif %}

@@ -333,6 +333,10 @@ def register_review_view_routes(bp):
 
             ontserve_web_url = os.environ.get('ONTSERVE_WEB_URL', 'http://localhost:5003')
 
+            # Entity change detection
+            from app.services.entity_change_detector import get_changed_entity_uris
+            changed_entity_uris = get_changed_entity_uris(case_id)
+
             return render_template(
                 'scenarios/entity_review.html',
                 case=case_doc,
@@ -345,7 +349,8 @@ def register_review_view_routes(bp):
                 question_conclusion_links=question_conclusion_links,  # Pass Q->C links for Conclusions section
                 ontserve_classes=ontserve_classes,  # Pass OntServe classes for reference
                 pipeline_status=pipeline_status,  # For navigation toggle
-                ontserve_web_url=ontserve_web_url
+                ontserve_web_url=ontserve_web_url,
+                changed_entity_uris=changed_entity_uris
             )
 
         except Exception as e:
@@ -485,6 +490,10 @@ def register_review_view_routes(bp):
 
             ontserve_web_url = os.environ.get('ONTSERVE_WEB_URL', 'http://localhost:5003')
 
+            # Entity change detection
+            from app.services.entity_change_detector import get_changed_entity_uris
+            changed_entity_uris = get_changed_entity_uris(case_id)
+
             # Return the entity review page for Pass 2
             return render_template('scenarios/entity_review_pass2.html',
                                  case=case_doc,
@@ -497,7 +506,8 @@ def register_review_view_routes(bp):
                                  section_display=section_display,
                                  ontserve_classes=ontserve_classes,
                                  pipeline_status=pipeline_status,
-                                 ontserve_web_url=ontserve_web_url)
+                                 ontserve_web_url=ontserve_web_url,
+                                 changed_entity_uris=changed_entity_uris)
 
         except Exception as e:
             logger.error(f"Error displaying Pass 2 entity review for case {case_id}: {e}")

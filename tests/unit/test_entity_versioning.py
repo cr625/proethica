@@ -1,11 +1,13 @@
 """
-Unit tests for entity versioning and Shepard's signal infrastructure.
+Unit tests for entity versioning and change detection.
 
-Tests content hash contract, CaseOntologyCommit model, and
-hash consistency between ProEthica and OntServe.
+Tests content hash contract, CaseOntologyCommit model,
+hash consistency between ProEthica and OntServe,
+and the entity change detector logic.
 """
 
 import hashlib
+from unittest.mock import patch, MagicMock
 import pytest
 
 from app.models import db
@@ -270,3 +272,129 @@ class TestPublishedEntityFields:
 
         indiv = case_with_entities['published_indiv']
         assert indiv.ontology_target.startswith('proethica-case-')
+
+
+class TestEntityChangeDetector:
+    """Test entity change detection logic."""
+
+    @patch('app.services.entity_change_detector.psycopg2')
+    def test_detects_changed_entity(self, mock_psycopg2, case_with_entities):
+        """Entity with different hash in OntServe is detected as changed."""
+        from app.services.entity_change_detector import detect_changed_entities
+
+        cls = case_with_entities['published_class']
+        indiv = case_with_entities['published_indiv']
+        case_id = case_with_entities['case'].id
+
+        # OntServe returns different hash for the class, same for individual
+        new_hash = hashlib.sha256(b'different content').hexdigest()
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_cursor.fetchall.return_value = [
+            (cls.entity_uri, new_hash, 'Professional Engineer Role', 'Updated definition'),
+            (indiv.entity_uri, indiv.content_hash, 'Engineer A', 'The primary engineer in the case'),
+        ]
+        mock_conn.cursor.return_value.__enter__ = lambda s: mock_cursor
+        mock_conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
+        mock_psycopg2.connect.return_value = mock_conn
+
+        changed = detect_changed_entities(case_id)
+
+        assert cls.entity_uri in changed
+        assert changed[cls.entity_uri]['committed_hash'] == cls.content_hash
+        assert changed[cls.entity_uri]['current_hash'] == new_hash
+        assert indiv.entity_uri not in changed
+
+    @patch('app.services.entity_change_detector.psycopg2')
+    def test_no_changes_when_hashes_match(self, mock_psycopg2, case_with_entities):
+        """No changes detected when all hashes match."""
+        from app.services.entity_change_detector import detect_changed_entities
+
+        cls = case_with_entities['published_class']
+        indiv = case_with_entities['published_indiv']
+        case_id = case_with_entities['case'].id
+
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_cursor.fetchall.return_value = [
+            (cls.entity_uri, cls.content_hash, 'Professional Engineer Role', 'A licensed professional engineer'),
+            (indiv.entity_uri, indiv.content_hash, 'Engineer A', 'The primary engineer in the case'),
+        ]
+        mock_conn.cursor.return_value.__enter__ = lambda s: mock_cursor
+        mock_conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
+        mock_psycopg2.connect.return_value = mock_conn
+
+        changed = detect_changed_entities(case_id)
+        assert len(changed) == 0
+
+    @patch('app.services.entity_change_detector.psycopg2')
+    def test_missing_ontserve_entities_excluded(self, mock_psycopg2, case_with_entities):
+        """Entities not found in OntServe are not reported as changed."""
+        from app.services.entity_change_detector import detect_changed_entities
+
+        case_id = case_with_entities['case'].id
+
+        # OntServe returns empty -- entities not found
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_cursor.fetchall.return_value = []
+        mock_conn.cursor.return_value.__enter__ = lambda s: mock_cursor
+        mock_conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
+        mock_psycopg2.connect.return_value = mock_conn
+
+        changed = detect_changed_entities(case_id)
+        assert len(changed) == 0
+
+    @patch('app.services.entity_change_detector.psycopg2')
+    def test_db_connection_failure_returns_empty(self, mock_psycopg2, case_with_entities):
+        """Connection failure returns empty dict, not an exception."""
+        from app.services.entity_change_detector import detect_changed_entities
+        import psycopg2 as real_psycopg2
+
+        case_id = case_with_entities['case'].id
+        mock_psycopg2.connect.side_effect = real_psycopg2.OperationalError("connection refused")
+        mock_psycopg2.Error = real_psycopg2.Error
+
+        changed = detect_changed_entities(case_id)
+        assert changed == {}
+
+    @patch('app.services.entity_change_detector.psycopg2')
+    def test_get_changed_entity_uris_returns_set(self, mock_psycopg2, case_with_entities):
+        """Convenience wrapper returns a set of URIs."""
+        from app.services.entity_change_detector import get_changed_entity_uris
+
+        cls = case_with_entities['published_class']
+        indiv = case_with_entities['published_indiv']
+        case_id = case_with_entities['case'].id
+
+        new_hash = hashlib.sha256(b'different').hexdigest()
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_cursor.fetchall.return_value = [
+            (cls.entity_uri, new_hash, 'Professional Engineer Role', 'Changed'),
+            (indiv.entity_uri, indiv.content_hash, 'Engineer A', 'Same'),
+        ]
+        mock_conn.cursor.return_value.__enter__ = lambda s: mock_cursor
+        mock_conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
+        mock_psycopg2.connect.return_value = mock_conn
+
+        uris = get_changed_entity_uris(case_id)
+        assert isinstance(uris, set)
+        assert cls.entity_uri in uris
+        assert indiv.entity_uri not in uris
+
+    def test_no_published_entities_returns_empty(self, app):
+        """Case with no published entities returns empty dict."""
+        from app.services.entity_change_detector import detect_changed_entities
+
+        with app.app_context():
+            world = World(name="Empty World", description="test", metadata={})
+            db.session.add(world)
+            db.session.flush()
+            doc = Document(title="Empty Case", document_type="case", world_id=world.id)
+            db.session.add(doc)
+            db.session.commit()
+
+            # No psycopg2 mock needed -- should return early
+            changed = detect_changed_entities(doc.id)
+            assert changed == {}
