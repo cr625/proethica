@@ -268,7 +268,17 @@
                         <div class="card-body py-2 px-3">
                             <div class="d-flex justify-content-between align-items-start">
                                 <div class="flex-grow-1 me-2">
-                                    <span class="entity-label"><strong>{{ entity.entity_label }}</strong></span>
+                                    <span class="entity-label">
+                                        {% if entity.is_published and entity.entity_uri and ontserve_web_url %}
+                                        {% set fragment = entity.entity_uri.split('#')[-1] if '#' in entity.entity_uri else entity.entity_uri.split('/')[-1] %}
+                                        {% set ont_name = entity.ontology_target or 'proethica-intermediate' %}
+                                        <a href="{{ ontserve_web_url }}/entity/{{ ont_name }}/{{ fragment }}"
+                                           target="_blank" class="text-decoration-none"
+                                           title="View in OntServe"><strong>{{ entity.entity_label }}</strong> <i class="bi bi-box-arrow-up-right" style="font-size: 0.7em;"></i></a>
+                                        {% else %}
+                                        <strong>{{ entity.entity_label }}</strong>
+                                        {% endif %}
+                                    </span>
                                     {% if entity.storage_type %}
                                     <span class="badge bg-{{ 'primary' if entity.storage_type == 'class' else 'info' }} ms-1"
                                           style="font-size: 0.65em;">{{ entity.storage_type }}</span>

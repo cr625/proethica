@@ -33,6 +33,7 @@ from rdflib import Graph, Namespace, URIRef, Literal, RDF, RDFS, OWL, XSD
 from rdflib.namespace import SKOS, DCTERMS
 
 from app.models.temporary_rdf_storage import TemporaryRDFStorage
+from app.models.case_ontology_commit import CaseOntologyCommit
 from app.services.extraction.schemas import CATEGORY_TO_ONTOLOGY_IRI
 
 logger = logging.getLogger(__name__)
@@ -128,11 +129,22 @@ class OntServeCommitService:
                 if individual_result.get('error'):
                     results['errors'].append(individual_result['error'])
 
-            # Mark entities as published
+            # Mark entities as published and record content hashes
+            now = datetime.now(timezone.utc)
             for entity in entities:
                 entity.is_published = True
+                entity.committed_at = now
+                entity.content_hash = TemporaryRDFStorage.compute_content_hash(
+                    entity.entity_uri or '',
+                    entity.entity_label,
+                    entity.entity_definition
+                )
 
             from app import db
+
+            # Record ontology version binding
+            self._record_ontology_commit(db, case_id, entities)
+
             db.session.commit()
 
             # Sync with OntServe database (register case ontology + refresh entities)
@@ -163,6 +175,54 @@ class OntServeCommitService:
                 'success': False,
                 'error': str(e)
             }
+
+    def _record_ontology_commit(self, db, case_id: int, entities: list):
+        """Record which OntServe ontology versions were current at commit time.
+
+        Queries OntServe DB for current version info for each ontology target
+        and creates CaseOntologyCommit records.
+        """
+        # Group entities by ontology target
+        targets = {}
+        for entity in entities:
+            target = entity.ontology_target or 'unknown'
+            targets.setdefault(target, 0)
+            targets[target] += 1
+
+        try:
+            conn = psycopg2.connect(**ONTSERVE_DB_CONFIG)
+            cur = conn.cursor()
+
+            for ontology_name, count in targets.items():
+                # Get current version info from OntServe
+                cur.execute("""
+                    SELECT v.id, v.version_tag
+                    FROM ontology_versions v
+                    JOIN ontologies o ON v.ontology_id = o.id
+                    WHERE o.name = %s AND v.is_current = TRUE
+                    LIMIT 1
+                """, (ontology_name,))
+                row = cur.fetchone()
+
+                version_id = row[0] if row else None
+                version_tag = row[1] if row else None
+
+                commit_record = CaseOntologyCommit(
+                    case_id=case_id,
+                    ontology_name=ontology_name,
+                    ontserve_version_id=version_id,
+                    version_tag=version_tag,
+                    entity_count=count
+                )
+                db.session.add(commit_record)
+
+            cur.close()
+            conn.close()
+            logger.info(f"Recorded ontology commits for case {case_id}: {targets}")
+
+        except Exception as e:
+            logger.warning(f"Failed to record ontology version binding for case {case_id}: {e}")
+            # Non-fatal -- the commit itself still succeeds
 
     def _commit_classes_to_intermediate(self, classes: List[Tuple[Any, Dict]]) -> Dict[str, Any]:
         """
@@ -295,6 +355,20 @@ class OntServeCommitService:
                     g.add((class_uri, PROV.generatedAtTime, Literal(datetime.utcnow())))
                     g.add((class_uri, PROV.wasGeneratedBy, Literal("ProEthica Extraction")))
 
+                # IAO document references
+                if entity.iao_document_uri:
+                    g.add((class_uri, DCTERMS.references, URIRef(entity.iao_document_uri)))
+                    if entity.iao_document_label:
+                        g.add((class_uri, PROETHICA_PROV.documentReference, Literal(entity.iao_document_label)))
+                if entity.cited_by_role:
+                    g.add((class_uri, PROETHICA_PROV.citedByRole, Literal(entity.cited_by_role)))
+                if entity.available_to_role:
+                    g.add((class_uri, PROETHICA_PROV.availableToRole, Literal(entity.available_to_role)))
+
+                # Specific extraction model attribution
+                if entity.extraction_model:
+                    g.add((class_uri, PROV.wasAttributedTo, Literal(entity.extraction_model)))
+
                 count += 1
 
             # Save the graph
@@ -389,6 +463,9 @@ class OntServeCommitService:
             g.bind("bfo", BFO)
             g.bind("iao", IAO)
             g.bind("prov", PROV)
+            PROETHICA_PROV = Namespace("http://proethica.org/provenance#")
+            g.bind("proeth-prov", PROETHICA_PROV)
+            g.bind("dcterms", DCTERMS)
 
             case_ns = Namespace(f"http://proethica.org/ontology/case/{case_id}#")
 
@@ -628,6 +705,20 @@ class OntServeCommitService:
                 # Add provenance
                 g.add((individual_uri, PROV.generatedAtTime, Literal(datetime.utcnow())))
                 g.add((individual_uri, PROV.wasGeneratedBy, Literal(f"ProEthica Case {case_id} Extraction")))
+
+                # IAO document references
+                if entity.iao_document_uri:
+                    g.add((individual_uri, DCTERMS.references, URIRef(entity.iao_document_uri)))
+                    if entity.iao_document_label:
+                        g.add((individual_uri, PROETHICA_PROV.documentReference, Literal(entity.iao_document_label)))
+                if entity.cited_by_role:
+                    g.add((individual_uri, PROETHICA_PROV.citedByRole, Literal(entity.cited_by_role)))
+                if entity.available_to_role:
+                    g.add((individual_uri, PROETHICA_PROV.availableToRole, Literal(entity.available_to_role)))
+
+                # Specific extraction model attribution
+                if entity.extraction_model:
+                    g.add((individual_uri, PROV.wasAttributedTo, Literal(entity.extraction_model)))
 
                 count += 1
 

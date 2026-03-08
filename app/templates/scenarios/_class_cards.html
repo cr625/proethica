@@ -25,7 +25,15 @@
                 {% endif %}
                 <div>
                     <h6 class="mb-0">
+                        {% if cls.is_published and cls.entity_uri and ontserve_web_url %}
+                        {% set fragment = cls.entity_uri.split('#')[-1] if '#' in cls.entity_uri else cls.entity_uri.split('/')[-1] %}
+                        {% set ont_name = cls.ontology_target or 'proethica-intermediate' %}
+                        <a href="{{ ontserve_web_url }}/entity/{{ ont_name }}/{{ fragment }}"
+                           target="_blank" class="text-decoration-none"
+                           title="View in OntServe">{{ cls.entity_label }} <i class="bi bi-box-arrow-up-right" style="font-size: 0.7em;"></i></a>
+                        {% else %}
                         {{ cls.entity_label }}
+                        {% endif %}
                         {% if cls.rdf_json_ld and cls.rdf_json_ld.get('section_sources') and cls.rdf_json_ld.get('section_sources')|length > 1 %}
                         <span class="badge bg-warning text-dark ms-1" style="font-size: 0.7em;" title="Merged from multiple sections">
                             <i class="bi bi-layers"></i> {{ cls.rdf_json_ld.get('section_sources') | join(', ') }}

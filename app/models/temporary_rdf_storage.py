@@ -10,7 +10,8 @@ Draft/Publish Workflow (2025-12-10):
 - Re-extraction clears unpublished entities of same type
 """
 
-from datetime import datetime
+import hashlib
+from datetime import datetime, timezone
 from app.models import db
 
 
@@ -79,8 +80,24 @@ class TemporaryRDFStorage(db.Model):
     match_method = db.Column(db.String(50))  # 'llm', 'embedding', 'exact_label', 'user_override'
     match_reasoning = db.Column(db.Text)  # Explanation of why this match was made
 
+    # Entity Versioning / Shepard's Signals (Added 2026-03-08)
+    content_hash = db.Column(db.String(64))  # SHA-256 of uri|label|definition at commit time
+    committed_at = db.Column(db.DateTime(timezone=True))  # When committed to OntServe
+    shepard_signal = db.Column(db.String(20))  # current, superseded, distinguished, deprecated
+    signal_checked_at = db.Column(db.DateTime(timezone=True))  # Last signal check time
+
     # Relationships
     case = db.relationship('Document', backref='temporary_rdf_entities', lazy=True)
+
+    @staticmethod
+    def compute_content_hash(uri: str, label: str = None, definition: str = None) -> str:
+        """Compute SHA-256 content hash for entity version comparison.
+
+        Must produce identical output to OntologyEntity.compute_content_hash
+        in OntServe's web/models.py.
+        """
+        raw = f"{uri}|{label or ''}|{definition or ''}"
+        return hashlib.sha256(raw.encode('utf-8')).hexdigest()
 
     def __repr__(self):
         return f'<TemporaryRDFStorage {self.entity_label} ({self.storage_type}) for case {self.case_id}>'

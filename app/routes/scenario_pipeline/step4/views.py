@@ -6,6 +6,7 @@ Page renders: step4 landing, entities, review, decision_points, synthesis_result
 
 import json
 import logging
+import os
 import re
 from typing import Dict, List
 
@@ -127,6 +128,8 @@ def register_view_routes(bp):
                 ))
             ).count()
 
+            ontserve_web_url = os.environ.get('ONTSERVE_WEB_URL', 'http://localhost:5003')
+
             return render_template(
                 'scenario_pipeline/step4_entities.html',
                 case=case,
@@ -139,6 +142,7 @@ def register_view_routes(bp):
                 published_count=published_count,
                 class_count=class_count,
                 individual_count=individual_count,
+                ontserve_web_url=ontserve_web_url,
                 current_step=4,
                 step_title='Step 4 Entities',
                 prev_step_url=url_for('step4.step4_synthesis', case_id=case_id),
@@ -489,7 +493,8 @@ def register_view_routes(bp):
                 'narrative_data': _load_narrative_for_review(case_id),
                 'entity_lookup': entity_lookup,
                 'entity_lookup_by_label': entity_lookup_by_label,
-                'validation_study_mode': validation_study_mode
+                'validation_study_mode': validation_study_mode,
+                'ontserve_web_url': os.environ.get('ONTSERVE_WEB_URL', 'http://localhost:5003')
             }
 
             return render_template('scenario_pipeline/step4_review.html', **context)
