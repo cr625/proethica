@@ -1,0 +1,17 @@
+User-agent: Turnitin
+Disallow: /
+
+User-agent: *
+Crawl-delay: 2
+Disallow: /cases/precedents/
+Disallow: /step1/
+Disallow: /step2/
+Disallow: /step3/
+Disallow: /step4/
+Disallow: /extraction/
+Disallow: /api/
+
+Allow: /
+Allow: /cases/
+Allow: /about
+Allow: /sitemap.xml

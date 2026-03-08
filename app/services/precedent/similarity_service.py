@@ -1,8 +1,9 @@
 """
 Multi-Factor Similarity Service for Precedent Discovery
 
-Implements CBR-RAG hybrid similarity approach with LLM-based
-dynamic weight adjustment.
+Implements CBR-RAG hybrid similarity approach with fixed heuristic weights.
+Dynamic weight adjustment is planned as future work (see FUTURE WORK section
+at the bottom of this file).
 
 References:
 - CBR-RAG (Wiratunga et al., 2024): https://aclanthology.org/2024.lrec-main.939/
@@ -79,7 +80,9 @@ class PrecedentSimilarityService:
         Initialize the similarity service.
 
         Args:
-            llm_client: Optional LLM client for dynamic weight adjustment
+            llm_client: Reserved for future dynamic weight adjustment. Not
+                used in current implementation. The retrieval path is fully
+                deterministic with fixed weights.
         """
         self.llm_client = llm_client
 
@@ -575,6 +578,31 @@ class PrecedentSimilarityService:
         principles_b = extract_principles(tensions_b)
 
         return self._calculate_jaccard_similarity(principles_a, principles_b)
+
+    # ============================================================
+    # FUTURE WORK: LLM-Based Dynamic Weight Adjustment
+    # ============================================================
+    # These methods are not called by calculate_similarity() and
+    # are not part of the current retrieval path. The ICCBR 2026
+    # paper validates retrieval with fixed heuristic weights only.
+    #
+    # The research direction: case-specific weight profiles where
+    # a case about competence boundaries weights Capabilities
+    # higher than the default 0.07, or a case about conflicting
+    # obligations weights Obligations and Constraints higher.
+    #
+    # Three calibration approaches to evaluate in future work:
+    #   1. Learn weights from the citation network (93 source
+    #      cases, 228 edges provide supervised signal)
+    #   2. Calibrate against expert similarity judgments (paired
+    #      comparison study with domain experts)
+    #   3. LLM-based dynamic adjustment at query time (the
+    #      approach sketched in these methods)
+    #
+    # A head-to-head comparison of fixed vs. citation-calibrated
+    # vs. LLM-dynamic weights would be a full experiment suitable
+    # for a follow-up paper.
+    # ============================================================
 
     def _build_weight_prompt(self, features: Dict, focus: Optional[str]) -> str:
         """Build prompt for LLM weight determination."""
