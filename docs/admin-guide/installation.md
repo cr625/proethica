@@ -69,10 +69,10 @@ Create `.env` in the project root (use `.env.production.example` as a template):
 
 ```bash
 # Database
-SQLALCHEMY_DATABASE_URI=postgresql://postgres:PASS@localhost:5432/ai_ethical_dm
+SQLALCHEMY_DATABASE_URI=postgresql://<user>:<password>@localhost:5432/ai_ethical_dm
 
 # API Keys
-ANTHROPIC_API_KEY=sk-ant-...
+ANTHROPIC_API_KEY=<your-api-key>
 
 # Flask
 SECRET_KEY=your-secret-key-here
@@ -174,13 +174,7 @@ gunicorn -w 4 -b 127.0.0.1:5000 --max-requests 1000 --max-requests-jitter 50 --t
 
 ### Systemd Services
 
-Production deployments use systemd for process management. Service files are at `/etc/systemd/system/`:
-
-- `proethica.service` -- 4 gunicorn workers on port 5000
-- `ontserve-web.service` -- 2 gunicorn workers on port 5003 (reduced from 3; each worker uses ~850MB)
-- `ontserve-mcp.service` -- MCP server on port 8082
-
-Both gunicorn services include `--max-requests` and `--timeout` flags. After editing service files:
+Production deployments use systemd for process management. Create service files for each component (ProEthica, OntServe web, OntServe MCP) with appropriate gunicorn settings. Include `--max-requests` and `--timeout` flags for worker recycling.
 
 ```bash
 sudo systemctl daemon-reload
@@ -197,83 +191,15 @@ Or configure as a systemd service for automatic restart.
 
 ### Nginx Configuration
 
-Nginx serves as a reverse proxy with caching and bot protection.
+Nginx serves as a reverse proxy with caching and bot protection. Configure:
 
-**Main config** (`/etc/nginx/nginx.conf`) -- add to the `http` block:
+- **Reverse proxy** to the gunicorn socket/port
+- **Response caching** with `proxy_cache` for rendered HTML pages
+- **Rate limiting** with `limit_req_zone` to prevent abuse
+- **Security headers** (HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy)
+- **TLS** via Let's Encrypt / certbot
 
-```nginx
-# Proxy cache for ProEthica
-proxy_cache_path /var/cache/nginx/proethica
-    levels=1:2
-    keys_zone=proethica_cache:10m
-    max_size=200m
-    inactive=60m
-    use_temp_path=off;
-
-# Per-IP rate limiting (2 requests/sec)
-limit_req_zone $binary_remote_addr zone=bot_limit:10m rate=2r/s;
-```
-
-**Site config** (`/etc/nginx/sites-enabled/proethica.org`):
-
-```nginx
-server {
-    server_name proethica.org www.proethica.org;
-
-    # Block known aggressive crawlers by IP
-    # deny 1.2.3.4;
-
-    # Serve robots.txt directly (no proxy)
-    location = /robots.txt {
-        alias /opt/proethica/app/static/robots.txt;
-        access_log off;
-    }
-
-    location / {
-        proxy_pass http://127.0.0.1:5000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-
-        # Rate limiting -- burst allows short spikes, nodelay returns 429 immediately
-        limit_req zone=bot_limit burst=10 nodelay;
-        limit_req_status 429;
-
-        # Response cache
-        proxy_cache proethica_cache;
-        proxy_cache_valid 200 30m;
-        proxy_cache_valid 404 1m;
-        proxy_cache_methods GET HEAD;
-        proxy_cache_key "$scheme$request_method$host$request_uri";
-        proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
-        proxy_cache_background_update on;
-        proxy_cache_lock on;
-        proxy_ignore_headers Set-Cookie Vary;
-
-        # Headers (must all be in same block -- nginx add_header inheritance)
-        add_header X-Cache-Status $upstream_cache_status;
-        include /etc/nginx/conf.d/security-headers.conf;
-    }
-
-    # SSL managed by Certbot
-}
-```
-
-Each `location` block must `include /etc/nginx/conf.d/security-headers.conf` because nginx's `add_header` inheritance is per-block: any `add_header` in a location block suppresses all headers from parent contexts.
-
-### Security Headers
-
-Global security headers in `/etc/nginx/conf.d/security-headers.conf`, included from each location block:
-
-```nginx
-add_header X-Content-Type-Options "nosniff" always;
-add_header X-Frame-Options "SAMEORIGIN" always;
-add_header X-XSS-Protection "1; mode=block" always;
-add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
-```
+Note: nginx's `add_header` inheritance is per-block. Any `add_header` in a location block suppresses all headers from parent contexts. Include security headers in every location block.
 
 **Cache management:**
 
@@ -281,56 +207,15 @@ add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
 # Check cache status header on a response
 curl -sI https://proethica.org/ | grep X-Cache-Status
 # HIT = served from cache, MISS = fetched from gunicorn
-
-# Purge all cached responses
-sudo rm -rf /var/cache/nginx/proethica/*
-sudo systemctl reload nginx
 ```
 
 ### robots.txt
 
-The file at `app/static/robots.txt` is served at the domain root via nginx `alias`. It controls crawler behavior:
-
-- Turnitin is fully blocked (aggressive scraping caused OOM kills in March 2026)
-- Other bots get a 2-second crawl delay
-- Pipeline and API routes are disallowed; case listing and detail pages are allowed
-
-Update the file locally and deploy with `git pull`; no service restart needed.
+The file at `app/static/robots.txt` is served at the domain root via nginx `alias`. It controls crawler behavior, including crawl delays and route restrictions. Update locally and deploy with `git pull`; no service restart needed.
 
 ### fail2ban
 
-fail2ban auto-bans IPs that repeatedly trigger nginx rate limits.
-
-**Filter** (`/etc/fail2ban/filter.d/nginx-limit-req.conf`):
-
-```ini
-[Definition]
-failregex = limiting requests, excess: .* by zone .*, client: <HOST>
-ignoreregex =
-```
-
-**Jail** (`/etc/fail2ban/jail.d/nginx-limit-req.conf`):
-
-```ini
-[nginx-limit-req]
-enabled = true
-filter = nginx-limit-req
-logpath = /var/log/nginx/error.log
-maxretry = 10
-findtime = 60
-bantime = 600
-action = iptables-multiport[name=nginx-limit-req, port="http,https", protocol=tcp]
-```
-
-This bans any IP at the firewall level for 10 minutes after 10 rate-limit violations within 60 seconds.
-
-```bash
-# Check jail status
-sudo fail2ban-client status nginx-limit-req
-
-# Manually unban an IP
-sudo fail2ban-client set nginx-limit-req unbanip 1.2.3.4
-```
+fail2ban auto-bans IPs that repeatedly trigger nginx rate limits. Configure a jail that watches the nginx error log for rate-limit violations and bans offending IPs via iptables.
 
 ## Production Instance
 

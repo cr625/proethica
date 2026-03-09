@@ -27,6 +27,63 @@ ProEthica                            OntServe
                                     +------------+
 ```
 
+## Storage Flow
+
+```text
+ProEthica Extraction Pipeline
+         |
+         v
++---------------------------+
+| TemporaryRDFStorage       |  (ProEthica DB: ai_ethical_dm)
+| - Draft entities          |
+| - JSON-LD in rdf_json_ld  |
+| - is_published flag       |
++---------------------------+
+         |
+         | commit_case_versioned()
+         v
++---------------------------+
+| OntServe concepts table   |  (OntServe DB: ontserve)
+| - Versioned entities      |
+| - is_current flag         |
+| - extraction_run_version  |
++---------------------------+
+         |
+         | TTL generation
+         v
++---------------------------+
+| proethica-case-N.ttl      |  (Single file, overwritten)
+| proethica-intermediate-   |
+|   extracted.ttl           |  (Classes, appended)
++---------------------------+
+```
+
+## Versioning
+
+Case TTL files are overwritten on re-extraction (no accumulation). The OntServe `concepts` table preserves version history via `is_current` and `extraction_run_version` columns. Classes are versioned individually.
+
+## TTL File Structure
+
+Ontology files in `OntServe/ontologies/`:
+
+| File | Purpose |
+|------|---------|
+| `proethica-core.ttl` | 9 base concepts (Role, Principle, etc.) |
+| `proethica-intermediate.ttl` | Domain classes and ObjectProperties |
+| `proethica-intermediate-extracted.ttl` | LLM-extracted classes |
+| `proethica-case-N.ttl` | Case-specific individuals |
+| `proethica-provenance.ttl` | Provenance properties |
+
+URI namespaces:
+
+```turtle
+@prefix proeth-core: <http://proethica.org/ontology/core#> .
+@prefix proeth: <http://proethica.org/ontology/intermediate#> .
+@prefix proeth-cases: <http://proethica.org/ontology/cases#> .
+@prefix proeth-prov: <http://proethica.org/provenance#> .
+@prefix caseN: <http://proethica.org/ontology/case/N#> .
+```
+
 ## Model Context Protocol (MCP)
 
 ### Connection

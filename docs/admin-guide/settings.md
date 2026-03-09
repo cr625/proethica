@@ -25,7 +25,7 @@ ProEthica is configured via environment variables in `.env` file.
 
 Example connection string:
 ```
-postgresql://postgres:PASS@localhost:5432/ai_ethical_dm
+postgresql://<user>:<password>@localhost:5432/ai_ethical_dm
 ```
 
 ### LLM Providers
@@ -150,8 +150,8 @@ Required PostgreSQL settings:
 host: localhost
 port: 5432
 database: ai_ethical_dm
-user: postgres
-password: (your password)
+user: <db-user>
+password: <password>
 ```
 
 ### pgvector Extension
@@ -307,7 +307,7 @@ python -c "import os; print(os.environ.get('FLASK_ENV'))"
 ### Test Database Connection
 
 ```bash
-PGPASSWORD=PASS psql -h localhost -U postgres -d ai_ethical_dm -c "SELECT 1"
+psql -h localhost -U <db-user> -d ai_ethical_dm -c "SELECT 1"
 ```
 
 ### Test LLM Connection

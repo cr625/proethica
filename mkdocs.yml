@@ -70,6 +70,7 @@ nav:
   - Concepts:
       - Nine-Component Framework: concepts/nine-components.md
       - Pipeline Terminology: concepts/terminology.md
+      - Ontology Properties: concepts/ontology-properties.md
       - Color Scheme: concepts/color-scheme.md
   - Viewing:
       - Browsing Cases: viewing/browsing-cases.md
@@ -90,6 +91,7 @@ nav:
       - Architecture: admin-guide/architecture.md
       - Installation: admin-guide/installation.md
       - Ontology Integration: admin-guide/ontology-integration.md
+      - Production Server: admin-guide/production-server.md
       - Settings: admin-guide/settings.md
   - Domain Setup:
       - Overview: domain-setup/index.md
