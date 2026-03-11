@@ -5,6 +5,7 @@ Test the Refresh from OntServe functionality.
 This simulates editing an entity in OntServe and then refreshing ProEthica.
 """
 
+import sys
 import psycopg2
 from psycopg2.extras import RealDictCursor
 

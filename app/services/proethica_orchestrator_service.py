@@ -5,6 +5,7 @@ Coordinates between the semantic router, MCP server, and LLM orchestrator
 to provide ontology-aware ethical reasoning.
 """
 
+import os
 import logging
 import asyncio
 import json
