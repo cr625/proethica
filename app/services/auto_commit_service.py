@@ -760,7 +760,6 @@ class AutoCommitService:
 
         ontserve_path = get_ontserve_base_path()
         ontserve_venv_python = str(ontserve_path / "venv-ontserve" / "bin" / "python")
-        register_script = str(ontserve_path / "scripts" / "register_case_ontologies.py")
         refresh_script = str(ontserve_path / "scripts" / "refresh_entity_extraction.py")
 
         versioned = getattr(self, '_versioned_commit', True)
