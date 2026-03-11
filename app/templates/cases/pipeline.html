@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+
+{% block title %}Pipeline - {{ case.title }}{% endblock %}
+
+{% block styles %}
+<style>
+.pipeline-container { max-width: 960px; margin: 0 auto; }
+
+.step-group-header {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6c757d;
+    padding: 0.5rem 0 0.25rem;
+    border-bottom: 1px solid #e9ecef;
+    margin-bottom: 0.5rem;
+}
+
+.substep-card {
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: #fff;
+    transition: border-color 0.15s;
+}
+.substep-card:hover { border-color: #adb5bd; }
+
+.substep-card.status-complete {
+    border-left: 3px solid #198754;
+}
+.substep-card.status-not_started {
+    border-left: 3px solid #dee2e6;
+}
+.substep-card.status-in_progress {
+    border-left: 3px solid #0d6efd;
+}
+.substep-card.status-error {
+    border-left: 3px solid #dc3545;
+}
+
+.substep-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 0.75rem;
+}
+.substep-icon.icon-complete { background: #198754; color: #fff; }
+.substep-icon.icon-not_started { background: #e9ecef; color: #6c757d; }
+.substep-icon.icon-in_progress { background: #0d6efd; color: #fff; }
+.substep-icon.icon-error { background: #dc3545; color: #fff; }
+
+.substep-info { flex: 1; min-width: 0; }
+.substep-name { font-weight: 500; font-size: 0.9rem; }
+.substep-badges { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+
+.artifact-badge {
+    font-size: 0.7rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: 3px;
+    background: #f0f0f0;
+    color: #495057;
+    white-space: nowrap;
+}
+.artifact-badge.has-data { background: #d1e7dd; color: #0f5132; }
+
+.substep-actions { flex-shrink: 0; }
+
+.blocker-text {
+    font-size: 0.75rem;
+    color: #6c757d;
+    font-style: italic;
+}
+
+.dependency-connector {
+    width: 2px;
+    height: 12px;
+    background: #dee2e6;
+    margin: 0 auto;
+}
+
+.group-section { margin-bottom: 1.5rem; }
+
+/* Overview stats */
+.pipeline-stats {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+}
+.stat-item {
+    text-align: center;
+}
+.stat-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1;
+}
+.stat-label {
+    font-size: 0.75rem;
+    color: #6c757d;
+    text-transform: uppercase;
+}
+.stat-value.text-success { color: #198754 !important; }
+.stat-value.text-muted { color: #adb5bd !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pipeline-container">
+    {# Header #}
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+            <h4 class="mb-1">
+                <a href="{{ url_for('cases.view_case', id=case.id) }}" class="text-decoration-none text-dark">
+                    <i class="bi bi-arrow-left me-2"></i>{{ case.title|truncate(60) }}
+                </a>
+            </h4>
+            <span class="text-muted">Extraction Pipeline</span>
+        </div>
+    </div>
+
+    {# Summary stats #}
+    {% set steps = pipeline_state.steps %}
+    {% set total = steps|length %}
+    {% set complete_count = steps.values()|selectattr('status', 'equalto', 'complete')|list|length %}
+    {% set in_progress_count = steps.values()|selectattr('status', 'equalto', 'in_progress')|list|length %}
+    {% set pct = ((complete_count / total) * 100)|int if total > 0 else 0 %}
+
+    <div class="card mb-4">
+        <div class="card-body py-3">
+            <div class="d-flex align-items-center gap-4">
+                <div class="pipeline-stats">
+                    <div class="stat-item">
+                        <div class="stat-value {% if complete_count == total %}text-success{% elif complete_count > 0 %}text-primary{% else %}text-muted{% endif %}">
+                            {{ complete_count }}/{{ total }}
+                        </div>
+                        <div class="stat-label">Steps Done</div>
+                    </div>
+                </div>
+                <div class="flex-grow-1">
+                    <div class="progress" style="height: 8px;">
+                        <div class="progress-bar bg-success" style="width: {{ pct }}%"></div>
+                        {% if in_progress_count > 0 %}
+                        <div class="progress-bar bg-primary progress-bar-striped progress-bar-animated"
+                             style="width: {{ ((in_progress_count / total) * 100)|int }}%"></div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# Substep groups #}
+    {% for group in pipeline_state.step_groups %}
+    {% set group_steps = [] %}
+    {% for step_name, step_info in steps.items() %}
+        {% if step_info.step_group == group %}
+            {% if group_steps.append(step_info) %}{% endif %}
+        {% endif %}
+    {% endfor %}
+
+    {% if group_steps|length > 0 %}
+    <div class="group-section">
+        <div class="step-group-header">{{ group }}</div>
+        {% for step_info in group_steps %}
+        <div class="substep-card status-{{ step_info.status }}">
+            {# Status icon #}
+            <div class="substep-icon icon-{{ step_info.status }}">
+                {% if step_info.status == 'complete' %}
+                    <i class="bi bi-check"></i>
+                {% elif step_info.status == 'in_progress' %}
+                    <i class="bi bi-arrow-repeat"></i>
+                {% elif step_info.status == 'error' %}
+                    <i class="bi bi-x"></i>
+                {% else %}
+                    <i class="bi bi-circle"></i>
+                {% endif %}
+            </div>
+
+            {# Info #}
+            <div class="substep-info">
+                <div class="substep-name">{{ step_info.display_name }}</div>
+                <div class="substep-badges">
+                    {% for task_name, task_info in step_info.tasks.items() %}
+                        {% set task_total = task_info.artifact_counts.values()|sum %}
+                        {% if task_total > 0 %}
+                        <span class="artifact-badge has-data"
+                              title="{{ task_info.artifact_types|join(', ') }}">
+                            {{ task_info.display_name }}: {{ task_total }}
+                        </span>
+                        {% elif step_info.status == 'complete' %}
+                        <span class="artifact-badge has-data">
+                            {{ task_info.display_name }}
+                        </span>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                {% if not step_info.can_start and step_info.status != 'complete' and step_info.blockers %}
+                <div class="blocker-text">
+                    <i class="bi bi-lock-fill me-1"></i>{{ step_info.blockers|join(', ') }}
+                </div>
+                {% endif %}
+            </div>
+
+            {# Actions (links for complete steps, placeholder for future Run buttons) #}
+            <div class="substep-actions">
+                {% if step_info.status == 'complete' %}
+                    {% if step_info.name.startswith('pass') or step_info.name == 'pass3' %}
+                    <a href="{{ url_for('provenance.provenance_case', case_id=case.id) }}"
+                       class="btn btn-sm btn-outline-secondary" title="View provenance">
+                        <i class="bi bi-journal-text"></i>
+                    </a>
+                    {% elif step_info.name.startswith('step4_') %}
+                    <a href="{{ url_for('step4.step4_review', case_id=case.id) }}"
+                       class="btn btn-sm btn-outline-secondary" title="View analysis">
+                        <i class="bi bi-graph-up"></i>
+                    </a>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endfor %}
+</div>
+{% endblock %}

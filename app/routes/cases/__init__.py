@@ -15,6 +15,7 @@ from app.routes.cases.scenario_legacy import register_scenario_legacy_routes
 from app.routes.cases.direct_scenario import register_direct_scenario_routes
 from app.routes.cases.agent_creation import register_agent_creation_routes
 from app.routes.cases.structure_embeddings import register_structure_embedding_routes
+from app.routes.cases.pipeline import register_pipeline_routes
 
 register_listing_routes(bp)
 register_view_routes(bp)
@@ -26,6 +27,7 @@ register_scenario_legacy_routes(bp)
 register_direct_scenario_routes(bp)
 register_agent_creation_routes(bp)
 register_structure_embedding_routes(bp)
+register_pipeline_routes(bp)
 
 
 def init_cases_csrf_exemption(app):

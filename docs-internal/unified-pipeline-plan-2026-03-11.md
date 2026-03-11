@@ -26,9 +26,9 @@ Replace the development-era step extraction pages (`/scenario_pipeline/case/<id>
 |-------|-------------|--------|--------|-------|
 | 1a | Fix PipelineStateManager blockers | DONE | pending | 15-substep flat hierarchy, 4 check types, section-aware |
 | 1b | Validate PSM vs PSS agreement | DONE | pending | 40 tests, 10 PSS cross-checks pass |
-| 1c | Pipeline route | NOT STARTED | -- | `/cases/<id>/pipeline` |
-| 1d | Pipeline template | NOT STARTED | -- | Read-only status dashboard |
-| 1e | Link from case detail | NOT STARTED | -- | Add Pipeline button |
+| 1c | Pipeline route | DONE | pending | `/cases/<id>/pipeline` + status API |
+| 1d | Pipeline template | DONE | pending | Read-only grouped substep view |
+| 1e | Link from case detail | DONE | pending | Pipeline Dashboard button |
 | 2 | Single-step execution | NOT STARTED | -- | Celery dispatch per substep |
 | 3 | Interactive mode | NOT STARTED | -- | Pause/resume, review links |
 | 4 | Step 4 substep expansion | NOT STARTED | -- | 7 individual Step 4 phases |

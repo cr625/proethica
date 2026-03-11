@@ -77,6 +77,12 @@
 
     <!-- Analysis Pipeline Status Bar -->
     {% include 'cases/_case_pipeline_status.html' %}
+    <div class="mb-3">
+        <a href="{{ url_for('cases.case_pipeline', case_id=case.id) }}"
+           class="btn btn-sm btn-outline-primary">
+            <i class="bi bi-diagram-3 me-1"></i>Pipeline Dashboard
+        </a>
+    </div>
 
     <div id="case-details" class="card mb-4">
         <div class="card-header d-flex justify-content-between align-items-center">
