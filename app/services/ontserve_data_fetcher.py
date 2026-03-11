@@ -32,6 +32,7 @@ class OntServeDataFetcher:
         # psycopg2 uses 'dbname'; this class uses 'database' for its cursor_factory calls
         self.db_config = {
             'host': cfg['host'],
+            'port': cfg.get('port', 5432),
             'database': cfg.get('database', cfg.get('dbname')),
             'user': cfg['user'],
             'password': cfg['password'],
