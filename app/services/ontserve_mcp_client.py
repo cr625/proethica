@@ -9,7 +9,7 @@ import logging
 from typing import Dict, List
 import os
 
-from app.services.mcp_transport import MCPTransport, MCPTransportError
+from app.services.mcp_transport import MCPTransport, MCPTransportError, get_mcp_transport
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ class OntServeMCPClient:
 
     def __init__(self, mcp_url: str = None, timeout: int = 30):
         self.mcp_url = mcp_url or os.environ.get('ONTSERVE_MCP_URL', 'http://localhost:8082')
-        self._transport = MCPTransport(base_url=self.mcp_url, timeout=timeout)
+        self._transport = MCPTransport(base_url=self.mcp_url, timeout=timeout) if mcp_url else get_mcp_transport()
         logger.info(f"OntServe MCP client initialized: {self.mcp_url}")
 
     def get_entities_by_category_sync(self, category: str, domain_id: str = "proethica-intermediate",

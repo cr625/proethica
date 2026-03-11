@@ -7,7 +7,7 @@ import json
 import logging
 from typing import Dict, List, Any, Optional
 
-from app.services.mcp_transport import MCPTransport, MCPTransportError
+from app.services.mcp_transport import MCPTransport, MCPTransportError, get_mcp_transport
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ class ExternalMCPClient:
     """Client for OntServe MCP server tools."""
 
     def __init__(self, server_url: str = None):
-        self.transport = MCPTransport(base_url=server_url)
+        self.transport = MCPTransport(base_url=server_url) if server_url else get_mcp_transport()
         logger.info(f"ExternalMCPClient initialized for: {self.transport.base_url}")
 
     def list_tools(self) -> Dict[str, Any]:

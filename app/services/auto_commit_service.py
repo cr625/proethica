@@ -764,6 +764,7 @@ class AutoCommitService:
         refresh_script = str(ontserve_path / "scripts" / "refresh_entity_extraction.py")
 
         versioned = getattr(self, '_versioned_commit', True)
+        versioned_refresh_done = False
 
         try:
             # For versioned commits, also update OntServe concepts table with version info
@@ -781,32 +782,34 @@ class AutoCommitService:
                     if entities:
                         entity_ids = [e.id for e in entities]
                         # Use versioned commit to store in OntServe DB with version history
+                        # (commit_case_versioned internally calls _refresh_case_ontology)
                         result = commit_service.commit_case_versioned(case_id, entity_ids)
                         if result.get('success'):
                             logger.info(f"Versioned commit to OntServe DB: v{result.get('new_version')}, "
                                        f"{result.get('versions_superseded')} superseded")
+                            versioned_refresh_done = True
                         else:
                             logger.warning(f"Versioned commit warning: {result.get('error')}")
                 except Exception as e:
                     logger.warning(f"Versioned commit to OntServe DB failed: {e}")
                     # Continue with TTL sync even if DB commit fails
 
-            # Run the registration script (handles both new and existing ontologies)
-            logger.info(f"Syncing case {case_id} TTL to OntServe...")
+            # Refresh entity extraction for this specific case.
+            # Skip if commit_case_versioned already refreshed successfully.
+            if not versioned_refresh_done:
+                logger.info(f"Syncing case {case_id} TTL to OntServe...")
+                result = subprocess.run(
+                    [ontserve_venv_python, refresh_script, f"proethica-case-{case_id}"],
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                    cwd=str(ontserve_path)
+                )
 
-            # First, refresh entity extraction for this specific case
-            result = subprocess.run(
-                [ontserve_venv_python, refresh_script, f"proethica-case-{case_id}"],
-                capture_output=True,
-                text=True,
-                timeout=60,
-                cwd=str(ontserve_path)
-            )
-
-            if result.returncode == 0:
-                logger.info(f"OntServe TTL sync successful for case {case_id}")
-            else:
-                logger.warning(f"OntServe sync returned non-zero: {result.stderr}")
+                if result.returncode == 0:
+                    logger.info(f"OntServe TTL sync successful for case {case_id}")
+                else:
+                    logger.warning(f"OntServe sync returned non-zero: {result.stderr}")
 
         except subprocess.TimeoutExpired:
             logger.warning(f"OntServe sync timed out for case {case_id}")
