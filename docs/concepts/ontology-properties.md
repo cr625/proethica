@@ -7,7 +7,7 @@ This document lists all ObjectProperties defined in the ProEthica ontology. Thes
 
 ---
 
-## Normative Relations (9-Component Framework)
+## Normative Relations (Nine-Component Framework)
 
 These connect the core extracted concept types:
 
