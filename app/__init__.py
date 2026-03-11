@@ -134,7 +134,7 @@ def create_app(config_name=None):
 
         Usage in templates:
             {% set state = get_pipeline_state(case_id) %}
-            {% if state.can_start('step4', 'questions') %}
+            {% if state.can_start('step4_qc') %}
                 <button>Extract Questions</button>
             {% endif %}
         """

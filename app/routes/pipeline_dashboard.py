@@ -99,12 +99,12 @@ def dashboard():
 
     # Get case IDs that have completed Step 4 synthesis
     # Used to hide Synthesize button for cases already synthesized
-    # Check actual artifacts via PipelineStateManager (works for manual synthesis too)
+    # check_step4_complete checks all 7 Case Analysis substeps
     state_manager = PipelineStateManager()
     all_case_ids = [doc.id for doc in Document.query.filter(Document.doc_metadata.isnot(None)).all()]
     completed_case_ids = set(
         case_id for case_id in all_case_ids
-        if state_manager.check_step_complete(case_id, 'step4')
+        if state_manager.check_step4_complete(case_id)
     )
 
     return render_template(
