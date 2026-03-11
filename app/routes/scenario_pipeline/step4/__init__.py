@@ -80,7 +80,7 @@ register_complete_synthesis_routes(
     get_transformation_type_for_phase4,
     load_causal_links_for_phase4
 )
-_run_all_funcs = register_run_all_routes(bp, get_all_case_entities)
+_run_all_funcs = register_run_all_routes(bp)
 run_complete_synthesis_func = _run_all_funcs['run_complete_synthesis']
 run_complete_synthesis_stream_func = _run_all_funcs['run_complete_synthesis_stream']
 
