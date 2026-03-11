@@ -124,12 +124,34 @@
     margin-top: 0.25rem;
 }
 
+/* Waiting review state (interactive mode) */
+.substep-card.status-waiting_review {
+    border-left: 3px solid #fd7e14;
+    background: #fff8f0;
+}
+.substep-icon.icon-waiting_review { background: #fd7e14; color: #fff; }
+
 /* Step 4 monolithic label */
 .monolithic-label {
     font-size: 0.7rem;
     color: #6c757d;
     font-style: italic;
 }
+
+/* Interactive review bar */
+.review-bar {
+    padding: 0.5rem 0.75rem;
+    background: #fff3cd;
+    border: 1px solid #ffecb5;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+/* Mode toggle */
+.mode-toggle .btn { font-size: 0.8rem; padding: 0.2rem 0.6rem; }
 </style>
 {% endblock %}
 
@@ -145,7 +167,17 @@
             </h4>
             <span class="text-muted">Extraction Pipeline</span>
         </div>
-        <div>
+        <div class="d-flex align-items-center gap-2">
+            <div class="mode-toggle btn-group" role="group" aria-label="Pipeline mode">
+                <button type="button" class="btn btn-outline-secondary active" id="btn-mode-auto"
+                        onclick="setMode('run_all')" title="Run all steps automatically">
+                    Auto
+                </button>
+                <button type="button" class="btn btn-outline-secondary" id="btn-mode-interactive"
+                        onclick="setMode('interactive')" title="Pause after each step for review">
+                    Interactive
+                </button>
+            </div>
             <button id="btn-run-all" class="btn btn-primary btn-sm"
                     onclick="runAll()" title="Run all remaining substeps">
                 <i class="bi bi-play-fill me-1"></i>Run All
@@ -196,6 +228,24 @@
                     <i class="bi bi-exclamation-triangle me-1"></i>
                     <span id="run-error-text"></span>
                 </small>
+            </div>
+            {# Interactive review bar #}
+            <div id="review-bar" class="review-bar mt-2" style="display: none;">
+                <i class="bi bi-eye text-warning"></i>
+                <span id="review-bar-text" style="font-size: 0.85rem;">
+                    Step complete. Review results before continuing.
+                </span>
+                <div class="ms-auto d-flex gap-2">
+                    <a id="review-bar-link" href="#" class="btn btn-sm btn-outline-secondary" style="display: none;">
+                        <i class="bi bi-journal-text me-1"></i>Review
+                    </a>
+                    <button class="btn btn-sm btn-primary" onclick="continueInteractive()">
+                        <i class="bi bi-skip-forward-fill me-1"></i>Continue
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="stopInteractive()">
+                        <i class="bi bi-stop-fill me-1"></i>Stop
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -297,15 +347,26 @@ const CASE_ID = {{ case.id }};
 const STATUS_URL = "{{ url_for('cases.case_pipeline_status', case_id=case.id) }}";
 const RUN_URL = "{{ url_for('cases.case_pipeline_run', case_id=case.id) }}";
 const RUN_ALL_URL = "{{ url_for('cases.case_pipeline_run_all', case_id=case.id) }}";
+const CONTINUE_URL = "{{ url_for('cases.case_pipeline_continue', case_id=case.id) }}";
+const STOP_URL = "{{ url_for('cases.case_pipeline_stop', case_id=case.id) }}";
+const PROVENANCE_URL = "{{ url_for('provenance.provenance_case', case_id=case.id) }}";
+const STEP4_REVIEW_URL = "{{ url_for('step4.step4_review', case_id=case.id) }}";
 
 let pollInterval = null;
 let isRunning = {{ 'true' if pipeline_state.active_run else 'false' }};
+let pipelineMode = 'run_all';  // 'run_all' or 'interactive'
 
 // Initialize: if there's an active run, start polling
 if (isRunning) {
     startPolling();
     setRunningUI(true);
 }
+{% if pipeline_state.active_run and pipeline_state.active_run.is_waiting_review %}
+// Active run is waiting for review -- show review bar
+showReviewBar('{{ pipeline_state.active_run.current_step }}');
+pipelineMode = 'interactive';
+updateModeToggle();
+{% endif %}
 
 function runSubstep(substep) {
     if (isRunning) return;
@@ -338,11 +399,12 @@ function runAll() {
 
     setRunningUI(true);
     hideError();
+    hideReviewBar();
 
     fetch(RUN_ALL_URL, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({})
+        body: JSON.stringify({mode: pipelineMode})
     })
     .then(r => r.json().then(data => ({ok: r.ok, data})))
     .then(({ok, data}) => {
@@ -381,10 +443,19 @@ function pollStatus() {
     .then(data => {
         updateUI(data);
 
-        // Stop polling if no active run
         if (!data.active_run) {
+            // No active run -- stop polling
             stopPolling();
             setRunningUI(false);
+            hideReviewBar();
+        } else if (data.active_run.is_waiting_review) {
+            // Interactive mode: step completed, awaiting review
+            stopPolling();
+            setRunningUI(false);
+            showReviewBar(data.active_run.current_step);
+        } else if (data.active_run.is_failed) {
+            // Handled in updateUI, but stop polling here too
+            stopPolling();
         }
     })
     .catch(err => {
@@ -547,6 +618,133 @@ function showError(msg) {
 function hideError() {
     const el = document.getElementById('run-error');
     if (el) el.style.display = 'none';
+}
+
+// --- Interactive mode functions ---
+
+function setMode(mode) {
+    pipelineMode = mode;
+    updateModeToggle();
+}
+
+function updateModeToggle() {
+    const autoBtn = document.getElementById('btn-mode-auto');
+    const interBtn = document.getElementById('btn-mode-interactive');
+    if (pipelineMode === 'interactive') {
+        autoBtn.classList.remove('active');
+        interBtn.classList.add('active');
+    } else {
+        autoBtn.classList.add('active');
+        interBtn.classList.remove('active');
+    }
+}
+
+function showReviewBar(currentStep) {
+    const bar = document.getElementById('review-bar');
+    const text = document.getElementById('review-bar-text');
+    const link = document.getElementById('review-bar-link');
+    if (!bar) return;
+
+    // Resolve to PSM substep name for consistent matching
+    const psmStep = resolveRunningStep(currentStep) || currentStep;
+    bar.style.display = '';
+    text.dataset.currentStep = psmStep || '';
+
+    // Determine review link based on resolved PSM substep name
+    if (psmStep && psmStep.startsWith('pass')) {
+        link.href = PROVENANCE_URL;
+        link.style.display = '';
+        text.textContent = psmStep + ' complete. Review extracted entities.';
+    } else if (psmStep && psmStep.startsWith('step4_')) {
+        link.href = STEP4_REVIEW_URL;
+        link.style.display = '';
+        text.textContent = psmStep + ' complete. Review analysis results.';
+    } else if (psmStep === 'reconcile') {
+        text.textContent = 'Reconciliation complete. Continue to commit.';
+        link.style.display = 'none';
+    } else if (psmStep && psmStep.startsWith('commit')) {
+        text.textContent = 'Entities committed. Continue to next phase.';
+        link.style.display = 'none';
+    } else {
+        text.textContent = 'Step complete. Review results before continuing.';
+        link.style.display = 'none';
+    }
+
+    // Highlight the last completed step with waiting_review style
+    const card = document.getElementById('substep-' + psmStep);
+    if (card) {
+        card.className = 'substep-card status-waiting_review';
+        const icon = card.querySelector('.substep-icon');
+        if (icon) {
+            icon.className = 'substep-icon icon-waiting_review';
+            const iconEl = icon.querySelector('i');
+            if (iconEl) iconEl.className = 'bi bi-eye';
+        }
+    }
+}
+
+function hideReviewBar() {
+    const bar = document.getElementById('review-bar');
+    if (bar) bar.style.display = 'none';
+}
+
+function continueInteractive() {
+    hideReviewBar();
+    hideError();
+    setRunningUI(true);
+
+    fetch(CONTINUE_URL, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({})
+    })
+    .then(r => r.json().then(data => ({ok: r.ok, data})))
+    .then(({ok, data}) => {
+        if (!ok) {
+            showError(data.error || 'Failed to continue');
+            setRunningUI(false);
+            return;
+        }
+        if (data.completed) {
+            // All substeps done
+            setRunningUI(false);
+            pollStatus();
+            return;
+        }
+        startPolling();
+    })
+    .catch(err => {
+        showError('Network error: ' + err.message);
+        setRunningUI(false);
+    });
+}
+
+function stopInteractive() {
+    // Capture current step before hiding, in case we need to restore
+    const reviewText = document.getElementById('review-bar-text');
+    const lastStep = reviewText ? reviewText.dataset.currentStep : null;
+    hideReviewBar();
+
+    fetch(STOP_URL, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({})
+    })
+    .then(r => r.json().then(data => ({ok: r.ok, data})))
+    .then(({ok, data}) => {
+        if (!ok) {
+            showError(data.error || 'Failed to stop');
+            if (lastStep) showReviewBar(lastStep);
+            return;
+        }
+        setRunningUI(false);
+        // Final poll to refresh state
+        fetch(STATUS_URL).then(r => r.json()).then(updateUI);
+    })
+    .catch(err => {
+        showError('Network error: ' + err.message);
+        if (lastStep) showReviewBar(lastStep);
+    });
 }
 </script>
 

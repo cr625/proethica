@@ -25,7 +25,8 @@ PIPELINE_STATUS = {
     'EXTRACTED': 'extracted',  # Steps 1-3 complete, no commit/synthesis
     'COMPLETED': 'completed',  # Full pipeline including commit and/or step4
     'FAILED': 'failed',
-    'PAUSED': 'paused'
+    'PAUSED': 'paused',
+    'WAITING_REVIEW': 'waiting_review'
 }
 
 
@@ -129,13 +130,19 @@ class PipelineRun(db.Model):
         return self.status == PIPELINE_STATUS['FAILED']
 
     @property
+    def is_waiting_review(self) -> bool:
+        """Check if the run is paused for user review (interactive mode)."""
+        return self.status == PIPELINE_STATUS['WAITING_REVIEW']
+
+    @property
     def is_running(self) -> bool:
         """Check if the run is currently in progress."""
         return self.status not in [
             PIPELINE_STATUS['PENDING'],
             PIPELINE_STATUS['COMPLETED'],
             PIPELINE_STATUS['FAILED'],
-            PIPELINE_STATUS['PAUSED']
+            PIPELINE_STATUS['PAUSED'],
+            PIPELINE_STATUS['WAITING_REVIEW'],
         ]
 
     def to_dict(self) -> dict:
@@ -157,7 +164,8 @@ class PipelineRun(db.Model):
             'duration_seconds': self.duration_seconds,
             'is_complete': self.is_complete,
             'is_failed': self.is_failed,
-            'is_running': self.is_running
+            'is_running': self.is_running,
+            'is_waiting_review': self.is_waiting_review,
         }
 
 

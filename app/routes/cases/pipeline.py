@@ -2,6 +2,7 @@
 
 Phase 1: Read-only status display (15 substeps).
 Phase 2: Execution controls (Run single substep, Run All).
+Phase 3: Interactive mode (pause after each substep for review).
 """
 
 from flask import render_template, jsonify, request
@@ -54,9 +55,12 @@ def _get_active_run(case_id):
         ])
     ).order_by(PipelineRun.created_at.desc()).first()
 
+    # WAITING_REVIEW is an intentional pause (interactive mode), not stale.
+    # Only auto-fail PENDING/PAUSED runs stuck >10 minutes since last update.
     if run and run.status in (PIPELINE_STATUS['PENDING'], PIPELINE_STATUS['PAUSED']):
         stale_threshold = datetime.utcnow() - timedelta(minutes=10)
-        if run.created_at < stale_threshold:
+        check_time = run.updated_at or run.created_at
+        if check_time < stale_threshold:
             logger.warning(f"Auto-failing stale {run.status} run {run.id} for case {case_id}")
             run.set_error(f"Stale {run.status} run (>10 min)", run.current_step)
             db.session.commit()
@@ -94,6 +98,30 @@ def _get_task_func(task_name):
         'run_commit_task': run_commit_task,
         'run_step4_task': run_step4_task,
     }[task_name]
+
+
+def _find_next_substep(case_id):
+    """Find the next incomplete, startable substep for interactive dispatch.
+
+    Walks WORKFLOW_DEFINITION in order, skipping complete steps and
+    non-dispatchable Step 4 monolithic substeps. Returns the substep name
+    or None if all steps are complete (or none can start).
+    """
+    manager = PipelineStateManager()
+    state = manager.get_pipeline_state(case_id)
+
+    for step_name in WORKFLOW_DEFINITION:
+        if state.is_complete(step_name):
+            continue
+        if step_name in STEP4_MONOLITHIC:
+            # Not individually dispatchable; check step4_provisions instead
+            continue
+        if step_name not in SUBSTEP_DISPATCH:
+            continue
+        if state.can_start(step_name):
+            return step_name
+
+    return None
 
 
 def register_pipeline_routes(bp):
@@ -188,9 +216,17 @@ def register_pipeline_routes(bp):
     @bp.route('/<int:case_id>/pipeline/run-all', methods=['POST'])
     @auth_required_for_llm
     def case_pipeline_run_all(case_id):
-        """Dispatch full pipeline (all remaining substeps) via Celery.
+        """Dispatch full pipeline via Celery. Supports automated and interactive modes.
 
-        Returns: {"run_id": N, "task_id": "..."}
+        Request body (all optional):
+            mode: 'run_all' (default, automated) or 'interactive' (pause after each)
+            include_step4: bool (default True)
+            commit_to_ontserve: bool (default True)
+
+        Interactive mode dispatches one substep at a time; after each completes
+        the run enters WAITING_REVIEW. Use /pipeline/continue to advance.
+
+        Returns: {"run_id": N, "task_id": "...", "mode": "..."}
         """
         Document.query.get_or_404(case_id)
 
@@ -203,18 +239,46 @@ def register_pipeline_routes(bp):
             }), 409
 
         data = request.get_json(silent=True) or {}
+        mode = data.get('mode', 'run_all')
+        if mode not in ('run_all', 'interactive'):
+            return jsonify({'error': f'Invalid mode: {mode}'}), 400
+
         config = {
-            'mode': 'run_all',
+            'mode': mode,
             'include_step4': data.get('include_step4', True),
             'commit_to_ontserve': data.get('commit_to_ontserve', True),
         }
 
-        # Create PipelineRun in the route (not the task) to prevent race conditions.
-        # The task receives run_id and uses the existing record.
-        run = PipelineRun(
-            case_id=case_id,
-            config=config,
-        )
+        if mode == 'interactive':
+            # Interactive: dispatch first available substep only
+            next_substep = _find_next_substep(case_id)
+            if not next_substep:
+                return jsonify({'error': 'No remaining substeps to run'}), 409
+
+            run = PipelineRun(case_id=case_id, config=config)
+            run.set_status(PIPELINE_STATUS['RUNNING'])
+            run.current_step = next_substep
+            db.session.add(run)
+            db.session.commit()
+
+            task_name, extra_kwargs = SUBSTEP_DISPATCH[next_substep]
+            task_func = _get_task_func(task_name)
+            result = task_func.delay(run.id, **extra_kwargs)
+
+            run.celery_task_id = result.id
+            db.session.commit()
+
+            logger.info(f"Dispatched interactive run for case {case_id}: "
+                        f"substep={next_substep}, run={run.id}, task={result.id}")
+            return jsonify({
+                'run_id': run.id,
+                'task_id': result.id,
+                'mode': 'interactive',
+                'substep': next_substep,
+            })
+
+        # Automated: dispatch full pipeline
+        run = PipelineRun(case_id=case_id, config=config)
         run.set_status(PIPELINE_STATUS['RUNNING'])
         run.current_step = 'initializing'
         db.session.add(run)
@@ -235,6 +299,89 @@ def register_pipeline_routes(bp):
             'mode': 'run_all',
         })
 
+    @bp.route('/<int:case_id>/pipeline/continue', methods=['POST'])
+    @auth_required_for_llm
+    def case_pipeline_continue(case_id):
+        """Continue an interactive pipeline run by dispatching the next substep.
+
+        Only valid when an active run exists in WAITING_REVIEW status.
+        Finds the next incomplete substep, dispatches it, and sets the run
+        back to RUNNING.
+
+        Returns: {"run_id": N, "task_id": "...", "substep": "..."}
+        """
+        Document.query.get_or_404(case_id)
+
+        active = _get_active_run(case_id)
+        if not active:
+            return jsonify({'error': 'No active pipeline run to continue'}), 409
+
+        if active.status != PIPELINE_STATUS['WAITING_REVIEW']:
+            return jsonify({
+                'error': f'Run is not waiting for review (status: {active.status})',
+            }), 409
+
+        next_substep = _find_next_substep(case_id)
+        if not next_substep:
+            # All substeps complete -- mark the run as done
+            active.set_status(PIPELINE_STATUS['COMPLETED'])
+            db.session.commit()
+            return jsonify({
+                'run_id': active.id,
+                'completed': True,
+                'message': 'All pipeline substeps complete',
+            })
+
+        # Resume the existing run with the next substep
+        active.set_status(PIPELINE_STATUS['RUNNING'])
+        active.current_step = next_substep
+        db.session.commit()
+
+        task_name, extra_kwargs = SUBSTEP_DISPATCH[next_substep]
+        task_func = _get_task_func(task_name)
+        result = task_func.delay(active.id, **extra_kwargs)
+
+        active.celery_task_id = result.id
+        db.session.commit()
+
+        logger.info(f"Continued interactive run {active.id} for case {case_id}: "
+                    f"substep={next_substep}, task={result.id}")
+        return jsonify({
+            'run_id': active.id,
+            'task_id': result.id,
+            'substep': next_substep,
+        })
+
+    @bp.route('/<int:case_id>/pipeline/stop', methods=['POST'])
+    @auth_required_for_llm
+    def case_pipeline_stop(case_id):
+        """Stop an interactive pipeline run.
+
+        Sets the run to COMPLETED (partial). The user can start a new run later.
+        Only valid for runs in WAITING_REVIEW status.
+
+        Returns: {"run_id": N, "stopped": true}
+        """
+        Document.query.get_or_404(case_id)
+
+        active = _get_active_run(case_id)
+        if not active:
+            return jsonify({'error': 'No active pipeline run to stop'}), 409
+
+        if active.status != PIPELINE_STATUS['WAITING_REVIEW']:
+            return jsonify({
+                'error': f'Can only stop runs in review state (status: {active.status})',
+            }), 409
+
+        active.set_status(PIPELINE_STATUS['COMPLETED'])
+        db.session.commit()
+
+        logger.info(f"Stopped interactive run {active.id} for case {case_id}")
+        return jsonify({
+            'run_id': active.id,
+            'stopped': True,
+        })
+
 
 def init_pipeline_csrf_exemption(app):
     """Exempt pipeline POST endpoints from CSRF protection.
@@ -244,7 +391,10 @@ def init_pipeline_csrf_exemption(app):
     """
     if hasattr(app, 'csrf') and app.csrf:
         # Access the view functions through the app's view_functions dict
-        for endpoint in ['cases.case_pipeline_run', 'cases.case_pipeline_run_all']:
+        for endpoint in [
+            'cases.case_pipeline_run', 'cases.case_pipeline_run_all',
+            'cases.case_pipeline_continue', 'cases.case_pipeline_stop',
+        ]:
             view_func = app.view_functions.get(endpoint)
             if view_func:
                 app.csrf.exempt(view_func)

@@ -33,7 +33,8 @@ Replace the development-era step extraction pages (`/scenario_pipeline/case/<id>
 | 2-prereq | Backfill is_published | DONE | (data only) | Case 7: 344 entities backfilled |
 | 2 | Single-step execution | DONE | 53032f6 | Dispatcher, API, template with polling |
 | 2-review | Code review fixes | DONE | 9c6f929 | Terminal status, stale runs, prerequisites |
-| 3 | Interactive mode | NOT STARTED | -- | Pause/resume, review links |
+| 3 | Interactive mode | DONE | -- | WAITING_REVIEW status, continue/stop endpoints, review bar |
+| 3-review | Code review fixes | DONE | -- | 4 issues: stuck run, stale detection, step name, review bar |
 | 4 | Step 4 substep expansion | NOT STARTED | -- | 7 individual Step 4 phases |
 | 5 | Rollback and re-extraction | NOT STARTED | -- | Cascade clearing, ordering constraints |
 | 6 | Multi-case overview | NOT STARTED | -- | Case list pipeline status enhancement |
@@ -936,3 +937,34 @@ The database backup is precautionary. Phases 1-5 do not modify the database sche
 - The `SUBSTEP_DISPATCH` mapping and `STEP4_MONOLITHIC` set cleanly separate dispatchable from non-dispatchable substeps. Phase 4 moves entries from `STEP4_MONOLITHIC` to `SUBSTEP_DISPATCH` as individual tasks are created.
 - The `config.mode == 'single'` terminal status pattern must be replicated in any new Step 4 sub-phase tasks.
 - The `run_step4_task` currently runs all phases via `run_step4_synthesis()`. Phase 4 needs either a `stop_after` parameter or individual Celery tasks. The `progress_callback` pattern in `run_step4_synthesis` is the natural extension point.
+
+### Phase 3 Review (2026-03-11)
+
+**Commits**: (uncommitted, ready for commit)
+**Test count**: 575 passed, 2 skipped (unchanged)
+
+**Metrics**:
+- `pipeline_run.py`: +8 lines (WAITING_REVIEW status, is_waiting_review property, to_dict update)
+- `pipeline.py`: 175 -> 315 lines (+140: continue/stop endpoints, _find_next_substep, interactive run-all)
+- `pipeline.html`: 560 -> 690 lines (+130: mode toggle, review bar, interactive JS functions)
+- `pipeline_tasks.py`: 6 task functions updated (mode=='interactive' -> WAITING_REVIEW terminal status), 5 current_step resets added
+
+**Design decision**: Interactive mode dispatches individual substeps rather than modifying `run_full_pipeline_task` with interrupt logic. Each substep task sets `WAITING_REVIEW` when `config.mode=='interactive'`, and the `/continue` endpoint determines the next substep via `_find_next_substep()`. This avoids Celery task pause/resume complexity and reuses all existing single-step infrastructure.
+
+**Implementation findings**:
+1. `_find_next_substep()` walks `WORKFLOW_DEFINITION` dict in insertion order (Python 3.7+ guarantee). Substeps are defined in pipeline order, so this produces the correct sequence.
+2. The `_get_active_run()` stale detection was already correct -- WAITING_REVIEW falls through because the stale check only targets PENDING/PAUSED. Added a comment to make this explicit.
+3. `PipelineRun.set_status()` does not set `completed_at` for WAITING_REVIEW (it only sets `completed_at` for COMPLETED, FAILED, EXTRACTED). This is correct -- duration should continue counting while the user reviews.
+4. No DB migration needed -- `config.mode` is stored in JSONB, and `WAITING_REVIEW` is just a string status value.
+
+**Code review findings** (fixed before commit):
+1. **Critical**: `run_commit_task` exception path skipped terminal status for single/interactive mode, leaving the run permanently stuck in RUNNING. Fixed: added mode-aware status in the except block.
+2. **Critical**: Stale run detection used `created_at` instead of `updated_at`, potentially auto-failing legitimately paused long-running runs. Fixed: now uses `updated_at or created_at`.
+3. **Important**: Tasks set `current_step` to progress messages (e.g., `"step1_facts_parallel"`) during extraction but did not reset to the canonical step name before setting WAITING_REVIEW. The review bar used `startsWith('pass')` which failed for task-layer names. Fixed in two layers: (a) all tasks reset `run.current_step = step_name` before `mark_step_complete`, (b) `showReviewBar()` resolves through `resolveRunningStep()` for consistent PSM name matching.
+4. **Important**: `stopInteractive()` hid the review bar before the network call. On failure, no controls remained. Fixed: capture step name before hiding, restore review bar on error.
+
+**Lessons for Phase 4**:
+- The terminal status pattern is now three-way: `single` -> COMPLETED, `interactive` -> WAITING_REVIEW, `run_all` -> (no terminal, parent task handles). Phase 4 individual Step 4 tasks should follow this same pattern.
+- `_find_next_substep()` skips STEP4_MONOLITHIC entries. Phase 4 must move entries from STEP4_MONOLITHIC to SUBSTEP_DISPATCH as individual tasks are created, and `_find_next_substep()` will automatically start dispatching them.
+- The review bar's `showReviewBar()` maps substep names to review page URLs. Phase 4 should add Step 4 sub-phase to review tab mappings (e.g., step4_qc -> Q&C tab).
+- The `current_step` reset pattern (set canonical name before terminal status) should be standardized in Phase 4 tasks from the start.

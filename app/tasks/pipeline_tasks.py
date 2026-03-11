@@ -221,9 +221,14 @@ def run_step1_task(self, run_id: int, section_type: str = 'facts'):
             if 'error' in result:
                 raise RuntimeError(f"Extraction failed for {et}: {result['error']}")
 
+        # Reset current_step to canonical name (was set to progress messages)
+        run.current_step = step_name
         run.mark_step_complete(step_name, results)
-        if (run.config or {}).get('mode') == 'single':
+        mode = (run.config or {}).get('mode')
+        if mode == 'single':
             run.set_status(PIPELINE_STATUS['COMPLETED'])
+        elif mode == 'interactive':
+            run.set_status(PIPELINE_STATUS['WAITING_REVIEW'])
         db.session.commit()
 
         logger.info(f"[Task {self.request.id}] Step 1 ({section_type}) completed: {results}")
@@ -313,9 +318,14 @@ def run_step2_task(self, run_id: int, section_type: str = 'facts'):
 
         results.update(parallel_results)
 
+        # Reset current_step to canonical name (was set to progress messages)
+        run.current_step = step_name
         run.mark_step_complete(step_name, results)
-        if (run.config or {}).get('mode') == 'single':
+        mode = (run.config or {}).get('mode')
+        if mode == 'single':
             run.set_status(PIPELINE_STATUS['COMPLETED'])
+        elif mode == 'interactive':
+            run.set_status(PIPELINE_STATUS['WAITING_REVIEW'])
         db.session.commit()
 
         logger.info(f"[Task {self.request.id}] Step 2 ({section_type}) completed: {results}")
@@ -483,9 +493,14 @@ def run_step3_task(self, run_id: int):
                             if allen_match:
                                 results['allen_relations'] = int(allen_match.group(1))
 
+        # Reset current_step to canonical name (was set to stage progress)
+        run.current_step = step_name
         run.mark_step_complete(step_name, results)
-        if (run.config or {}).get('mode') == 'single':
+        mode = (run.config or {}).get('mode')
+        if mode == 'single':
             run.set_status(PIPELINE_STATUS['COMPLETED'])
+        elif mode == 'interactive':
+            run.set_status(PIPELINE_STATUS['WAITING_REVIEW'])
         db.session.commit()
 
         logger.info(f"[Task {self.request.id}] Step 3 (Enhanced Temporal) completed: {results}")
@@ -527,8 +542,11 @@ def run_reconcile_task(self, run_id: int):
         }
 
         run.mark_step_complete(step_name, results)
-        if (run.config or {}).get('mode') == 'single':
+        mode = (run.config or {}).get('mode')
+        if mode == 'single':
             run.set_status(PIPELINE_STATUS['COMPLETED'])
+        elif mode == 'interactive':
+            run.set_status(PIPELINE_STATUS['WAITING_REVIEW'])
         db.session.commit()
 
         logger.info(
@@ -885,11 +903,16 @@ def run_step4_task(self, run_id: int):
             'stages_completed': result.stages_completed
         }
 
+        # Reset current_step to canonical name (was set to phase progress)
+        run.current_step = step_name
         run.mark_step_complete(step_name, results)
-        # Set terminal status only for single-substep runs (dispatched from pipeline view).
+        # Set terminal status only for single-substep or interactive runs.
         # Full pipeline runs get terminal status from run_full_pipeline_task.
-        if (run.config or {}).get('mode') == 'single':
+        mode = (run.config or {}).get('mode')
+        if mode == 'single':
             run.set_status(PIPELINE_STATUS['COMPLETED'])
+        elif mode == 'interactive':
+            run.set_status(PIPELINE_STATUS['WAITING_REVIEW'])
         db.session.commit()
 
         logger.info(f"[Task {self.request.id}] Step 4 completed in {result.duration_seconds:.1f}s: {results}")
@@ -945,8 +968,11 @@ def run_commit_task(self, run_id: int, step_name: str = "commit_extraction"):
         if not entity_ids:
             results = {'total_entities': 0, 'skipped': True}
             run.mark_step_complete(step_name, results)
-            if (run.config or {}).get('mode') == 'single':
+            mode = (run.config or {}).get('mode')
+            if mode == 'single':
                 run.set_status(PIPELINE_STATUS['COMPLETED'])
+            elif mode == 'interactive':
+                run.set_status(PIPELINE_STATUS['WAITING_REVIEW'])
             db.session.commit()
             logger.info(f"[Task {self.request.id}] No entities to commit")
             return {'success': True, 'step': step_name, 'results': results}
@@ -962,8 +988,11 @@ def run_commit_task(self, run_id: int, step_name: str = "commit_extraction"):
         }
 
         run.mark_step_complete(step_name, results)
-        if (run.config or {}).get('mode') == 'single':
+        mode = (run.config or {}).get('mode')
+        if mode == 'single':
             run.set_status(PIPELINE_STATUS['COMPLETED'])
+        elif mode == 'interactive':
+            run.set_status(PIPELINE_STATUS['WAITING_REVIEW'])
         db.session.commit()
 
         logger.info(f"[Task {self.request.id}] OntServe commit completed: {results}")
@@ -971,8 +1000,14 @@ def run_commit_task(self, run_id: int, step_name: str = "commit_extraction"):
 
     except Exception as e:
         logger.error(f"[Task {self.request.id}] OntServe commit failed: {e}", exc_info=True)
-        # Don't fail the whole pipeline for commit errors - log and continue
+        # Don't fail the whole pipeline for commit errors - log and continue.
+        # For single/interactive mode, set terminal status so the run is not stuck.
         run.mark_step_complete(step_name, {'error': str(e), 'skipped': True})
+        mode = (run.config or {}).get('mode')
+        if mode == 'single':
+            run.set_status(PIPELINE_STATUS['COMPLETED'])
+        elif mode == 'interactive':
+            run.set_status(PIPELINE_STATUS['WAITING_REVIEW'])
         db.session.commit()
         logger.warning(f"[Task {self.request.id}] Commit failed but pipeline will continue")
         return {'success': False, 'step': step_name, 'error': str(e)}
