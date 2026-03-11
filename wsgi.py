@@ -7,7 +7,6 @@ Used for production deployments with WSGI servers like Gunicorn or uWSGI
 import os
 import socket
 import logging
-from pathlib import Path
 
 # Configure logging for production
 logging.basicConfig(

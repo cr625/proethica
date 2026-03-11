@@ -9,9 +9,6 @@ not when running the Flask app. This prevents blueprint registration issues.
 
 Usage:
     celery -A celery_config.celery worker --loglevel=info
-
-    Or with explicit PYTHONPATH:
-    PYTHONPATH=/home/chris/onto:$PYTHONPATH celery -A celery_config.celery worker --loglevel=info
 """
 from pathlib import Path
 
