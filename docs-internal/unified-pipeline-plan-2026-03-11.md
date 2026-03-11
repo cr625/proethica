@@ -784,4 +784,24 @@ The database backup is precautionary. Phases 1-5 do not modify the database sche
 
 ## Phase Reviews
 
-*(Written after each phase completes)*
+### Phase 1 Review (2026-03-11)
+
+**Commits**: 318b5d2 (1a+1b), a336350 (1c-e)
+**Test count**: 575 passed, 2 skipped (was 535 before)
+
+**Metrics**:
+- `pipeline_state_manager.py`: 580 -> 480 lines (flattened, but denser)
+- 40 new tests: 19 structural, 4 API mock, 4 to_dict, 12 PSM-vs-PSS integration, 1 convenience method
+- Template: 234 lines (cases/pipeline.html)
+- Route: 30 lines (cases/pipeline.py)
+
+**Findings during implementation**:
+1. `extraction_prompts.concept_type` uses plural forms (`roles`) matching `temporary_rdf_storage.extraction_type`, but `TaskDefinition.prompt_concept_type` uses singular (`role`). The section-aware check must use `artifact_types` (plural), not `prompt_concept_type` (singular).
+2. `transformation_classification` produces prompts but no entities in `temporary_rdf_storage`. Must use `CheckType.EXTRACTION_PROMPTS`, not `CheckType.ARTIFACTS`.
+3. `is_published` is not set for cases committed before the auto_commit_service tracked it (e.g., case 7). `commit_extraction` and `commit_synthesis` correctly report `not_started` for these cases; this is a data gap in old cases, not a PSM bug.
+4. Code review caught: section check was using all tasks' artifact_types instead of the current task's. Fixed before commit.
+
+**Lessons for Phase 2**:
+- The `commit_extraction` prerequisite breaks the dependency chain for old cases (Step 4 substeps show `can_start=False` even though they ran). Phase 2 must handle this: either backfill `is_published` for existing cases, or add a "skip commit" override for the pipeline view.
+- The `prompt_concept_type` vs `artifact_types` naming mismatch is confusing. Consider renaming `prompt_concept_type` to `provenance_key` in a future cleanup.
+- Provenance route uses `provenance.provenance_case`, not the originally-assumed `provenance.provenance_view`. Always verify endpoint names against `app.url_map` before writing templates.
