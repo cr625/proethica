@@ -81,6 +81,9 @@ class AutoCommitService:
         # Cache for OntServe classes (loaded on demand)
         self._ontserve_classes_cache: Optional[Dict[str, Dict]] = None
 
+        # Whether current commit uses versioned path (set by commit_case_entities)
+        self._versioned_commit: bool = True
+
     def commit_case_entities(self, case_id: int, force: bool = False,
                               versioned: bool = True) -> CommitSummary:
         """

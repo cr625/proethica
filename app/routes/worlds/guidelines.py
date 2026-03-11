@@ -413,7 +413,8 @@ def register_guideline_routes(bp):
             logger.info("Fetching existing ontology entities from MCP server")
             try:
                 entities_response = mcp_client.get_ontology_entities('engineering-ethics')
-                existing_entities = entities_response.get('entities', []) if entities_response else []
+                raw_entities = entities_response.get('entities', []) if entities_response else []
+                existing_entities = raw_entities if isinstance(raw_entities, list) else list(raw_entities.values())
                 logger.info(f"Retrieved {len(existing_entities)} existing ontology entities")
             except Exception as e:
                 logger.error(f"Error fetching ontology entities: {e}")
