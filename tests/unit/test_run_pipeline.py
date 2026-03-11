@@ -9,10 +9,6 @@ import pytest
 from unittest.mock import patch, MagicMock
 from urllib.error import HTTPError, URLError
 
-import sys
-import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
 from scripts.run_pipeline import (
     PipelineError,
     collect_sse,

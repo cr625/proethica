@@ -28,7 +28,6 @@ from typing import Dict, Any
 
 script_dir = Path(__file__).parent
 project_dir = script_dir.parent
-sys.path.insert(0, str(project_dir))
 
 from dotenv import load_dotenv
 load_dotenv(project_dir / '.env')

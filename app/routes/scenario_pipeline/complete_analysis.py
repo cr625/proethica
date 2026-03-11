@@ -5,8 +5,6 @@ and discussion dual analysis across all 3 passes.
 """
 
 import logging
-import sys
-import os
 from flask import render_template, request, jsonify, redirect, url_for, flash
 from app.models import Document
 
@@ -96,10 +94,8 @@ def execute_complete_analysis(case_id):
         logger.info(f"Starting complete modular analysis for case {case_id}")
         
         # Import and run the modular pipeline
-        sys.path.insert(0, '/home/chris/onto/proethica/app/services/extraction')
-        
         try:
-            from case_pipeline import CaseExtractionPipeline
+            from app.services.extraction.case_pipeline import CaseExtractionPipeline
             
             # Initialize and run pipeline
             pipeline = CaseExtractionPipeline()

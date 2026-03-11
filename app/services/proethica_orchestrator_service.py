@@ -5,8 +5,6 @@ Coordinates between the semantic router, MCP server, and LLM orchestrator
 to provide ontology-aware ethical reasoning.
 """
 
-import os
-import sys
 import logging
 import asyncio
 import json
@@ -14,13 +12,6 @@ from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime
 import time
-
-# Add shared path for imports
-current_dir = os.path.dirname(os.path.abspath(__file__))
-onto_root = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
-shared_path = os.path.join(onto_root, 'shared')
-if shared_path not in sys.path:
-    sys.path.insert(0, shared_path)
 
 from app.services.semantic_router_service import (
     SemanticRouterService, 

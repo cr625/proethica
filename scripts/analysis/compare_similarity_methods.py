@@ -20,13 +20,8 @@ Usage:
 
 import argparse
 import sys
-import os
 import json
 from datetime import datetime
-
-# Add project root to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-sys.path.insert(0, '/home/chris/onto')
 
 from app import create_app
 from app.models import Document, db

@@ -33,9 +33,6 @@ import statistics
 from datetime import datetime, timezone
 from collections import defaultdict
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-sys.path.insert(0, '/home/chris/onto')
-
 import argparse
 from app import create_app
 from app.models import Document, db

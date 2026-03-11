@@ -8,15 +8,11 @@ the process.
 """
 
 import os
-import sys
 import argparse
 import logging
 import json
 from datetime import datetime
 from typing import List, Dict, Any, Optional
-
-# Add parent directory to path so we can import modules
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from .section_triple_association_service import SectionTripleAssociationService
 

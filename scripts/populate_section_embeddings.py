@@ -14,16 +14,11 @@ Usage:
 
 import argparse
 import re
-import sys
-import os
 from datetime import datetime
 from html.parser import HTMLParser
 from typing import Dict, List, Optional
 
 import numpy as np
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, '/home/chris/onto')
 
 from app import create_app
 from app.models import Document, db

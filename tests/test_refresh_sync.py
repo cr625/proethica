@@ -5,9 +5,6 @@ Test the Refresh from OntServe functionality.
 This simulates editing an entity in OntServe and then refreshing ProEthica.
 """
 
-import sys
-sys.path.insert(0, '/home/chris/onto/proethica')
-
 import psycopg2
 from psycopg2.extras import RealDictCursor
 

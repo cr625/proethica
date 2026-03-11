@@ -4,15 +4,11 @@ Test enhanced service with Document ID 19
 """
 
 import os
-import sys
 import traceback
 
 # Set up environment
 os.environ['DATABASE_URL'] = 'postgresql://ai_ethical_dm_user:password@localhost:5433/ai_ethical_dm'
 os.environ['FLASK_ENV'] = 'development'
-
-# Add project to path
-sys.path.insert(0, '/home/chris/proethica')
 
 from app import create_app, db
 

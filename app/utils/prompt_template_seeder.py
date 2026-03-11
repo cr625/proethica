@@ -708,9 +708,6 @@ def run_seeder():
 
 
 if __name__ == '__main__':
-    # For running directly (requires Flask app context)
-    import sys
-    sys.path.insert(0, '/home/chris/onto/proethica')
     from app import create_app
     app = create_app()
     with app.app_context():

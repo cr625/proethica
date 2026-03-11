@@ -5,9 +5,6 @@ Test cumulative addition of classes to proethica-intermediate-extended.
 This demonstrates that new classes are added without removing existing ones.
 """
 
-import sys
-sys.path.insert(0, '/home/chris/onto/proethica')
-
 from app import create_app, db
 from app.models.temporary_rdf_storage import TemporaryRDFStorage
 from app.services.ontserve_commit_service import OntServeCommitService

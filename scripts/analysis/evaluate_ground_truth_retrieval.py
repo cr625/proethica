@@ -24,14 +24,10 @@ Usage:
     python scripts/analysis/evaluate_ground_truth_retrieval.py --verbose
 """
 
-import sys
 import os
 import csv
 from datetime import datetime
 from collections import defaultdict
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-sys.path.insert(0, '/home/chris/onto')
 
 from app import create_app
 from app.models import Document, db

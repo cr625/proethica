@@ -13,12 +13,7 @@ Usage:
 """
 
 import argparse
-import sys
-import os
 import time
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, '/home/chris/onto')
 
 from app import create_app
 from app.models import db

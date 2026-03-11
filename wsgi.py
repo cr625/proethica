@@ -5,14 +5,9 @@ Used for production deployments with WSGI servers like Gunicorn or uWSGI
 """
 
 import os
-import sys
 import socket
 import logging
 from pathlib import Path
-
-# Add the project root to the Python path
-project_root = Path(__file__).parent
-sys.path.insert(0, str(project_root))
 
 # Configure logging for production
 logging.basicConfig(

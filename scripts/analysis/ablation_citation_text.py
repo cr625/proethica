@@ -22,16 +22,11 @@ Usage:
 
 import argparse
 import csv
-import os
 import re
-import sys
 from collections import defaultdict
 from datetime import datetime
 
 import numpy as np
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-sys.path.insert(0, '/home/chris/onto')
 
 from app import create_app
 from app.models import Document, db

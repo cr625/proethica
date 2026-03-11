@@ -6,10 +6,6 @@ V0, V1, V8, V9 require DB queries and are tested separately in integration tests
 import re
 import pytest
 
-import sys
-import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
 from scripts.analysis.run_qc_audit import (
     REQUIRED_TYPES,
     EMPIRICAL_RANGES,

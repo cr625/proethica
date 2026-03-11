@@ -669,8 +669,6 @@ def run_seeder(replace_existing: bool = False):
 
 
 if __name__ == '__main__':
-    import sys
-    sys.path.insert(0, '/home/chris/onto/proethica')
     from app import create_app
     app = create_app()
     with app.app_context():

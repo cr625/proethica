@@ -1,6 +1,17 @@
-# ProEthica Tool Configuration
+[project]
+name = "proethica"
+version = "0.1.0"
+description = "Professional Ethics Case Analysis System"
+requires-python = ">=3.11"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app", "scripts"]
+
 # Dependencies are managed in requirements.txt (single source of truth).
-# This file configures ruff, mypy, pytest, and coverage.
 
 [tool.ruff]
 line-length = 100
@@ -70,9 +81,6 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = [
     "--strict-markers",
-    "--cov=app",
-    "--cov-report=html",
-    "--cov-report=term-missing",
     "-v",
 ]
 markers = [

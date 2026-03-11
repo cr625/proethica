@@ -100,12 +100,8 @@ def init_provenance_csrf_exemption(app):
 @auth_optional
 def run_qc_audit_api(case_id):
     """Run V0-V9 QC audit for a case and store results."""
-    import sys
-    import os
-    sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'scripts'))
-    sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'scripts', 'analysis'))
     try:
-        from run_qc_audit import run_audit, store_audit
+        from scripts.analysis.run_qc_audit import run_audit, store_audit
         audit = run_audit(case_id)
         store_audit(audit)
         return jsonify({'success': True, 'audit': audit})

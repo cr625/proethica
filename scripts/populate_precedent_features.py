@@ -14,12 +14,7 @@ Usage:
 
 import argparse
 import json
-import sys
-import os
 from datetime import datetime
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, '/home/chris/onto')
 
 from app import create_app
 from app.models import Document, db

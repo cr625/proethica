@@ -6,9 +6,6 @@ Test script to verify environment-aware authentication is working correctly.
 import os
 import sys
 
-# Add the project path to sys.path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
 def test_development_mode():
     """Test that development mode bypasses authentication."""
     print("Testing DEVELOPMENT mode...")

@@ -21,15 +21,10 @@ Usage:
 
 import argparse
 import csv
-import sys
-import os
 import time
 import logging
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-sys.path.insert(0, '/home/chris/onto')
 
 logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)

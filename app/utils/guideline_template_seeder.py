@@ -302,10 +302,6 @@ def seed_guideline_templates():
 
 
 if __name__ == '__main__':
-    # Allow running as standalone script
-    import sys
-    sys.path.insert(0, '/home/chris/onto/proethica')
-
     from app import create_app
     app = create_app()
 
