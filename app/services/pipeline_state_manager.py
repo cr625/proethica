@@ -277,7 +277,7 @@ WORKFLOW_DEFINITION: Dict[str, WorkflowStepDefinition] = {
         published_types=[
             'code_provision_reference', 'precedent_case_reference',
             'ethical_question', 'ethical_conclusion',
-            'transformation_classification', 'causal_normative_link',
+            'transformation_result', 'causal_normative_link',
             'question_emergence', 'resolution_pattern',
             'canonical_decision_point',
         ],
@@ -747,34 +747,3 @@ def get_pipeline_state(case_id: int) -> PipelineState:
     """
     manager = PipelineStateManager()
     return manager.get_pipeline_state(case_id)
-
-
-def export_workflow_yaml() -> str:
-    """Export workflow definition in YAML format."""
-    import yaml
-
-    workflow = {
-        'name': 'proethica_extraction_pipeline',
-        'version': '2.0',
-        'description': 'Professional ethics case extraction and analysis pipeline',
-        'steps': {},
-    }
-
-    for step_name, step_def in WORKFLOW_DEFINITION.items():
-        workflow['steps'][step_name] = {
-            'display_name': step_def.display_name,
-            'step_group': step_def.step_group,
-            'prerequisites': step_def.prerequisites,
-            'check_type': step_def.check_type.value,
-            'tasks': [
-                {
-                    'name': task.name,
-                    'display_name': task.display_name,
-                    'artifact_types': task.artifact_types,
-                    'check_type': task.check_type.value,
-                }
-                for task in step_def.tasks
-            ],
-        }
-
-    return yaml.dump(workflow, default_flow_style=False, sort_keys=False)

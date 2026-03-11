@@ -214,7 +214,7 @@
             {# Actions (links for complete steps, placeholder for future Run buttons) #}
             <div class="substep-actions">
                 {% if step_info.status == 'complete' %}
-                    {% if step_info.name.startswith('pass') or step_info.name == 'pass3' %}
+                    {% if step_info.name.startswith('pass') %}
                     <a href="{{ url_for('provenance.provenance_case', case_id=case.id) }}"
                        class="btn btn-sm btn-outline-secondary" title="View provenance">
                         <i class="bi bi-journal-text"></i>
