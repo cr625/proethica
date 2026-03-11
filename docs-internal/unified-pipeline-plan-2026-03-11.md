@@ -30,8 +30,9 @@ Replace the development-era step extraction pages (`/scenario_pipeline/case/<id>
 | 1d | Pipeline template | DONE | a336350 | Read-only grouped substep view |
 | 1e | Link from case detail | DONE | a336350 | Pipeline Dashboard button |
 | 1-review | Code review fixes | DONE | 5951f4e | transformation_result fix, dead code removal |
-| 2-prereq | Backfill is_published | NOT STARTED | -- | Required before Phase 2 Run buttons work |
-| 2 | Single-step execution | NOT STARTED | -- | Celery dispatch per substep |
+| 2-prereq | Backfill is_published | DONE | (data only) | Case 7: 344 entities backfilled |
+| 2 | Single-step execution | DONE | 53032f6 | Dispatcher, API, template with polling |
+| 2-review | Code review fixes | DONE | 9c6f929 | Terminal status, stale runs, prerequisites |
 | 3 | Interactive mode | NOT STARTED | -- | Pause/resume, review links |
 | 4 | Step 4 substep expansion | NOT STARTED | -- | 7 individual Step 4 phases |
 | 5 | Rollback and re-extraction | NOT STARTED | -- | Cascade clearing, ordering constraints |
@@ -576,15 +577,27 @@ Add to each substep box:
 
 **Goal**: Add interactive mode where the pipeline pauses after each substep for user review.
 
+### Phase 3 Adaptations (from Phase 2 review)
+
+**`config.mode` already exists**: Phase 2 introduced `config.mode` on PipelineRun (`'single'` or `'run_all'`). Phase 3 adds `'interactive'` as a third value. The terminal status pattern in tasks (`if config.mode == 'single': set_status(COMPLETED)`) must also handle `'interactive'` -- interactive runs should NOT auto-set COMPLETED. Instead, they should set `WAITING_REVIEW`.
+
+**`WAITING_REVIEW` must be excluded from stale run cleanup**: `_get_active_run()` auto-fails PENDING/PAUSED runs after 10 minutes. `WAITING_REVIEW` is an intentional pause (the user is reviewing extracted data), not a stale state. Add `WAITING_REVIEW` to the set of statuses excluded from stale detection.
+
+**Prerequisite chain is now strict**: `pass3` requires both `pass2_facts` and `pass2_discussion`. In interactive mode, if a user pauses after `pass2_facts` and skips `pass2_discussion`, the "Continue" button for `pass3` should show the blockers.
+
+**No `mode` column migration needed**: `config` is a JSONB column, so `config.mode` is stored inside the JSON dict without schema changes.
+
 ### 3a: Mode toggle and waiting_review state
 
-- Add `mode` field to `PipelineRun` model: `'automated'` or `'interactive'`
-- Add `WAITING_REVIEW` to `PIPELINE_STATUS` enum
-- In interactive mode, after each substep completes, set status to `waiting_review` instead of continuing to the next substep
+- Add `'interactive'` as a value for `config.mode` on `PipelineRun`
+- Add `WAITING_REVIEW` to `PIPELINE_STATUS` dict
+- In tasks: when `config.mode == 'interactive'`, set status to `waiting_review` after each substep completes (instead of continuing or setting COMPLETED)
+- In `_get_active_run()`: exclude `WAITING_REVIEW` from stale detection (it is intentional)
 
 ### 3b: Review links
 
 When a substep is in `waiting_review` state, the pipeline view shows:
+
 - A "Review" link pointing to the appropriate page:
   - Pass 1-3 substeps: provenance page filtered to that pass
   - Reconcile: entity review page
@@ -600,6 +613,7 @@ The review/provenance pages need a "Back to Pipeline" link and optionally a "Con
 ### 3d: LangGraph integration assessment
 
 Evaluate whether LangGraph's `interrupt()` / `Command(resume=...)` / checkpointing features (available in v0.4.7) would be beneficial for the interactive mode:
+
 - `interrupt()` after each Step 4 sub-phase aligns with the pause-for-review pattern
 - `PostgresSaver` checkpointer would allow crash recovery mid-extraction
 - Decision: implement if the pattern simplifies Celery-based pause/resume logic. Otherwise defer.
@@ -885,3 +899,40 @@ The database backup is precautionary. Phases 1-5 do not modify the database sche
 - Provenance route uses `provenance.provenance_case`, not the originally-assumed `provenance.provenance_view`. Always verify endpoint names against `app.url_map` before writing templates.
 - String-based type identifiers (`extraction_type`, `concept_type`) are fragile. The `transformation_classification` vs `transformation_result` mismatch went undetected because there was no shared constant. Phase 2 dispatcher should use the PSM `WORKFLOW_DEFINITION` keys as the single source of truth for substep identifiers, not duplicate strings.
 - Context processors that inject DB-querying callables into all templates are wasteful even if they only return function references. Prefer explicit template context from routes.
+
+### Phase 2 Review (2026-03-11)
+
+**Commits**: 53032f6 (Phase 2 implementation), 9c6f929 (review fixes)
+**Test count**: 575 passed, 2 skipped (unchanged)
+
+**Metrics**:
+- `pipeline.py`: 30 -> 175 lines (POST endpoints, dispatcher, active run detection, CSRF init)
+- `pipeline.html`: 237 -> 365 lines (Run buttons, JS polling, STEP_NAME_MAP, DOM badge updates)
+- `pipeline_tasks.py`: +35 lines (run_id parameter, single-mode terminal status)
+- `pipeline_state_manager.py`: +2 lines (pass3 + pass2_discussion prerequisites)
+- New: 9 dispatchable substeps, 6 monolithic labels, 4-second polling, stale run cleanup
+
+**Pre-requisite (is_published backfill)**:
+- Only case 7 needed backfill (344 entities). All batch campaign cases already had `is_published=true`.
+- `case_ontology_commits` table was empty, so the planned SQL join approach was unnecessary.
+
+**Implementation findings**:
+1. Flask-WTF `csrf.exempt()` with string endpoint names does not work reliably for blueprint closure-defined views. Must pass function references via `app.view_functions[endpoint]`.
+2. Celery task `current_step` values (e.g., `"step1_facts"`) do not match PSM substep names (e.g., `"pass1_facts"`). Required a JS mapping table (`STEP_NAME_MAP`) for running animation overlay.
+
+**Post-implementation code review findings** (9c6f929):
+1. **Critical**: `run_step4_task` set COMPLETED before `commit_synthesis` in full pipeline path. Fixed: tasks set COMPLETED only when `config.mode == 'single'`.
+2. **Critical**: Stale PENDING/PAUSED runs blocked dispatch indefinitely. Fixed: auto-fail runs stuck >10 minutes.
+3. **Important**: `pass3` did not require `pass2_discussion`, allowing partial extraction via single-substep dispatch. Fixed.
+4. **Important**: Terminal status logic used `commit_to_ontserve or include_step4` -- extraction-only runs with commit were marked COMPLETED. Fixed: only `include_step4` triggers COMPLETED.
+
+**Lessons for Phase 3**:
+- The `config.mode` field on PipelineRun distinguishes single-substep runs from full pipeline runs. Phase 3 adds `'interactive'` as a third mode. The terminal status pattern (`if config.mode == 'single'`) will need to handle `'interactive'` mode (likely no auto-COMPLETED, since the user must approve each step).
+- The stale run cleanup in `_get_active_run` handles PAUSED state. Phase 3 introduces `WAITING_REVIEW` which should NOT be subject to stale cleanup (it is an intentional pause). Add `WAITING_REVIEW` to the exception list.
+- The STEP_NAME_MAP in JavaScript needs to be extended if Phase 3 introduces new task names or if Phase 4 adds individual step4 task names.
+- Prerequisites are now stricter: `pass3` requires both `pass2_facts` and `pass2_discussion`. Phase 3 interactive mode should show blockers correctly when a user tries to skip discussion extraction.
+
+**Lessons for Phase 4**:
+- The `SUBSTEP_DISPATCH` mapping and `STEP4_MONOLITHIC` set cleanly separate dispatchable from non-dispatchable substeps. Phase 4 moves entries from `STEP4_MONOLITHIC` to `SUBSTEP_DISPATCH` as individual tasks are created.
+- The `config.mode == 'single'` terminal status pattern must be replicated in any new Step 4 sub-phase tasks.
+- The `run_step4_task` currently runs all phases via `run_step4_synthesis()`. Phase 4 needs either a `stop_after` parameter or individual Celery tasks. The `progress_callback` pattern in `run_step4_synthesis` is the natural extension point.
