@@ -369,8 +369,9 @@ def get_ontology_section_types() -> List[Dict[str, str]]:
     try:
         query = "PREFIX cases: <http://proethica.org/ontology/cases#> PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> PREFIX skos: <http://www.w3.org/2004/02/skos/core#> SELECT DISTINCT ?sectionType ?label ?definition WHERE { ?sectionType rdfs:subClassOf cases:SectionType . OPTIONAL { ?sectionType rdfs:label ?label . } OPTIONAL { ?sectionType skos:definition ?definition . } FILTER(?sectionType != cases:SectionType) } ORDER BY ?sectionType"
         
+        from app.services.ontserve_config import get_ontserve_mcp_url
         response = requests.post(
-            "http://localhost:8082/sparql",
+            f"{get_ontserve_mcp_url()}/sparql",
             json={"query": query},
             headers={"Content-Type": "application/json"},
             timeout=5

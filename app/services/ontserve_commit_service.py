@@ -35,17 +35,11 @@ from rdflib.namespace import SKOS, DCTERMS
 from app.models.temporary_rdf_storage import TemporaryRDFStorage
 from app.models.case_ontology_commit import CaseOntologyCommit
 from app.services.extraction.schemas import CATEGORY_TO_ONTOLOGY_IRI
+from app.services.ontserve_config import (
+    get_ontserve_db_config, get_ontserve_base_path, get_ontserve_mcp_url,
+)
 
 logger = logging.getLogger(__name__)
-
-# OntServe database connection (for versioned commits)
-ONTSERVE_DB_CONFIG = {
-    'dbname': 'ontserve',
-    'user': 'postgres',
-    'password': 'PASS',
-    'host': 'localhost',
-    'port': 5432
-}
 
 # Namespaces
 PROETHICA = Namespace("http://proethica.org/ontology/intermediate#")
@@ -61,9 +55,9 @@ class OntServeCommitService:
 
     def __init__(self):
         """Initialize the commit service."""
-        self.ontserve_path = Path("/home/chris/onto/OntServe")
+        self.ontserve_path = get_ontserve_base_path()
         self.ontologies_dir = self.ontserve_path / "ontologies"
-        self.mcp_url = "http://localhost:8082"
+        self.mcp_url = get_ontserve_mcp_url()
         # Use OntServe's venv Python for subprocess calls (has pgvector, etc.)
         self.ontserve_python = str(self.ontserve_path / "venv-ontserve" / "bin" / "python")
 
@@ -190,7 +184,7 @@ class OntServeCommitService:
             targets[target] += 1
 
         try:
-            conn = psycopg2.connect(**ONTSERVE_DB_CONFIG)
+            conn = psycopg2.connect(**get_ontserve_db_config())
             cur = conn.cursor()
 
             for ontology_name, count in targets.items():
@@ -1130,7 +1124,7 @@ class OntServeCommitService:
             }
 
             # Connect to OntServe database
-            conn = psycopg2.connect(**ONTSERVE_DB_CONFIG)
+            conn = psycopg2.connect(**get_ontserve_db_config())
             try:
                 # Get the next extraction run version for this case
                 new_version = self._get_next_extraction_version(conn, case_id)
@@ -1541,7 +1535,7 @@ class OntServeCommitService:
             Dictionary with version history and current state
         """
         try:
-            conn = psycopg2.connect(**ONTSERVE_DB_CONFIG)
+            conn = psycopg2.connect(**get_ontserve_db_config())
             try:
                 with conn.cursor() as cur:
                     # Get all versions for this case
@@ -1602,7 +1596,7 @@ class OntServeCommitService:
 
         # 2. Clear from OntServe database
         try:
-            conn = psycopg2.connect(**ONTSERVE_DB_CONFIG)
+            conn = psycopg2.connect(**get_ontserve_db_config())
             try:
                 with conn.cursor() as cur:
                     ontology_name = f"proethica-case-{case_id}"

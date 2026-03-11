@@ -15,16 +15,9 @@ from typing import Dict, Set
 
 import psycopg2
 
-logger = logging.getLogger(__name__)
+from app.services.ontserve_config import get_ontserve_db_config
 
-# Same config as ontserve_commit_service.py
-ONTSERVE_DB_CONFIG = {
-    'dbname': 'ontserve',
-    'user': 'postgres',
-    'password': 'PASS',
-    'host': 'localhost',
-    'port': 5432
-}
+logger = logging.getLogger(__name__)
 
 
 def detect_changed_entities(case_id: int) -> Dict[str, dict]:
@@ -62,7 +55,7 @@ def detect_changed_entities(case_id: int) -> Dict[str, dict]:
 
     # Query OntServe for current hashes
     try:
-        conn = psycopg2.connect(**ONTSERVE_DB_CONFIG)
+        conn = psycopg2.connect(**get_ontserve_db_config())
         try:
             with conn.cursor() as cur:
                 cur.execute(

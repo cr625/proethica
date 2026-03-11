@@ -12,32 +12,29 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import json
 
+from app.services.ontserve_config import get_ontserve_db_config, get_ontserve_mcp_url
+
 logger = logging.getLogger(__name__)
 
 
 class OntServeDataFetcher:
     """Service for fetching live entity data from OntServe."""
 
-    def __init__(self, ontserve_url: str = "http://localhost:8082",
-                 db_host: str = "localhost",
-                 db_name: str = "ontserve",
-                 db_user: str = "postgres",
-                 db_password: str = "PASS"):
+    def __init__(self, ontserve_url: str = None, db_config: dict = None):
         """Initialize the OntServe data fetcher.
 
         Args:
-            ontserve_url: Base URL for OntServe MCP server
-            db_host: PostgreSQL host for direct database access
-            db_name: OntServe database name
-            db_user: Database user
-            db_password: Database password
+            ontserve_url: Base URL for OntServe MCP server (default: from env)
+            db_config: psycopg2 connection dict (default: from env)
         """
-        self.ontserve_url = ontserve_url
+        self.ontserve_url = ontserve_url or get_ontserve_mcp_url()
+        cfg = db_config or get_ontserve_db_config()
+        # psycopg2 uses 'dbname'; this class uses 'database' for its cursor_factory calls
         self.db_config = {
-            'host': db_host,
-            'database': db_name,
-            'user': db_user,
-            'password': db_password
+            'host': cfg['host'],
+            'database': cfg.get('database', cfg.get('dbname')),
+            'user': cfg['user'],
+            'password': cfg['password'],
         }
 
     def fetch_case_entities_from_db(self, case_id: int) -> Dict[str, List[Dict]]:

@@ -21,6 +21,7 @@ from sqlalchemy import text, create_engine
 
 from app import db
 from app.models.temporary_rdf_storage import TemporaryRDFStorage
+from app.services.ontserve_config import get_ontserve_base_path, get_ontserve_db_url
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +74,7 @@ class AutoCommitService:
 
     def __init__(self):
         """Initialize the auto-commit service."""
-        self.ontserve_path = Path("/home/chris/onto/OntServe")
+        self.ontserve_path = get_ontserve_base_path()
         self.ontologies_dir = self.ontserve_path / "ontologies"
         self.ontologies_dir.mkdir(parents=True, exist_ok=True)
 
@@ -388,7 +389,7 @@ class AutoCommitService:
 
             # Use a separate connection to ontserve database
             from sqlalchemy import create_engine
-            ontserve_engine = create_engine('postgresql://postgres:PASS@localhost:5432/ontserve')
+            ontserve_engine = create_engine(get_ontserve_db_url())
 
             with ontserve_engine.connect() as conn:
                 result = conn.execute(query)
@@ -757,9 +758,10 @@ class AutoCommitService:
         """
         import subprocess
 
-        ontserve_venv_python = "/home/chris/onto/OntServe/venv-ontserve/bin/python"
-        register_script = "/home/chris/onto/OntServe/scripts/register_case_ontologies.py"
-        refresh_script = "/home/chris/onto/OntServe/scripts/refresh_entity_extraction.py"
+        ontserve_path = get_ontserve_base_path()
+        ontserve_venv_python = str(ontserve_path / "venv-ontserve" / "bin" / "python")
+        register_script = str(ontserve_path / "scripts" / "register_case_ontologies.py")
+        refresh_script = str(ontserve_path / "scripts" / "refresh_entity_extraction.py")
 
         versioned = getattr(self, '_versioned_commit', True)
 
@@ -798,7 +800,7 @@ class AutoCommitService:
                 capture_output=True,
                 text=True,
                 timeout=60,
-                cwd="/home/chris/onto/OntServe"
+                cwd=str(ontserve_path)
             )
 
             if result.returncode == 0:
@@ -907,8 +909,7 @@ class AutoCommitService:
 
             # 2. Clear from OntServe database (delete entities for this ontology)
             try:
-                ontserve_conn_str = "postgresql://postgres:PASS@localhost:5432/ontserve"
-                engine = create_engine(ontserve_conn_str)
+                engine = create_engine(get_ontserve_db_url())
                 with engine.connect() as conn:
                     ontology_name = f"proethica-case-{case_id}"
 

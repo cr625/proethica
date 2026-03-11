@@ -82,10 +82,8 @@ class ProEthicaOrchestratorService:
         self.semantic_router = SemanticRouterService()
         
         # MCP server configuration
-        self.mcp_server_url = mcp_server_url or os.environ.get(
-            "ONTSERVE_MCP_URL", 
-            "http://localhost:8082"
-        )
+        from app.services.ontserve_config import get_ontserve_mcp_url
+        self.mcp_server_url = mcp_server_url or get_ontserve_mcp_url()
         
         # Initialize MCP context manager if available
         self.mcp_manager = None

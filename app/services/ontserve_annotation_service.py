@@ -8,14 +8,15 @@ from typing import Dict, List, Optional, Any
 from urllib.parse import urljoin
 from app.models.world import World
 from app.models.document_concept_annotation import DocumentConceptAnnotation
+from app.services.ontserve_config import get_ontserve_web_url
 
 logger = logging.getLogger(__name__)
 
 class OntServeAnnotationService:
     """Service for integrating with OntServe API for document annotation."""
-    
-    def __init__(self, ontserve_url: str = "http://localhost:5003"):
-        self.ontserve_url = ontserve_url
+
+    def __init__(self, ontserve_url: str = None):
+        self.ontserve_url = ontserve_url or get_ontserve_web_url()
         self.cache = {}
         self.session = requests.Session()
         

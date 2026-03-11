@@ -47,7 +47,12 @@ def create_app(config_name=None):
     
     # Apply the configuration
     app.config.from_object(config[config_name])
-    
+
+    # Production safety: reject insecure default SECRET_KEY
+    if app.config.get('ENVIRONMENT') == 'production':
+        if app.config.get('SECRET_KEY') == 'dev-secret-key-change-in-production':
+            raise RuntimeError("SECRET_KEY must be set in production (check .env)")
+
     # Log configuration info in development mode
     if config_name == 'development' or os.environ.get('DEBUG', '').lower() == 'true':
         print(f"Using '{config_name}' configuration")

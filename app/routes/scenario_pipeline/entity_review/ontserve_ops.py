@@ -518,6 +518,7 @@ def register_ontserve_ops_routes(bp):
         """
         try:
             from sqlalchemy import create_engine, text
+            from app.services.ontserve_config import get_ontserve_db_url
 
             query_param = request.args.get('q', '').strip()
             if not query_param:
@@ -527,7 +528,7 @@ def register_ontserve_ops_routes(bp):
                 }), 400
 
             # Search OntServe database for matching classes
-            ontserve_engine = create_engine('postgresql://postgres:PASS@localhost:5432/ontserve')
+            ontserve_engine = create_engine(get_ontserve_db_url())
 
             with ontserve_engine.connect() as conn:
                 # Search by label (case-insensitive)
