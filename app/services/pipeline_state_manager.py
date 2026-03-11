@@ -164,7 +164,7 @@ WORKFLOW_DEFINITION: Dict[str, WorkflowStepDefinition] = {
         tasks=[
             TaskDefinition('temporal', 'Actions & Events', ['temporal_dynamics_enhanced'], 'temporal'),
         ],
-        prerequisites=['pass2_facts'],
+        prerequisites=['pass2_facts', 'pass2_discussion'],
     ),
 
     # --- Reconcile & Commit ---

@@ -222,6 +222,8 @@ def run_step1_task(self, run_id: int, section_type: str = 'facts'):
                 raise RuntimeError(f"Extraction failed for {et}: {result['error']}")
 
         run.mark_step_complete(step_name, results)
+        if (run.config or {}).get('mode') == 'single':
+            run.set_status(PIPELINE_STATUS['COMPLETED'])
         db.session.commit()
 
         logger.info(f"[Task {self.request.id}] Step 1 ({section_type}) completed: {results}")
@@ -312,6 +314,8 @@ def run_step2_task(self, run_id: int, section_type: str = 'facts'):
         results.update(parallel_results)
 
         run.mark_step_complete(step_name, results)
+        if (run.config or {}).get('mode') == 'single':
+            run.set_status(PIPELINE_STATUS['COMPLETED'])
         db.session.commit()
 
         logger.info(f"[Task {self.request.id}] Step 2 ({section_type}) completed: {results}")
@@ -480,6 +484,8 @@ def run_step3_task(self, run_id: int):
                                 results['allen_relations'] = int(allen_match.group(1))
 
         run.mark_step_complete(step_name, results)
+        if (run.config or {}).get('mode') == 'single':
+            run.set_status(PIPELINE_STATUS['COMPLETED'])
         db.session.commit()
 
         logger.info(f"[Task {self.request.id}] Step 3 (Enhanced Temporal) completed: {results}")
@@ -521,6 +527,8 @@ def run_reconcile_task(self, run_id: int):
         }
 
         run.mark_step_complete(step_name, results)
+        if (run.config or {}).get('mode') == 'single':
+            run.set_status(PIPELINE_STATUS['COMPLETED'])
         db.session.commit()
 
         logger.info(
@@ -647,14 +655,16 @@ def run_full_pipeline_task(self, case_id: int, config: dict = None,
                 logger.info(f"[Task {self.request.id}] Committing synthesis entities to OntServe...")
                 run_commit_task.apply(args=[run_id, 'commit_synthesis'])
 
-        # Mark as completed or extracted based on what was run
+        # Mark terminal status based on what was actually run
         run = PipelineRun.query.get(run_id)
-        if commit_to_ontserve or include_step4:
-            # Full pipeline - mark as completed
+        if include_step4:
             run.set_status(PIPELINE_STATUS['COMPLETED'])
             logger.info(f"[Task {self.request.id}] Full pipeline completed for case {case_id}")
+        elif commit_to_ontserve:
+            # Extraction + commit but no synthesis
+            run.set_status(PIPELINE_STATUS['EXTRACTED'])
+            logger.info(f"[Task {self.request.id}] Extraction + commit completed for case {case_id} (no synthesis)")
         else:
-            # Only extraction (steps 1-3) - mark as extracted
             run.set_status(PIPELINE_STATUS['EXTRACTED'])
             logger.info(f"[Task {self.request.id}] Extraction completed for case {case_id} (no commit/synthesis)")
         db.session.commit()
@@ -876,7 +886,10 @@ def run_step4_task(self, run_id: int):
         }
 
         run.mark_step_complete(step_name, results)
-        run.set_status(PIPELINE_STATUS['COMPLETED'])  # Mark as fully completed
+        # Set terminal status only for single-substep runs (dispatched from pipeline view).
+        # Full pipeline runs get terminal status from run_full_pipeline_task.
+        if (run.config or {}).get('mode') == 'single':
+            run.set_status(PIPELINE_STATUS['COMPLETED'])
         db.session.commit()
 
         logger.info(f"[Task {self.request.id}] Step 4 completed in {result.duration_seconds:.1f}s: {results}")
@@ -932,6 +945,8 @@ def run_commit_task(self, run_id: int, step_name: str = "commit_extraction"):
         if not entity_ids:
             results = {'total_entities': 0, 'skipped': True}
             run.mark_step_complete(step_name, results)
+            if (run.config or {}).get('mode') == 'single':
+                run.set_status(PIPELINE_STATUS['COMPLETED'])
             db.session.commit()
             logger.info(f"[Task {self.request.id}] No entities to commit")
             return {'success': True, 'step': step_name, 'results': results}
@@ -947,6 +962,8 @@ def run_commit_task(self, run_id: int, step_name: str = "commit_extraction"):
         }
 
         run.mark_step_complete(step_name, results)
+        if (run.config or {}).get('mode') == 'single':
+            run.set_status(PIPELINE_STATUS['COMPLETED'])
         db.session.commit()
 
         logger.info(f"[Task {self.request.id}] OntServe commit completed: {results}")

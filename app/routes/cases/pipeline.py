@@ -38,8 +38,14 @@ STEP4_MONOLITHIC = {
 
 
 def _get_active_run(case_id):
-    """Get the active (non-terminal) PipelineRun for a case, if any."""
-    return PipelineRun.query.filter(
+    """Get the active (non-terminal) PipelineRun for a case, if any.
+
+    Runs stuck in PENDING or PAUSED for more than 10 minutes are treated
+    as stale and auto-marked FAILED to prevent blocking new dispatches.
+    """
+    from datetime import datetime, timedelta
+
+    run = PipelineRun.query.filter(
         PipelineRun.case_id == case_id,
         PipelineRun.status.notin_([
             PIPELINE_STATUS['COMPLETED'],
@@ -47,6 +53,16 @@ def _get_active_run(case_id):
             PIPELINE_STATUS['EXTRACTED'],
         ])
     ).order_by(PipelineRun.created_at.desc()).first()
+
+    if run and run.status in (PIPELINE_STATUS['PENDING'], PIPELINE_STATUS['PAUSED']):
+        stale_threshold = datetime.utcnow() - timedelta(minutes=10)
+        if run.created_at < stale_threshold:
+            logger.warning(f"Auto-failing stale {run.status} run {run.id} for case {case_id}")
+            run.set_error(f"Stale {run.status} run (>10 min)", run.current_step)
+            db.session.commit()
+            return None
+
+    return run
 
 
 def _build_pipeline_response(case_id):
