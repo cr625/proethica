@@ -537,7 +537,8 @@ def run_reconcile_task(self, run_id: int):
 
 
 @celery.task(bind=True, name='proethica.tasks.run_full_pipeline')
-def run_full_pipeline_task(self, case_id: int, config: dict = None, user_id: int = None):
+def run_full_pipeline_task(self, case_id: int, config: dict = None,
+                           user_id: int = None, run_id: int = None):
     """
     Execute complete pipeline for a case.
 
@@ -557,6 +558,7 @@ def run_full_pipeline_task(self, case_id: int, config: dict = None, user_id: int
             - skip_step4: bool (default: False) - skip Step 4 (legacy)
             - commit_to_ontserve: bool (default: True) - commit entities to OntServe after Step 3
         user_id: Optional user who initiated
+        run_id: Optional pre-created PipelineRun ID (from pipeline view dispatch)
 
     Returns:
         dict with overall results
@@ -572,19 +574,28 @@ def run_full_pipeline_task(self, case_id: int, config: dict = None, user_id: int
     if not case:
         raise ValueError(f"Case {case_id} not found")
 
-    # Create pipeline run record
-    run = PipelineRun(
-        case_id=case_id,
-        celery_task_id=self.request.id,
-        config=config,
-        initiated_by=user_id
-    )
-    run.set_status(PIPELINE_STATUS['RUNNING'])
-    db.session.add(run)
-    db.session.commit()
+    # Use pre-created PipelineRun if provided, otherwise create one
+    if run_id:
+        run = PipelineRun.query.get(run_id)
+        if not run:
+            raise ValueError(f"PipelineRun {run_id} not found")
+        run.celery_task_id = self.request.id
+        db.session.commit()
+        logger.info(f"[Task {self.request.id}] Using existing PipelineRun {run_id}")
+    else:
+        run = PipelineRun(
+            case_id=case_id,
+            celery_task_id=self.request.id,
+            config=config,
+            initiated_by=user_id
+        )
+        run.set_status(PIPELINE_STATUS['RUNNING'])
+        db.session.add(run)
+        db.session.commit()
+        run_id = run.id
+        logger.info(f"[Task {self.request.id}] Created PipelineRun {run_id}")
 
     run_id = run.id
-    logger.info(f"[Task {self.request.id}] Created PipelineRun {run_id}")
 
     # Clean up previous OntServe data for this case before re-extraction
     if commit_to_ontserve:

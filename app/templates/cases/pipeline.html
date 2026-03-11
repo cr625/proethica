@@ -39,6 +39,10 @@
 .substep-card.status-in_progress {
     border-left: 3px solid #0d6efd;
 }
+.substep-card.status-running {
+    border-left: 3px solid #0d6efd;
+    background: #f8f9ff;
+}
 .substep-card.status-error {
     border-left: 3px solid #dc3545;
 }
@@ -56,6 +60,7 @@
 .substep-icon.icon-complete { background: #198754; color: #fff; }
 .substep-icon.icon-not_started { background: #e9ecef; color: #6c757d; }
 .substep-icon.icon-in_progress { background: #0d6efd; color: #fff; }
+.substep-icon.icon-running { background: #0d6efd; color: #fff; }
 .substep-icon.icon-error { background: #dc3545; color: #fff; }
 
 .substep-info { flex: 1; min-width: 0; }
@@ -72,19 +77,12 @@
 }
 .artifact-badge.has-data { background: #d1e7dd; color: #0f5132; }
 
-.substep-actions { flex-shrink: 0; }
+.substep-actions { flex-shrink: 0; display: flex; gap: 0.35rem; align-items: center; }
 
 .blocker-text {
     font-size: 0.75rem;
     color: #6c757d;
     font-style: italic;
-}
-
-.dependency-connector {
-    width: 2px;
-    height: 12px;
-    background: #dee2e6;
-    margin: 0 auto;
 }
 
 .group-section { margin-bottom: 1.5rem; }
@@ -96,9 +94,7 @@
     flex-wrap: wrap;
     margin-bottom: 1.5rem;
 }
-.stat-item {
-    text-align: center;
-}
+.stat-item { text-align: center; }
 .stat-value {
     font-size: 1.75rem;
     font-weight: 700;
@@ -111,6 +107,29 @@
 }
 .stat-value.text-success { color: #198754 !important; }
 .stat-value.text-muted { color: #adb5bd !important; }
+
+/* Running animation */
+@keyframes pulse-border {
+    0%, 100% { border-left-color: #0d6efd; }
+    50% { border-left-color: #6ea8fe; }
+}
+.substep-card.status-running {
+    animation: pulse-border 1.5s ease-in-out infinite;
+}
+
+/* Error state */
+.error-message {
+    font-size: 0.75rem;
+    color: #dc3545;
+    margin-top: 0.25rem;
+}
+
+/* Step 4 monolithic label */
+.monolithic-label {
+    font-size: 0.7rem;
+    color: #6c757d;
+    font-style: italic;
+}
 </style>
 {% endblock %}
 
@@ -126,6 +145,12 @@
             </h4>
             <span class="text-muted">Extraction Pipeline</span>
         </div>
+        <div>
+            <button id="btn-run-all" class="btn btn-primary btn-sm"
+                    onclick="runAll()" title="Run all remaining substeps">
+                <i class="bi bi-play-fill me-1"></i>Run All
+            </button>
+        </div>
     </div>
 
     {# Summary stats #}
@@ -140,7 +165,8 @@
             <div class="d-flex align-items-center gap-4">
                 <div class="pipeline-stats">
                     <div class="stat-item">
-                        <div class="stat-value {% if complete_count == total %}text-success{% elif complete_count > 0 %}text-primary{% else %}text-muted{% endif %}">
+                        <div class="stat-value {% if complete_count == total %}text-success{% elif complete_count > 0 %}text-primary{% else %}text-muted{% endif %}"
+                             id="stats-complete">
                             {{ complete_count }}/{{ total }}
                         </div>
                         <div class="stat-label">Steps Done</div>
@@ -148,13 +174,28 @@
                 </div>
                 <div class="flex-grow-1">
                     <div class="progress" style="height: 8px;">
-                        <div class="progress-bar bg-success" style="width: {{ pct }}%"></div>
+                        <div class="progress-bar bg-success" id="progress-complete" style="width: {{ pct }}%"></div>
                         {% if in_progress_count > 0 %}
                         <div class="progress-bar bg-primary progress-bar-striped progress-bar-animated"
+                             id="progress-running"
                              style="width: {{ ((in_progress_count / total) * 100)|int }}%"></div>
                         {% endif %}
                     </div>
                 </div>
+            </div>
+            {# Active run status #}
+            <div id="active-run-status" class="mt-2" style="display: none;">
+                <small class="text-primary">
+                    <i class="bi bi-arrow-repeat spin me-1"></i>
+                    <span id="active-run-text"></span>
+                </small>
+            </div>
+            {# Error display #}
+            <div id="run-error" class="mt-2" style="display: none;">
+                <small class="text-danger">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    <span id="run-error-text"></span>
+                </small>
             </div>
         </div>
     </div>
@@ -172,7 +213,8 @@
     <div class="group-section">
         <div class="step-group-header">{{ group }}</div>
         {% for step_info in group_steps %}
-        <div class="substep-card status-{{ step_info.status }}">
+        <div class="substep-card status-{{ step_info.status }}" id="substep-{{ step_info.name }}"
+             data-substep="{{ step_info.name }}" data-status="{{ step_info.status }}">
             {# Status icon #}
             <div class="substep-icon icon-{{ step_info.status }}">
                 {% if step_info.status == 'complete' %}
@@ -211,9 +253,10 @@
                 {% endif %}
             </div>
 
-            {# Actions (links for complete steps, placeholder for future Run buttons) #}
+            {# Actions #}
             <div class="substep-actions">
                 {% if step_info.status == 'complete' %}
+                    {# View links for complete steps #}
                     {% if step_info.name.startswith('pass') %}
                     <a href="{{ url_for('provenance.provenance_case', case_id=case.id) }}"
                        class="btn btn-sm btn-outline-secondary" title="View provenance">
@@ -226,6 +269,19 @@
                     </a>
                     {% endif %}
                 {% endif %}
+
+                {# Run button #}
+                {% if step_info.name in substep_dispatch %}
+                    <button class="btn btn-sm btn-outline-primary btn-run"
+                            data-substep="{{ step_info.name }}"
+                            onclick="runSubstep('{{ step_info.name }}')"
+                            {% if not step_info.can_start %}disabled{% endif %}
+                            title="{% if step_info.name == 'step4_provisions' %}Run all Step 4 phases{% else %}Run {{ step_info.display_name }}{% endif %}">
+                        <i class="bi bi-play-fill"></i>
+                    </button>
+                {% elif step_info.name in step4_monolithic %}
+                    <span class="monolithic-label">Part of Step 4</span>
+                {% endif %}
             </div>
         </div>
         {% endfor %}
@@ -233,4 +289,272 @@
     {% endif %}
     {% endfor %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const CASE_ID = {{ case.id }};
+const STATUS_URL = "{{ url_for('cases.case_pipeline_status', case_id=case.id) }}";
+const RUN_URL = "{{ url_for('cases.case_pipeline_run', case_id=case.id) }}";
+const RUN_ALL_URL = "{{ url_for('cases.case_pipeline_run_all', case_id=case.id) }}";
+
+let pollInterval = null;
+let isRunning = {{ 'true' if pipeline_state.active_run else 'false' }};
+
+// Initialize: if there's an active run, start polling
+if (isRunning) {
+    startPolling();
+    setRunningUI(true);
+}
+
+function runSubstep(substep) {
+    if (isRunning) return;
+
+    setRunningUI(true);
+    hideError();
+
+    fetch(RUN_URL, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({substep: substep})
+    })
+    .then(r => r.json().then(data => ({ok: r.ok, data})))
+    .then(({ok, data}) => {
+        if (!ok) {
+            showError(data.error || 'Failed to start');
+            setRunningUI(false);
+            return;
+        }
+        startPolling();
+    })
+    .catch(err => {
+        showError('Network error: ' + err.message);
+        setRunningUI(false);
+    });
+}
+
+function runAll() {
+    if (isRunning) return;
+
+    setRunningUI(true);
+    hideError();
+
+    fetch(RUN_ALL_URL, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({})
+    })
+    .then(r => r.json().then(data => ({ok: r.ok, data})))
+    .then(({ok, data}) => {
+        if (!ok) {
+            showError(data.error || 'Failed to start');
+            setRunningUI(false);
+            return;
+        }
+        startPolling();
+    })
+    .catch(err => {
+        showError('Network error: ' + err.message);
+        setRunningUI(false);
+    });
+}
+
+function startPolling() {
+    if (pollInterval) return;
+    isRunning = true;
+    pollInterval = setInterval(pollStatus, 4000);
+    // Immediate first poll
+    pollStatus();
+}
+
+function stopPolling() {
+    if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+    }
+    isRunning = false;
+}
+
+function pollStatus() {
+    fetch(STATUS_URL)
+    .then(r => r.json())
+    .then(data => {
+        updateUI(data);
+
+        // Stop polling if no active run
+        if (!data.active_run) {
+            stopPolling();
+            setRunningUI(false);
+        }
+    })
+    .catch(err => {
+        console.error('Poll error:', err);
+    });
+}
+
+// Map Celery task current_step values to PSM substep names.
+// Task layer uses "step1_facts", PSM uses "pass1_facts", etc.
+const STEP_NAME_MAP = {
+    'step1_facts': 'pass1_facts',
+    'step1_discussion': 'pass1_discussion',
+    'step2_facts': 'pass2_facts',
+    'step2_discussion': 'pass2_discussion',
+    'step3': 'pass3',
+    'step4': 'step4_provisions',
+};
+
+function resolveRunningStep(currentStep) {
+    if (!currentStep) return null;
+    // Direct match against PSM names
+    if (document.getElementById('substep-' + currentStep)) return currentStep;
+    // Map from task names
+    if (STEP_NAME_MAP[currentStep]) return STEP_NAME_MAP[currentStep];
+    // Prefix match: "step1_facts_parallel" -> "step1_facts" -> "pass1_facts"
+    for (const [taskName, psmName] of Object.entries(STEP_NAME_MAP)) {
+        if (currentStep.startsWith(taskName) || currentStep.includes(taskName)) {
+            return psmName;
+        }
+    }
+    // Step 4 sub-phases: "Phase 2A: ..." -> step4_provisions (monolithic)
+    if (currentStep.startsWith('Phase') || currentStep.startsWith('step4')) {
+        return 'step4_provisions';
+    }
+    return null;
+}
+
+function updateUI(state) {
+    const steps = state.steps;
+    const total = Object.keys(steps).length;
+    let completeCount = 0;
+    const runningStep = state.active_run
+        ? resolveRunningStep(state.active_run.current_step)
+        : null;
+
+    // Update each substep card
+    for (const [name, info] of Object.entries(steps)) {
+        const card = document.getElementById('substep-' + name);
+        if (!card) continue;
+
+        // Determine display status: overlay active run onto PSM state
+        let displayStatus = info.status;
+        if (runningStep === name) {
+            displayStatus = 'running';
+        }
+
+        if (info.status === 'complete') completeCount++;
+
+        // Update card classes
+        card.className = 'substep-card status-' + displayStatus;
+        card.dataset.status = displayStatus;
+
+        // Update icon
+        const icon = card.querySelector('.substep-icon');
+        if (icon) {
+            icon.className = 'substep-icon icon-' + displayStatus;
+            const iconEl = icon.querySelector('i');
+            if (iconEl) {
+                if (displayStatus === 'complete') {
+                    iconEl.className = 'bi bi-check';
+                } else if (displayStatus === 'running') {
+                    iconEl.className = 'bi bi-arrow-repeat';
+                } else if (displayStatus === 'error') {
+                    iconEl.className = 'bi bi-x';
+                } else {
+                    iconEl.className = 'bi bi-circle';
+                }
+            }
+        }
+
+        // Update badges (DOM manipulation, not innerHTML, to avoid XSS)
+        const badgeContainer = card.querySelector('.substep-badges');
+        if (badgeContainer && info.tasks) {
+            badgeContainer.replaceChildren();
+            for (const [tName, tInfo] of Object.entries(info.tasks)) {
+                const total = Object.values(tInfo.artifact_counts).reduce((a, b) => a + b, 0);
+                if (total > 0 || info.status === 'complete') {
+                    const span = document.createElement('span');
+                    span.className = 'artifact-badge has-data';
+                    span.title = tInfo.artifact_types.join(', ');
+                    span.textContent = total > 0
+                        ? tInfo.display_name + ': ' + total
+                        : tInfo.display_name;
+                    badgeContainer.appendChild(span);
+                }
+            }
+        }
+
+        // Update run button disabled state
+        const runBtn = card.querySelector('.btn-run');
+        if (runBtn) {
+            runBtn.disabled = !info.can_start || isRunning;
+        }
+    }
+
+    // Update summary stats
+    const pct = total > 0 ? Math.round((completeCount / total) * 100) : 0;
+    const statsEl = document.getElementById('stats-complete');
+    if (statsEl) {
+        statsEl.textContent = completeCount + '/' + total;
+        statsEl.className = 'stat-value ' +
+            (completeCount === total ? 'text-success' :
+             completeCount > 0 ? 'text-primary' : 'text-muted');
+    }
+    const progressBar = document.getElementById('progress-complete');
+    if (progressBar) progressBar.style.width = pct + '%';
+
+    // Update active run status text
+    const runStatus = document.getElementById('active-run-status');
+    const runText = document.getElementById('active-run-text');
+    if (state.active_run) {
+        runStatus.style.display = '';
+        const step = state.active_run.current_step || 'initializing';
+        const dur = Math.round(state.active_run.duration_seconds || 0);
+        runText.textContent = step + ' (' + dur + 's)';
+    } else {
+        runStatus.style.display = 'none';
+    }
+
+    // Show error if run failed
+    if (state.active_run && state.active_run.is_failed) {
+        showError(state.active_run.error_message || 'Pipeline failed');
+        stopPolling();
+        setRunningUI(false);
+    }
+}
+
+function setRunningUI(running) {
+    isRunning = running;
+    const runAllBtn = document.getElementById('btn-run-all');
+    if (runAllBtn) runAllBtn.disabled = running;
+
+    document.querySelectorAll('.btn-run').forEach(btn => {
+        if (running) {
+            btn.disabled = true;
+        }
+        // When not running, the pollStatus updateUI will re-enable based on can_start
+    });
+}
+
+function showError(msg) {
+    const el = document.getElementById('run-error');
+    const textEl = document.getElementById('run-error-text');
+    if (el && textEl) {
+        textEl.textContent = msg;
+        el.style.display = '';
+    }
+}
+
+function hideError() {
+    const el = document.getElementById('run-error');
+    if (el) el.style.display = 'none';
+}
+</script>
+
+<style>
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+.spin { display: inline-block; animation: spin 1s linear infinite; }
+</style>
 {% endblock %}

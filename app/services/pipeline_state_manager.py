@@ -153,7 +153,7 @@ WORKFLOW_DEFINITION: Dict[str, WorkflowStepDefinition] = {
             TaskDefinition('constraints', 'Constraints', ['constraints'], 'constraint'),
             TaskDefinition('capabilities', 'Capabilities', ['capabilities'], 'capability'),
         ],
-        prerequisites=['pass2_facts'],
+        prerequisites=['pass1_discussion', 'pass2_facts'],
     ),
 
     # --- Pass 3: Temporal Dynamics (A, E) ---

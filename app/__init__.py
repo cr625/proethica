@@ -225,6 +225,8 @@ def create_app(config_name=None):
     # Exempt specific case routes from CSRF protection
     from app.routes.cases import init_cases_csrf_exemption
     init_cases_csrf_exemption(app)
+    from app.routes.cases.pipeline import init_pipeline_csrf_exemption as init_cases_pipeline_csrf
+    init_cases_pipeline_csrf(app)
     from app.routes.provenance import init_provenance_csrf_exemption
     init_provenance_csrf_exemption(app)
     

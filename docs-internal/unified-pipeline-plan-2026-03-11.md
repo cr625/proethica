@@ -24,11 +24,13 @@ Replace the development-era step extraction pages (`/scenario_pipeline/case/<id>
 
 | Phase | Description | Status | Commit | Notes |
 |-------|-------------|--------|--------|-------|
-| 1a | Fix PipelineStateManager blockers | DONE | pending | 15-substep flat hierarchy, 4 check types, section-aware |
-| 1b | Validate PSM vs PSS agreement | DONE | pending | 40 tests, 10 PSS cross-checks pass |
-| 1c | Pipeline route | DONE | pending | `/cases/<id>/pipeline` + status API |
-| 1d | Pipeline template | DONE | pending | Read-only grouped substep view |
-| 1e | Link from case detail | DONE | pending | Pipeline Dashboard button |
+| 1a | Fix PipelineStateManager blockers | DONE | 318b5d2 | 15-substep flat hierarchy, 4 check types, section-aware |
+| 1b | Validate PSM vs PSS agreement | DONE | 318b5d2 | 40 tests, 10 PSS cross-checks pass |
+| 1c | Pipeline route | DONE | a336350 | `/cases/<id>/pipeline` + status API |
+| 1d | Pipeline template | DONE | a336350 | Read-only grouped substep view |
+| 1e | Link from case detail | DONE | a336350 | Pipeline Dashboard button |
+| 1-review | Code review fixes | DONE | 5951f4e | transformation_result fix, dead code removal |
+| 2-prereq | Backfill is_published | NOT STARTED | -- | Required before Phase 2 Run buttons work |
 | 2 | Single-step execution | NOT STARTED | -- | Celery dispatch per substep |
 | 3 | Interactive mode | NOT STARTED | -- | Pause/resume, review links |
 | 4 | Step 4 substep expansion | NOT STARTED | -- | 7 individual Step 4 phases |
@@ -454,49 +456,119 @@ Add a "Pipeline" link/button near the existing `_case_pipeline_status.html` comp
 
 **Goal**: Add execution controls. User can click "Run" on any available substep (or "Run All") to dispatch a Celery task.
 
+### Phase 2 Pre-Requisite: Backfill `is_published` for old cases
+
+Cases committed before the `auto_commit_service` tracked `is_published` (all batch campaign cases, pre-entity-versioning cases) have `is_published=false` in `temporary_rdf_storage`. PSM correctly reports `commit_extraction` as `not_started`, which blocks all Step 4 substeps via prerequisites. This must be fixed before Phase 2 or the Run buttons will be disabled on all existing cases.
+
+**Fix**: Write a one-time script that sets `is_published=true` on entities for cases that have `CaseOntologyCommit` records. This fixes the data rather than adding workaround code to the PSM.
+
+```sql
+-- Identify affected cases
+SELECT DISTINCT t.case_id, COUNT(*) as entity_count
+FROM temporary_rdf_storage t
+JOIN case_ontology_commits c ON t.case_id = c.case_id
+WHERE t.is_published = false
+GROUP BY t.case_id;
+
+-- Backfill
+UPDATE temporary_rdf_storage
+SET is_published = true
+WHERE case_id IN (SELECT DISTINCT case_id FROM case_ontology_commits)
+AND is_published = false;
+```
+
+Verify with PSM after backfill: `commit_extraction` should show `complete` for all previously committed cases.
+
 ### 2a: Substep-level Celery task dispatch
 
 **File**: `app/tasks/pipeline_tasks.py`
 
-The existing tasks (`run_step1_task`, `run_step2_task`, etc.) already handle individual steps. Need to add:
+**Dispatcher mapping table** (not a generic function, because task signatures vary):
 
-- A dispatcher function `run_substep_task(case_id, substep_id)` that maps substep IDs to existing Celery tasks
-- `PipelineRun` creation for tracking (one run per dispatch, or one run for "Run All")
-- Progress reporting via `PipelineRun.current_step` updates (already exists)
+| PSM substep | Celery task | Extra args |
+|---|---|---|
+| `pass1_facts` | `run_step1_task` | `section_type='facts'` |
+| `pass1_discussion` | `run_step1_task` | `section_type='discussion'` |
+| `pass2_facts` | `run_step2_task` | `section_type='facts'` |
+| `pass2_discussion` | `run_step2_task` | `section_type='discussion'` |
+| `pass3` | `run_step3_task` | -- |
+| `reconcile` | `run_reconcile_task` | -- |
+| `commit_extraction` | `run_commit_task` | `step_name='commit_extraction'` |
+| `step4_provisions` | `run_step4_task` | (**runs all of Step 4**) |
+| `step4_precedents` through `step4_phase4` | **No individual tasks** | Disabled until Phase 4 |
+| `commit_synthesis` | `run_commit_task` | `step_name='commit_synthesis'` |
+
+**Step 4 constraint**: Individual Step 4 substep execution requires decomposing `run_step4_synthesis()`, which is Phase 4 work. In Phase 2, the 7 Step 4 substeps are displayed individually (status from Phase 1) but executed as a single unit. Only `step4_provisions` shows a "Run" button; clicking it dispatches `run_step4_task` which runs all 7 sub-phases. The other 6 Step 4 substeps show "Part of Step 4" instead of a Run button.
+
+**PipelineRun lifecycle**: Each UI dispatch creates a new `PipelineRun` record. The dispatcher:
+1. Creates `PipelineRun(case_id=case_id, config={'substep': substep_id})`
+2. Calls the appropriate Celery task with `run_id`
+3. Returns `run_id` + `celery_task_id` to the frontend
+
+For "Run All", one `PipelineRun` is created and `run_full_pipeline_task` is dispatched (existing behavior).
+
+**New task**: `dispatch_substep_task(case_id, substep_id)` -- a Celery task that:
+1. Validates `substep_id` against `WORKFLOW_DEFINITION`
+2. Checks `PipelineStateManager.can_start()` (server-side enforcement)
+3. Creates `PipelineRun`
+4. Dispatches the mapped Celery task via `.apply()` (synchronous within worker)
+5. Marks run complete or failed
 
 ### 2b: Execution API endpoints
 
 **File**: `app/routes/cases/pipeline.py`
 
 Add POST endpoints:
-- `POST /cases/<id>/pipeline/run` with `{substep: "pass1_facts"}` -- run single substep
-- `POST /cases/<id>/pipeline/run-all` -- run all remaining substeps sequentially
-- `GET /cases/<id>/pipeline/status` -- (already from 1c) poll for current state + active run
+- `POST /cases/<id>/pipeline/run` with `{substep: "pass1_facts"}` -- dispatch single substep
+- `POST /cases/<id>/pipeline/run-all` -- dispatch `run_full_pipeline_task`
+- `GET /cases/<id>/pipeline/status` -- (already from Phase 1c) extended to include active `PipelineRun` state
+
+**Status endpoint enhancement**: The existing status API returns PSM state (what's done). Phase 2 extends it to merge the active `PipelineRun` state (what's running). Logic:
+1. Get PSM state via `to_dict()` (data-driven: what artifacts exist)
+2. Query for active `PipelineRun` (status not in terminal states) for this case
+3. If active run exists, overlay `current_step` onto the PSM state to show which substep is running
+4. Return merged state + `active_run` dict (run_id, status, current_step, duration)
+
+This merging is necessary because PSM only sees completed data, not in-progress extraction. Without the overlay, a running substep would show as `not_started` until extraction completes and artifacts appear.
 
 ### 2c: Template execution controls
 
 **File**: `app/templates/cases/pipeline.html`
 
 Add to each substep box:
-- "Run" button (enabled only when prerequisites met and not already running)
+- "Run" button (enabled only when `can_start=true` and no active run)
+- Step 4 substeps (except `step4_provisions`): show "Part of Step 4" label instead of Run button
 - "Run All" button at the top (dispatches all remaining in sequence)
-- Status polling (JavaScript setInterval, 3-5 second refresh)
-- Animated stripe on running substep
-- Error display with retry button
+- Status polling (JavaScript `setInterval`, 4-second refresh hitting `/pipeline/status`)
+- Animated stripe on the substep whose `name` matches `active_run.current_step`
+- Error display with retry button (dispatches same substep again)
+- Disable all Run buttons while any run is active for this case
+
+**Polling lifecycle**:
+1. User clicks Run -> POST to `/pipeline/run` -> receive `{run_id, task_id}`
+2. Start polling `/pipeline/status` every 4 seconds
+3. Update substep cards based on merged PSM + active run state
+4. Stop polling when `active_run` is null (run completed or failed)
 
 ### Phase 2 Dependencies
 
 - Redis + Celery worker must be running
+- `is_published` backfill completed (see pre-requisite above)
 - Existing `pipeline_tasks.py` functions must work (they do -- tested during batch campaign)
-- Need to verify each substep task can be called independently (currently `run_full_pipeline_task` calls `.apply()` sequentially)
+- Individual step tasks can be called independently (they can -- each takes `run_id` and operates on it)
 
 ### Phase 2 Verification
 
-- Can start a single substep from the UI
-- Substep runs in background, page shows progress
-- Can run all remaining substeps
-- Ordering is enforced (cannot run step2 before step1)
-- PipelineRun record created and updated
+- Backfill script: `commit_extraction` shows `complete` for all previously committed cases
+- Can start a single substep from the UI (pass1_facts on a new case)
+- Substep runs in background, page shows animated progress bar on running step
+- Can click "Run Step 4" on `step4_provisions` and all 7 sub-phases execute
+- "Run All" dispatches full pipeline
+- Ordering is enforced (cannot run step2 before step1 -- button disabled)
+- Server-side enforcement: POST to `/pipeline/run` with unmet prerequisites returns 409
+- PipelineRun record created and updated through completion
+- Error state: failed substep shows error message with retry button
+- No concurrent runs: second Run click while one is active returns 409
 
 ---
 
@@ -786,11 +858,11 @@ The database backup is precautionary. Phases 1-5 do not modify the database sche
 
 ### Phase 1 Review (2026-03-11)
 
-**Commits**: 318b5d2 (1a+1b), a336350 (1c-e)
+**Commits**: 318b5d2 (1a+1b), a336350 (1c-e), d2bbb39 (review notes), 5951f4e (review fixes)
 **Test count**: 575 passed, 2 skipped (was 535 before)
 
 **Metrics**:
-- `pipeline_state_manager.py`: 580 -> 480 lines (flattened, but denser)
+- `pipeline_state_manager.py`: 580 -> 480 -> 450 lines (flattened, review trimmed dead code)
 - 40 new tests: 19 structural, 4 API mock, 4 to_dict, 12 PSM-vs-PSS integration, 1 convenience method
 - Template: 234 lines (cases/pipeline.html)
 - Route: 30 lines (cases/pipeline.py)
@@ -801,7 +873,15 @@ The database backup is precautionary. Phases 1-5 do not modify the database sche
 3. `is_published` is not set for cases committed before the auto_commit_service tracked it (e.g., case 7). `commit_extraction` and `commit_synthesis` correctly report `not_started` for these cases; this is a data gap in old cases, not a PSM bug.
 4. Code review caught: section check was using all tasks' artifact_types instead of the current task's. Fixed before commit.
 
+**Post-implementation code review findings** (5951f4e):
+1. **Critical**: `commit_synthesis.published_types` had `'transformation_classification'` but actual `extraction_type` is `'transformation_result'`. Fixed.
+2. Removed unused `inject_pipeline_state` context processor (no template called it; route passes state explicitly). Lesson: do not add context processors speculatively.
+3. Removed dead `export_workflow_yaml()` function that imported undeclared `yaml` dependency.
+4. Fixed dead template branch: `startswith('pass') or name == 'pass3'` -- second clause unreachable.
+
 **Lessons for Phase 2**:
-- The `commit_extraction` prerequisite breaks the dependency chain for old cases (Step 4 substeps show `can_start=False` even though they ran). Phase 2 must handle this: either backfill `is_published` for existing cases, or add a "skip commit" override for the pipeline view.
+- The `commit_extraction` prerequisite breaks the dependency chain for old cases (Step 4 substeps show `can_start=False` even though they ran). **Resolution**: backfill `is_published` for cases with `CaseOntologyCommit` records (added as Phase 2 pre-requisite).
 - The `prompt_concept_type` vs `artifact_types` naming mismatch is confusing. Consider renaming `prompt_concept_type` to `provenance_key` in a future cleanup.
 - Provenance route uses `provenance.provenance_case`, not the originally-assumed `provenance.provenance_view`. Always verify endpoint names against `app.url_map` before writing templates.
+- String-based type identifiers (`extraction_type`, `concept_type`) are fragile. The `transformation_classification` vs `transformation_result` mismatch went undetected because there was no shared constant. Phase 2 dispatcher should use the PSM `WORKFLOW_DEFINITION` keys as the single source of truth for substep identifiers, not duplicate strings.
+- Context processors that inject DB-querying callables into all templates are wasteful even if they only return function references. Prefer explicit template context from routes.
