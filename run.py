@@ -88,6 +88,7 @@ def check_pipeline_services():
 def start_mcp_server():
     """Attempt to start the OntServe MCP server."""
     try:
+        project_root = Path(__file__).parent
         # Path to MCP server
         mcp_server_path = project_root.parent / "OntServe" / "servers" / "mcp_server.py"
         
