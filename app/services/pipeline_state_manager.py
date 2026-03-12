@@ -734,6 +734,195 @@ class PipelineState:
         return result
 
 
+def _check_substep_bulk(step_def, artifacts, prompts, reconciled, published):
+    """
+    Check if a single substep is complete using pre-fetched bulk data.
+
+    Args:
+        step_def: WorkflowStepDefinition instance
+        artifacts: {extraction_type: count} for one case
+        prompts: {concept_type: set(section_types)} for one case
+        reconciled: bool - whether reconciliation_run exists for this case
+        published: set of extraction_types with is_published=true for this case
+
+    Returns:
+        True if substep appears complete
+    """
+    if step_def.check_type == CheckType.RECONCILIATION_RUN:
+        return reconciled or len(published) > 0
+
+    if step_def.check_type == CheckType.PUBLISHED_ENTITIES:
+        if step_def.published_types:
+            return any(t in published for t in step_def.published_types)
+        return len(published) > 0
+
+    if step_def.check_type == CheckType.EXTRACTION_PROMPTS:
+        for task in step_def.tasks:
+            pattern = task.prompt_concept_type
+            if pattern == 'phase4_narrative':
+                if not any(ct.startswith('phase4') for ct in prompts):
+                    return False
+            else:
+                if pattern not in prompts:
+                    return False
+        return True
+
+    # ARTIFACTS check
+    for task in step_def.tasks:
+        total = sum(artifacts.get(t, 0) for t in task.artifact_types)
+        if total < max(task.min_artifacts, 1):
+            return False
+
+        # Section-aware: verify extraction_prompts exist for the right section_type
+        if step_def.section_type:
+            has_section = any(
+                step_def.section_type in prompts.get(ct, set())
+                for ct in task.artifact_types
+            )
+            if not has_section:
+                return False
+
+    return True
+
+
+def get_bulk_progress(case_ids):
+    """
+    Get pipeline progress for multiple cases using bulk SQL queries.
+
+    Uses 5 SQL queries regardless of case count (no N+1). Returns a dict
+    mapping case_id to progress summary with substep completion counts,
+    coarse status, and active run info.
+
+    Args:
+        case_ids: List of case IDs to check
+
+    Returns:
+        Dict mapping case_id to:
+            {complete, total, pct, status, active_run}
+    """
+    if not case_ids:
+        return {}
+
+    from sqlalchemy import text
+    from app import db
+    from app.models.pipeline_run import PipelineRun
+
+    total_substeps = len(WORKFLOW_DEFINITION)
+    default = {
+        'complete': 0, 'total': total_substeps, 'pct': 0,
+        'status': 'not_started', 'active_run': None,
+    }
+
+    try:
+        # Query 1: Artifact counts per case per extraction_type
+        artifact_rows = db.session.execute(text("""
+            SELECT case_id, extraction_type, COUNT(*) as cnt
+            FROM temporary_rdf_storage
+            WHERE case_id = ANY(:ids)
+            GROUP BY case_id, extraction_type
+        """), {'ids': case_ids}).fetchall()
+
+        artifacts = {}
+        for row in artifact_rows:
+            artifacts.setdefault(row[0], {})[row[1]] = row[2]
+
+        # Query 2: Prompt existence (section-aware + Step 4 concept types)
+        prompt_rows = db.session.execute(text("""
+            SELECT case_id, concept_type, section_type
+            FROM extraction_prompts
+            WHERE case_id = ANY(:ids)
+            GROUP BY case_id, concept_type, section_type
+        """), {'ids': case_ids}).fetchall()
+
+        prompts = {}
+        for row in prompt_rows:
+            case_prompts = prompts.setdefault(row[0], {})
+            case_prompts.setdefault(row[1], set()).add(row[2])
+
+        # Query 3: Reconciliation runs
+        recon_rows = db.session.execute(text("""
+            SELECT DISTINCT case_id
+            FROM reconciliation_runs
+            WHERE case_id = ANY(:ids)
+        """), {'ids': case_ids}).fetchall()
+        reconciled = {row[0] for row in recon_rows}
+
+        # Query 4: Published entities per case per type
+        pub_rows = db.session.execute(text("""
+            SELECT case_id, extraction_type
+            FROM temporary_rdf_storage
+            WHERE case_id = ANY(:ids) AND is_published = true
+            GROUP BY case_id, extraction_type
+        """), {'ids': case_ids}).fetchall()
+
+        published = {}
+        for row in pub_rows:
+            published.setdefault(row[0], set()).add(row[1])
+
+        # Query 5: Active pipeline runs (non-terminal)
+        terminal = ['completed', 'failed', 'extracted']
+        active_runs = PipelineRun.query.filter(
+            PipelineRun.case_id.in_(case_ids),
+            ~PipelineRun.status.in_(terminal)
+        ).order_by(PipelineRun.created_at.desc()).all()
+
+        active_run_map = {}
+        for run in active_runs:
+            if run.case_id not in active_run_map:
+                step_def = WORKFLOW_DEFINITION.get(run.current_step)
+                display = step_def.display_name if step_def else (run.current_step or '')
+                active_run_map[run.case_id] = {
+                    'id': run.id,
+                    'status': run.status,
+                    'current_step': run.current_step,
+                    'current_step_display': display,
+                }
+
+    except Exception as e:
+        logger.error(f"Error in get_bulk_progress: {e}")
+        return {cid: dict(default) for cid in case_ids}
+
+    # Compute per-case progress
+    result = {}
+    for case_id in case_ids:
+        case_artifacts = artifacts.get(case_id, {})
+        case_prompts = prompts.get(case_id, {})
+        case_reconciled = case_id in reconciled
+        case_published = published.get(case_id, set())
+
+        complete = 0
+        for step_def in WORKFLOW_DEFINITION.values():
+            if _check_substep_bulk(step_def, case_artifacts, case_prompts,
+                                   case_reconciled, case_published):
+                complete += 1
+
+        # Coarse status (extends get_bulk_simple_status semantics)
+        has_synthesis = (
+            any(ct.startswith('phase4') for ct in case_prompts)
+            or 'whole_case_synthesis' in case_prompts
+        )
+        has_any_artifacts = len(case_artifacts) > 0
+
+        if has_synthesis and has_any_artifacts:
+            status = 'synthesized'
+        elif has_any_artifacts:
+            status = 'extracted'
+        else:
+            status = 'not_started'
+
+        pct = int((complete / total_substeps) * 100) if total_substeps > 0 else 0
+
+        result[case_id] = {
+            'complete': complete,
+            'total': total_substeps,
+            'pct': pct,
+            'status': status,
+            'active_run': active_run_map.get(case_id),
+        }
+
+    return result
+
+
 def get_pipeline_state(case_id: int) -> PipelineState:
     """
     Quick access to pipeline state for a case.

@@ -7,7 +7,7 @@ from app.utils.environment_auth import auth_optional
 from app.models import Document
 from app.models.world import World
 from app.services.embedding_service import EmbeddingService
-from app.services.pipeline_status_service import PipelineStatusService
+from app.services.pipeline_state_manager import get_bulk_progress
 from app import db
 
 logger = logging.getLogger(__name__)
@@ -88,9 +88,8 @@ def register_listing_routes(bp):
                     for row in result:
                         term_links_status[row[0]] = True
 
-            # Get pipeline status for all cases using the state machine
-            # Returns: 'not_started', 'extracted', or 'synthesized'
-            pipeline_status_map = PipelineStatusService.get_bulk_simple_status(case_ids)
+            # Get pipeline progress for all cases (15-substep completion + active runs)
+            pipeline_progress_map = get_bulk_progress(case_ids)
 
             # Convert documents to case format
             for doc in document_cases:
@@ -122,8 +121,11 @@ def register_listing_routes(bp):
                 if not conclusion_items and metadata.get('sections', {}).get('conclusion'):
                     conclusion_items = [metadata['sections']['conclusion']]
 
-                # Get pipeline status from state machine
-                pipeline_status = pipeline_status_map.get(doc.id, 'not_started')
+                # Get pipeline progress from bulk query
+                progress = pipeline_progress_map.get(doc.id, {
+                    'complete': 0, 'total': 15, 'pct': 0,
+                    'status': 'not_started', 'active_run': None,
+                })
 
                 # Create case object
                 case = {
@@ -143,7 +145,8 @@ def register_listing_routes(bp):
                     'full_date': metadata.get('full_date', ''),
                     'has_enhanced_associations': enhanced_associations_status.get(doc.id, False),
                     'has_term_links': term_links_status.get(doc.id, False),
-                    'pipeline_status': pipeline_status,
+                    'pipeline_status': progress['status'],
+                    'pipeline_progress': progress,
                     'doc_metadata': metadata
                 }
 

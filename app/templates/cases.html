@@ -107,23 +107,35 @@
                                 {% endif %}
                                 {{ case.title }}
                             </h5>
-                            <div>
+                            <div class="d-flex align-items-center gap-2">
                                 {% if case.case_number %}
-                                <span class="badge bg-secondary me-2">Case #{{ case.case_number }}</span>
+                                <span class="badge bg-secondary">Case #{{ case.case_number }}</span>
                                 {% endif %}
+                                {% set prog = case.pipeline_progress %}
+                                <div class="d-flex align-items-center gap-1">
+                                    <div class="progress pipeline-progress" title="{{ prog.complete }}/{{ prog.total }} substeps complete">
+                                        {% if prog.active_run %}
+                                        <div class="progress-bar bg-primary progress-bar-striped progress-bar-animated" style="width: {{ prog.pct }}%"></div>
+                                        {% else %}
+                                        <div class="progress-bar bg-success" style="width: {{ prog.pct }}%"></div>
+                                        {% endif %}
+                                    </div>
+                                    <span class="text-muted pipeline-count">{{ prog.complete }}/{{ prog.total }}</span>
+                                </div>
                                 {% if case.pipeline_status == 'synthesized' %}
-                                <span class="badge bg-success" title="Step 4 Case Synthesis completed">
-                                    <i class="bi bi-check-circle"></i> Synthesized
-                                </span>
+                                <span class="badge bg-success">Synthesized</span>
                                 {% elif case.pipeline_status == 'extracted' %}
-                                <span class="badge bg-info" title="Passes 1-3 extraction completed">
-                                    <i class="bi bi-layers"></i> Extracted
-                                </span>
-                                {% else %}
-                                <span class="badge bg-light text-muted" title="Extraction not yet started">
-                                    Not Started
+                                <span class="badge bg-info">Extracted</span>
+                                {% endif %}
+                                {% if prog.active_run %}
+                                <span class="badge bg-primary" title="Pipeline running: {{ prog.active_run.current_step_display }}">
+                                    <span class="spinner-border spinner-border-sm" style="width: 0.6rem; height: 0.6rem;"></span>
+                                    {{ prog.active_run.current_step_display }}
                                 </span>
                                 {% endif %}
+                                <a href="/cases/{{ case.id }}/pipeline" class="text-muted pipeline-link" title="Pipeline Dashboard">
+                                    <i class="bi bi-diagram-3"></i>
+                                </a>
                             </div>
                         </div>
 
@@ -233,6 +245,23 @@
 .tag-filter-link:hover {
     transform: translateY(-1px);
     box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+}
+.pipeline-progress {
+    height: 6px;
+    width: 100px;
+    background-color: #e9ecef;
+    border-radius: 3px;
+}
+.pipeline-count {
+    font-size: 0.75rem;
+    white-space: nowrap;
+}
+.pipeline-link {
+    opacity: 0.5;
+    transition: opacity 0.2s;
+}
+.pipeline-link:hover {
+    opacity: 1;
 }
 </style>
 

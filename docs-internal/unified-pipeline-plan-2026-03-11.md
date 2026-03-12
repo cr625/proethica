@@ -35,10 +35,11 @@ Replace the development-era step extraction pages (`/scenario_pipeline/case/<id>
 | 2-review | Code review fixes | DONE | 9c6f929 | Terminal status, stale runs, prerequisites |
 | 3 | Interactive mode | DONE | -- | WAITING_REVIEW status, continue/stop endpoints, review bar |
 | 3-review | Code review fixes | DONE | -- | 4 issues: stuck run, stale detection, step name, review bar |
-| 4-prereq | Fix stuck RUNNING detection | DONE | -- | 2.5h auto-fail + force-cancel endpoint + UI button |
-| 4 | Step 4 substep expansion | DONE | -- | 7 substeps dispatchable, STEP4_MONOLITHIC empty, 11 new tests |
-| 5 | Rollback and re-extraction | DONE | -- | Cascade clearing service, rerun endpoint + UI, 24 new tests |
-| 6 | Multi-case overview | NOT STARTED | -- | Case list pipeline status enhancement |
+| 4-prereq | Fix stuck RUNNING detection | DONE | d3a2f98 | 2.5h auto-fail + force-cancel endpoint + UI button |
+| 4 | Step 4 substep expansion | DONE | d3a2f98 | 7 substeps dispatchable, STEP4_MONOLITHIC empty, 12 new tests |
+| 5 | Rollback and re-extraction | DONE | d3a2f98 | Cascade clearing, rerun endpoint, atomicity fix, 23 new tests |
+| 5-review | Code review fixes | DONE | d3a2f98 | Rerun atomicity: flush before dispatch, rollback on failure |
+| 6 | Multi-case overview | DONE | -- | Bulk PSM summary + progress bars on case list |
 | 7 | URL migration + dead code removal | NOT STARTED | -- | Remove old step pages, rewire nav |
 
 ---
@@ -148,25 +149,78 @@ The existing `extract_individual_concept()` in `step1.py` lets you re-run just "
 
 ## Phase 6: Multi-Case Pipeline Overview
 
-**Goal**: Show pipeline status across all cases in a compact view.
+**Goal**: Show pipeline progress across all cases on the case list page.
 
-### 6a: Enhanced case list
+### Current state
 
-The existing case list at `/cases/` shows a simple status badge (Not Started / Extracted / Synthesized). Replace with a compact pipeline progress indicator per case -- a mini version of the per-case pipeline timeline.
+- `listing.py` calls `PipelineStatusService.get_bulk_simple_status(case_ids)` -- two SQL queries returning 3-value strings (`not_started`, `extracted`, `synthesized`)
+- `cases.html` renders a badge per case: green "Synthesized", blue "Extracted", gray "Not Started"
+- `PipelineStateManager.get_pipeline_state()` is per-case (multiple DB queries per call). Calling it for 118+ cases = N+1 problem. Not viable for bulk listing.
+- `PipelineRun` model tracks active/completed runs with `case_id`, `status`, `current_step`
+- `_case_pipeline_status.html` partial exists but is dead code (no includes). Remove in Phase 7.
 
-Alternatively, add a dedicated page at `/pipeline/cases` showing all cases with their pipeline status in a table/grid view.
+### 6a: Bulk PSM summary query
 
-### 6b: Bulk actions
+Add `PipelineStateManager.get_bulk_progress(case_ids)` that returns a compact per-case summary using two bulk SQL queries (same approach as `get_bulk_simple_status` but with finer granularity):
 
-From the multi-case view:
-- Select multiple cases and "Run All" (dispatches automated pipelines via Celery queue)
-- This replaces the current `/pipeline/queue` functionality with a more integrated UI
+1. **Artifact query**: `SELECT case_id, extraction_type, COUNT(*) FROM temporary_rdf_storage WHERE case_id = ANY(:ids) GROUP BY case_id, extraction_type` -- gives entity counts per type per case.
+2. **Prompt query**: `SELECT case_id, step_number, concept_type FROM extraction_prompts WHERE case_id = ANY(:ids) GROUP BY case_id, step_number, concept_type` -- gives prompt existence for Steps 3-4.
+3. **Optional**: reconciliation + published status via existing bulk checks.
+
+From these two result sets, derive per-case completion fractions against the 15-substep `WORKFLOW_DEFINITION`. Return a dict:
+
+```python
+{
+    case_id: {
+        'complete': 12,     # substeps complete
+        'total': 15,        # always 15
+        'pct': 80,          # percentage
+        'status': 'synthesized',  # coarse status (backward compat)
+        'active_run': {...} or None,  # from PipelineRun query
+    }
+}
+```
+
+This replaces `get_bulk_simple_status()` in `listing.py` with a single call that provides both the coarse status badge AND the progress fraction.
+
+**Active runs**: Bulk query `PipelineRun` for non-terminal runs across all case_ids. Overlay onto the summary dict so the case list can show "running" indicators.
+
+### 6b: Progress bar on case list
+
+Replace the coarse badge in `cases.html` with:
+- A compact horizontal progress bar (15-segment or percentage) showing extraction progress
+- Color: green for complete fraction, blue-striped if actively running, gray for remaining
+- The coarse badge text ("Synthesized" / "Extracted") remains as a label next to the bar
+- Active run indicator: spinning icon + current step name if a pipeline is running for that case
+
+Template changes in `cases.html` card header area. No new template files.
+
+### 6c: Pipeline link per case
+
+Each case card links to its pipeline dashboard (`/cases/<id>/pipeline`). Currently the link exists only from the case detail page. Add a small pipeline icon-link on the case list card next to the progress bar.
+
+### 6d: Bulk actions (DEFERRED)
+
+The original plan included multi-select + "Run All" to dispatch automated pipelines for multiple cases. **Deferring** to Phase 7 or later:
+- The existing `/pipeline/queue` page and `run_pipeline.py` script already handle batch processing
+- Bulk dispatch from the case list adds concurrency complexity (Celery worker limits, Redis memory)
+- The case list is primarily a read-only overview; dispatch belongs on per-case pipeline pages
+- Can revisit after Phase 7 cleanup when the old queue page is removed
 
 ### Phase 6 Verification
 
-- Case list shows pipeline progress per case
-- Can identify which cases need extraction, which are partially done
-- Bulk run dispatches correctly
+- Case list shows 15-substep progress bar per case (not just 3-value badge)
+- Active pipeline runs show animated indicator on case list
+- Progress fractions are correct for cases at various stages
+- Bulk query performance: <500ms for 118 cases (two SQL queries, no N+1)
+- Each case card links to its pipeline dashboard
+- Coarse status filter (All / Extracted / Synthesized) still works
+
+### Phase 6 Implementation Notes
+
+**Key constraint**: `PipelineStateManager` checks (section-aware artifact counting, reconciliation backward-compat, published entity checks) are complex per-case logic. The bulk summary does NOT replicate all PSM checks -- it approximates substep completion from artifact presence. Exact status comes from the per-case pipeline page. The case list is a summary view, not a substitute.
+
+**Migration path**: `get_bulk_simple_status()` in `PipelineStatusService` remains available but `listing.py` switches to the new `get_bulk_progress()`. Other callers of `get_bulk_simple_status()` (none found outside `listing.py`) are unaffected.
 
 ---
 
@@ -218,6 +272,20 @@ Run `glob` to verify file existence before starting removal.
 
 After Phase 4, `step4_synthesis_service.py` becomes the sole Step 4 execution path. `step4_orchestration_service.py` (1,413 lines) and the SSE streaming in `step4/run_all.py` can be removed if all extraction goes through Celery.
 
+### 7e: Dead partial removal
+
+`app/templates/cases/_case_pipeline_status.html` exists but is not included by any template (confirmed by grep). Remove.
+
+### 7f: Deferred robustness fixes (from Phase 4+5 review)
+
+These issues were identified during Phase 4+5 code review and deferred to Phase 7:
+
+1. **WAITING_REVIEW auto-fail**: Abandoned interactive sessions leave runs in WAITING_REVIEW indefinitely, blocking all future dispatches for that case until manual force-cancel. Fix: add a 24-hour staleness threshold for WAITING_REVIEW runs in `_get_active_run()`, or auto-complete them.
+
+2. **TOCTOU race on dispatch**: The active-run check and PipelineRun creation are not in the same DB lock, allowing concurrent requests to both pass the check. The rerun endpoint has a wider window due to `clear_cascade()` between check and commit. Fix: `pg_advisory_xact_lock(case_id)` or a unique partial index on `(case_id, status) WHERE status NOT IN ('COMPLETED', 'FAILED', 'EXTRACTED')`.
+
+3. **Dead `run_all` branch in `run_step4_substep_task`**: The `# else: run_all mode` comment at line 888 of `pipeline_tasks.py` is dead code -- no caller dispatches individual Step 4 substep tasks with `mode='run_all'`. If `run_full_pipeline_task` is refactored to use individual substep tasks (replacing monolithic `run_step4_task`), this branch would need implementation. Until then, add a warning log or assertion.
+
 ### Phase 7 Verification
 
 - All old URLs redirect correctly (or return appropriate errors)
@@ -233,7 +301,7 @@ After Phase 4, `step4_synthesis_service.py` becomes the sole Step 4 execution pa
 Same as refactoring plan: implement each phase, add tests, run full suite, code review (2-pass), fix issues, update this plan with lessons learned, re-assess next phase.
 
 After each phase:
-1. Run `pytest tests/ -x -q` (must be 575+ passed, 0 failed)
+1. Run `pytest tests/ -x -q` (must be 611+ passed, 0 failed)
 2. Code review agent on modified files (bugs, orphaned imports, Flask context leaks)
 3. Mechanical grep for orphaned variables and dead imports
 4. Update Status Tracker table
@@ -244,7 +312,7 @@ After each phase:
 
 ## Session Resume Instructions
 
-**To resume**: Read this file first. Check the Status Tracker table for current phase. Phases 1-3 are complete with code review.
+**To resume**: Read this file first. Check the Status Tracker table for current phase. Phases 1-5 complete (d3a2f98). Phase 6 next.
 
 **Key files**:
 - This plan: `docs-internal/unified-pipeline-plan-2026-03-11.md`
@@ -370,3 +438,42 @@ After each phase:
 - `clear_cascade` does NOT commit -- caller owns the transaction. This enables atomic clearing + PipelineRun creation in the rerun endpoint.
 - Re-run uses the same dispatch path as single-step run (SUBSTEP_DISPATCH + _get_task_func) with `rerun: true` in PipelineRun config for provenance.
 - Confirmation dialog is server-driven: the preview endpoint computes affected steps so the client doesn't need to duplicate the dependency graph.
+
+### Phase 6 Review
+
+**Changes (6a + 6b + 6c)**:
+
+*6a (bulk progress query)*:
+- New module-level function `get_bulk_progress(case_ids)` in `pipeline_state_manager.py` (not a class method -- standalone function like `get_pipeline_state`)
+- New helper `_check_substep_bulk(step_def, artifacts, prompts, reconciled, published)` replicates per-case PSM check logic using pre-fetched bulk data
+- 5 SQL queries total regardless of case count: artifact counts, prompt existence, reconciliation runs, published entities, active pipeline runs
+- Returns dict mapping case_id to `{complete, total, pct, status, active_run}`
+- Active run data includes `current_step_display` (human-readable name from WORKFLOW_DEFINITION)
+
+*6b (progress bar on case list)*:
+- `listing.py` switched from `PipelineStatusService.get_bulk_simple_status()` to `get_bulk_progress()`
+- Each case dict now has `pipeline_progress` (full progress data) alongside `pipeline_status` (coarse string for backward compat)
+- Template renders compact 6px progress bar (green=complete, blue-striped=running, gray=remaining)
+- Numeric label `N/15` next to progress bar
+- Coarse badge retained ("Synthesized" / "Extracted") for synthesized/extracted cases
+- Active run indicator: spinning icon + current step display name
+
+*6c (pipeline link per case)*:
+- Each case card has a `bi-diagram-3` icon linking to `/cases/<id>/pipeline`
+
+**Code review findings (2 issues fixed)**:
+1. `_check_substep_bulk` hard-coded `< 1` instead of `< task.min_artifacts` -- latent bug (all `min_artifacts=0` tasks dispatch through EXTRACTION_PROMPTS early return, not ARTIFACTS). Fixed to `< max(task.min_artifacts, 1)` for parity.
+2. Coarse status `'synthesized'` did not require `has_any_artifacts`, allowing rolled-back cases (artifacts deleted but phase4 prompts remain) to mis-classify. Fixed to require both `has_synthesis and has_any_artifacts`.
+3. False positive: reviewer claimed test patches were wrong (`app.db` vs `app.services.pipeline_state_manager.db`). Since `get_bulk_progress` uses local `from app import db`, patching `app.db` works -- the local import resolves through `sys.modules['app'].db` which is the mock. 19/19 tests pass.
+4. `get_bulk_simple_status()` has no remaining callers but is retained per plan (AD-1: PipelineStatusService available for backward-compatible queries).
+
+**Test delta**: 611 -> 630 (+19 tests in `test_bulk_pipeline_progress.py`)
+
+**Files created**:
+- `tests/test_bulk_pipeline_progress.py` (9 `TestGetBulkProgress` + 10 `TestCheckSubstepBulk`)
+
+**Files modified**:
+- `app/services/pipeline_state_manager.py` (+`_check_substep_bulk`, +`get_bulk_progress`)
+- `app/routes/cases/listing.py` (switched to `get_bulk_progress`)
+- `app/templates/cases.html` (progress bar, active run indicator, pipeline link)
+- `docs-internal/unified-pipeline-plan-2026-03-11.md` (this update)
