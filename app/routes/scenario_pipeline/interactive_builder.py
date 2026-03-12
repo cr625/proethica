@@ -44,6 +44,19 @@ def debug_overview_route(case_id):
     return debug_handler(case_id)
 
 
+# --- Redirect stubs for removed step1-3 pages (bookmarks, external scripts) ---
+
+@interactive_scenario_bp.route('/case/<int:case_id>/step1')
+@interactive_scenario_bp.route('/case/<int:case_id>/step1b')
+@interactive_scenario_bp.route('/case/<int:case_id>/step2')
+@interactive_scenario_bp.route('/case/<int:case_id>/step2b')
+@interactive_scenario_bp.route('/case/<int:case_id>/step3')
+@auth_optional
+def legacy_step_redirect(case_id):
+    """Redirect removed step1-3 extraction pages to the pipeline dashboard."""
+    return redirect(url_for('cases.case_pipeline', case_id=case_id))
+
+
 @interactive_scenario_bp.route('/case/<int:case_id>/complete')
 def complete_analysis(case_id):
     """Route handler for Complete Analysis: Modular Pipeline for All Case Elements"""
