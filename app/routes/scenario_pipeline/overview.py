@@ -397,7 +397,7 @@ def step1(case_id):
             'sections': sections,
             'current_step': 0,  # Overview is step 0
             'step_title': 'Content Review',
-            'next_step_url': url_for('scenario_pipeline.step1', case_id=case_id),  # Go to Step 1
+            'next_step_url': url_for('cases.case_pipeline', case_id=case_id),
             'next_step_name': 'Contextual Framework',
             'prev_step_url': None,  # No previous step
             'pipeline_status': pipeline_status

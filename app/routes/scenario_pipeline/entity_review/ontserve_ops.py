@@ -324,7 +324,7 @@ def register_ontserve_ops_routes(bp):
         except Exception as e:
             logger.error(f"Error loading enhanced temporal review for case {case_id}: {e}")
             flash(f"Error loading review page: {str(e)}", 'danger')
-            return redirect(url_for('scenario_pipeline.step3', case_id=case_id))
+            return redirect(url_for('cases.case_pipeline', case_id=case_id))
 
     @bp.route('/case/<int:case_id>/entities/clear_and_rerun/<extraction_pass>', methods=['POST'])
     @auth_required_for_write
@@ -348,12 +348,8 @@ def register_ontserve_ops_routes(bp):
                 return jsonify(result), 400
 
             # Determine redirect URL based on pass
-            if extraction_pass == 'pass1':
-                redirect_url = url_for('scenario_pipeline.step1', case_id=case_id)
-            elif extraction_pass == 'pass2':
-                redirect_url = url_for('scenario_pipeline.step2', case_id=case_id)
-            elif extraction_pass == 'pass3':
-                redirect_url = url_for('scenario_pipeline.step3', case_id=case_id)
+            if extraction_pass in ('pass1', 'pass2', 'pass3'):
+                redirect_url = url_for('cases.case_pipeline', case_id=case_id)
             elif extraction_pass == 'pass4':
                 redirect_url = url_for('step4.step4_synthesis', case_id=case_id)
             else:

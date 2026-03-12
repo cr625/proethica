@@ -1569,8 +1569,10 @@ function updateSynthesisProgressDisplay(data) {
     if (messagesDiv) messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
 
-// Run complete synthesis with SSE streaming progress
+// runCompleteSynthesis removed -- dispatch is now handled by the pipeline dashboard.
 async function runCompleteSynthesis() {
+    window.location.href = `/cases/${currentCaseId}/pipeline`;
+    return;
     var button = document.getElementById('run-complete-synthesis-btn');
     var progressText = document.getElementById('synthesis-progress-text');
 

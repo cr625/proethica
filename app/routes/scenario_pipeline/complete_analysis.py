@@ -50,7 +50,7 @@ def complete_analysis(case_id):
             'sections': raw_sections,
             'current_step': 'complete',
             'step_title': 'Complete Modular Analysis',
-            'prev_step_url': url_for('scenario_pipeline.step3', case_id=case_id)
+            'prev_step_url': url_for('cases.case_pipeline', case_id=case_id)
         }
         
         return render_template('scenarios/complete_analysis.html', **context)
