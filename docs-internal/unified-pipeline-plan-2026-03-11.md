@@ -15,10 +15,10 @@
 | 4 | Step 4 substep expansion | DONE | 7 substeps dispatchable, force-cancel |
 | 5 | Rollback and re-extraction | DONE | Cascade clearing, rerun, atomicity fix |
 | 6 | Multi-case overview | DONE | Bulk progress bars, 5 SQL queries, 19 tests |
-| 7 | URL migration + dead code removal | NOT STARTED | See below |
+| 7 | URL migration + dead code removal | DONE | 11,522 lines removed, 7 commits, 631 tests |
 | 8 | Codebase health (from repo audit) | NOT STARTED | See below |
 
-630 tests pass, 2 skipped.
+631 tests pass, 2 skipped.
 
 **Prior refactoring (Phases 1-4b on `development` branch, 14 commits not pushed):**
 Editable install (46 sys.path hacks -> 0), OntServe config centralization (`ontserve_config.py`), legacy MCPClient gutted (727->144 lines), double-refresh fix, shared MCP transport, `run_all.py` extraction (1,713->360 lines), `qc_extraction.py` extraction (1,116->402 lines).
