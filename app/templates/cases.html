@@ -111,6 +111,7 @@
                                 {% if case.case_number %}
                                 <span class="badge bg-secondary">Case #{{ case.case_number }}</span>
                                 {% endif %}
+                                {% if case.pipeline_progress is defined and case.pipeline_progress %}
                                 {% set prog = case.pipeline_progress %}
                                 <div class="d-flex align-items-center gap-1">
                                     <div class="progress pipeline-progress" title="{{ prog.complete }}/{{ prog.total }} substeps complete">
@@ -136,6 +137,7 @@
                                 <a href="/cases/{{ case.id }}/pipeline" class="text-muted pipeline-link" title="Pipeline Dashboard">
                                     <i class="bi bi-diagram-3"></i>
                                 </a>
+                                {% endif %}
                             </div>
                         </div>
 
