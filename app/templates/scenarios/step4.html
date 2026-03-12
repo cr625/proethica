@@ -63,9 +63,9 @@
         <div class="text-center">
             {% if current_user.is_authenticated %}
             {% set step4_complete = pipeline_status.step4.complete if pipeline_status else false %}
-            <button type="button" id="run-complete-synthesis-btn" class="btn {% if step4_complete %}btn-success{% else %}btn-primary{% endif %} btn-lg" onclick="runCompleteSynthesis()">
-                <i class="bi bi-{% if step4_complete %}arrow-clockwise{% else %}play-circle{% endif %}"></i> {% if step4_complete %}Re-run Synthesis{% else %}Run Complete Synthesis{% endif %}
-            </button>
+            <a href="{{ url_for('cases.case_pipeline', case_id=case.id) }}" class="btn {% if step4_complete %}btn-success{% else %}btn-primary{% endif %} btn-lg">
+                <i class="bi bi-{% if step4_complete %}arrow-clockwise{% else %}play-circle{% endif %}"></i> {% if step4_complete %}Re-run via Pipeline{% else %}Run via Pipeline Dashboard{% endif %}
+            </a>
             {% if step4_complete %}
             <a href="{{ url_for('step4.step4_review', case_id=case.id) }}" class="btn btn-outline-secondary btn-lg ms-2">
                 <i class="bi bi-eye"></i> Review Results

@@ -90,7 +90,7 @@
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <div>
                                 <strong>Run #{{ run.id }}</strong> -
-                                <a href="{{ url_for('scenario_pipeline.step1', case_id=run.case_id) }}">
+                                <a href="{{ url_for('cases.case_pipeline', case_id=run.case_id) }}">
                                     Case {{ run.case_id }}
                                 </a>
                             </div>
@@ -271,7 +271,7 @@
                             <tr>
                                 <td>{{ run.id }}</td>
                                 <td>
-                                    <a href="{{ url_for('scenario_pipeline.step1', case_id=run.case_id) }}">
+                                    <a href="{{ url_for('cases.case_pipeline', case_id=run.case_id) }}">
                                         Case {{ run.case_id }}
                                     </a>
                                 </td>

@@ -207,8 +207,8 @@
                         <div class="btn-group" role="group" aria-label="Section toggle">
                             {# Smart URLs: complete -> review, incomplete -> extraction #}
                             {% set step2_done = pipeline_status.step2.complete if pipeline_status else false %}
-                            {% set facts_url = url_for('entity_review.review_case_entities_pass2', case_id=case.id, section_type='facts') if step2_done else url_for('scenario_pipeline.step2', case_id=case.id) %}
-                            {% set discussion_url = url_for('entity_review.review_case_entities_pass2', case_id=case.id, section_type='discussion') if step2_done else url_for('scenario_pipeline.step2b', case_id=case.id) %}
+                            {% set facts_url = url_for('entity_review.review_case_entities_pass2', case_id=case.id, section_type='facts') if step2_done else url_for('cases.case_pipeline', case_id=case.id) %}
+                            {% set discussion_url = url_for('entity_review.review_case_entities_pass2', case_id=case.id, section_type='discussion') if step2_done else url_for('cases.case_pipeline', case_id=case.id) %}
 
                             {# Facts button - always clickable, goes to review if complete, extraction if not #}
                             <a href="{{ facts_url }}"
@@ -226,12 +226,12 @@
                         {% endif %}
                         <!-- View Extraction -->
                         {% if section_type == 'discussion' %}
-                        <a href="{{ url_for('scenario_pipeline.step2b', case_id=case.id, force=1) }}"
+                        <a href="{{ url_for('cases.case_pipeline', case_id=case.id) }}"
                            class="btn btn-sm btn-outline-secondary" title="View extraction page">
                             <i class="bi bi-eye"></i> View Extraction
                         </a>
                         {% else %}
-                        <a href="{{ url_for('scenario_pipeline.step2', case_id=case.id, force=1) }}"
+                        <a href="{{ url_for('cases.case_pipeline', case_id=case.id) }}"
                            class="btn btn-sm btn-outline-secondary" title="View extraction page">
                             <i class="bi bi-eye"></i> View Extraction
                         </a>
@@ -241,12 +241,12 @@
                         {% if current_user.is_authenticated %}
                         <!-- Re-run Extraction (with ?force=1 to bypass redirect) -->
                         {% if section_type == 'discussion' %}
-                        <a href="{{ url_for('scenario_pipeline.step2b', case_id=case.id, force=1) }}"
+                        <a href="{{ url_for('cases.case_pipeline', case_id=case.id) }}"
                            class="btn btn-sm btn-outline-info" title="Re-run extraction">
                             <i class="bi bi-arrow-repeat"></i> Re-run Extraction
                         </a>
                         {% else %}
-                        <a href="{{ url_for('scenario_pipeline.step2', case_id=case.id, force=1) }}"
+                        <a href="{{ url_for('cases.case_pipeline', case_id=case.id) }}"
                            class="btn btn-sm btn-outline-info" title="Re-run extraction">
                             <i class="bi bi-arrow-repeat"></i> Re-run Extraction
                         </a>
@@ -489,7 +489,7 @@
                 <p>These entities were extracted using the old format. To see the enhanced display with all properties:</p>
                 <ol>
                     <li>Clear all entities using the "Clear All Entities" button above</li>
-                    <li>Go back to <a href="{{ url_for('scenario_pipeline.step1', case_id=case.id) }}">Step 1</a></li>
+                    <li>Go back to <a href="{{ url_for('cases.case_pipeline', case_id=case.id) }}">Step 1</a></li>
                     <li>Click "Extract Roles Only" to re-extract with the new format</li>
                 </ol>
                 <p>The new format will show:</p>
@@ -506,7 +506,7 @@
                 <h4>No Extracted Entities Found</h4>
                 <p>No entities have been extracted for this case yet. Try:</p>
                 <ul>
-                    <li>Go to <a href="{{ url_for('scenario_pipeline.step2', case_id=case.id) }}">Step 2</a> and extract principles, obligations, constraints, or capabilities individually</li>
+                    <li>Go to <a href="{{ url_for('cases.case_pipeline', case_id=case.id) }}">Step 2</a> and extract principles, obligations, constraints, or capabilities individually</li>
                     <li>Run the complete entity extraction pass</li>
                     <li>Check the console logs for any extraction errors</li>
                 </ul>
@@ -1326,7 +1326,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     Continue to Temporal Analysis <i class="bi bi-arrow-right"></i>
                 </a>
                 {% else %}
-                <a href="{{ url_for('scenario_pipeline.step3', case_id=case.id) }}"
+                <a href="{{ url_for('cases.case_pipeline', case_id=case.id) }}"
                    class="btn btn-primary btn-lg">
                     Continue to Temporal Analysis <i class="bi bi-arrow-right"></i>
                 </a>
@@ -1340,7 +1340,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     Continue to Discussion Review <i class="bi bi-arrow-right"></i>
                 </a>
                 {% else %}
-                <a href="{{ url_for('scenario_pipeline.step2b', case_id=case.id) }}"
+                <a href="{{ url_for('cases.case_pipeline', case_id=case.id) }}"
                    class="btn btn-primary btn-lg">
                     Continue to Discussion Extraction <i class="bi bi-arrow-right"></i>
                 </a>
