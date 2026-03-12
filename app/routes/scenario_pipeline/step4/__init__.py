@@ -57,7 +57,6 @@ from app.routes.scenario_pipeline.step4.rich_analysis import register_rich_analy
 from app.routes.scenario_pipeline.step4.phase3 import register_phase3_routes  # noqa: E402
 from app.routes.scenario_pipeline.step4.phase4 import register_phase4_routes  # noqa: E402
 from app.routes.scenario_pipeline.step4.complete_synthesis import register_complete_synthesis_routes  # noqa: E402
-from app.routes.scenario_pipeline.step4.run_all import register_run_all_routes  # noqa: E402
 
 register_question_routes(bp, get_all_case_entities)
 register_conclusion_routes(bp, get_all_case_entities)
@@ -80,9 +79,6 @@ register_complete_synthesis_routes(
     get_transformation_type_for_phase4,
     load_causal_links_for_phase4
 )
-_run_all_funcs = register_run_all_routes(bp)
-run_complete_synthesis_func = _run_all_funcs['run_complete_synthesis']
-run_complete_synthesis_stream_func = _run_all_funcs['run_complete_synthesis_stream']
 
 
 def init_step4_csrf_exemption(app):
@@ -129,9 +125,6 @@ def init_step4_csrf_exemption(app):
             'step4.get_phase4_data',
             # Complete synthesis streaming
             'step4.synthesize_complete_streaming',
-            # Run all
-            'step4.run_complete_synthesis',
-            'step4.run_complete_synthesis_stream',
         ]
 
         from app.routes.scenario_pipeline.generate_scenario import generate_scenario_from_case
