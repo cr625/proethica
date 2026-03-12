@@ -204,6 +204,17 @@ def init_app(app):
             f'<span class="local-time" data-utc="{iso_timestamp}" data-format="{format}">{fallback}</span>'
         )
 
+    @app.template_filter('ontserve_entity_path')
+    def ontserve_entity_path_filter(uri, ontology_target=None):
+        """Compute OntServe entity URL path from an entity URI.
+
+        Usage in templates:
+            {{ entity.entity_uri | ontserve_entity_path(entity.ontology_target) }}
+            -> '/entity/proethica-case-7/EngineerARole'
+        """
+        from app.services.unified_entity_resolver import UnifiedEntityResolver
+        return UnifiedEntityResolver.compute_ontserve_path(uri or '', ontology_target)
+
     @app.template_filter('annotate_entities')
     def annotate_entities_filter(text, case_id):
         """Annotate text with ontology entity popovers.

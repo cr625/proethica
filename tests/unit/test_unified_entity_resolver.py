@@ -232,6 +232,121 @@ class TestOntServeCache:
         assert unified_entity_resolver._ontserve_cache['timestamp'] == 0
 
 
+class TestOntologyTargetDerivation:
+    """Tests for _derive_ontology_target URI parsing."""
+
+    def test_case_ontology_uri(self):
+        """Case ontology URIs produce proethica-case-N target."""
+        from app.services.unified_entity_resolver import UnifiedEntityResolver
+        assert UnifiedEntityResolver._derive_ontology_target(
+            'http://proethica.org/ontology/case/7#EngineerARole'
+        ) == 'proethica-case-7'
+
+    def test_intermediate_ontology_uri(self):
+        """Intermediate ontology URIs produce proethica-intermediate target."""
+        from app.services.unified_entity_resolver import UnifiedEntityResolver
+        assert UnifiedEntityResolver._derive_ontology_target(
+            'http://proethica.org/ontology/intermediate#ProfessionalEngineer'
+        ) == 'proethica-intermediate'
+
+    def test_unknown_uri_returns_empty(self):
+        """Unrecognized URIs return empty string."""
+        from app.services.unified_entity_resolver import UnifiedEntityResolver
+        assert UnifiedEntityResolver._derive_ontology_target(
+            'http://example.org/some/other/uri#Foo'
+        ) == ''
+
+    def test_empty_and_none(self):
+        """Empty string and None return empty string."""
+        from app.services.unified_entity_resolver import UnifiedEntityResolver
+        assert UnifiedEntityResolver._derive_ontology_target('') == ''
+        assert UnifiedEntityResolver._derive_ontology_target(None) == ''
+
+    def test_ontology_target_in_case_entities(self):
+        """ontology_target propagates through _get_case_entities output."""
+        from app.services.unified_entity_resolver import UnifiedEntityResolver
+
+        with patch.object(UnifiedEntityResolver, '_get_ontserve_entities', return_value={}):
+            with patch.object(UnifiedEntityResolver, '_get_case_entities') as mock_case:
+                mock_case.return_value = {
+                    'http://proethica.org/ontology/case/7#TestRole': {
+                        'label': 'Test Role',
+                        'definition': 'A test role',
+                        'entity_type': 'roles',
+                        'extraction_type': 'roles',
+                        'source_pass': 1,
+                        'uri': 'http://proethica.org/ontology/case/7#TestRole',
+                        'ontology_target': 'proethica-case-7',
+                    }
+                }
+
+                resolver = UnifiedEntityResolver(case_id=7)
+                lookup = resolver.get_lookup_dict()
+                entity = lookup['http://proethica.org/ontology/case/7#TestRole']
+                assert entity['ontology_target'] == 'proethica-case-7'
+
+    def test_ontology_target_in_ontserve_entities(self):
+        """ontology_target is set to proethica-intermediate for OntServe entities."""
+        from app.services.unified_entity_resolver import UnifiedEntityResolver
+
+        with patch.object(UnifiedEntityResolver, '_get_ontserve_entities') as mock_ont:
+            mock_ont.return_value = {
+                'http://proethica.org/ontology/intermediate#DutyOfCare': {
+                    'label': 'Duty of Care',
+                    'definition': 'Professional duty',
+                    'entity_type': 'obligations',
+                    'extraction_type': 'obligations',
+                    'uri': 'http://proethica.org/ontology/intermediate#DutyOfCare',
+                    'ontology_target': 'proethica-intermediate',
+                }
+            }
+            with patch.object(UnifiedEntityResolver, '_get_case_entities', return_value={}):
+                resolver = UnifiedEntityResolver(case_id=7)
+                lookup = resolver.get_lookup_dict()
+                entity = lookup['http://proethica.org/ontology/intermediate#DutyOfCare']
+                assert entity['ontology_target'] == 'proethica-intermediate'
+
+
+class TestComputeOntservePath:
+    """Tests for compute_ontserve_path URL construction."""
+
+    def test_case_entity_path(self):
+        from app.services.unified_entity_resolver import UnifiedEntityResolver
+        path = UnifiedEntityResolver.compute_ontserve_path(
+            'http://proethica.org/ontology/case/7#EngineerARole',
+            'proethica-case-7'
+        )
+        assert path == '/entity/proethica-case-7/EngineerARole'
+
+    def test_intermediate_entity_path(self):
+        from app.services.unified_entity_resolver import UnifiedEntityResolver
+        path = UnifiedEntityResolver.compute_ontserve_path(
+            'http://proethica.org/ontology/intermediate#DutyOfCare',
+            'proethica-intermediate'
+        )
+        assert path == '/entity/proethica-intermediate/DutyOfCare'
+
+    def test_derives_target_when_none(self):
+        from app.services.unified_entity_resolver import UnifiedEntityResolver
+        path = UnifiedEntityResolver.compute_ontserve_path(
+            'http://proethica.org/ontology/case/7#EngineerARole'
+        )
+        assert path == '/entity/proethica-case-7/EngineerARole'
+
+    def test_empty_uri_returns_empty(self):
+        from app.services.unified_entity_resolver import UnifiedEntityResolver
+        assert UnifiedEntityResolver.compute_ontserve_path('') == ''
+        assert UnifiedEntityResolver.compute_ontserve_path(None) == ''
+
+    def test_uri_without_fragment_returns_empty(self):
+        from app.services.unified_entity_resolver import UnifiedEntityResolver
+        assert UnifiedEntityResolver.compute_ontserve_path('http://example.org/no-fragment') == ''
+
+    def test_unrecognized_uri_no_target_returns_empty(self):
+        from app.services.unified_entity_resolver import UnifiedEntityResolver
+        assert UnifiedEntityResolver.compute_ontserve_path('http://example.org/other#Foo') == ''
+
+
 class TestPassMapping:
     """Tests for extraction type to pass number mapping."""
 

@@ -263,7 +263,8 @@ def create_app(config_name=None):
         """Add environment variables to template context."""
         return {
             'environment': app.config.get('ENVIRONMENT', 'development'),
-            'app_name': 'ProEthica'
+            'app_name': 'ProEthica',
+            'ontserve_web_url': app.config.get('ONTSERVE_WEB_URL', 'http://localhost:5003'),
         }
 
     @app.context_processor

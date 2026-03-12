@@ -36,6 +36,12 @@ class UnifiedEntityResolver:
         'canonical_decision_point': 4
     }
 
+    # URI namespace to ontology_target mapping
+    _URI_ONTOLOGY_PATTERNS = [
+        (r'http://proethica\.org/ontology/case/(\d+)#', 'proethica-case-{}'),
+        (r'http://proethica\.org/ontology/intermediate#', 'proethica-intermediate'),
+    ]
+
     # Map entity types to display categories
     ENTITY_TYPE_MAP = {
         'Role': 'roles',
@@ -185,6 +191,8 @@ class UnifiedEntityResolver:
                                     'uri': uri,
                                     'is_published': True,
                                     'source_pass': None,
+                                    'ontology_target': 'proethica-intermediate',
+                                    'ontserve_path': cls.compute_ontserve_path(uri, 'proethica-intermediate'),
                                 }
                 except Exception as e:
                     logger.warning(f"Failed to fetch {entity_type} from OntServe: {e}")
@@ -251,6 +259,8 @@ class UnifiedEntityResolver:
                 props = entity.rdf_json_ld.get('properties', {})
                 text_refs = props.get('textReferences', [])
 
+            ont_target = entity.ontology_target or self._derive_ontology_target(entity.entity_uri or '')
+
             entity_data = {
                 'label': entity.entity_label,
                 'definition': definition,
@@ -261,6 +271,8 @@ class UnifiedEntityResolver:
                 'provenance': entity.provenance_metadata or {},
                 'uri': entity.entity_uri,
                 'text_references': text_refs,
+                'ontology_target': ont_target,
+                'ontserve_path': self.compute_ontserve_path(entity.entity_uri or '', ont_target),
                 # Additional RDF metadata for richer display
                 'rdf_agent': entity.rdf_json_ld.get('proeth:hasAgent') if entity.rdf_json_ld else None,
                 'rdf_temporal': entity.rdf_json_ld.get('proeth:temporalMarker') if entity.rdf_json_ld else None
@@ -470,10 +482,44 @@ class UnifiedEntityResolver:
                 'uri': primary_source.get('uri', ''),
                 'is_published': any(s.get('is_published') for s in sources),
                 'alias_types': alias_types,
+                'ontology_target': primary_source.get('ontology_target', ''),
+                'ontserve_path': primary_source.get('ontserve_path', ''),
             }
 
         if validated:
             logger.debug(f"Added {len(validated)} text-grounded aliases: {list(validated.keys())}")
+
+    @classmethod
+    def _derive_ontology_target(cls, uri: str) -> str:
+        """Derive ontology_target from entity URI when database field is NULL.
+
+        Parses URI namespace to determine which OntServe ontology the entity
+        belongs to. Returns empty string if URI pattern is unrecognized.
+        """
+        if not uri:
+            return ''
+        for pattern, template in cls._URI_ONTOLOGY_PATTERNS:
+            m = re.match(pattern, uri)
+            if m:
+                return template.format(*m.groups()) if '{}' in template else template
+        return ''
+
+    @classmethod
+    def compute_ontserve_path(cls, uri: str, ontology_target: str = None) -> str:
+        """Compute OntServe entity URL path from URI and optional ontology_target.
+
+        Returns a path like '/entity/proethica-case-7/EngineerARole' or
+        empty string if the URI cannot be resolved.
+        """
+        if not uri or '#' not in uri:
+            return ''
+        fragment = uri.split('#')[-1]
+        if not fragment:
+            return ''
+        ont_target = ontology_target or cls._derive_ontology_target(uri)
+        if not ont_target:
+            return ''
+        return f'/entity/{ont_target}/{fragment}'
 
     @staticmethod
     def clear_ontserve_cache():

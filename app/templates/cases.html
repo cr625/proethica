@@ -13,7 +13,7 @@
     {% endif %}
 
     <div class="row mb-3">
-        <div class="col-md-8">
+        <div class="col-md-6">
             <form id="caseFilterForm" class="d-flex align-items-center flex-wrap gap-2" action="/cases/" method="get">
                 <div class="input-group" style="max-width: 200px;">
                     <select class="form-select form-select-sm" name="world_id" id="worldFilter" aria-label="Filter by World">
@@ -25,17 +25,22 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div class="input-group" style="max-width: 180px;">
-                    <select class="form-select form-select-sm" name="status" id="statusFilter" aria-label="Filter by Status">
-                        <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Cases</option>
-                        <option value="extracted" {% if status_filter == 'extracted' %}selected{% endif %}>Extracted+</option>
-                        <option value="synthesized" {% if status_filter == 'synthesized' %}selected{% endif %}>Synthesized</option>
-                    </select>
-                </div>
             </form>
         </div>
-        <div class="col-md-4 text-end">
-            <a href="{{ url_for('cases.case_options') }}" class="btn btn-success btn-sm">Add New Case</a>
+        <div class="col-md-6 text-end d-flex justify-content-end align-items-center gap-2">
+            <div class="btn-group btn-group-sm" role="group" aria-label="View mode">
+                <button type="button" class="btn btn-outline-secondary active" id="expandedViewBtn" title="Expanded view">
+                    <i class="bi bi-card-text"></i>
+                </button>
+                <button type="button" class="btn btn-outline-secondary" id="compactViewBtn" title="Compact list">
+                    <i class="bi bi-list"></i>
+                </button>
+            </div>
+            {% if current_user.is_authenticated or environment != 'production' %}
+            <a href="{{ url_for('cases.case_options') }}" class="btn btn-success btn-sm">
+                <i class="bi bi-plus-lg me-1"></i>Add New Case
+            </a>
+            {% endif %}
         </div>
     </div>
 
@@ -44,7 +49,7 @@
     <div class="mb-3">
         <div class="d-flex align-items-center gap-2 flex-wrap">
             <span class="text-muted small">Filtering by:</span>
-            <a href="{{ url_for('cases.list_cases', world_id=selected_world_id, status=status_filter if status_filter != 'all' else none) }}"
+            <a href="{{ url_for('cases.list_cases', world_id=selected_world_id) }}"
                class="badge bg-warning text-dark text-decoration-none tag-filter-link"
                title="Click to clear filter">
                 <i class="bi bi-tag-fill"></i> {{ selected_tag }} <i class="bi bi-x"></i>
@@ -59,7 +64,7 @@
         <div class="d-flex align-items-center gap-2 flex-wrap" id="tagFilterContainer">
             <span class="text-muted small">Filter by tag:</span>
             {% for tag in all_tags[:12] %}
-            <a href="{{ url_for('cases.list_cases', world_id=selected_world_id, status=status_filter if status_filter != 'all' else none, tag=tag) }}"
+            <a href="{{ url_for('cases.list_cases', world_id=selected_world_id, tag=tag) }}"
                class="badge bg-light text-dark text-decoration-none tag-filter-link"
                title="Show cases with this tag">
                 <i class="bi bi-tag"></i> {{ tag }}
@@ -73,7 +78,7 @@
             <!-- Hidden tags shown when expanded -->
             <div id="moreTags" class="d-none d-flex flex-wrap gap-2">
                 {% for tag in all_tags[12:] %}
-                <a href="{{ url_for('cases.list_cases', world_id=selected_world_id, status=status_filter if status_filter != 'all' else none, tag=tag) }}"
+                <a href="{{ url_for('cases.list_cases', world_id=selected_world_id, tag=tag) }}"
                    class="badge bg-light text-dark text-decoration-none tag-filter-link"
                    title="Show cases with this tag">
                     <i class="bi bi-tag"></i> {{ tag }}
@@ -99,41 +104,19 @@
             <div class="row">
                 {% for case in year_cases %}
                 <div class="col-12 mb-3">
-                    <div class="card">
+                    <div class="card case-card">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h5 class="mb-0">
                                 {% if case.doc_metadata and (case.doc_metadata.get('source') == 'agent_generated' or case.doc_metadata.get('source') == 'agent_generated_sample') %}
                                 <i class="bi bi-robot text-primary me-2" title="Generated with Language Model assistance"></i>
                                 {% endif %}
-                                {{ case.title }}
+                                <a href="/cases/{{ case.id }}" class="text-decoration-none text-dark case-title-link">{{ case.title }} <i class="bi bi-chevron-right small text-muted"></i></a>
                             </h5>
                             <div class="d-flex align-items-center gap-2">
                                 {% if case.case_number %}
                                 <span class="badge bg-secondary">Case #{{ case.case_number }}</span>
                                 {% endif %}
-                                {% if case.pipeline_progress is defined and case.pipeline_progress %}
-                                {% set prog = case.pipeline_progress %}
-                                <div class="d-flex align-items-center gap-1">
-                                    <div class="progress pipeline-progress" title="{{ prog.complete }}/{{ prog.total }} substeps complete">
-                                        {% if prog.active_run %}
-                                        <div class="progress-bar bg-primary progress-bar-striped progress-bar-animated" style="width: {{ prog.pct }}%"></div>
-                                        {% else %}
-                                        <div class="progress-bar bg-success" style="width: {{ prog.pct }}%"></div>
-                                        {% endif %}
-                                    </div>
-                                    <span class="text-muted pipeline-count">{{ prog.complete }}/{{ prog.total }}</span>
-                                </div>
-                                {% if case.pipeline_status == 'synthesized' %}
-                                <span class="badge bg-success">Synthesized</span>
-                                {% elif case.pipeline_status == 'extracted' %}
-                                <span class="badge bg-info">Extracted</span>
-                                {% endif %}
-                                {% if prog.active_run %}
-                                <span class="badge bg-primary" title="Pipeline running: {{ prog.active_run.current_step_display }}">
-                                    <span class="spinner-border spinner-border-sm" style="width: 0.6rem; height: 0.6rem;"></span>
-                                    {{ prog.active_run.current_step_display }}
-                                </span>
-                                {% endif %}
+                                {% if current_user.is_authenticated and case.pipeline_progress is defined and case.pipeline_progress %}
                                 <a href="/cases/{{ case.id }}/pipeline" class="text-muted pipeline-link" title="Pipeline Dashboard">
                                     <i class="bi bi-diagram-3"></i>
                                 </a>
@@ -143,17 +126,17 @@
 
                         <!-- Subject Tags (clickable) and Find Similar -->
                         {% if case.doc_metadata and case.doc_metadata.subject_tags %}
-                        <div class="card-header border-top py-2">
+                        <div class="card-header border-top py-2 case-tags-bar">
                             <div class="d-flex flex-wrap align-items-center gap-2">
                                 {% for tag in case.doc_metadata.subject_tags %}
                                 {% if tag == selected_tag %}
-                                <a href="{{ url_for('cases.list_cases', world_id=selected_world_id, status=status_filter if status_filter != 'all' else none) }}"
+                                <a href="{{ url_for('cases.list_cases', world_id=selected_world_id) }}"
                                    class="badge text-decoration-none bg-warning text-dark tag-filter-link"
                                    title="Click to clear filter">
                                     <i class="bi bi-tag-fill"></i> {{ tag }} <i class="bi bi-x"></i>
                                 </a>
                                 {% else %}
-                                <a href="{{ url_for('cases.list_cases', world_id=selected_world_id, status=status_filter if status_filter != 'all' else none, tag=tag) }}"
+                                <a href="{{ url_for('cases.list_cases', world_id=selected_world_id, tag=tag) }}"
                                    class="badge text-decoration-none bg-light text-dark tag-filter-link"
                                    title="Filter by this tag">
                                     <i class="bi bi-tag"></i> {{ tag }}
@@ -170,7 +153,7 @@
                         </div>
                         {% else %}
                         <!-- No tags, but still show Find Similar -->
-                        <div class="card-header border-top py-2">
+                        <div class="card-header border-top py-2 case-tags-bar">
                             <div class="d-flex flex-wrap align-items-center gap-2">
                                 <a href="{{ url_for('precedents.find_precedents', case_id=case.id) }}"
                                    class="badge bg-info bg-opacity-25 text-info text-decoration-none"
@@ -181,19 +164,19 @@
                         </div>
                         {% endif %}
 
-                        <div class="card-body">
+                        <div class="card-body case-expanded-content">
                             {% if case.questions_list %}
-                            <div class="mb-3">
-                                <h6 class="text-primary">Questions:</h6>
+                            <div class="mb-2">
+                                <span class="fw-semibold text-muted small text-uppercase">Questions</span>
                                 {% if case.questions_list|length == 1 %}
-                                <p class="mb-2">{{ case.questions_list[0]|striptags|truncate(200) }}</p>
+                                <p class="mb-1 small">{{ case.questions_list[0]|striptags|truncate(200) }}</p>
                                 {% else %}
-                                <ol class="mb-2">
+                                <ol class="mb-1 small">
                                     {% for question in case.questions_list[:3] %}
                                     <li>{{ question|striptags|truncate(150) }}</li>
                                     {% endfor %}
                                     {% if case.questions_list|length > 3 %}
-                                    <li class="text-muted">... and {{ case.questions_list|length - 3 }} more</li>
+                                    <li class="text-muted">and {{ case.questions_list|length - 3 }} more</li>
                                     {% endif %}
                                 </ol>
                                 {% endif %}
@@ -201,12 +184,12 @@
                             {% endif %}
 
                             {% if case.conclusion_items %}
-                            <div class="mb-3">
-                                <h6 class="text-success">Conclusions:</h6>
+                            <div>
+                                <span class="fw-semibold text-muted small text-uppercase">Conclusions</span>
                                 {% if case.conclusion_items|length == 1 %}
-                                <p class="mb-2">{{ case.conclusion_items[0]|striptags }}</p>
+                                <p class="mb-0 small">{{ case.conclusion_items[0]|striptags }}</p>
                                 {% else %}
-                                <ol class="mb-2">
+                                <ol class="mb-0 small">
                                     {% for conclusion in case.conclusion_items %}
                                     <li>{{ conclusion|striptags }}</li>
                                     {% endfor %}
@@ -214,10 +197,6 @@
                                 {% endif %}
                             </div>
                             {% endif %}
-
-                            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                                <a href="/cases/{{ case.id }}" class="btn btn-sm btn-primary">View Details</a>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -230,7 +209,7 @@
     <div class="alert alert-info" role="alert">
         {% if selected_tag %}
         No cases found with tag "{{ selected_tag }}".
-        <a href="{{ url_for('cases.list_cases', world_id=selected_world_id, status=status_filter if status_filter != 'all' else none) }}">Clear filter</a>
+        <a href="{{ url_for('cases.list_cases', world_id=selected_world_id) }}">Clear filter</a>
         {% else %}
         No cases available. Please check the MCP server connection or add new cases.
         {% endif %}
@@ -248,15 +227,14 @@
     transform: translateY(-1px);
     box-shadow: 0 2px 4px rgba(0,0,0,0.15);
 }
-.pipeline-progress {
-    height: 6px;
-    width: 100px;
-    background-color: #e9ecef;
-    border-radius: 3px;
+.case-title-link:hover {
+    text-decoration: underline !important;
 }
-.pipeline-count {
-    font-size: 0.75rem;
-    white-space: nowrap;
+.case-title-link .bi-chevron-right {
+    transition: transform 0.15s;
+}
+.case-title-link:hover .bi-chevron-right {
+    transform: translateX(2px);
 }
 .pipeline-link {
     opacity: 0.5;
@@ -265,50 +243,41 @@
 .pipeline-link:hover {
     opacity: 1;
 }
+/* Compact view: hide expanded content, tighten spacing */
+.compact-view .case-expanded-content {
+    display: none;
+}
+.compact-view .case-card {
+    margin-bottom: 0 !important;
+}
+.compact-view .case-card .card-header {
+    border-bottom: 0;
+}
+.compact-view .col-12.mb-3 {
+    margin-bottom: 0.25rem !important;
+}
+/* Compact view: hide the tag/similar bar */
+.compact-view .case-tags-bar {
+    display: none;
+}
 </style>
 
 <script>
-    // Handle filter changes properly
+    // World filter
     document.getElementById('worldFilter').addEventListener('change', function() {
-        updateCaseFilters();
+        var params = new URLSearchParams();
+        var worldId = this.value;
+        if (worldId) params.append('world_id', worldId);
+        var currentParams = new URLSearchParams(window.location.search);
+        if (currentParams.has('tag')) params.append('tag', currentParams.get('tag'));
+        var qs = params.toString();
+        window.location.href = '/cases/' + (qs ? '?' + qs : '');
     });
-
-    document.getElementById('statusFilter').addEventListener('change', function() {
-        updateCaseFilters();
-    });
-
-    function updateCaseFilters() {
-        const worldId = document.getElementById('worldFilter').value;
-        const status = document.getElementById('statusFilter').value;
-
-        // Build URL parameters - only include non-default values for clean URLs
-        const params = new URLSearchParams();
-
-        // Only add world_id if it has a value
-        if (worldId) {
-            params.append('world_id', worldId);
-        }
-
-        // Only add status if not 'synthesized' (default)
-        if (status && status !== 'synthesized') {
-            params.append('status', status);
-        }
-
-        // Preserve tag filter if present
-        const currentParams = new URLSearchParams(window.location.search);
-        if (currentParams.has('tag')) {
-            params.append('tag', currentParams.get('tag'));
-        }
-
-        // Navigate to the filtered URL (clean URL if no params)
-        const queryString = params.toString();
-        window.location.href = '/cases/' + (queryString ? '?' + queryString : '');
-    }
 
     // Expandable tag filter
-    const showMoreBtn = document.getElementById('showMoreTags');
-    const showLessBtn = document.getElementById('showLessTags');
-    const moreTags = document.getElementById('moreTags');
+    var showMoreBtn = document.getElementById('showMoreTags');
+    var showLessBtn = document.getElementById('showLessTags');
+    var moreTags = document.getElementById('moreTags');
 
     if (showMoreBtn) {
         showMoreBtn.addEventListener('click', function(e) {
@@ -327,5 +296,31 @@
             showMoreBtn.classList.remove('d-none');
         });
     }
+
+    // Compact / Expanded view toggle
+    var expandedBtn = document.getElementById('expandedViewBtn');
+    var compactBtn = document.getElementById('compactViewBtn');
+    var caseContainer = document.querySelector('.container');
+
+    // Restore saved preference
+    if (localStorage.getItem('caseViewMode') === 'compact') {
+        caseContainer.classList.add('compact-view');
+        compactBtn.classList.add('active');
+        expandedBtn.classList.remove('active');
+    }
+
+    expandedBtn.addEventListener('click', function() {
+        caseContainer.classList.remove('compact-view');
+        expandedBtn.classList.add('active');
+        compactBtn.classList.remove('active');
+        localStorage.setItem('caseViewMode', 'expanded');
+    });
+
+    compactBtn.addEventListener('click', function() {
+        caseContainer.classList.add('compact-view');
+        compactBtn.classList.add('active');
+        expandedBtn.classList.remove('active');
+        localStorage.setItem('caseViewMode', 'compact');
+    });
 </script>
 {% endblock %}

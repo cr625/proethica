@@ -139,6 +139,26 @@ def register_view_routes(bp):
             except Exception as e:
                 logger.warning(f"Could not get entity lookup for case {document.id}: {str(e)}")
 
+        # Check if case ontology exists in OntServe and get individual count
+        ontserve_individual_count = None
+        try:
+            import psycopg2
+            from app.services.ontserve_config import get_ontserve_db_config
+            conn = psycopg2.connect(**get_ontserve_db_config())
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT COUNT(*) FROM ontology_entities oe
+                JOIN ontologies o ON oe.ontology_id = o.id
+                WHERE o.name = %s AND oe.entity_type = 'individual'
+            """, (f"proethica-case-{document.id}",))
+            row = cur.fetchone()
+            if row and row[0] > 0:
+                ontserve_individual_count = row[0]
+            cur.close()
+            conn.close()
+        except Exception as e:
+            logger.debug(f"Could not query OntServe for case {document.id}: {str(e)}")
+
         return render_template('case_detail.html', case=case, world=world,
                               entity_triples=entity_triples,
                               knowledge_graph_connections=knowledge_graph_connections,
@@ -150,7 +170,8 @@ def register_view_routes(bp):
                               conclusion_count=conclusion_count,
                               transformation_type=transformation_type,
                               entity_lookup=entity_lookup,
-                              entity_lookup_by_label=entity_lookup_by_label)
+                              entity_lookup_by_label=entity_lookup_by_label,
+                              ontserve_individual_count=ontserve_individual_count)
 
     @bp.route('/<int:id>/annotations', methods=['GET'])
     def view_case_annotations(id):

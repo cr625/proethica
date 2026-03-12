@@ -31,11 +31,14 @@
                 <div>
                     <h6 class="mb-0">
                         {% if cls.is_published and cls.entity_uri and ontserve_web_url %}
-                        {% set fragment = cls.entity_uri.split('#')[-1] if '#' in cls.entity_uri else cls.entity_uri.split('/')[-1] %}
-                        {% set ont_name = cls.ontology_target or 'proethica-intermediate' %}
-                        <a href="{{ ontserve_web_url }}/entity/{{ ont_name }}/{{ fragment }}"
+                        {% set epath = cls.entity_uri | ontserve_entity_path(cls.ontology_target) %}
+                        {% if epath %}
+                        <a href="{{ ontserve_web_url }}{{ epath }}"
                            target="_blank" class="text-decoration-none"
                            title="View in OntServe">{{ cls.entity_label }} <i class="bi bi-box-arrow-up-right" style="font-size: 0.7em;"></i></a>
+                        {% else %}
+                        {{ cls.entity_label }}
+                        {% endif %}
                         {% else %}
                         {{ cls.entity_label }}
                         {% endif %}
@@ -72,8 +75,8 @@
                             <i class="bi bi-link-45deg" style="color: #155724 !important;"></i> Linked
                         </span>
                         <br/>
-                        {% set ontserve_path = cls.matched_ontology_uri.replace('http://proethica.org/', '').replace('#', '/') %}
-                        <small><a href="{{ ontserve_web_url }}/{{ ontserve_path }}" target="_blank" class="text-decoration-none" title="View in OntServe">{{ cls.matched_ontology_label or cls.matched_ontology_uri.split('#')[-1] }} <i class="bi bi-box-arrow-up-right" style="font-size: 0.7em;"></i></a></small>
+                        {% set match_path = cls.matched_ontology_uri | ontserve_entity_path %}
+                        <small><a href="{{ ontserve_web_url }}{{ match_path }}" target="_blank" class="text-decoration-none" title="View in OntServe">{{ cls.matched_ontology_label or cls.matched_ontology_uri.split('#')[-1] }} <i class="bi bi-box-arrow-up-right" style="font-size: 0.7em;"></i></a></small>
                         <div class="match-confidence-bar">
                             <div class="match-confidence-fill confidence-high" style="width: {{ (confidence * 100)|int }}%"></div>
                         </div>
@@ -93,8 +96,8 @@
                             <i class="bi bi-search"></i> Review
                         </span>
                         <br/>
-                        {% set ontserve_path = cls.matched_ontology_uri.replace('http://proethica.org/', '').replace('#', '/') %}
-                        <small><a href="{{ ontserve_web_url }}/{{ ontserve_path }}" target="_blank" class="text-decoration-none" title="View in OntServe">{{ cls.matched_ontology_label or cls.matched_ontology_uri.split('#')[-1] }} <i class="bi bi-box-arrow-up-right" style="font-size: 0.7em;"></i></a></small>
+                        {% set match_path = cls.matched_ontology_uri | ontserve_entity_path %}
+                        <small><a href="{{ ontserve_web_url }}{{ match_path }}" target="_blank" class="text-decoration-none" title="View in OntServe">{{ cls.matched_ontology_label or cls.matched_ontology_uri.split('#')[-1] }} <i class="bi bi-box-arrow-up-right" style="font-size: 0.7em;"></i></a></small>
                         <div class="match-confidence-bar">
                             <div class="match-confidence-fill {% if confidence >= 0.75 %}confidence-medium{% else %}confidence-low{% endif %}" style="width: {{ (confidence * 100)|int }}%"></div>
                         </div>

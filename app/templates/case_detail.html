@@ -17,8 +17,19 @@
     word-spacing: 0.05em;
 }
 
+/* Entity link emphasis */
+.entity-link {
+    box-shadow: 0 1px 4px rgba(13, 110, 253, 0.25);
+    transition: all 0.2s;
+}
+.entity-link:hover {
+    box-shadow: 0 3px 8px rgba(13, 110, 253, 0.35);
+    transform: translateY(-1px);
+}
+
 /* Entity Popover Styles */
 .onto-label { cursor: help; border-bottom: 1px dotted currentColor; text-decoration: none; }
+.onto-label[style*="pointer"] { border-bottom-style: solid; }
 .onto-label:hover { background-color: rgba(var(--bs-primary-rgb), 0.1); border-radius: 2px; }
 .onto-popover-content { max-width: 350px; }
 .onto-popover-content .onto-type-badge { font-size: 0.7rem; padding: 0.15rem 0.4rem; }
@@ -40,34 +51,30 @@
 
 {% block content %}
 <div class="container" id="top">
-    <!-- Top action bar placed above the title to avoid layout issues when the title wraps -->
+    <!-- Top action bar -->
     <div class="d-flex justify-content-between gap-2 mb-2 flex-wrap">
         <div>
             <a href="{{ url_for('cases.list_cases') }}" class="btn btn-outline-secondary">
                 <i class="bi bi-arrow-left"></i> Back to Cases
             </a>
         </div>
+        {% if current_user.is_authenticated %}
         <div class="d-flex gap-2">
+            <a href="{{ url_for('cases.case_pipeline', case_id=case.id) }}"
+               class="btn btn-sm btn-outline-primary" title="Pipeline Dashboard">
+                <i class="bi bi-diagram-3 me-1"></i>Pipeline
+            </a>
             {% if case.document_id %}
-            <div class="btn-group" role="group">
-                <a href="{{ url_for('cases.view_case_structure', id=case.id) }}" class="btn btn-outline-primary" title="View document sections, embeddings, and structure">
-                    <i class="bi bi-layers"></i> Structure
-                </a>
-                <a href="{{ url_for('provenance.provenance_cases', selected=case.id) }}" class="btn btn-outline-primary" title="View provenance and processing history">
-                    <i class="bi bi-diagram-3"></i> Provenance
-                </a>
-                {% if current_user.is_authenticated %}
-                <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
-                    <i class="bi bi-trash"></i>
-                </button>
-                {% endif %}
-            </div>
+            <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal" title="Delete case">
+                <i class="bi bi-trash"></i>
+            </button>
             {% endif %}
         </div>
+        {% endif %}
     </div>
 
-    <!-- Title on its own line below the actions -->
-    <h1 class="mb-3">
+    <!-- Title -->
+    <h1 class="mb-2">
         {% if case.doc_metadata and case.doc_metadata.get('source') == 'agent_generated' or case.doc_metadata and
         case.doc_metadata.get('source') == 'agent_generated_sample' %}
         <i class="bi bi-robot text-primary me-2" title="Generated with Language Model assistance"></i>
@@ -75,14 +82,49 @@
         {{ case.title }}
     </h1>
 
-    <!-- Analysis Pipeline Status Bar -->
-    {% include 'cases/_case_pipeline_status.html' %}
-    <div class="mb-3">
-        <a href="{{ url_for('cases.case_pipeline', case_id=case.id) }}"
-           class="btn btn-sm btn-outline-primary">
-            <i class="bi bi-diagram-3 me-1"></i>Pipeline Dashboard
-        </a>
+    <!-- Case context bar: entities, structure, provenance -->
+    {% if ontserve_individual_count or (entity_count is defined and entity_count > 0) or (transformation_type is defined and transformation_type) or case.document_id %}
+    <div class="card mb-3 border-primary border-opacity-25">
+        <div class="card-body py-2 px-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                {% if ontserve_individual_count %}
+                <a href="{{ ontserve_web_url }}/ontology/proethica-case-{{ case.id }}" target="_blank"
+                   class="btn btn-primary text-decoration-none entity-link" title="View {{ ontserve_individual_count }} named individuals in OntServe">
+                    <i class="bi bi-diagram-3 me-1"></i>{{ ontserve_individual_count }} Individuals <i class="bi bi-box-arrow-up-right ms-1"></i>
+                </a>
+                {% elif entity_count is defined and entity_count > 0 %}
+                <span class="badge bg-secondary fs-6 py-2 px-3">
+                    <i class="bi bi-diagram-3 me-1"></i>{{ entity_count }} Entities (not yet committed)
+                </span>
+                {% endif %}
+                {% if transformation_type is defined and transformation_type %}
+                <span class="badge rounded-pill text-white" title="Transformation Type" style="background-color: #6f42c1;">
+                    {% if transformation_type == 'transfer' %}Transfer
+                    {% elif transformation_type == 'stalemate' %}Stalemate
+                    {% elif transformation_type == 'oscillation' %}Oscillation
+                    {% elif transformation_type == 'phase_lag' %}Phase Lag
+                    {% else %}{{ transformation_type|title }}{% endif %}
+                </span>
+                {% endif %}
+            </div>
+            {% if case.document_id %}
+            <div class="btn-group btn-group-sm" role="group">
+                <a href="{{ url_for('cases.view_case_structure', id=case.id) }}" class="btn btn-outline-secondary" title="Document sections and embeddings">
+                    <i class="bi bi-layers me-1"></i>Structure
+                </a>
+                <a href="{{ url_for('provenance.provenance_cases', selected=case.id) }}" class="btn btn-outline-secondary" title="Processing history">
+                    <i class="bi bi-clock-history me-1"></i>Provenance
+                </a>
+            </div>
+            {% endif %}
+        </div>
     </div>
+    {% endif %}
+
+    <!-- Analysis Pipeline Status Bar (authenticated users only) -->
+    {% if current_user.is_authenticated or environment != 'production' %}
+    {% include 'cases/_case_pipeline_status.html' %}
+    {% endif %}
 
     <div id="case-details" class="card mb-4">
         <div class="card-header d-flex justify-content-between align-items-center">
@@ -412,6 +454,8 @@
 
 {% block scripts %}
 {{ super() }}
+<!-- Shared entity popover infrastructure -->
+<script src="{{ url_for('static', filename='js/ontology-popovers.js') }}"></script>
 <!-- Include the external case detail JS file -->
 <script src="{{ url_for('static', filename='js/case_detail.js') }}"></script>
 
@@ -577,7 +621,8 @@
             source: "{{ (entity.source or 'case')|e }}",
             sourcePass: {{ entity.source_pass or 'null' }},
             uri: "{{ (entity.uri or '')|e }}",
-            aliasTypes: {{ (entity.alias_types or [])|tojson }}
+            aliasTypes: {{ (entity.alias_types or [])|tojson }},
+            ontologyTarget: "{{ (entity.ontology_target or '')|e }}"
         }{% if not loop.last %},{% endif %}
         {% endfor %}
     };
@@ -587,144 +632,24 @@
         const caseDetailsCard = document.getElementById('case-details');
         if (!caseDetailsCard) return;
 
-        // Common words and document references to skip even if they match entity labels
-        const skipWords = new Set([
-            'state', 'action', 'event', 'role', 'resource', 'principle', 'obligation', 'constraint', 'capability',
-            'nspe code of ethics', 'code of ethics'  // Document references, not entities
-        ]);
+        const ontserveBaseUrl = '{{ ontserve_web_url }}';
 
-        // Sort labels by length (longest first) to match longer phrases before shorter ones
-        const sortedLabels = Object.keys(ENTITY_LOOKUP_BY_LABEL)
-            .filter(label => label.length >= 4 && !skipWords.has(label.toLowerCase()))
-            .sort((a, b) => b.length - a.length);
-
-        if (sortedLabels.length === 0) return;
-
-        // Create regex pattern for all entity labels (case-insensitive, word boundaries)
-        const pattern = new RegExp('\\b(' + sortedLabels.map(l => l.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')\\b', 'gi');
-
-        // Process text nodes in card bodies (excluding headers and NSPE references)
-        const cardBodies = caseDetailsCard.querySelectorAll('.card-body');
-        cardBodies.forEach(function(cardBody) {
-            // Skip NSPE Code References section (contains specific code excerpts, not entity references)
-            const parentCard = cardBody.closest('.card');
-            if (parentCard) {
-                const cardHeader = parentCard.querySelector('.card-header h5');
-                if (cardHeader && cardHeader.textContent.toLowerCase().includes('nspe')) {
-                    return; // Skip this card body
+        // Scan text for entity labels and wrap in .onto-label spans
+        scanTextForEntities(caseDetailsCard, ENTITY_LOOKUP_BY_LABEL, {
+            skipSectionTest: function(cardBody) {
+                var parentCard = cardBody.closest('.card');
+                if (parentCard) {
+                    var cardHeader = parentCard.querySelector('.card-header h5');
+                    if (cardHeader && cardHeader.textContent.toLowerCase().includes('nspe')) {
+                        return true;
+                    }
                 }
+                return false;
             }
-
-            // Get all text nodes
-            const walker = document.createTreeWalker(cardBody, NodeFilter.SHOW_TEXT, null, false);
-            const textNodes = [];
-            let node;
-            while (node = walker.nextNode()) {
-                if (node.textContent.trim() && node.parentElement.closest('.onto-label, a, button, .badge') === null) {
-                    textNodes.push(node);
-                }
-            }
-
-            // Process each text node
-            textNodes.forEach(function(textNode) {
-                const text = textNode.textContent;
-                const matches = [];
-                let match;
-
-                // Find all matches
-                while ((match = pattern.exec(text)) !== null) {
-                    const lowerMatch = match[1].toLowerCase();
-                    if (ENTITY_LOOKUP_BY_LABEL[lowerMatch]) {
-                        matches.push({
-                            index: match.index,
-                            length: match[1].length,
-                            text: match[1],
-                            entity: ENTITY_LOOKUP_BY_LABEL[lowerMatch]
-                        });
-                    }
-                }
-
-                // Replace matches (process in reverse to maintain indices)
-                if (matches.length > 0) {
-                    const fragment = document.createDocumentFragment();
-                    let lastIndex = 0;
-
-                    // Remove overlapping matches (keep longest)
-                    const nonOverlapping = [];
-                    matches.sort((a, b) => a.index - b.index);
-                    for (const m of matches) {
-                        const last = nonOverlapping[nonOverlapping.length - 1];
-                        if (!last || m.index >= last.index + last.length) {
-                            nonOverlapping.push(m);
-                        }
-                    }
-
-                    nonOverlapping.forEach(function(m) {
-                        // Add text before match
-                        if (m.index > lastIndex) {
-                            fragment.appendChild(document.createTextNode(text.substring(lastIndex, m.index)));
-                        }
-
-                        // Create popover span
-                        const span = document.createElement('span');
-                        span.className = 'onto-label';
-                        if (m.entity.source === 'ontology') span.className += ' onto-source-ontology';
-                        span.textContent = m.text;
-                        span.tabIndex = 0;
-                        span.setAttribute('data-bs-toggle', 'popover');
-                        span.setAttribute('data-bs-trigger', 'hover focus');
-                        span.setAttribute('data-bs-html', 'true');
-                        span.setAttribute('data-bs-placement', 'top');
-                        span.setAttribute('data-entity-type', m.entity.entityType);
-                        span.setAttribute('data-entity-source', m.entity.source);
-                        span.setAttribute('data-entity-definition', m.entity.definition);
-                        span.setAttribute('data-entity-uri', m.entity.uri);
-                        span.setAttribute('data-alias-types', JSON.stringify(m.entity.aliasTypes || []));
-                        span.setAttribute('title', m.entity.label || m.text);
-
-                        fragment.appendChild(span);
-                        lastIndex = m.index + m.length;
-                    });
-
-                    // Add remaining text
-                    if (lastIndex < text.length) {
-                        fragment.appendChild(document.createTextNode(text.substring(lastIndex)));
-                    }
-
-                    textNode.parentNode.replaceChild(fragment, textNode);
-                }
-            });
         });
 
-        // Initialize popovers with custom content generator
-        const popoverElements = document.querySelectorAll('#case-details .onto-label[data-bs-toggle="popover"]');
-        popoverElements.forEach(function(el) {
-            // Pre-build content from element attributes (avoids 'this' context issues)
-            const type = el.getAttribute('data-entity-type') || 'unknown';
-            const source = el.getAttribute('data-entity-source') || 'case';
-            const definition = el.getAttribute('data-entity-definition') || 'No definition available';
-            const uri = el.getAttribute('data-entity-uri') || '';
-            const typeClass = 'onto-type-' + type.toLowerCase().replace(/\s+/g, '-');
-
-            const aliasTypes = JSON.parse(el.getAttribute('data-alias-types') || '[]');
-            const extraCount = aliasTypes.length > 1 ? aliasTypes.length - 1 : 0;
-
-            const popoverContent = `<div class="onto-popover-content">
-                <div class="d-flex gap-1 mb-2">
-                    <span class="badge onto-type-badge ${typeClass}">${type}</span>
-                    ${extraCount > 0 ? '<span class="badge bg-light text-muted onto-type-badge border">+' + extraCount + ' more</span>' : ''}
-                    ${source === 'ontology' ? '<span class="badge bg-primary onto-type-badge">Ontology</span>' : '<span class="badge bg-secondary onto-type-badge">Case</span>'}
-                </div>
-                <div class="onto-definition">${definition}</div>
-                ${uri ? '<div class="onto-uri"><i class="bi bi-link-45deg"></i> ' + uri + '</div>' : ''}
-            </div>`;
-
-            new bootstrap.Popover(el, {
-                content: popoverContent,
-                html: true,
-                sanitize: false
-            });
-        });
+        // Initialize popovers with OntServe links on the newly created spans
+        initializePopovers(caseDetailsCard, ontserveBaseUrl);
     });
     {% endif %}
 
