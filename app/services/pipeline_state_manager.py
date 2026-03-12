@@ -295,6 +295,35 @@ STEP_GROUPS = [
     'Case Analysis', 'Publish',
 ]
 
+# Display groups: merge facts+discussion substeps into single dashboard rows.
+# Backend pipeline still treats them as separate substeps.
+DISPLAY_GROUPS = [
+    {
+        'key': 'pass1',
+        'display_name': 'Pass 1 - Contextual Framework',
+        'step_group': 'Pass 1',
+        'substeps': ['pass1_facts', 'pass1_discussion'],
+    },
+    {
+        'key': 'pass2',
+        'display_name': 'Pass 2 - Normative Requirements',
+        'step_group': 'Pass 2',
+        'substeps': ['pass2_facts', 'pass2_discussion'],
+    },
+]
+
+# Reverse mapping: PSM substep name -> display row key
+SUBSTEP_TO_DISPLAY_ROW = {}
+_MERGED_SUBSTEPS = set()
+for _dg in DISPLAY_GROUPS:
+    for _sub in _dg['substeps']:
+        SUBSTEP_TO_DISPLAY_ROW[_sub] = _dg['key']
+        _MERGED_SUBSTEPS.add(_sub)
+# Non-merged substeps map to themselves
+for _step_name in WORKFLOW_DEFINITION:
+    if _step_name not in SUBSTEP_TO_DISPLAY_ROW:
+        SUBSTEP_TO_DISPLAY_ROW[_step_name] = _step_name
+
 
 class PipelineStateManager:
     """
@@ -732,6 +761,123 @@ class PipelineState:
             result['steps'][step_name] = step_state
 
         return result
+
+    def to_display_dict(self) -> Dict[str, Any]:
+        """
+        Export pipeline state with consolidated display rows.
+
+        Merges facts/discussion substeps into single rows for Pass 1 and Pass 2.
+        All other substeps pass through unchanged. Backend substep model stays intact.
+        """
+        raw = self.to_dict()
+        steps = raw['steps']
+
+        display_rows = []
+        emitted_substeps = set()
+
+        # Ordered iteration: follow WORKFLOW_DEFINITION order, emit merged rows
+        # on first encounter of a display group member
+        for step_name in WORKFLOW_DEFINITION:
+            if step_name in emitted_substeps:
+                continue
+
+            if step_name in _MERGED_SUBSTEPS:
+                # Find this substep's display group
+                group_key = SUBSTEP_TO_DISPLAY_ROW[step_name]
+                group = next(dg for dg in DISPLAY_GROUPS if dg['key'] == group_key)
+
+                # Build merged row from component substeps
+                component_states = [steps[s] for s in group['substeps']]
+                display_rows.append(
+                    _build_merged_row(group, component_states)
+                )
+                for s in group['substeps']:
+                    emitted_substeps.add(s)
+            else:
+                # Passthrough: wrap existing step state
+                step = steps[step_name]
+                display_rows.append({
+                    'type': 'single',
+                    'name': step_name,
+                    'display_name': step['display_name'],
+                    'step_group': step['step_group'],
+                    'status': step['status'],
+                    'can_start': step['can_start'],
+                    'blockers': step['blockers'],
+                    'tasks': step['tasks'],
+                    'component_substeps': [step_name],
+                    'run_target': step_name,
+                    'rerun_target': step_name,
+                })
+                emitted_substeps.add(step_name)
+
+        raw['display_rows'] = display_rows
+        raw['substep_to_display_row'] = SUBSTEP_TO_DISPLAY_ROW
+        return raw
+
+
+def _build_merged_row(group: dict, component_states: list) -> dict:
+    """Build a single display row from multiple component substep states."""
+    statuses = [s['status'] for s in component_states]
+
+    # Derive combined status
+    if all(s == 'complete' for s in statuses):
+        combined_status = 'complete'
+    elif any(s == 'error' for s in statuses):
+        combined_status = 'error'
+    elif all(s == 'not_started' for s in statuses):
+        combined_status = 'not_started'
+    else:
+        combined_status = 'in_progress'
+
+    # Combined can_start: true if any component can start
+    combined_can_start = any(s['can_start'] for s in component_states)
+
+    # Blockers: from the first non-startable component that blocks progress
+    combined_blockers = []
+    for s in component_states:
+        if not s['can_start'] and s['status'] != 'complete':
+            combined_blockers = s['blockers']
+            break
+
+    # Merge tasks: deduplicate by task name, sum artifact counts
+    merged_tasks = {}
+    for comp in component_states:
+        for task_name, task_info in comp['tasks'].items():
+            if task_name not in merged_tasks:
+                merged_tasks[task_name] = dict(task_info)
+            # Counts are already totals (not section-filtered), so no summing needed
+
+    # Run target: first incomplete component substep
+    run_target = None
+    for s in component_states:
+        if s['status'] != 'complete':
+            run_target = s['name']
+            break
+
+    # Rerun target: first component (rerunning facts cascades to discussion)
+    rerun_target = component_states[0]['name']
+
+    # Sub-status for each component
+    section_statuses = {
+        s['name'].split('_')[-1]: s['status']
+        for s in component_states
+    }
+
+    return {
+        'type': 'merged',
+        'name': group['key'],
+        'display_name': group['display_name'],
+        'step_group': group['step_group'],
+        'status': combined_status,
+        'can_start': combined_can_start,
+        'blockers': combined_blockers,
+        'tasks': merged_tasks,
+        'component_substeps': group['substeps'],
+        'run_target': run_target,
+        'rerun_target': rerun_target,
+        'section_statuses': section_statuses,
+    }
 
 
 def _check_substep_bulk(step_def, artifacts, prompts, reconciled, published):

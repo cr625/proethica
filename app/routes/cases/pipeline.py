@@ -97,10 +97,10 @@ def _get_active_run(case_id):
 
 
 def _build_pipeline_response(case_id):
-    """Build merged pipeline state (PSM data + active run overlay)."""
+    """Build pipeline state with display rows and active run overlay."""
     manager = PipelineStateManager()
     state = manager.get_pipeline_state(case_id)
-    state_dict = state.to_dict()
+    state_dict = state.to_display_dict()
 
     active_run = _get_active_run(case_id)
     if active_run:

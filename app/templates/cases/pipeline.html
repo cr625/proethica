@@ -183,11 +183,11 @@
         {% endif %}
     </div>
 
-    {# Summary stats #}
-    {% set steps = pipeline_state.steps %}
-    {% set total = steps|length %}
-    {% set complete_count = steps.values()|selectattr('status', 'equalto', 'complete')|list|length %}
-    {% set in_progress_count = steps.values()|selectattr('status', 'equalto', 'in_progress')|list|length %}
+    {# Summary stats -- counted from display_rows (consolidated) #}
+    {% set display_rows = pipeline_state.display_rows %}
+    {% set total = display_rows|length %}
+    {% set complete_count = display_rows|selectattr('status', 'equalto', 'complete')|list|length %}
+    {% set in_progress_count = display_rows|selectattr('status', 'equalto', 'in_progress')|list|length %}
     {% set pct = ((complete_count / total) * 100)|int if total > 0 else 0 %}
 
     <div class="card mb-4">
@@ -252,28 +252,29 @@
         </div>
     </div>
 
-    {# Substep groups #}
+    {# Display rows grouped by step_group #}
     {% for group in pipeline_state.step_groups %}
-    {% set group_steps = [] %}
-    {% for step_name, step_info in steps.items() %}
-        {% if step_info.step_group == group %}
-            {% if group_steps.append(step_info) %}{% endif %}
+    {% set group_rows = [] %}
+    {% for row in display_rows %}
+        {% if row.step_group == group %}
+            {% if group_rows.append(row) %}{% endif %}
         {% endif %}
     {% endfor %}
 
-    {% if group_steps|length > 0 %}
+    {% if group_rows|length > 0 %}
     <div class="group-section">
         <div class="step-group-header">{{ group }}</div>
-        {% for step_info in group_steps %}
-        <div class="substep-card status-{{ step_info.status }}" id="substep-{{ step_info.name }}"
-             data-substep="{{ step_info.name }}" data-status="{{ step_info.status }}">
+        {% for row in group_rows %}
+        <div class="substep-card status-{{ row.status }}" id="substep-{{ row.name }}"
+             data-substep="{{ row.name }}" data-status="{{ row.status }}"
+             data-component-substeps="{{ row.component_substeps|join(',') }}">
             {# Status icon #}
-            <div class="substep-icon icon-{{ step_info.status }}">
-                {% if step_info.status == 'complete' %}
+            <div class="substep-icon icon-{{ row.status }}">
+                {% if row.status == 'complete' %}
                     <i class="bi bi-check"></i>
-                {% elif step_info.status == 'in_progress' %}
+                {% elif row.status == 'in_progress' %}
                     <i class="bi bi-arrow-repeat"></i>
-                {% elif step_info.status == 'error' %}
+                {% elif row.status == 'error' %}
                     <i class="bi bi-x"></i>
                 {% else %}
                     <i class="bi bi-circle"></i>
@@ -282,64 +283,76 @@
 
             {# Info #}
             <div class="substep-info">
-                <div class="substep-name">{{ step_info.display_name }}</div>
+                <div class="substep-name">{{ row.display_name }}</div>
                 <div class="substep-badges">
-                    {% for task_name, task_info in step_info.tasks.items() %}
+                    {% for task_name, task_info in row.tasks.items() %}
                         {% set task_total = task_info.artifact_counts.values()|sum %}
                         {% if task_total > 0 %}
                         <span class="artifact-badge has-data"
                               title="{{ task_info.artifact_types|join(', ') }}">
                             {{ task_info.display_name }}: {{ task_total }}
                         </span>
-                        {% elif step_info.status == 'complete' %}
+                        {% elif row.status == 'complete' %}
                         <span class="artifact-badge has-data">
                             {{ task_info.display_name }}
                         </span>
                         {% endif %}
                     {% endfor %}
                 </div>
-                {% if not step_info.can_start and step_info.status != 'complete' and step_info.blockers %}
+                {% if row.type == 'merged' and row.status not in ('complete', 'not_started') %}
+                <div class="section-status text-muted" style="font-size: 0.7rem;">
+                    {% for section, sec_status in row.section_statuses.items() %}
+                    <span class="{% if sec_status == 'complete' %}text-success{% elif sec_status == 'error' %}text-danger{% endif %}">
+                        {{ section|capitalize }}: {{ sec_status|replace('_', ' ') }}
+                    </span>
+                    {% if not loop.last %}<span class="mx-1">|</span>{% endif %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% if not row.can_start and row.status != 'complete' and row.blockers %}
                 <div class="blocker-text">
-                    <i class="bi bi-lock-fill me-1"></i>{{ step_info.blockers|join(', ') }}
+                    <i class="bi bi-lock-fill me-1"></i>{{ row.blockers|join(', ') }}
                 </div>
                 {% endif %}
             </div>
 
-            {# Actions -- both run and rerun buttons rendered, JS toggles visibility #}
+            {# Actions #}
             <div class="substep-actions">
                 {# View links (visible to all, shown when complete) #}
-                {% if step_info.name.startswith('pass') %}
+                {% if row.name.startswith('pass') %}
                 <a href="{{ url_for('provenance.provenance_case', case_id=case.id) }}"
                    class="btn btn-sm btn-outline-secondary btn-view-provenance" title="View provenance"
-                   style="{% if step_info.status != 'complete' %}display: none;{% endif %}">
+                   style="{% if row.status != 'complete' %}display: none;{% endif %}">
                     <i class="bi bi-journal-text"></i>
                 </a>
-                {% elif step_info.name.startswith('step4_') %}
+                {% elif row.name.startswith('step4_') %}
                 <a href="{{ url_for('step4.step4_review', case_id=case.id) }}"
                    class="btn btn-sm btn-outline-secondary btn-view-analysis" title="View analysis"
-                   style="{% if step_info.status != 'complete' %}display: none;{% endif %}">
+                   style="{% if row.status != 'complete' %}display: none;{% endif %}">
                     <i class="bi bi-graph-up"></i>
                 </a>
                 {% endif %}
 
-                {% if current_user.is_authenticated and step_info.name in substep_dispatch %}
+                {% if current_user.is_authenticated and row.rerun_target %}
                 {# Re-run button (shown when complete) #}
                 <button class="btn btn-sm btn-outline-warning btn-rerun"
-                        data-substep="{{ step_info.name }}"
-                        onclick="rerunSubstep('{{ step_info.name }}')"
-                        title="Re-run {{ step_info.display_name }} (clears downstream)"
-                        style="{% if step_info.status != 'complete' %}display: none;{% endif %}">
+                        data-substep="{{ row.rerun_target }}"
+                        onclick="rerunSubstep('{{ row.rerun_target }}')"
+                        title="Re-run {{ row.display_name }} (clears downstream)"
+                        style="{% if row.status != 'complete' %}display: none;{% endif %}">
                     <i class="bi bi-arrow-counterclockwise"></i>
                 </button>
                 {# Run button (shown when not complete) #}
+                {% if row.run_target %}
                 <button class="btn btn-sm btn-outline-primary btn-run"
-                        data-substep="{{ step_info.name }}"
-                        onclick="runSubstep('{{ step_info.name }}')"
-                        {% if not step_info.can_start or step_info.status == 'complete' %}disabled{% endif %}
-                        title="Run {{ step_info.display_name }}"
-                        style="{% if step_info.status == 'complete' %}display: none;{% endif %}">
+                        data-substep="{{ row.run_target }}"
+                        onclick="runSubstep('{{ row.run_target }}')"
+                        {% if not row.can_start or row.status == 'complete' %}disabled{% endif %}
+                        title="Run {{ row.display_name }}"
+                        style="{% if row.status == 'complete' %}display: none;{% endif %}">
                     <i class="bi bi-play-fill"></i>
                 </button>
+                {% endif %}
                 {% endif %}
             </div>
         </div>
@@ -527,26 +540,37 @@ function resolveRunningStep(currentStep) {
     return null;
 }
 
+// Substep-to-display-row mapping (server-generated)
+const SUBSTEP_TO_ROW = {{ pipeline_state.substep_to_display_row | tojson }};
+
+function resolveDisplayRow(psmStep) {
+    if (!psmStep) return null;
+    return SUBSTEP_TO_ROW[psmStep] || psmStep;
+}
+
 function updateUI(state) {
-    const steps = state.steps;
-    const total = Object.keys(steps).length;
+    const rows = state.display_rows;
+    const total = rows.length;
     let completeCount = 0;
-    const runningStep = state.active_run
+
+    // Resolve running step to display row
+    const runningPsmStep = state.active_run
         ? resolveRunningStep(state.active_run.current_step)
         : null;
+    const runningDisplayRow = resolveDisplayRow(runningPsmStep);
 
-    // Update each substep card
-    for (const [name, info] of Object.entries(steps)) {
-        const card = document.getElementById('substep-' + name);
+    // Update each display row card
+    for (const row of rows) {
+        const card = document.getElementById('substep-' + row.name);
         if (!card) continue;
 
-        // Determine display status: overlay active run onto PSM state
-        let displayStatus = info.status;
-        if (runningStep === name) {
+        // Determine display status: overlay active run onto row state
+        let displayStatus = row.status;
+        if (runningDisplayRow === row.name) {
             displayStatus = 'running';
         }
 
-        if (info.status === 'complete') completeCount++;
+        if (row.status === 'complete') completeCount++;
 
         // Update card classes
         card.className = 'substep-card status-' + displayStatus;
@@ -570,13 +594,13 @@ function updateUI(state) {
             }
         }
 
-        // Update badges (DOM manipulation, not innerHTML, to avoid XSS)
+        // Update badges
         const badgeContainer = card.querySelector('.substep-badges');
-        if (badgeContainer && info.tasks) {
+        if (badgeContainer && row.tasks) {
             badgeContainer.replaceChildren();
-            for (const [tName, tInfo] of Object.entries(info.tasks)) {
+            for (const [tName, tInfo] of Object.entries(row.tasks)) {
                 const total = Object.values(tInfo.artifact_counts).reduce((a, b) => a + b, 0);
-                if (total > 0 || info.status === 'complete') {
+                if (total > 0 || row.status === 'complete') {
                     const span = document.createElement('span');
                     span.className = 'artifact-badge has-data';
                     span.title = tInfo.artifact_types.join(', ');
@@ -588,10 +612,29 @@ function updateUI(state) {
             }
         }
 
-        // Toggle run vs rerun buttons based on polled status
+        // Update section status line for merged rows
+        const sectionLine = card.querySelector('.section-status');
+        if (sectionLine && row.section_statuses) {
+            if (row.status === 'complete' || row.status === 'not_started') {
+                sectionLine.style.display = 'none';
+            } else {
+                sectionLine.style.display = '';
+                const parts = [];
+                for (const [sec, secStatus] of Object.entries(row.section_statuses)) {
+                    const cls = secStatus === 'complete' ? 'text-success' :
+                                secStatus === 'error' ? 'text-danger' : '';
+                    parts.push('<span class="' + cls + '">' +
+                        sec.charAt(0).toUpperCase() + sec.slice(1) + ': ' +
+                        secStatus.replace('_', ' ') + '</span>');
+                }
+                sectionLine.innerHTML = parts.join('<span class="mx-1">|</span>');
+            }
+        }
+
+        // Toggle run vs rerun buttons
         const runBtn = card.querySelector('.btn-run');
         const rerunBtn = card.querySelector('.btn-rerun');
-        if (info.status === 'complete') {
+        if (row.status === 'complete') {
             if (runBtn) runBtn.style.display = 'none';
             if (rerunBtn) {
                 rerunBtn.style.display = isRunning ? 'none' : '';
@@ -601,15 +644,20 @@ function updateUI(state) {
             if (rerunBtn) rerunBtn.style.display = 'none';
             if (runBtn) {
                 runBtn.style.display = '';
-                runBtn.disabled = !info.can_start || isRunning;
+                runBtn.disabled = !row.can_start || isRunning;
+                // Update run target for merged rows (may shift from facts to discussion)
+                if (row.run_target) {
+                    runBtn.dataset.substep = row.run_target;
+                    runBtn.onclick = function() { runSubstep(row.run_target); };
+                }
             }
         }
 
-        // Toggle view links based on completion
+        // Toggle view links
         const viewProv = card.querySelector('.btn-view-provenance');
-        if (viewProv) viewProv.style.display = info.status === 'complete' ? '' : 'none';
+        if (viewProv) viewProv.style.display = row.status === 'complete' ? '' : 'none';
         const viewAnalysis = card.querySelector('.btn-view-analysis');
-        if (viewAnalysis) viewAnalysis.style.display = info.status === 'complete' ? '' : 'none';
+        if (viewAnalysis) viewAnalysis.style.display = row.status === 'complete' ? '' : 'none';
     }
 
     // Update summary stats
@@ -730,8 +778,9 @@ function showReviewBar(currentStep) {
         link.style.display = 'none';
     }
 
-    // Highlight the last completed step with waiting_review style
-    const card = document.getElementById('substep-' + psmStep);
+    // Highlight the display row with waiting_review style
+    const displayRow = resolveDisplayRow(psmStep);
+    const card = document.getElementById('substep-' + displayRow);
     if (card) {
         card.className = 'substep-card status-waiting_review';
         const icon = card.querySelector('.substep-icon');

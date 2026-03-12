@@ -163,15 +163,12 @@ Open items from the 2026-03-10 repository audit. Independent of pipeline work.
 
 ---
 
-## Key Lessons (from refactoring + pipeline work)
+## Key Lessons
 
-- **Editable install**: Use hatchling + `pip install -e .`. List all importable packages in `packages = [...]`.
-- **Bulk edits miss edge cases**: When removing `import sys`, also check for `sys.exit`, `sys.argv`. Use grep, not heuristic judgment.
-- **Pre-read before planning**: Phase 2 scope changed after discovering config already existed.
-- **Circular imports are predictable**: Extracting services from Flask route packages triggers `__init__.py` cascades. Use lazy imports.
-- **Pre-existing bugs get copied**: Code review catches issues during extraction that were latent in the original.
-- **Flask `request` dependencies are easy to miss**: Always pre-read to find `request.args`, `session`, `current_app` usage.
-- **Two-pass review**: (1) Code review agent on modified files, (2) mechanical grep for orphaned variables and unused imports.
+Completed-phase lessons archived. Behavioral patterns for future sessions stored in memory: `feedback_flask-template-patterns.md`.
+
+- **Two-pass review**: (1) Code review agent on modified files, (2) mechanical grep for orphaned references. Template `url_for()` errors are invisible to pytest.
+- **Pre-read before deleting**: Phase 7b+7c had to be combined because `interactive_builder.py` had lazy imports from deleted modules. Always check `__init__.py` and shared files before bulk deletion.
 
 ---
 
@@ -201,4 +198,4 @@ Open items from the 2026-03-10 repository audit. Independent of pipeline work.
 
 ---
 
-*Last updated: 2026-03-11*
+*Last updated: 2026-03-12*
