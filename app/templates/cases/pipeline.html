@@ -163,6 +163,7 @@
             </h4>
             <span class="text-muted">Extraction Pipeline</span>
         </div>
+        {% if current_user.is_authenticated %}
         <div class="d-flex align-items-center gap-2">
             <div class="mode-toggle btn-group" role="group" aria-label="Pipeline mode">
                 <button type="button" class="btn btn-outline-secondary active" id="btn-mode-auto"
@@ -179,6 +180,7 @@
                 <i class="bi bi-play-fill me-1"></i>Run All
             </button>
         </div>
+        {% endif %}
     </div>
 
     {# Summary stats #}
@@ -211,8 +213,8 @@
                     </div>
                 </div>
             </div>
-            {# Active run status #}
-            <div id="active-run-status" class="mt-2 d-flex align-items-center gap-2" style="display: none;">
+            {# Active run status -- no d-flex here; JS sets display:flex when showing #}
+            <div id="active-run-status" class="mt-2 align-items-center gap-2" style="display: none;">
                 <small class="text-primary">
                     <i class="bi bi-arrow-repeat spin me-1"></i>
                     <span id="active-run-text"></span>
@@ -303,42 +305,41 @@
                 {% endif %}
             </div>
 
-            {# Actions #}
+            {# Actions -- both run and rerun buttons rendered, JS toggles visibility #}
             <div class="substep-actions">
-                {% if step_info.status == 'complete' %}
-                    {# View links for complete steps #}
-                    {% if step_info.name.startswith('pass') %}
-                    <a href="{{ url_for('provenance.provenance_case', case_id=case.id) }}"
-                       class="btn btn-sm btn-outline-secondary" title="View provenance">
-                        <i class="bi bi-journal-text"></i>
-                    </a>
-                    {% elif step_info.name.startswith('step4_') %}
-                    <a href="{{ url_for('step4.step4_review', case_id=case.id) }}"
-                       class="btn btn-sm btn-outline-secondary" title="View analysis">
-                        <i class="bi bi-graph-up"></i>
-                    </a>
-                    {% endif %}
-
-                    {# Re-run button for completed steps #}
-                    {% if step_info.name in substep_dispatch %}
-                    <button class="btn btn-sm btn-outline-warning btn-rerun"
-                            data-substep="{{ step_info.name }}"
-                            onclick="rerunSubstep('{{ step_info.name }}')"
-                            title="Re-run {{ step_info.display_name }} (clears downstream)">
-                        <i class="bi bi-arrow-counterclockwise"></i>
-                    </button>
-                    {% endif %}
+                {# View links (visible to all, shown when complete) #}
+                {% if step_info.name.startswith('pass') %}
+                <a href="{{ url_for('provenance.provenance_case', case_id=case.id) }}"
+                   class="btn btn-sm btn-outline-secondary btn-view-provenance" title="View provenance"
+                   style="{% if step_info.status != 'complete' %}display: none;{% endif %}">
+                    <i class="bi bi-journal-text"></i>
+                </a>
+                {% elif step_info.name.startswith('step4_') %}
+                <a href="{{ url_for('step4.step4_review', case_id=case.id) }}"
+                   class="btn btn-sm btn-outline-secondary btn-view-analysis" title="View analysis"
+                   style="{% if step_info.status != 'complete' %}display: none;{% endif %}">
+                    <i class="bi bi-graph-up"></i>
+                </a>
                 {% endif %}
 
-                {# Run button -- all substeps are now individually dispatchable #}
-                {% if step_info.name in substep_dispatch %}
-                    <button class="btn btn-sm btn-outline-primary btn-run"
-                            data-substep="{{ step_info.name }}"
-                            onclick="runSubstep('{{ step_info.name }}')"
-                            {% if not step_info.can_start %}disabled{% endif %}
-                            title="Run {{ step_info.display_name }}">
-                        <i class="bi bi-play-fill"></i>
-                    </button>
+                {% if current_user.is_authenticated and step_info.name in substep_dispatch %}
+                {# Re-run button (shown when complete) #}
+                <button class="btn btn-sm btn-outline-warning btn-rerun"
+                        data-substep="{{ step_info.name }}"
+                        onclick="rerunSubstep('{{ step_info.name }}')"
+                        title="Re-run {{ step_info.display_name }} (clears downstream)"
+                        style="{% if step_info.status != 'complete' %}display: none;{% endif %}">
+                    <i class="bi bi-arrow-counterclockwise"></i>
+                </button>
+                {# Run button (shown when not complete) #}
+                <button class="btn btn-sm btn-outline-primary btn-run"
+                        data-substep="{{ step_info.name }}"
+                        onclick="runSubstep('{{ step_info.name }}')"
+                        {% if not step_info.can_start or step_info.status == 'complete' %}disabled{% endif %}
+                        title="Run {{ step_info.display_name }}"
+                        style="{% if step_info.status == 'complete' %}display: none;{% endif %}">
+                    <i class="bi bi-play-fill"></i>
+                </button>
                 {% endif %}
             </div>
         </div>
@@ -587,18 +588,28 @@ function updateUI(state) {
             }
         }
 
-        // Update run button disabled state
+        // Toggle run vs rerun buttons based on polled status
         const runBtn = card.querySelector('.btn-run');
-        if (runBtn) {
-            runBtn.disabled = !info.can_start || isRunning;
+        const rerunBtn = card.querySelector('.btn-rerun');
+        if (info.status === 'complete') {
+            if (runBtn) runBtn.style.display = 'none';
+            if (rerunBtn) {
+                rerunBtn.style.display = isRunning ? 'none' : '';
+                rerunBtn.disabled = isRunning;
+            }
+        } else {
+            if (rerunBtn) rerunBtn.style.display = 'none';
+            if (runBtn) {
+                runBtn.style.display = '';
+                runBtn.disabled = !info.can_start || isRunning;
+            }
         }
 
-        // Update re-run button visibility (show only for complete steps)
-        const rerunBtn = card.querySelector('.btn-rerun');
-        if (rerunBtn) {
-            rerunBtn.style.display = (info.status === 'complete' && !isRunning) ? '' : 'none';
-            rerunBtn.disabled = isRunning;
-        }
+        // Toggle view links based on completion
+        const viewProv = card.querySelector('.btn-view-provenance');
+        if (viewProv) viewProv.style.display = info.status === 'complete' ? '' : 'none';
+        const viewAnalysis = card.querySelector('.btn-view-analysis');
+        if (viewAnalysis) viewAnalysis.style.display = info.status === 'complete' ? '' : 'none';
     }
 
     // Update summary stats
@@ -618,7 +629,7 @@ function updateUI(state) {
     const runText = document.getElementById('active-run-text');
     const cancelBtn = document.getElementById('btn-force-cancel');
     if (state.active_run) {
-        runStatus.style.display = '';
+        runStatus.style.display = 'flex';
         const step = state.active_run.current_step || 'initializing';
         const dur = Math.round(state.active_run.duration_seconds || 0);
         runText.textContent = step + ' (' + dur + 's)';
