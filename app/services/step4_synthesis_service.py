@@ -153,6 +153,18 @@ def run_step4_synthesis(
         result.stages_completed.append('PROVISIONS')
 
         # =====================================================================
+        # STEP 2B: Precedents
+        # =====================================================================
+        notify('PRECEDENTS', 'Extracting precedent case references')
+        precedents_result = _run_precedents(case_id, llm_client)
+        if precedents_result.get('error'):
+            result.error = f"Precedents failed: {precedents_result.get('error')}"
+            return result
+        if precedents_result.get('skipped'):
+            notify('PRECEDENTS', f"Skipped: {precedents_result.get('reason', 'no sections')}")
+        result.stages_completed.append('PRECEDENTS')
+
+        # =====================================================================
         # STEP 2C: Q&C Unified
         # =====================================================================
         notify('QC', 'Extracting questions and conclusions')
@@ -219,6 +231,92 @@ def run_step4_synthesis(
         result.error = str(e)
         result.duration_seconds = (datetime.now() - start_time).total_seconds()
         return result
+
+
+# Mapping from PSM substep names to internal runner functions.
+# Each value is (function_name, needs_llm_client, needs_entity_helper).
+SUBSTEP_RUNNERS = {
+    'step4_provisions':     ('_run_provisions',     True, True),
+    'step4_precedents':     ('_run_precedents',     True, False),
+    'step4_qc':             ('_run_qc_unified',     True, True),
+    'step4_transformation': ('_run_transformation', True, True),
+    'step4_rich_analysis':  ('_run_rich_analysis',  True, False),
+    'step4_phase3':         ('_run_phase3',         True, False),
+    'step4_phase4':         ('_run_phase4',         True, False),
+}
+
+
+def run_step4_substep(
+    case_id: int,
+    substep: str,
+    progress_callback: Optional[Callable[[str, str], None]] = None,
+) -> Dict[str, Any]:
+    """Run a single Step 4 sub-phase for a case.
+
+    Args:
+        case_id: Case ID
+        substep: PSM substep name (e.g. 'step4_provisions', 'step4_qc')
+        progress_callback: Optional callback(stage, message)
+
+    Returns:
+        Dict with results from the sub-phase, or {'error': '...'} on failure.
+    """
+    if substep not in SUBSTEP_RUNNERS:
+        return {'error': f'Unknown Step 4 substep: {substep}'}
+
+    func_name, needs_llm, needs_entities = SUBSTEP_RUNNERS[substep]
+    runner = globals()[func_name]
+
+    def notify(stage: str, message: str):
+        logger.info(f"[Step4Substep] {stage}: {message}")
+        if progress_callback:
+            try:
+                progress_callback(stage, message)
+            except Exception as e:
+                logger.warning(f"Progress callback failed: {e}")
+
+    case = Document.query.get(case_id)
+    if not case:
+        return {'error': f'Case {case_id} not found'}
+
+    kwargs = {'case_id': case_id}
+
+    if needs_llm:
+        llm_client = get_llm_client()
+        if not llm_client:
+            return {'error': 'LLM client not available'}
+        kwargs['llm_client'] = llm_client
+
+    if needs_entities:
+        kwargs['get_all_case_entities'] = _get_all_case_entities
+
+    notify(substep.upper(), f'Starting {substep} for case {case_id}')
+    result = runner(**kwargs)
+    notify(substep.upper(), f'Completed {substep}')
+    return result
+
+
+def _get_all_case_entities(case_id: int) -> dict:
+    """Get all case entities keyed by type. Shared helper for sub-phases."""
+    entity_type_map = {
+        'roles': 'Roles',
+        'states': 'States',
+        'resources': 'Resources',
+        'principles': 'Principles',
+        'obligations': 'Obligations',
+        'constraints': 'Constraints',
+        'capabilities': 'Capabilities',
+        'actions': 'actions',
+        'events': 'events'
+    }
+    entities = {}
+    for key, db_type in entity_type_map.items():
+        entities[key] = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            entity_type=db_type,
+            storage_type='individual'
+        ).all()
+    return entities
 
 
 # =============================================================================
@@ -400,6 +498,113 @@ def _run_provisions(case_id: int, llm_client, get_all_case_entities) -> dict:
         logger.error(f"[Step4Synthesis] Provisions error: {e}")
         import traceback
         traceback.print_exc()
+        return {'error': str(e)}
+
+
+def _run_precedents(case_id: int, llm_client) -> dict:
+    """Extract precedent case references cited in board discussion."""
+    from app.routes.scenario_pipeline.step4.precedents import (
+        PRECEDENT_EXTRACTION_PROMPT, _update_cited_cases
+    )
+    from app.utils.llm_utils import streaming_completion
+    from model_config import ModelConfig
+
+    try:
+        case = Document.query.get(case_id)
+        if not case:
+            return {'error': f'Case {case_id} not found'}
+
+        sections_dual = case.doc_metadata.get('sections_dual', {}) if case.doc_metadata else {}
+        case_text_parts = []
+        for section_key in ['facts', 'discussion', 'question', 'conclusion']:
+            section_data = sections_dual.get(section_key, {})
+            text = section_data.get('text', '') if isinstance(section_data, dict) else str(section_data)
+            if text:
+                case_text_parts.append(f"=== {section_key.upper()} ===\n{text}")
+
+        if not case_text_parts:
+            return {'precedents_count': 0, 'skipped': True, 'reason': 'No case sections'}
+
+        case_text = '\n\n'.join(case_text_parts)
+        prompt = PRECEDENT_EXTRACTION_PROMPT.format(case_text=case_text)
+
+        raw_response = streaming_completion(
+            llm_client, model=ModelConfig.get_claude_model("default"),
+            max_tokens=4096, prompt=prompt
+        )
+
+        # Parse JSON using shared utility
+        from app.utils.llm_json_utils import parse_json_response as parse_json
+        precedents = parse_json(raw_response, context='precedent_extraction', strict=True)
+        if not isinstance(precedents, list):
+            precedents = []
+
+        # Resolve case numbers to internal IDs
+        for p in precedents:
+            case_number = p.get('caseNumber', '')
+            if case_number:
+                try:
+                    resolved = Document.query.filter(
+                        Document.doc_metadata['case_number'].astext == case_number
+                    ).first()
+                    p['internalCaseId'] = resolved.id if resolved else None
+                    p['resolved'] = resolved is not None
+                except Exception:
+                    p['internalCaseId'] = None
+                    p['resolved'] = False
+
+        # Store entities
+        session_id = str(uuid.uuid4())
+        for p in precedents:
+            rdf_entity = TemporaryRDFStorage(
+                case_id=case_id,
+                extraction_session_id=session_id,
+                extraction_type='precedent_case_reference',
+                storage_type='individual',
+                entity_type='precedent_references',
+                entity_label=p.get('caseCitation', 'Unknown Case'),
+                entity_definition=p.get('citationContext', ''),
+                rdf_json_ld={
+                    '@type': 'proeth-case:PrecedentCaseReference',
+                    'caseCitation': p.get('caseCitation', ''),
+                    'caseNumber': p.get('caseNumber', ''),
+                    'citationContext': p.get('citationContext', ''),
+                    'citationType': p.get('citationType', 'supporting'),
+                    'principleEstablished': p.get('principleEstablished', ''),
+                    'relevantExcerpts': p.get('relevantExcerpts', []),
+                    'internalCaseId': p.get('internalCaseId'),
+                    'resolved': p.get('resolved', False)
+                },
+                is_selected=True
+            )
+            db.session.add(rdf_entity)
+
+        # Save extraction prompt
+        extraction_prompt = ExtractionPrompt(
+            case_id=case_id,
+            concept_type='precedent_case_reference',
+            step_number=4,
+            section_type='synthesis',
+            prompt_text=prompt,
+            llm_model=ModelConfig.get_claude_model("default"),
+            extraction_session_id=session_id,
+            raw_response=raw_response,
+            results_summary=json.dumps({'total_precedents': len(precedents)})
+        )
+        db.session.add(extraction_prompt)
+        db.session.commit()
+
+        logger.info(f"[Step4Synthesis] Stored {len(precedents)} precedent references")
+
+        _update_cited_cases(case_id, precedents)
+
+        return {
+            'precedents_count': len(precedents),
+            'resolved_count': sum(1 for p in precedents if p.get('resolved'))
+        }
+
+    except Exception as e:
+        logger.error(f"[Step4Synthesis] Precedents error: {e}", exc_info=True)
         return {'error': str(e)}
 
 

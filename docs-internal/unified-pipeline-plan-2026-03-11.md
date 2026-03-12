@@ -1,8 +1,8 @@
 # Unified Case Pipeline -- Implementation Plan
 
 **Started**: 2026-03-11
-**Branch**: `unified-pipeline` (branch from `development` after DB backup)
-**Depends on**: Refactoring Phases 1-4b complete (clean imports, centralized config, service extraction)
+**Branch**: `unified-pipeline` (from `development`)
+**DB backup**: `/tmp/ai_ethical_dm_pre_pipeline_20260311.sql` (469MB)
 
 ---
 
@@ -35,604 +35,31 @@ Replace the development-era step extraction pages (`/scenario_pipeline/case/<id>
 | 2-review | Code review fixes | DONE | 9c6f929 | Terminal status, stale runs, prerequisites |
 | 3 | Interactive mode | DONE | -- | WAITING_REVIEW status, continue/stop endpoints, review bar |
 | 3-review | Code review fixes | DONE | -- | 4 issues: stuck run, stale detection, step name, review bar |
-| 4 | Step 4 substep expansion | NOT STARTED | -- | 7 individual Step 4 phases |
-| 5 | Rollback and re-extraction | NOT STARTED | -- | Cascade clearing, ordering constraints |
+| 4-prereq | Fix stuck RUNNING detection | DONE | -- | 2.5h auto-fail + force-cancel endpoint + UI button |
+| 4 | Step 4 substep expansion | DONE | -- | 7 substeps dispatchable, STEP4_MONOLITHIC empty, 11 new tests |
+| 5 | Rollback and re-extraction | DONE | -- | Cascade clearing service, rerun endpoint + UI, 24 new tests |
 | 6 | Multi-case overview | NOT STARTED | -- | Case list pipeline status enhancement |
 | 7 | URL migration + dead code removal | NOT STARTED | -- | Remove old step pages, rewire nav |
 
 ---
 
-## Implementation Review Findings (2026-03-11)
-
-Pre-implementation code review of `PipelineStateManager`, `PipelineStatusService`, Celery tasks, and LangGraph usage. Findings organized by severity.
-
-### PSM Blocker 1: Section-level indistinguishability
-
-`pass1_facts` and `pass1_discussion` both define identical tasks (`roles`, `states`, `resources`) with the same `artifact_types`. The `check_task_complete()` method queries `temporary_rdf_storage.extraction_type` -- but both sections produce entities with the same extraction_type values (`roles`, `states`, `resources`). There is no `section_type` column on `temporary_rdf_storage`.
-
-The only section discriminator is `extraction_prompts.section_type` (values: `facts`, `discussion`). `PipelineStatusService._check_extraction_step()` already uses this approach (lines 108-120): it queries `extraction_prompts` grouped by `section_type` and checks which sections have prompts.
-
-**Fix**: Add section-aware completion checking to PSM. Replace the current artifact-only check with a hybrid approach: query `extraction_prompts.section_type` for section-level completion (same approach as `PipelineStatusService`), and query `temporary_rdf_storage` for artifact counts. The `WorkflowStepDefinition` needs a `section_type` field (e.g., `'facts'` or `'discussion'` or `None` for steps that have no section split).
-
-### PSM Blocker 2: Missing reconciliation and commit steps
-
-`WORKFLOW_DEFINITION` defines 7 entries: `pass1_facts`, `pass1_discussion`, `pass2_facts`, `pass2_discussion`, `pass3`, `step4`, `step5`. Three substeps are completely absent:
-
-- `reconcile` -- checked by `PipelineStatusService._check_reconcile()` via `ReconciliationRun` model, but not in PSM
-- `commit_extraction` -- checked via `is_published=true` count in `temporary_rdf_storage`, but not in PSM
-- `commit_synthesis` -- not tracked anywhere currently
-
-Step 4's prerequisites list `['pass3']`, but should require reconciliation + commit. The pipeline jumps from temporal extraction directly to case analysis, skipping entity reconciliation and OntServe commit.
-
-**Fix**: Add `reconcile`, `commit_extraction`, `commit_synthesis` as top-level entries in `WORKFLOW_DEFINITION`. Each uses a custom completion check (not the standard artifact_types approach):
-
-- `reconcile`: check for `ReconciliationRun` record OR `is_published=true` count > 0 (backward compat for cases committed before reconciliation feature, matching PSS logic at `_check_reconcile()` lines 178-179)
-- `commit_extraction`: check for `is_published=true` count > 0
-- `commit_synthesis`: check for Step 4 entities with `is_published=true`
-
-This requires extending `TaskDefinition` with an optional `check_function` field for custom completion logic, or adding `check_type` enum (`'artifacts'`, `'reconciliation_run'`, `'published_entities'`, `'extraction_prompts'`).
-
-### PSM Blocker 3: Narrative always-complete bug
-
-The `narrative` TaskDefinition has `artifact_types=[]` and `min_artifacts=0`:
-
-```python
-TaskDefinition('narrative', 'Narrative Construction',
-               [], 'phase4_narrative',  # Check prompt, not entities
-               prerequisites=['decision_points'], min_artifacts=0)
-```
-
-`check_task_complete()` computes `total_artifacts = sum(counts.get(atype, 0) for atype in [])` which is 0, then `0 >= 0` is `True`. The narrative task reports as complete even if it has never been run.
-
-The comment says "Check prompt, not entities" but no prompt check is implemented. `PipelineStatusService._check_step4()` correctly checks `extraction_prompts WHERE concept_type LIKE 'phase4%'`.
-
-**Fix**: Implement a prompt-based completion check for narrative. Either:
-- (a) Add a `check_type = 'extraction_prompts'` path that queries `extraction_prompts` for the `prompt_concept_type`, or
-- (b) Set `min_artifacts=1` and add a synthetic artifact type like `'phase4_narrative'` that maps to the prompt check
-
-Option (a) is cleaner because it extends to other prompt-based tasks.
-
-### Additional Issue 1: `transformation_classification` untracked
-
-The `transformation_classification` entity type exists in `PipelineStatusService.STEP4_PHASE2_TYPES` and is produced by the extraction pipeline, but has no corresponding `TaskDefinition` in PSM. The substep table includes it as step 11 (`step4_transformation`), but PSM's current `step4` block jumps from Q&C directly to `rich_analysis`.
-
-**Fix**: Add a `transformation` TaskDefinition under step4, with prerequisites `['questions', 'conclusions']` and artifact_types `['transformation_classification']`.
-
-### Additional Issue 2: `to_dict()` missing artifact counts
-
-`PipelineState.to_dict()` includes task completion booleans but not artifact counts. The pipeline view template needs counts for badges (e.g., "12 roles", "5 obligations").
-
-**Fix**: Add `artifact_counts` to the task dict in `to_dict()`. Use the already-cached `get_artifact_counts()` result.
-
-### Additional Issue 3: `precedent_case_reference` missing
-
-No `precedents` TaskDefinition exists in PSM's `step4` block. The substep table lists it as step 9 (`step4_precedents`), and `PipelineStatusService.STEP4_PHASE2_TYPES` includes it, but PSM skips it entirely.
-
-**Fix**: Add a `precedents` TaskDefinition with artifact_types `['precedent_case_reference']` and prerequisites `['provisions']`.
-
----
-
-## Technology Observations
-
-### Celery + Flask (confirmed correct)
-
-The existing `celery_config.py` patterns are correct per current Flask documentation:
-- `ContextTask` wrapping all tasks in `app.app_context()` -- standard pattern
-- `worker_prefetch_multiplier=1` -- correct for long-running tasks
-- Redis on `localhost:6379/1` (DB 1 to avoid OntExtract conflicts) -- fine
-- `task_time_limit=7200`, `task_soft_time_limit=6000` -- appropriate for extraction tasks
-
-`self.update_state(state='PROGRESS', meta={...})` is the documented Celery pattern for custom progress reporting. The project stores progress in `PipelineRun` (PostgreSQL) instead, which is more durable than Redis-backed `AsyncResult` metadata. No changes needed.
-
-### LangGraph (observation, not blocking)
-
-Current usage (v0.4.7): linear `StateGraph` with 7 stages for Step 3 temporal dynamics, compiled without checkpointer (`builder.compile()` with no arguments). This works but does not leverage:
-
-- `interrupt()` -- pauses graph execution for human-in-the-loop review. Would align naturally with the interactive pipeline mode (pause after each Step 4 sub-phase for review).
-- `Command(resume=...)` -- resumes from an interrupt point with new data. Would support the "Continue" button in interactive mode.
-- `MemorySaver` / `SqliteSaver` / `PostgresSaver` -- persistent checkpointing. Would allow recovery from worker crashes mid-extraction.
-
-**Decision**: The current linear graph is adequate for Phase 1-3 of this plan. Checkpointing and interrupt support would be valuable for Phase 3 (interactive mode) and Phase 4 (Step 4 substep expansion), but adding them is a separate enhancement, not a prerequisite. Flag for Phase 3 design review.
-
-### Execution Path Consolidation
-
-Three execution paths currently exist:
-1. **SSE streaming** (`step*_enhanced.py`): user stays on page, receives events via EventSource
-2. **Blocking POST** (`step1.py`, `step2.py`): user stays on page, Flask blocks until extraction completes
-3. **Celery tasks** (`pipeline_tasks.py`): background execution, user does not need to stay on page
-
-After this plan, only path 3 survives. The consolidation happens gradually:
-- Phases 1-5: build pipeline view using Celery tasks, old pages still functional
-- Phase 7: remove old pages and SSE/blocking handlers
-
-Step 4 has a dual implementation:
-- `step4_orchestration_service.py` (1,413 lines) -- HTTP/SSE path, used by UI streaming
-- `step4_synthesis_service.py` (976 lines) -- Celery path, has `progress_callback`
-
-After Phase 4 of this plan, `step4_synthesis_service.py` becomes the sole Step 4 execution path. `step4_orchestration_service.py` is retired in Phase 7.
-
----
-
-## Architecture Decisions
-
-### AD-1: `PipelineStateManager` is the authoritative state source (after blocker fixes)
-
-Two state managers exist: `PipelineStatusService` (used by current UI) and `PipelineStateManager` (newer, unused by UI). The state manager is the better foundation because:
-
-- It defines explicit `WorkflowStepDefinition` with task-level prerequisites
-- It has `TaskDefinition` with `artifact_types`, `prerequisites`, and `min_artifacts`
-- It has a `PipelineState` class with `can_start()` and `get_blockers()` methods
-- It supports a `progress_callback` pattern (NeMo-compatible)
-
-**However**: PSM currently has 3 blockers and 3 additional issues (see Implementation Review Findings above). Phase 1a fixes these before the pipeline view can be built. Phase 1b validates that the fixed PSM agrees with PSS on known cases.
-
-`PipelineStatusService` remains available for backward compatibility (case listing bulk queries via `get_bulk_simple_status()`).
-
-### AD-2: Celery tasks are the only execution path
-
-Currently three paths exist: SSE streaming (UI), blocking POST (legacy), Celery tasks. After this work:
-
-- **Celery tasks** are the only way to run extraction (background, with progress tracking)
-- **SSE streaming handlers** are removed (`step1_enhanced.py`, `step2_enhanced.py`, `step3_enhanced.py`)
-- **Blocking POST handlers** are removed (extraction functions in `step1.py`, `step2.py`)
-- **`run_pipeline.py` script** is removed (called SSE endpoints via HTTP)
-
-The pipeline view dispatches Celery tasks and polls for status. No SSE.
-
-### AD-3: `step4_synthesis_service.py` is the unified Step 4 entry point
-
-The Step 4 execution currently has two paths: `step4_orchestration_service.py` (HTTP/SSE) and `step4_synthesis_service.py` (Celery). After this work:
-
-- `step4_synthesis_service.py` becomes the sole Step 4 execution path (already has `progress_callback` support)
-- `step4_orchestration_service.py` can be retired or merged
-- `step4/run_all.py` becomes a thin route (or is removed if pipeline view handles all dispatch)
-
-### AD-4: Step 4 review pages stay, re-parented under `/cases/<id>/`
-
-The Step 4 analytical/editing views (`step4_entities.html`, `step4_review.html` with 8 tabs) are not extraction pages. They are inspection and curation tools. They stay as-is but move to `/cases/<id>/review` (or similar) and are linked from the pipeline view.
-
-### AD-5: Pipeline state is data-driven, pipeline mode is run-driven
-
-- **What's complete** is always derived from actual artifacts in `temporary_rdf_storage`, `extraction_prompts`, and `ReconciliationRun` (via `PipelineStateManager`)
-- **What mode we're in** (automated vs interactive) is stored on the `PipelineRun` record
-- A case can have multiple `PipelineRun` records (history). The pipeline view shows current state regardless of how it got there.
-
----
-
-## Substep Definitions
-
-The complete pipeline has 15 substeps. The current `WORKFLOW_DEFINITION` covers 6 steps with significant gaps (see Implementation Review Findings). Phase 1a extends it to the full 15.
-
-| # | Substep ID | Display Name | Prerequisites | Artifacts / Check | Section |
-|---|-----------|-------------|---------------|-------------------|---------|
-| 1 | `pass1_facts` | Pass 1 -- Facts | -- | roles, states, resources | facts |
-| 2 | `pass1_discussion` | Pass 1 -- Discussion | pass1_facts | roles, states, resources | discussion |
-| 3 | `pass2_facts` | Pass 2 -- Facts | pass1_facts | principles, obligations, constraints, capabilities | facts |
-| 4 | `pass2_discussion` | Pass 2 -- Discussion | pass2_facts | principles, obligations, constraints, capabilities | discussion |
-| 5 | `pass3` | Pass 3 -- Temporal | pass2_facts | temporal_dynamics_enhanced | -- |
-| 6 | `reconcile` | Reconcile | pass3 | ReconciliationRun record | -- |
-| 7 | `commit_extraction` | Commit Entities | reconcile | is_published=true count > 0 | -- |
-| 8 | `step4_provisions` | Provisions | commit_extraction | code_provision_reference | -- |
-| 9 | `step4_precedents` | Precedents | step4_provisions | precedent_case_reference | -- |
-| 10 | `step4_qc` | Questions & Conclusions | step4_provisions | ethical_question, ethical_conclusion | -- |
-| 11 | `step4_transformation` | Transformation | step4_qc | transformation_classification | -- |
-| 12 | `step4_rich_analysis` | Rich Analysis | step4_transformation | causal_normative_link, question_emergence, resolution_pattern | -- |
-| 13 | `step4_phase3` | Decision Points | step4_rich_analysis | canonical_decision_point | -- |
-| 14 | `step4_phase4` | Narrative | step4_phase3 | extraction_prompts LIKE 'phase4%' | -- |
-| 15 | `commit_synthesis` | Commit Synthesis | step4_phase4 | Step 4 entities with is_published=true | -- |
-
-**Section column**: Steps 1-2 have facts/discussion variants. `PipelineStateManager` must use `extraction_prompts.section_type` to distinguish them (see Blocker 1). Steps 3+ have no section split.
-
-**Parallelism**: `step4_precedents` and `step4_qc` can run in parallel (both depend only on provisions). The task ordering above is the minimum dependency graph, not necessarily sequential.
-
----
-
-## Phase 1: Pipeline View (Read-Only)
-
-**Goal**: Create the per-case pipeline page showing current extraction state. No execution capability yet -- purely a status dashboard derived from existing data.
-
-### 1a: Fix PipelineStateManager blockers
-
-**File**: `app/services/pipeline_state_manager.py`
-
-Six changes required, in order:
-
-**1a-i: Add `section_type` to `WorkflowStepDefinition`**
-
-```python
-@dataclass
-class WorkflowStepDefinition:
-    name: str
-    display_name: str
-    tasks: List[TaskDefinition]
-    prerequisites: List[str] = field(default_factory=list)
-    route_name: str = ""
-    section_type: Optional[str] = None   # 'facts', 'discussion', or None
-    step_group: str = ""                 # visual grouping for UI
-```
-
-Then set `section_type='facts'` on `pass1_facts`, `pass2_facts` and `section_type='discussion'` on `pass1_discussion`, `pass2_discussion`.
-
-**1a-ii: Add `check_type` to `TaskDefinition`**
-
-```python
-class CheckType(Enum):
-    ARTIFACTS = "artifacts"                # Default: count in temporary_rdf_storage
-    EXTRACTION_PROMPTS = "extraction_prompts"  # Check extraction_prompts table
-    RECONCILIATION_RUN = "reconciliation_run"  # Check ReconciliationRun model
-    PUBLISHED_ENTITIES = "published_entities"  # Check is_published=true count
-
-@dataclass
-class TaskDefinition:
-    name: str
-    display_name: str
-    artifact_types: List[str]
-    prompt_concept_type: str
-    prerequisites: List[str] = field(default_factory=list)
-    min_artifacts: int = 1
-    check_type: CheckType = CheckType.ARTIFACTS
-```
-
-**1a-iii: Rewrite `check_task_complete()` to dispatch on `check_type`**
-
-For `ARTIFACTS` (default): current behavior (count entities in `temporary_rdf_storage`).
-
-For `EXTRACTION_PROMPTS`: query `extraction_prompts` WHERE `case_id` AND `concept_type` matches `prompt_concept_type`. Used by narrative task.
-
-For `RECONCILIATION_RUN`: query `ReconciliationRun` WHERE `case_id`. Used by reconcile task.
-
-For `PUBLISHED_ENTITIES`: query `temporary_rdf_storage` WHERE `case_id` AND `is_published=true`. The `extraction_type` filter depends on whether this is extraction commit (all types) or synthesis commit (Step 4 types only). Add an optional `published_types` field to `TaskDefinition`.
-
-**Section-aware completion**: When the parent `WorkflowStepDefinition` has a `section_type`, the ARTIFACTS check additionally verifies that `extraction_prompts` has entries with matching `section_type` for the step's concept types. This mirrors the approach in `PipelineStatusService._check_extraction_step()` (lines 108-120).
-
-**1a-iv: Flatten `WORKFLOW_DEFINITION` to 15 top-level steps**
-
-**Structural change**: The current PSM uses a two-level hierarchy (`WorkflowStepDefinition` -> `TaskDefinition`). The pipeline view needs 15 independently addressable substeps. Rather than trying to encode the 15 substeps across mixed hierarchies (some top-level, some nested), flatten to 15 top-level `WorkflowStepDefinition` entries, each containing exactly one `TaskDefinition`.
-
-This changes the public API:
-- **Before**: `state.can_start('step4', 'questions')` (step + task)
-- **After**: `state.can_start('step4_qc')` (step only, task parameter unused)
-
-The `task` parameter on `can_start()`, `is_complete()`, `get_blockers()` becomes optional and rarely used. For steps with one task, `check_step_complete()` and `check_task_complete()` produce the same result. Cross-step prerequisites use step names (e.g., `prerequisites=['step4_provisions']`), not the old mixed `step4.provisions` addressing.
-
-Steps like `pass1_facts` retain multiple sub-tasks for display purposes (roles, states, resources as individual badges), but the step-level completion check is what matters for prerequisite enforcement.
-
-**Existing callers**: Search the codebase for `can_start(`, `is_complete(`, `get_blockers(`, `check_task_complete(`, `check_step_complete(` to find all call sites. Update any that use the two-argument form. The PSM docstring examples also need updating.
-
-Add `reconcile`, `commit_extraction`, `commit_synthesis` as top-level workflow steps. Break `step4` into 7 individual workflow steps. Fix `narrative` to use `check_type=CheckType.EXTRACTION_PROMPTS`.
-
-Full updated definition (15 entries):
-
-- `pass1_facts` (section_type='facts', step_group='Pass 1')
-- `pass1_discussion` (section_type='discussion', step_group='Pass 1')
-- `pass2_facts` (section_type='facts', step_group='Pass 2')
-- `pass2_discussion` (section_type='discussion', step_group='Pass 2')
-- `pass3` (step_group='Pass 3')
-- `reconcile` (step_group='Reconcile & Commit', check_type=RECONCILIATION_RUN)
-- `commit_extraction` (step_group='Reconcile & Commit', check_type=PUBLISHED_ENTITIES)
-- `step4_provisions` (step_group='Case Analysis', prerequisites=['commit_extraction'])
-- `step4_precedents` (step_group='Case Analysis', prerequisites=['step4_provisions'])
-- `step4_qc` (step_group='Case Analysis', prerequisites=['step4_provisions'])
-- `step4_transformation` (step_group='Case Analysis', prerequisites=['step4_qc'])
-- `step4_rich_analysis` (step_group='Case Analysis', prerequisites=['step4_transformation'])
-- `step4_phase3` (step_group='Case Analysis', prerequisites=['step4_rich_analysis'])
-- `step4_phase4` (step_group='Case Analysis', prerequisites=['step4_phase3'], check_type=EXTRACTION_PROMPTS)
-- `commit_synthesis` (step_group='Publish', prerequisites=['step4_phase4'], check_type=PUBLISHED_ENTITIES)
-
-**1a-v: Add artifact counts to `to_dict()`**
-
-Include per-task artifact counts from the already-cached `get_artifact_counts()` result. The template uses these for badges.
-
-**1a-vi: Remove `step5` from `WORKFLOW_DEFINITION`**
-
-Step 5 (Interactive Scenario) is not part of the extraction pipeline managed by this dashboard. It is a separate feature accessed independently.
-
-**Verification**:
-```bash
-cd /home/chris/onto/proethica
-PYTHONPATH=/home/chris/onto:$PYTHONPATH python -c "
-from app import create_app
-app = create_app()
-with app.app_context():
-    from app.services.pipeline_state_manager import PipelineStateManager
-    m = PipelineStateManager()
-    s = m.get_pipeline_state(7)
-    d = s.to_dict()
-    for step, info in d['steps'].items():
-        print(f'{step}: {info[\"status\"]}')
-"
-```
-
-Expected: case 7 (fully extracted + synthesized) shows all 15 substeps as `complete`.
-
-### 1b: Validate PSM vs PSS agreement
-
-**Goal**: Confirm the fixed PSM produces correct state by cross-referencing against the battle-tested `PipelineStatusService`.
-
-**Method**: Write a validation script (or test) that runs both `PipelineStateManager.get_pipeline_state()` and `PipelineStatusService.get_step_status()` for a set of known cases and compares results:
-
-- Case 7: fully extracted + synthesized (expect all complete)
-- Case 4: fully extracted + synthesized (second demo case)
-- A partially extracted case (if available)
-- A case with no extraction (expect all not_started)
-
-**Comparison mapping** (PSS fields that have PSM counterparts):
-
-| PSS field | PSM substep | Notes |
-|-----------|-------------|-------|
-| `step1.facts_complete` | `pass1_facts` complete | |
-| `step1.discussion_complete` | `pass1_discussion` complete | |
-| `step2.facts_complete` | `pass2_facts` complete | |
-| `step2.discussion_complete` | `pass2_discussion` complete | |
-| `step3.complete` | `pass3` complete | |
-| `reconcile.complete` | `reconcile` complete | PSS uses OR (ReconciliationRun OR committed>0); PSM must replicate this |
-| `reconcile.committed` | `commit_extraction` complete | |
-| `step4.phase2_complete` | `step4_transformation` AND `step4_rich_analysis` both complete | PSS checks both `transformation_classification` and `rich_analysis` core types |
-| `step4.phase3_complete` | `step4_phase3` complete | |
-| `step4.phase4_complete` | `step4_phase4` complete | |
-
-**Substeps with no PSS counterpart** (verify via direct DB queries instead):
-
-| PSM substep | Verification method |
-|-------------|-------------------|
-| `step4_provisions` | `SELECT COUNT(*) FROM extraction_prompts WHERE concept_type='code_provision_reference' AND case_id=?` |
-| `step4_precedents` | `SELECT COUNT(*) FROM extraction_prompts WHERE concept_type='precedent_case_reference' AND case_id=?` |
-| `step4_qc` | `SELECT COUNT(*) FROM extraction_prompts WHERE concept_type IN ('ethical_question','ethical_conclusion') AND case_id=?` |
-| `step4_transformation` | `SELECT COUNT(*) FROM extraction_prompts WHERE concept_type='transformation_classification' AND case_id=?` |
-| `commit_synthesis` | `SELECT COUNT(*) FROM temporary_rdf_storage WHERE case_id=? AND is_published=true AND extraction_type IN (Step 4 types)` |
-
-Any disagreement on the mapped fields is a bug in the PSM fix. Resolve before proceeding. Disagreements on unmapped fields require manual DB inspection.
-
-**Output**: A test in `tests/test_pipeline_state_manager.py` that can be re-run after future changes.
-
-### 1c: Create pipeline route
-
-**File**: `app/routes/cases/pipeline.py` (new)
-
-Register under the cases blueprint at `/cases/<int:case_id>/pipeline`.
-
-```python
-@bp.route('/<int:case_id>/pipeline')
-def case_pipeline(case_id):
-    case = Document.query.get_or_404(case_id)
-    manager = PipelineStateManager()
-    state = manager.get_pipeline_state(case_id)
-    return render_template('cases/pipeline.html', case=case, pipeline_state=state.to_dict())
-```
-
-Also add an API endpoint for AJAX status polling:
-```python
-@bp.route('/<int:case_id>/pipeline/status')
-def case_pipeline_status(case_id):
-    manager = PipelineStateManager()
-    state = manager.get_pipeline_state(case_id)
-    return jsonify(state.to_dict())
-```
-
-Register in `app/routes/cases/__init__.py`.
-
-### 1d: Create pipeline template
-
-**File**: `app/templates/cases/pipeline.html` (new)
-
-Progressive substep boxes grouped by `step_group`. Each box shows:
-- Substep display name
-- Status indicator (color-coded: gray=pending, green=complete, red=error)
-- Entity count badge (for complete steps, from `artifact_counts` in state dict)
-- Link to provenance page (for complete extraction steps)
-- Link to review page (for complete Step 4 sub-phases)
-
-Layout: Horizontal flow within groups, groups stacked vertically. Use the same Bootstrap card/badge patterns as the existing case detail and pipeline dashboard. Dependency arrows between groups (CSS-only, no JS library).
-
-No execution controls yet -- read-only. The "Run" buttons come in Phase 2.
-
-### 1e: Link from case detail page
-
-**File**: `app/templates/case_detail.html`
-
-Add a "Pipeline" link/button near the existing `_case_pipeline_status.html` component. Both coexist during transition; the old component is removed in Phase 7.
-
-### Phase 1 Verification
-
-- Pipeline page loads for case 7 (demo case, fully extracted + synthesized) -- all 15 substeps green
-- Pipeline page loads for a case with no extraction -- all 15 substeps gray
-- Pipeline page loads for a partially extracted case -- correct mix of green/gray
-- PSM and PSS agree on all test cases (Phase 1b test passes)
-- Status API endpoint returns correct JSON
-- All existing tests still pass (535+ passed, 0 failed)
-
-### Phase 1 Risk Assessment
-
-| Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|------------|
-| Section-aware check misidentifies facts/discussion | Medium | High | Phase 1b cross-validation against PSS |
-| Reconciliation check false positive (backward compat path) | Low | Medium | PSS already handles this case; mirror logic |
-| Narrative prompt check returns wrong concept_type | Low | Medium | Verify prompt_concept_type against actual DB values |
-| New route conflicts with existing `/cases/<id>/...` routes | Low | Low | Verified no conflicts in `cases/__init__.py` |
-| Template rendering slow (many DB queries per substep) | Medium | Low | PSM already batches artifact counts via single GROUP BY query; section check adds one more query |
-| `to_dict()` returns stale cache after extraction | Low | Medium | `invalidate_cache()` called after Celery task completion (already in pipeline_tasks.py) |
-
----
-
-## Phase 2: Single-Step Execution (Automated Mode)
-
-**Goal**: Add execution controls. User can click "Run" on any available substep (or "Run All") to dispatch a Celery task.
-
-### Phase 2 Pre-Requisite: Backfill `is_published` for old cases
-
-Cases committed before the `auto_commit_service` tracked `is_published` (all batch campaign cases, pre-entity-versioning cases) have `is_published=false` in `temporary_rdf_storage`. PSM correctly reports `commit_extraction` as `not_started`, which blocks all Step 4 substeps via prerequisites. This must be fixed before Phase 2 or the Run buttons will be disabled on all existing cases.
-
-**Fix**: Write a one-time script that sets `is_published=true` on entities for cases that have `CaseOntologyCommit` records. This fixes the data rather than adding workaround code to the PSM.
-
-```sql
--- Identify affected cases
-SELECT DISTINCT t.case_id, COUNT(*) as entity_count
-FROM temporary_rdf_storage t
-JOIN case_ontology_commits c ON t.case_id = c.case_id
-WHERE t.is_published = false
-GROUP BY t.case_id;
-
--- Backfill
-UPDATE temporary_rdf_storage
-SET is_published = true
-WHERE case_id IN (SELECT DISTINCT case_id FROM case_ontology_commits)
-AND is_published = false;
-```
-
-Verify with PSM after backfill: `commit_extraction` should show `complete` for all previously committed cases.
-
-### 2a: Substep-level Celery task dispatch
-
-**File**: `app/tasks/pipeline_tasks.py`
-
-**Dispatcher mapping table** (not a generic function, because task signatures vary):
-
-| PSM substep | Celery task | Extra args |
-|---|---|---|
-| `pass1_facts` | `run_step1_task` | `section_type='facts'` |
-| `pass1_discussion` | `run_step1_task` | `section_type='discussion'` |
-| `pass2_facts` | `run_step2_task` | `section_type='facts'` |
-| `pass2_discussion` | `run_step2_task` | `section_type='discussion'` |
-| `pass3` | `run_step3_task` | -- |
-| `reconcile` | `run_reconcile_task` | -- |
-| `commit_extraction` | `run_commit_task` | `step_name='commit_extraction'` |
-| `step4_provisions` | `run_step4_task` | (**runs all of Step 4**) |
-| `step4_precedents` through `step4_phase4` | **No individual tasks** | Disabled until Phase 4 |
-| `commit_synthesis` | `run_commit_task` | `step_name='commit_synthesis'` |
-
-**Step 4 constraint**: Individual Step 4 substep execution requires decomposing `run_step4_synthesis()`, which is Phase 4 work. In Phase 2, the 7 Step 4 substeps are displayed individually (status from Phase 1) but executed as a single unit. Only `step4_provisions` shows a "Run" button; clicking it dispatches `run_step4_task` which runs all 7 sub-phases. The other 6 Step 4 substeps show "Part of Step 4" instead of a Run button.
-
-**PipelineRun lifecycle**: Each UI dispatch creates a new `PipelineRun` record. The dispatcher:
-1. Creates `PipelineRun(case_id=case_id, config={'substep': substep_id})`
-2. Calls the appropriate Celery task with `run_id`
-3. Returns `run_id` + `celery_task_id` to the frontend
-
-For "Run All", one `PipelineRun` is created and `run_full_pipeline_task` is dispatched (existing behavior).
-
-**New task**: `dispatch_substep_task(case_id, substep_id)` -- a Celery task that:
-1. Validates `substep_id` against `WORKFLOW_DEFINITION`
-2. Checks `PipelineStateManager.can_start()` (server-side enforcement)
-3. Creates `PipelineRun`
-4. Dispatches the mapped Celery task via `.apply()` (synchronous within worker)
-5. Marks run complete or failed
-
-### 2b: Execution API endpoints
-
-**File**: `app/routes/cases/pipeline.py`
-
-Add POST endpoints:
-- `POST /cases/<id>/pipeline/run` with `{substep: "pass1_facts"}` -- dispatch single substep
-- `POST /cases/<id>/pipeline/run-all` -- dispatch `run_full_pipeline_task`
-- `GET /cases/<id>/pipeline/status` -- (already from Phase 1c) extended to include active `PipelineRun` state
-
-**Status endpoint enhancement**: The existing status API returns PSM state (what's done). Phase 2 extends it to merge the active `PipelineRun` state (what's running). Logic:
-1. Get PSM state via `to_dict()` (data-driven: what artifacts exist)
-2. Query for active `PipelineRun` (status not in terminal states) for this case
-3. If active run exists, overlay `current_step` onto the PSM state to show which substep is running
-4. Return merged state + `active_run` dict (run_id, status, current_step, duration)
-
-This merging is necessary because PSM only sees completed data, not in-progress extraction. Without the overlay, a running substep would show as `not_started` until extraction completes and artifacts appear.
-
-### 2c: Template execution controls
-
-**File**: `app/templates/cases/pipeline.html`
-
-Add to each substep box:
-- "Run" button (enabled only when `can_start=true` and no active run)
-- Step 4 substeps (except `step4_provisions`): show "Part of Step 4" label instead of Run button
-- "Run All" button at the top (dispatches all remaining in sequence)
-- Status polling (JavaScript `setInterval`, 4-second refresh hitting `/pipeline/status`)
-- Animated stripe on the substep whose `name` matches `active_run.current_step`
-- Error display with retry button (dispatches same substep again)
-- Disable all Run buttons while any run is active for this case
-
-**Polling lifecycle**:
-1. User clicks Run -> POST to `/pipeline/run` -> receive `{run_id, task_id}`
-2. Start polling `/pipeline/status` every 4 seconds
-3. Update substep cards based on merged PSM + active run state
-4. Stop polling when `active_run` is null (run completed or failed)
-
-### Phase 2 Dependencies
-
-- Redis + Celery worker must be running
-- `is_published` backfill completed (see pre-requisite above)
-- Existing `pipeline_tasks.py` functions must work (they do -- tested during batch campaign)
-- Individual step tasks can be called independently (they can -- each takes `run_id` and operates on it)
-
-### Phase 2 Verification
-
-- Backfill script: `commit_extraction` shows `complete` for all previously committed cases
-- Can start a single substep from the UI (pass1_facts on a new case)
-- Substep runs in background, page shows animated progress bar on running step
-- Can click "Run Step 4" on `step4_provisions` and all 7 sub-phases execute
-- "Run All" dispatches full pipeline
-- Ordering is enforced (cannot run step2 before step1 -- button disabled)
-- Server-side enforcement: POST to `/pipeline/run` with unmet prerequisites returns 409
-- PipelineRun record created and updated through completion
-- Error state: failed substep shows error message with retry button
-- No concurrent runs: second Run click while one is active returns 409
-
----
-
-## Phase 3: Interactive Mode
-
-**Goal**: Add interactive mode where the pipeline pauses after each substep for user review.
-
-### Phase 3 Adaptations (from Phase 2 review)
-
-**`config.mode` already exists**: Phase 2 introduced `config.mode` on PipelineRun (`'single'` or `'run_all'`). Phase 3 adds `'interactive'` as a third value. The terminal status pattern in tasks (`if config.mode == 'single': set_status(COMPLETED)`) must also handle `'interactive'` -- interactive runs should NOT auto-set COMPLETED. Instead, they should set `WAITING_REVIEW`.
-
-**`WAITING_REVIEW` must be excluded from stale run cleanup**: `_get_active_run()` auto-fails PENDING/PAUSED runs after 10 minutes. `WAITING_REVIEW` is an intentional pause (the user is reviewing extracted data), not a stale state. Add `WAITING_REVIEW` to the set of statuses excluded from stale detection.
-
-**Prerequisite chain is now strict**: `pass3` requires both `pass2_facts` and `pass2_discussion`. In interactive mode, if a user pauses after `pass2_facts` and skips `pass2_discussion`, the "Continue" button for `pass3` should show the blockers.
-
-**No `mode` column migration needed**: `config` is a JSONB column, so `config.mode` is stored inside the JSON dict without schema changes.
-
-### 3a: Mode toggle and waiting_review state
-
-- Add `'interactive'` as a value for `config.mode` on `PipelineRun`
-- Add `WAITING_REVIEW` to `PIPELINE_STATUS` dict
-- In tasks: when `config.mode == 'interactive'`, set status to `waiting_review` after each substep completes (instead of continuing or setting COMPLETED)
-- In `_get_active_run()`: exclude `WAITING_REVIEW` from stale detection (it is intentional)
-
-### 3b: Review links
-
-When a substep is in `waiting_review` state, the pipeline view shows:
-
-- A "Review" link pointing to the appropriate page:
-  - Pass 1-3 substeps: provenance page filtered to that pass
-  - Reconcile: entity review page
-  - Step 4 sub-phases: Step 4 review page (specific tab)
-  - Commit: OntServe entity links
-- A "Continue" button to resume the pipeline (dispatches next substep)
-- A "Stop" button to halt the pipeline (user can resume later)
-
-### 3c: Review page integration
-
-The review/provenance pages need a "Back to Pipeline" link and optionally a "Continue Pipeline" button so the user can proceed without navigating back to the pipeline page.
-
-### 3d: LangGraph integration assessment
-
-Evaluate whether LangGraph's `interrupt()` / `Command(resume=...)` / checkpointing features (available in v0.4.7) would be beneficial for the interactive mode:
-
-- `interrupt()` after each Step 4 sub-phase aligns with the pause-for-review pattern
-- `PostgresSaver` checkpointer would allow crash recovery mid-extraction
-- Decision: implement if the pattern simplifies Celery-based pause/resume logic. Otherwise defer.
-
-### Phase 3 Verification
-
-- Toggle between automated and interactive modes
-- Pipeline pauses after each substep in interactive mode
-- Review links go to correct pages
-- Continue button dispatches next substep
-- Stop button halts pipeline
-- Can switch to automated mid-pipeline to finish remaining steps
+## Architecture Decisions (Summary)
+
+- **AD-1**: `PipelineStateManager` is the authoritative state source. `PipelineStatusService` retained for backward-compatible bulk queries (`get_bulk_simple_status()`).
+- **AD-2**: Celery tasks are the only execution path. SSE streaming and blocking POST handlers are removed in Phase 7.
+- **AD-3**: `step4_synthesis_service.py` is the unified Step 4 entry point. `step4_orchestration_service.py` retired in Phase 7.
+- **AD-4**: Step 4 review pages (`step4_entities.html`, `step4_review.html`) stay, to be re-parented under `/cases/<id>/` in Phase 7. Currently under `/scenario_pipeline/`.
+- **AD-5**: Pipeline state is data-driven (artifacts in DB); pipeline mode is run-driven (`PipelineRun.config`).
 
 ---
 
 ## Phase 4: Step 4 Substep Expansion
 
 **Goal**: Break Step 4 into individually triggerable sub-phases in the pipeline view.
+
+### 4-prereq: Fix stuck RUNNING run detection
+
+`_get_active_run()` auto-fails PENDING/PAUSED runs after 10 minutes but does not detect stuck RUNNING runs. If a Celery worker dies mid-task (OOM, machine restart, Redis disconnect), the PipelineRun stays RUNNING permanently and blocks all future dispatches for that case. Add a second stale check for RUNNING runs with a longer timeout (2.5 hours, just above the `task_time_limit=7200` Celery setting). Alternatively, add a manual "Force Cancel" button that marks the run as FAILED.
 
 ### 4a: Decompose `run_step4_task`
 
@@ -642,6 +69,12 @@ Currently `run_step4_task` calls `run_step4_synthesis()` which runs all 7 sub-ph
 
 Option (b) is lower risk. `step4_synthesis_service.py` already has a `progress_callback` -- extend it with a `stop_after` parameter.
 
+### 4a-dispatch: Update SUBSTEP_DISPATCH and STEP4_MONOLITHIC
+
+After decomposition, the `step4_provisions` entry in `SUBSTEP_DISPATCH` must change from "dispatch `run_step4_task` (runs all 7 sub-phases)" to "dispatch provisions-only task." Each of the 6 entries in `STEP4_MONOLITHIC` moves into `SUBSTEP_DISPATCH` with its own task mapping. `STEP4_MONOLITHIC` becomes empty (or is removed).
+
+**Gotcha**: `run_step4_task` currently sets `step_name = "step4"` (not `"step4_provisions"`). New individual tasks must use PSM-aligned step names (`step4_provisions`, `step4_qc`, etc.) from the start, matching the `WORKFLOW_DEFINITION` keys. The JS `STEP_NAME_MAP` must also be extended.
+
 ### 4b: Ordering enforcement
 
 Step 4 sub-phases have dependencies:
@@ -650,11 +83,11 @@ provisions --> precedents
            \-> qc --> transformation --> rich_analysis --> phase3 --> phase4
 ```
 
-The `PipelineStateManager` already defines these prerequisites (after Phase 1a fixes). The pipeline view disables "Run" buttons for sub-phases whose prerequisites are incomplete.
+The `PipelineStateManager` already defines these prerequisites. The pipeline view disables "Run" buttons for sub-phases whose prerequisites are incomplete.
 
 ### 4c: Parallel execution (stretch goal)
 
-Precedents and Q&C can run in parallel (both depend only on provisions). The pipeline view could show them side-by-side and dispatch both simultaneously. Defer this unless the implementation is trivial.
+Precedents and Q&C can run in parallel (both depend only on provisions). Defer unless trivial.
 
 ### Phase 4 Verification
 
@@ -662,6 +95,13 @@ Precedents and Q&C can run in parallel (both depend only on provisions). The pip
 - Ordering is enforced
 - Status shows per-sub-phase completion
 - Review link after Q&C goes to Q&C tab in step4_review
+
+### Phase 4 Implementation Notes (from prior reviews)
+
+- Move entries from `STEP4_MONOLITHIC` to `SUBSTEP_DISPATCH` as individual tasks are created; `_find_next_substep()` will automatically start dispatching them.
+- The review bar's `showReviewBar()` maps substep names to review page URLs. Add Step 4 sub-phase to review tab mappings (e.g., step4_qc -> Q&C tab).
+- The `current_step` reset pattern (set canonical name before terminal status) should be standardized from the start.
+- The three-way terminal status pattern (`single` -> COMPLETED, `interactive` -> WAITING_REVIEW, `run_all` -> no terminal) must be replicated in any new Step 4 sub-phase tasks.
 
 ---
 
@@ -679,7 +119,15 @@ Example: Re-running `pass1_facts` clears:
 - pass3, reconcile, commit_extraction (transitive)
 - All Step 4 sub-phases, commit_synthesis (transitive)
 
-Implementation: Walk the `prerequisites` graph from the target substep, collect all downstream substeps, delete their artifacts from `temporary_rdf_storage` and `extraction_prompts`.
+Implementation: Walk the `prerequisites` graph from the target substep, collect all downstream substeps, then clear:
+
+1. `temporary_rdf_storage` rows (entities) for affected extraction types
+2. `extraction_prompts` rows for affected concept types
+3. `ReconciliationRun` records (if `reconcile` is in the downstream set)
+4. `is_published` flags reset to `false` on surviving `temporary_rdf_storage` rows (if `commit_extraction` or `commit_synthesis` is downstream)
+5. `CaseOntologyCommit` records (if commit steps are downstream)
+
+**OntServe consideration**: If entities were already committed to OntServe, re-extraction creates a local/remote mismatch. Two options: (a) require a re-commit after re-extraction (simpler -- OntServe entities are overwritten on next commit), or (b) add a revocation step that removes OntServe entities before re-extraction. Option (a) is sufficient if the pipeline always re-commits after re-extraction. The confirmation dialog should note that OntServe entities will be stale until re-committed.
 
 ### 5b: Re-extraction UI
 
@@ -687,7 +135,7 @@ Each completed substep box gets a "Re-run" button (with confirmation dialog list
 
 ### 5c: Individual concept re-extraction
 
-The existing `extract_individual_concept()` in `step1.py` lets you re-run just "roles" within a pass. This survives as an action on the provenance page or within the review view -- not on the pipeline view itself. The pipeline view operates at the substep level (pass1_facts, pass1_discussion), not individual concept types.
+The existing `extract_individual_concept()` in `step1.py` lets you re-run just "roles" within a pass. This survives as an action on the provenance page or within the review view -- not on the pipeline view itself.
 
 ### Phase 5 Verification
 
@@ -741,29 +189,24 @@ Add redirect stubs for old URLs that may be bookmarked or linked from external d
 
 ### 7b: Dead code removal
 
-| File | Lines | Action |
-|------|-------|--------|
-| `app/routes/scenario_pipeline/step1.py` | 1,883 | Remove page views, blocking extraction. Keep `_load_existing_extractions`, `_resolve_section_text`, `extract_individual_concept` (move to service) |
-| `app/routes/scenario_pipeline/step2.py` | 940 | Remove page views, blocking extraction. Keep `_resolve_section_text` (move to service) |
-| `app/routes/scenario_pipeline/step1_enhanced.py` | 357 | Remove entirely |
-| `app/routes/scenario_pipeline/step2_enhanced.py` | 404 | Remove entirely |
-| `app/routes/scenario_pipeline/step3_enhanced.py` | ~200 | Remove entirely |
-| `app/routes/scenario_pipeline/interactive_builder.py` | ~500 | Remove step1-3 route wiring, keep step4+ wiring (or remove if step4 re-parented) |
-| `scripts/run_pipeline.py` | ~400 | Remove entirely (Celery replaces) |
-| `app/templates/scenarios/step1_streaming.html` | 561 | Remove |
-| `app/templates/scenarios/step1c.html` | 905 | Remove |
-| `app/templates/scenarios/step1d.html` | 1,111 | Remove |
-| `app/templates/scenarios/step1e.html` | 318 | Remove |
-| `app/templates/scenarios/step2_streaming.html` | 577 | Remove |
-| `app/templates/scenarios/step3_streaming.html` | 555 | Remove |
-| `app/templates/scenario_pipeline/builder.html` | 268 | Remove (or keep if step4 views still use it) |
-| `app/templates/cases/_case_pipeline_status.html` | 192 | Remove (replaced by pipeline view) |
+**NOTE**: This table must be re-verified before starting Phase 7. Several files listed in the original plan (`step1_enhanced.py`, `step2_enhanced.py`, `step3_enhanced.py`, `scripts/run_pipeline.py`, `step*_streaming.html` templates) were already removed during the 2026-03-01 dead code cleanup.
 
-**Estimated removal**: ~7,500+ lines of Python + ~4,500+ lines of templates
+Files confirmed still present (verify before Phase 7):
+
+| File | Action |
+|------|--------|
+| `app/routes/scenario_pipeline/step1.py` | Remove page views, blocking extraction. Keep `_load_existing_extractions`, `_resolve_section_text`, `extract_individual_concept` (move to service) |
+| `app/routes/scenario_pipeline/step2.py` | Remove page views, blocking extraction. Keep `_resolve_section_text` (move to service) |
+| `app/routes/scenario_pipeline/interactive_builder.py` | Remove step1-3 route wiring, keep step4+ wiring (or remove if step4 re-parented) |
+| `app/templates/scenarios/step1c.html` | Remove |
+| `app/templates/scenarios/step1d.html` | Remove |
+| `app/templates/scenarios/step1e.html` | Remove |
+| `app/templates/scenario_pipeline/builder.html` | Remove (or keep if step4 views still use it) |
+| `app/templates/cases/_case_pipeline_status.html` | Remove (replaced by pipeline view) |
+
+Run `glob` to verify file existence before starting removal.
 
 ### 7c: Service extraction for surviving utility functions
-
-Functions that survive the cleanup need to move from route files to service files:
 
 | Function | Current Location | New Location |
 |----------|-----------------|-------------|
@@ -773,9 +216,7 @@ Functions that survive the cleanup need to move from route files to service file
 
 ### 7d: `step4_orchestration_service.py` retirement
 
-After Phase 4 (Step 4 substep expansion), `step4_synthesis_service.py` becomes the sole Step 4 execution path. `step4_orchestration_service.py` (1,413 lines, created in Phase 4a of the refactoring) and the SSE streaming in `step4/run_all.py` can be removed.
-
-Whether to do this depends on whether the Step 4 review pages still need the SSE streaming for in-page re-extraction. If all extraction goes through Celery, the SSE paths are dead.
+After Phase 4, `step4_synthesis_service.py` becomes the sole Step 4 execution path. `step4_orchestration_service.py` (1,413 lines) and the SSE streaming in `step4/run_all.py` can be removed if all extraction goes through Celery.
 
 ### Phase 7 Verification
 
@@ -787,46 +228,12 @@ Whether to do this depends on whether the Step 4 review pages still need the SSE
 
 ---
 
-## Existing Infrastructure Inventory
-
-### What we build on (keep)
-
-| Component | File | Role in new design |
-|-----------|------|--------------------|
-| `PipelineStateManager` | `app/services/pipeline_state_manager.py` | Primary state source (after Phase 1a fixes) |
-| `PipelineStatusService` | `app/services/pipeline_status_service.py` | Bulk queries for case list; Phase 1b validation oracle |
-| `PipelineRun` model | `app/models/pipeline_run.py` | Run tracking + mode |
-| `PipelineQueue` model | `app/models/pipeline_run.py` | Batch queue management |
-| Celery tasks | `app/tasks/pipeline_tasks.py` | All extraction execution |
-| `step4_synthesis_service.py` | `app/services/step4_synthesis_service.py` | Step 4 execution |
-| Step 4 review templates | `app/templates/scenario_pipeline/step4_*.html` | Analytical/editing views |
-| Provenance view | `app/routes/provenance.py` + template | Extraction inspection |
-| Pipeline dashboard | `app/routes/pipeline_dashboard.py` + template | Multi-case management |
-| `concept_extraction_service.py` | `app/services/extraction/` | Core extraction logic |
-| `unified_dual_extractor.py` | `app/services/extraction/` | Dual-pass extraction |
-
-### What gets removed
-
-See Phase 7b table above.
-
-### What gets modified
-
-| Component | Modification |
-|-----------|-------------|
-| `PipelineStateManager` | Extended workflow definition, section-aware checks, custom check types |
-| `PipelineRun` model | Add `mode` field, `WAITING_REVIEW` status |
-| `pipeline_tasks.py` | Add substep-level dispatch, interactive pause |
-| Case detail template | Link to pipeline view |
-| Case list template | Compact pipeline status per case |
-
----
-
 ## Execution Approach
 
 Same as refactoring plan: implement each phase, add tests, run full suite, code review (2-pass), fix issues, update this plan with lessons learned, re-assess next phase.
 
 After each phase:
-1. Run `pytest tests/ -x -q` (must be 535+ passed, 0 failed)
+1. Run `pytest tests/ -x -q` (must be 575+ passed, 0 failed)
 2. Code review agent on modified files (bugs, orphaned imports, Flask context leaks)
 3. Mechanical grep for orphaned variables and dead imports
 4. Update Status Tracker table
@@ -837,134 +244,129 @@ After each phase:
 
 ## Session Resume Instructions
 
-**To resume**: Read this file first. Check the Status Tracker table. Phase 1 has five sub-phases (1a-1e). Read the Implementation Review Findings section for blocker context. Later phases are refined after each prior phase completes.
+**To resume**: Read this file first. Check the Status Tracker table for current phase. Phases 1-3 are complete with code review.
 
 **Key files**:
 - This plan: `docs-internal/unified-pipeline-plan-2026-03-11.md`
-- Refactoring plan (for context): `docs-internal/refactor-plan-2026-03-10.md`
-- State manager: `app/services/pipeline_state_manager.py`
-- Status service: `app/services/pipeline_status_service.py` (validation oracle)
-- Celery tasks: `app/tasks/pipeline_tasks.py`
+- State manager: `app/services/pipeline_state_manager.py` (15-substep WORKFLOW_DEFINITION, CheckType enum)
+- Pipeline route: `app/routes/cases/pipeline.py` (dispatch, continue, stop endpoints)
+- Pipeline template: `app/templates/cases/pipeline.html` (status view, polling, review bar)
+- Celery tasks: `app/tasks/pipeline_tasks.py` (run_id, mode-aware terminal status)
+- Pipeline run model: `app/models/pipeline_run.py` (WAITING_REVIEW status)
 - Step 4 synthesis: `app/services/step4_synthesis_service.py`
 
-**Branch setup**: Create `unified-pipeline` branch from `development` after DB backup. See "Branch and Backup" section below.
-
----
-
-## Branch and Backup
-
-Before starting implementation:
-
-```bash
-# 1. Backup ProEthica database
-PGPASSWORD=PASS pg_dump -h localhost -U postgres -d ai_ethical_dm -f /tmp/ai_ethical_dm_pre_pipeline_$(date +%Y%m%d).sql
-
-# 2. Create feature branch
-cd /home/chris/onto/proethica
-git checkout development
-git checkout -b unified-pipeline
-```
-
-The database backup is precautionary. Phases 1-5 do not modify the database schema (PSM changes are code-only). Phase 3 adds a `mode` column to `PipelineRun`, which is the first schema change. Back up again before that phase.
+**Key patterns established in Phases 1-3**:
+- `SUBSTEP_DISPATCH` / `STEP4_MONOLITHIC` dicts in `pipeline.py` control dispatchability
+- Three-way terminal status: `single` -> COMPLETED, `interactive` -> WAITING_REVIEW, `run_all` -> parent handles
+- `_find_next_substep()` walks `WORKFLOW_DEFINITION` in insertion order, skips STEP4_MONOLITHIC
+- Tasks reset `current_step` to canonical name before setting terminal status
+- Stale detection targets PENDING/PAUSED only (not WAITING_REVIEW)
+- CSRF exemption uses `app.view_functions[endpoint]` function refs, not string names
 
 ---
 
 ## Phase Reviews
 
-### Phase 1 Review (2026-03-11)
+### Phases 1-3 Key Lessons
 
-**Commits**: 318b5d2 (1a+1b), a336350 (1c-e), d2bbb39 (review notes), 5951f4e (review fixes)
-**Test count**: 575 passed, 2 skipped (was 535 before)
+**Data model findings**:
+- `extraction_prompts.concept_type` uses plural forms (`roles`) matching `temporary_rdf_storage.extraction_type`, but `TaskDefinition.prompt_concept_type` uses singular (`role`). Section-aware checks must use `artifact_types` (plural).
+- `transformation_classification` produces prompts but no entities in `temporary_rdf_storage`. Uses `CheckType.EXTRACTION_PROMPTS`.
+- `commit_synthesis.published_types` must use `transformation_result` (not `transformation_classification`) -- the actual `extraction_type` value.
+- `is_published` was not set for cases committed before auto_commit_service. Fixed with one-time backfill (case 7: 344 entities).
 
-**Metrics**:
-- `pipeline_state_manager.py`: 580 -> 480 -> 450 lines (flattened, review trimmed dead code)
-- 40 new tests: 19 structural, 4 API mock, 4 to_dict, 12 PSM-vs-PSS integration, 1 convenience method
-- Template: 234 lines (cases/pipeline.html)
-- Route: 30 lines (cases/pipeline.py)
+**Flask/Celery patterns**:
+- Flask-WTF `csrf.exempt()` requires function references via `app.view_functions[endpoint]`, not string endpoint names.
+- Celery task `current_step` values (e.g., `"step1_facts_parallel"`) do not match PSM substep names (e.g., `"pass1_facts"`). JS mapping table (`STEP_NAME_MAP`) required.
+- `run_step4_task` uses `step_name = "step4"` (not `"step4_provisions"`) -- a mismatch with the PSM substep name. Phase 4 individual tasks must use PSM-aligned names from the start.
+- Context processors that inject DB-querying callables are wasteful. Use explicit template context from routes.
 
-**Findings during implementation**:
-1. `extraction_prompts.concept_type` uses plural forms (`roles`) matching `temporary_rdf_storage.extraction_type`, but `TaskDefinition.prompt_concept_type` uses singular (`role`). The section-aware check must use `artifact_types` (plural), not `prompt_concept_type` (singular).
-2. `transformation_classification` produces prompts but no entities in `temporary_rdf_storage`. Must use `CheckType.EXTRACTION_PROMPTS`, not `CheckType.ARTIFACTS`.
-3. `is_published` is not set for cases committed before the auto_commit_service tracked it (e.g., case 7). `commit_extraction` and `commit_synthesis` correctly report `not_started` for these cases; this is a data gap in old cases, not a PSM bug.
-4. Code review caught: section check was using all tasks' artifact_types instead of the current task's. Fixed before commit.
+**Interactive mode design**:
+- Dispatches individual substeps rather than modifying `run_full_pipeline_task` with interrupt logic. Avoids Celery task pause/resume complexity.
+- WAITING_REVIEW falls through stale detection because the check only targets PENDING/PAUSED.
+- `set_status()` does not set `completed_at` for WAITING_REVIEW -- duration continues counting during review.
+- No DB migration needed: `config.mode` is JSONB, WAITING_REVIEW is a string value.
 
-**Post-implementation code review findings** (5951f4e):
-1. **Critical**: `commit_synthesis.published_types` had `'transformation_classification'` but actual `extraction_type` is `'transformation_result'`. Fixed.
-2. Removed unused `inject_pipeline_state` context processor (no template called it; route passes state explicitly). Lesson: do not add context processors speculatively.
-3. Removed dead `export_workflow_yaml()` function that imported undeclared `yaml` dependency.
-4. Fixed dead template branch: `startswith('pass') or name == 'pass3'` -- second clause unreachable.
+### Phase 4 Review
 
-**Lessons for Phase 2**:
-- The `commit_extraction` prerequisite breaks the dependency chain for old cases (Step 4 substeps show `can_start=False` even though they ran). **Resolution**: backfill `is_published` for cases with `CaseOntologyCommit` records (added as Phase 2 pre-requisite).
-- The `prompt_concept_type` vs `artifact_types` naming mismatch is confusing. Consider renaming `prompt_concept_type` to `provenance_key` in a future cleanup.
-- Provenance route uses `provenance.provenance_case`, not the originally-assumed `provenance.provenance_view`. Always verify endpoint names against `app.url_map` before writing templates.
-- String-based type identifiers (`extraction_type`, `concept_type`) are fragile. The `transformation_classification` vs `transformation_result` mismatch went undetected because there was no shared constant. Phase 2 dispatcher should use the PSM `WORKFLOW_DEFINITION` keys as the single source of truth for substep identifiers, not duplicate strings.
-- Context processors that inject DB-querying callables into all templates are wasteful even if they only return function references. Prefer explicit template context from routes.
+**Changes (4-prereq + 4a + 4a-dispatch + 4b)**:
 
-### Phase 2 Review (2026-03-11)
+*4-prereq (stuck RUNNING detection)*:
+- `_get_active_run()` now auto-fails RUNNING runs stuck >2.5 hours (above `task_time_limit=7200` + 30min buffer)
+- New `force-cancel` endpoint (`POST /cases/<id>/pipeline/force-cancel`) marks any active run as FAILED
+- UI shows "Cancel" button after 5 minutes of RUNNING, calls force-cancel with confirmation dialog
 
-**Commits**: 53032f6 (Phase 2 implementation), 9c6f929 (review fixes)
-**Test count**: 575 passed, 2 skipped (unchanged)
+*4a (decompose synthesis service)*:
+- `step4_synthesis_service.py`: Added `SUBSTEP_RUNNERS` mapping (7 entries) and `run_step4_substep()` dispatcher
+- Ported `_run_precedents()` from `step4_orchestration_service.py` -- was missing from synthesis service entirely
+- Added precedent extraction to monolithic `run_step4_synthesis()` between provisions and Q&C
+- Extracted `_get_all_case_entities()` as a shared module-level helper
 
-**Metrics**:
-- `pipeline.py`: 30 -> 175 lines (POST endpoints, dispatcher, active run detection, CSRF init)
-- `pipeline.html`: 237 -> 365 lines (Run buttons, JS polling, STEP_NAME_MAP, DOM badge updates)
-- `pipeline_tasks.py`: +35 lines (run_id parameter, single-mode terminal status)
-- `pipeline_state_manager.py`: +2 lines (pass3 + pass2_discussion prerequisites)
-- New: 9 dispatchable substeps, 6 monolithic labels, 4-second polling, stale run cleanup
+*4a-dispatch (update dispatch maps)*:
+- `SUBSTEP_DISPATCH`: 7 Step 4 entries added, all mapping to `run_step4_substep_task`
+- `STEP4_MONOLITHIC`: now `set()` (empty)
+- New Celery task `run_step4_substep_task` (name: `proethica.tasks.run_step4_substep`): dispatches to `run_step4_substep()`, uses PSM-aligned step names for `current_step`
+- `_get_task_func()` updated to resolve the new task
+- Template: removed "Part of Step 4" labels, all substeps get Run buttons
+- JS: `PSM_SUBSTEP_NAMES` set for direct matching, `resolveRunningStep` handles `substep: message` progress format and legacy stage names
 
-**Pre-requisite (is_published backfill)**:
-- Only case 7 needed backfill (344 entities). All batch campaign cases already had `is_published=true`.
-- `case_ontology_commits` table was empty, so the planned SQL join approach was unnecessary.
+*4b (ordering enforcement)*:
+- Already handled by PSM `prerequisites` in `WORKFLOW_DEFINITION`. The `can_start()` / `get_blockers()` checks enforce the dependency graph. No additional code needed.
 
-**Implementation findings**:
-1. Flask-WTF `csrf.exempt()` with string endpoint names does not work reliably for blueprint closure-defined views. Must pass function references via `app.view_functions[endpoint]`.
-2. Celery task `current_step` values (e.g., `"step1_facts"`) do not match PSM substep names (e.g., `"pass1_facts"`). Required a JS mapping table (`STEP_NAME_MAP`) for running animation overlay.
+**Findings**:
+- Precedent extraction was absent from the synthesis service. The PSM defined `step4_precedents` but the monolithic `run_step4_synthesis` never called it. Cases extracted via `run_full_pipeline_task` were missing precedent data unless the old orchestration service was used separately.
+- The old `run_step4_task` (monolithic) is retained for backward compatibility with `run_full_pipeline_task` and `resume_pipeline_task`. Phase 7 can remove it when those functions are refactored to use individual substep tasks.
 
-**Post-implementation code review findings** (9c6f929):
-1. **Critical**: `run_step4_task` set COMPLETED before `commit_synthesis` in full pipeline path. Fixed: tasks set COMPLETED only when `config.mode == 'single'`.
-2. **Critical**: Stale PENDING/PAUSED runs blocked dispatch indefinitely. Fixed: auto-fail runs stuck >10 minutes.
-3. **Important**: `pass3` did not require `pass2_discussion`, allowing partial extraction via single-substep dispatch. Fixed.
-4. **Important**: Terminal status logic used `commit_to_ontserve or include_step4` -- extraction-only runs with commit were marked COMPLETED. Fixed: only `include_step4` triggers COMPLETED.
+**Test delta**: 575 -> 586 (+11 tests in `test_pipeline_dispatch.py`)
 
-**Lessons for Phase 3**:
-- The `config.mode` field on PipelineRun distinguishes single-substep runs from full pipeline runs. Phase 3 adds `'interactive'` as a third mode. The terminal status pattern (`if config.mode == 'single'`) will need to handle `'interactive'` mode (likely no auto-COMPLETED, since the user must approve each step).
-- The stale run cleanup in `_get_active_run` handles PAUSED state. Phase 3 introduces `WAITING_REVIEW` which should NOT be subject to stale cleanup (it is an intentional pause). Add `WAITING_REVIEW` to the exception list.
-- The STEP_NAME_MAP in JavaScript needs to be extended if Phase 3 introduces new task names or if Phase 4 adds individual step4 task names.
-- Prerequisites are now stricter: `pass3` requires both `pass2_facts` and `pass2_discussion`. Phase 3 interactive mode should show blockers correctly when a user tries to skip discussion extraction.
+**Files modified**:
+- `app/routes/cases/pipeline.py` (dispatch maps, stuck detection, force-cancel)
+- `app/tasks/pipeline_tasks.py` (new `run_step4_substep_task`)
+- `app/services/step4_synthesis_service.py` (`run_step4_substep`, `_run_precedents`, `SUBSTEP_RUNNERS`)
+- `app/templates/cases/pipeline.html` (remove monolithic labels, force-cancel button, updated JS)
+- `tests/test_pipeline_dispatch.py` (new, 11 tests)
+- `docs-internal/unified-pipeline-plan-2026-03-11.md` (this update)
 
-**Lessons for Phase 4**:
-- The `SUBSTEP_DISPATCH` mapping and `STEP4_MONOLITHIC` set cleanly separate dispatchable from non-dispatchable substeps. Phase 4 moves entries from `STEP4_MONOLITHIC` to `SUBSTEP_DISPATCH` as individual tasks are created.
-- The `config.mode == 'single'` terminal status pattern must be replicated in any new Step 4 sub-phase tasks.
-- The `run_step4_task` currently runs all phases via `run_step4_synthesis()`. Phase 4 needs either a `stop_after` parameter or individual Celery tasks. The `progress_callback` pattern in `run_step4_synthesis` is the natural extension point.
+### Phase 5 Review
 
-### Phase 3 Review (2026-03-11)
+**Changes (5a + 5b)**:
 
-**Commits**: (uncommitted, ready for commit)
-**Test count**: 575 passed, 2 skipped (unchanged)
+*5a (cascade clearing service)*:
+- New `app/services/cascade_clearing_service.py` with three public functions:
+  - `get_downstream_substeps(target)`: BFS reverse-walk of WORKFLOW_DEFINITION prerequisites graph. Returns downstream substeps in WORKFLOW_DEFINITION order.
+  - `get_cascade_preview(target)`: Builds confirmation dialog data (affected count, display names, will_clear_reconciliation, will_clear_commits).
+  - `clear_cascade(case_id, target)`: Clears target + all downstream substep artifacts. Does NOT commit (caller-controlled transaction).
+- Per-substep clearing handles all four CheckTypes:
+  - ARTIFACTS: Delete TRS entities by extraction_type, with session-based scoping for section-aware substeps (uses extraction_session_id from extraction_prompts).
+  - EXTRACTION_PROMPTS: Section-aware prompts by concept_type + section_type (Steps 1-2), step_number=3 (pass3), step_number=4 + prompt_concept_type (Step 4). Phase4 uses LIKE pattern for `phase4%`.
+  - RECONCILIATION_RUN: Delete ReconciliationRun records (cascade deletes decisions).
+  - PUBLISHED_ENTITIES: Reset is_published/committed_at/content_hash. Delete CaseOntologyCommit records.
 
-**Metrics**:
-- `pipeline_run.py`: +8 lines (WAITING_REVIEW status, is_waiting_review property, to_dict update)
-- `pipeline.py`: 175 -> 315 lines (+140: continue/stop endpoints, _find_next_substep, interactive run-all)
-- `pipeline.html`: 560 -> 690 lines (+130: mode toggle, review bar, interactive JS functions)
-- `pipeline_tasks.py`: 6 task functions updated (mode=='interactive' -> WAITING_REVIEW terminal status), 5 current_step resets added
+*5b (re-run endpoint + UI)*:
+- `GET /cases/<id>/pipeline/rerun-preview?substep=X`: Returns cascade preview for confirmation dialog
+- `POST /cases/<id>/pipeline/rerun`: Calls clear_cascade, creates PipelineRun (with `rerun: true` in config), dispatches Celery task. Clearing + PipelineRun creation in same transaction.
+- CSRF exemption added for rerun endpoint
+- Template: Re-run button (orange arrow-counterclockwise icon) on completed substep cards. JS `rerunSubstep()` fetches preview, shows confirm() dialog listing all affected steps, then dispatches. Re-run buttons hidden during active runs.
 
-**Design decision**: Interactive mode dispatches individual substeps rather than modifying `run_full_pipeline_task` with interrupt logic. Each substep task sets `WAITING_REVIEW` when `config.mode=='interactive'`, and the `/continue` endpoint determines the next substep via `_find_next_substep()`. This avoids Celery task pause/resume complexity and reuses all existing single-step infrastructure.
+**Code review findings (4 issues)**:
+1. `commit_extraction` unpublishes ALL entities (published_types=None) -- analyzed as safe because step4_* substeps are always downstream when commit_extraction is in the clearing set, so synthesis entities get deleted regardless. Added clarifying comment.
+2. `rerun-preview` has no auth decorator -- consistent with existing pattern (case_pipeline_status is also an unauthenticated GET). No change.
+3. artifact_types vs prompt_concept_type for section-aware prompt clearing -- code is correct because extraction_prompts.concept_type uses plural forms matching artifact_types (confirmed in Phase 1 lessons).
+4. `clear_cascade` committed before route could create PipelineRun -- fixed by removing db.session.commit() from clear_cascade, letting the route commit clearing + run creation atomically.
 
-**Implementation findings**:
-1. `_find_next_substep()` walks `WORKFLOW_DEFINITION` dict in insertion order (Python 3.7+ guarantee). Substeps are defined in pipeline order, so this produces the correct sequence.
-2. The `_get_active_run()` stale detection was already correct -- WAITING_REVIEW falls through because the stale check only targets PENDING/PAUSED. Added a comment to make this explicit.
-3. `PipelineRun.set_status()` does not set `completed_at` for WAITING_REVIEW (it only sets `completed_at` for COMPLETED, FAILED, EXTRACTED). This is correct -- duration should continue counting while the user reviews.
-4. No DB migration needed -- `config.mode` is stored in JSONB, and `WAITING_REVIEW` is just a string status value.
+**Test delta**: 587 -> 611 (+23 tests in `test_cascade_clearing.py`, +1 in `test_pipeline_dispatch.py`)
 
-**Code review findings** (fixed before commit):
-1. **Critical**: `run_commit_task` exception path skipped terminal status for single/interactive mode, leaving the run permanently stuck in RUNNING. Fixed: added mode-aware status in the except block.
-2. **Critical**: Stale run detection used `created_at` instead of `updated_at`, potentially auto-failing legitimately paused long-running runs. Fixed: now uses `updated_at or created_at`.
-3. **Important**: Tasks set `current_step` to progress messages (e.g., `"step1_facts_parallel"`) during extraction but did not reset to the canonical step name before setting WAITING_REVIEW. The review bar used `startsWith('pass')` which failed for task-layer names. Fixed in two layers: (a) all tasks reset `run.current_step = step_name` before `mark_step_complete`, (b) `showReviewBar()` resolves through `resolveRunningStep()` for consistent PSM name matching.
-4. **Important**: `stopInteractive()` hid the review bar before the network call. On failure, no controls remained. Fixed: capture step name before hiding, restore review bar on error.
+**Files created**:
+- `app/services/cascade_clearing_service.py` (cascade walker + clearing logic)
+- `tests/test_cascade_clearing.py` (23 tests: dependency walker, preview, clearing, section scoping, step4 prompts)
 
-**Lessons for Phase 4**:
-- The terminal status pattern is now three-way: `single` -> COMPLETED, `interactive` -> WAITING_REVIEW, `run_all` -> (no terminal, parent task handles). Phase 4 individual Step 4 tasks should follow this same pattern.
-- `_find_next_substep()` skips STEP4_MONOLITHIC entries. Phase 4 must move entries from STEP4_MONOLITHIC to SUBSTEP_DISPATCH as individual tasks are created, and `_find_next_substep()` will automatically start dispatching them.
-- The review bar's `showReviewBar()` maps substep names to review page URLs. Phase 4 should add Step 4 sub-phase to review tab mappings (e.g., step4_qc -> Q&C tab).
-- The `current_step` reset pattern (set canonical name before terminal status) should be standardized in Phase 4 tasks from the start.
+**Files modified**:
+- `app/routes/cases/pipeline.py` (rerun-preview + rerun endpoints, CSRF exemption)
+- `app/templates/cases/pipeline.html` (re-run button, rerun JS functions, URL constants)
+- `tests/test_pipeline_dispatch.py` (+1 CSRF exemption test)
+- `docs-internal/unified-pipeline-plan-2026-03-11.md` (this update)
+
+**Key patterns**:
+- `clear_cascade` does NOT commit -- caller owns the transaction. This enables atomic clearing + PipelineRun creation in the rerun endpoint.
+- Re-run uses the same dispatch path as single-step run (SUBSTEP_DISPATCH + _get_task_func) with `rerun: true` in PipelineRun config for provenance.
+- Confirmation dialog is server-driven: the preview endpoint computes affected steps so the client doesn't need to duplicate the dependency graph.

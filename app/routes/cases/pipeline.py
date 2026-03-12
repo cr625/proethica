@@ -3,6 +3,7 @@
 Phase 1: Read-only status display (15 substeps).
 Phase 2: Execution controls (Run single substep, Run All).
 Phase 3: Interactive mode (pause after each substep for review).
+Phase 5: Rollback and re-extraction (cascade clearing + re-run).
 """
 
 from flask import render_template, jsonify, request
@@ -17,25 +18,27 @@ logger = logging.getLogger(__name__)
 
 # Mapping from PSM substep IDs to Celery task dispatch info.
 # Each entry: (task_function_name, extra_kwargs)
-# Step 4 substeps (except step4_provisions) are not individually dispatchable
-# until Phase 4 decomposes run_step4_synthesis.
 SUBSTEP_DISPATCH = {
-    'pass1_facts':       ('run_step1_task', {'section_type': 'facts'}),
-    'pass1_discussion':  ('run_step1_task', {'section_type': 'discussion'}),
-    'pass2_facts':       ('run_step2_task', {'section_type': 'facts'}),
-    'pass2_discussion':  ('run_step2_task', {'section_type': 'discussion'}),
-    'pass3':             ('run_step3_task', {}),
-    'reconcile':         ('run_reconcile_task', {}),
-    'commit_extraction': ('run_commit_task', {'step_name': 'commit_extraction'}),
-    'step4_provisions':  ('run_step4_task', {}),  # Runs all of Step 4
-    'commit_synthesis':  ('run_commit_task', {'step_name': 'commit_synthesis'}),
+    'pass1_facts':          ('run_step1_task', {'section_type': 'facts'}),
+    'pass1_discussion':     ('run_step1_task', {'section_type': 'discussion'}),
+    'pass2_facts':          ('run_step2_task', {'section_type': 'facts'}),
+    'pass2_discussion':     ('run_step2_task', {'section_type': 'discussion'}),
+    'pass3':                ('run_step3_task', {}),
+    'reconcile':            ('run_reconcile_task', {}),
+    'commit_extraction':    ('run_commit_task', {'step_name': 'commit_extraction'}),
+    'step4_provisions':     ('run_step4_substep_task', {'substep': 'step4_provisions'}),
+    'step4_precedents':     ('run_step4_substep_task', {'substep': 'step4_precedents'}),
+    'step4_qc':             ('run_step4_substep_task', {'substep': 'step4_qc'}),
+    'step4_transformation': ('run_step4_substep_task', {'substep': 'step4_transformation'}),
+    'step4_rich_analysis':  ('run_step4_substep_task', {'substep': 'step4_rich_analysis'}),
+    'step4_phase3':         ('run_step4_substep_task', {'substep': 'step4_phase3'}),
+    'step4_phase4':         ('run_step4_substep_task', {'substep': 'step4_phase4'}),
+    'commit_synthesis':     ('run_commit_task', {'step_name': 'commit_synthesis'}),
 }
 
-# Step 4 substeps that are part of the monolithic run_step4_task
-STEP4_MONOLITHIC = {
-    'step4_precedents', 'step4_qc', 'step4_transformation',
-    'step4_rich_analysis', 'step4_phase3', 'step4_phase4',
-}
+# Step 4 substeps that were part of the monolithic run_step4_task.
+# Now empty -- all Step 4 substeps are individually dispatchable.
+STEP4_MONOLITHIC = set()
 
 
 def _get_active_run(case_id):
@@ -56,13 +59,26 @@ def _get_active_run(case_id):
     ).order_by(PipelineRun.created_at.desc()).first()
 
     # WAITING_REVIEW is an intentional pause (interactive mode), not stale.
-    # Only auto-fail PENDING/PAUSED runs stuck >10 minutes since last update.
+    # Auto-fail PENDING/PAUSED runs stuck >10 minutes since last update.
     if run and run.status in (PIPELINE_STATUS['PENDING'], PIPELINE_STATUS['PAUSED']):
         stale_threshold = datetime.utcnow() - timedelta(minutes=10)
         check_time = run.updated_at or run.created_at
         if check_time < stale_threshold:
             logger.warning(f"Auto-failing stale {run.status} run {run.id} for case {case_id}")
             run.set_error(f"Stale {run.status} run (>10 min)", run.current_step)
+            db.session.commit()
+            return None
+
+    # Auto-fail RUNNING runs stuck longer than the Celery task_time_limit (2h)
+    # plus a 30-minute buffer. If a worker dies mid-task, the run stays RUNNING
+    # permanently and blocks all future dispatches for this case.
+    if run and run.status == PIPELINE_STATUS['RUNNING']:
+        stale_threshold = datetime.utcnow() - timedelta(hours=2, minutes=30)
+        check_time = run.updated_at or run.created_at
+        if check_time < stale_threshold:
+            logger.warning(f"Auto-failing stuck RUNNING run {run.id} for case {case_id} "
+                           f"(no update since {check_time})")
+            run.set_error("Stuck RUNNING run (>2.5h with no update)", run.current_step)
             db.session.commit()
             return None
 
@@ -89,6 +105,7 @@ def _get_task_func(task_name):
     from app.tasks.pipeline_tasks import (
         run_step1_task, run_step2_task, run_step3_task,
         run_reconcile_task, run_commit_task, run_step4_task,
+        run_step4_substep_task,
     )
     return {
         'run_step1_task': run_step1_task,
@@ -97,24 +114,21 @@ def _get_task_func(task_name):
         'run_reconcile_task': run_reconcile_task,
         'run_commit_task': run_commit_task,
         'run_step4_task': run_step4_task,
+        'run_step4_substep_task': run_step4_substep_task,
     }[task_name]
 
 
 def _find_next_substep(case_id):
     """Find the next incomplete, startable substep for interactive dispatch.
 
-    Walks WORKFLOW_DEFINITION in order, skipping complete steps and
-    non-dispatchable Step 4 monolithic substeps. Returns the substep name
-    or None if all steps are complete (or none can start).
+    Walks WORKFLOW_DEFINITION in order, skipping complete steps.
+    Returns the substep name or None if all steps are complete.
     """
     manager = PipelineStateManager()
     state = manager.get_pipeline_state(case_id)
 
     for step_name in WORKFLOW_DEFINITION:
         if state.is_complete(step_name):
-            continue
-        if step_name in STEP4_MONOLITHIC:
-            # Not individually dispatchable; check step4_provisions instead
             continue
         if step_name not in SUBSTEP_DISPATCH:
             continue
@@ -137,7 +151,6 @@ def register_pipeline_routes(bp):
             case=case,
             pipeline_state=pipeline_state,
             substep_dispatch=SUBSTEP_DISPATCH,
-            step4_monolithic=STEP4_MONOLITHIC,
         )
 
     @bp.route('/<int:case_id>/pipeline/status')
@@ -161,11 +174,6 @@ def register_pipeline_routes(bp):
         # Validate substep
         if substep not in WORKFLOW_DEFINITION:
             return jsonify({'error': f'Unknown substep: {substep}'}), 400
-
-        if substep in STEP4_MONOLITHIC:
-            return jsonify({
-                'error': f'{substep} runs as part of Step 4. Use step4_provisions to run all of Step 4.'
-            }), 400
 
         if substep not in SUBSTEP_DISPATCH:
             return jsonify({'error': f'Substep {substep} is not dispatchable'}), 400
@@ -382,6 +390,124 @@ def register_pipeline_routes(bp):
             'stopped': True,
         })
 
+    @bp.route('/<int:case_id>/pipeline/force-cancel', methods=['POST'])
+    @auth_required_for_llm
+    def case_pipeline_force_cancel(case_id):
+        """Force-cancel a stuck RUNNING pipeline run.
+
+        Marks the run as FAILED regardless of current status (except terminal).
+        Use when a Celery worker died and the run is stuck permanently.
+
+        Returns: {"run_id": N, "cancelled": true}
+        """
+        Document.query.get_or_404(case_id)
+
+        active = _get_active_run(case_id)
+        if not active:
+            return jsonify({'error': 'No active pipeline run to cancel'}), 409
+
+        logger.warning(f"Force-cancelling run {active.id} for case {case_id} "
+                       f"(was {active.status})")
+        active.set_error("Force-cancelled by user", active.current_step)
+        db.session.commit()
+
+        return jsonify({
+            'run_id': active.id,
+            'cancelled': True,
+        })
+
+    @bp.route('/<int:case_id>/pipeline/rerun-preview')
+    def case_pipeline_rerun_preview(case_id):
+        """Preview what cascade clearing would affect for a substep re-run.
+
+        Query param: substep (required)
+        Returns cascade preview data for a confirmation dialog.
+        """
+        Document.query.get_or_404(case_id)
+        substep = request.args.get('substep', '').strip()
+
+        if not substep:
+            return jsonify({'error': 'substep parameter required'}), 400
+
+        from app.services.cascade_clearing_service import get_cascade_preview
+        preview = get_cascade_preview(substep)
+
+        if 'error' in preview:
+            return jsonify(preview), 400
+
+        return jsonify(preview)
+
+    @bp.route('/<int:case_id>/pipeline/rerun', methods=['POST'])
+    @auth_required_for_llm
+    def case_pipeline_rerun(case_id):
+        """Clear downstream data and re-run a substep.
+
+        Request body: {"substep": "pass1_facts"}
+
+        Performs cascade clearing (deletes downstream artifacts), then
+        dispatches the substep for re-extraction via Celery.
+
+        Returns: {"run_id": N, "task_id": "...", "substep": "...", "cleared": {...}}
+        """
+        Document.query.get_or_404(case_id)
+        data = request.get_json(silent=True) or {}
+        substep = data.get('substep', '').strip()
+
+        if substep not in WORKFLOW_DEFINITION:
+            return jsonify({'error': f'Unknown substep: {substep}'}), 400
+
+        if substep not in SUBSTEP_DISPATCH:
+            return jsonify({'error': f'Substep {substep} is not dispatchable'}), 400
+
+        # Check no active run
+        active = _get_active_run(case_id)
+        if active:
+            return jsonify({
+                'error': 'A pipeline run is already active for this case',
+                'active_run_id': active.id,
+            }), 409
+
+        # Execute cascade clearing (no commit -- bundled with PipelineRun creation)
+        from app.services.cascade_clearing_service import clear_cascade
+        clear_stats = clear_cascade(case_id, substep)
+
+        if 'error' in clear_stats:
+            db.session.rollback()
+            return jsonify(clear_stats), 500
+
+        # Create PipelineRun, flush to get run.id for task dispatch
+        run = PipelineRun(
+            case_id=case_id,
+            config={'substep': substep, 'mode': 'single', 'rerun': True},
+        )
+        run.set_status(PIPELINE_STATUS['RUNNING'])
+        run.current_step = substep
+        db.session.add(run)
+        db.session.flush()
+
+        # Dispatch Celery task before committing -- if dispatch fails,
+        # rollback undoes both cascade clearing and PipelineRun creation.
+        task_name, extra_kwargs = SUBSTEP_DISPATCH[substep]
+        task_func = _get_task_func(task_name)
+        try:
+            result = task_func.delay(run.id, **extra_kwargs)
+        except Exception as e:
+            logger.error(f"Failed to dispatch rerun task for {substep}: {e}")
+            db.session.rollback()
+            return jsonify({'error': f'Task dispatch failed: {e}'}), 500
+
+        run.celery_task_id = result.id
+        db.session.commit()
+
+        logger.info(f"Re-run {substep} for case {case_id}: run={run.id}, "
+                    f"cleared {clear_stats['substeps_cleared']} substeps")
+        return jsonify({
+            'run_id': run.id,
+            'task_id': result.id,
+            'substep': substep,
+            'cleared': clear_stats,
+        })
+
 
 def init_pipeline_csrf_exemption(app):
     """Exempt pipeline POST endpoints from CSRF protection.
@@ -394,6 +520,7 @@ def init_pipeline_csrf_exemption(app):
         for endpoint in [
             'cases.case_pipeline_run', 'cases.case_pipeline_run_all',
             'cases.case_pipeline_continue', 'cases.case_pipeline_stop',
+            'cases.case_pipeline_force_cancel', 'cases.case_pipeline_rerun',
         ]:
             view_func = app.view_functions.get(endpoint)
             if view_func:

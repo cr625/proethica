@@ -131,13 +131,6 @@
 }
 .substep-icon.icon-waiting_review { background: #fd7e14; color: #fff; }
 
-/* Step 4 monolithic label */
-.monolithic-label {
-    font-size: 0.7rem;
-    color: #6c757d;
-    font-style: italic;
-}
-
 /* Interactive review bar */
 .review-bar {
     padding: 0.5rem 0.75rem;
@@ -152,6 +145,9 @@
 
 /* Mode toggle */
 .mode-toggle .btn { font-size: 0.8rem; padding: 0.2rem 0.6rem; }
+
+/* Re-run button */
+.btn-rerun { font-size: 0.7rem; padding: 0.15rem 0.35rem; }
 </style>
 {% endblock %}
 
@@ -216,11 +212,15 @@
                 </div>
             </div>
             {# Active run status #}
-            <div id="active-run-status" class="mt-2" style="display: none;">
+            <div id="active-run-status" class="mt-2 d-flex align-items-center gap-2" style="display: none;">
                 <small class="text-primary">
                     <i class="bi bi-arrow-repeat spin me-1"></i>
                     <span id="active-run-text"></span>
                 </small>
+                <button id="btn-force-cancel" class="btn btn-sm btn-outline-danger"
+                        onclick="forceCancel()" style="display: none;" title="Force cancel stuck run">
+                    <i class="bi bi-x-circle me-1"></i>Cancel
+                </button>
             </div>
             {# Error display #}
             <div id="run-error" class="mt-2" style="display: none;">
@@ -318,19 +318,27 @@
                         <i class="bi bi-graph-up"></i>
                     </a>
                     {% endif %}
+
+                    {# Re-run button for completed steps #}
+                    {% if step_info.name in substep_dispatch %}
+                    <button class="btn btn-sm btn-outline-warning btn-rerun"
+                            data-substep="{{ step_info.name }}"
+                            onclick="rerunSubstep('{{ step_info.name }}')"
+                            title="Re-run {{ step_info.display_name }} (clears downstream)">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                    </button>
+                    {% endif %}
                 {% endif %}
 
-                {# Run button #}
+                {# Run button -- all substeps are now individually dispatchable #}
                 {% if step_info.name in substep_dispatch %}
                     <button class="btn btn-sm btn-outline-primary btn-run"
                             data-substep="{{ step_info.name }}"
                             onclick="runSubstep('{{ step_info.name }}')"
                             {% if not step_info.can_start %}disabled{% endif %}
-                            title="{% if step_info.name == 'step4_provisions' %}Run all Step 4 phases{% else %}Run {{ step_info.display_name }}{% endif %}">
+                            title="Run {{ step_info.display_name }}">
                         <i class="bi bi-play-fill"></i>
                     </button>
-                {% elif step_info.name in step4_monolithic %}
-                    <span class="monolithic-label">Part of Step 4</span>
                 {% endif %}
             </div>
         </div>
@@ -349,6 +357,9 @@ const RUN_URL = "{{ url_for('cases.case_pipeline_run', case_id=case.id) }}";
 const RUN_ALL_URL = "{{ url_for('cases.case_pipeline_run_all', case_id=case.id) }}";
 const CONTINUE_URL = "{{ url_for('cases.case_pipeline_continue', case_id=case.id) }}";
 const STOP_URL = "{{ url_for('cases.case_pipeline_stop', case_id=case.id) }}";
+const FORCE_CANCEL_URL = "{{ url_for('cases.case_pipeline_force_cancel', case_id=case.id) }}";
+const RERUN_PREVIEW_URL = "{{ url_for('cases.case_pipeline_rerun_preview', case_id=case.id) }}";
+const RERUN_URL = "{{ url_for('cases.case_pipeline_rerun', case_id=case.id) }}";
 const PROVENANCE_URL = "{{ url_for('provenance.provenance_case', case_id=case.id) }}";
 const STEP4_REVIEW_URL = "{{ url_for('step4.step4_review', case_id=case.id) }}";
 
@@ -465,30 +476,52 @@ function pollStatus() {
 
 // Map Celery task current_step values to PSM substep names.
 // Task layer uses "step1_facts", PSM uses "pass1_facts", etc.
+// Step 4 substep tasks use PSM names directly (step4_provisions, step4_qc, etc.)
 const STEP_NAME_MAP = {
     'step1_facts': 'pass1_facts',
     'step1_discussion': 'pass1_discussion',
     'step2_facts': 'pass2_facts',
     'step2_discussion': 'pass2_discussion',
     'step3': 'pass3',
-    'step4': 'step4_provisions',
+    'step4': 'step4_provisions',  // Legacy monolithic task
 };
+
+// All known PSM substep names for direct-match lookup
+const PSM_SUBSTEP_NAMES = new Set([
+    'pass1_facts', 'pass1_discussion', 'pass2_facts', 'pass2_discussion',
+    'pass3', 'reconcile', 'commit_extraction',
+    'step4_provisions', 'step4_precedents', 'step4_qc',
+    'step4_transformation', 'step4_rich_analysis', 'step4_phase3', 'step4_phase4',
+    'commit_synthesis',
+]);
 
 function resolveRunningStep(currentStep) {
     if (!currentStep) return null;
     // Direct match against PSM names
-    if (document.getElementById('substep-' + currentStep)) return currentStep;
+    if (PSM_SUBSTEP_NAMES.has(currentStep)) return currentStep;
     // Map from task names
     if (STEP_NAME_MAP[currentStep]) return STEP_NAME_MAP[currentStep];
+    // Progress messages: "step4_qc: Extracting..." -> extract substep before colon
+    const colonIdx = currentStep.indexOf(':');
+    if (colonIdx > 0) {
+        const prefix = currentStep.substring(0, colonIdx).trim();
+        if (PSM_SUBSTEP_NAMES.has(prefix)) return prefix;
+    }
     // Prefix match: "step1_facts_parallel" -> "step1_facts" -> "pass1_facts"
     for (const [taskName, psmName] of Object.entries(STEP_NAME_MAP)) {
         if (currentStep.startsWith(taskName) || currentStep.includes(taskName)) {
             return psmName;
         }
     }
-    // Step 4 sub-phases: "Phase 2A: ..." -> step4_provisions (monolithic)
-    if (currentStep.startsWith('Phase') || currentStep.startsWith('step4')) {
-        return 'step4_provisions';
+    // Step 4 sub-phases from legacy monolithic task: "PROVISIONS: ..." -> step4_provisions
+    const legacyMap = {
+        'PROVISIONS': 'step4_provisions', 'PRECEDENTS': 'step4_precedents',
+        'QC': 'step4_qc', 'TRANSFORMATION': 'step4_transformation',
+        'RICH_ANALYSIS': 'step4_rich_analysis', 'PHASE3': 'step4_phase3',
+        'PHASE4': 'step4_phase4',
+    };
+    for (const [prefix, psmName] of Object.entries(legacyMap)) {
+        if (currentStep.startsWith(prefix)) return psmName;
     }
     return null;
 }
@@ -559,6 +592,13 @@ function updateUI(state) {
         if (runBtn) {
             runBtn.disabled = !info.can_start || isRunning;
         }
+
+        // Update re-run button visibility (show only for complete steps)
+        const rerunBtn = card.querySelector('.btn-rerun');
+        if (rerunBtn) {
+            rerunBtn.style.display = (info.status === 'complete' && !isRunning) ? '' : 'none';
+            rerunBtn.disabled = isRunning;
+        }
     }
 
     // Update summary stats
@@ -576,13 +616,17 @@ function updateUI(state) {
     // Update active run status text
     const runStatus = document.getElementById('active-run-status');
     const runText = document.getElementById('active-run-text');
+    const cancelBtn = document.getElementById('btn-force-cancel');
     if (state.active_run) {
         runStatus.style.display = '';
         const step = state.active_run.current_step || 'initializing';
         const dur = Math.round(state.active_run.duration_seconds || 0);
         runText.textContent = step + ' (' + dur + 's)';
+        // Show force-cancel after 5 minutes (run may be stuck)
+        cancelBtn.style.display = dur > 300 ? '' : 'none';
     } else {
         runStatus.style.display = 'none';
+        cancelBtn.style.display = 'none';
     }
 
     // Show error if run failed
@@ -603,6 +647,11 @@ function setRunningUI(running) {
             btn.disabled = true;
         }
         // When not running, the pollStatus updateUI will re-enable based on can_start
+    });
+
+    document.querySelectorAll('.btn-rerun').forEach(btn => {
+        btn.disabled = running;
+        if (running) btn.style.display = 'none';
     });
 }
 
@@ -744,6 +793,90 @@ function stopInteractive() {
     .catch(err => {
         showError('Network error: ' + err.message);
         if (lastStep) showReviewBar(lastStep);
+    });
+}
+
+function forceCancel() {
+    if (!confirm('Force-cancel the active pipeline run? This marks it as failed.')) return;
+    hideError();
+
+    fetch(FORCE_CANCEL_URL, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({})
+    })
+    .then(r => r.json().then(data => ({ok: r.ok, data})))
+    .then(({ok, data}) => {
+        if (!ok) {
+            showError(data.error || 'Failed to cancel');
+            return;
+        }
+        stopPolling();
+        setRunningUI(false);
+        fetch(STATUS_URL).then(r => r.json()).then(updateUI);
+    })
+    .catch(err => {
+        showError('Network error: ' + err.message);
+    });
+}
+
+// --- Re-run functions ---
+
+function rerunSubstep(substep) {
+    if (isRunning) return;
+    hideError();
+
+    // Fetch preview to build confirmation dialog
+    fetch(RERUN_PREVIEW_URL + '?substep=' + encodeURIComponent(substep))
+    .then(r => r.json().then(data => ({ok: r.ok, data})))
+    .then(({ok, data}) => {
+        if (!ok) {
+            showError(data.error || 'Failed to preview');
+            return;
+        }
+        showRerunConfirmation(substep, data);
+    })
+    .catch(err => {
+        showError('Network error: ' + err.message);
+    });
+}
+
+function showRerunConfirmation(substep, preview) {
+    let msg = 'Re-run "' + preview.target_display + '"?\n\n';
+    if (preview.downstream_display.length > 0) {
+        msg += 'This will clear data from ' + preview.affected_count + ' steps:\n';
+        msg += '- ' + preview.target_display + ' (re-run target)\n';
+        for (const name of preview.downstream_display) {
+            msg += '- ' + name + '\n';
+        }
+    } else {
+        msg += 'Only "' + preview.target_display + '" data will be cleared.\n';
+    }
+    if (preview.will_clear_commits) {
+        msg += '\nOntServe entities will be stale until re-committed.';
+    }
+
+    if (!confirm(msg)) return;
+
+    // Execute the re-run
+    setRunningUI(true);
+    fetch(RERUN_URL, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({substep: substep})
+    })
+    .then(r => r.json().then(data => ({ok: r.ok, data})))
+    .then(({ok, data}) => {
+        if (!ok) {
+            showError(data.error || 'Failed to re-run');
+            setRunningUI(false);
+            return;
+        }
+        startPolling();
+    })
+    .catch(err => {
+        showError('Network error: ' + err.message);
+        setRunningUI(false);
     });
 }
 </script>

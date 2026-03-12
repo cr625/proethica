@@ -836,6 +836,68 @@ def resume_pipeline_task(self, run_id: int):
         }
 
 
+@celery.task(bind=True, name='proethica.tasks.run_step4_substep')
+def run_step4_substep_task(self, run_id: int, substep: str):
+    """Execute a single Step 4 sub-phase for a case.
+
+    Each Step 4 sub-phase (provisions, precedents, qc, transformation,
+    rich_analysis, phase3, phase4) can be triggered individually from
+    the pipeline view.
+
+    Args:
+        run_id: PipelineRun ID
+        substep: PSM substep name (e.g. 'step4_provisions')
+
+    Returns:
+        dict with sub-phase results
+    """
+    logger.info(f"[Task {self.request.id}] Starting {substep} for run {run_id}")
+
+    run = PipelineRun.query.get(run_id)
+    if not run:
+        raise ValueError(f"Run {run_id} not found")
+
+    run.current_step = substep
+    run.set_status(PIPELINE_STATUS['RUNNING'])
+    db.session.commit()
+
+    try:
+        from app.services.step4_synthesis_service import run_step4_substep
+
+        def update_progress(stage: str, message: str):
+            run.current_step = f"{substep}: {message}"
+            db.session.commit()
+
+        result = run_step4_substep(
+            case_id=run.case_id,
+            substep=substep,
+            progress_callback=update_progress,
+        )
+
+        if result.get('error'):
+            raise Exception(result['error'])
+
+        # Reset current_step to canonical PSM name before terminal status
+        run.current_step = substep
+        run.mark_step_complete(substep, result)
+        mode = (run.config or {}).get('mode')
+        if mode == 'single':
+            run.set_status(PIPELINE_STATUS['COMPLETED'])
+        elif mode == 'interactive':
+            run.set_status(PIPELINE_STATUS['WAITING_REVIEW'])
+        # else: run_all mode -- parent task (run_full_pipeline_task) sets terminal status
+        db.session.commit()
+
+        logger.info(f"[Task {self.request.id}] {substep} completed: {result}")
+        return {'success': True, 'step': substep, 'results': result}
+
+    except Exception as e:
+        logger.error(f"[Task {self.request.id}] {substep} failed: {e}", exc_info=True)
+        run.set_error(str(e), substep)
+        db.session.commit()
+        raise
+
+
 @celery.task(bind=True, name='proethica.tasks.run_step4')
 def run_step4_task(self, run_id: int):
     """
