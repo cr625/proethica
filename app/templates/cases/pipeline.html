@@ -77,6 +77,29 @@
 }
 .artifact-badge.has-data { background: #d1e7dd; color: #0f5132; }
 
+/* Entity type badge colors (Nine-Component Framework) */
+/* Step 1 - Context */
+.artifact-badge[data-entity-type="roles"]       { background: #cfe2ff; color: #084298; }
+.artifact-badge[data-entity-type="states"]      { background: #e2d9f3; color: #432874; }
+.artifact-badge[data-entity-type="resources"]   { background: #d2f4ea; color: #0d6854; }
+/* Step 2 - Normative */
+.artifact-badge[data-entity-type="principles"]  { background: #ffe5d0; color: #984c0c; }
+.artifact-badge[data-entity-type="obligations"] { background: #f8d7da; color: #842029; }
+.artifact-badge[data-entity-type="constraints"] { background: #e2e3e5; color: #41464b; }
+.artifact-badge[data-entity-type="capabilities"]{ background: #cff4fc; color: #087990; }
+/* Step 3 - Temporal */
+.artifact-badge[data-entity-type="actions"] { background: #d1e7dd; color: #0f5132; }
+.artifact-badge[data-entity-type="events"]  { background: #fff3cd; color: #664d03; }
+/* Step 4 - Synthesis */
+.artifact-badge[data-entity-type="code_provision_reference"]   { background: #e2e3e5; color: #41464b; }
+.artifact-badge[data-entity-type="precedent_case_reference"]   { background: #e2e3e5; color: #41464b; }
+.artifact-badge[data-entity-type="ethical_question"]           { background: #cff4fc; color: #087990; }
+.artifact-badge[data-entity-type="ethical_conclusion"]         { background: #d1e7dd; color: #0f5132; }
+.artifact-badge[data-entity-type="causal_normative_link"]      { background: #e2e5e9; color: #3b4455; }
+.artifact-badge[data-entity-type="question_emergence"]         { background: #e2e5e9; color: #3b4455; }
+.artifact-badge[data-entity-type="resolution_pattern"]         { background: #e2e5e9; color: #3b4455; }
+.artifact-badge[data-entity-type="canonical_decision_point"]   { background: #e2e5e9; color: #3b4455; }
+
 .substep-actions { flex-shrink: 0; display: flex; gap: 0.35rem; align-items: center; }
 
 .blocker-text {
@@ -289,11 +312,13 @@
                         {% set task_total = task_info.artifact_counts.values()|sum %}
                         {% if task_total > 0 %}
                         <span class="artifact-badge has-data"
+                              data-entity-type="{{ task_name }}"
                               title="{{ task_info.artifact_types|join(', ') }}">
                             {{ task_info.display_name }}: {{ task_total }}
                         </span>
                         {% elif row.status == 'complete' %}
-                        <span class="artifact-badge has-data">
+                        <span class="artifact-badge has-data"
+                              data-entity-type="{{ task_name }}">
                             {{ task_info.display_name }}
                         </span>
                         {% endif %}
@@ -603,6 +628,7 @@ function updateUI(state) {
                 if (total > 0 || row.status === 'complete') {
                     const span = document.createElement('span');
                     span.className = 'artifact-badge has-data';
+                    span.dataset.entityType = tName;
                     span.title = tInfo.artifact_types.join(', ');
                     span.textContent = total > 0
                         ? tInfo.display_name + ': ' + total

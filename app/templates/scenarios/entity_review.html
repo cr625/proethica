@@ -232,18 +232,6 @@
                             </a>
                         </div>
                         {% endif %}
-                        <!-- View Extraction -->
-                        {% if section_type == 'discussion' %}
-                        <a href="{{ url_for('cases.case_pipeline', case_id=case.id) }}"
-                           class="btn btn-sm btn-outline-secondary" title="View extraction page">
-                            <i class="bi bi-eye"></i> View Extraction
-                        </a>
-                        {% else %}
-                        <a href="{{ url_for('cases.case_pipeline', case_id=case.id) }}"
-                           class="btn btn-sm btn-outline-secondary" title="View extraction page">
-                            <i class="bi bi-eye"></i> View Extraction
-                        </a>
-                        {% endif %}
                     </div>
                     <div class="d-flex gap-2 align-items-center">
                         {% if current_user.is_authenticated %}

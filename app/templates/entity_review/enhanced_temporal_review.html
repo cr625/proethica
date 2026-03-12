@@ -159,11 +159,6 @@
                         <a href="{{ url_for('scenario_pipeline.overview', case_id=case.id) }}" class="btn btn-sm btn-secondary">
                             <i class="bi bi-arrow-left"></i> Overview
                         </a>
-                        <!-- View Extraction -->
-                        <a href="{{ url_for('cases.case_pipeline', case_id=case.id) }}"
-                           class="btn btn-sm btn-outline-secondary" title="View extraction page">
-                            <i class="bi bi-eye"></i> View Extraction
-                        </a>
                     </div>
                     <div class="d-flex gap-2 align-items-center">
                         {% if current_user.is_authenticated %}

@@ -65,6 +65,7 @@ class TaskDefinition:
     prerequisites: List[str] = field(default_factory=list)
     min_artifacts: int = 1
     check_type: CheckType = CheckType.ARTIFACTS
+    entity_type_filter: Optional[str] = None
 
 
 @dataclass
@@ -162,7 +163,10 @@ WORKFLOW_DEFINITION: Dict[str, WorkflowStepDefinition] = {
         display_name='Pass 3 - Temporal',
         step_group='Pass 3',
         tasks=[
-            TaskDefinition('temporal', 'Actions & Events', ['temporal_dynamics_enhanced'], 'temporal'),
+            TaskDefinition('actions', 'Actions', ['temporal_dynamics_enhanced'], 'temporal',
+                           entity_type_filter='actions'),
+            TaskDefinition('events', 'Events', ['temporal_dynamics_enhanced'], 'temporal',
+                           entity_type_filter='events'),
         ],
         prerequisites=['pass2_facts', 'pass2_discussion'],
     ),
@@ -388,6 +392,47 @@ class PipelineStateManager:
 
         except Exception as e:
             logger.warning(f"Error getting artifact counts for case {case_id}: {e}")
+            return {}
+
+    def get_entity_type_counts(self, case_id: int) -> Dict[str, Dict[str, int]]:
+        """
+        Get counts grouped by (extraction_type, entity_type). Cached per instance.
+
+        Returns:
+            Nested dict: {extraction_type: {entity_type: count}}
+        """
+        cache_key = f"entity_type_{case_id}"
+        if hasattr(self, '_entity_type_cache') and cache_key in self._entity_type_cache:
+            return self._entity_type_cache[cache_key]
+
+        from app.models import TemporaryRDFStorage
+        from sqlalchemy import func
+
+        if not hasattr(self, '_entity_type_cache'):
+            self._entity_type_cache = {}
+
+        try:
+            results = self.db.query(
+                TemporaryRDFStorage.extraction_type,
+                TemporaryRDFStorage.entity_type,
+                func.count(TemporaryRDFStorage.id)
+            ).filter(
+                TemporaryRDFStorage.case_id == case_id,
+                TemporaryRDFStorage.entity_type.isnot(None)
+            ).group_by(
+                TemporaryRDFStorage.extraction_type,
+                TemporaryRDFStorage.entity_type
+            ).all()
+
+            counts: Dict[str, Dict[str, int]] = {}
+            for ext_type, ent_type, count in results:
+                counts.setdefault(ext_type, {})[ent_type] = count
+
+            self._entity_type_cache[cache_key] = counts
+            return counts
+
+        except Exception as e:
+            logger.warning(f"Error getting entity type counts for case {case_id}: {e}")
             return {}
 
     def _get_section_types(self, case_id: int) -> Dict[str, set]:
@@ -719,6 +764,7 @@ class PipelineState:
             Dict with complete pipeline state, grouped by step_group.
         """
         artifact_counts = self._manager.get_artifact_counts(self.case_id)
+        entity_type_counts = self._manager.get_entity_type_counts(self.case_id)
 
         result = {
             'case_id': self.case_id,
@@ -744,10 +790,19 @@ class PipelineState:
                 task_can_start, task_blockers = self._manager.check_prerequisites_met(
                     self.case_id, step_name, task.name
                 )
-                task_artifact_counts = {
-                    atype: artifact_counts.get(atype, 0)
-                    for atype in task.artifact_types
-                }
+                if task.entity_type_filter:
+                    # Use entity_type-filtered count for display
+                    task_artifact_counts = {
+                        task.name: sum(
+                            entity_type_counts.get(atype, {}).get(task.entity_type_filter, 0)
+                            for atype in task.artifact_types
+                        )
+                    }
+                else:
+                    task_artifact_counts = {
+                        atype: artifact_counts.get(atype, 0)
+                        for atype in task.artifact_types
+                    }
                 step_state['tasks'][task.name] = {
                     'name': task.name,
                     'display_name': task.display_name,
