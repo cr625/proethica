@@ -102,10 +102,10 @@ class TestPromptPersistence:
         assert saved.prompt_text is not None, "Prompt text should be saved"
         assert saved.step_number == 1, "Step number should be saved"
 
-    def test_saved_prompt_retrieved_on_reload(self, app_context, client):
+    def test_saved_prompt_retrieved_on_reload(self, app_context):
         """
         CRITICAL TEST: Verify that saved prompts/responses are retrieved
-        when the user reloads the page.
+        via the database model.
         """
         case_id = 7
         concept_type = 'roles'
@@ -133,18 +133,12 @@ class TestPromptPersistence:
         db.session.add(test_prompt)
         db.session.commit()
 
-        # Retrieve via API
-        response = client.get(
-            f'/scenario_pipeline/case/{case_id}/step1/get_saved_prompt',
-            query_string={'concept_type': concept_type, 'section_type': section_type}
-        )
+        # Retrieve via model
+        saved = ExtractionPrompt.get_active_prompt(case_id, concept_type, section_type)
 
-        # Verify retrieval
-        assert response.status_code == 200
-        data = response.get_json()
-        assert data.get('success') is True, "Should successfully retrieve prompt"
-        assert 'Test prompt' in data.get('prompt_text', ''), "Should return saved prompt text"
-        assert data.get('raw_response') is not None, "Should return raw response"
+        assert saved is not None, "Should retrieve saved prompt"
+        assert 'Test prompt' in saved.prompt_text, "Should return saved prompt text"
+        assert saved.raw_response is not None, "Should return raw response"
 
     def test_multiple_sections_have_separate_prompts(self, app_context):
         """

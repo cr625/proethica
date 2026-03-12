@@ -231,14 +231,8 @@ def create_app(config_name=None):
     init_provenance_csrf_exemption(app)
     
     # Initialize CSRF exemptions after registering blueprints
-    from app.routes.scenario_pipeline.step1 import init_step1_csrf_exemption
-    from app.routes.scenario_pipeline.step2 import init_step2_csrf_exemption
-    from app.routes.scenario_pipeline.step3 import init_step3_csrf_exemption
     from app.routes.scenario_pipeline.step4 import init_step4_csrf_exemption
     from app.routes.scenario_pipeline.step5 import init_step5_csrf_exemption
-    init_step1_csrf_exemption(app)
-    init_step2_csrf_exemption(app)
-    init_step3_csrf_exemption(app)
     init_step4_csrf_exemption(app)
     init_step5_csrf_exemption(app)
 
