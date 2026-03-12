@@ -141,18 +141,34 @@ class TestStuckRunningDetection:
 
     @patch('app.routes.cases.pipeline.db')
     @patch('app.routes.cases.pipeline.PipelineRun')
-    def test_waiting_review_not_failed(self, mock_model, mock_db):
-        """WAITING_REVIEW run should never be auto-failed regardless of age."""
+    def test_waiting_review_not_failed_within_24h(self, mock_model, mock_db):
+        """WAITING_REVIEW run under 24 hours old should remain active."""
         from app.routes.cases.pipeline import _get_active_run
         from app.models.pipeline_run import PIPELINE_STATUS
 
-        old = datetime.utcnow() - timedelta(hours=24)
-        run = self._make_mock_run(PIPELINE_STATUS['WAITING_REVIEW'], old)
+        recent = datetime.utcnow() - timedelta(hours=12)
+        run = self._make_mock_run(PIPELINE_STATUS['WAITING_REVIEW'], recent)
         mock_model.query.filter.return_value.order_by.return_value.first.return_value = run
 
         result = _get_active_run(case_id=1)
         assert result is run
         run.set_error.assert_not_called()
+
+    @patch('app.routes.cases.pipeline.db')
+    @patch('app.routes.cases.pipeline.PipelineRun')
+    def test_waiting_review_auto_completed_after_24h(self, mock_model, mock_db):
+        """WAITING_REVIEW run older than 24 hours should be auto-completed."""
+        from app.routes.cases.pipeline import _get_active_run
+        from app.models.pipeline_run import PIPELINE_STATUS
+
+        old = datetime.utcnow() - timedelta(hours=25)
+        run = self._make_mock_run(PIPELINE_STATUS['WAITING_REVIEW'], old)
+        mock_model.query.filter.return_value.order_by.return_value.first.return_value = run
+
+        result = _get_active_run(case_id=1)
+        assert result is None
+        run.set_error.assert_not_called()
+        run.set_status.assert_called_once_with(PIPELINE_STATUS['COMPLETED'])
 
 
 # --- Phase 5: CSRF exemption tests ---

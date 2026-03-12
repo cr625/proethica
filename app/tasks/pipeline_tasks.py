@@ -885,7 +885,10 @@ def run_step4_substep_task(self, run_id: int, substep: str):
             run.set_status(PIPELINE_STATUS['COMPLETED'])
         elif mode == 'interactive':
             run.set_status(PIPELINE_STATUS['WAITING_REVIEW'])
-        # else: run_all mode -- parent task (run_full_pipeline_task) sets terminal status
+        else:
+            # run_all mode -- parent task (run_full_pipeline_task) sets terminal status.
+            # This branch should not execute for single/interactive dispatches.
+            logger.warning(f"[Task {self.request.id}] Unexpected mode '{mode}' for substep {substep}")
         db.session.commit()
 
         logger.info(f"[Task {self.request.id}] {substep} completed: {result}")

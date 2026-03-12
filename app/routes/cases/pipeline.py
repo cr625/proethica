@@ -7,6 +7,7 @@ Phase 5: Rollback and re-extraction (cascade clearing + re-run).
 """
 
 from flask import render_template, jsonify, request
+from sqlalchemy import text
 from app.models import Document
 from app.models.pipeline_run import PipelineRun, PIPELINE_STATUS
 from app.services.pipeline_state_manager import PipelineStateManager, WORKFLOW_DEFINITION
@@ -58,7 +59,17 @@ def _get_active_run(case_id):
         ])
     ).order_by(PipelineRun.created_at.desc()).first()
 
-    # WAITING_REVIEW is an intentional pause (interactive mode), not stale.
+    # WAITING_REVIEW is an intentional pause (interactive mode).
+    # Auto-complete (not auto-fail) after 24 hours since extraction already succeeded.
+    if run and run.status == PIPELINE_STATUS['WAITING_REVIEW']:
+        stale_threshold = datetime.utcnow() - timedelta(hours=24)
+        check_time = run.updated_at or run.created_at
+        if check_time < stale_threshold:
+            logger.warning(f"Auto-completing stale WAITING_REVIEW run {run.id} for case {case_id}")
+            run.set_status(PIPELINE_STATUS['COMPLETED'])
+            db.session.commit()
+            return None
+
     # Auto-fail PENDING/PAUSED runs stuck >10 minutes since last update.
     if run and run.status in (PIPELINE_STATUS['PENDING'], PIPELINE_STATUS['PAUSED']):
         stale_threshold = datetime.utcnow() - timedelta(minutes=10)
@@ -178,9 +189,14 @@ def register_pipeline_routes(bp):
         if substep not in SUBSTEP_DISPATCH:
             return jsonify({'error': f'Substep {substep} is not dispatchable'}), 400
 
+        # Advisory lock prevents TOCTOU race: two concurrent requests both
+        # see "no active run" and create duplicate PipelineRuns.
+        db.session.execute(text('SELECT pg_advisory_xact_lock(:id)'), {'id': case_id})
+
         # Check no active run
         active = _get_active_run(case_id)
         if active:
+            db.session.rollback()
             return jsonify({
                 'error': 'A pipeline run is already active for this case',
                 'active_run_id': active.id,
@@ -190,6 +206,7 @@ def register_pipeline_routes(bp):
         manager = PipelineStateManager()
         state = manager.get_pipeline_state(case_id)
         if not state.can_start(substep):
+            db.session.rollback()
             blockers = state.get_blockers(substep)
             return jsonify({
                 'error': 'Prerequisites not met',
@@ -238,9 +255,13 @@ def register_pipeline_routes(bp):
         """
         Document.query.get_or_404(case_id)
 
+        # Advisory lock prevents TOCTOU race on concurrent dispatch
+        db.session.execute(text('SELECT pg_advisory_xact_lock(:id)'), {'id': case_id})
+
         # Check no active run
         active = _get_active_run(case_id)
         if active:
+            db.session.rollback()
             return jsonify({
                 'error': 'A pipeline run is already active for this case',
                 'active_run_id': active.id,
@@ -249,6 +270,7 @@ def register_pipeline_routes(bp):
         data = request.get_json(silent=True) or {}
         mode = data.get('mode', 'run_all')
         if mode not in ('run_all', 'interactive'):
+            db.session.rollback()
             return jsonify({'error': f'Invalid mode: {mode}'}), 400
 
         config = {
