@@ -65,14 +65,15 @@ class PrecedentSimilarityService:
         'principle_overlap': 0.10
     }
 
-    # Component-aware weights - uses combined_embedding which aggregates
-    # all 9 components with their ethical importance weights
+    # Component-aware weights - uses per-component embeddings (R, P, O, S, Rs, A, E, Ca, Cs)
+    # Outcome is displayed post-retrieval but excluded from ranking,
+    # consistent with legal CBR practice (HYPO/CATO) where retrieval
+    # should surface both supporting and distinguishing cases.
+    # Principle tensions removed (always zero across all cases).
     COMPONENT_AWARE_WEIGHTS = {
-        'component_similarity': 0.40,  # Uses combined_embedding (9-component weighted)
-        'provision_overlap': 0.25,
-        'outcome_alignment': 0.15,
-        'tag_overlap': 0.10,
-        'principle_overlap': 0.10
+        'component_similarity': 0.50,  # D-tuple 9-component weighted embedding
+        'provision_overlap': 0.30,     # NSPE Code section overlap (Jaccard)
+        'tag_overlap': 0.20,           # Subject tag overlap (Jaccard)
     }
 
     def __init__(self, llm_client=None):
@@ -326,6 +327,7 @@ class PrecedentSimilarityService:
                 outcome_alignment,
                 tag_overlap,
                 principle_overlap,
+                component_similarity,
                 overall_similarity,
                 weights_used,
                 computation_method
@@ -338,6 +340,7 @@ class PrecedentSimilarityService:
                 :outcome_alignment,
                 :tag_overlap,
                 :principle_overlap,
+                :component_similarity,
                 :overall_similarity,
                 :weights_used,
                 :computation_method
@@ -349,8 +352,10 @@ class PrecedentSimilarityService:
                 outcome_alignment = EXCLUDED.outcome_alignment,
                 tag_overlap = EXCLUDED.tag_overlap,
                 principle_overlap = EXCLUDED.principle_overlap,
+                component_similarity = EXCLUDED.component_similarity,
                 overall_similarity = EXCLUDED.overall_similarity,
                 weights_used = EXCLUDED.weights_used,
+                computation_method = EXCLUDED.computation_method,
                 computed_at = CURRENT_TIMESTAMP
         """)
 
@@ -363,9 +368,10 @@ class PrecedentSimilarityService:
             'outcome_alignment': result.component_scores.get('outcome_alignment', 0),
             'tag_overlap': result.component_scores.get('tag_overlap', 0),
             'principle_overlap': result.component_scores.get('principle_overlap', 0),
+            'component_similarity': result.component_scores.get('component_similarity', 0),
             'overall_similarity': result.overall_similarity,
             'weights_used': json.dumps(result.weights_used),
-            'computation_method': 'static_weights'
+            'computation_method': result.method or 'static_weights'
         })
         db.session.commit()
 

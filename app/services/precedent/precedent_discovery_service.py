@@ -42,6 +42,7 @@ class PrecedentMatch:
     relevance_explanation: Optional[str] = None
     target_outcome: Optional[str] = None
     target_transformation: Optional[str] = None
+    per_component_scores: Optional[Dict[str, float]] = None
 
 
 @dataclass
@@ -87,7 +88,8 @@ class PrecedentDiscoveryService:
         min_score: float = 0.3,
         focus: Optional[str] = None,
         use_dynamic_weights: bool = False,
-        include_llm_analysis: bool = True
+        include_llm_analysis: bool = True,
+        use_component_embedding: bool = False
     ) -> List[PrecedentMatch]:
         """
         Find precedent cases for a given source case.
@@ -119,7 +121,8 @@ class PrecedentDiscoveryService:
             source_case_id=source_case_id,
             limit=limit,
             min_score=min_score,
-            weights=weights
+            weights=weights,
+            use_component_embedding=use_component_embedding
         )
 
         # Convert to PrecedentMatch objects with case details
@@ -402,7 +405,8 @@ class PrecedentDiscoveryService:
             matching_provisions=similarity.matching_provisions,
             outcome_match=similarity.outcome_match,
             target_outcome=features[0] if features else None,
-            target_transformation=features[1] if features else None
+            target_transformation=features[1] if features else None,
+            per_component_scores=similarity.per_component_scores
         )
 
     def _get_case_sections(self, case_id: int) -> Dict[str, str]:

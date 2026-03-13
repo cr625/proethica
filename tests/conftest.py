@@ -55,6 +55,7 @@ def setup_test_database():
                 outcome_alignment DOUBLE PRECISION,
                 tag_overlap DOUBLE PRECISION,
                 principle_overlap DOUBLE PRECISION,
+                component_similarity DOUBLE PRECISION,
                 overall_similarity DOUBLE PRECISION,
                 weights_used JSONB,
                 computed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

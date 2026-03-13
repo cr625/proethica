@@ -248,79 +248,32 @@
         <!-- Similar Cases Sidebar -->
         <div class="col-md-4">
             <div class="card">
-                <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                <div class="card-header bg-info text-white">
                     <h5 class="mb-0"><i class="bi bi-link-45deg"></i> Similar Cases</h5>
-                    {% if similar_by_discussion or similar_by_component %}
-                    <div class="btn-group btn-group-sm" role="group">
-                        <button type="button" class="btn btn-light btn-sm active" id="btn-discussion" onclick="toggleSimilarMethod('discussion')">Discussion</button>
-                        <button type="button" class="btn btn-outline-light btn-sm" id="btn-component" onclick="toggleSimilarMethod('component')">D-tuple</button>
-                    </div>
-                    {% endif %}
                 </div>
                 <div class="card-body">
-                    {% if similar_by_discussion or similar_by_component %}
-
-                    <!-- Discussion-based results -->
-                    <div id="similar-discussion">
-                        <p class="small text-muted mb-3">
-                            By discussion section embedding (cosine similarity)
-                        </p>
-                        {% if similar_by_discussion %}
-                        {% for sim_case in similar_by_discussion %}
-                        <div class="card similar-case-card mb-3">
-                            <div class="card-body py-2">
-                                <div class="d-flex justify-content-between align-items-start">
-                                    <div>
-                                        <a href="{{ url_for('cases.view_case', id=sim_case.case_id) }}" class="text-decoration-none">
-                                            <strong>{{ sim_case.title|truncate(50) }}</strong>
-                                        </a>
-                                        <div class="small text-muted">Case {{ sim_case.case_id }}</div>
-                                    </div>
-                                    <span class="badge bg-info">{{ (sim_case.similarity * 100)|round|int }}%</span>
+                    {% if similar_by_component %}
+                    <p class="small text-muted mb-3">
+                        By D-tuple 9-component weighted embedding
+                    </p>
+                    {% for sim_case in similar_by_component %}
+                    <div class="card similar-case-card mb-3">
+                        <div class="card-body py-2">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <a href="{{ url_for('cases.view_case', id=sim_case.case_id) }}" class="text-decoration-none">
+                                        <strong>{{ sim_case.title|truncate(50) }}</strong>
+                                    </a>
+                                    <div class="small text-muted">Case {{ sim_case.case_id }}</div>
                                 </div>
-                                <div class="similarity-bar mt-2">
-                                    <div class="similarity-fill" style="width: {{ sim_case.similarity * 100 }}%"></div>
-                                </div>
+                                <span class="badge bg-info">{{ (sim_case.similarity * 100)|round|int }}%</span>
+                            </div>
+                            <div class="similarity-bar mt-2">
+                                <div class="similarity-fill" style="width: {{ sim_case.similarity * 100 }}%"></div>
                             </div>
                         </div>
-                        {% endfor %}
-                        {% else %}
-                        <div class="text-center py-3">
-                            <small class="text-muted">No discussion embedding available</small>
-                        </div>
-                        {% endif %}
                     </div>
-
-                    <!-- Component-based results -->
-                    <div id="similar-component" style="display: none;">
-                        <p class="small text-muted mb-3">
-                            By 9-component weighted embedding (cosine similarity)
-                        </p>
-                        {% if similar_by_component %}
-                        {% for sim_case in similar_by_component %}
-                        <div class="card similar-case-card mb-3">
-                            <div class="card-body py-2">
-                                <div class="d-flex justify-content-between align-items-start">
-                                    <div>
-                                        <a href="{{ url_for('cases.view_case', id=sim_case.case_id) }}" class="text-decoration-none">
-                                            <strong>{{ sim_case.title|truncate(50) }}</strong>
-                                        </a>
-                                        <div class="small text-muted">Case {{ sim_case.case_id }}</div>
-                                    </div>
-                                    <span class="badge bg-info">{{ (sim_case.similarity * 100)|round|int }}%</span>
-                                </div>
-                                <div class="similarity-bar mt-2">
-                                    <div class="similarity-fill" style="width: {{ sim_case.similarity * 100 }}%"></div>
-                                </div>
-                            </div>
-                        </div>
-                        {% endfor %}
-                        {% else %}
-                        <div class="text-center py-3">
-                            <small class="text-muted">No component embedding available</small>
-                        </div>
-                        {% endif %}
-                    </div>
+                    {% endfor %}
 
                     <a href="{{ url_for('precedents.find_precedents', case_id=case.id) }}" class="btn btn-outline-info btn-sm w-100">
                         <i class="bi bi-search"></i> Full Similarity Analysis
@@ -447,13 +400,3 @@
 </div>
 {% endblock %}
 
-{% block scripts %}
-<script>
-function toggleSimilarMethod(method) {
-    document.getElementById('similar-discussion').style.display = method === 'discussion' ? '' : 'none';
-    document.getElementById('similar-component').style.display = method === 'component' ? '' : 'none';
-    document.getElementById('btn-discussion').className = 'btn btn-sm ' + (method === 'discussion' ? 'btn-light active' : 'btn-outline-light');
-    document.getElementById('btn-component').className = 'btn btn-sm ' + (method === 'component' ? 'btn-light active' : 'btn-outline-light');
-}
-</script>
-{% endblock %}

@@ -52,7 +52,6 @@ def register_structure_embedding_routes(bp):
     def view_case_structure(id):
         """View document structure and embeddings for a case."""
         from app.models.document_section import DocumentSection
-        from app.services.section_embedding_service import SectionEmbeddingService
 
         case = Document.query.get_or_404(id)
 
@@ -104,28 +103,7 @@ def register_structure_embedding_routes(bp):
         dimensions = set(s['embed_dim'] for s in section_stats if s['embed_dim'])
         has_dimension_issue = len(dimensions) > 1 or (dimensions and 1536 in dimensions)
 
-        similar_by_discussion = []
         similar_by_component = []
-
-        if sections_with_embeddings > 0:
-            try:
-                service = SectionEmbeddingService()
-                discussion_section = next((s for s in sections if s.section_type == 'discussion' and s.embedding is not None), None)
-                if discussion_section:
-                    similar = service.find_similar_sections(
-                        discussion_section.content,
-                        section_type='discussion',
-                        limit=10
-                    )
-                    for s in similar:
-                        if s['document_id'] != id and len(similar_by_discussion) < 3:
-                            similar_by_discussion.append({
-                                'case_id': s['document_id'],
-                                'title': s['document_title'],
-                                'similarity': s['similarity'],
-                            })
-            except Exception as e:
-                logger.warning(f"Error finding similar cases by discussion: {e}")
 
         try:
             component_similar = db.session.execute(db.text("""
@@ -207,7 +185,6 @@ def register_structure_embedding_routes(bp):
             embedding_coverage=embedding_coverage,
             has_dimension_issue=has_dimension_issue,
             dimensions=list(dimensions),
-            similar_by_discussion=similar_by_discussion,
             similar_by_component=similar_by_component,
             component_data=component_data,
             component_order=COMPONENT_ORDER,

@@ -410,26 +410,17 @@
                 <button class="btn btn-sm filter-btn active" data-filter="" title="All connection types (weighted)">
                     All
                 </button>
+                <button class="btn btn-sm btn-outline-primary filter-btn" data-filter="component_similarity" title="D-tuple 9-component embedding similarity">
+                    D-tuple
+                </button>
                 <button class="btn btn-sm btn-outline-success filter-btn" data-filter="provision_overlap" title="Cases sharing NSPE Code provisions">
                     Provisions
                 </button>
-                <button class="btn btn-sm btn-outline-info filter-btn" data-filter="discussion_similarity" title="Similar ethical analysis (semantic)">
-                    Discussion
-                </button>
-                <button class="btn btn-sm btn-outline-primary filter-btn" data-filter="facts_similarity" title="Similar factual situations">
-                    Facts
-                </button>
-                <button class="btn btn-sm btn-outline-secondary filter-btn" data-filter="outcome_alignment" title="Same ethical/unethical outcome">
-                    Outcome
-                </button>
                 <button class="btn btn-sm btn-outline-dark filter-btn" data-filter="tag_overlap" title="Similar subject tags">
-                    Tag Similarity
+                    Tags
                 </button>
                 <button class="btn btn-sm btn-outline-dark" id="tag-expand-btn" title="Filter by specific subject tag">
                     <i class="bi bi-tags"></i> Tags <i class="bi bi-chevron-down" id="tag-chevron"></i>
-                </button>
-                <button class="btn btn-sm btn-outline-warning filter-btn" data-filter="principle_overlap" title="Similar principle tensions">
-                    Principle Tensions
                 </button>
                 <button class="btn btn-sm btn-outline-danger" id="clear-filter-btn" title="Clear all filters" style="display: none;">
                     <i class="bi bi-x-lg"></i> Clear
@@ -667,12 +658,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Component-specific edge colors
     const componentColors = {
+        'component_similarity': '#0d6efd',   // blue (D-tuple)
         'provision_overlap': '#198754',      // green
-        'discussion_similarity': '#0dcaf0',  // cyan
-        'facts_similarity': '#0d6efd',       // blue
-        'outcome_alignment': '#6c757d',      // gray
         'tag_overlap': '#fd7e14',            // orange
-        'principle_overlap': '#ffc107'       // yellow
     };
 
     function getEdgeColor(edge) {
@@ -1037,12 +1025,9 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             // Similarity-based edge
             const componentLabels = {
-                'facts_similarity': 'Facts',
-                'discussion_similarity': 'Discussion',
+                'component_similarity': 'D-tuple',
                 'provision_overlap': 'Provisions',
-                'outcome_alignment': 'Outcome',
                 'tag_overlap': 'Tags',
-                'principle_overlap': 'Principles'
             };
 
             for (const [key, label] of Object.entries(componentLabels)) {
@@ -1202,12 +1187,9 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateFilterIndicator() {
         const indicator = document.getElementById('filter-indicator');
         const filterLabels = {
+            'component_similarity': 'D-tuple Similarity',
             'provision_overlap': 'Provisions',
-            'discussion_similarity': 'Discussion',
-            'facts_similarity': 'Facts',
-            'outcome_alignment': 'Outcome',
-            'tag_overlap': 'Tag Similarity',
-            'principle_overlap': 'Principle Tensions'
+            'tag_overlap': 'Tags',
         };
         const entityLabels = {
             'Roles': 'Roles',

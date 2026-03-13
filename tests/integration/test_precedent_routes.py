@@ -226,16 +226,13 @@ class TestApiSimilarityNetwork:
             target_case_id=doc2.id,
             overall_similarity=0.65,
             component_scores={
-                'facts_similarity': 0.7,
-                'discussion_similarity': 0.5,
+                'component_similarity': 0.7,
                 'provision_overlap': 0.8,
-                'outcome_alignment': 0.0,
                 'tag_overlap': 0.5,
-                'principle_overlap': 0.0
             },
             matching_provisions=['II.1.a'],
             outcome_match=False,
-            weights_used={'facts_similarity': 0.3}
+            weights_used={'component_similarity': 0.5}
         )
 
         with patch('app.services.precedent.PrecedentSimilarityService') as MockService:
@@ -266,9 +263,8 @@ class TestApiSimilarityNetwork:
         db.session.execute(db.text("""
             INSERT INTO precedent_similarity_cache
                 (source_case_id, target_case_id, overall_similarity,
-                 facts_similarity, discussion_similarity, provision_overlap,
-                 outcome_alignment, tag_overlap, principle_overlap)
-            VALUES (:src, :tgt, 0.7, 0.8, 0.5, 0.9, 0.0, 0.3, 0.1)
+                 component_similarity, provision_overlap, tag_overlap)
+            VALUES (:src, :tgt, 0.7, 0.8, 0.9, 0.3)
         """), {'src': doc1.id, 'tgt': doc2.id})
         db.session.commit()
 
@@ -590,11 +586,11 @@ class TestHelperFunctions:
         from app.routes.precedents import _get_primary_method
 
         scores = {
-            'facts_similarity': 0.3,
-            'discussion_similarity': 0.8,
+            'component_similarity': 0.3,
+            'tag_overlap': 0.8,
             'provision_overlap': 0.5
         }
-        assert _get_primary_method(scores) == 'discussion_similarity'
+        assert _get_primary_method(scores) == 'tag_overlap'
 
     def test_get_primary_method_empty(self, app_context):
         """_get_primary_method returns default for empty scores."""

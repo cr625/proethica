@@ -55,6 +55,8 @@ def main():
                         help='Commit every N pairs (default: 50)')
     parser.add_argument('--dry-run', action='store_true',
                         help='Show what would be computed without saving')
+    parser.add_argument('--component', action='store_true',
+                        help='Use component-aware (D-tuple) similarity')
 
     args = parser.parse_args()
 
@@ -93,6 +95,7 @@ def main():
         print(f"Already cached: {total_possible - len(pairs_to_compute)}")
         print(f"To compute: {len(pairs_to_compute)}")
         print(f"Batch size: {args.batch_size}")
+        print(f"Component mode: {args.component}")
         print(f"Dry run: {args.dry_run}")
         print()
 
@@ -112,7 +115,10 @@ def main():
 
         for src_id, tgt_id in pairs_to_compute:
             try:
-                result = service.calculate_similarity(src_id, tgt_id)
+                result = service.calculate_similarity(
+                    src_id, tgt_id,
+                    use_component_embedding=args.component
+                )
                 service.cache_similarity(result)
                 computed += 1
             except Exception as e:

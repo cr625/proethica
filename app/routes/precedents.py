@@ -22,46 +22,38 @@ logger = logging.getLogger(__name__)
 precedents_bp = Blueprint('precedents', __name__, url_prefix='/cases/precedents')
 
 
-# Method descriptions with APA citations
-# CBR-RAG (Wiratunga et al., 2024) for hybrid similarity approach
-# NS-LCR (Sun et al., 2024) for dual-level matching
+# Component-aware retrieval methods
+# D-tuple uses per-component embeddings (R, P, O, S, Rs, A, E, Ca, Cs)
+# Outcome excluded from retrieval scoring (displayed post-retrieval)
 MATCHING_METHODS = {
-    'facts_similarity': {
-        'name': 'Facts Similarity',
+    'component_similarity': {
+        'name': 'D-tuple Similarity',
         'method': 'Cosine',
-        'description': 'Semantic similarity of case facts',
-        'citation': 'CBR-RAG (Wiratunga et al., 2024)'
-    },
-    'discussion_similarity': {
-        'name': 'Discussion Similarity',
-        'method': 'Cosine',
-        'description': 'Semantic similarity of ethical analysis',
-        'citation': 'CBR-RAG (Wiratunga et al., 2024)'
+        'description': '9-component weighted embedding similarity (R, P, O, S, Rs, A, E, Ca, Cs)',
     },
     'provision_overlap': {
         'name': 'Provision Overlap',
         'method': 'Jaccard',
         'description': 'NSPE Code section overlap',
-        'citation': 'NS-LCR (Sun et al., 2024)'
-    },
-    'outcome_alignment': {
-        'name': 'Outcome Match',
-        'method': 'Categorical',
-        'description': 'Ethical/unethical outcome alignment',
-        'citation': None
     },
     'tag_overlap': {
         'name': 'Subject Tags',
         'method': 'Jaccard',
         'description': 'Topic category overlap',
-        'citation': None
-    },
-    'principle_overlap': {
-        'name': 'Principle Tensions',
-        'method': 'Jaccard',
-        'description': 'Ethical principle conflicts',
-        'citation': 'NS-LCR (Sun et al., 2024)'
     }
+}
+
+# Entity type colors for D-tuple per-component display
+COMPONENT_COLORS = {
+    'R': '#0d6efd', 'S': '#6f42c1', 'Rs': '#20c997',
+    'P': '#fd7e14', 'O': '#dc3545', 'Cs': '#6c757d',
+    'Ca': '#0dcaf0', 'A': '#198754', 'E': '#ffc107',
+}
+
+COMPONENT_LABELS = {
+    'R': 'Roles', 'P': 'Principles', 'O': 'Obligations',
+    'S': 'States', 'Rs': 'Resources', 'A': 'Actions',
+    'E': 'Events', 'Ca': 'Capabilities', 'Cs': 'Constraints',
 }
 
 
@@ -104,7 +96,9 @@ def find_precedents():
         source_case=source_case,
         source_case_id=source_case_id,
         precedent_results=precedent_results,
-        matching_methods=MATCHING_METHODS
+        matching_methods=MATCHING_METHODS,
+        component_colors=COMPONENT_COLORS,
+        component_labels=COMPONENT_LABELS
     )
 
 
@@ -155,7 +149,8 @@ def _find_precedents_for_case(case_id, limit=10, min_score=0.1):
             source_case_id=case_id,
             limit=limit,
             min_score=min_score,
-            include_llm_analysis=False
+            include_llm_analysis=False,
+            use_component_embedding=True
         )
 
         # Get source case's features for overlap calculation
@@ -164,13 +159,17 @@ def _find_precedents_for_case(case_id, limit=10, min_score=0.1):
         source_cited_ids = set(source_features.get('cited_case_ids', []) or []) if source_features else set()
         source_transformation = source_features.get('transformation_type') if source_features else None
 
-        # Get source case's subject tags and outcome from doc_metadata
+        # Get source case's subject tags and outcome
         source_case = Document.query.get(case_id)
         source_tags = set()
         source_outcome = None
         if source_case and source_case.doc_metadata:
             source_tags = set(source_case.doc_metadata.get('subject_tags', []) or [])
-            source_outcome = source_case.doc_metadata.get('outcome')
+
+        # Outcome comes from case_precedent_features
+        source_features_for_outcome = _get_case_features(case_id)
+        if source_features_for_outcome:
+            source_outcome = source_features_for_outcome.get('outcome_type')
 
         results = []
         for match in matches:
@@ -212,6 +211,9 @@ def _find_precedents_for_case(case_id, limit=10, min_score=0.1):
                 'overall_score': round(match.overall_score, 3),
                 'component_scores': {
                     k: round(v, 3) for k, v in match.component_scores.items()
+                },
+                'per_component_scores': {
+                    k: round(v, 3) for k, v in (match.per_component_scores or {}).items()
                 },
                 'matching_provisions': match.matching_provisions,
                 'outcome_match': match.outcome_match,
@@ -372,12 +374,9 @@ def api_similarity_network():
 
         # Map component names to cache column names
         component_columns = {
-            'facts_similarity': 'facts_similarity',
-            'discussion_similarity': 'discussion_similarity',
+            'component_similarity': 'component_similarity',
             'provision_overlap': 'provision_overlap',
-            'outcome_alignment': 'outcome_alignment',
             'tag_overlap': 'tag_overlap',
-            'principle_overlap': 'principle_overlap'
         }
 
         # Build cache query with optional component filter
@@ -388,12 +387,9 @@ def api_similarity_network():
                     source_case_id,
                     target_case_id,
                     overall_similarity,
-                    facts_similarity,
-                    discussion_similarity,
+                    component_similarity,
                     provision_overlap,
-                    outcome_alignment,
-                    tag_overlap,
-                    principle_overlap
+                    tag_overlap
                 FROM precedent_similarity_cache
                 WHERE {component_columns[component_filter]} >= :component_min
                 ORDER BY {component_columns[component_filter]} DESC
@@ -406,12 +402,9 @@ def api_similarity_network():
                     source_case_id,
                     target_case_id,
                     overall_similarity,
-                    facts_similarity,
-                    discussion_similarity,
+                    component_similarity,
                     provision_overlap,
-                    outcome_alignment,
-                    tag_overlap,
-                    principle_overlap
+                    tag_overlap
                 FROM precedent_similarity_cache
                 WHERE overall_similarity >= :min_score
                 ORDER BY overall_similarity DESC
@@ -421,7 +414,7 @@ def api_similarity_network():
         # Build set of cached pairs
         cached_pairs = set()
         for row in cached:
-            src, tgt, overall, facts, disc, prov, outcome, tag, principle = row
+            src, tgt, overall, comp_sim, prov, tag = row
             if src in case_ids and tgt in case_ids:
                 cached_pairs.add((src, tgt))
                 cached_pairs.add((tgt, src))  # Symmetrical
@@ -431,12 +424,9 @@ def api_similarity_network():
 
                 # Determine primary component for this edge
                 components = {
-                    'facts_similarity': round(facts or 0, 3),
-                    'discussion_similarity': round(disc or 0, 3),
+                    'component_similarity': round(comp_sim or 0, 3),
                     'provision_overlap': round(prov or 0, 3),
-                    'outcome_alignment': round(outcome or 0, 3),
                     'tag_overlap': round(tag or 0, 3),
-                    'principle_overlap': round(principle or 0, 3)
                 }
                 primary_component = max(components, key=components.get)
 
@@ -672,7 +662,8 @@ def _get_case_features(case_id):
     try:
         query = text("""
             SELECT principle_tensions, obligation_conflicts,
-                   transformation_type, cited_case_numbers, cited_case_ids
+                   transformation_type, cited_case_numbers, cited_case_ids,
+                   outcome_type
             FROM case_precedent_features
             WHERE case_id = :case_id
         """)
@@ -683,7 +674,8 @@ def _get_case_features(case_id):
                 'obligation_conflicts': result[1],
                 'transformation_type': result[2],
                 'cited_case_numbers': result[3],
-                'cited_case_ids': result[4]
+                'cited_case_ids': result[4],
+                'outcome_type': result[5]
             }
     except Exception as e:
         logger.warning(f"Error getting case features for {case_id}: {e}")

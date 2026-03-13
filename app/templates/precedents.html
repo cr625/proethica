@@ -24,11 +24,6 @@
         font-size: 0.75rem;
         padding: 0.25rem 0.5rem;
     }
-    .citation-text {
-        font-size: 0.7rem;
-        font-style: italic;
-        color: #6c757d;
-    }
     .component-row {
         display: flex;
         align-items: center;
@@ -48,22 +43,14 @@
         font-size: 0.8rem;
         font-family: monospace;
     }
-    .outcome-badge {
-        font-size: 0.75rem;
+    .dtuple-row .component-label {
+        width: 80px;
     }
-    .transformation-badge {
+    .dtuple-row .score-bar {
+        height: 4px;
+    }
+    .dtuple-row .component-value {
         font-size: 0.7rem;
-        padding: 0.2rem 0.4rem;
-    }
-    .transformation-transfer { background-color: #0d6efd; color: white; }
-    .transformation-stalemate { background-color: #dc3545; color: white; }
-    .transformation-oscillation { background-color: #fd7e14; color: white; }
-    .transformation-phase_lag { background-color: #6f42c1; color: white; }
-    .transformation-unclear { background-color: #6c757d; color: white; }
-    .cited-cases-badge {
-        font-size: 0.65rem;
-        background-color: #e9ecef;
-        color: #495057;
     }
 </style>
 {% endblock %}
@@ -74,7 +61,7 @@
         <div>
             <h1 class="mb-2">Similar Cases</h1>
             <p class="text-muted mb-4">
-                Multi-factor similarity search using provision overlap, semantic similarity, and outcome alignment.
+                Component-aware retrieval using 9-component D-tuple embeddings, provision overlap, and topic matching.
             </p>
         </div>
         <div class="d-flex gap-2">
@@ -149,7 +136,7 @@
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h4>Found {{ precedent_results.count }} Similar Case{% if precedent_results.count != 1 %}s{% endif %}</h4>
             <div class="text-muted">
-                <small>Ranked by weighted similarity score</small>
+                <small>Ranked by component-aware similarity</small>
             </div>
         </div>
 
@@ -158,15 +145,13 @@
             <div class="card-body py-2">
                 <div class="row align-items-center">
                     <div class="col-auto">
-                        <strong class="small">Matching Methods:</strong>
+                        <strong class="small">Retrieval Components:</strong>
                     </div>
                     <div class="col">
-                        <span class="badge bg-info method-badge me-2">Cosine</span>
-                        <span class="small text-muted me-3">Semantic embedding similarity</span>
+                        <span class="badge bg-primary method-badge me-2">D-tuple</span>
+                        <span class="small text-muted me-3">9-component weighted embedding</span>
                         <span class="badge bg-success method-badge me-2">Jaccard</span>
-                        <span class="small text-muted me-3">Set intersection / union</span>
-                        <span class="badge bg-secondary method-badge me-2">Categorical</span>
-                        <span class="small text-muted">Exact match scoring</span>
+                        <span class="small text-muted">Set intersection / union</span>
                     </div>
                 </div>
             </div>
@@ -200,24 +185,22 @@
             </div>
             <div class="card-body">
                 <div class="row">
-                    <!-- Component Scores -->
+                    <!-- Retrieval Scores -->
                     <div class="col-md-7">
-                        <h6 class="text-muted mb-2">Similarity Components</h6>
+                        <h6 class="text-muted mb-2">Retrieval Scores</h6>
 
-                        {% for comp_key, comp_score in precedent.component_scores.items() %}
+                        {% for comp_key in ['component_similarity', 'provision_overlap', 'tag_overlap'] %}
+                        {% set comp_score = precedent.component_scores.get(comp_key, 0) %}
                         {% set method_info = matching_methods.get(comp_key, {}) %}
                         <div class="component-row">
                             <div class="component-label">
                                 {{ method_info.get('name', comp_key) }}
-                                {% if method_info.get('method') %}
                                 <span class="badge
-                                    {% if method_info.method == 'Cosine' %}bg-info
-                                    {% elif method_info.method == 'Jaccard' %}bg-success
-                                    {% else %}bg-secondary{% endif %}"
+                                    {% if method_info.get('method') == 'Cosine' %}bg-primary
+                                    {% else %}bg-success{% endif %}"
                                     style="font-size: 0.6rem; padding: 0.1rem 0.3rem;">
-                                    {{ method_info.method }}
+                                    {{ method_info.get('method', '') }}
                                 </span>
-                                {% endif %}
                             </div>
                             <div class="component-bar">
                                 <div class="score-bar">
@@ -234,6 +217,33 @@
                             </div>
                         </div>
                         {% endfor %}
+
+                        {% if precedent.per_component_scores %}
+                        <details class="mt-2">
+                            <summary class="small text-muted" style="cursor: pointer;">
+                                <i class="bi bi-grid-3x3"></i> D-tuple breakdown
+                            </summary>
+                            <div class="mt-1">
+                                {% for comp_code in ['R', 'P', 'O', 'S', 'Rs', 'A', 'E', 'Ca', 'Cs'] %}
+                                {% set comp_score = precedent.per_component_scores.get(comp_code, 0) %}
+                                <div class="component-row dtuple-row">
+                                    <div class="component-label">
+                                        <span class="badge" style="background-color: {{ component_colors.get(comp_code, '#6c757d') }}; font-size: 0.6rem;">{{ comp_code }}</span>
+                                        <span class="small text-muted">{{ component_labels.get(comp_code, comp_code) }}</span>
+                                    </div>
+                                    <div class="component-bar">
+                                        <div class="score-bar">
+                                            <div class="score-fill" style="width: {{ (comp_score * 100)|round }}%; background-color: {{ component_colors.get(comp_code, '#6c757d') }};"></div>
+                                        </div>
+                                    </div>
+                                    <div class="component-value">
+                                        {{ (comp_score * 100)|round|int }}%
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </details>
+                        {% endif %}
                     </div>
 
                     <!-- What They Share -->
@@ -316,7 +326,7 @@
             <i class="bi bi-search" style="font-size: 3rem; color: #6c757d;"></i>
             <h4 class="mt-3">Select a Case to Find Similar Cases</h4>
             <p class="text-muted">
-                Choose a case from the dropdown above to find similar cases using multi-factor similarity matching.
+                Choose a case from the dropdown above to find similar cases using component-aware retrieval.
             </p>
         </div>
     </div>

@@ -28,12 +28,6 @@
         box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         transform: translateY(-2px);
     }
-    .reference-item {
-        padding: 1rem;
-        border-left: 3px solid #6c757d;
-        margin-bottom: 1rem;
-        background: #f8f9fa;
-    }
 </style>
 {% endblock %}
 
@@ -42,7 +36,6 @@
     <!-- Header -->
     <div class="text-center mb-5">
         <h1 class="display-5 fw-normal">ProEthica Demo</h1>
-        <p class="lead text-muted">AAAI-26 Conference Demonstration</p>
         <p class="text-muted">
             Semantic extraction of professional ethics concepts using large language models
         </p>
@@ -95,7 +88,7 @@
                             <i class="bi bi-folder2-open display-4 text-primary mb-3"></i>
                             <h5 class="card-title">Browse All Cases</h5>
                             <p class="card-text text-muted small">
-                                Explore 104 NSPE ethics cases with extracted concepts
+                                NSPE ethics cases with extracted concepts
                             </p>
                         </div>
                     </div>
@@ -108,7 +101,7 @@
                             <i class="bi bi-diagram-3 display-4 text-primary mb-3"></i>
                             <h5 class="card-title">Case 7 Ontology</h5>
                             <p class="card-text text-muted small">
-                                View extracted entities in OntServe (192 Named Individuals)
+                                View extracted entities in OntServe
                             </p>
                         </div>
                     </div>
@@ -127,7 +120,7 @@
                         <div class="card-body">
                             <h5><i class="bi bi-file-text me-2"></i>User Guide</h5>
                             <p class="text-muted small mb-0">
-                                Complete documentation including methodology, 9-component formalism, and API reference
+                                Methodology, 9-component formalism, and API reference
                             </p>
                         </div>
                     </div>
@@ -139,87 +132,11 @@
                         <div class="card-body">
                             <h5><i class="bi bi-github me-2"></i>Source Code</h5>
                             <p class="text-muted small mb-0">
-                                Open source repository with full extraction pipeline and ontology tools
+                                Open source repository with extraction pipeline and ontology tools
                             </p>
                         </div>
                     </div>
                 </a>
-            </div>
-        </div>
-    </div>
-
-    <!-- Academic References -->
-    <div class="demo-section">
-        <h4 class="mb-3"><i class="bi bi-mortarboard me-2"></i>Academic References</h4>
-
-        <div class="reference-item">
-            <strong>ProEthica: Ontology-Based Case Analysis</strong>
-            <br>
-            <span class="text-muted">
-                Rauch, C. (2026). ProEthica: Semantic Extraction of Professional Ethics Concepts
-                Using Large Language Models. <em>AAAI-26 Conference</em>.
-            </span>
-        </div>
-
-        <div class="reference-item">
-            <strong>9-Component Formalism Foundation</strong>
-            <br>
-            <span class="text-muted">
-                Based on the theoretical framework for modeling professional ethical reasoning
-                through Roles (R), Principles (P), Obligations (O), States (S), Resources (Rs),
-                Actions (A), Events (E), Causal Structures (Ca), and Constraints (Cs).
-            </span>
-        </div>
-
-        <div class="reference-item">
-            <strong>Related Work: OntExtract</strong>
-            <br>
-            <span class="text-muted">
-                Rauch, C. (2025). OntExtract: Language Model Guided Document Analysis
-                with Provenance Tracking. <em>JCDL 2025</em>.
-                <a href="https://ontextract.ontorealm.net/static/papers/OntExtract_JCDL2025.pdf" target="_blank">
-                    [PDF]
-                </a>
-            </span>
-        </div>
-    </div>
-
-    <!-- Related Systems -->
-    <div class="demo-section">
-        <h4 class="mb-3"><i class="bi bi-grid me-2"></i>Related Systems</h4>
-        <div class="row">
-            <div class="col-md-4 mb-3">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <h6><i class="bi bi-server me-2 text-primary"></i>OntServe</h6>
-                        <p class="text-muted small">Unified ontology server with MCP integration</p>
-                        <a href="https://ontserve.ontorealm.net" target="_blank" class="btn btn-sm btn-outline-primary">
-                            Visit <i class="bi bi-box-arrow-up-right ms-1"></i>
-                        </a>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4 mb-3">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <h6><i class="bi bi-file-earmark-arrow-up me-2 text-primary"></i>OntExtract</h6>
-                        <p class="text-muted small">Document analysis with semantic drift tracking</p>
-                        <a href="https://ontextract.ontorealm.net" target="_blank" class="btn btn-sm btn-outline-primary">
-                            Visit <i class="bi bi-box-arrow-up-right ms-1"></i>
-                        </a>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4 mb-3">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <h6><i class="bi bi-building me-2 text-primary"></i>NSPE BER</h6>
-                        <p class="text-muted small">Source ethics cases from NSPE Board of Ethical Review</p>
-                        <a href="https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases" target="_blank" class="btn btn-sm btn-outline-primary">
-                            Visit <i class="bi bi-box-arrow-up-right ms-1"></i>
-                        </a>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
