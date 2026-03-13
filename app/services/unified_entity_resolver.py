@@ -192,7 +192,7 @@ class UnifiedEntityResolver:
                                     'is_published': True,
                                     'source_pass': None,
                                     'ontology_target': 'proethica-intermediate',
-                                    'ontserve_path': cls.compute_ontserve_path(uri, 'proethica-intermediate'),
+                                    'ontserve_path': self.compute_ontserve_path(uri, 'proethica-intermediate'),
                                 }
                 except Exception as e:
                     logger.warning(f"Failed to fetch {entity_type} from OntServe: {e}")
