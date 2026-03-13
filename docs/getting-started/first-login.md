@@ -43,8 +43,8 @@ The Cases page (`/cases/`) displays all uploaded cases with:
 
 - Year grouping for chronological organization
 - Subject tags for filtering by topic
-- Pipeline status indicators (pending, in progress, complete)
-- Quick actions for each case
+- Question and conclusion previews (expandable/collapsible via view toggle)
+- Compact and expanded view modes (persisted in browser storage)
 
 ![Case Repository](../assets/images/screenshots/cases-list-content.png)
 
@@ -53,9 +53,10 @@ The Cases page (`/cases/`) displays all uploaded cases with:
 Each case has a detail page showing:
 
 - Case title, reference number, and metadata
+- Context bar with OntServe entity link, transformation badge, and utility buttons (**Structure**, **Provenance**)
 - Full narrative with Facts and Discussion sections
-- **Structure** button - View document sections and embeddings
-- **Numbered step buttons** (1-4) - Launch extraction steps in sequence
+- Interactive RDF triple labels linking to related cases
+- Pipeline status bar and step buttons (visible to authenticated users only in production)
 
 ![Case Detail](../assets/images/screenshots/case-detail-content.png)
 
@@ -71,19 +72,19 @@ The Structure view (`/cases/<id>/structure`) provides:
 
 ## Extraction Pipeline
 
-The pipeline (`/scenario_pipeline/case/<case_id>`) provides step-by-step case analysis. A sidebar navigation shows all steps and their completion status.
+The pipeline provides step-by-step case analysis (requires authentication). Access it from the case detail page via the **Pipeline** button or the per-case pipeline dashboard at `/cases/<id>/pipeline`.
 
 | Step | Name | Description | Entity Types |
 |------|------|-------------|-------------|
 | 1 | Contextual Framework | Extract from Facts and Discussion sections | Roles (R), States (S), Resources (Rs) |
 | 2 | Normative Requirements | Extract from Facts and Discussion sections | Principles (P), Obligations (O), Constraints (Cs), Capabilities (Ca) |
 | 3 | Temporal Dynamics | Unified extraction via LangGraph | Actions (A), Events (E), causal chains, Allen relations |
-| Reconcile | Entity Deduplication | Merge overlapping entities across passes | - |
+| Reconcile | Entity Deduplication | Merge overlapping entities across passes | -- |
 | 4 | Whole-Case Synthesis | Multi-phase analysis (2A-2E, Phase 3, Phase 4) | Provisions, Precedents, Questions, Conclusions, Decision Points, Resolution Patterns, Causal-Normative Links, Question Emergence |
 
 ### Pipeline Sidebar
 
-The sidebar shows all pipeline steps with checkmarks for completed steps. Step 4 has three sub-views: Extraction, Review, and Full View.
+The sidebar shows all pipeline steps with checkmarks for completed steps. Step 4 has sub-views: Extraction, Review, and Full View.
 
 ![Pipeline Overview](../assets/images/screenshots/pipeline-overview-content.png)
 
@@ -130,7 +131,7 @@ The network view (`/cases/precedents/network`) visualizes case relationships:
 
 ## Pipeline Automation
 
-For batch processing, the Pipeline Dashboard (`/pipeline/dashboard`) shows:
+For batch processing, **Tools** > **Batch Processing** (`/pipeline/dashboard`) shows:
 
 - Service status (Redis, Celery, queue depth)
 - Active pipeline runs with progress bars

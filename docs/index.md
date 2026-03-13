@@ -83,9 +83,7 @@ ProEthica guides case analysis through a structured workflow:
 | Reconcile | Entity Deduplication | Merge overlapping entities across passes |
 | 4 | Whole-Case Synthesis | Provisions, Precedents, Questions, Conclusions, Decision Points, Resolution Patterns, Causal-Normative Links, Question Emergence |
 
-Steps 1-2 extract from Facts and Discussion sections separately. Step 3 performs a unified extraction from the full case text. Step 4 synthesizes across all extracted entities and case text, producing 8 additional entity types (17 total).
-
-![Pipeline Overview](assets/images/screenshots/pipeline-overview-content.png)
+Steps 1-2 extract from Facts and Discussion sections separately. Step 3 performs a unified extraction from the full case text. Step 4 synthesizes across all extracted entities and case text, producing 8 additional entity types (17 total). Pipeline operations require authentication; case browsing and entity viewing are available without login.
 
 ## Citation
 

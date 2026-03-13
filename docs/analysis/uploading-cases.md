@@ -114,9 +114,9 @@ User-created scenarios for analysis should follow the Facts/Discussion structure
 
 ## Batch Upload
 
-For multiple cases, use the Pipeline Dashboard (requires admin login):
+For multiple cases, use the batch processing interface (requires admin login):
 
-1. Navigate to **Tools > Pipeline Dashboard**
+1. Navigate to **Tools** > **Batch Processing**
 2. Use **Queue** tab for batch operations
 3. Upload cases through batch interface
 

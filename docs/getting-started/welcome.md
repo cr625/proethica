@@ -37,7 +37,7 @@ Cases are queued for batch processing through all extraction steps:
 
 Pipeline mode is suitable for processing multiple cases after the extraction process is understood.
 
-Manual mode is accessed from the numbered step buttons at the top of any case page. Steps must be processed in sequence; completed steps display as green. See [Running Extractions](../analysis/running-extractions.md) for details. Pipeline mode is accessed from **Tools > Pipeline Dashboard** (requires admin login).
+Manual mode is accessed from the case pipeline dashboard (requires login). Steps must be processed in sequence; completed steps display as green. See [Running Extractions](../analysis/running-extractions.md) for details. Pipeline mode is accessed from **Tools** > **Batch Processing** (requires admin login).
 
 ## Home Page Entry Points
 
@@ -59,14 +59,15 @@ The left panel displays available professional domains. The current implementati
 
 The folder icon opens the case browser for a domain.
 
-## Linked Data
+## Structured Knowledge
 
-The right panel shows the connection to OntServe and the primary ontology:
+The right panel displays the ontology connection and access points:
 
-- **ProEthica Intermediate Ontology** - Nine-Component Framework for professional ethics analysis. Entities extracted from cases are linked to this ontology.
-- **MCP Connected** badge indicates OntServe is reachable
+- **ProEthica Intermediate Ontology** -- Nine-Component Framework for professional ethics analysis. Entities extracted from cases are linked to this ontology.
+- **Ontology Graph** link opens the visual ontology browser on OntServe
+- **Browse Entities** link opens the entity browser filtered to ProEthica concepts
 
-A "View Ontology" link opens the ontology browser on OntServe. Ontologies are managed via the [OntServe](https://ontserve.ontorealm.net) web interface.
+Ontologies are managed via the [OntServe](https://ontserve.ontorealm.net) web interface.
 
 ## Analysis Workflow
 

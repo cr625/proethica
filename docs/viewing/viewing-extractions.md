@@ -4,14 +4,14 @@ Completed cases display extracted entities organized by pipeline step. The extra
 
 ## Accessing Extraction Results
 
-From any case detail page, click the numbered step buttons to view extraction results:
+Extraction results are organized by pipeline step:
 
-- **Step 1** - Contextual Framework (Roles, States, Resources)
-- **Step 2** - Normative Requirements (Principles, Obligations, Constraints, Capabilities)
-- **Step 3** - Temporal Dynamics (Actions, Events, causal chains, temporal relations)
-- **Step 4** - Whole-Case Synthesis (Code Provisions, Precedent References, Ethical Questions, Conclusions, Decision Points, Resolution Patterns, Causal-Normative Links, Question Emergence)
+- **Step 1** -- Contextual Framework (Roles, States, Resources)
+- **Step 2** -- Normative Requirements (Principles, Obligations, Constraints, Capabilities)
+- **Step 3** -- Temporal Dynamics (Actions, Events, causal chains, temporal relations)
+- **Step 4** -- Whole-Case Synthesis (Code Provisions, Precedent References, Ethical Questions, Conclusions, Decision Points, Resolution Patterns, Causal-Normative Links, Question Emergence)
 
-Completed steps show a green filled button. Click any completed step to view its results.
+Authenticated users access results via the pipeline status bar on the case detail page. Completed steps show a green filled button. The case detail page itself displays extracted entities as interactive RDF triple labels for all users.
 
 ## Entity Review Display
 

@@ -21,9 +21,7 @@ After Steps 1-3, the pipeline continues with Reconcile (entity deduplication), O
 
 ### Access the Pipeline
 
-Navigate to any case detail page. The numbered step buttons appear at the top:
-
-![Case Step Buttons](../assets/images/screenshots/case-step-buttons-content.png)
+Navigate to any case detail page and click the **Pipeline** button in the top action bar, or access the per-case pipeline dashboard directly at `/cases/<id>/pipeline`. The pipeline status bar with numbered step buttons is visible to authenticated users.
 
 Steps must be processed in sequence. Completed steps display as green; incomplete steps show the step number. Click any available step to begin extraction.
 

@@ -65,7 +65,7 @@ PYTHONPATH=/path/to/parent:$PYTHONPATH python run.py
 
 ### Accessing Dashboard
 
-Navigate to: **Tools > Pipeline Dashboard** (requires admin login)
+Navigate to: **Tools > Batch Processing** (requires admin login)
 
 Direct URL: `/pipeline/dashboard`
 
@@ -125,9 +125,9 @@ curl http://localhost:5000/pipeline/api/service-status
 
 ### Accessing the Queue
 
-Navigate to: **Pipeline Dashboard** > **Manage Queue** button
+Navigate to: **Tools** > **Batch Queue** or click **Manage Queue** from the batch processing page.
 
-Or direct URL: `/pipeline/queue`
+Direct URL: `/pipeline/queue`
 
 ![Pipeline Queue](../assets/images/screenshots/pipeline-queue-content.png)
 *Queue management page showing pending cases and queue controls*
@@ -174,13 +174,13 @@ To process a single case:
 
 1. Go to case detail page
 2. Click **Queue for Processing**
-3. Monitor in Pipeline Dashboard
+3. Monitor in the batch processing dashboard
 
 ### Batch Processing
 
 To process multiple cases:
 
-1. Go to Pipeline Dashboard
+1. Go to **Tools** > **Batch Processing**
 2. Select cases from list
 3. Click **Add to Queue**
 4. Monitor progress
@@ -237,7 +237,7 @@ To reprocess a completed case:
 
 ### Clear Case
 
-To clear without reprocessing, use the Reprocess button on the Pipeline Dashboard which clears existing entities before re-running extraction.
+To clear without reprocessing, use the Reprocess button on the batch processing page, which clears existing entities before re-running extraction.
 
 ## Pipeline Architecture
 

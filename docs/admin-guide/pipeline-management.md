@@ -4,7 +4,7 @@ The pipeline dashboard provides batch processing controls and status monitoring 
 
 ## Pipeline Dashboard
 
-Navigate to **Tools** > **Pipeline Dashboard** or direct URL: `/pipeline/dashboard`
+Navigate to **Tools** > **Batch Processing** or direct URL: `/pipeline/dashboard`
 
 ![Pipeline Dashboard](../assets/images/screenshots/pipeline-dashboard-content.png)
 
@@ -21,7 +21,7 @@ The dashboard displays:
 
 ## Queue Management
 
-Navigate to **Tools** > **Queue Management** or direct URL: `/pipeline/queue`
+Navigate to **Tools** > **Batch Queue** or direct URL: `/pipeline/queue`
 
 ### Queue Operations
 

@@ -27,7 +27,7 @@ A progress indicator shows completion status across the eight-step workflow from
 |----------|----------|---------|
 | [Prompt Editor](prompt-editor.md) | `/tools/prompts` | Edit extraction templates |
 | [Validation Studies](validation-studies.md) | `/admin/validation` | Manage validation experiments |
-| [Pipeline Management](pipeline-management.md) | `/pipeline/dashboard` | Monitor batch processing |
+| [Pipeline Management](pipeline-management.md) | `/pipeline/dashboard` | Batch processing and queue management |
 | [User Management](user-management.md) | `/admin/users` | Manage user accounts |
 
 ## System Configuration
@@ -51,4 +51,4 @@ The Tools dropdown organizes into three groups:
 
 - **Academic References** - Available to all users
 - **Linked Data** - OntServe Web, Browse ProEthica Ontologies
-- **Admin Tools** (admin login required) - Batch Processing, Batch Queue, Validation Studies, Prompt Editor
+- **Admin Tools** (admin login required) -- Batch Processing, Batch Queue, Validation Studies, Prompt Editor

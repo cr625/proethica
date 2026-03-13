@@ -15,22 +15,22 @@ Cases are organized by year with expandable cards displaying:
 
 | Element | Description |
 |---------|-------------|
-| **Title** | Case name with robot icon if agent-generated |
+| **Title** | Clickable case name linking to the detail page |
 | **Case Number** | Badge showing identifier (e.g., "Case #24-02") |
-| **Status Badge** | Green "Synthesized", blue "Extracted", or gray "Not Started" |
 | **Subject Tags** | Clickable tags for filtering (yellow badges) |
 | **Find Similar** | Link to precedent discovery |
-| **Questions** | Ethical questions posed to the board |
-| **Conclusions** | Board determinations |
+| **Questions** | Ethical questions posed to the board (expanded view) |
+| **Conclusions** | Board determinations (expanded view) |
+
+A view toggle in the page header switches between **compact** (titles and tags only) and **expanded** (questions and conclusions visible) modes. The selected mode persists across browser sessions.
 
 ### Filtering
 
-The filter bar provides several options:
+The filter bar provides filtering options:
 
 | Filter | Description |
 |--------|-------------|
 | **World Filter** | Dropdown to filter by domain (e.g., Engineering Ethics) |
-| **Status Filter** | Dropdown with "All Cases", "Extracted+", "Synthesized" options |
 | **Tag Filter** | Clickable tags to filter by subject category |
 
 #### Tag Filtering
@@ -61,14 +61,25 @@ Subject tags provide topical classification. For NSPE cases, these come from the
 
 ## Case Detail Page
 
-Click **View Details** on any case card to access the full case page at `/cases/<id>`.
+Click the case title on any case card to access the full case page at `/cases/<id>`.
 
 ![Case Detail](../assets/images/screenshots/case-detail-content.png)
-*Individual case page showing the analysis pipeline status and case sections*
 
-### Pipeline Status
+### Context Bar
 
-Below the case title, numbered step buttons show extraction pipeline progress:
+Below the case title, a context bar displays key metadata and navigation:
+
+| Element | Description |
+|---------|-------------|
+| **OntServe Link** | Links to the case ontology on OntServe (when entities are committed) |
+| **Entity Count** | Badge showing total extracted entities |
+| **Transformation** | Case transformation type (Transfer, Stalemate, Oscillation, Phase Lag) |
+| **Structure** | View document sections and embeddings |
+| **Provenance** | View extraction history and session data |
+
+### Pipeline Status (Authenticated Users)
+
+Authenticated users see a pipeline status bar with numbered step buttons below the context bar:
 
 | Button | Name | Content |
 |--------|------|---------|
@@ -79,16 +90,18 @@ Below the case title, numbered step buttons show extraction pipeline progress:
 
 Step button states indicate completion:
 
-- **Filled (green)** - Step complete, click to view results
-- **Outline** - Step available but not run
-- **Lock icon** - Step locked pending prerequisites
+- **Filled (green)** -- Step complete, click to view results
+- **Outline** -- Step available but not run
+- **Lock icon** -- Step locked pending prerequisites
+
+The pipeline status bar and associated step buttons are hidden for unauthenticated users in production.
 
 ### Header Actions
 
 | Button | Function |
 |--------|----------|
 | **Back to Cases** | Return to case list |
-| **Structure** | View document sections and embeddings |
+| **Pipeline** | Open the case pipeline dashboard (authenticated users only) |
 | **Source** | Link to original source (if available) |
 
 ### Case Sections
