@@ -103,30 +103,6 @@ def register_structure_embedding_routes(bp):
         dimensions = set(s['embed_dim'] for s in section_stats if s['embed_dim'])
         has_dimension_issue = len(dimensions) > 1 or (dimensions and 1536 in dimensions)
 
-        similar_by_component = []
-
-        try:
-            component_similar = db.session.execute(db.text("""
-                SELECT t.case_id, d.title,
-                       1 - (s.combined_embedding <=> t.combined_embedding) as similarity
-                FROM case_precedent_features s, case_precedent_features t
-                JOIN documents d ON d.id = t.case_id
-                WHERE s.case_id = :case_id
-                  AND t.case_id != :case_id
-                  AND s.combined_embedding IS NOT NULL
-                  AND t.combined_embedding IS NOT NULL
-                ORDER BY s.combined_embedding <=> t.combined_embedding
-                LIMIT 3
-            """), {'case_id': id}).fetchall()
-            for row in component_similar:
-                similar_by_component.append({
-                    'case_id': row[0],
-                    'title': row[1],
-                    'similarity': float(row[2]),
-                })
-        except Exception as e:
-            logger.warning(f"Error finding similar cases by component: {e}")
-
         from app.models.temporary_rdf_storage import TemporaryRDFStorage
         from app.services.precedent.case_feature_extractor import (
             EXTRACTION_TYPE_TO_COMPONENT, ENTITY_TYPE_TO_COMPONENT, COMPONENT_WEIGHTS
@@ -185,7 +161,6 @@ def register_structure_embedding_routes(bp):
             embedding_coverage=embedding_coverage,
             has_dimension_issue=has_dimension_issue,
             dimensions=list(dimensions),
-            similar_by_component=similar_by_component,
             component_data=component_data,
             component_order=COMPONENT_ORDER,
             total_entities=total_entities,
