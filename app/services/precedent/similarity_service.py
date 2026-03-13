@@ -159,6 +159,17 @@ class PrecedentSimilarityService:
             component_scores['component_similarity'] = (
                 comp_weighted_sum / comp_total_weight if comp_total_weight > 0 else 0.0
             )
+
+            # Compute section-based scores as supplementary comparison data
+            # (not included in weighted score)
+            component_scores['facts_similarity'] = self._cosine_similarity(
+                source_features.get('facts_embedding'),
+                target_features.get('facts_embedding')
+            )
+            component_scores['discussion_similarity'] = self._cosine_similarity(
+                source_features.get('discussion_embedding'),
+                target_features.get('discussion_embedding')
+            )
         else:
             # Section-based mode: use separate embeddings
             component_scores['facts_similarity'] = self._cosine_similarity(

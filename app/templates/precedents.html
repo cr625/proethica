@@ -244,6 +244,47 @@
                             </div>
                         </details>
                         {% endif %}
+
+                        {% if precedent.component_scores.get('facts_similarity') is not none or precedent.component_scores.get('discussion_similarity') is not none %}
+                        <details class="mt-2">
+                            <summary class="small text-muted" style="cursor: pointer;">
+                                <i class="bi bi-info-circle"></i> Section-based comparison
+                            </summary>
+                            <div class="mt-1 p-2 bg-light rounded" style="font-size: 0.8rem;">
+                                <div class="text-muted mb-1" style="font-size: 0.7rem;">
+                                    <i class="bi bi-info-circle"></i> Not used in scoring. Shown for comparison with the D-tuple method above.
+                                </div>
+                                {% set facts_score = precedent.component_scores.get('facts_similarity', 0) %}
+                                <div class="component-row dtuple-row">
+                                    <div class="component-label">
+                                        <span class="small text-muted">Facts</span>
+                                    </div>
+                                    <div class="component-bar">
+                                        <div class="score-bar">
+                                            <div class="score-fill bg-secondary" style="width: {{ (facts_score * 100)|round }}%;"></div>
+                                        </div>
+                                    </div>
+                                    <div class="component-value">
+                                        {{ (facts_score * 100)|round|int }}%
+                                    </div>
+                                </div>
+                                {% set disc_score = precedent.component_scores.get('discussion_similarity', 0) %}
+                                <div class="component-row dtuple-row">
+                                    <div class="component-label">
+                                        <span class="small text-muted">Discussion</span>
+                                    </div>
+                                    <div class="component-bar">
+                                        <div class="score-bar">
+                                            <div class="score-fill bg-secondary" style="width: {{ (disc_score * 100)|round }}%;"></div>
+                                        </div>
+                                    </div>
+                                    <div class="component-value">
+                                        {{ (disc_score * 100)|round|int }}%
+                                    </div>
+                                </div>
+                            </div>
+                        </details>
+                        {% endif %}
                     </div>
 
                     <!-- What They Share -->
