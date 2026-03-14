@@ -71,6 +71,7 @@ tmp/
 backups/
 database_backups/
 *.sql.gz
+!experiments/iccbr-2026/data/case_precedent_features.sql.gz
 *.sql.bak
 
 # Claude AI related files (synced via OneDrive)

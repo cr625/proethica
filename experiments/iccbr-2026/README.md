@@ -94,7 +94,9 @@ Set features interact differently with each embedding strategy. Section-based em
 
 ## Reproduction
 
-All experiments run against the `case_precedent_features` table in the ProEthica database. The analysis scripts are in `scripts/analysis/`.
+All experiments run against the `case_precedent_features` table in the ProEthica database. Pre-computed features for all 119 cases are provided in [`data/`](data/) as a PostgreSQL dump (3.2MB gzipped). See [`data/README.md`](data/README.md) for loading instructions. No original case text is included.
+
+The analysis scripts are in `scripts/analysis/`:
 
 | Experiment | Script | Arguments |
 |:----------:|--------|-----------|
