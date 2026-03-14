@@ -108,7 +108,7 @@ All experiments run against the `case_precedent_features` table in the ProEthica
 ```bash
 cd proethica
 source venv-proethica/bin/activate
-PYTHONPATH=/home/chris/onto/proethica python scripts/analysis/<script>.py
+PYTHONPATH=$(pwd) python scripts/analysis/<script>.py
 ```
 
 All scripts load case features into memory and compute pairwise scores without modifying the database. Runtime is under two minutes per script.
