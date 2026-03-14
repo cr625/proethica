@@ -1,0 +1,5 @@
+metric,section,combined,component,random
+MRR,0.380,0.407,0.403,0.086
+Recall@5,0.286,0.324,0.331,0.042
+Recall@10,0.420,0.463,0.442,0.085
+Recall@20,0.536,0.577,0.554,0.169

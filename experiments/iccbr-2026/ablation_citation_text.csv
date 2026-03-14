@@ -1,0 +1,457 @@
+condition,source_case_id,source_title,cited_case_id,cited_title,rank,resolvable_count
+original,4,Sustainable Development and Resilient Infrastructure,73,"Public Safety, Health, and Welfare:  Avoiding Rolling Blackouts",102,5
+original,4,Sustainable Development and Resilient Infrastructure,13,Sustainability -  Lawn Irrigation Design,4,5
+original,4,Sustainable Development and Resilient Infrastructure,123,Engineer’s Obligation to Consider Feasible Options,72,5
+original,4,Sustainable Development and Resilient Infrastructure,124,Public Criticism of Proposed Public Highway Route,97,5
+original,4,Sustainable Development and Resilient Infrastructure,125,Endorsement of Project by Local Chapter,96,5
+original,5,Community Engagement for Infrastructure Projects,90,Case Number 60-3,59,5
+original,5,Community Engagement for Infrastructure Projects,91,Gifts To Foreign Officials - Application Of Code Of Ethics To Non-U.S. Engineers,90,5
+original,5,Community Engagement for Infrastructure Projects,92,Whistleblowing - City Engineer,26,5
+original,5,Community Engagement for Infrastructure Projects,93,Withholding Information Useful to Client/Public Agency,13,5
+original,5,Community Engagement for Infrastructure Projects,73,"Public Safety, Health, and Welfare:  Avoiding Rolling Blackouts",116,5
+original,6,Public Contracting Practices,117,Selection of Firm—Promise of Future Engineering Work on a Public Project,1,6
+original,6,Public Contracting Practices,118,Protest of Low Fee Proposal,16,6
+original,6,Public Contracting Practices,56,Unlicensed Practice by Nonengineers with “Engineer” in Job Titles,15,6
+original,6,Public Contracting Practices,10,Post-Public Employment - City Engineer Transitioning to Consultant,13,6
+original,6,Public Contracting Practices,102,Case Number 58-1,66,6
+original,6,Public Contracting Practices,60,Misrepresentation of  Qualifications,20,6
+original,7,Use of Artificial Intelligence in Engineering Practice,120,Use Of Cadd System,1,2
+original,7,Use of Artificial Intelligence in Engineering Practice,121,Use Of CD-ROM For Highway Design,33,2
+original,8,Balancing Client Directives and Public Welfare: Stormwater Management Dilemma,18,Professional Responsibility if  Appropriate Authority Fails to Act,2,11
+original,8,Balancing Client Directives and Public Welfare: Stormwater Management Dilemma,76,"Public Health, Safety, and Welfare—Drinking Water Quality",8,11
+original,8,Balancing Client Directives and Public Welfare: Stormwater Management Dilemma,72,Public Welfare - Knowledge of Information Damaging to Client's Interest,17,11
+original,8,Balancing Client Directives and Public Welfare: Stormwater Management Dilemma,82,Criticism of Engineering in Products,97,11
+original,8,Balancing Client Directives and Public Welfare: Stormwater Management Dilemma,83,Sustainable Development—Threatened Species,85,11
+original,8,Balancing Client Directives and Public Welfare: Stormwater Management Dilemma,84,Duty To Report Safety Violations,66,11
+original,8,Balancing Client Directives and Public Welfare: Stormwater Management Dilemma,85,"Incomplete Plans and Specifications – Engineer, Government, and Contractor Responsibilities",28,11
+original,8,Balancing Client Directives and Public Welfare: Stormwater Management Dilemma,86,Public Welfare—Client Action Following Engineers Services,10,11
+original,8,Balancing Client Directives and Public Welfare: Stormwater Management Dilemma,87,Public Health and Safety—Building Codes to Address Environmental Risk,4,11
+original,8,Balancing Client Directives and Public Welfare: Stormwater Management Dilemma,88,"Public Health, Safety, and  Welfare–Climate Change Induced Conditions",23,11
+original,8,Balancing Client Directives and Public Welfare: Stormwater Management Dilemma,89,"Engineer's Recommendation For Full-Time, On-Site Project Representative",27,11
+original,9,Acknowledging Errors in Design,100,Duty To Report Unrelated Information Observed During Rendering Of Services,6,3
+original,9,Acknowledging Errors in Design,88,"Public Health, Safety, and  Welfare–Climate Change Induced Conditions",90,3
+original,9,Acknowledging Errors in Design,74,Professional Competence In Current Structural Design,11,3
+original,10,Post-Public Employment - City Engineer Transitioning to Consultant,102,Case Number 58-1,28,6
+original,10,Post-Public Employment - City Engineer Transitioning to Consultant,103,Conflict of Interest - Part-Time Service as City Engineer,27,6
+original,10,Post-Public Employment - City Engineer Transitioning to Consultant,104,Conflict of Interest - Municipal Engineer,41,6
+original,10,Post-Public Employment - City Engineer Transitioning to Consultant,105,Reviewing Work of Another Engineer and Thereafter Performing Engineering Services for Client,15,6
+original,10,Post-Public Employment - City Engineer Transitioning to Consultant,75,Obligation to Former Employer and  Former Client Following Acceptance of Position with State,86,6
+original,10,Post-Public Employment - City Engineer Transitioning to Consultant,106,Confidentiality of Competitor Information Submitted to Government Agency,6,6
+original,11,Excess Stormwater Runoff,75,Obligation to Former Employer and  Former Client Following Acceptance of Position with State,51,4
+original,11,Excess Stormwater Runoff,107,Expert Witness—Discovery of New Data Following Submission of Report,45,4
+original,11,Excess Stormwater Runoff,71,Failure To Include Information In Engineering Report,47,4
+original,11,Excess Stormwater Runoff,108,Use Of Broad Indemnification Clause For Pollution Services,67,4
+original,12,Competence in Design Services,74,Professional Competence In Current Structural Design,9,3
+original,12,Competence in Design Services,109,Competence To Certify Arms Storage Rooms,16,3
+original,12,Competence in Design Services,110,Competence To Perform Foundation Design,72,3
+original,13,Sustainability -  Lawn Irrigation Design,94,Failure to Disclose Full Impact of Development,19,3
+original,13,Sustainability -  Lawn Irrigation Design,83,Sustainable Development—Threatened Species,1,3
+original,13,Sustainability -  Lawn Irrigation Design,123,Engineer’s Obligation to Consider Feasible Options,79,3
+original,14,"Providing Incomplete, Self-Serving Advice",71,Failure To Include Information In Engineering Report,10,2
+original,14,"Providing Incomplete, Self-Serving Advice",85,"Incomplete Plans and Specifications – Engineer, Government, and Contractor Responsibilities",3,2
+original,15,Independence of  Peer Reviewer,96,Conflict of Interest—Peer Reviewer Participating on Subsequent Joint Venture,2,3
+original,15,Independence of  Peer Reviewer,181,Peer Review - Confidentiality Agreements,1,3
+original,15,Independence of  Peer Reviewer,126,Appropriate Notification And Review Of Another Engineer's Work,5,3
+original,16,Impaired Engineering,111,Misrepresentation - Changes Made to Engineer’s Report,1,2
+original,16,Impaired Engineering,112,Public Health Safety and Welfare—Engineering Standards,79,2
+original,17,Siting a Truck Stop,113,Public Criticism - Environmental Concerns,11,4
+original,17,Siting a Truck Stop,114,Conflicting Engineering Opinions,32,4
+original,17,Siting a Truck Stop,76,"Public Health, Safety, and Welfare—Drinking Water Quality",10,4
+original,17,Siting a Truck Stop,71,Failure To Include Information In Engineering Report,28,4
+original,18,Professional Responsibility if  Appropriate Authority Fails to Act,72,Public Welfare - Knowledge of Information Damaging to Client's Interest,8,3
+original,18,Professional Responsibility if  Appropriate Authority Fails to Act,84,Duty To Report Safety Violations,58,3
+original,18,Professional Responsibility if  Appropriate Authority Fails to Act,76,"Public Health, Safety, and Welfare—Drinking Water Quality",1,3
+original,19,Duty to Report Misconduct,72,Public Welfare - Knowledge of Information Damaging to Client's Interest,33,2
+original,19,Duty to Report Misconduct,116,Duty To Report Violation—Anonymous Complaint,9,2
+original,20,Review of Other  Engineer’s Work,126,Appropriate Notification And Review Of Another Engineer's Work,6,2
+original,20,Review of Other  Engineer’s Work,127,Employment—Questioning Ability Of Former Employer,1,2
+original,22,Sharing As-Built Drawings,97,Confidentiality of Engineering Report,3,3
+original,22,Sharing As-Built Drawings,98,Confidentiality – Discussion with Potential Bidding Contractor,1,3
+original,22,Sharing As-Built Drawings,99,Professional Selection—Receipt of Submission Beyond the Published Deadline,16,3
+original,56,Unlicensed Practice by Nonengineers with “Engineer” in Job Titles,131,Advertising - Misstating Credentials,11,2
+original,56,Unlicensed Practice by Nonengineers with “Engineer” in Job Titles,77,Engineering Titles - Use Of Engineering Title By Nonengineers,26,2
+original,57,Duty to Report –  Material Information,132,Public Health and Safety— Observed Structural Defects and Inspection by County Building Official,5,4
+original,57,Duty to Report –  Material Information,133,Public Health and Safety—Knowledge of Potentially Dangerous Condition,33,4
+original,57,Duty to Report –  Material Information,78,"Public Health, Safety and Welfare—Discovery of Structural Defect Affecting Subdivision",4,4
+original,57,Duty to Report –  Material Information,79,Public Health And Safety - Code Enforcement,20,4
+original,58,Public Welfare at What Cost?,79,Public Health And Safety - Code Enforcement,7,3
+original,58,Public Welfare at What Cost?,134,Statements Made During Negotiations,77,3
+original,58,Public Welfare at What Cost?,135,Engineer Misstating Professional Achievements on Resume,117,3
+original,59,"Protecting Public Health,  Safety, and Welfare",72,Public Welfare - Knowledge of Information Damaging to Client's Interest,51,3
+original,59,"Protecting Public Health,  Safety, and Welfare",136,Failure To Report Information Affecting Public Safety,30,3
+original,59,"Protecting Public Health,  Safety, and Welfare",78,"Public Health, Safety and Welfare—Discovery of Structural Defect Affecting Subdivision",25,3
+original,60,Misrepresentation of  Qualifications,77,Engineering Titles - Use Of Engineering Title By Nonengineers,42,4
+original,60,Misrepresentation of  Qualifications,128,Advertising — Use of Business Cards—P.E. Designation,55,4
+original,60,Misrepresentation of  Qualifications,129,Expert Witness—Chair of Standards and Safety Committee,2,4
+original,60,Misrepresentation of  Qualifications,130,Job Qualifications—Disclosure of Material Fact,11,4
+original,72,Public Welfare - Knowledge of Information Damaging to Client's Interest,82,Criticism of Engineering in Products,13,1
+original,73,"Public Safety, Health, and Welfare:  Avoiding Rolling Blackouts",79,Public Health And Safety - Code Enforcement,2,3
+original,73,"Public Safety, Health, and Welfare:  Avoiding Rolling Blackouts",76,"Public Health, Safety, and Welfare—Drinking Water Quality",13,3
+original,73,"Public Safety, Health, and Welfare:  Avoiding Rolling Blackouts",165,"Public Health, Safety, and Welfare—Driverless/Autonomous Vehicle",75,3
+original,74,Professional Competence In Current Structural Design,109,Competence To Certify Arms Storage Rooms,4,3
+original,74,Professional Competence In Current Structural Design,110,Competence To Perform Foundation Design,17,3
+original,74,Professional Competence In Current Structural Design,158,P.E. Requirement for County Surveyor Position,84,3
+original,75,Obligation to Former Employer and  Former Client Following Acceptance of Position with State,179,Expert Witness Testimony - Serving Plaintiffs And Defendants,1,1
+original,76,"Public Health, Safety, and Welfare—Drinking Water Quality",137,Public Welfare—Bridge Structure,42,3
+original,76,"Public Health, Safety, and Welfare—Drinking Water Quality",132,Public Health and Safety— Observed Structural Defects and Inspection by County Building Official,13,3
+original,76,"Public Health, Safety, and Welfare—Drinking Water Quality",84,Duty To Report Safety Violations,84,3
+original,78,"Public Health, Safety and Welfare—Discovery of Structural Defect Affecting Subdivision",137,Public Welfare—Bridge Structure,77,5
+original,78,"Public Health, Safety and Welfare—Discovery of Structural Defect Affecting Subdivision",84,Duty To Report Safety Violations,49,5
+original,78,"Public Health, Safety and Welfare—Discovery of Structural Defect Affecting Subdivision",136,Failure To Report Information Affecting Public Safety,14,5
+original,78,"Public Health, Safety and Welfare—Discovery of Structural Defect Affecting Subdivision",149,Public Welfare - Hazardous Waste,92,5
+original,78,"Public Health, Safety and Welfare—Discovery of Structural Defect Affecting Subdivision",133,Public Health and Safety—Knowledge of Potentially Dangerous Condition,2,5
+original,79,Public Health And Safety - Code Enforcement,175,Public Welfare - Duty Of Government Engineer,4,4
+original,79,Public Health And Safety - Code Enforcement,160,Participation in Production of Unsafe Equipment,12,4
+original,79,Public Health And Safety - Code Enforcement,157,Whistleblowing,17,4
+original,79,Public Health And Safety - Code Enforcement,92,Whistleblowing - City Engineer,1,4
+original,83,Sustainable Development—Threatened Species,84,Duty To Report Safety Violations,43,3
+original,83,Sustainable Development—Threatened Species,100,Duty To Report Unrelated Information Observed During Rendering Of Services,33,3
+original,83,Sustainable Development—Threatened Species,86,Public Welfare—Client Action Following Engineers Services,8,3
+original,84,Duty To Report Safety Violations,97,Confidentiality of Engineering Report,2,3
+original,84,Duty To Report Safety Violations,172,Objectivity of Engineer Retained as Expert,10,3
+original,84,Duty To Report Safety Violations,89,"Engineer's Recommendation For Full-Time, On-Site Project Representative",39,3
+original,85,"Incomplete Plans and Specifications – Engineer, Government, and Contractor Responsibilities",157,Whistleblowing,2,1
+original,86,Public Welfare—Client Action Following Engineers Services,84,Duty To Report Safety Violations,49,2
+original,86,Public Welfare—Client Action Following Engineers Services,100,Duty To Report Unrelated Information Observed During Rendering Of Services,10,2
+original,87,Public Health and Safety—Building Codes to Address Environmental Risk,86,Public Welfare—Client Action Following Engineers Services,1,2
+original,87,Public Health and Safety—Building Codes to Address Environmental Risk,83,Sustainable Development—Threatened Species,80,2
+original,88,"Public Health, Safety, and  Welfare–Climate Change Induced Conditions",87,Public Health and Safety—Building Codes to Address Environmental Risk,1,1
+original,91,Gifts To Foreign Officials - Application Of Code Of Ethics To Non-U.S. Engineers,167,Gifts to Foreign Officials,103,1
+original,92,Whistleblowing - City Engineer,160,Participation in Production of Unsafe Equipment,8,2
+original,92,Whistleblowing - City Engineer,157,Whistleblowing,11,2
+original,93,Withholding Information Useful to Client/Public Agency,181,Peer Review - Confidentiality Agreements,24,1
+original,94,Failure to Disclose Full Impact of Development,124,Public Criticism of Proposed Public Highway Route,61,3
+original,94,Failure to Disclose Full Impact of Development,114,Conflicting Engineering Opinions,56,3
+original,94,Failure to Disclose Full Impact of Development,113,Public Criticism - Environmental Concerns,59,3
+original,96,Conflict of Interest—Peer Reviewer Participating on Subsequent Joint Venture,181,Peer Review - Confidentiality Agreements,1,2
+original,96,Conflict of Interest—Peer Reviewer Participating on Subsequent Joint Venture,177,Conflict Of Interest Providing Both City Engineer And Inspection Services,61,2
+original,98,Confidentiality – Discussion with Potential Bidding Contractor,176,Engineer's Duty As Interpreter Of Contract Documents,58,1
+original,99,Professional Selection—Receipt of Submission Beyond the Published Deadline,141,Selection of Firm—FOIA Request,2,1
+original,100,Duty To Report Unrelated Information Observed During Rendering Of Services,84,Duty To Report Safety Violations,16,1
+original,105,Reviewing Work of Another Engineer and Thereafter Performing Engineering Services for Client,103,Conflict of Interest - Part-Time Service as City Engineer,54,3
+original,105,Reviewing Work of Another Engineer and Thereafter Performing Engineering Services for Client,104,Conflict of Interest - Municipal Engineer,99,3
+original,105,Reviewing Work of Another Engineer and Thereafter Performing Engineering Services for Client,164,Conflict Of Interest—Consultant Serving As City Engineer,1,3
+original,106,Confidentiality of Competitor Information Submitted to Government Agency,104,Conflict of Interest - Municipal Engineer,106,3
+original,106,Confidentiality of Competitor Information Submitted to Government Agency,170,Conflict of Interest - Expert Witness for Contractor,73,3
+original,106,Confidentiality of Competitor Information Submitted to Government Agency,172,Objectivity of Engineer Retained as Expert,6,3
+original,107,Expert Witness—Discovery of New Data Following Submission of Report,71,Failure To Include Information In Engineering Report,8,1
+original,108,Use Of Broad Indemnification Clause For Pollution Services,173,Modification of Signed and Sealed Plans by Other Than Responsible Engineer,79,1
+original,109,Competence To Certify Arms Storage Rooms,110,Competence To Perform Foundation Design,7,2
+original,109,Competence To Certify Arms Storage Rooms,158,P.E. Requirement for County Surveyor Position,60,2
+original,110,Competence To Perform Foundation Design,161,Brokerage of Engineering Services,60,3
+original,110,Competence To Perform Foundation Design,162,Post lnterview Change in Joint Venture Team,54,3
+original,110,Competence To Perform Foundation Design,158,P.E. Requirement for County Surveyor Position,1,3
+original,111,Misrepresentation - Changes Made to Engineer’s Report,163,Signing and Sealing Plans Not Prepared by Engineer,3,1
+original,112,Public Health Safety and Welfare—Engineering Standards,137,Public Welfare—Bridge Structure,53,4
+original,112,Public Health Safety and Welfare—Engineering Standards,133,Public Health and Safety—Knowledge of Potentially Dangerous Condition,6,4
+original,112,Public Health Safety and Welfare—Engineering Standards,139,Public Health and Safety—Observing Off-Site Safety Issues,17,4
+original,112,Public Health Safety and Welfare—Engineering Standards,140,Public Health and Safety—Scaffolding for Highway Ramp,1,4
+original,113,Public Criticism - Environmental Concerns,114,Conflicting Engineering Opinions,31,2
+original,113,Public Criticism - Environmental Concerns,124,Public Criticism of Proposed Public Highway Route,34,2
+original,116,Duty To Report Violation—Anonymous Complaint,84,Duty To Report Safety Violations,29,1
+original,120,Use Of Cadd System,163,Signing and Sealing Plans Not Prepared by Engineer,1,1
+original,121,Use Of CD-ROM For Highway Design,110,Competence To Perform Foundation Design,27,3
+original,121,Use Of CD-ROM For Highway Design,161,Brokerage of Engineering Services,58,3
+original,121,Use Of CD-ROM For Highway Design,162,Post lnterview Change in Joint Venture Team,55,3
+original,123,Engineer’s Obligation to Consider Feasible Options,113,Public Criticism - Environmental Concerns,3,2
+original,123,Engineer’s Obligation to Consider Feasible Options,94,Failure to Disclose Full Impact of Development,12,2
+original,126,Appropriate Notification And Review Of Another Engineer's Work,169,Review of Original Engineer's Design,10,1
+original,127,Employment—Questioning Ability Of Former Employer,168,Supplanting - Promotion of Work by Former Employees,15,2
+original,127,Employment—Questioning Ability Of Former Employer,178,Former Employer Establishing A New Firm - Soliciting Former Clients After A Period Of Time Has Elapsed,1,2
+original,129,Expert Witness—Chair of Standards and Safety Committee,143,Conflict of Interest Public Employment,22,3
+original,129,Expert Witness—Chair of Standards and Safety Committee,144,Conflict Of Interest—Public Employee Serving As Part-Time Consultant,45,3
+original,129,Expert Witness—Chair of Standards and Safety Committee,145,Expert Witness—Disclosure of Interests Represented,1,3
+original,130,Job Qualifications—Disclosure of Material Fact,146,Disclosure of Personal Information,14,3
+original,130,Job Qualifications—Disclosure of Material Fact,147,Duty To Disclose Disciplinary Complaint To Client,6,3
+original,130,Job Qualifications—Disclosure of Material Fact,148,Employment—Duty To Disclose Revocation Of Contractor License,13,3
+original,131,Advertising - Misstating Credentials,171,Conflict Of Interest - Duty of Loyalty of Terminated Employed Engineer to Employer - Misleading Brochure,14,2
+original,131,Advertising - Misstating Credentials,174,Misrepresentation Of Firm's Staff,7,2
+original,132,Public Health and Safety— Observed Structural Defects and Inspection by County Building Official,137,Public Welfare—Bridge Structure,61,5
+original,132,Public Health and Safety— Observed Structural Defects and Inspection by County Building Official,84,Duty To Report Safety Violations,42,5
+original,132,Public Health and Safety— Observed Structural Defects and Inspection by County Building Official,136,Failure To Report Information Affecting Public Safety,11,5
+original,132,Public Health and Safety— Observed Structural Defects and Inspection by County Building Official,149,Public Welfare - Hazardous Waste,87,5
+original,132,Public Health and Safety— Observed Structural Defects and Inspection by County Building Official,133,Public Health and Safety—Knowledge of Potentially Dangerous Condition,1,5
+original,133,Public Health and Safety—Knowledge of Potentially Dangerous Condition,137,Public Welfare—Bridge Structure,52,4
+original,133,Public Health and Safety—Knowledge of Potentially Dangerous Condition,84,Duty To Report Safety Violations,88,4
+original,133,Public Health and Safety—Knowledge of Potentially Dangerous Condition,136,Failure To Report Information Affecting Public Safety,15,4
+original,133,Public Health and Safety—Knowledge of Potentially Dangerous Condition,149,Public Welfare - Hazardous Waste,84,4
+original,134,Statements Made During Negotiations,166,Statements in Employee Resume,112,2
+original,134,Statements Made During Negotiations,135,Engineer Misstating Professional Achievements on Resume,110,2
+original,135,Engineer Misstating Professional Achievements on Resume,166,Statements in Employee Resume,6,1
+original,136,Failure To Report Information Affecting Public Safety,89,"Engineer's Recommendation For Full-Time, On-Site Project Representative",10,2
+original,136,Failure To Report Information Affecting Public Safety,97,Confidentiality of Engineering Report,13,2
+original,137,Public Welfare—Bridge Structure,149,Public Welfare - Hazardous Waste,74,3
+original,137,Public Welfare—Bridge Structure,84,Duty To Report Safety Violations,51,3
+original,137,Public Welfare—Bridge Structure,136,Failure To Report Information Affecting Public Safety,45,3
+original,139,Public Health and Safety—Observing Off-Site Safety Issues,160,Participation in Production of Unsafe Equipment,16,3
+original,139,Public Health and Safety—Observing Off-Site Safety Issues,157,Whistleblowing,15,3
+original,139,Public Health and Safety—Observing Off-Site Safety Issues,92,Whistleblowing - City Engineer,2,3
+original,140,Public Health and Safety—Scaffolding for Highway Ramp,137,Public Welfare—Bridge Structure,82,5
+original,140,Public Health and Safety—Scaffolding for Highway Ramp,84,Duty To Report Safety Violations,90,5
+original,140,Public Health and Safety—Scaffolding for Highway Ramp,136,Failure To Report Information Affecting Public Safety,40,5
+original,140,Public Health and Safety—Scaffolding for Highway Ramp,149,Public Welfare - Hazardous Waste,71,5
+original,140,Public Health and Safety—Scaffolding for Highway Ramp,133,Public Health and Safety—Knowledge of Potentially Dangerous Condition,2,5
+original,141,Selection of Firm—FOIA Request,126,Appropriate Notification And Review Of Another Engineer's Work,31,1
+original,142,"Public Health, Safety and Welfare-Former Employee's Participation in a Public Safety Standards Hearing",72,Public Welfare - Knowledge of Information Damaging to Client's Interest,31,2
+original,142,"Public Health, Safety and Welfare-Former Employee's Participation in a Public Safety Standards Hearing",150,Public Welfare—Design of Medical Equipment,1,2
+original,143,Conflict of Interest Public Employment,103,Conflict of Interest - Part-Time Service as City Engineer,2,1
+original,145,Expert Witness—Disclosure of Interests Represented,143,Conflict of Interest Public Employment,2,2
+original,145,Expert Witness—Disclosure of Interests Represented,144,Conflict Of Interest—Public Employee Serving As Part-Time Consultant,25,2
+original,146,Disclosure of Personal Information,147,Duty To Disclose Disciplinary Complaint To Client,28,3
+original,146,Disclosure of Personal Information,151,Personal Misconduct,83,3
+original,146,Disclosure of Personal Information,148,Employment—Duty To Disclose Revocation Of Contractor License,1,3
+original,147,Duty To Disclose Disciplinary Complaint To Client,171,Conflict Of Interest - Duty of Loyalty of Terminated Employed Engineer to Employer - Misleading Brochure,34,2
+original,147,Duty To Disclose Disciplinary Complaint To Client,174,Misrepresentation Of Firm's Staff,50,2
+original,148,Employment—Duty To Disclose Revocation Of Contractor License,147,Duty To Disclose Disciplinary Complaint To Client,34,2
+original,148,Employment—Duty To Disclose Revocation Of Contractor License,151,Personal Misconduct,66,2
+original,149,Public Welfare - Hazardous Waste,84,Duty To Report Safety Violations,5,2
+original,149,Public Welfare - Hazardous Waste,136,Failure To Report Information Affecting Public Safety,35,2
+original,150,Public Welfare—Design of Medical Equipment,72,Public Welfare - Knowledge of Information Damaging to Client's Interest,65,1
+original,157,Whistleblowing,160,Participation in Production of Unsafe Equipment,1,1
+original,158,P.E. Requirement for County Surveyor Position,161,Brokerage of Engineering Services,16,2
+original,158,P.E. Requirement for County Surveyor Position,162,Post lnterview Change in Joint Venture Team,17,2
+original,162,Post lnterview Change in Joint Venture Team,161,Brokerage of Engineering Services,3,1
+original,163,Signing and Sealing Plans Not Prepared by Engineer,158,P.E. Requirement for County Surveyor Position,80,1
+original,164,Conflict Of Interest—Consultant Serving As City Engineer,103,Conflict of Interest - Part-Time Service as City Engineer,15,2
+original,164,Conflict Of Interest—Consultant Serving As City Engineer,104,Conflict of Interest - Municipal Engineer,86,2
+original,171,Conflict Of Interest - Duty of Loyalty of Terminated Employed Engineer to Employer - Misleading Brochure,168,Supplanting - Promotion of Work by Former Employees,7,1
+original,172,Objectivity of Engineer Retained as Expert,104,Conflict of Interest - Municipal Engineer,112,3
+original,172,Objectivity of Engineer Retained as Expert,97,Confidentiality of Engineering Report,51,3
+original,172,Objectivity of Engineer Retained as Expert,170,Conflict of Interest - Expert Witness for Contractor,19,3
+original,173,Modification of Signed and Sealed Plans by Other Than Responsible Engineer,169,Review of Original Engineer's Design,1,1
+original,174,Misrepresentation Of Firm's Staff,171,Conflict Of Interest - Duty of Loyalty of Terminated Employed Engineer to Employer - Misleading Brochure,1,1
+original,175,Public Welfare - Duty Of Government Engineer,160,Participation in Production of Unsafe Equipment,21,3
+original,175,Public Welfare - Duty Of Government Engineer,157,Whistleblowing,15,3
+original,175,Public Welfare - Duty Of Government Engineer,92,Whistleblowing - City Engineer,4,3
+original,177,Conflict Of Interest Providing Both City Engineer And Inspection Services,104,Conflict of Interest - Municipal Engineer,43,1
+original,178,Former Employer Establishing A New Firm - Soliciting Former Clients After A Period Of Time Has Elapsed,168,Supplanting - Promotion of Work by Former Employees,43,1
+original,179,Expert Witness Testimony - Serving Plaintiffs And Defendants,170,Conflict of Interest - Expert Witness for Contractor,61,1
+original,181,Peer Review - Confidentiality Agreements,72,Public Welfare - Knowledge of Information Damaging to Client's Interest,102,1
+stripped,4,Sustainable Development and Resilient Infrastructure,73,"Public Safety, Health, and Welfare:  Avoiding Rolling Blackouts",102,5
+stripped,4,Sustainable Development and Resilient Infrastructure,13,Sustainability -  Lawn Irrigation Design,9,5
+stripped,4,Sustainable Development and Resilient Infrastructure,123,Engineer’s Obligation to Consider Feasible Options,82,5
+stripped,4,Sustainable Development and Resilient Infrastructure,124,Public Criticism of Proposed Public Highway Route,99,5
+stripped,4,Sustainable Development and Resilient Infrastructure,125,Endorsement of Project by Local Chapter,98,5
+stripped,5,Community Engagement for Infrastructure Projects,90,Case Number 60-3,68,5
+stripped,5,Community Engagement for Infrastructure Projects,91,Gifts To Foreign Officials - Application Of Code Of Ethics To Non-U.S. Engineers,84,5
+stripped,5,Community Engagement for Infrastructure Projects,92,Whistleblowing - City Engineer,20,5
+stripped,5,Community Engagement for Infrastructure Projects,93,Withholding Information Useful to Client/Public Agency,9,5
+stripped,5,Community Engagement for Infrastructure Projects,73,"Public Safety, Health, and Welfare:  Avoiding Rolling Blackouts",117,5
+stripped,6,Public Contracting Practices,117,Selection of Firm—Promise of Future Engineering Work on a Public Project,2,6
+stripped,6,Public Contracting Practices,118,Protest of Low Fee Proposal,8,6
+stripped,6,Public Contracting Practices,56,Unlicensed Practice by Nonengineers with “Engineer” in Job Titles,36,6
+stripped,6,Public Contracting Practices,10,Post-Public Employment - City Engineer Transitioning to Consultant,21,6
+stripped,6,Public Contracting Practices,102,Case Number 58-1,47,6
+stripped,6,Public Contracting Practices,60,Misrepresentation of  Qualifications,33,6
+stripped,7,Use of Artificial Intelligence in Engineering Practice,120,Use Of Cadd System,1,2
+stripped,7,Use of Artificial Intelligence in Engineering Practice,121,Use Of CD-ROM For Highway Design,30,2
+stripped,8,Balancing Client Directives and Public Welfare: Stormwater Management Dilemma,18,Professional Responsibility if  Appropriate Authority Fails to Act,8,11
+stripped,8,Balancing Client Directives and Public Welfare: Stormwater Management Dilemma,76,"Public Health, Safety, and Welfare—Drinking Water Quality",6,11
+stripped,8,Balancing Client Directives and Public Welfare: Stormwater Management Dilemma,72,Public Welfare - Knowledge of Information Damaging to Client's Interest,13,11
+stripped,8,Balancing Client Directives and Public Welfare: Stormwater Management Dilemma,82,Criticism of Engineering in Products,98,11
+stripped,8,Balancing Client Directives and Public Welfare: Stormwater Management Dilemma,83,Sustainable Development—Threatened Species,83,11
+stripped,8,Balancing Client Directives and Public Welfare: Stormwater Management Dilemma,84,Duty To Report Safety Violations,49,11
+stripped,8,Balancing Client Directives and Public Welfare: Stormwater Management Dilemma,85,"Incomplete Plans and Specifications – Engineer, Government, and Contractor Responsibilities",17,11
+stripped,8,Balancing Client Directives and Public Welfare: Stormwater Management Dilemma,86,Public Welfare—Client Action Following Engineers Services,3,11
+stripped,8,Balancing Client Directives and Public Welfare: Stormwater Management Dilemma,87,Public Health and Safety—Building Codes to Address Environmental Risk,2,11
+stripped,8,Balancing Client Directives and Public Welfare: Stormwater Management Dilemma,88,"Public Health, Safety, and  Welfare–Climate Change Induced Conditions",22,11
+stripped,8,Balancing Client Directives and Public Welfare: Stormwater Management Dilemma,89,"Engineer's Recommendation For Full-Time, On-Site Project Representative",32,11
+stripped,9,Acknowledging Errors in Design,100,Duty To Report Unrelated Information Observed During Rendering Of Services,10,3
+stripped,9,Acknowledging Errors in Design,88,"Public Health, Safety, and  Welfare–Climate Change Induced Conditions",93,3
+stripped,9,Acknowledging Errors in Design,74,Professional Competence In Current Structural Design,9,3
+stripped,10,Post-Public Employment - City Engineer Transitioning to Consultant,102,Case Number 58-1,22,6
+stripped,10,Post-Public Employment - City Engineer Transitioning to Consultant,103,Conflict of Interest - Part-Time Service as City Engineer,24,6
+stripped,10,Post-Public Employment - City Engineer Transitioning to Consultant,104,Conflict of Interest - Municipal Engineer,38,6
+stripped,10,Post-Public Employment - City Engineer Transitioning to Consultant,105,Reviewing Work of Another Engineer and Thereafter Performing Engineering Services for Client,19,6
+stripped,10,Post-Public Employment - City Engineer Transitioning to Consultant,75,Obligation to Former Employer and  Former Client Following Acceptance of Position with State,87,6
+stripped,10,Post-Public Employment - City Engineer Transitioning to Consultant,106,Confidentiality of Competitor Information Submitted to Government Agency,8,6
+stripped,11,Excess Stormwater Runoff,75,Obligation to Former Employer and  Former Client Following Acceptance of Position with State,49,4
+stripped,11,Excess Stormwater Runoff,107,Expert Witness—Discovery of New Data Following Submission of Report,56,4
+stripped,11,Excess Stormwater Runoff,71,Failure To Include Information In Engineering Report,54,4
+stripped,11,Excess Stormwater Runoff,108,Use Of Broad Indemnification Clause For Pollution Services,69,4
+stripped,12,Competence in Design Services,74,Professional Competence In Current Structural Design,5,3
+stripped,12,Competence in Design Services,109,Competence To Certify Arms Storage Rooms,10,3
+stripped,12,Competence in Design Services,110,Competence To Perform Foundation Design,65,3
+stripped,13,Sustainability -  Lawn Irrigation Design,94,Failure to Disclose Full Impact of Development,16,3
+stripped,13,Sustainability -  Lawn Irrigation Design,83,Sustainable Development—Threatened Species,3,3
+stripped,13,Sustainability -  Lawn Irrigation Design,123,Engineer’s Obligation to Consider Feasible Options,76,3
+stripped,14,"Providing Incomplete, Self-Serving Advice",71,Failure To Include Information In Engineering Report,3,2
+stripped,14,"Providing Incomplete, Self-Serving Advice",85,"Incomplete Plans and Specifications – Engineer, Government, and Contractor Responsibilities",33,2
+stripped,15,Independence of  Peer Reviewer,96,Conflict of Interest—Peer Reviewer Participating on Subsequent Joint Venture,2,3
+stripped,15,Independence of  Peer Reviewer,181,Peer Review - Confidentiality Agreements,1,3
+stripped,15,Independence of  Peer Reviewer,126,Appropriate Notification And Review Of Another Engineer's Work,5,3
+stripped,16,Impaired Engineering,111,Misrepresentation - Changes Made to Engineer’s Report,2,2
+stripped,16,Impaired Engineering,112,Public Health Safety and Welfare—Engineering Standards,78,2
+stripped,17,Siting a Truck Stop,113,Public Criticism - Environmental Concerns,4,4
+stripped,17,Siting a Truck Stop,114,Conflicting Engineering Opinions,31,4
+stripped,17,Siting a Truck Stop,76,"Public Health, Safety, and Welfare—Drinking Water Quality",11,4
+stripped,17,Siting a Truck Stop,71,Failure To Include Information In Engineering Report,30,4
+stripped,18,Professional Responsibility if  Appropriate Authority Fails to Act,72,Public Welfare - Knowledge of Information Damaging to Client's Interest,5,3
+stripped,18,Professional Responsibility if  Appropriate Authority Fails to Act,84,Duty To Report Safety Violations,42,3
+stripped,18,Professional Responsibility if  Appropriate Authority Fails to Act,76,"Public Health, Safety, and Welfare—Drinking Water Quality",1,3
+stripped,19,Duty to Report Misconduct,72,Public Welfare - Knowledge of Information Damaging to Client's Interest,23,2
+stripped,19,Duty to Report Misconduct,116,Duty To Report Violation—Anonymous Complaint,11,2
+stripped,20,Review of Other  Engineer’s Work,126,Appropriate Notification And Review Of Another Engineer's Work,10,2
+stripped,20,Review of Other  Engineer’s Work,127,Employment—Questioning Ability Of Former Employer,2,2
+stripped,22,Sharing As-Built Drawings,97,Confidentiality of Engineering Report,3,3
+stripped,22,Sharing As-Built Drawings,98,Confidentiality – Discussion with Potential Bidding Contractor,1,3
+stripped,22,Sharing As-Built Drawings,99,Professional Selection—Receipt of Submission Beyond the Published Deadline,15,3
+stripped,56,Unlicensed Practice by Nonengineers with “Engineer” in Job Titles,131,Advertising - Misstating Credentials,15,2
+stripped,56,Unlicensed Practice by Nonengineers with “Engineer” in Job Titles,77,Engineering Titles - Use Of Engineering Title By Nonengineers,12,2
+stripped,57,Duty to Report –  Material Information,132,Public Health and Safety— Observed Structural Defects and Inspection by County Building Official,4,4
+stripped,57,Duty to Report –  Material Information,133,Public Health and Safety—Knowledge of Potentially Dangerous Condition,31,4
+stripped,57,Duty to Report –  Material Information,78,"Public Health, Safety and Welfare—Discovery of Structural Defect Affecting Subdivision",5,4
+stripped,57,Duty to Report –  Material Information,79,Public Health And Safety - Code Enforcement,44,4
+stripped,58,Public Welfare at What Cost?,79,Public Health And Safety - Code Enforcement,12,3
+stripped,58,Public Welfare at What Cost?,134,Statements Made During Negotiations,82,3
+stripped,58,Public Welfare at What Cost?,135,Engineer Misstating Professional Achievements on Resume,117,3
+stripped,59,"Protecting Public Health,  Safety, and Welfare",72,Public Welfare - Knowledge of Information Damaging to Client's Interest,41,3
+stripped,59,"Protecting Public Health,  Safety, and Welfare",136,Failure To Report Information Affecting Public Safety,31,3
+stripped,59,"Protecting Public Health,  Safety, and Welfare",78,"Public Health, Safety and Welfare—Discovery of Structural Defect Affecting Subdivision",29,3
+stripped,60,Misrepresentation of  Qualifications,77,Engineering Titles - Use Of Engineering Title By Nonengineers,25,4
+stripped,60,Misrepresentation of  Qualifications,128,Advertising — Use of Business Cards—P.E. Designation,57,4
+stripped,60,Misrepresentation of  Qualifications,129,Expert Witness—Chair of Standards and Safety Committee,3,4
+stripped,60,Misrepresentation of  Qualifications,130,Job Qualifications—Disclosure of Material Fact,15,4
+stripped,72,Public Welfare - Knowledge of Information Damaging to Client's Interest,82,Criticism of Engineering in Products,28,1
+stripped,73,"Public Safety, Health, and Welfare:  Avoiding Rolling Blackouts",79,Public Health And Safety - Code Enforcement,5,3
+stripped,73,"Public Safety, Health, and Welfare:  Avoiding Rolling Blackouts",76,"Public Health, Safety, and Welfare—Drinking Water Quality",20,3
+stripped,73,"Public Safety, Health, and Welfare:  Avoiding Rolling Blackouts",165,"Public Health, Safety, and Welfare—Driverless/Autonomous Vehicle",81,3
+stripped,74,Professional Competence In Current Structural Design,109,Competence To Certify Arms Storage Rooms,8,3
+stripped,74,Professional Competence In Current Structural Design,110,Competence To Perform Foundation Design,32,3
+stripped,74,Professional Competence In Current Structural Design,158,P.E. Requirement for County Surveyor Position,101,3
+stripped,75,Obligation to Former Employer and  Former Client Following Acceptance of Position with State,179,Expert Witness Testimony - Serving Plaintiffs And Defendants,1,1
+stripped,76,"Public Health, Safety, and Welfare—Drinking Water Quality",137,Public Welfare—Bridge Structure,37,3
+stripped,76,"Public Health, Safety, and Welfare—Drinking Water Quality",132,Public Health and Safety— Observed Structural Defects and Inspection by County Building Official,11,3
+stripped,76,"Public Health, Safety, and Welfare—Drinking Water Quality",84,Duty To Report Safety Violations,78,3
+stripped,78,"Public Health, Safety and Welfare—Discovery of Structural Defect Affecting Subdivision",137,Public Welfare—Bridge Structure,75,5
+stripped,78,"Public Health, Safety and Welfare—Discovery of Structural Defect Affecting Subdivision",84,Duty To Report Safety Violations,48,5
+stripped,78,"Public Health, Safety and Welfare—Discovery of Structural Defect Affecting Subdivision",136,Failure To Report Information Affecting Public Safety,14,5
+stripped,78,"Public Health, Safety and Welfare—Discovery of Structural Defect Affecting Subdivision",149,Public Welfare - Hazardous Waste,73,5
+stripped,78,"Public Health, Safety and Welfare—Discovery of Structural Defect Affecting Subdivision",133,Public Health and Safety—Knowledge of Potentially Dangerous Condition,2,5
+stripped,79,Public Health And Safety - Code Enforcement,175,Public Welfare - Duty Of Government Engineer,4,4
+stripped,79,Public Health And Safety - Code Enforcement,160,Participation in Production of Unsafe Equipment,8,4
+stripped,79,Public Health And Safety - Code Enforcement,157,Whistleblowing,12,4
+stripped,79,Public Health And Safety - Code Enforcement,92,Whistleblowing - City Engineer,1,4
+stripped,83,Sustainable Development—Threatened Species,84,Duty To Report Safety Violations,42,3
+stripped,83,Sustainable Development—Threatened Species,100,Duty To Report Unrelated Information Observed During Rendering Of Services,34,3
+stripped,83,Sustainable Development—Threatened Species,86,Public Welfare—Client Action Following Engineers Services,8,3
+stripped,84,Duty To Report Safety Violations,97,Confidentiality of Engineering Report,2,3
+stripped,84,Duty To Report Safety Violations,172,Objectivity of Engineer Retained as Expert,11,3
+stripped,84,Duty To Report Safety Violations,89,"Engineer's Recommendation For Full-Time, On-Site Project Representative",41,3
+stripped,85,"Incomplete Plans and Specifications – Engineer, Government, and Contractor Responsibilities",157,Whistleblowing,2,1
+stripped,86,Public Welfare—Client Action Following Engineers Services,84,Duty To Report Safety Violations,49,2
+stripped,86,Public Welfare—Client Action Following Engineers Services,100,Duty To Report Unrelated Information Observed During Rendering Of Services,11,2
+stripped,87,Public Health and Safety—Building Codes to Address Environmental Risk,86,Public Welfare—Client Action Following Engineers Services,1,2
+stripped,87,Public Health and Safety—Building Codes to Address Environmental Risk,83,Sustainable Development—Threatened Species,76,2
+stripped,88,"Public Health, Safety, and  Welfare–Climate Change Induced Conditions",87,Public Health and Safety—Building Codes to Address Environmental Risk,1,1
+stripped,91,Gifts To Foreign Officials - Application Of Code Of Ethics To Non-U.S. Engineers,167,Gifts to Foreign Officials,100,1
+stripped,92,Whistleblowing - City Engineer,160,Participation in Production of Unsafe Equipment,28,2
+stripped,92,Whistleblowing - City Engineer,157,Whistleblowing,55,2
+stripped,93,Withholding Information Useful to Client/Public Agency,181,Peer Review - Confidentiality Agreements,23,1
+stripped,94,Failure to Disclose Full Impact of Development,124,Public Criticism of Proposed Public Highway Route,57,3
+stripped,94,Failure to Disclose Full Impact of Development,114,Conflicting Engineering Opinions,49,3
+stripped,94,Failure to Disclose Full Impact of Development,113,Public Criticism - Environmental Concerns,54,3
+stripped,96,Conflict of Interest—Peer Reviewer Participating on Subsequent Joint Venture,181,Peer Review - Confidentiality Agreements,1,2
+stripped,96,Conflict of Interest—Peer Reviewer Participating on Subsequent Joint Venture,177,Conflict Of Interest Providing Both City Engineer And Inspection Services,49,2
+stripped,98,Confidentiality – Discussion with Potential Bidding Contractor,176,Engineer's Duty As Interpreter Of Contract Documents,1,1
+stripped,99,Professional Selection—Receipt of Submission Beyond the Published Deadline,141,Selection of Firm—FOIA Request,2,1
+stripped,100,Duty To Report Unrelated Information Observed During Rendering Of Services,84,Duty To Report Safety Violations,17,1
+stripped,105,Reviewing Work of Another Engineer and Thereafter Performing Engineering Services for Client,103,Conflict of Interest - Part-Time Service as City Engineer,52,3
+stripped,105,Reviewing Work of Another Engineer and Thereafter Performing Engineering Services for Client,104,Conflict of Interest - Municipal Engineer,99,3
+stripped,105,Reviewing Work of Another Engineer and Thereafter Performing Engineering Services for Client,164,Conflict Of Interest—Consultant Serving As City Engineer,1,3
+stripped,106,Confidentiality of Competitor Information Submitted to Government Agency,104,Conflict of Interest - Municipal Engineer,104,3
+stripped,106,Confidentiality of Competitor Information Submitted to Government Agency,170,Conflict of Interest - Expert Witness for Contractor,60,3
+stripped,106,Confidentiality of Competitor Information Submitted to Government Agency,172,Objectivity of Engineer Retained as Expert,17,3
+stripped,107,Expert Witness—Discovery of New Data Following Submission of Report,71,Failure To Include Information In Engineering Report,2,1
+stripped,108,Use Of Broad Indemnification Clause For Pollution Services,173,Modification of Signed and Sealed Plans by Other Than Responsible Engineer,60,1
+stripped,109,Competence To Certify Arms Storage Rooms,110,Competence To Perform Foundation Design,7,2
+stripped,109,Competence To Certify Arms Storage Rooms,158,P.E. Requirement for County Surveyor Position,91,2
+stripped,110,Competence To Perform Foundation Design,161,Brokerage of Engineering Services,48,3
+stripped,110,Competence To Perform Foundation Design,162,Post lnterview Change in Joint Venture Team,83,3
+stripped,110,Competence To Perform Foundation Design,158,P.E. Requirement for County Surveyor Position,46,3
+stripped,111,Misrepresentation - Changes Made to Engineer’s Report,163,Signing and Sealing Plans Not Prepared by Engineer,8,1
+stripped,112,Public Health Safety and Welfare—Engineering Standards,137,Public Welfare—Bridge Structure,50,4
+stripped,112,Public Health Safety and Welfare—Engineering Standards,133,Public Health and Safety—Knowledge of Potentially Dangerous Condition,7,4
+stripped,112,Public Health Safety and Welfare—Engineering Standards,139,Public Health and Safety—Observing Off-Site Safety Issues,17,4
+stripped,112,Public Health Safety and Welfare—Engineering Standards,140,Public Health and Safety—Scaffolding for Highway Ramp,1,4
+stripped,113,Public Criticism - Environmental Concerns,114,Conflicting Engineering Opinions,30,2
+stripped,113,Public Criticism - Environmental Concerns,124,Public Criticism of Proposed Public Highway Route,33,2
+stripped,116,Duty To Report Violation—Anonymous Complaint,84,Duty To Report Safety Violations,21,1
+stripped,120,Use Of Cadd System,163,Signing and Sealing Plans Not Prepared by Engineer,1,1
+stripped,121,Use Of CD-ROM For Highway Design,110,Competence To Perform Foundation Design,11,3
+stripped,121,Use Of CD-ROM For Highway Design,161,Brokerage of Engineering Services,63,3
+stripped,121,Use Of CD-ROM For Highway Design,162,Post lnterview Change in Joint Venture Team,81,3
+stripped,123,Engineer’s Obligation to Consider Feasible Options,113,Public Criticism - Environmental Concerns,2,2
+stripped,123,Engineer’s Obligation to Consider Feasible Options,94,Failure to Disclose Full Impact of Development,18,2
+stripped,126,Appropriate Notification And Review Of Another Engineer's Work,169,Review of Original Engineer's Design,6,1
+stripped,127,Employment—Questioning Ability Of Former Employer,168,Supplanting - Promotion of Work by Former Employees,13,2
+stripped,127,Employment—Questioning Ability Of Former Employer,178,Former Employer Establishing A New Firm - Soliciting Former Clients After A Period Of Time Has Elapsed,1,2
+stripped,129,Expert Witness—Chair of Standards and Safety Committee,143,Conflict of Interest Public Employment,18,3
+stripped,129,Expert Witness—Chair of Standards and Safety Committee,144,Conflict Of Interest—Public Employee Serving As Part-Time Consultant,46,3
+stripped,129,Expert Witness—Chair of Standards and Safety Committee,145,Expert Witness—Disclosure of Interests Represented,1,3
+stripped,130,Job Qualifications—Disclosure of Material Fact,146,Disclosure of Personal Information,6,3
+stripped,130,Job Qualifications—Disclosure of Material Fact,147,Duty To Disclose Disciplinary Complaint To Client,5,3
+stripped,130,Job Qualifications—Disclosure of Material Fact,148,Employment—Duty To Disclose Revocation Of Contractor License,4,3
+stripped,131,Advertising - Misstating Credentials,171,Conflict Of Interest - Duty of Loyalty of Terminated Employed Engineer to Employer - Misleading Brochure,5,2
+stripped,131,Advertising - Misstating Credentials,174,Misrepresentation Of Firm's Staff,11,2
+stripped,132,Public Health and Safety— Observed Structural Defects and Inspection by County Building Official,137,Public Welfare—Bridge Structure,60,5
+stripped,132,Public Health and Safety— Observed Structural Defects and Inspection by County Building Official,84,Duty To Report Safety Violations,43,5
+stripped,132,Public Health and Safety— Observed Structural Defects and Inspection by County Building Official,136,Failure To Report Information Affecting Public Safety,13,5
+stripped,132,Public Health and Safety— Observed Structural Defects and Inspection by County Building Official,149,Public Welfare - Hazardous Waste,72,5
+stripped,132,Public Health and Safety— Observed Structural Defects and Inspection by County Building Official,133,Public Health and Safety—Knowledge of Potentially Dangerous Condition,1,5
+stripped,133,Public Health and Safety—Knowledge of Potentially Dangerous Condition,137,Public Welfare—Bridge Structure,48,4
+stripped,133,Public Health and Safety—Knowledge of Potentially Dangerous Condition,84,Duty To Report Safety Violations,84,4
+stripped,133,Public Health and Safety—Knowledge of Potentially Dangerous Condition,136,Failure To Report Information Affecting Public Safety,17,4
+stripped,133,Public Health and Safety—Knowledge of Potentially Dangerous Condition,149,Public Welfare - Hazardous Waste,71,4
+stripped,134,Statements Made During Negotiations,166,Statements in Employee Resume,112,2
+stripped,134,Statements Made During Negotiations,135,Engineer Misstating Professional Achievements on Resume,108,2
+stripped,135,Engineer Misstating Professional Achievements on Resume,166,Statements in Employee Resume,7,1
+stripped,136,Failure To Report Information Affecting Public Safety,89,"Engineer's Recommendation For Full-Time, On-Site Project Representative",6,2
+stripped,136,Failure To Report Information Affecting Public Safety,97,Confidentiality of Engineering Report,14,2
+stripped,137,Public Welfare—Bridge Structure,149,Public Welfare - Hazardous Waste,66,3
+stripped,137,Public Welfare—Bridge Structure,84,Duty To Report Safety Violations,49,3
+stripped,137,Public Welfare—Bridge Structure,136,Failure To Report Information Affecting Public Safety,53,3
+stripped,139,Public Health and Safety—Observing Off-Site Safety Issues,160,Participation in Production of Unsafe Equipment,21,3
+stripped,139,Public Health and Safety—Observing Off-Site Safety Issues,157,Whistleblowing,39,3
+stripped,139,Public Health and Safety—Observing Off-Site Safety Issues,92,Whistleblowing - City Engineer,2,3
+stripped,140,Public Health and Safety—Scaffolding for Highway Ramp,137,Public Welfare—Bridge Structure,80,5
+stripped,140,Public Health and Safety—Scaffolding for Highway Ramp,84,Duty To Report Safety Violations,89,5
+stripped,140,Public Health and Safety—Scaffolding for Highway Ramp,136,Failure To Report Information Affecting Public Safety,38,5
+stripped,140,Public Health and Safety—Scaffolding for Highway Ramp,149,Public Welfare - Hazardous Waste,54,5
+stripped,140,Public Health and Safety—Scaffolding for Highway Ramp,133,Public Health and Safety—Knowledge of Potentially Dangerous Condition,2,5
+stripped,141,Selection of Firm—FOIA Request,126,Appropriate Notification And Review Of Another Engineer's Work,41,1
+stripped,142,"Public Health, Safety and Welfare-Former Employee's Participation in a Public Safety Standards Hearing",72,Public Welfare - Knowledge of Information Damaging to Client's Interest,24,2
+stripped,142,"Public Health, Safety and Welfare-Former Employee's Participation in a Public Safety Standards Hearing",150,Public Welfare—Design of Medical Equipment,1,2
+stripped,143,Conflict of Interest Public Employment,103,Conflict of Interest - Part-Time Service as City Engineer,2,1
+stripped,145,Expert Witness—Disclosure of Interests Represented,143,Conflict of Interest Public Employment,2,2
+stripped,145,Expert Witness—Disclosure of Interests Represented,144,Conflict Of Interest—Public Employee Serving As Part-Time Consultant,15,2
+stripped,146,Disclosure of Personal Information,147,Duty To Disclose Disciplinary Complaint To Client,19,3
+stripped,146,Disclosure of Personal Information,151,Personal Misconduct,71,3
+stripped,146,Disclosure of Personal Information,148,Employment—Duty To Disclose Revocation Of Contractor License,1,3
+stripped,147,Duty To Disclose Disciplinary Complaint To Client,171,Conflict Of Interest - Duty of Loyalty of Terminated Employed Engineer to Employer - Misleading Brochure,8,2
+stripped,147,Duty To Disclose Disciplinary Complaint To Client,174,Misrepresentation Of Firm's Staff,49,2
+stripped,148,Employment—Duty To Disclose Revocation Of Contractor License,147,Duty To Disclose Disciplinary Complaint To Client,17,2
+stripped,148,Employment—Duty To Disclose Revocation Of Contractor License,151,Personal Misconduct,52,2
+stripped,149,Public Welfare - Hazardous Waste,84,Duty To Report Safety Violations,10,2
+stripped,149,Public Welfare - Hazardous Waste,136,Failure To Report Information Affecting Public Safety,21,2
+stripped,150,Public Welfare—Design of Medical Equipment,72,Public Welfare - Knowledge of Information Damaging to Client's Interest,60,1
+stripped,157,Whistleblowing,160,Participation in Production of Unsafe Equipment,1,1
+stripped,158,P.E. Requirement for County Surveyor Position,161,Brokerage of Engineering Services,1,2
+stripped,158,P.E. Requirement for County Surveyor Position,162,Post lnterview Change in Joint Venture Team,38,2
+stripped,162,Post lnterview Change in Joint Venture Team,161,Brokerage of Engineering Services,3,1
+stripped,163,Signing and Sealing Plans Not Prepared by Engineer,158,P.E. Requirement for County Surveyor Position,92,1
+stripped,164,Conflict Of Interest—Consultant Serving As City Engineer,103,Conflict of Interest - Part-Time Service as City Engineer,14,2
+stripped,164,Conflict Of Interest—Consultant Serving As City Engineer,104,Conflict of Interest - Municipal Engineer,81,2
+stripped,171,Conflict Of Interest - Duty of Loyalty of Terminated Employed Engineer to Employer - Misleading Brochure,168,Supplanting - Promotion of Work by Former Employees,11,1
+stripped,172,Objectivity of Engineer Retained as Expert,104,Conflict of Interest - Municipal Engineer,110,3
+stripped,172,Objectivity of Engineer Retained as Expert,97,Confidentiality of Engineering Report,26,3
+stripped,172,Objectivity of Engineer Retained as Expert,170,Conflict of Interest - Expert Witness for Contractor,5,3
+stripped,173,Modification of Signed and Sealed Plans by Other Than Responsible Engineer,169,Review of Original Engineer's Design,1,1
+stripped,174,Misrepresentation Of Firm's Staff,171,Conflict Of Interest - Duty of Loyalty of Terminated Employed Engineer to Employer - Misleading Brochure,2,1
+stripped,175,Public Welfare - Duty Of Government Engineer,160,Participation in Production of Unsafe Equipment,18,3
+stripped,175,Public Welfare - Duty Of Government Engineer,157,Whistleblowing,17,3
+stripped,175,Public Welfare - Duty Of Government Engineer,92,Whistleblowing - City Engineer,3,3
+stripped,177,Conflict Of Interest Providing Both City Engineer And Inspection Services,104,Conflict of Interest - Municipal Engineer,9,1
+stripped,178,Former Employer Establishing A New Firm - Soliciting Former Clients After A Period Of Time Has Elapsed,168,Supplanting - Promotion of Work by Former Employees,21,1
+stripped,179,Expert Witness Testimony - Serving Plaintiffs And Defendants,170,Conflict of Interest - Expert Witness for Contractor,46,1
+stripped,181,Peer Review - Confidentiality Agreements,72,Public Welfare - Knowledge of Information Damaging to Client's Interest,103,1

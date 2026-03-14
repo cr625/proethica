@@ -63,45 +63,84 @@ def get_case_title(case_id):
 # Ranking functions
 # ---------------------------------------------------------------------------
 
-def rank_section(service, source_id, pool_ids):
+# Paper weights: identical 6-factor formula for all methods.
+# Embedding component (0.40 total) is the only thing that changes.
+PAPER_WEIGHTS = {
+    'embedding': 0.40,       # facts+discussion OR combined OR per-component
+    'provision_overlap': 0.25,
+    'outcome_alignment': 0.15,
+    'tag_overlap': 0.10,
+    'principle_overlap': 0.10,
+}
+
+
+def _get_set_based_scores(service, source_id, target_id):
+    """Compute the 4 set-based feature scores (shared across all methods)."""
+    sim = service.calculate_similarity(source_id, target_id, use_component_embedding=False)
+    return {
+        'provision_overlap': sim.component_scores.get('provision_overlap', 0),
+        'outcome_alignment': sim.component_scores.get('outcome_alignment', 0),
+        'tag_overlap': sim.component_scores.get('tag_overlap', 0),
+        'principle_overlap': sim.component_scores.get('principle_overlap', 0),
+        'facts_similarity': sim.component_scores.get('facts_similarity', 0),
+        'discussion_similarity': sim.component_scores.get('discussion_similarity', 0),
+    }
+
+
+def _paper_overall(embedding_score, set_based):
+    """Compute overall score using the paper's 6-factor weights."""
+    return (
+        PAPER_WEIGHTS['embedding'] * embedding_score +
+        PAPER_WEIGHTS['provision_overlap'] * set_based['provision_overlap'] +
+        PAPER_WEIGHTS['outcome_alignment'] * set_based['outcome_alignment'] +
+        PAPER_WEIGHTS['tag_overlap'] * set_based['tag_overlap'] +
+        PAPER_WEIGHTS['principle_overlap'] * set_based['principle_overlap']
+    )
+
+
+def rank_section(service, source_id, pool_ids, paper_weights=False):
     """Rank using section-based similarity (facts + discussion)."""
     results = []
     for target_id in pool_ids:
         if target_id == source_id:
             continue
-        sim = service.calculate_similarity(source_id, target_id, use_component_embedding=False)
-        results.append((target_id, sim.overall_similarity))
+        if paper_weights:
+            sb = _get_set_based_scores(service, source_id, target_id)
+            # Section embedding: facts (0.15) + discussion (0.25) = 0.40
+            embedding_score = (0.15 * sb['facts_similarity'] + 0.25 * sb['discussion_similarity']) / 0.40
+            overall = _paper_overall(embedding_score, sb)
+        else:
+            sim = service.calculate_similarity(source_id, target_id, use_component_embedding=False)
+            overall = sim.overall_similarity
+        results.append((target_id, overall))
     results.sort(key=lambda x: -x[1])
     return results
 
 
-def rank_per_component(service, source_id, pool_ids):
+def rank_per_component(service, source_id, pool_ids, paper_weights=False):
     """Rank using per-component D-tuple similarity."""
     results = []
     for target_id in pool_ids:
         if target_id == source_id:
             continue
         sim = service.calculate_similarity(source_id, target_id, use_component_embedding=True)
-        results.append((target_id, sim.overall_similarity))
+        if paper_weights:
+            sb = _get_set_based_scores(service, source_id, target_id)
+            embedding_score = sim.component_scores.get('component_similarity', 0)
+            overall = _paper_overall(embedding_score, sb)
+        else:
+            overall = sim.overall_similarity
+        results.append((target_id, overall))
     results.sort(key=lambda x: -x[1])
     return results
 
 
-def rank_combined(service, source_id, pool_ids):
+def rank_combined(service, source_id, pool_ids, paper_weights=False):
     """Rank using combined D-tuple embedding (single vector cosine).
 
-    Uses the same 0.40/0.60 split as the other methods, but the 0.40
-    embedding portion is a single cosine between combined_embedding vectors
-    rather than section-based or per-component scores.
+    The 0.40 embedding portion is a single cosine between combined_embedding
+    vectors rather than section-based or per-component scores.
     """
-    # Get source combined embedding
-    src_row = db.session.execute(text("""
-        SELECT combined_embedding FROM case_precedent_features
-        WHERE case_id = :case_id AND combined_embedding IS NOT NULL
-    """), {'case_id': source_id}).fetchone()
-    if not src_row:
-        return []
-
     results = []
     for target_id in pool_ids:
         if target_id == source_id:
@@ -121,17 +160,18 @@ def rank_combined(service, source_id, pool_ids):
 
         combined_cosine = float(sim_row[0])
 
-        # Get set-based features using the service (same as other methods)
-        sim = service.calculate_similarity(source_id, target_id, use_component_embedding=True)
-
-        # Recompute overall score with combined cosine as embedding component
-        # Same weights as COMPONENT_AWARE_WEIGHTS but with combined cosine
-        weights = {'component_similarity': 0.50, 'provision_overlap': 0.30, 'tag_overlap': 0.20}
-        overall = (
-            weights['component_similarity'] * combined_cosine +
-            weights['provision_overlap'] * sim.component_scores.get('provision_overlap', 0) +
-            weights['tag_overlap'] * sim.component_scores.get('tag_overlap', 0)
-        )
+        if paper_weights:
+            sb = _get_set_based_scores(service, source_id, target_id)
+            overall = _paper_overall(combined_cosine, sb)
+        else:
+            # Deployed weights
+            sim = service.calculate_similarity(source_id, target_id, use_component_embedding=True)
+            weights = {'component_similarity': 0.50, 'provision_overlap': 0.30, 'tag_overlap': 0.20}
+            overall = (
+                weights['component_similarity'] * combined_cosine +
+                weights['provision_overlap'] * sim.component_scores.get('provision_overlap', 0) +
+                weights['tag_overlap'] * sim.component_scores.get('tag_overlap', 0)
+            )
         results.append((target_id, overall))
 
     results.sort(key=lambda x: -x[1])
@@ -193,10 +233,12 @@ def random_baseline_mrr(pool_size, num_cited):
 # Main experiment
 # ---------------------------------------------------------------------------
 
-def run_three_way(service, verbose=False):
+def run_three_way(service, verbose=False, paper_weights=False):
     citation_graph = get_citation_graph()
     pool = get_embedded_case_ids()
 
+    weight_label = "paper (0.40/0.60)" if paper_weights else "deployed (0.50/0.30/0.20)"
+    print(f"Weight configuration: {weight_label}")
     print(f"Cases with all embeddings: {len(pool)}")
     print(f"Cases with citations: {len(citation_graph)}")
     total_edges = sum(len(v) for v in citation_graph.values())
@@ -223,9 +265,9 @@ def run_three_way(service, verbose=False):
     for i, (source_id, resolvable) in enumerate(sorted(sources.items()), 1):
         print(f"  [{i}/{len(sources)}] Case {source_id}...")
 
-        section_ranking = rank_section(service, source_id, pool)
-        combined_ranking = rank_combined(service, source_id, pool)
-        component_ranking = rank_per_component(service, source_id, pool)
+        section_ranking = rank_section(service, source_id, pool, paper_weights=paper_weights)
+        combined_ranking = rank_combined(service, source_id, pool, paper_weights=paper_weights)
+        component_ranking = rank_per_component(service, source_id, pool, paper_weights=paper_weights)
 
         src_data = {'resolvable': resolvable}
         for method, ranking in [('section', section_ranking),
@@ -406,18 +448,26 @@ def main():
     parser = argparse.ArgumentParser(description='Three-way embedding comparison')
     parser.add_argument('--verbose', '-v', action='store_true')
     parser.add_argument('--output-dir', default=None)
+    parser.add_argument('--paper-weights', action='store_true',
+                        help='Use paper weights (0.40 embedding + 0.60 set-based) '
+                             'for all methods. Without this flag, section uses its '
+                             'own 6-factor weights and D-tuple methods use deployed '
+                             '3-factor weights (0.50/0.30/0.20).')
     args = parser.parse_args()
 
     app = create_app()
     with app.app_context():
         service = PrecedentSimilarityService()
 
-        print("Three-Way Embedding Comparison Experiment")
+        mode = "paper weights (0.40/0.60)" if args.paper_weights else "deployed weights"
+        print(f"Three-Way Embedding Comparison Experiment ({mode})")
         print("=" * 60)
         print(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
         print()
 
-        agg, per_source, per_edge = run_three_way(service, verbose=args.verbose)
+        agg, per_source, per_edge = run_three_way(
+            service, verbose=args.verbose, paper_weights=args.paper_weights
+        )
 
         print()
         print("=" * 60)
@@ -428,9 +478,11 @@ def main():
         for k in [5, 10, 20]:
             print(f"{'Recall@' + str(k):<12} {agg.get(f'section_r{k}', 0):>8.3f} {agg.get(f'combined_r{k}', 0):>9.3f} {agg.get(f'component_r{k}', 0):>9.3f} {agg.get(f'random_r{k}', 0):>8.3f}")
 
+        suffix = '_paper_weights' if args.paper_weights else ''
         out_dir = args.output_dir or os.path.join(
             os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-            'docs-internal', 'conferences_submissions', 'iccbr', 'results_2026-03-13'
+            'docs-internal', 'conferences_submissions', 'iccbr',
+            f'results_2026-03-13{suffix}'
         )
         os.makedirs(out_dir, exist_ok=True)
 
