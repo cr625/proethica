@@ -354,25 +354,39 @@ def write_markdown(results, output_dir):
     lines.append("## Crossover Analysis")
     lines.append("")
 
-    # Find alpha where per-component overtakes combined
-    crossover = None
+    # Find lead changes between per-component and combined
+    leads = []
+    prev_leader = None
     for alpha in alphas:
         c = by_alpha_method.get((alpha, 'combined'), {}).get('r10', 0)
         p = by_alpha_method.get((alpha, 'component'), {}).get('r10', 0)
-        if p > c:
-            crossover = alpha
+        if abs(c - p) < 0.0005:
+            leader = 'tied'
+        elif p > c:
+            leader = 'component'
+        else:
+            leader = 'combined'
+        if leader != prev_leader and leader != 'tied':
+            leads.append((alpha, leader, p, c))
+        prev_leader = leader
+
+    # Find durable crossover (last lead change to component)
+    durable = None
+    for alpha, leader, p, c in reversed(leads):
+        if leader == 'component':
+            durable = (alpha, p, c)
             break
 
-    if crossover is not None:
-        c_val = by_alpha_method[(crossover, 'combined')]['r10']
-        p_val = by_alpha_method[(crossover, 'component')]['r10']
+    if durable:
         lines.append(
-            f"Per-component overtakes Combined at alpha = {crossover:.2f} "
-            f"(Per-comp {p_val:.3f} vs Combined {c_val:.3f})."
+            f"Combined leads in the mid-range, with brief Per-component "
+            f"leads at some intermediate alphas. Per-component leads "
+            f"durably above alpha = {durable[0]:.2f} "
+            f"(Per-comp {durable[1]:.3f} vs Combined {durable[2]:.3f})."
         )
-    else:
+    elif leads:
         lines.append(
-            "Combined leads Per-component at all alpha values."
+            "Combined leads Per-component across most alpha values."
         )
     lines.append("")
 

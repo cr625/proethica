@@ -6,7 +6,7 @@ Experiment results for "Component-Aware Case Retrieval for Professional Ethics" 
 
 All three embedding methods share the same scoring formula:
 
-```
+```text
 score = 0.40 * embedding + 0.25 * provision_overlap + 0.15 * outcome_alignment
         + 0.10 * tag_overlap + 0.10 * principle_overlap
 ```
@@ -88,7 +88,7 @@ Varies the embedding/set-feature ratio (alpha) from 0.0 to 1.0 in steps of 0.05 
 | Combined | 0.80 | 0.598 | 0.463 |
 | Per-component | 0.90 | 0.615 | 0.442 |
 
-Set features interact differently with each embedding strategy. Section-based embedding gains from set features at alpha=0.40 (+0.033 R@10 over embedding-only), while Combined loses (-0.060) and Per-component loses most (-0.126). Per-component overtakes Combined above alpha=0.45. The paper's fixed alpha=0.40 understates the D-tuple advantage.
+Set features interact differently with each embedding strategy. Section-based embedding gains from set features at alpha=0.40 (+0.033 R@10 over embedding-only), while Combined loses (-0.060) and Per-component loses most (-0.126). Combined leads in the mid-range (alpha 0.05--0.80, with brief Per-component leads at 0.10 and 0.45--0.50), while Per-component leads durably above alpha=0.85 and achieves the overall highest R@10 (0.615 at alpha=0.90). The paper's fixed alpha=0.40 understates the D-tuple advantage.
 
 **Files:** `weight_sweep_results.md`, `weight_sweep_data.csv`
 

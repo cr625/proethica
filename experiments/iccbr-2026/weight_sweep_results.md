@@ -41,7 +41,7 @@ Retrieval metrics as a function of embedding weight (alpha). At each alpha: scor
 
 ## Crossover Analysis
 
-Per-component overtakes Combined at alpha = 0.10 (Per-comp 0.403 vs Combined 0.399).
+Combined leads in the mid-range (alpha 0.05--0.80), with brief Per-component leads at alpha 0.10 and 0.45--0.50. Per-component leads durably above alpha = 0.85 (Per-comp 0.606 vs Combined 0.592) and achieves the overall highest R@10 (0.615 at alpha = 0.90).
 
 ## Set-Feature Interaction
 
