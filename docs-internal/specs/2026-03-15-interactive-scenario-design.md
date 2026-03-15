@@ -18,7 +18,7 @@ The interface serves two purposes: Section 4 of the HT 2026 paper (demonstrating
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
 | Runtime LLM calls | None | Pre-compute all consequence data during Phase 4 extraction. Deterministic, reviewable, zero latency. |
-| Traversal structure | Sequential (Approach C) | All users see all 5 decisions in order. Enables inter-rater comparison in study. |
+| Traversal structure | Sequential (Approach C) | All users see all decisions in order (variable count per case). Enables inter-rater comparison in study. |
 | Consequence display during traversal | Batched at end | Consequences stored per-decision but not shown during traversal. Displayed in analysis view. Supports future upgrade to per-decision reveal. |
 | Board choice visibility | Hidden during traversal | IRB protocol withholds board conclusions until Part 2 alignment phase. Board reveal happens in analysis view. |
 | Analysis structure | Branching exploration | Mini decision tree header + tabbed detail cards. Users explore all options' consequences at any decision point. |
@@ -67,19 +67,29 @@ A new sub-stage in the Phase 4 pipeline generates consequence narratives for eve
 - `narrative_elements.resolution` for board rationale
 - `narrative_elements.conflicts` for ethical tension context
 
-**Output:** Each option receives a 2-3 sentence `consequence_narrative` describing what follows from that choice, plus structured `consequence_obligations` and `consequence_fluent_changes`.
+**Output:** Each option receives a 2-3 sentence `consequence_narrative` describing what follows from that choice, plus structured `consequence_obligations` (list of obligation URIs) and `consequence_fluent_changes` (object with `initiated` and `terminated` arrays, as shown in the JSON example above).
+
+**Storage strategy:** The consequence generator modifies the existing `phase4_narrative` JSON in-memory during the Phase 4 pipeline run, before the final `ExtractionPrompt` row is written. It is not a separate pipeline step that writes a second row -- it augments the `scenario_seeds.branches` data within the same `construct_phase4_narrative()` call chain. For existing cases that need consequence data, a batch re-run of the Phase 4 consequence sub-stage will update the existing `ExtractionPrompt.raw_response` row in place (load JSON, add consequence fields, save). Study cases (the 23 NSPE cases referenced in the IRB protocol) must have consequence data generated before the evaluation window.
+
+**Obligation label resolution:** The existing `involved_obligation_uris` field on each branch contains URIs, not human-readable labels. The consequence generator also adds a `competing_obligation_labels` field (list of strings) resolved from the URIs via the case entity data. The traversal template reads `competing_obligation_labels` for display.
 
 ### 3.2 Session Model
 
-`ScenarioExplorationChoice` stores only:
+`ScenarioExplorationChoice` stores:
 - `decision_point_index`
 - `chosen_option_index`
 - `chosen_option_label`
+- `decision_point_label` (populated from `decision_maker_label` in Phase 4 data)
+- `board_choice_index` (populated from Phase 4 `is_board_choice` flag at write time)
+- `board_choice_label` (populated from Phase 4 data at write time)
+- `matches_board_choice` (computed at write time: `chosen_option_index == board_choice_index`)
 - `time_spent_seconds`
 
-The `consequences_narrative`, `fluents_initiated`, `fluents_terminated`, and `context_provided` columns become unused for new sessions (retained for backward compatibility with any existing session data). Consequence data is read from Phase 4 output, not stored per-session.
+Board comparison fields continue to be populated at write time (from Phase 4 data, not LLM). This preserves `get_choices_summary()` compatibility and avoids conditional code paths for old vs. new sessions.
 
-`ScenarioExplorationSession` retains `case_id`, `session_uuid`, `status`, `current_decision_index`. The `active_fluents`, `terminated_fluents`, and `final_analysis` JSON columns become unused. No fluent tracking at runtime.
+The `consequences_narrative`, `fluents_initiated`, `fluents_terminated`, and `context_provided` columns become unused for new sessions (retained in the schema for backward compatibility with existing session data). Consequence data is read from Phase 4 output, not stored per-session.
+
+`ScenarioExplorationSession` retains `case_id`, `session_uuid`, `status`, `current_decision_index`. The `active_fluents` and `terminated_fluents` JSON columns become unused (no fluent tracking at runtime). The `final_analysis` column becomes unused for new sessions; `get_analysis_data()` reads Phase 4 data instead. Code paths that display existing completed sessions must check `session.final_analysis` first (old path) and fall back to `get_analysis_data()` (new path).
 
 ### 3.3 Service Refactor
 
@@ -97,7 +107,7 @@ The `consequences_narrative`, `fluents_initiated`, `fluents_terminated`, and `co
 **Retain and simplify:**
 - `start_session()` -- creates session, loads decision point count
 - `get_session()` -- unchanged
-- `get_current_decision()` -- returns decision point data from Phase 4 (question, options without consequence data, competing obligations)
+- `get_current_decision()` -- returns decision point data from Phase 4 (question, options without consequence data, `competing_obligation_labels`)
 - `process_choice()` -- records choice index only, advances session, no LLM call
 - `_load_decision_points()` -- unchanged, reads from Phase 4 data
 
@@ -106,11 +116,13 @@ The `consequences_narrative`, `fluents_initiated`, `fluents_terminated`, and `co
 
 ### 3.4 Route Changes
 
-**`make_choice`:** Remove LLM call and provenance tracking for consequence generation. Record choice index, redirect to next decision or summary.
+**All interactive routes (`start_interactive_exploration`, `start_interactive_exploration_ajax`, `make_choice`):** Change decorator from `@auth_required_for_llm` to `@auth_required_for_write`, since none of these routes invoke LLM after the refactor.
 
-**`interactive_analysis`:** Load Phase 4 data directly via `get_analysis_data()`. No call to `generate_final_analysis()`. Pass pre-computed comparison data to template.
+**`make_choice`:** Remove LLM call (study participants will need write access to record choices; if they are unauthenticated, this becomes `@auth_optional` with CSRF protection only). Record choice index plus board comparison fields (from Phase 4 data), redirect to next decision or summary. Retain interaction provenance tracking (`prov.track_activity(activity_type='interaction', ...)`) for study auditing -- this records which option was chosen and time spent, independent of LLM calls. Remove only the consequence-generation provenance block.
 
-**New route: `interactive_summary`** (optional intermediate page between last decision and analysis): Shows the 5 choices the user made (labels only, no consequences, no board comparison). Serves as a pause point before the board reveal.
+**`interactive_analysis`:** Load Phase 4 data directly via `get_analysis_data()`. No call to `generate_final_analysis()`. For existing sessions with `final_analysis` already populated, use the stored data. For new sessions, build analysis from Phase 4 data. Pass pre-computed comparison data to template.
+
+**New route: `interactive_summary`:** Required intermediate page between last decision and analysis. Shows all choices the user made (labels only, no consequences, no board comparison). In the study workflow, this is where participants answer the four comprehension questions (Part 2) before the board reveal. If comprehension questions are collected via an external survey instrument (e.g., Qualtrics embedded iframe or linked form), this page displays the summary and a link to the survey, with a "View Analysis" button that becomes active after survey completion. If comprehension questions are in-app, this page includes the question form. The exact mechanism depends on study infrastructure decisions (to be finalized during IRB preparation in April).
 
 ## 4. Traversal View
 
@@ -136,7 +148,7 @@ Single Bootstrap card centered below the stepper.
 **Content, top to bottom:**
 1. **Context block** (muted background): Opening narrative context (first decision) or brief transitional sentence (subsequent decisions). 2-3 sentences max.
 2. **Question text:** The decision question in a visually distinct block (larger text, slight background).
-3. **Competing obligations:** Small muted badges showing the ethical tension this decision navigates. Two badges per decision, drawn from `competing_obligations`.
+3. **Competing obligations:** Small muted badges showing the ethical tension this decision navigates. Typically two badges per decision, drawn from `competing_obligation_labels` (resolved labels added by the consequence generator; source field is `involved_obligation_uris`).
 4. **Option buttons:** 2-3 option buttons, each showing the option label. Styled as selectable cards (border highlight on hover/select, similar to current option-card pattern). No descriptions during traversal to keep cards compact.
 5. **Action button:** "Make This Choice" to confirm and advance.
 
@@ -146,16 +158,17 @@ Single Bootstrap card centered below the stepper.
 
 When the user confirms a choice:
 1. The choice is recorded via POST (no LLM call).
-2. `document.startViewTransition()` wraps the DOM update.
+2. `document.startViewTransition()` wraps the DOM update (Chrome 111+, Edge 111+).
 3. The current card crossfades to the next decision card.
 4. The stepper updates: previous step dims with check, next step activates.
-5. Fallback: instant DOM swap for browsers without View Transition API support.
+5. Fallback for browsers without View Transition API (Firefox, Safari as of early 2026): instant DOM swap with a subtle CSS opacity transition (0.15s fade) so the change is not jarring. The `scenario-traversal.css` file includes a `.no-view-transitions` fallback class applied via feature detection (`if (!document.startViewTransition)`).
 
 ### 4.4 Summary Card
 
-After the last decision, a summary card appears:
-- "You have completed all 5 decisions."
-- List of the 5 decision labels and the option the user chose at each (plain text, no color coding).
+After the last decision, the user is redirected to the summary page (see `interactive_summary` route in Section 3.4):
+- "You have completed all decisions." (Dynamic count, not hardcoded.)
+- List of all decision labels and the option the user chose at each (plain text, no color coding).
+- Study comprehension question integration point (see Section 3.4).
 - "View Analysis" button to proceed to the analysis view (board reveal).
 
 ## 5. Analysis View
@@ -172,16 +185,19 @@ A compact horizontal tree rendered with CSS flexbox and pseudo-element connector
    [match]    [diverge]   [match]    [diverge]   [match]
 ```
 
+(Example shows 5 nodes; actual count varies per case.)
+
 - Each node is a circle or rounded rectangle.
 - Color coding: green for match, amber for diverge.
 - Nodes are clickable: clicking scrolls the page to the corresponding detail card below.
-- The tree is not a full branching graph (since traversal is sequential). It visualizes the alignment pattern across the 5 decisions.
+- The tree is not a full branching graph (since traversal is sequential). It visualizes the alignment pattern across all decisions for the case.
 - Pure CSS: flexbox layout, `::before`/`::after` pseudo-elements for connector lines, no D3.
+- Responsive: on narrow screens (< 576px), the horizontal tree collapses to a vertical stack of nodes. Each node becomes a horizontal row: `[icon] Decision-maker -- match/diverge badge`. This avoids horizontal overflow on mobile devices.
 
 ### 5.2 Summary Stats Bar
 
 Single row below the tree:
-- Match count: "3 of 5 aligned with board" with green/amber coloring.
+- Match count: "N of M aligned with board" (dynamic) with green/amber coloring.
 - Compact -- one line, not the large percentage banner from the current template.
 
 ### 5.3 Tabbed Detail Cards
@@ -209,7 +225,7 @@ Below all detail cards:
 
 ### 6.1 Pipeline Integration
 
-A new function in the scenario generation orchestrator, called after the existing branch/decision-point generation stage. Runs as part of Phase 4, not as a separate pipeline step.
+A new function called within the Phase 4 narrative construction pipeline (`app/services/narrative/__init__.py`, specifically the `construct_phase4_narrative()` call chain). It runs after the existing branch/decision-point generation in `scenario_seed_generator.py` and before the final result is serialized to `ExtractionPrompt.raw_response`. It is not part of the scenario generation orchestrator at `app/services/scenario_generation/orchestrator.py` (which has a different scope). The consequence generator is a new module (`app/services/scenario_generation/consequence_generator.py`) called from within the narrative pipeline.
 
 ### 6.2 Input
 
@@ -225,15 +241,15 @@ For each option at each decision point:
 
 Per option:
 - `consequence_narrative` (2-3 sentences)
-- `consequence_obligations` (list of obligation URIs activated by this choice)
-- `consequence_fluent_changes` (initiated/terminated fluent lists)
+- `consequence_obligations` (list of resolved obligation labels activated by this choice)
+- `consequence_fluent_changes` (object with `initiated` and `terminated` arrays, matching the JSON structure in Section 3.1)
 
 Per decision point:
 - `board_rationale` (2-3 sentences drawn from resolution/conclusions data)
 
 ### 6.4 LLM Prompt Strategy
 
-One LLM call per decision point (not per option) to generate consequences for all options simultaneously. The prompt provides the full decision context, all options, the causal links and fluent data, and asks for consequence narratives for each option plus the board rationale. This keeps the call count manageable (5 calls per case).
+One LLM call per decision point (not per option) to generate consequences for all options simultaneously. The prompt provides the full decision context, all options, the causal links and fluent data, and asks for consequence narratives for each option plus the board rationale. This keeps the call count manageable (typically 3-7 calls per case, depending on decision point count).
 
 ## 7. Study Compatibility
 
@@ -243,24 +259,25 @@ One LLM call per decision point (not per option) to generate consequences for al
 | Likert item 1: "decision points helped me understand choices" | Each card presents one decision with clear options |
 | Likert item 2: "alternatives helped me evaluate choices" | Analysis view tabbed exploration of all options |
 | Likert item 3: "trace actions to obligations" | Competing obligation badges on each card + consequence obligation badges in analysis |
-| Part 2: Comprehension questions | Answered after traversal, before analysis view |
+| Part 2: Comprehension questions | Answered on summary page (after traversal, before analysis view). Integration point for external survey or in-app form (see Section 3.4). |
 | Part 2: Board reveal + alignment | Analysis view entry point |
 | Part 3: Retrospective reflection | After analysis view |
 | Board conclusions withheld | No board choice indicator during traversal |
 | Pre-generated output | All consequence data from Phase 4 |
-| 3-4 cases per participant, ~1 hour | No LLM latency; traversal is fast (5 clicks per case) |
+| 3-4 cases per participant, ~1 hour | No LLM latency; traversal is fast (one click per decision point per case). Time budget per case: ~5 min traversal + ~5 min comprehension questions + ~5 min analysis exploration = ~15 min, fitting 4 cases in 1 hour. |
 
 ## 8. Files to Create or Modify
 
 ### New Files
 - `app/services/scenario_generation/consequence_generator.py` -- Phase 4 consequence generation sub-stage
 - `app/templates/scenarios/step5_traversal.html` -- new traversal template (replaces step5_interactive.html usage)
+- `app/templates/scenarios/step5_summary.html` -- summary page between traversal and analysis (comprehension question integration point)
 - `app/templates/scenarios/step5_branching_analysis.html` -- new analysis template (replaces step5_analysis.html usage)
 - `app/static/css/scenario-traversal.css` -- stepper, card transitions, decision tree styles
 
 ### Modified Files
 - `app/services/interactive_scenario_service.py` -- refactor to pure data reader
-- `app/services/scenario_generation/orchestrator.py` -- add consequence generation stage
+- `app/services/narrative/__init__.py` -- call consequence generator within `construct_phase4_narrative()` chain
 - `app/routes/scenario_pipeline/step5_interactive.py` -- simplify routes, remove LLM calls
 - `app/models/scenario_exploration.py` -- no schema changes needed; existing columns retained for backward compatibility
 
@@ -272,7 +289,9 @@ One LLM call per decision point (not per option) to generate consequences for al
 ## 9. Future Upgrade Path
 
 The architecture supports upgrading to Approach B (true branching traversal) with these changes only:
-- Fix `leads_to` fields in Phase 4 data to route to different branches based on choice
+- Extend `leads_to` fields in Phase 4 data to route to different branches based on choice (currently all point to the next sequential branch)
 - Make the stepper a path indicator instead of a linear progress bar
 - Change `get_current_decision()` to follow `leads_to` routing instead of incrementing index
 - No template, model, or route architecture changes needed
+
+**Decision point count variability:** The number of decision points per case depends on the Phase 4 extraction output (`scenario_seeds.branches` length). Observed range across the 118 existing cases should be documented during the batch consequence-generation run. The study protocol references 23 cases; if any have fewer than 3 or more than 7 decision points, the study case selection should account for this to ensure reasonable traversal length.
