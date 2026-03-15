@@ -2,13 +2,14 @@
 Step 5 Interactive Exploration Routes
 
 Handles the interactive scenario exploration workflow where users
-make choices at decision points and see LLM-generated consequences.
+make choices at decision points and view pre-computed consequences.
 
 Routes:
     /step5/interactive/start - Start new exploration session
-    /step5/interactive/<session_uuid> - Continue exploration
+    /step5/interactive/<session_uuid> - Continue exploration (traversal)
     /step5/interactive/<session_uuid>/choose - Make a choice
-    /step5/interactive/<session_uuid>/analysis - View final analysis
+    /step5/interactive/<session_uuid>/summary - Post-traversal summary
+    /step5/interactive/<session_uuid>/analysis - Branching analysis (board reveal)
 """
 
 import logging
@@ -21,7 +22,7 @@ from app.models.scenario_exploration import ScenarioExplorationSession, Scenario
 from app.services.interactive_scenario_service import interactive_scenario_service
 from app.services.pipeline_status_service import PipelineStatusService
 from app.services.provenance_service import get_provenance_service
-from app.utils.environment_auth import auth_required_for_llm, auth_optional
+from app.utils.environment_auth import auth_required_for_write, auth_optional
 
 logger = logging.getLogger(__name__)
 
@@ -30,17 +31,15 @@ def register_interactive_routes(bp):
     """Register interactive exploration routes on the Step 5 blueprint."""
 
     @bp.route('/case/<int:case_id>/step5/interactive/start', methods=['POST'])
-    @auth_required_for_llm
+    @auth_required_for_write
     def start_interactive_exploration(case_id):
         """Start a new interactive exploration session."""
         try:
             case = Document.query.get_or_404(case_id)
 
-            # Get user_id if authenticated
             from flask_login import current_user
             user_id = current_user.id if current_user.is_authenticated else None
 
-            # Start session
             session = interactive_scenario_service.start_session(case_id, user_id)
 
             return redirect(url_for('step5.interactive_exploration',
@@ -56,17 +55,15 @@ def register_interactive_routes(bp):
             return redirect(url_for('step5.step5_scenario_generation', case_id=case_id))
 
     @bp.route('/case/<int:case_id>/step5/interactive/start_ajax', methods=['POST'])
-    @auth_required_for_llm
+    @auth_required_for_write
     def start_interactive_exploration_ajax(case_id):
-        """Start a new interactive exploration session (AJAX version with JSON response)."""
+        """Start a new interactive exploration session (AJAX version)."""
         try:
             case = Document.query.get_or_404(case_id)
 
-            # Get user_id if authenticated
             from flask_login import current_user
             user_id = current_user.id if current_user.is_authenticated else None
 
-            # Start session - this may call LLM for option label generation
             session = interactive_scenario_service.start_session(case_id, user_id)
 
             return jsonify({
@@ -79,21 +76,15 @@ def register_interactive_routes(bp):
 
         except ValueError as e:
             logger.warning(f"Cannot start exploration for case {case_id}: {e}")
-            return jsonify({
-                'success': False,
-                'error': str(e)
-            }), 400
+            return jsonify({'success': False, 'error': str(e)}), 400
         except Exception as e:
             logger.error(f"Error starting interactive exploration for case {case_id}: {e}", exc_info=True)
-            return jsonify({
-                'success': False,
-                'error': 'Failed to start interactive exploration'
-            }), 500
+            return jsonify({'success': False, 'error': 'Failed to start interactive exploration'}), 500
 
     @bp.route('/case/<int:case_id>/step5/interactive/<session_uuid>')
     @auth_optional
     def interactive_exploration(case_id, session_uuid):
-        """Continue an interactive exploration session."""
+        """Continue an interactive exploration session (traversal view)."""
         try:
             case = Document.query.get_or_404(case_id)
             session = interactive_scenario_service.get_session(session_uuid)
@@ -102,9 +93,9 @@ def register_interactive_routes(bp):
                 flash('Session not found', 'error')
                 return redirect(url_for('step5.step5_scenario_generation', case_id=case_id))
 
-            # If completed, redirect to analysis
+            # If completed, redirect to summary
             if session.status == 'completed':
-                return redirect(url_for('step5.interactive_analysis',
+                return redirect(url_for('step5.interactive_summary',
                                        case_id=case_id,
                                        session_uuid=session_uuid))
 
@@ -112,25 +103,24 @@ def register_interactive_routes(bp):
             current_decision = interactive_scenario_service.get_current_decision(session)
 
             if not current_decision:
-                # No more decisions - complete and redirect to analysis
                 session.status = 'completed'
                 session.completed_at = datetime.utcnow()
                 db.session.commit()
-                return redirect(url_for('step5.interactive_analysis',
+                return redirect(url_for('step5.interactive_summary',
                                        case_id=case_id,
                                        session_uuid=session_uuid))
 
-            # Get previous choices for display
+            # Get stepper data and previous choices
+            decision_points = interactive_scenario_service.get_all_decision_points_for_stepper(case_id)
             previous_choices = [c.to_dict() for c in session.choices]
-
-            # Get pipeline status for navigation
             pipeline_status = PipelineStatusService.get_step_status(case_id)
 
             return render_template(
-                'scenarios/step5_interactive.html',
+                'scenarios/step5_traversal.html',
                 case=case,
                 session=session,
                 current_decision=current_decision,
+                decision_points=decision_points,
                 previous_choices=previous_choices,
                 current_step=5,
                 prev_step_url=f"/scenario_pipeline/case/{case_id}/step5",
@@ -145,7 +135,7 @@ def register_interactive_routes(bp):
             return str(e), 500
 
     @bp.route('/case/<int:case_id>/step5/interactive/<session_uuid>/choose', methods=['POST'])
-    @auth_required_for_llm
+    @auth_required_for_write
     def make_choice(case_id, session_uuid):
         """Process a user's choice at the current decision point."""
         prov = get_provenance_service()
@@ -159,13 +149,11 @@ def register_interactive_routes(bp):
             if session.status != 'in_progress':
                 return jsonify({'success': False, 'error': 'Session already completed'}), 400
 
-            # Get choice from request (form data or JSON)
             data = request.get_json(silent=True) or request.form
             chosen_option_index = int(data.get('option_index', 0))
             time_spent = data.get('time_spent_seconds')
             time_spent = int(time_spent) if time_spent else None
 
-            # Process the choice with provenance tracking
             prov_session_id = str(uuid.uuid4())
 
             with prov.track_activity(
@@ -187,32 +175,17 @@ def register_interactive_routes(bp):
                     time_spent_seconds=time_spent
                 )
 
-                # Record the choice and consequence
-                prov.record_extraction_results(
-                    results={
-                        'chosen_option_index': chosen_option_index,
-                        'consequence_preview': result.get('consequence', '')[:500] if result.get('consequence') else '',
-                        'is_complete': result.get('is_complete', False)
-                    },
-                    activity=activity,
-                    entity_type='interactive_choice_result',
-                    metadata={'exploration_session': session_uuid}
-                )
-
-            # Return JSON for AJAX or redirect for form submission
+            # Redirect to summary when complete, otherwise next decision
             if request.is_json:
-                return jsonify({
-                    'success': True,
-                    **result,
-                    'redirect_url': (
-                        url_for('step5.interactive_analysis', case_id=case_id, session_uuid=session_uuid)
-                        if result['is_complete']
-                        else url_for('step5.interactive_exploration', case_id=case_id, session_uuid=session_uuid)
-                    )
-                })
+                redirect_url = (
+                    url_for('step5.interactive_summary', case_id=case_id, session_uuid=session_uuid)
+                    if result['is_complete']
+                    else url_for('step5.interactive_exploration', case_id=case_id, session_uuid=session_uuid)
+                )
+                return jsonify({'success': True, **result, 'redirect_url': redirect_url})
             else:
                 if result['is_complete']:
-                    return redirect(url_for('step5.interactive_analysis',
+                    return redirect(url_for('step5.interactive_summary',
                                            case_id=case_id,
                                            session_uuid=session_uuid))
                 else:
@@ -231,12 +204,37 @@ def register_interactive_routes(bp):
                                    case_id=case_id,
                                    session_uuid=session_uuid))
 
+    @bp.route('/case/<int:case_id>/step5/interactive/<session_uuid>/summary')
+    @auth_optional
+    def interactive_summary(case_id, session_uuid):
+        """Summary page between traversal and analysis (board reveal)."""
+        case = Document.query.get_or_404(case_id)
+        session = interactive_scenario_service.get_session(session_uuid)
+
+        if not session or session.case_id != case_id:
+            flash('Session not found', 'error')
+            return redirect(url_for('step5.step5_scenario_generation', case_id=case_id))
+
+        if session.status != 'completed':
+            return redirect(url_for('step5.interactive_exploration',
+                                   case_id=case_id, session_uuid=session_uuid))
+
+        choices_summary = session.get_choices_summary()
+        pipeline_status = PipelineStatusService.get_step_status(case_id)
+
+        return render_template(
+            'scenarios/step5_summary.html',
+            case=case,
+            session=session,
+            choices_summary=choices_summary,
+            current_step=5,
+            pipeline_status=pipeline_status,
+        )
+
     @bp.route('/case/<int:case_id>/step5/interactive/<session_uuid>/analysis')
     @auth_optional
     def interactive_analysis(case_id, session_uuid):
-        """View final analysis comparing user choices to board choices."""
-        prov = get_provenance_service()
-
+        """View branching analysis comparing user choices to board choices."""
         try:
             case = Document.query.get_or_404(case_id)
             session = interactive_scenario_service.get_session(session_uuid)
@@ -245,50 +243,23 @@ def register_interactive_routes(bp):
                 flash('Session not found', 'error')
                 return redirect(url_for('step5.step5_scenario_generation', case_id=case_id))
 
-            # Generate analysis if not already done
-            if not session.final_analysis:
-                if session.status == 'completed':
-                    # Track the analysis generation with provenance
-                    prov_session_id = str(uuid.uuid4())
+            if session.status != 'completed':
+                flash('Complete all decisions before viewing analysis', 'warning')
+                return redirect(url_for('step5.interactive_exploration',
+                                       case_id=case_id,
+                                       session_uuid=session_uuid))
 
-                    with prov.track_activity(
-                        activity_type='synthesis',
-                        activity_name='step5_final_analysis',
-                        case_id=case_id,
-                        session_id=prov_session_id,
-                        agent_type='llm_model',
-                        agent_name='analysis_generator',
-                        execution_plan={
-                            'exploration_session': session_uuid,
-                            'total_choices': len(session.choices)
-                        }
-                    ) as activity:
-                        analysis = interactive_scenario_service.generate_final_analysis(session)
-
-                        # Record analysis results
-                        prov.record_extraction_results(
-                            results={
-                                'analysis_summary': str(analysis)[:1000] if analysis else '',
-                                'choices_count': len(session.choices)
-                            },
-                            activity=activity,
-                            entity_type='exploration_analysis_results',
-                            metadata={'exploration_session': session_uuid}
-                        )
-                else:
-                    # Session not complete - redirect back
-                    flash('Complete all decisions before viewing analysis', 'warning')
-                    return redirect(url_for('step5.interactive_exploration',
-                                           case_id=case_id,
-                                           session_uuid=session_uuid))
-            else:
+            # For legacy sessions with stored final_analysis, use that
+            if session.final_analysis:
                 analysis = session.final_analysis
+            else:
+                # New sessions: build analysis from Phase 4 data (no LLM)
+                analysis = interactive_scenario_service.get_analysis_data(session)
 
-            # Get pipeline status for navigation
             pipeline_status = PipelineStatusService.get_step_status(case_id)
 
             return render_template(
-                'scenarios/step5_analysis.html',
+                'scenarios/step5_branching_analysis.html',
                 case=case,
                 session=session,
                 analysis=analysis,
@@ -315,7 +286,6 @@ def register_interactive_routes(bp):
                 case_id=case_id
             ).order_by(ScenarioExplorationSession.started_at.desc()).all()
 
-            # Get pipeline status for navigation
             pipeline_status = PipelineStatusService.get_step_status(case_id)
 
             return render_template(
@@ -336,6 +306,7 @@ def register_interactive_routes(bp):
         'start_interactive_exploration': start_interactive_exploration,
         'interactive_exploration': interactive_exploration,
         'make_choice': make_choice,
+        'interactive_summary': interactive_summary,
         'interactive_analysis': interactive_analysis,
         'list_sessions': list_sessions
     }
