@@ -1,6 +1,6 @@
 [project]
 name = "proethica"
-version = "0.1.0"
+version = "2.1.0-dev"
 description = "Professional Ethics Case Analysis System"
 requires-python = ">=3.11"
 
