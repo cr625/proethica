@@ -54,6 +54,7 @@
             <form method="POST"
                   action="{{ url_for('step5.make_choice', case_id=case.id, session_uuid=session.session_uuid) }}"
                   id="choice-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="option_index" id="selected-option-index" value="">
                 <input type="hidden" name="time_spent_seconds" id="time-spent" value="0">
 
@@ -136,16 +137,10 @@
         timeInput.value = elapsed;
     });
 
-    // View Transition on form submit
-    var form = document.getElementById('choice-form');
-    form.addEventListener('submit', function(e) {
-        if (document.startViewTransition) {
-            e.preventDefault();
-            document.startViewTransition(function() {
-                form.submit();
-            });
-        }
-    });
+    // View Transition on form submit (cross-document transitions via CSS)
+    // Note: document.startViewTransition() is for same-page DOM updates.
+    // For page-to-page transitions, use @view-transition CSS at-rule (auto opt-in).
+    // No JS interception needed; the CSS handles it.
 })();
 </script>
 {% endblock %}
