@@ -34,6 +34,10 @@ class ScenarioOption:
     action_uris: List[str] = field(default_factory=list)
     is_board_choice: bool = False
     leads_to: Optional[str] = None  # Next branch ID
+    # Consequence data (populated by consequence generator, Stage 4.3b)
+    consequence_narrative: str = ""
+    consequence_obligations: List[str] = field(default_factory=list)
+    consequence_fluent_changes: Dict[str, List[str]] = field(default_factory=dict)
 
 
 @dataclass
@@ -51,6 +55,10 @@ class ScenarioBranch:
 
     # Options
     options: List[ScenarioOption] = field(default_factory=list)
+
+    # Consequence data (populated by consequence generator, Stage 4.3b)
+    board_rationale: str = ""
+    competing_obligation_labels: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict:
         return {
