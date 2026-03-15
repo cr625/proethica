@@ -208,6 +208,41 @@ def construct_phase4_narrative(
     if hasattr(scenario_seeds, 'llm_traces') and scenario_seeds.llm_traces:
         all_llm_traces.extend(scenario_seeds.llm_traces)
 
+    # Stage 4.3b: Generate consequences for scenario options
+    if use_llm and scenario_seeds and scenario_seeds.branches:
+        try:
+            from app.services.scenario_generation.consequence_generator import (
+                generate_consequences_for_seeds
+            )
+            # Build entity lookup for URI-to-label resolution
+            entity_lookup = {}
+            if foundation:
+                for entity_type in ['obligations', 'principles', 'constraints', 'capabilities']:
+                    for entity in getattr(foundation, entity_type, []):
+                        uri = getattr(entity, 'uri', '') or getattr(entity, 'entity_uri', '')
+                        label = getattr(entity, 'label', '') or getattr(entity, 'entity_label', '')
+                        if uri:
+                            entity_lookup[uri] = {'label': label}
+
+            # NarrativeResolution is a dataclass -- convert to dict for the generator
+            resolution = {}
+            if narrative_elements and hasattr(narrative_elements, 'resolution') and narrative_elements.resolution:
+                resolution = narrative_elements.resolution.to_dict() if hasattr(
+                    narrative_elements.resolution, 'to_dict'
+                ) else {}
+
+            generate_consequences_for_seeds(
+                seeds=scenario_seeds,
+                causal_links=causal_normative_links,
+                resolution=resolution,
+                entity_lookup=entity_lookup,
+            )
+            stages_completed.append('4.3b_consequences')
+            logger.info(f"[Phase4] Stage 4.3b: Generated consequences for {len(scenario_seeds.branches)} branches")
+        except Exception as e:
+            logger.error(f"[Phase4] Stage 4.3b consequence generation failed: {e}")
+            # Non-fatal: interactive exploration works without consequences (empty fields)
+
     # Stage 4.4: Insight Derivation
     insights = derive_insights(
         case_id=case_id,

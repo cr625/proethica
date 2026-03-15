@@ -1,7 +1,7 @@
 """Tests for consequence-extended dataclasses."""
 import pytest
 from app.services.narrative.scenario_seed_generator import (
-    ScenarioOption, ScenarioBranch
+    ScenarioOption, ScenarioBranch, ScenarioSeeds
 )
 
 
@@ -76,3 +76,40 @@ def test_scenario_branch_to_dict_includes_consequence_fields():
     assert d["board_rationale"] == "The board chose this because..."
     assert d["competing_obligation_labels"] == ["Duty of Loyalty", "Right to Mobility"]
     assert d["options"][0]["consequence_narrative"] == "Consequence text"
+
+
+def test_phase4_result_includes_consequence_data():
+    """Verify that ScenarioSeeds.to_dict() includes consequence fields
+    when they are populated."""
+    opt = ScenarioOption(
+        option_id="opt_0_0",
+        label="Test",
+        description="",
+        consequence_narrative="Test consequence",
+        consequence_obligations=["Duty X"],
+        consequence_fluent_changes={"initiated": ["A"], "terminated": ["B"]},
+    )
+    branch = ScenarioBranch(
+        branch_id="branch_0",
+        context="",
+        question="Q?",
+        decision_point_uri="dp",
+        decision_maker_uri="uri",
+        decision_maker_label="Engineer",
+        options=[opt],
+        board_rationale="Board chose because...",
+        competing_obligation_labels=["Duty X", "Duty Y"],
+    )
+    seeds = ScenarioSeeds(
+        case_id=1,
+        opening_context="",
+        initial_state_description="",
+        protagonist_uri="",
+        protagonist_label="",
+        branches=[branch],
+    )
+
+    d = seeds.to_dict()
+    assert d["branches"][0]["board_rationale"] == "Board chose because..."
+    assert d["branches"][0]["competing_obligation_labels"] == ["Duty X", "Duty Y"]
+    assert d["branches"][0]["options"][0]["consequence_narrative"] == "Test consequence"
