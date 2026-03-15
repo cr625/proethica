@@ -2,7 +2,7 @@
 Unit tests for Interactive Scenario Service.
 
 Tests the interactive scenario exploration functionality where users
-make ethical choices at decision points and see LLM-generated consequences.
+make ethical choices at decision points and view pre-computed consequences.
 
 These tests use mocks to avoid database and LLM dependencies.
 """
@@ -49,17 +49,22 @@ def mock_decision_points():
         {
             'uri': 'case-7#DP1',
             'label': 'AI Disclosure Decision',
+            'decision_maker_label': 'Engineer',
             'question': 'Should Engineer A disclose AI usage to the client?',
             'description': 'Engineer A must decide whether to inform Client W about using AI tools.',
+            'context': 'Engineer A must decide whether to inform Client W about using AI tools.',
+            'competing_obligation_labels': ['Duty of Candor', 'Client Loyalty'],
             'options': [
                 {
                     'uri': 'case-7#Option1',
+                    'option_id': 'opt_0_0',
                     'label': 'Disclose AI Use',
                     'description': 'Fully inform the client about AI assistance',
                     'is_board_choice': True
                 },
                 {
                     'uri': 'case-7#Option2',
+                    'option_id': 'opt_0_1',
                     'label': 'Do Not Disclose',
                     'description': 'Proceed without informing the client',
                     'is_board_choice': False
@@ -69,16 +74,21 @@ def mock_decision_points():
         {
             'uri': 'case-7#DP2',
             'label': 'Verification Decision',
+            'decision_maker_label': 'Engineer',
             'question': 'Should Engineer A verify AI-generated content thoroughly?',
             'description': 'Decision about the level of verification for AI outputs.',
+            'context': 'Decision about the level of verification for AI outputs.',
+            'competing_obligation_labels': [],
             'options': [
                 {
                     'uri': 'case-7#Option3',
+                    'option_id': 'opt_1_0',
                     'label': 'Full Verification',
                     'description': 'Thoroughly verify all AI outputs'
                 },
                 {
                     'uri': 'case-7#Option4',
+                    'option_id': 'opt_1_1',
                     'label': 'Minimal Review',
                     'description': 'Quick review of AI outputs'
                 }
@@ -94,11 +104,13 @@ def mock_choice():
     choice.id = 1
     choice.session_id = 1
     choice.decision_point_uri = "case-7#DP1"
-    choice.option_uri = "case-7#Option1"
-    choice.option_label = "Disclose AI Use"
-    choice.consequences_narrative = "By disclosing AI use, Engineer A maintains transparency..."
-    choice.fluents_initiated = ["Client_W_knows_about_AI"]
-    choice.fluents_terminated = ["Client_W_unaware_of_AI"]
+    choice.decision_point_index = 0
+    choice.chosen_option_index = 0
+    choice.chosen_option_label = "Disclose AI Use"
+    choice.board_choice_index = 0
+    choice.board_choice_label = "Disclose AI Use"
+    choice.matches_board_choice = True
+    choice.time_spent_seconds = 15
     choice.created_at = datetime.now()
     return choice
 
@@ -110,17 +122,14 @@ def mock_choice():
 class TestServiceInitialization:
     """Tests for service initialization."""
 
-    def test_service_creates_without_llm(self, service):
-        """Test service initializes with lazy LLM loading."""
-        assert service.llm_client is None
+    def test_service_creates_as_pure_data_reader(self, service):
+        """Test service initializes without LLM client."""
+        assert not hasattr(service, 'llm_client')
 
-    def test_get_llm_client_lazy_loads(self, service):
-        """Test LLM client is lazily loaded."""
-        with patch('app.services.interactive_scenario_service.get_llm_client') as mock_get:
-            mock_get.return_value = MagicMock()
-            client = service._get_llm_client()
-            assert client is not None
-            mock_get.assert_called_once()
+    def test_service_has_analysis_method(self, service):
+        """Test service has get_analysis_data method."""
+        assert hasattr(service, 'get_analysis_data')
+        assert callable(service.get_analysis_data)
 
 
 # =============================================================================
@@ -134,15 +143,13 @@ class TestSessionManagement:
     @patch('app.services.interactive_scenario_service.ScenarioExplorationSession')
     def test_start_session_creates_new(self, mock_session_class, mock_db, service, mock_decision_points):
         """Test starting a new exploration session."""
-        # Mock the decision points and fluents loading
         with patch.object(service, '_load_decision_points', return_value=mock_decision_points):
-            with patch.object(service, '_load_initial_fluents', return_value=["fluent1"]):
-                mock_session_class.return_value = MagicMock(session_uuid="new-uuid")
+            mock_session_class.return_value = MagicMock(session_uuid="new-uuid")
 
-                session = service.start_session(case_id=7, user_id=1)
+            session = service.start_session(case_id=7, user_id=1)
 
-                mock_db.session.add.assert_called_once()
-                mock_db.session.commit.assert_called_once()
+            mock_db.session.add.assert_called_once()
+            mock_db.session.commit.assert_called_once()
 
     @patch('app.services.interactive_scenario_service.ScenarioExplorationSession')
     def test_get_session_by_uuid(self, mock_session_class, service, mock_session):
@@ -175,13 +182,16 @@ class TestDecisionPointHandling:
     def test_get_current_decision_returns_dict(self, service, mock_session, mock_decision_points):
         """Test getting current decision point returns proper structure."""
         with patch.object(service, '_load_decision_points', return_value=mock_decision_points):
-            with patch.object(service, '_build_decision_context', return_value="Test context"):
+            with patch.object(service, '_load_phase4_data', return_value={
+                'scenario_seeds': {'opening_context': 'Test context'}
+            }):
                 result = service.get_current_decision(mock_session)
 
                 assert result is not None
                 assert 'decision_point' in result
                 assert 'options' in result
                 assert 'context' in result
+                assert 'competing_obligation_labels' in result
                 assert result['decision_index'] == 0
                 assert result['total_decisions'] == 2
 
@@ -194,45 +204,16 @@ class TestDecisionPointHandling:
 
             assert result is None
 
-    def test_decision_context_includes_fluents(self, service, mock_session, mock_decision_points):
-        """Test decision context includes active fluents."""
+    def test_get_current_decision_includes_obligation_labels(self, service, mock_session, mock_decision_points):
+        """Test decision includes competing obligation labels from Phase 4 data."""
         with patch.object(service, '_load_decision_points', return_value=mock_decision_points):
-            with patch.object(service, '_build_decision_context', return_value="Context"):
+            with patch.object(service, '_load_phase4_data', return_value={
+                'scenario_seeds': {'opening_context': 'Context'}
+            }):
                 result = service.get_current_decision(mock_session)
 
-                assert 'active_fluents' in result
-                assert len(result['active_fluents']) > 0
-
-
-# =============================================================================
-# CONTEXT BUILDING TESTS
-# =============================================================================
-
-class TestContextBuilding:
-    """Tests for decision context building."""
-
-    def test_build_decision_context_with_choices(self, service, mock_session, mock_choice):
-        """Test context includes previous choice narratives."""
-        mock_session.choices = [mock_choice]
-        decision_point = {'description': 'Test decision'}
-
-        with patch.object(service, '_load_opening_context', return_value="Opening context"):
-            context = service._build_decision_context(mock_session, decision_point)
-
-            assert "Opening context" in context
-            # Previous choice narrative should be included
-            assert "previous choices" in context.lower() or mock_choice.consequences_narrative in context
-
-    def test_build_decision_context_without_choices(self, service, mock_session):
-        """Test context works with no previous choices."""
-        mock_session.choices = []
-        decision_point = {'description': 'Test decision'}
-
-        with patch.object(service, '_load_opening_context', return_value="Opening context"):
-            context = service._build_decision_context(mock_session, decision_point)
-
-            assert context is not None
-            assert "Opening context" in context
+                assert 'competing_obligation_labels' in result
+                assert 'Duty of Candor' in result['competing_obligation_labels']
 
 
 # =============================================================================
@@ -242,26 +223,20 @@ class TestContextBuilding:
 class TestDataLoading:
     """Tests for loading case data."""
 
-    @patch('app.services.interactive_scenario_service.TemporaryRDFStorage')
-    def test_load_decision_points_from_database(self, mock_storage, service):
-        """Test decision points are loaded from RDF storage."""
-        mock_entity = MagicMock()
-        mock_entity.rdf_json_ld = {
-            'uri': 'case-7#DP1',
-            'label': 'Test Decision',
-            'options': []
-        }
-        mock_storage.query.filter_by.return_value.order_by.return_value.all.return_value = [mock_entity]
-
-        # The actual method may need database access, so we test the interface
+    def test_load_decision_points_method_exists(self, service):
+        """Test decision points loader method exists."""
         assert hasattr(service, '_load_decision_points')
+        assert callable(service._load_decision_points)
 
-    def test_load_initial_fluents_method_exists(self, service):
-        """Test initial fluents loader method exists and is callable."""
-        # This method requires Flask app context for database access
-        # Integration tests should verify actual behavior with database
-        assert hasattr(service, '_load_initial_fluents')
-        assert callable(service._load_initial_fluents)
+    def test_load_phase4_data_method_exists(self, service):
+        """Test Phase 4 data loader method exists."""
+        assert hasattr(service, '_load_phase4_data')
+        assert callable(service._load_phase4_data)
+
+    def test_stepper_method_exists(self, service):
+        """Test stepper helper method exists."""
+        assert hasattr(service, 'get_all_decision_points_for_stepper')
+        assert callable(service.get_all_decision_points_for_stepper)
 
 
 # =============================================================================
@@ -304,9 +279,8 @@ class TestErrorHandling:
     def test_start_session_fails_without_decision_points(self, service):
         """Test starting session fails if no decision points exist."""
         with patch.object(service, '_load_decision_points', return_value=[]):
-            with patch.object(service, '_load_initial_fluents', return_value=[]):
-                with pytest.raises(ValueError, match="No decision points found"):
-                    service.start_session(case_id=999)
+            with pytest.raises(ValueError, match="No decision points found"):
+                service.start_session(case_id=999)
 
     def test_get_session_returns_none_for_invalid_uuid(self, service):
         """Test get_session returns None for non-existent UUID."""
@@ -328,17 +302,14 @@ class TestChoiceStructure:
     def test_choice_has_required_fields(self, mock_choice):
         """Test choice object has all required fields."""
         assert hasattr(mock_choice, 'decision_point_uri')
-        assert hasattr(mock_choice, 'option_uri')
-        assert hasattr(mock_choice, 'option_label')
-        assert hasattr(mock_choice, 'consequences_narrative')
-        assert hasattr(mock_choice, 'fluents_initiated')
-        assert hasattr(mock_choice, 'fluents_terminated')
+        assert hasattr(mock_choice, 'chosen_option_label')
+        assert hasattr(mock_choice, 'board_choice_label')
+        assert hasattr(mock_choice, 'matches_board_choice')
 
-    def test_choice_tracks_fluent_changes(self, mock_choice):
-        """Test choice tracks which fluents are initiated/terminated."""
-        assert isinstance(mock_choice.fluents_initiated, list)
-        assert isinstance(mock_choice.fluents_terminated, list)
-        assert len(mock_choice.fluents_initiated) > 0
+    def test_choice_tracks_board_comparison(self, mock_choice):
+        """Test choice tracks board comparison at write time."""
+        assert mock_choice.board_choice_index == 0
+        assert mock_choice.matches_board_choice is True
 
 
 # =============================================================================
@@ -352,7 +323,6 @@ class TestOptionStructure:
         """Test options have board choice indicator."""
         for dp in mock_decision_points:
             for option in dp['options']:
-                # At least some options should have this field
                 if 'is_board_choice' in option:
                     assert isinstance(option['is_board_choice'], bool)
 
