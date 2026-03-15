@@ -1,0 +1,253 @@
+{% extends "scenarios/base_step.html" %}
+
+{% block step_title %}Branching Analysis{% endblock %}
+{% block step_header %}Branching Analysis{% endblock %}
+{% block step_subtitle %}Compare your decisions with the Board of Ethical Review{% endblock %}
+
+{% block step_styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/scenario-traversal.css') }}">
+{% endblock %}
+
+{% block step_content %}
+
+{# Handle both new analysis (from get_analysis_data) and legacy sessions #}
+{% set decisions = analysis.decisions if analysis.decisions is defined else analysis.get('choices_summary', []) %}
+{% set total = analysis.total_decisions if analysis.total_decisions is defined else decisions|length %}
+{% set matches = analysis.matches_with_board if analysis.matches_with_board is defined else 0 %}
+
+<!-- Section 1: Mini Decision Tree -->
+<div class="decision-tree d-flex justify-content-center align-items-center gap-0 mb-4 flex-wrap">
+    {% for decision in decisions %}
+    <div class="tree-node {{ 'match' if decision.matched else 'diverge' }}"
+         data-target="decision-{{ loop.index0 }}"
+         role="button"
+         tabindex="0"
+         title="Decision {{ loop.index }}: {{ decision.decision_maker_label }}{% if decision.matched %} (aligned){% else %} (diverged){% endif %}">
+        <span class="tree-step-num">{{ loop.index }}</span>
+    </div>
+    {% if not loop.last %}
+    <div class="tree-connector"></div>
+    {% endif %}
+    {% endfor %}
+</div>
+
+<!-- Section 2: Stats Bar -->
+<div class="stats-bar text-center mb-4 py-2 px-3 rounded">
+    <span class="fw-semibold">
+        <span class="text-success">{{ matches }}</span> of {{ total }} aligned with board
+    </span>
+</div>
+
+<!-- Section 3: Tabbed Detail Cards -->
+{% for decision in decisions %}
+<div class="card analysis-card mb-4" id="decision-{{ loop.index0 }}">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <div>
+            <span class="fw-bold">Decision {{ loop.index }}:</span>
+            {{ decision.decision_maker_label }}
+            {% if decision.competing_obligation_labels %}
+            <span class="ms-2">
+                {% for obl in decision.competing_obligation_labels %}
+                <span class="badge obligation-badge">{{ obl }}</span>
+                {% endfor %}
+            </span>
+            {% endif %}
+        </div>
+        <div>
+            {% if decision.matched %}
+            <span class="badge match-badge"><i class="bi bi-check-circle-fill me-1"></i>Aligned</span>
+            {% else %}
+            <span class="badge diverge-badge"><i class="bi bi-arrow-left-right me-1"></i>Diverged</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card-body">
+        <p class="text-muted mb-3">{{ decision.question }}</p>
+
+        <!-- Tabs -->
+        {% set tab_id = 'tabs-' ~ loop.index0 %}
+        <ul class="nav nav-tabs mb-3" id="{{ tab_id }}" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="{{ tab_id }}-your-tab"
+                        data-bs-toggle="tab" data-bs-target="#{{ tab_id }}-your"
+                        type="button" role="tab" aria-selected="true">
+                    Your Choice
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="{{ tab_id }}-board-tab"
+                        data-bs-toggle="tab" data-bs-target="#{{ tab_id }}-board"
+                        type="button" role="tab" aria-selected="false">
+                    Board's Choice
+                </button>
+            </li>
+            {% for alt in decision.alternatives %}
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="{{ tab_id }}-alt{{ loop.index0 }}-tab"
+                        data-bs-toggle="tab" data-bs-target="#{{ tab_id }}-alt{{ loop.index0 }}"
+                        type="button" role="tab" aria-selected="false">
+                    Alt: {{ alt.label|truncate(20) }}
+                </button>
+            </li>
+            {% endfor %}
+        </ul>
+
+        <div class="tab-content" id="{{ tab_id }}-content">
+            <!-- Your Choice tab -->
+            <div class="tab-pane fade show active" id="{{ tab_id }}-your" role="tabpanel">
+                <h6 class="fw-bold">{{ decision.user_choice.label }}</h6>
+                {% if decision.user_choice.consequence_narrative %}
+                <div class="consequence-text mb-2">
+                    {{ decision.user_choice.consequence_narrative }}
+                </div>
+                {% endif %}
+                {% if decision.user_choice.consequence_obligations %}
+                <div>
+                    {% for obl in decision.user_choice.consequence_obligations %}
+                    <span class="badge entity-badge me-1">{{ obl }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Board's Choice tab -->
+            <div class="tab-pane fade" id="{{ tab_id }}-board" role="tabpanel">
+                {% if decision.matched %}
+                <div class="d-flex align-items-center mb-2">
+                    <i class="bi bi-check-circle text-success me-2"></i>
+                    <span class="text-muted">Same as your choice</span>
+                </div>
+                {% endif %}
+                <h6 class="fw-bold">{{ decision.board_choice.label }}</h6>
+                {% if decision.board_choice.consequence_narrative %}
+                <div class="consequence-text mb-2">
+                    {{ decision.board_choice.consequence_narrative }}
+                </div>
+                {% endif %}
+                {% if decision.board_choice.consequence_obligations %}
+                <div class="mb-3">
+                    {% for obl in decision.board_choice.consequence_obligations %}
+                    <span class="badge entity-badge me-1">{{ obl }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- Board's Rationale (collapsed) -->
+                {% if decision.board_rationale %}
+                <div class="mt-3">
+                    <a class="text-decoration-none" data-bs-toggle="collapse"
+                       href="#{{ tab_id }}-rationale" role="button" aria-expanded="false">
+                        <i class="bi bi-chevron-right me-1"></i> Board's Rationale
+                    </a>
+                    <div class="collapse mt-2" id="{{ tab_id }}-rationale">
+                        <div class="card card-body bg-light border-0">
+                            {{ decision.board_rationale }}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Alternative tabs -->
+            {% for alt in decision.alternatives %}
+            <div class="tab-pane fade" id="{{ tab_id }}-alt{{ loop.index0 }}" role="tabpanel">
+                <h6 class="fw-bold">{{ alt.label }}</h6>
+                {% if alt.consequence_narrative %}
+                <div class="consequence-text mb-2">
+                    {{ alt.consequence_narrative }}
+                </div>
+                {% endif %}
+                {% if alt.consequence_obligations %}
+                <div>
+                    {% for obl in alt.consequence_obligations %}
+                    <span class="badge entity-badge me-1">{{ obl }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<!-- Section 4: Resolution -->
+{% if analysis.resolution %}
+<div class="card mt-4">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="bi bi-bank me-2"></i>Board Resolution
+            {% if analysis.resolution.resolution_type %}
+            <span class="badge bg-secondary ms-2">{{ analysis.resolution.resolution_type }}</span>
+            {% endif %}
+        </h5>
+    </div>
+    <div class="card-body">
+        {% if analysis.resolution.summary %}
+        <p>{{ analysis.resolution.summary }}</p>
+        {% endif %}
+        {% if analysis.resolution.conclusions %}
+        <h6 class="fw-bold mt-3">Conclusions</h6>
+        <ul class="mb-0">
+            {% for conclusion in analysis.resolution.conclusions %}
+            <li>{{ conclusion.text if conclusion.text is defined else conclusion }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block step_navigation_bottom %}
+<div class="navigation-buttons">
+    <div class="d-flex justify-content-between align-items-center">
+        <a href="{{ url_for('step5.interactive_summary', case_id=case.id, session_uuid=session.session_uuid) }}"
+           class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Summary
+        </a>
+        <a href="{{ url_for('cases.view_case', id=case.id) }}" class="btn btn-primary">
+            <i class="bi bi-check-circle"></i> Return to Case
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block step_scripts %}
+<script>
+// Tree node click: scroll to corresponding detail card
+document.querySelectorAll('.tree-node[data-target]').forEach(function(node) {
+    node.addEventListener('click', function() {
+        var targetId = this.getAttribute('data-target');
+        var target = document.getElementById(targetId);
+        if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    });
+    node.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            this.click();
+        }
+    });
+});
+
+// Rotate collapse chevron on rationale toggle
+document.querySelectorAll('[data-bs-toggle="collapse"]').forEach(function(trigger) {
+    var targetId = trigger.getAttribute('href');
+    var target = document.querySelector(targetId);
+    if (target) {
+        target.addEventListener('show.bs.collapse', function() {
+            var icon = trigger.querySelector('.bi-chevron-right');
+            if (icon) { icon.classList.replace('bi-chevron-right', 'bi-chevron-down'); }
+        });
+        target.addEventListener('hide.bs.collapse', function() {
+            var icon = trigger.querySelector('.bi-chevron-down');
+            if (icon) { icon.classList.replace('bi-chevron-down', 'bi-chevron-right'); }
+        });
+    }
+});
+</script>
+{% endblock %}
