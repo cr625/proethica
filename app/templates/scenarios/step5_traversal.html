@@ -1,0 +1,151 @@
+{% extends "scenarios/base_step.html" %}
+
+{% block step_title %}Interactive Exploration{% endblock %}
+{% block step_header %}Interactive Exploration{% endblock %}
+{% block step_subtitle %}Make decisions at each point in this ethics case{% endblock %}
+
+{% block step_styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/scenario-traversal.css') }}">
+{% endblock %}
+
+{% block step_info %}Decision {{ current_decision.decision_index + 1 }} of {{ current_decision.total_decisions }}{% endblock %}
+
+{% block step_content %}
+
+<!-- Stepper Bar -->
+<div class="scenario-stepper d-flex justify-content-center align-items-center flex-wrap mb-4">
+    {% for dp in decision_points %}
+    {% set state = 'completed' if dp.index < current_decision.decision_index else ('active' if dp.index == current_decision.decision_index else 'future') %}
+    <div class="step-pill {{ state }}">
+        {% if state == 'completed' %}
+        <i class="bi bi-check-lg me-1"></i>
+        {% endif %}
+        {{ dp.decision_maker_label }} ({{ dp.index + 1 }})
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Decision Card -->
+<div class="decision-card mx-auto" style="view-transition-name: decision-card;">
+    <div class="card">
+        <!-- Context Block -->
+        {% if current_decision.context %}
+        <div class="context-block card-body bg-light border-bottom">
+            <p class="mb-0 text-muted">{{ current_decision.context }}</p>
+        </div>
+        {% endif %}
+
+        <div class="card-body">
+            <!-- Question -->
+            <div class="question-text mb-3">
+                {{ current_decision.decision_point.question }}
+            </div>
+
+            <!-- Competing Obligations -->
+            {% if current_decision.competing_obligation_labels %}
+            <div class="mb-3">
+                {% for obl in current_decision.competing_obligation_labels %}
+                <span class="badge obligation-badge me-1">{{ obl }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Option Cards -->
+            <form method="POST"
+                  action="{{ url_for('step5.make_choice', case_id=case.id, session_uuid=session.session_uuid) }}"
+                  id="choice-form">
+                <input type="hidden" name="option_index" id="selected-option-index" value="">
+                <input type="hidden" name="time_spent_seconds" id="time-spent" value="0">
+
+                <div class="mb-3">
+                    {% for option in current_decision.options %}
+                    <div class="option-card p-3 mb-2 rounded border"
+                         data-option-index="{{ loop.index0 }}"
+                         role="button"
+                         tabindex="0">
+                        <div class="d-flex align-items-center">
+                            <div class="option-radio me-3">
+                                <i class="bi bi-circle option-unselected"></i>
+                                <i class="bi bi-check-circle-fill option-selected d-none text-primary"></i>
+                            </div>
+                            <div class="option-label fw-medium">{{ option.label }}</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Submit Button -->
+                <div class="text-end">
+                    <button type="submit" class="btn btn-primary btn-lg" id="submit-choice" disabled>
+                        Make This Choice <i class="bi bi-arrow-right ms-1"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block step_navigation_bottom %}
+{# No standard prev/next navigation during traversal #}
+{% endblock %}
+
+{% block step_scripts %}
+<script>
+(function() {
+    // View Transition API feature detection
+    if (!document.startViewTransition) {
+        document.documentElement.classList.add('no-view-transitions');
+    }
+
+    // Option selection
+    var optionCards = document.querySelectorAll('.option-card');
+    var hiddenInput = document.getElementById('selected-option-index');
+    var submitBtn = document.getElementById('submit-choice');
+
+    optionCards.forEach(function(card) {
+        card.addEventListener('click', function() {
+            // Deselect all
+            optionCards.forEach(function(c) {
+                c.classList.remove('selected');
+                c.querySelector('.option-unselected').classList.remove('d-none');
+                c.querySelector('.option-selected').classList.add('d-none');
+            });
+            // Select this one
+            this.classList.add('selected');
+            this.querySelector('.option-unselected').classList.add('d-none');
+            this.querySelector('.option-selected').classList.remove('d-none');
+            hiddenInput.value = this.getAttribute('data-option-index');
+            submitBtn.disabled = false;
+        });
+
+        card.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                this.click();
+            }
+        });
+    });
+
+    // Time tracking
+    var startTime = Date.now();
+    var timeInput = document.getElementById('time-spent');
+    document.getElementById('choice-form').addEventListener('submit', function() {
+        var elapsed = Math.round((Date.now() - startTime) / 1000);
+        timeInput.value = elapsed;
+    });
+
+    // View Transition on form submit
+    var form = document.getElementById('choice-form');
+    form.addEventListener('submit', function(e) {
+        if (document.startViewTransition) {
+            e.preventDefault();
+            document.startViewTransition(function() {
+                form.submit();
+            });
+        }
+    });
+})();
+</script>
+{% endblock %}

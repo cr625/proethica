@@ -1,0 +1,434 @@
+/* Scenario Traversal -- interactive decision walkthrough UI
+   Supports three views: traversal (stepper + decision card),
+   summary, and branching analysis (decision tree + tabbed cards). */
+
+
+/* ==========================================================================
+   Stepper Bar
+   ========================================================================== */
+
+.scenario-stepper {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    padding: 1rem 0;
+}
+
+.scenario-stepper .step-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    height: 36px;
+    min-width: 120px;
+    padding: 0 1rem;
+    border-radius: 18px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    position: relative;
+    z-index: 1;
+}
+
+/* Active step -- filled primary */
+.scenario-stepper .step-pill.active {
+    background-color: #4e73df;
+    color: #fff;
+    border: 2px solid #4e73df;
+}
+
+/* Completed step -- dimmed with check icon visible */
+.scenario-stepper .step-pill.completed {
+    background-color: #e2e6ea;
+    color: #6c757d;
+    border: 2px solid #e2e6ea;
+}
+
+.scenario-stepper .step-pill.completed .bi-check-circle-fill,
+.scenario-stepper .step-pill.completed .step-check {
+    display: inline-block;
+}
+
+/* Future step -- outlined border only */
+.scenario-stepper .step-pill.future {
+    background-color: transparent;
+    color: #adb5bd;
+    border: 2px solid #dee2e6;
+}
+
+/* Connector lines between pills via ::after pseudo-element */
+.scenario-stepper .step-pill:not(:last-child)::after {
+    content: '';
+    display: inline-block;
+    width: 32px;
+    height: 2px;
+    background-color: #dee2e6;
+    position: absolute;
+    right: -34px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 0;
+}
+
+/* Account for connector spacing in the gap between pills */
+.scenario-stepper .step-pill {
+    margin-right: 34px;
+}
+
+.scenario-stepper .step-pill:last-child {
+    margin-right: 0;
+}
+
+/* Responsive: narrow screens collapse pills to numbered dots */
+@media (max-width: 575.98px) {
+    .scenario-stepper {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        justify-content: flex-start;
+        padding: 0.75rem 0.5rem;
+        gap: 0;
+    }
+
+    .scenario-stepper .step-pill {
+        min-width: 32px;
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        border-radius: 50%;
+        font-size: 0.75rem;
+        flex-shrink: 0;
+        margin-right: 28px;
+    }
+
+    .scenario-stepper .step-pill:last-child {
+        margin-right: 0;
+    }
+
+    .scenario-stepper .step-pill .step-label {
+        display: none;
+    }
+
+    .scenario-stepper .step-pill .step-number {
+        display: inline;
+    }
+
+    .scenario-stepper .step-pill:not(:last-child)::after {
+        width: 20px;
+        right: -24px;
+    }
+
+    /* Show the current decision-maker label separately */
+    .scenario-stepper .step-pill.active .step-label-mobile {
+        display: block;
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        margin-top: 4px;
+        font-size: 0.7rem;
+        white-space: nowrap;
+        color: #4e73df;
+        font-weight: 600;
+    }
+}
+
+
+/* ==========================================================================
+   Decision Card
+   ========================================================================== */
+
+.decision-card {
+    max-width: 680px;
+    margin: 1.5rem auto;
+    border: 1px solid rgba(0, 0, 0, 0.125);
+    border-radius: 0.375rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    background-color: #fff;
+}
+
+.decision-card .context-block {
+    background-color: #f8f9fa;
+    padding: 1rem 1.25rem;
+    border-radius: 0.375rem 0.375rem 0 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.075);
+    font-size: 0.9rem;
+    color: #495057;
+    line-height: 1.5;
+}
+
+.decision-card .question-text {
+    font-size: 1.15rem;
+    font-weight: 500;
+    line-height: 1.45;
+    padding: 0.75rem 1.25rem;
+    background-color: rgba(78, 115, 223, 0.04);
+    border-left: 3px solid #4e73df;
+    margin: 1rem 1.25rem;
+    border-radius: 0 0.25rem 0.25rem 0;
+}
+
+.obligation-badge {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 0.25em 0.5em;
+    border-radius: 0.25rem;
+    background-color: #f8f9fa;
+    color: #495057;
+    border: 1px solid #dee2e6;
+    margin: 0.125rem;
+}
+
+
+/* ==========================================================================
+   Option Cards (selectable choices within a decision)
+   ========================================================================== */
+
+.option-card {
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    padding: 0.875rem 1rem;
+    margin-bottom: 0.5rem;
+    cursor: pointer;
+    transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+    background-color: #fff;
+}
+
+.option-card:hover {
+    border-color: var(--bs-primary, #0d6efd);
+    transform: translateY(-2px);
+    box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.08);
+}
+
+.option-card.selected {
+    border-color: var(--bs-primary, #0d6efd);
+    background-color: var(--bs-primary-bg-subtle, rgba(13, 110, 253, 0.08));
+    box-shadow: 0 0 0 1px var(--bs-primary, #0d6efd);
+}
+
+.option-card.selected .option-check {
+    display: inline-block;
+}
+
+.option-card .option-check {
+    display: none;
+    color: var(--bs-primary, #0d6efd);
+}
+
+
+/* ==========================================================================
+   View Transitions (native API)
+   ========================================================================== */
+
+.decision-card {
+    view-transition-name: decision-card;
+}
+
+::view-transition-old(decision-card) {
+    animation: 0.3s ease both fade-out;
+}
+
+::view-transition-new(decision-card) {
+    animation: 0.3s ease both fade-in;
+}
+
+@keyframes fade-out {
+    from { opacity: 1; }
+    to   { opacity: 0; }
+}
+
+@keyframes fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* Fallback for browsers without View Transitions API */
+.no-view-transitions .decision-card {
+    transition: opacity 0.15s ease;
+}
+
+
+/* ==========================================================================
+   Decision Tree (Analysis / Branching view)
+   ========================================================================== */
+
+.decision-tree {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0;
+    padding: 1rem 0;
+}
+
+.decision-tree .tree-node {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.875rem;
+    font-weight: 600;
+    border: 2px solid #dee2e6;
+    background-color: #fff;
+    color: #495057;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.decision-tree .tree-connector {
+    width: 40px;
+    height: 2px;
+    background-color: #dee2e6;
+    flex-shrink: 0;
+}
+
+.decision-tree .tree-node.match {
+    background-color: #198754;
+    border-color: #198754;
+    color: #fff;
+}
+
+.decision-tree .tree-node.diverge {
+    background-color: #fd7e14;
+    border-color: #fd7e14;
+    color: #fff;
+}
+
+.decision-tree .tree-node:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.12);
+}
+
+/* Responsive: vertical stack on narrow screens */
+@media (max-width: 575.98px) {
+    .decision-tree {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.25rem;
+    }
+
+    .decision-tree .tree-node {
+        width: auto;
+        height: auto;
+        border-radius: 0.375rem;
+        padding: 0.5rem 0.75rem;
+        flex-direction: row;
+        justify-content: flex-start;
+        gap: 0.5rem;
+        font-size: 0.8rem;
+    }
+
+    .decision-tree .tree-node .node-icon {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .decision-tree .tree-node .node-label {
+        display: inline;
+    }
+
+    .decision-tree .tree-node .node-badge {
+        margin-left: auto;
+    }
+
+    .decision-tree .tree-connector {
+        width: 2px;
+        height: 16px;
+        margin-left: 23px;
+    }
+}
+
+
+/* ==========================================================================
+   Analysis Cards
+   ========================================================================== */
+
+.analysis-card {
+    border: 1px solid rgba(0, 0, 0, 0.125);
+    border-radius: 0.375rem;
+    background-color: #fff;
+    margin-bottom: 1rem;
+    overflow: hidden;
+}
+
+.analysis-card .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.075);
+}
+
+.analysis-card .match-badge {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.25em 0.6em;
+    border-radius: 0.25rem;
+    background-color: #198754;
+    color: #fff;
+}
+
+.analysis-card .diverge-badge {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.25em 0.6em;
+    border-radius: 0.25rem;
+    background-color: #fd7e14;
+    color: #fff;
+}
+
+.consequence-text {
+    font-size: 0.925rem;
+    line-height: 1.55;
+    padding: 0.75rem 1rem;
+    background-color: rgba(248, 249, 250, 0.5);
+    border-left: 3px solid #dee2e6;
+    margin: 0.75rem 1rem;
+    border-radius: 0 0.25rem 0.25rem 0;
+    color: #343a40;
+}
+
+.entity-badge {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 0.2em 0.5em;
+    border-radius: 0.25rem;
+    background-color: rgba(78, 115, 223, 0.12);
+    color: #4e73df;
+    border: 1px solid rgba(78, 115, 223, 0.25);
+    margin: 0.125rem;
+}
+
+
+/* ==========================================================================
+   Stats Bar
+   ========================================================================== */
+
+.stats-bar {
+    text-align: center;
+    font-size: 0.875rem;
+    color: #6c757d;
+    background-color: #f8f9fa;
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    border: 1px solid #e9ecef;
+    margin-bottom: 1rem;
+}
