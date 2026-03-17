@@ -528,7 +528,7 @@
                             <div id="edge-provisions"></div>
                         </div>
                         <div class="mt-2" id="edge-entities-section" style="display: none;">
-                            <strong class="small">Shared Entities:</strong>
+                            <strong class="small">Shared Entities by Component:</strong>
                             <div id="edge-entities"></div>
                         </div>
                     </div>
@@ -565,18 +565,17 @@
         </div>
         <div id="methodReference">
             <div class="card-body py-2">
-                <!-- Interaction Instructions -->
-                <div class="row mb-3">
-                    <div class="col-md-4">
+                <div class="row">
+                    <div class="col-md-3">
                         <strong class="small">Interacting with the Network</strong>
                         <ul class="small text-muted mb-0 ps-3" style="font-size: 0.8rem;">
                             <li><strong>Click a case (node)</strong> to see its details, outcome, and connections</li>
-                            <li><strong>Click a connection (edge)</strong> to see similarity breakdown</li>
+                            <li><strong>Click a connection (edge)</strong> to see similarity breakdown and shared entities</li>
                             <li><strong>Drag nodes</strong> to reposition; use zoom controls to navigate</li>
                             <li><strong>Hover</strong> over a node to highlight its connections</li>
                         </ul>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <strong class="small">Layout Options</strong>
                         <ul class="small text-muted mb-0 ps-3" style="font-size: 0.8rem;">
                             <li><strong>Force</strong> - Physics-based, similar cases cluster together</li>
@@ -585,32 +584,20 @@
                             <li><strong>Radial</strong> - Grouped by outcome (ethical/unethical)</li>
                         </ul>
                     </div>
-                    <div class="col-md-4">
-                        <strong class="small">Entity Overlap Filters (R, P, O, S, Rs, A, E, Ca, Cs)</strong>
+                    <div class="col-md-3">
+                        <strong class="small">Entity Overlap Filters</strong>
                         <p class="small text-muted mb-0" style="font-size: 0.8rem;">
-                            Show cases sharing extracted entities from the ProEthica 9-component formalism.
-                            For example, <strong>R</strong> shows cases sharing Role entities.
+                            The <strong>R, P, O, S, Rs, A, E, Ca, Cs</strong> buttons filter the network to show only cases sharing extracted entities of that D-tuple component type.
                             Edge darkness indicates shared entity count.
                         </p>
                     </div>
-                </div>
-                <!-- Similarity Methods -->
-                <strong class="small">Similarity Methods</strong>
-                <div class="row mt-1">
-                    {% for key, method in matching_methods.items() %}
-                    <div class="col-md-4 col-lg-2 mb-2">
-                        <strong class="small">{{ method.name }}</strong>
-                        <span class="badge bg-secondary" style="font-size: 0.6rem;">{{ method.method }}</span>
-                        <p class="small text-muted mb-0" style="font-size: 0.75rem;">{{ method.description }}</p>
+                    <div class="col-md-3">
+                        <strong class="small">Shared Entities by Component</strong>
+                        <p class="small text-muted mb-0" style="font-size: 0.8rem;">
+                            Clicking any edge in the default similarity view loads a per-component breakdown of shared entities between the two cases. Each D-tuple component (Roles, Principles, Obligations, etc.) with matching entities is listed with its count and individual entity labels.
+                        </p>
                     </div>
-                    {% endfor %}
                 </div>
-                <hr class="my-2">
-                <p class="small text-muted mb-0">
-                    <strong>References:</strong>
-                    CBR-RAG (Wiratunga et al., 2024); NS-LCR (Sun et al., 2024); Richter &amp; Weber (2013)
-                    <a href="/tools/references#precedents" class="ms-2">View all</a>
-                </p>
             </div>
         </div>
     </div>
@@ -1070,6 +1057,43 @@ document.addEventListener('DOMContentLoaded', function() {
                 `<span class="badge bg-secondary me-1 mb-1" style="font-size: 0.7rem;">${e}</span>`
             ).join('');
             entitiesSection.style.display = 'block';
+        } else if (!d.components.entity_type) {
+            // Fetch shared entities on-demand for similarity edges
+            const sourceId = d.source.id || d.source;
+            const targetId = d.target.id || d.target;
+            entitiesDiv.innerHTML = '<span class="text-muted small">Loading...</span>';
+            entitiesSection.style.display = 'block';
+
+            fetch(`/cases/precedents/api/shared_entities/${sourceId}/${targetId}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && Object.keys(data.shared_entities).length > 0) {
+                        const compColors = {
+                            'Roles': '#0d6efd', 'Principles': '#fd7e14', 'Obligations': '#dc3545',
+                            'States': '#6f42c1', 'Resources': '#20c997', 'Actions': '#198754',
+                            'Events': '#ffc107', 'Capabilities': '#0dcaf0', 'Constraints': '#6c757d'
+                        };
+
+                        let html = '';
+                        for (const [comp, info] of Object.entries(data.shared_entities)) {
+                            const color = compColors[comp] || '#6c757d';
+                            html += `<div class="mb-2">`;
+                            html += `<span class="badge me-1" style="background:${color};font-size:0.7rem;">${comp} (${info.shared_count})</span>`;
+                            html += `<div class="mt-1">`;
+                            html += info.shared.map(e =>
+                                `<span class="badge bg-light text-dark border me-1 mb-1" style="font-size:0.65rem;">${e}</span>`
+                            ).join('');
+                            html += `</div></div>`;
+                        }
+
+                        entitiesDiv.innerHTML = html;
+                    } else {
+                        entitiesDiv.innerHTML = '<span class="text-muted small">No shared entities</span>';
+                    }
+                })
+                .catch(() => {
+                    entitiesDiv.innerHTML = '<span class="text-muted small">Failed to load</span>';
+                });
         } else {
             entitiesSection.style.display = 'none';
         }

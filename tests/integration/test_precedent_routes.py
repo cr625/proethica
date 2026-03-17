@@ -576,6 +576,276 @@ class TestApiIngest:
             )
 
 
+# --- Tests for shared entities API ---
+
+class TestApiSharedEntities:
+    """Tests for GET /cases/precedents/api/shared_entities/<source_id>/<target_id>"""
+
+    def test_shared_entities_returns_grouped_results(self, client, test_world):
+        """API returns shared entities grouped by D-tuple component type."""
+        doc1 = _create_case_document(test_world.id, 'Case 23-4: Test A',
+                                     case_number='23-4')
+        doc2 = _create_case_document(test_world.id, 'Case 24-1: Test B',
+                                     case_number='24-1')
+
+        # Insert entities for both cases with overlapping labels
+        db.session.execute(db.text("""
+            INSERT INTO temporary_rdf_storage
+                (case_id, extraction_session_id, storage_type, entity_type, entity_label, created_at)
+            VALUES
+                (:id1, 'sess1', 'class', 'Roles', 'Engineer', NOW()),
+                (:id1, 'sess1', 'class', 'Roles', 'Client', NOW()),
+                (:id1, 'sess1', 'class', 'Principles', 'Public Safety', NOW()),
+                (:id1, 'sess1', 'class', 'Obligations', 'Duty of Care', NOW()),
+                (:id2, 'sess2', 'class', 'Roles', 'Engineer', NOW()),
+                (:id2, 'sess2', 'class', 'Roles', 'Supervisor', NOW()),
+                (:id2, 'sess2', 'class', 'Principles', 'Public Safety', NOW()),
+                (:id2, 'sess2', 'class', 'Principles', 'Integrity', NOW())
+        """), {'id1': doc1.id, 'id2': doc2.id})
+        db.session.commit()
+
+        response = client.get(
+            f'/cases/precedents/api/shared_entities/{doc1.id}/{doc2.id}'
+        )
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data['success'] is True
+
+        shared = data['shared_entities']
+        # Roles: 'engineer' shared (case-insensitive via LOWER)
+        assert 'Roles' in shared
+        assert shared['Roles']['shared_count'] == 1
+        assert 'engineer' in shared['Roles']['shared']
+        assert shared['Roles']['source_count'] == 2  # engineer, client
+        assert shared['Roles']['target_count'] == 2  # engineer, supervisor
+
+        # Principles: 'public safety' shared
+        assert 'Principles' in shared
+        assert shared['Principles']['shared_count'] == 1
+        assert 'public safety' in shared['Principles']['shared']
+
+        # Obligations: no overlap (only in source)
+        assert 'Obligations' not in shared
+
+    def test_shared_entities_no_overlap(self, client, test_world):
+        """API returns empty shared_entities when cases share no entities."""
+        doc1 = _create_case_document(test_world.id, 'Case 23-4: Test A',
+                                     case_number='23-4')
+        doc2 = _create_case_document(test_world.id, 'Case 24-1: Test B',
+                                     case_number='24-1')
+
+        db.session.execute(db.text("""
+            INSERT INTO temporary_rdf_storage
+                (case_id, extraction_session_id, storage_type, entity_type, entity_label, created_at)
+            VALUES
+                (:id1, 'sess1', 'class', 'Roles', 'Engineer', NOW()),
+                (:id2, 'sess2', 'class', 'Roles', 'Supervisor', NOW())
+        """), {'id1': doc1.id, 'id2': doc2.id})
+        db.session.commit()
+
+        response = client.get(
+            f'/cases/precedents/api/shared_entities/{doc1.id}/{doc2.id}'
+        )
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data['success'] is True
+        assert data['shared_entities'] == {}
+
+    def test_shared_entities_no_entities(self, client, test_world):
+        """API returns empty when neither case has entities."""
+        doc1 = _create_case_document(test_world.id, 'Case 23-4: Test A',
+                                     case_number='23-4')
+        doc2 = _create_case_document(test_world.id, 'Case 24-1: Test B',
+                                     case_number='24-1')
+
+        response = client.get(
+            f'/cases/precedents/api/shared_entities/{doc1.id}/{doc2.id}'
+        )
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data['success'] is True
+        assert data['shared_entities'] == {}
+
+    def test_shared_entities_case_insensitive(self, client, test_world):
+        """Entity matching is case-insensitive via LOWER()."""
+        doc1 = _create_case_document(test_world.id, 'Case 23-4: Test A',
+                                     case_number='23-4')
+        doc2 = _create_case_document(test_world.id, 'Case 24-1: Test B',
+                                     case_number='24-1')
+
+        db.session.execute(db.text("""
+            INSERT INTO temporary_rdf_storage
+                (case_id, extraction_session_id, storage_type, entity_type, entity_label, created_at)
+            VALUES
+                (:id1, 'sess1', 'class', 'Actions', 'Review Design', NOW()),
+                (:id2, 'sess2', 'class', 'Actions', 'review design', NOW())
+        """), {'id1': doc1.id, 'id2': doc2.id})
+        db.session.commit()
+
+        response = client.get(
+            f'/cases/precedents/api/shared_entities/{doc1.id}/{doc2.id}'
+        )
+        data = json.loads(response.data)
+        assert 'Actions' in data['shared_entities']
+        assert data['shared_entities']['Actions']['shared_count'] == 1
+
+    def test_shared_entities_multiple_components(self, client, test_world):
+        """API correctly groups shared entities across all 9 component types."""
+        doc1 = _create_case_document(test_world.id, 'Case 23-4: Test A',
+                                     case_number='23-4')
+        doc2 = _create_case_document(test_world.id, 'Case 24-1: Test B',
+                                     case_number='24-1')
+
+        # Insert shared entities across several component types
+        db.session.execute(db.text("""
+            INSERT INTO temporary_rdf_storage
+                (case_id, extraction_session_id, storage_type, entity_type, entity_label, created_at)
+            VALUES
+                (:id1, 'sess1', 'class', 'Roles', 'Engineer', NOW()),
+                (:id1, 'sess1', 'class', 'States', 'Licensed', NOW()),
+                (:id1, 'sess1', 'class', 'Resources', 'AI Software', NOW()),
+                (:id1, 'sess1', 'class', 'Capabilities', 'Technical Writing', NOW()),
+                (:id1, 'sess1', 'class', 'Constraints', 'Time Pressure', NOW()),
+                (:id2, 'sess2', 'class', 'Roles', 'Engineer', NOW()),
+                (:id2, 'sess2', 'class', 'States', 'Licensed', NOW()),
+                (:id2, 'sess2', 'class', 'Resources', 'AI Software', NOW()),
+                (:id2, 'sess2', 'class', 'Capabilities', 'Technical Writing', NOW()),
+                (:id2, 'sess2', 'class', 'Constraints', 'Time Pressure', NOW())
+        """), {'id1': doc1.id, 'id2': doc2.id})
+        db.session.commit()
+
+        response = client.get(
+            f'/cases/precedents/api/shared_entities/{doc1.id}/{doc2.id}'
+        )
+        data = json.loads(response.data)
+        shared = data['shared_entities']
+
+        assert len(shared) == 5
+        for comp in ['Roles', 'States', 'Resources', 'Capabilities', 'Constraints']:
+            assert comp in shared
+            assert shared[comp]['shared_count'] == 1
+
+    def test_shared_entities_ignores_null_labels(self, client, test_world):
+        """Entities with NULL labels are excluded from overlap computation."""
+        doc1 = _create_case_document(test_world.id, 'Case 23-4: Test A',
+                                     case_number='23-4')
+        doc2 = _create_case_document(test_world.id, 'Case 24-1: Test B',
+                                     case_number='24-1')
+
+        db.session.execute(db.text("""
+            INSERT INTO temporary_rdf_storage
+                (case_id, extraction_session_id, storage_type, entity_type, entity_label, created_at)
+            VALUES
+                (:id1, 'sess1', 'class', 'Roles', NULL, NOW()),
+                (:id2, 'sess2', 'class', 'Roles', NULL, NOW())
+        """), {'id1': doc1.id, 'id2': doc2.id})
+        db.session.commit()
+
+        response = client.get(
+            f'/cases/precedents/api/shared_entities/{doc1.id}/{doc2.id}'
+        )
+        data = json.loads(response.data)
+        assert data['shared_entities'] == {}
+
+    def test_shared_entities_sorted_output(self, client, test_world):
+        """Shared entity labels are returned in sorted order."""
+        doc1 = _create_case_document(test_world.id, 'Case 23-4: Test A',
+                                     case_number='23-4')
+        doc2 = _create_case_document(test_world.id, 'Case 24-1: Test B',
+                                     case_number='24-1')
+
+        db.session.execute(db.text("""
+            INSERT INTO temporary_rdf_storage
+                (case_id, extraction_session_id, storage_type, entity_type, entity_label, created_at)
+            VALUES
+                (:id1, 'sess1', 'class', 'Principles', 'Integrity', NOW()),
+                (:id1, 'sess1', 'class', 'Principles', 'Public Safety', NOW()),
+                (:id1, 'sess1', 'class', 'Principles', 'Competence', NOW()),
+                (:id2, 'sess2', 'class', 'Principles', 'Public Safety', NOW()),
+                (:id2, 'sess2', 'class', 'Principles', 'Integrity', NOW()),
+                (:id2, 'sess2', 'class', 'Principles', 'Competence', NOW())
+        """), {'id1': doc1.id, 'id2': doc2.id})
+        db.session.commit()
+
+        response = client.get(
+            f'/cases/precedents/api/shared_entities/{doc1.id}/{doc2.id}'
+        )
+        data = json.loads(response.data)
+        labels = data['shared_entities']['Principles']['shared']
+        assert labels == sorted(labels)
+
+
+# --- Tests for entity type filter in similarity network ---
+
+class TestApiSimilarityNetworkEntityFilter:
+    """Tests for entity_type filter in /cases/precedents/api/similarity_network"""
+
+    def test_entity_type_filter_returns_edges(self, client, test_world):
+        """Entity type filter produces edges based on shared entity overlap."""
+        doc1 = _create_case_document(test_world.id, 'Case 23-4: Test A',
+                                     case_number='23-4')
+        doc2 = _create_case_document(test_world.id, 'Case 24-1: Test B',
+                                     case_number='24-1')
+
+        db.session.execute(db.text("""
+            INSERT INTO case_precedent_features (case_id, outcome_type)
+            VALUES (:id1, 'ethical'), (:id2, 'unethical')
+        """), {'id1': doc1.id, 'id2': doc2.id})
+
+        db.session.execute(db.text("""
+            INSERT INTO temporary_rdf_storage
+                (case_id, extraction_session_id, storage_type, entity_type, entity_label, created_at)
+            VALUES
+                (:id1, 'sess1', 'class', 'Roles', 'Engineer', NOW()),
+                (:id1, 'sess1', 'class', 'Roles', 'Client', NOW()),
+                (:id2, 'sess2', 'class', 'Roles', 'Engineer', NOW()),
+                (:id2, 'sess2', 'class', 'Roles', 'Supervisor', NOW())
+        """), {'id1': doc1.id, 'id2': doc2.id})
+        db.session.commit()
+
+        response = client.get(
+            '/cases/precedents/api/similarity_network?entity_type=Roles'
+        )
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data['success'] is True
+        assert data['entity_type_filter'] == 'Roles'
+        assert len(data['edges']) == 1
+
+        edge = data['edges'][0]
+        assert edge['components']['entity_type'] == 'Roles'
+        assert edge['components']['shared_count'] == 1
+        assert 'engineer' in edge['matching_entities']
+
+    def test_entity_type_filter_no_overlap(self, client, test_world):
+        """Entity type filter returns no edges when entities are disjoint."""
+        doc1 = _create_case_document(test_world.id, 'Case 23-4: Test A',
+                                     case_number='23-4')
+        doc2 = _create_case_document(test_world.id, 'Case 24-1: Test B',
+                                     case_number='24-1')
+
+        db.session.execute(db.text("""
+            INSERT INTO case_precedent_features (case_id, outcome_type)
+            VALUES (:id1, 'ethical'), (:id2, 'ethical')
+        """), {'id1': doc1.id, 'id2': doc2.id})
+
+        db.session.execute(db.text("""
+            INSERT INTO temporary_rdf_storage
+                (case_id, extraction_session_id, storage_type, entity_type, entity_label, created_at)
+            VALUES
+                (:id1, 'sess1', 'class', 'Principles', 'Safety', NOW()),
+                (:id2, 'sess2', 'class', 'Principles', 'Integrity', NOW())
+        """), {'id1': doc1.id, 'id2': doc2.id})
+        db.session.commit()
+
+        response = client.get(
+            '/cases/precedents/api/similarity_network?entity_type=Principles'
+        )
+        data = json.loads(response.data)
+        assert data['success'] is True
+        assert len(data['edges']) == 0
+
+
 # --- Tests for helper functions ---
 
 class TestHelperFunctions:

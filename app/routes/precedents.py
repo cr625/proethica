@@ -541,6 +541,56 @@ def api_similarity_network():
         }), 500
 
 
+@precedents_bp.route('/api/shared_entities/<int:source_id>/<int:target_id>', methods=['GET'])
+@auth_optional
+def api_shared_entities(source_id, target_id):
+    """Return shared entities between two cases, grouped by D-tuple component."""
+    COMPONENT_TYPES = ['Roles', 'Principles', 'Obligations', 'States',
+                       'Resources', 'Actions', 'Events', 'Capabilities', 'Constraints']
+
+    try:
+        query = text("""
+            SELECT case_id, entity_type, LOWER(entity_label) as entity_label
+            FROM temporary_rdf_storage
+            WHERE case_id IN :case_ids
+              AND entity_label IS NOT NULL
+              AND entity_type IN :types
+        """)
+        results = db.session.execute(query, {
+            'case_ids': (source_id, target_id),
+            'types': tuple(COMPONENT_TYPES)
+        }).fetchall()
+
+        # Build per-component entity sets for each case
+        source_entities = {}
+        target_entities = {}
+        for case_id, etype, label in results:
+            bucket = source_entities if case_id == source_id else target_entities
+            if etype not in bucket:
+                bucket[etype] = set()
+            bucket[etype].add(label)
+
+        # Compute per-component shared entities
+        shared = {}
+        for comp in COMPONENT_TYPES:
+            src_set = source_entities.get(comp, set())
+            tgt_set = target_entities.get(comp, set())
+            intersection = src_set & tgt_set
+            if intersection:
+                shared[comp] = {
+                    'shared': sorted(list(intersection)),
+                    'source_count': len(src_set),
+                    'target_count': len(tgt_set),
+                    'shared_count': len(intersection)
+                }
+
+        return jsonify({'success': True, 'shared_entities': shared})
+
+    except Exception as e:
+        logger.error(f"Error fetching shared entities for cases {source_id}/{target_id}: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @precedents_bp.route('/network', methods=['GET'])
 @auth_optional
 def similarity_network_view():
