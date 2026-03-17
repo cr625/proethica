@@ -545,23 +545,28 @@ def api_similarity_network():
 @auth_optional
 def api_shared_entities(source_id, target_id):
     """Return shared entities between two cases, grouped by D-tuple component."""
+    # Canonical display names for each component (title-cased)
     COMPONENT_TYPES = ['Roles', 'Principles', 'Obligations', 'States',
                        'Resources', 'Actions', 'Events', 'Capabilities', 'Constraints']
+    # Match regardless of how entity_type is cased in the database
+    COMPONENT_TYPES_LOWER = [c.lower() for c in COMPONENT_TYPES]
+    # Map lowercase -> display name for grouping
+    DISPLAY_NAME = {c.lower(): c for c in COMPONENT_TYPES}
 
     try:
         query = text("""
-            SELECT case_id, entity_type, LOWER(entity_label) as entity_label
+            SELECT case_id, LOWER(entity_type) as entity_type, LOWER(entity_label) as entity_label
             FROM temporary_rdf_storage
             WHERE case_id IN :case_ids
               AND entity_label IS NOT NULL
-              AND entity_type IN :types
+              AND LOWER(entity_type) IN :types
         """)
         results = db.session.execute(query, {
             'case_ids': (source_id, target_id),
-            'types': tuple(COMPONENT_TYPES)
+            'types': tuple(COMPONENT_TYPES_LOWER)
         }).fetchall()
 
-        # Build per-component entity sets for each case
+        # Build per-component entity sets for each case (keyed by lowercase type)
         source_entities = {}
         target_entities = {}
         for case_id, etype, label in results:
@@ -570,14 +575,15 @@ def api_shared_entities(source_id, target_id):
                 bucket[etype] = set()
             bucket[etype].add(label)
 
-        # Compute per-component shared entities
+        # Compute per-component shared entities (use display names as keys)
         shared = {}
-        for comp in COMPONENT_TYPES:
-            src_set = source_entities.get(comp, set())
-            tgt_set = target_entities.get(comp, set())
+        for comp_lower in COMPONENT_TYPES_LOWER:
+            src_set = source_entities.get(comp_lower, set())
+            tgt_set = target_entities.get(comp_lower, set())
             intersection = src_set & tgt_set
             if intersection:
-                shared[comp] = {
+                display = DISPLAY_NAME[comp_lower]
+                shared[display] = {
                     'shared': sorted(list(intersection)),
                     'source_count': len(src_set),
                     'target_count': len(tgt_set),
