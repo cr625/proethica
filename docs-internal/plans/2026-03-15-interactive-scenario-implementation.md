@@ -20,7 +20,7 @@
 - Modify: `app/services/narrative/scenario_seed_generator.py:28-59`
 - Test: `tests/unit/test_consequence_dataclasses.py` (create)
 
-- [ ] **Step 1: Write test for extended ScenarioOption serialization**
+- [x] **Step 1: Write test for extended ScenarioOption serialization**
 
 ```python
 # tests/unit/test_consequence_dataclasses.py
@@ -104,13 +104,13 @@ def test_scenario_branch_to_dict_includes_consequence_fields():
     assert d["options"][0]["consequence_narrative"] == "Consequence text"
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd /home/chris/onto/proethica && PYTHONPATH=/home/chris/onto:$PYTHONPATH pytest tests/unit/test_consequence_dataclasses.py -v`
 
 Expected: FAIL with `TypeError: __init__() got an unexpected keyword argument 'consequence_narrative'`
 
-- [ ] **Step 3: Add consequence fields to ScenarioOption**
+- [x] **Step 3: Add consequence fields to ScenarioOption**
 
 In `app/services/narrative/scenario_seed_generator.py`, add three fields to `ScenarioOption` after `leads_to`:
 
@@ -130,7 +130,7 @@ class ScenarioOption:
     consequence_fluent_changes: Dict[str, List[str]] = field(default_factory=dict)
 ```
 
-- [ ] **Step 4: Add consequence fields to ScenarioBranch**
+- [x] **Step 4: Add consequence fields to ScenarioBranch**
 
 In the same file, add two fields to `ScenarioBranch` after `options`:
 
@@ -151,13 +151,13 @@ class ScenarioBranch:
     competing_obligation_labels: List[str] = field(default_factory=list)
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 Run: `cd /home/chris/onto/proethica && PYTHONPATH=/home/chris/onto:$PYTHONPATH pytest tests/unit/test_consequence_dataclasses.py -v`
 
 Expected: 4 tests PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add app/services/narrative/scenario_seed_generator.py tests/unit/test_consequence_dataclasses.py
@@ -174,7 +174,7 @@ git commit -m "feat: add consequence fields to ScenarioOption and ScenarioBranch
 
 The consequence generator takes a `ScenarioSeeds` object (with branches and options already populated) plus supporting data (causal links, resolution, entity lookup), and fills in the consequence fields on each option and branch. One LLM call per decision point.
 
-- [ ] **Step 1: Write test for consequence generation with mocked LLM**
+- [x] **Step 1: Write test for consequence generation with mocked LLM**
 
 ```python
 # tests/unit/test_consequence_generator.py
@@ -370,13 +370,13 @@ def test_generate_consequences_populates_fields(
     assert mock_client.messages.create.call_count == 1
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd /home/chris/onto/proethica && PYTHONPATH=/home/chris/onto:$PYTHONPATH pytest tests/unit/test_consequence_generator.py -v`
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'app.services.scenario_generation.consequence_generator'`
 
-- [ ] **Step 3: Create consequence_generator.py**
+- [x] **Step 3: Create consequence_generator.py**
 
 ```python
 # app/services/scenario_generation/consequence_generator.py
@@ -602,13 +602,13 @@ def _parse_consequence_response(response_text: str, num_options: int) -> Dict[st
         return empty_result
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `cd /home/chris/onto/proethica && PYTHONPATH=/home/chris/onto:$PYTHONPATH pytest tests/unit/test_consequence_generator.py -v`
 
 Expected: 5 tests PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/services/scenario_generation/consequence_generator.py tests/unit/test_consequence_generator.py
@@ -625,7 +625,7 @@ git commit -m "feat: add consequence generator module for Phase 4 pre-computatio
 
 The consequence generator runs as Stage 4.3b, between scenario seed generation (4.3) and insight derivation (4.4). It modifies the `ScenarioSeeds` object in place.
 
-- [ ] **Step 1: Write test for pipeline integration**
+- [x] **Step 1: Write test for pipeline integration**
 
 Append to `tests/unit/test_consequence_dataclasses.py`:
 
@@ -670,13 +670,13 @@ def test_phase4_result_includes_consequence_data():
     assert d["branches"][0]["options"][0]["consequence_narrative"] == "Test consequence"
 ```
 
-- [ ] **Step 2: Run test to verify it passes** (dataclass changes from Task 1 should make this pass already)
+- [x] **Step 2: Run test to verify it passes** (dataclass changes from Task 1 should make this pass already)
 
 Run: `cd /home/chris/onto/proethica && PYTHONPATH=/home/chris/onto:$PYTHONPATH pytest tests/unit/test_consequence_dataclasses.py::test_phase4_result_includes_consequence_data -v`
 
 Expected: PASS (the `to_dict()` method uses `asdict()` which includes all fields)
 
-- [ ] **Step 3: Add Stage 4.3b call to construct_phase4_narrative()**
+- [x] **Step 3: Add Stage 4.3b call to construct_phase4_narrative()**
 
 In `app/services/narrative/__init__.py`, after the Stage 4.3 block (line ~209) and before Stage 4.4, add:
 
@@ -717,13 +717,13 @@ In `app/services/narrative/__init__.py`, after the Stage 4.3 block (line ~209) a
             # Non-fatal: interactive exploration works without consequences (empty fields)
 ```
 
-- [ ] **Step 4: Run full test suite to verify no regressions**
+- [x] **Step 4: Run full test suite to verify no regressions**
 
 Run: `cd /home/chris/onto/proethica && PYTHONPATH=/home/chris/onto:$PYTHONPATH pytest tests/unit/ -v --timeout=30`
 
 Expected: All existing tests pass
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/services/narrative/__init__.py tests/unit/test_consequence_dataclasses.py
@@ -742,7 +742,7 @@ git commit -m "feat: integrate consequence generator as Stage 4.3b in Phase 4 pi
 
 Remove all LLM-related methods and add `get_analysis_data()`. The service becomes a thin layer over Phase 4 data.
 
-- [ ] **Step 1: Write test for get_analysis_data()**
+- [x] **Step 1: Write test for get_analysis_data()**
 
 Add to `tests/unit/test_interactive_scenario_service.py` (or create if the fixture structure requires it):
 
@@ -848,13 +848,13 @@ def test_get_analysis_data_builds_comparison(service, sample_phase4_data):
     assert analysis["resolution"]["summary"] == "Board found a violation."
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd /home/chris/onto/proethica && PYTHONPATH=/home/chris/onto:$PYTHONPATH pytest tests/unit/test_interactive_service_refactor.py -v`
 
 Expected: FAIL with `AttributeError: 'InteractiveScenarioService' object has no attribute 'get_analysis_data'`
 
-- [ ] **Step 3a: Remove all LLM methods from the service**
+- [x] **Step 3a: Remove all LLM methods from the service**
 
 Delete these methods from `interactive_scenario_service.py`:
 - `_get_llm_client` (lines 36-40)
@@ -868,7 +868,7 @@ Delete these methods from `interactive_scenario_service.py`:
 
 Also remove `self.llm_client = None` from `__init__` and the imports `from app.utils.llm_utils import get_llm_client` and `from model_config import ModelConfig`.
 
-- [ ] **Step 3b: Add `_load_phase4_data()` method**
+- [x] **Step 3b: Add `_load_phase4_data()` method**
 
 ```python
 def _load_phase4_data(self, case_id: int) -> Dict:
@@ -886,7 +886,7 @@ def _load_phase4_data(self, case_id: int) -> Dict:
     return {}
 ```
 
-- [ ] **Step 3c: Simplify `process_choice()` to record-only**
+- [x] **Step 3c: Simplify `process_choice()` to record-only**
 
 Replace the body of `process_choice()`. No LLM call, no fluent tracking. Populates board comparison fields from Phase 4 data at write time:
 
@@ -946,7 +946,7 @@ def process_choice(self, session, chosen_option_index, time_spent_seconds=None):
     return {'choice_recorded': True, 'is_complete': is_complete}
 ```
 
-- [ ] **Step 3d: Simplify `get_current_decision()` to include obligation labels**
+- [x] **Step 3d: Simplify `get_current_decision()` to include obligation labels**
 
 ```python
 def get_current_decision(self, session):
@@ -980,7 +980,7 @@ def get_current_decision(self, session):
     }
 ```
 
-- [ ] **Step 3e: Add `get_analysis_data()` and `get_all_decision_points_for_stepper()`**
+- [x] **Step 3e: Add `get_analysis_data()` and `get_all_decision_points_for_stepper()`**
 
 ```python
 def get_analysis_data(self, session):
@@ -1050,19 +1050,19 @@ def get_all_decision_points_for_stepper(self, case_id):
     ]
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `cd /home/chris/onto/proethica && PYTHONPATH=/home/chris/onto:$PYTHONPATH pytest tests/unit/test_interactive_service_refactor.py -v`
 
 Expected: PASS
 
-- [ ] **Step 5: Run existing tests to check for regressions**
+- [x] **Step 5: Run existing tests to check for regressions**
 
 Run: `cd /home/chris/onto/proethica && PYTHONPATH=/home/chris/onto:$PYTHONPATH pytest tests/unit/test_interactive_scenario_service.py -v`
 
 Expected: Some tests may fail if they mock removed methods. Update or remove tests that test LLM-dependent behavior. Tests that test session management and choice recording should still pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add app/services/interactive_scenario_service.py tests/unit/test_interactive_service_refactor.py tests/unit/test_interactive_scenario_service.py
@@ -1076,7 +1076,7 @@ git commit -m "refactor: strip LLM from InteractiveScenarioService, add get_anal
 **Files:**
 - Modify: `app/routes/scenario_pipeline/step5_interactive.py`
 
-- [ ] **Step 1: Update auth decorators on all interactive routes**
+- [x] **Step 1: Update auth decorators on all interactive routes**
 
 Change all three `@auth_required_for_llm` decorators to `@auth_required_for_write`:
 - `start_interactive_exploration` (line 33)
@@ -1087,7 +1087,7 @@ Update the import line accordingly (replace `auth_required_for_llm` with `auth_r
 
 Note: If study participants are unauthenticated, these may need to change to `@auth_optional` during study preparation (April). For now, `@auth_required_for_write` is correct for development. The spec acknowledges this as a study infrastructure decision to finalize later.
 
-- [ ] **Step 2: Simplify make_choice route**
+- [x] **Step 2: Simplify make_choice route**
 
 Remove the inner consequence-generation provenance block (`prov.record_extraction_results` with `entity_type='interactive_choice_result'`). Keep the outer `prov.track_activity(activity_type='interaction', ...)` wrapper for study auditing, but change `agent_type` from `'user_interaction'` to `'user_interaction'` (unchanged) and remove the consequence preview from the results dict. The route should:
 1. Get session and validate
@@ -1097,7 +1097,7 @@ Remove the inner consequence-generation provenance block (`prov.record_extractio
 5. Record minimal results in provenance: `{'chosen_option_index': ..., 'is_complete': ...}`
 6. Redirect to next decision or summary page
 
-- [ ] **Step 3: Add interactive_summary route**
+- [x] **Step 3: Add interactive_summary route**
 
 Add a new route after `interactive_analysis`:
 
@@ -1130,11 +1130,11 @@ def interactive_summary(case_id, session_uuid):
     )
 ```
 
-- [ ] **Step 4: Update make_choice redirect to go to summary instead of analysis**
+- [x] **Step 4: Update make_choice redirect to go to summary instead of analysis**
 
 When `result['is_complete']` is True, redirect to `interactive_summary` instead of `interactive_analysis`.
 
-- [ ] **Step 5: Update interactive_analysis to use get_analysis_data()**
+- [x] **Step 5: Update interactive_analysis to use get_analysis_data()**
 
 Remove the provenance-wrapped `generate_final_analysis()` block (lines 250-277 which use `agent_type='llm_model'`). Replace with:
 
@@ -1148,7 +1148,7 @@ else:
 
 No provenance tracking needed here -- analysis is a pure data read, not a generation step.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add app/routes/scenario_pipeline/step5_interactive.py
@@ -1166,7 +1166,7 @@ git commit -m "refactor: simplify routes, add summary page, remove LLM from choi
 - Create: `app/static/css/scenario-traversal.css`
 - Modify: `app/templates/scenarios/base_step.html` (add CSS link)
 
-- [ ] **Step 1: Create scenario-traversal.css**
+- [x] **Step 1: Create scenario-traversal.css**
 
 CSS for: decision-maker pill stepper, decision card styling, View Transition API crossfade with fallback, option card selection states.
 
@@ -1182,7 +1182,7 @@ Key selectors:
 - `::view-transition-old(decision-card)`, `::view-transition-new(decision-card)` -- transition pseudo-elements
 - `.no-view-transitions .decision-card` -- opacity fallback
 
-- [ ] **Step 2: Create step5_traversal.html**
+- [x] **Step 2: Create step5_traversal.html**
 
 Extends `scenarios/base_step.html`. Blocks: `step_title`, `step_content`, `step_styles`, `step_scripts`.
 
@@ -1193,15 +1193,15 @@ Structure:
 
 Template receives: `case`, `session`, `current_decision`, `decision_points` (list of all decision point labels/makers for stepper), `previous_choices`.
 
-- [ ] **Step 3: Update route to render the new template**
+- [x] **Step 3: Update route to render the new template**
 
 In `step5_interactive.py`, change the `interactive_exploration` route to render `scenarios/step5_traversal.html` instead of `scenarios/step5_interactive.html`. Pass `decision_points` (list of dicts with `decision_maker_label` and `index`) for the stepper.
 
-- [ ] **Step 4: Link CSS in base_step.html or include in template**
+- [x] **Step 4: Link CSS in base_step.html or include in template**
 
 Add `<link rel="stylesheet" href="{{ url_for('static', filename='css/scenario-traversal.css') }}">` in the `step_styles` block of the traversal template.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/templates/scenarios/step5_traversal.html app/static/css/scenario-traversal.css app/routes/scenario_pipeline/step5_interactive.py
@@ -1215,7 +1215,7 @@ git commit -m "feat: add traversal template with decision-maker stepper and view
 **Files:**
 - Create: `app/templates/scenarios/step5_summary.html`
 
-- [ ] **Step 1: Create step5_summary.html**
+- [x] **Step 1: Create step5_summary.html**
 
 Extends `scenarios/base_step.html`. Simple layout:
 1. Header: "You have completed all N decisions."
@@ -1224,7 +1224,7 @@ Extends `scenarios/base_step.html`. Simple layout:
 
 Template receives: `case`, `session`, `choices_summary`.
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add app/templates/scenarios/step5_summary.html
@@ -1241,7 +1241,7 @@ git commit -m "feat: add post-traversal summary template"
 
 This is the most complex template. It has four sections: mini decision tree, stats bar, tabbed detail cards (one per decision), and resolution section.
 
-- [ ] **Step 1: Add CSS for mini decision tree and analysis cards**
+- [x] **Step 1: Add CSS for mini decision tree and analysis cards**
 
 Append to `scenario-traversal.css`:
 - `.decision-tree` -- flexbox row
@@ -1252,7 +1252,7 @@ Append to `scenario-traversal.css`:
 - `.decision-tree .tree-node:hover` -- pointer cursor, slight lift
 - `@media (max-width: 575.98px)` -- vertical stack layout for tree
 
-- [ ] **Step 2: Create step5_branching_analysis.html**
+- [x] **Step 2: Create step5_branching_analysis.html**
 
 Extends `scenarios/base_step.html`. Four sections:
 
@@ -1289,11 +1289,11 @@ Template receives: `case`, `session`, `analysis` (from `get_analysis_data()`).
 
 **JS:** Click handler on tree nodes to scroll to corresponding card. Smooth scroll behavior.
 
-- [ ] **Step 3: Update route to render new analysis template**
+- [x] **Step 3: Update route to render new analysis template**
 
 In `step5_interactive.py`, change the `interactive_analysis` route to render `scenarios/step5_branching_analysis.html`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add app/templates/scenarios/step5_branching_analysis.html app/static/css/scenario-traversal.css app/routes/scenario_pipeline/step5_interactive.py
@@ -1311,7 +1311,7 @@ git commit -m "feat: add branching analysis template with decision tree and tabb
 
 A standalone script that loads existing Phase 4 data for specified cases (or all cases with `phase4_narrative` data) and runs the consequence generator, updating the stored JSON in place.
 
-- [ ] **Step 1: Create the batch script**
+- [x] **Step 1: Create the batch script**
 
 ```python
 # scripts/generate_consequences.py
@@ -1479,19 +1479,19 @@ if __name__ == '__main__':
     main()
 ```
 
-- [ ] **Step 2: Test with dry-run on a single case**
+- [x] **Step 2: Test with dry-run on a single case**
 
 Run: `cd /home/chris/onto/proethica && source venv-proethica/bin/activate && python scripts/generate_consequences.py --case-ids 102 --dry-run`
 
 Expected: Output showing case 102 has N branches, M causal links, and "[DRY RUN] Would generate consequences"
 
-- [ ] **Step 3: Run on a single case for real**
+- [x] **Step 3: Run on a single case for real**
 
 Run: `cd /home/chris/onto/proethica && source venv-proethica/bin/activate && python scripts/generate_consequences.py --case-ids 102`
 
 Expected: "Case 102: consequences generated and saved"
 
-- [ ] **Step 4: Verify the stored data**
+- [x] **Step 4: Verify the stored data**
 
 Run: `cd /home/chris/onto/proethica && source venv-proethica/bin/activate && python -c "
 import json
@@ -1510,7 +1510,7 @@ with app.app_context():
 
 Expected: All fields populated with non-empty strings.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add scripts/generate_consequences.py
@@ -1524,7 +1524,7 @@ git commit -m "feat: add batch consequence generation script for existing cases"
 **Files:**
 - Test: `tests/integration/test_interactive_traversal.py` (create)
 
-- [ ] **Step 1: Write integration test**
+- [x] **Step 1: Write integration test**
 
 ```python
 # tests/integration/test_interactive_traversal.py
@@ -1599,13 +1599,13 @@ def test_full_traversal_flow(client):
     assert response.status_code == 200
 ```
 
-- [ ] **Step 2: Run integration test**
+- [x] **Step 2: Run integration test**
 
 Run: `cd /home/chris/onto/proethica && PYTHONPATH=/home/chris/onto:$PYTHONPATH pytest tests/integration/test_interactive_traversal.py -v`
 
 Expected: PASS (requires at least one case with Phase 4 data in the database)
 
-- [ ] **Step 3: Manual browser test**
+- [x] **Step 3: Manual browser test**
 
 Start the app and walk through a case manually:
 ```bash
@@ -1618,7 +1618,7 @@ Navigate to `http://localhost:5000/case/102/step5/interactive/start` (POST via t
 - Summary page shows choices
 - Analysis page shows tree, tabs, and consequence data
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add tests/integration/test_interactive_traversal.py

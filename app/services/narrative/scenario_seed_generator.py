@@ -192,7 +192,7 @@ class ScenarioSeedGenerator:
         # Enhance with LLM if enabled
         if self.use_llm and self.llm_client:
             opening_context, opening_trace = self._enhance_opening_with_llm(
-                opening_context, narrative_elements, case_id
+                opening_context, narrative_elements, case_id, branches
             )
             if opening_trace:
                 llm_traces.append(opening_trace)
@@ -582,62 +582,116 @@ OPTION2_DESC: [1 sentence description]"""
         self,
         opening_context: str,
         narrative_elements,
-        case_id: int
+        case_id: int,
+        branches: List[ScenarioBranch] = None
     ) -> Tuple[str, Optional[Dict]]:
-        """Use LLM to enhance opening context. Returns (opening_context, llm_trace)."""
+        """Use LLM to generate opening context. Returns (opening_context, llm_trace)."""
         if not self.llm_client:
             return opening_context, None
 
-        protagonist = self._identify_protagonist(narrative_elements.characters)
-        if not protagonist and narrative_elements.characters:
-            protagonist = narrative_elements.characters[0]
+        # Identify primary decision-maker from branches (more reliable than protagonist)
+        primary_maker = None
+        if branches:
+            maker_counts = {}
+            for b in branches:
+                if b.decision_maker_label:
+                    maker_counts[b.decision_maker_label] = maker_counts.get(b.decision_maker_label, 0) + 1
+            if maker_counts:
+                primary_maker = max(maker_counts, key=maker_counts.get)
 
-        protagonist_name = protagonist.label if protagonist else "an engineer"
+        # Fall back to protagonist from narrative elements
+        if not primary_maker:
+            protagonist = self._identify_protagonist(narrative_elements.characters)
+            if not protagonist and narrative_elements.characters:
+                protagonist = narrative_elements.characters[0]
+            primary_maker = protagonist.label if protagonist else "an engineer"
 
-        prompt = f"""Rewrite this scenario opening to be more engaging while maintaining professional tone.
+        # Load case facts for concrete detail
+        case_facts = self._load_case_facts(case_id)
 
-CURRENT OPENING:
-{opening_context}
+        # Summarize branch questions so the LLM knows what decisions lie ahead
+        branch_summary = ""
+        if branches:
+            lines = []
+            for i, b in enumerate(branches[:8]):
+                lines.append(f"  {i+1}. [{b.decision_maker_label}] {b.question[:150]}")
+            branch_summary = "\n".join(lines)
 
-SETTING DETAILS:
+        prompt = f"""Write the opening context paragraph for an interactive professional ethics scenario.
+
+## Case Facts
+{case_facts[:1500]}
+
+## Setting
 {narrative_elements.setting.description if narrative_elements.setting else 'Professional context'}
 
-PROTAGONIST: {protagonist_name}
+## Primary Decision-Maker
+{primary_maker}
 
-Write a 2-3 sentence opening that:
-1. MUST begin with "You are {protagonist_name}" — the narrative is written from this character's perspective. Do NOT switch to a different character or a third party.
-2. Establishes the professional context
-3. Hints at the ethical dilemma ahead
-4. Maintains objective, professional tone
+## Decision Questions the User Will Face
+{branch_summary}
 
-Output ONLY the enhanced opening text."""
+## Rules (strict)
+1. Begin with "You are {primary_maker}" and write in second person.
+2. Set up the factual situation BEFORE the decisions. Do not narrate what the protagonist chose or what happened as a result.
+3. Include specific parties, projects, and technical details from the case facts. Do not be abstract or vague.
+4. Do not use em dash characters. Use commas, periods, or restructure sentences instead.
+5. Do not editorialize, flatter ("seasoned professional"), or use dramatic framing ("now sits at the center of").
+6. Do not reveal the board's conclusions or how the case was resolved.
+7. End with a forward-looking sentence about the decisions ahead, without naming specific choices.
+8. Write 3-6 sentences, approximately 500-800 characters.
+
+Output ONLY the opening context text, no commentary."""
 
         llm_trace = None
         try:
             response = self.llm_client.messages.create(
                 model=ModelConfig.get_claude_model("default"),
-                max_tokens=200,
-                temperature=0.4,
+                max_tokens=400,
+                temperature=0.3,
                 messages=[{"role": "user", "content": prompt}]
             )
 
             response_text = response.content[0].text.strip()
 
+            # Strip markdown quotes the LLM might add
+            if response_text.startswith('"') and response_text.endswith('"'):
+                response_text = response_text[1:-1]
+
+            # Enforce no em dashes
+            if '\u2014' in response_text:
+                response_text = response_text.replace('\u2014', ', ')
+
             # Capture LLM trace
             llm_trace = {
                 'stage': 'SCENARIO_OPENING_ENHANCEMENT',
-                'description': 'Enhance scenario opening context for engagement',
+                'description': 'Generate scenario opening context from case facts',
                 'prompt': prompt,
                 'response': response_text,
                 'model': ModelConfig.get_claude_model("default")
             }
 
-            logger.info(f"Enhanced scenario opening with LLM")
+            logger.info(f"Generated scenario opening with LLM ({len(response_text)} chars)")
             return response_text, llm_trace
 
         except Exception as e:
-            logger.warning(f"LLM opening enhancement failed: {e}")
+            logger.warning(f"LLM opening generation failed: {e}")
             return opening_context, llm_trace
+
+    def _load_case_facts(self, case_id: int) -> str:
+        """Load the Facts section for a case from document_sections."""
+        try:
+            from sqlalchemy import text as sql_text
+            from app.models import db
+            result = db.session.execute(
+                sql_text("SELECT content FROM document_sections WHERE document_id = :cid AND section_type = 'facts'"),
+                {'cid': case_id}
+            ).fetchone()
+            if result:
+                return result[0][:2000]
+        except Exception as e:
+            logger.debug(f"Could not load case facts for case {case_id}: {e}")
+        return ""
 
 
 # =============================================================================

@@ -107,16 +107,23 @@
                 </span>
                 {% endif %}
             </div>
-            {% if case.document_id %}
-            <div class="btn-group btn-group-sm" role="group">
-                <a href="{{ url_for('cases.view_case_structure', id=case.id) }}" class="btn btn-outline-secondary" title="Document sections and embeddings">
-                    <i class="bi bi-layers me-1"></i>Structure
+            <div class="d-flex align-items-center gap-2">
+                {% if pipeline_status.step4.complete %}
+                <a href="{{ url_for('step4.step4_review', case_id=case.id) }}" class="btn btn-sm btn-outline-primary" title="View aggregated synthesis: entities, provisions, precedents, Q&amp;C, analysis, decisions, narrative">
+                    <i class="bi bi-journal-richtext me-1"></i>Synthesis
                 </a>
-                <a href="{{ url_for('provenance.provenance_cases', selected=case.id) }}" class="btn btn-outline-secondary" title="Processing history">
-                    <i class="bi bi-clock-history me-1"></i>Provenance
-                </a>
+                {% endif %}
+                {% if case.document_id %}
+                <div class="btn-group btn-group-sm" role="group">
+                    <a href="{{ url_for('cases.view_case_structure', id=case.id) }}" class="btn btn-outline-secondary" title="Document sections and embeddings">
+                        <i class="bi bi-layers me-1"></i>Structure
+                    </a>
+                    <a href="{{ url_for('provenance.provenance_cases', selected=case.id) }}" class="btn btn-outline-secondary" title="Processing history">
+                        <i class="bi bi-clock-history me-1"></i>Provenance
+                    </a>
+                </div>
+                {% endif %}
             </div>
-            {% endif %}
         </div>
     </div>
     {% endif %}

@@ -296,6 +296,52 @@ class DecisionPointSynthesizer:
                     lookup[e.entity_label.lower()] = e.entity_uri
         return lookup
 
+    @staticmethod
+    def _clean_text_formatting(dp: 'CanonicalDecisionPoint') -> None:
+        """Clean em dashes and verbose labels on a canonical decision point in-place."""
+        import re as _re
+
+        def _strip_em_dashes(text: str) -> str:
+            if not text or '\u2014' not in text:
+                return text
+            text = _re.sub(r'\s*\u2014\s*', ', ', text)
+            text = _re.sub(r',\s*,', ',', text)
+            text = _re.sub(r',\s*\?', '?', text)
+            return text
+
+        def _shorten_role(label: str) -> str:
+            if not label or len(label) <= 40:
+                return label
+            # "Engineer[s] X [and Engineer Y] [verbose description]" -> core name
+            m = _re.match(
+                r'^(Engineers?\s+[A-Z](?:\s+and\s+Engineers?\s+[A-Z])?)',
+                label
+            )
+            if m:
+                return m.group(1)
+            # "Firm X ..." -> "Firm X"
+            m = _re.match(r'^(Firm\s+[A-Z]+)\s+', label)
+            if m:
+                return m.group(1)
+            # Generic roles with jargon appended
+            for role in ('Client', 'Public', 'Employer', 'Owner', 'Contractor'):
+                if label.startswith(role + ' '):
+                    return role
+            # Em dash separator
+            if '\u2014' in label:
+                return label.split('\u2014')[0].strip()
+            return label
+
+        dp.decision_question = _strip_em_dashes(dp.decision_question)
+        dp.description = _strip_em_dashes(dp.description)
+        dp.role_label = _shorten_role(_strip_em_dashes(dp.role_label))
+
+        if dp.options:
+            for opt in dp.options:
+                if isinstance(opt, dict):
+                    opt['label'] = _strip_em_dashes(opt.get('label', ''))
+                    opt['description'] = _strip_em_dashes(opt.get('description', ''))
+
     def synthesize(
         self,
         case_id: int,
@@ -867,8 +913,14 @@ For each decision point, provide:
 7. Which question(s) this addresses (reference Q numbers)
 8. How the board resolved it (reference C numbers)
 
-CRITICAL: Option labels and descriptions must be ACTION PHRASES (verb form), not generic placeholders.
-- Labels must be short descriptive action phrases, NEVER "Option A", "Option B", "Option C".
+CRITICAL FORMATTING:
+- Do NOT use em dash characters anywhere in your output. Use commas or periods instead.
+- role_label must be a SHORT identifier for the decision-maker (e.g., "Engineer A", "Firm C", "Engineers A and B").
+  Do NOT append obligation names, case descriptions, or topic keywords to the role_label.
+  BAD: "Engineer A Construction Observation Engineer" or "Engineer H Public Hearing Testimony Completeness"
+  GOOD: "Engineer A" or "Engineer H"
+- decision_question should be concise (1-2 sentences). Frame as "Should [role] [action]?" or "Must [role] [choice]?"
+- Option labels must be short action phrases (3-8 words), NEVER "Option A", "Option B", "Option C".
 - Good labels: "Disclose AI Tool Usage", "Verify Code with Expert", "Withdraw from Project"
 - Bad labels: "Option A", "Option B", "Alternative Approach"
 - Descriptions expand on the label with case-specific detail.
@@ -989,6 +1041,7 @@ Return as JSON array:
                 intensity_score=0.5,  # Default score for LLM-generated
                 qc_alignment_score=0.7  # Higher since LLM explicitly aligned
             )
+            self._clean_text_formatting(dp)
             canonical_points.append(dp)
 
         return canonical_points
@@ -1093,6 +1146,11 @@ For each decision point, provide:
 6. 2-3 options that DIRECTLY ANSWER the decision_question
 7. Which question(s) this addresses (reference Q numbers)
 8. How the board resolved it (reference C numbers)
+
+CRITICAL FORMATTING:
+- Do NOT use em dash characters anywhere in your output. Use commas or periods instead.
+- role_label must be a SHORT identifier (e.g., "Engineer A", "Firm C"). Do NOT append topic descriptions.
+  BAD: "Engineer D Bid Document Material Information Inclusion" GOOD: "Engineer D"
 
 CRITICAL COHERENCE: The decision_question and options must form a coherent decision:
 - The question must present an actionable choice the named role faces.
@@ -1243,6 +1301,21 @@ Synthesize {target_count} decision points that:
 4. **Include Toulmin structure** - Show DATA, WARRANTs, and REBUTTAL for each
 5. **Coherent question-option structure** - Options must directly answer the question
 
+CRITICAL FORMATTING REQUIREMENT:
+
+- Do NOT use em dash characters anywhere in your output. Use commas or periods instead.
+
+CRITICAL ROLE LABEL REQUIREMENT:
+
+- The role_label must be a SHORT identifier for the decision-maker: "Engineer A", "Firm C",
+  "Engineers A and B", "Client", etc. Do NOT append obligation names, case descriptions,
+  or topic keywords to the role_label.
+  - BAD: "Engineer A Construction Observation Engineer", "Engineer H Public Hearing Testimony Completeness ZZZ Truck Stop"
+  - GOOD: "Engineer A", "Engineer H"
+- The role_label must be the agent who faces the decision. Do not assign a decision to a party
+  who is not making the choice (e.g., do not assign a disclosure decision to the "Client"
+  when it is the engineer who must decide whether to disclose).
+
 CRITICAL COHERENCE REQUIREMENT:
 
 The decision_question, description, and options must form a coherent decision structure:
@@ -1250,6 +1323,7 @@ The decision_question, description, and options must form a coherent decision st
 1. The "decision_question" must be framed as an actionable choice the named role faces:
    - Format: "Should [role] [action A] or [action B]?" or "Must [role] [choice]?"
    - The question must present the core tension between competing courses of action.
+   - Keep it to 1-2 sentences. Do not embed long subordinate clauses.
    - BAD: "Whether the obligation arose at point X or point Y" (analytical, not actionable)
    - BAD: "The interaction between principle X and principle Y" (abstract, no agent choosing)
    - GOOD: "Should Engineer A disclose the conflict to the client before accepting the project, or rely on internal firewalls?"
@@ -1259,10 +1333,6 @@ The decision_question, description, and options must form a coherent decision st
    - BAD: Question asks "when did the obligation arise?" but options are "Submit Report" / "Limit Disclosure"
    - GOOD: Question asks "Should Doe submit full findings or limit disclosure?" and options are
      "Submit Full Report" / "Limit Disclosure to Correcting False Data" / "Seek Ethics Guidance First"
-
-3. The role_label must be the agent who faces the decision. Do not assign a decision to a party
-   who is not making the choice (e.g., do not assign a disclosure decision to the "Client"
-   when it is the engineer who must decide whether to disclose).
 
 CRITICAL OPTION REQUIREMENTS:
 
@@ -1441,6 +1511,7 @@ Produce exactly {target_count} decision points capturing the key ethical issues.
                 llm_refined_description=data.get('description'),
                 llm_refined_question=data.get('decision_question')
             )
+            self._clean_text_formatting(canonical)
             canonical_points.append(canonical)
 
         return canonical_points

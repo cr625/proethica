@@ -46,10 +46,11 @@ def generate_consequences_for_seeds(
     client = get_llm_client()
 
     for branch in seeds.branches:
-        # Resolve obligation URIs to labels
+        # Resolve obligation URIs to labels (filter out None entries)
         branch.competing_obligation_labels = [
             entity_lookup.get(uri, {}).get("label", uri.split("#")[-1] if "#" in uri else uri)
             for uri in branch.involved_obligation_uris
+            if uri is not None
         ]
 
         # Build prompt and call LLM
@@ -62,7 +63,7 @@ def generate_consequences_for_seeds(
         try:
             response = client.messages.create(
                 model=ModelConfig.get_claude_model("default"),
-                max_tokens=1000,
+                max_tokens=2000,
                 temperature=0.3,
                 messages=[{"role": "user", "content": prompt}],
             )
@@ -196,7 +197,10 @@ def _parse_consequence_response(response_text: str, num_options: int) -> Dict[st
         if not json_match:
             return empty_result
 
-        data = json.loads(json_match.group())
+        raw_json = json_match.group()
+        # Fix common LLM JSON issues: trailing commas before } or ]
+        raw_json = re.sub(r",\s*([}\]])", r"\1", raw_json)
+        data = json.loads(raw_json)
         options = data.get("options", [])
 
         # Pad or truncate to match expected count
