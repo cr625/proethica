@@ -702,7 +702,7 @@ def main():
     parser.add_argument(
         '--reference-dir', default=None,
         help='Directory with existing full-formula results '
-             '(default: results_2026-03-13_final)'
+             '(default: experiments/iccbr-2026)'
     )
     args = parser.parse_args()
 
@@ -733,8 +733,7 @@ def main():
             )
         )
         ref_dir = args.reference_dir or os.path.join(
-            base_dir, 'docs-internal', 'conferences_submissions', 'iccbr',
-            'results_2026-03-13_final'
+            base_dir, 'experiments', 'iccbr-2026'
         )
         print(f"\nLoading reference results from {ref_dir}")
         ref_agg, ref_edges = load_reference_results(ref_dir)
@@ -767,7 +766,7 @@ def main():
             )
 
         # Write output
-        out_dir = args.output_dir or ref_dir
+        out_dir = args.output_dir or os.path.join(base_dir, 'experiments', 'iccbr-2026')
         write_per_edge_csv(per_edge, ref_edges, out_dir)
         write_markdown(agg, ref_agg, per_edge, out_dir)
 

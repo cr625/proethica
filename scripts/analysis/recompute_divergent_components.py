@@ -338,7 +338,7 @@ def main():
 
         # Write CSV
         out_dir = args.output_dir or os.path.join(
-            base_dir, 'docs-internal', 'iccbr-experiments'
+            base_dir, 'experiments', 'iccbr-2026'
         )
         csv_path = os.path.join(out_dir, 'divergent_components.csv')
         fields = [
@@ -353,18 +353,18 @@ def main():
 
         print(f"\nCSV: {csv_path} ({len(all_rows)} rows)")
 
-        # Also update the original location
+        # Also update internal results location if it exists
         final_dir = os.path.join(
             base_dir, 'docs-internal', 'conferences_submissions', 'iccbr',
             'results_2026-03-13_final'
         )
-        final_path = os.path.join(final_dir, 'divergent_components.csv')
-        with open(final_path, 'w', newline='') as f:
-            writer = csv.DictWriter(f, fieldnames=fields)
-            writer.writeheader()
-            writer.writerows(all_rows)
-
-        print(f"Also updated: {final_path}")
+        if os.path.isdir(final_dir):
+            final_path = os.path.join(final_dir, 'divergent_components.csv')
+            with open(final_path, 'w', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=fields)
+                writer.writeheader()
+                writer.writerows(all_rows)
+            print(f"Also updated: {final_path}")
         print("\nDone.")
 
 

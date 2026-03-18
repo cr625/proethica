@@ -74,7 +74,7 @@ The two D-tuple methods produce near-identical rankings (rho = 0.991). The D-tup
 
 Per-component similarity breakdown for the three cases with lowest section-vs-per-component rho (Cases 19, 105, 141). Top-10 neighbors selected by the paper-weight full formula.
 
-Actions consistently shows the highest variance across top-10 neighbors (std 0.073--0.105). Capabilities is consistently lowest (std 0.025--0.060). Principles shows case-dependent behavior: low variance in competence-focused cases (Case 105, std 0.046) and high variance in cases involving multiple competing ethical obligations (Cases 19 and 141, std 0.081--0.086).
+Actions shows high variance across all three cases (std 0.073--0.105), though the highest-variance component varies: Actions in Case 19 (std 0.105), Roles in Case 105 (std 0.093), and Principles in Case 141 (std 0.081). Capabilities shows low variance in all cases (std 0.025--0.060). Principles shows case-dependent behavior: low variance in competence-focused cases (Case 105, std 0.046) and high variance in cases involving multiple competing ethical obligations (Cases 19 and 141, std 0.081--0.086).
 
 **Files:** `divergent_components.csv`
 
@@ -88,7 +88,7 @@ Varies the embedding/set-feature ratio (alpha) from 0.0 to 1.0 in steps of 0.05 
 | Combined | 0.80 | 0.598 | 0.463 |
 | Per-component | 0.90 | 0.615 | 0.442 |
 
-Set features interact differently with each embedding strategy. Section-based embedding gains from set features at alpha=0.40 (+0.033 R@10 over embedding-only), while Combined loses (-0.060) and Per-component loses most (-0.126). Combined leads in the mid-range (alpha 0.05--0.80, with brief Per-component leads at 0.10 and 0.45--0.50), while Per-component leads durably above alpha=0.85 and achieves the overall highest R@10 (0.615 at alpha=0.90). The paper's fixed alpha=0.40 understates the D-tuple advantage.
+Set features interact differently with each embedding strategy. Section-based embedding gains from set features at alpha=0.40 (+0.033 R@10 over embedding-only), while Combined loses (-0.060) and Per-component loses most (-0.126). Combined leads in the mid-range (alpha 0.05--0.80, with brief Per-component leads at 0.45--0.50), while Per-component leads durably above alpha=0.85 and achieves the overall highest R@10 (0.615 at alpha=0.90). Section leads at alpha=0.10 (0.404 vs 0.403/0.399). The paper's fixed alpha=0.40 understates the D-tuple advantage.
 
 **Files:** `weight_sweep_results.md`, `weight_sweep_data.csv`
 
