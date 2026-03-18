@@ -63,4 +63,4 @@ The `case_precedent_features` table contains derived features only:
 - **Set features**: provisions_cited (NSPE Code section arrays), outcome_type, subject_tags, principle_tensions, obligation_conflicts
 - **Citation graph**: cited_case_ids (directed edges from BER opinion cross-references)
 
-No original NSPE Board of Ethical Review case text is included. The embeddings are numerical vectors derived from extracted entity labels and definitions.
+No original NSPE Board of Ethical Review case text is included. The embeddings are numerical vectors derived from extracted entity labels and definitions. The full extracted case data, component breakdowns, and precedent analysis views can be browsed at [https://proethica.org](https://proethica.org).

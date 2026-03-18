@@ -2,6 +2,8 @@
 
 Experiment results for "Component-Aware Case Retrieval for Professional Ethics" (ICCBR 2026). All data produced from a pool of 119 NSPE Board of Ethical Review cases with 228 citation edges across 93 source cases.
 
+The extracted case data, component breakdowns, and precedent analysis views are available at [https://proethica.org](https://proethica.org).
+
 ## Multi-Factor Similarity Architecture
 
 All three embedding methods share the same scoring formula:
@@ -94,9 +96,25 @@ Set features interact differently with each embedding strategy. Section-based em
 
 ## Reproduction
 
-All experiments run against the `case_precedent_features` table in the ProEthica database. Pre-computed features for all 119 cases are provided in [`data/`](data/) as a PostgreSQL dump (3.2MB gzipped). See [`data/README.md`](data/README.md) for loading instructions. No original case text is included.
+### Standalone (recommended)
 
-The analysis scripts are in `scripts/analysis/`:
+The standalone reproduction script verifies all experiment results from pre-computed features. No database, application stack, or API keys required.
+
+```bash
+cd experiments/iccbr-2026
+pip install -r requirements.txt    # numpy, scipy
+python reproduce.py                # run all experiments with verification
+python reproduce.py 1 3 6          # run specific experiments
+python reproduce.py --verify       # compare against committed CSV files
+```
+
+Pre-computed features for all 119 cases are provided in [`data/features.pkl`](data/) (embeddings, set features, citation graph). The script loads these into memory and computes all pairwise scores. Runtime is under two minutes. Experiment 2 (citation text ablation) verifies from the committed CSV rather than re-running, since it requires the original case text and embedding model.
+
+### Full stack
+
+For access to the extraction pipeline, case text, and the complete application, install ProEthica from the repository root. Documentation is at [proethica.org/docs](https://proethica.org/docs).
+
+The full analysis scripts are in `scripts/analysis/` and run against the ProEthica database:
 
 | Experiment | Script | Arguments |
 |:----------:|--------|-----------|
@@ -107,13 +125,7 @@ The analysis scripts are in `scripts/analysis/`:
 | 5 | `recompute_divergent_components.py` | |
 | 6 | `weight_sweep.py` | |
 
-```bash
-cd proethica
-source venv-proethica/bin/activate
-PYTHONPATH=$(pwd) python scripts/analysis/<script>.py
-```
-
-All scripts load case features into memory and compute pairwise scores without modifying the database. Runtime is under two minutes per script.
+See [`data/README.md`](data/README.md) for database setup instructions, including loading the PostgreSQL dump (3.2MB gzipped).
 
 ## Component Weights
 

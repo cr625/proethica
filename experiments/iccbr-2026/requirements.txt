@@ -1,0 +1,4 @@
+# Requirements for reproducing ICCBR 2026 experiments
+# Python >= 3.10
+numpy>=1.26.0
+scipy>=1.14.0
