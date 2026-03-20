@@ -1,8 +1,8 @@
 # Interactive Scenario Exploration Design Spec
 
 **Date:** 2026-03-15
-**Status:** Approved
-**Branch:** `feature/ht2026-scenario-branching`
+**Status:** Implemented (merged to `development` 2026-03-20)
+**Branch:** `feature/ht2026-scenario-branching` (merged, deleted)
 **Target:** HT 2026 paper (April 17 deadline) + IRB evaluation study (April-May 2026)
 
 ---

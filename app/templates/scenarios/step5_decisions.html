@@ -262,9 +262,12 @@
                             onclick="showDecision({{ loop.index0 - 1 }})">
                         <i class="bi bi-arrow-left"></i> Previous Decision
                     </button>
-                    <a href="{{ url_for('step5.step5_scenario_generation', case_id=case.id) }}" class="btn btn-outline-danger">
-                        <i class="bi bi-play-circle"></i> Try Interactive Exploration
-                    </a>
+                    <form method="POST" action="{{ url_for('step5.start_interactive_exploration', case_id=case.id) }}" style="display:inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-outline-danger">
+                            <i class="bi bi-play-circle"></i> Try Interactive Exploration
+                        </button>
+                    </form>
                     <button class="btn btn-warning {% if loop.last %}invisible{% endif %}"
                             onclick="showDecision({{ loop.index0 + 1 }})">
                         Next Decision <i class="bi bi-arrow-right"></i>

@@ -73,6 +73,11 @@ def step5_scenario_generation(case_id):
             status='completed'
         ).count()
 
+        # Get curated decision point count for display
+        from app.services.interactive_scenario_service import interactive_scenario_service
+        curated_decision_points = interactive_scenario_service._load_decision_points(case_id)
+        curated_count = len(curated_decision_points) if curated_decision_points else 0
+
         return render_template(
             'scenarios/step5.html',
             case=case,
@@ -88,7 +93,8 @@ def step5_scenario_generation(case_id):
             prev_step_url=f"/scenario_pipeline/case/{case_id}/step4",
             next_step_url="#",  # No step 6 yet
             pipeline_status=pipeline_status,
-            completed_sessions_count=completed_sessions_count
+            completed_sessions_count=completed_sessions_count,
+            curated_count=curated_count
         )
 
     except Exception as e:
@@ -357,13 +363,14 @@ def _load_narrative_elements(case_id: int):
 
 def _filter_characters(characters: list) -> list:
     """
-    Filter character list to exclude ontology classes and meta-authority.
+    Filter character list to exclude ontology classes and meta-authority,
+    then deduplicate by base name (e.g., merge multiple "Engineer A" entries).
 
     Args:
         characters: List of character dicts from Phase 4
 
     Returns:
-        Filtered list with only case-specific individuals
+        Filtered and deduplicated list with only case-specific individuals
     """
     filtered = []
     for char in characters:
@@ -380,7 +387,64 @@ def _filter_characters(characters: list) -> list:
 
         filtered.append(char)
 
-    return filtered
+    return _deduplicate_characters(filtered)
+
+
+def _deduplicate_characters(characters: list) -> list:
+    """
+    Group characters that share the same base name and merge their roles.
+
+    For example, "Engineer A Environmental Engineering Consultant" and
+    "Engineer A Groundwater Infrastructure Design Engineer" become a single
+    entry with both roles listed.
+    """
+    import re
+
+    # Extract base name: match known actor patterns at the start of the label
+    def _extract_base_name(label: str) -> str:
+        match = re.match(r'^((?:Engineer|Client|Dr\.|Mr\.|Ms\.|Professor)\s+\w+)', label)
+        if match:
+            return match.group(1)
+        return label
+
+    grouped = {}
+    for char in characters:
+        label = char.get('label', '')
+        base = _extract_base_name(label)
+
+        if base not in grouped:
+            grouped[base] = {
+                'uri': char.get('uri', ''),
+                'label': base,
+                'definition': char.get('definition', ''),
+                'role_type': char.get('role_type', 'stakeholder'),
+                'roles': [],
+            }
+
+        # Extract the role suffix (the part after the base name)
+        role_suffix = label[len(base):].strip()
+        if role_suffix and role_suffix not in grouped[base]['roles']:
+            grouped[base]['roles'].append(role_suffix)
+
+        # Keep the most prominent role_type (protagonist > decision-maker > authority > stakeholder)
+        priority = {'protagonist': 0, 'decision-maker': 1, 'authority': 2, 'stakeholder': 3}
+        existing = priority.get(grouped[base]['role_type'], 3)
+        incoming = priority.get(char.get('role_type', 'stakeholder'), 3)
+        if incoming < existing:
+            grouped[base]['role_type'] = char.get('role_type', 'stakeholder')
+
+    # Build final list, formatting roles into the definition
+    result = []
+    for base, data in grouped.items():
+        if data['roles']:
+            roles_text = ', '.join(data['roles'])
+            if data['definition']:
+                data['definition'] = f"{roles_text}. {data['definition']}"
+            else:
+                data['definition'] = roles_text
+        result.append(data)
+
+    return result
 
 
 def _is_ontology_class(uri: str) -> bool:

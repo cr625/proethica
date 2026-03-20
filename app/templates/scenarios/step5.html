@@ -4,42 +4,131 @@
 {% block step_header %}Step 5: Interactive Exploration{% endblock %}
 {% block step_subtitle %}Experience the case through interactive scenario exploration{% endblock %}
 
-{% block step_navigation_bottom %}
-<!-- No bottom navigation for Coming Soon page -->
-{% endblock %}
-
 {% block step_content %}
 
-<!-- Coming Soon Banner -->
-<div class="card mb-4 border-secondary">
-    <div class="card-body text-center py-5">
-        <i class="bi bi-hourglass-split display-1 text-secondary mb-3"></i>
-        <h2 class="text-secondary">Interactive Exploration</h2>
-        <h4 class="text-muted mb-4">Coming Soon</h4>
-        <p class="lead text-muted mb-4">
-            Step 5 will provide an interactive scenario exploration experience,
-            allowing you to make ethical decisions and see how they compare to the NSPE Board's conclusions.
+{% if not has_phase4 %}
+<!-- No Phase 4 Data -->
+<div class="alert alert-warning">
+    <h5><i class="bi bi-exclamation-triangle"></i> Phase 4 Data Required</h5>
+    <p>No narrative construction data found for this case. Complete Step 4 first.</p>
+    <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}" class="btn btn-primary">
+        <i class="bi bi-arrow-left"></i> Go to Step 4
+    </a>
+</div>
+{% else %}
+
+<!-- Opening Context -->
+<div class="card mb-4 border-0 shadow-sm">
+    <div class="card-body p-4">
+        {% if seeds and seeds.opening_context %}
+        <p class="opening-context-text mb-0">{{ seeds.opening_context }}</p>
+        {% else %}
+        <p class="text-muted mb-0">
+            <em>An ethics case involving professional engineering practice and competing obligations.</em>
         </p>
-        <hr class="my-4">
-        <p class="text-muted">
-            Complete Step 4 (Case Synthesis) to prepare the case narrative and decision points for interactive exploration.
+        {% endif %}
+    </div>
+</div>
+
+<!-- Characters -->
+{% if narrative.characters and narrative.characters|length > 0 %}
+<h5 class="text-muted mb-3"><i class="bi bi-people-fill"></i> Key Characters</h5>
+<div class="row mb-4">
+    {% for char in narrative.characters %}
+    <div class="col-md-6 mb-3">
+        <div class="card h-100 {% if char.role_type == 'protagonist' %}border-primary{% else %}border-0{% endif %} shadow-sm">
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-2">
+                    {% if char.role_type == 'protagonist' %}
+                    <span class="badge bg-primary me-2">Protagonist</span>
+                    {% elif char.role_type == 'decision-maker' %}
+                    <span class="badge bg-info me-2">Decision-maker</span>
+                    {% elif char.role_type == 'authority' %}
+                    <span class="badge bg-secondary me-2">Authority</span>
+                    {% else %}
+                    <span class="badge bg-light text-dark me-2">Stakeholder</span>
+                    {% endif %}
+                </div>
+                <h6 class="card-title mb-1">{{ char.label }}</h6>
+                {% if char.definition %}
+                <p class="card-text small text-muted mb-0">{{ char.definition[:200] }}{% if char.definition|length > 200 %}...{% endif %}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Action Buttons -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body p-4 text-center">
+        <form method="POST" action="{{ url_for('step5.start_interactive_exploration', case_id=case.id) }}" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-primary btn-lg px-5">
+                <i class="bi bi-play-fill me-2"></i> Begin Interactive Exploration
+            </button>
+        </form>
+        <p class="text-muted mt-3 mb-0 small">
+            {{ curated_count }} decision points
+            {% if seeds and seeds.branches and curated_count != seeds.branches|length %}
+                (curated from {{ seeds.branches|length }})
+            {% endif %}
+            {% if completed_sessions_count %} &middot; {{ completed_sessions_count }} session{{ 's' if completed_sessions_count != 1 }} completed{% endif %}
         </p>
-        <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}" class="btn btn-outline-secondary btn-lg">
-            <i class="bi bi-arrow-left"></i> Back to Step 4
+    </div>
+</div>
+
+<!-- Analytical Views -->
+<div class="row">
+    <div class="col-md-4 mb-3">
+        <a href="{{ url_for('step5.narrative_overview', case_id=case.id) }}" class="card border-0 shadow-sm h-100 text-decoration-none step5-view-link">
+            <div class="card-body text-center py-3">
+                <i class="bi bi-book fs-4 text-primary"></i>
+                <div class="mt-1 small fw-semibold">Narrative</div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-4 mb-3">
+        <a href="{{ url_for('step5.enhanced_timeline', case_id=case.id) }}" class="card border-0 shadow-sm h-100 text-decoration-none step5-view-link">
+            <div class="card-body text-center py-3">
+                <i class="bi bi-clock-history fs-4 text-primary"></i>
+                <div class="mt-1 small fw-semibold">Timeline</div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-4 mb-3">
+        <a href="{{ url_for('step5.decision_wizard', case_id=case.id) }}" class="card border-0 shadow-sm h-100 text-decoration-none step5-view-link">
+            <div class="card-body text-center py-3">
+                <i class="bi bi-signpost-split fs-4 text-primary"></i>
+                <div class="mt-1 small fw-semibold">Decisions</div>
+            </div>
         </a>
     </div>
 </div>
+
+{% endif %}
 
 {% endblock %}
 
 {% block step_styles %}
 <style>
-    /* Minimal styles for coming soon page */
+.opening-context-text {
+    font-size: 1.1rem;
+    line-height: 1.9;
+    color: #2c3e50;
+    font-style: italic;
+}
+
+.step5-view-link:hover {
+    transform: translateY(-2px);
+    transition: transform 0.15s ease;
+}
+.step5-view-link:hover .card-body {
+    background-color: #f8f9fc;
+}
 </style>
 {% endblock %}
 
 {% block step_scripts %}
-<script>
-    // Minimal scripts for coming soon page
-</script>
 {% endblock %}

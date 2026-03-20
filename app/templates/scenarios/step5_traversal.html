@@ -16,11 +16,11 @@
 <div class="scenario-stepper d-flex justify-content-center align-items-center flex-wrap mb-4">
     {% for dp in decision_points %}
     {% set state = 'completed' if dp.index < current_decision.decision_index else ('active' if dp.index == current_decision.decision_index else 'future') %}
-    <div class="step-pill {{ state }}">
+    <div class="step-pill {{ state }}" title="{{ dp.short_label }}" data-bs-toggle="tooltip">
         {% if state == 'completed' %}
         <i class="bi bi-check-lg me-1"></i>
         {% endif %}
-        {{ dp.decision_maker_label }} ({{ dp.index + 1 }})
+        {{ dp.index + 1 }}
     </div>
     {% endfor %}
 </div>
@@ -95,6 +95,10 @@
 {% block step_scripts %}
 <script>
 (function() {
+    // Initialize Bootstrap tooltips on stepper pills
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.forEach(function(el) { new bootstrap.Tooltip(el); });
+
     // View Transition API feature detection
     if (!document.startViewTransition) {
         document.documentElement.classList.add('no-view-transitions');

@@ -22,7 +22,7 @@
          data-target="decision-{{ loop.index0 }}"
          role="button"
          tabindex="0"
-         title="Decision {{ loop.index }}: {{ decision.decision_maker_label }}{% if decision.matched %} (aligned){% else %} (diverged){% endif %}">
+         title="Decision {{ loop.index }}: {{ decision.question|truncate(60) }}{% if decision.matched %} (aligned){% else %} (diverged){% endif %}">
         <span class="tree-step-num">{{ loop.index }}</span>
     </div>
     {% if not loop.last %}
@@ -44,7 +44,7 @@
     <div class="card-header d-flex justify-content-between align-items-center">
         <div>
             <span class="fw-bold">Decision {{ loop.index }}:</span>
-            {{ decision.decision_maker_label }}
+            {{ decision.question|truncate(80) }}
             {% if decision.competing_obligation_labels %}
             <span class="ms-2">
                 {% for obl in decision.competing_obligation_labels %}

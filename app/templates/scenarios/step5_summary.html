@@ -21,9 +21,9 @@
         <ol class="list-group list-group-numbered mb-0">
             {% for choice in choices_summary %}
             <li class="list-group-item">
-                <strong>Decision {{ loop.index }}:</strong> {{ choice.decision_point_label }}
-                <span class="text-muted">--</span>
-                You chose: <em>{{ choice.chosen_option_label }}</em>
+                <strong>Decision {{ loop.index }}:</strong> {{ choice.label }}
+                <br>
+                <span class="text-muted">You chose:</span> <em>{{ choice.user_choice }}</em>
             </li>
             {% endfor %}
         </ol>

@@ -107,7 +107,21 @@ Required context variables:
                 </span>
                 {% endif %}
 
-                {# Step 5: Scenario Exploration - HIDDEN until fully integrated #}
+                {# Step 5: Scenario Exploration #}
+                {% if step5_available %}
+                <a href="{{ step5_url }}"
+                   class="btn btn-sm pipeline-step-btn {% if step5_complete %}btn-success{% elif step5_available %}btn-outline-primary{% endif %}"
+                   title="Interactive Scenario Exploration">
+                    <span class="step-num">5</span>
+                    <span class="step-name d-none d-md-inline">Scenario</span>
+                </a>
+                {% else %}
+                <span class="btn btn-sm btn-outline-secondary pipeline-step-btn disabled" title="Complete Step 4 first">
+                    <span class="step-num">5</span>
+                    <span class="step-name d-none d-md-inline">Scenario</span>
+                    <i class="bi bi-lock-fill ms-1"></i>
+                </span>
+                {% endif %}
             </div>
         </div>
     </div>
