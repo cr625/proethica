@@ -330,6 +330,375 @@ class InteractiveScenarioService:
         return truncated + '...'
 
     # =========================================================================
+    # ENRICHED CONTEXT
+    # =========================================================================
+
+    def get_enriched_decision_context(
+        self, case_id: int, decision_index: int, phase4_data: Optional[Dict] = None
+    ) -> Dict[str, Any]:
+        """
+        Build rich context for the current decision point: decision maker profile,
+        competing obligations with definitions, ethical tensions, code provisions,
+        and setting summary.
+
+        All sections gracefully return empty dicts/lists when data is missing.
+        """
+        if phase4_data is None:
+            phase4_data = self._load_phase4_data(case_id)
+
+        narrative = phase4_data.get('narrative_elements', {})
+        decision_points = self._load_decision_points(case_id)
+
+        if decision_index >= len(decision_points):
+            return {}
+
+        dp = decision_points[decision_index]
+        original_idx = dp.get('original_branch_index', decision_index)
+        branches = phase4_data.get('scenario_seeds', {}).get('branches', [])
+        branch = branches[original_idx] if original_idx < len(branches) else {}
+
+        # --- Decision Maker ---
+        decision_maker = {}
+        dm_uri = branch.get('decision_maker_uri', '')
+        dm_label = branch.get('decision_maker_label', dp.get('decision_maker_label', ''))
+        characters = narrative.get('characters', [])
+        for char in characters:
+            # Match by URI or by label substring (URIs are shortform like "case-7#Engineer")
+            char_uri = char.get('uri', '')
+            char_label = char.get('label', '')
+            if (dm_uri and (char_uri == dm_uri or dm_uri in char_uri or char_uri.endswith(dm_uri))) or \
+               (dm_label and dm_label.lower() in char_label.lower()):
+                decision_maker = {
+                    'label': char_label,
+                    'role_type': char.get('role_type', ''),
+                    'professional_position': char.get('professional_position', ''),
+                    'ethical_stance': char.get('ethical_stance', ''),
+                }
+                break
+        if not decision_maker and dm_label:
+            decision_maker = {'label': dm_label, 'role_type': '', 'professional_position': '', 'ethical_stance': ''}
+
+        # --- Enriched Obligations ---
+        obligation_labels = dp.get('competing_obligation_labels', [])
+        enriched_obligations = self._resolve_obligation_labels(case_id, obligation_labels)
+
+        # --- Matched Conflicts ---
+        matched_conflicts = []
+        conflicts = narrative.get('conflicts', [])
+        obl_labels_lower = {lbl.lower() for lbl in obligation_labels}
+        for conflict in conflicts:
+            # Match if entity labels overlap with obligation labels or affected_role_uris contains dm
+            e1_label = conflict.get('entity1_label', '').lower()
+            e2_label = conflict.get('entity2_label', '').lower()
+            affected = conflict.get('affected_role_uris', [])
+
+            label_match = any(
+                ol in e1_label or ol in e2_label or e1_label in ol or e2_label in ol
+                for ol in obl_labels_lower
+            )
+            role_match = dm_uri and any(dm_uri in r or r in dm_uri for r in affected)
+
+            if label_match or role_match:
+                matched_conflicts.append({
+                    'description': conflict.get('description', ''),
+                    'conflict_type': conflict.get('conflict_type', ''),
+                    'entity1_label': conflict.get('entity1_label', ''),
+                    'entity2_label': conflict.get('entity2_label', ''),
+                    'entity1_type': conflict.get('entity1_type', ''),
+                    'entity2_type': conflict.get('entity2_type', ''),
+                })
+
+        # --- Provisions ---
+        provisions = self._load_provisions(case_id)
+
+        # --- Setting ---
+        setting_summary = ''
+        if decision_index == 0:
+            setting = narrative.get('setting', {})
+            setting_summary = setting.get('description', '') if isinstance(setting, dict) else ''
+
+        return {
+            'decision_maker': decision_maker,
+            'enriched_obligations': enriched_obligations,
+            'matched_conflicts': matched_conflicts,
+            'provisions': provisions,
+            'setting_summary': setting_summary,
+        }
+
+    def _resolve_obligation_labels(self, case_id: int, labels: List[str]) -> List[Dict]:
+        """Resolve obligation labels to entities with definitions from the DB."""
+        if not labels:
+            return []
+
+        from sqlalchemy import text
+        query = text("""
+            SELECT entity_uri, entity_label, entity_definition, entity_type, extraction_type
+            FROM temporary_rdf_storage
+            WHERE case_id = :case_id
+              AND extraction_type IN ('obligations', 'constraints')
+            ORDER BY entity_label
+        """)
+        rows = db.session.execute(query, {"case_id": case_id}).fetchall()
+
+        # Build lookup by lowercase label
+        db_lookup = {}
+        for r in rows:
+            db_lookup[r.entity_label.lower()] = {
+                'label': r.entity_label,
+                'uri': r.entity_uri or '',
+                'definition': r.entity_definition or '',
+                'entity_type': r.extraction_type or r.entity_type or '',
+            }
+
+        results = []
+        for lbl in labels:
+            lbl_lower = lbl.lower()
+            if lbl_lower in db_lookup:
+                entry = dict(db_lookup[lbl_lower])
+            else:
+                # Fuzzy match: check if the label is a substring of a DB label
+                entry = None
+                for db_lbl, data in db_lookup.items():
+                    if lbl_lower in db_lbl or db_lbl in lbl_lower:
+                        entry = dict(data)
+                        break
+                if entry is None:
+                    entry = {'label': lbl, 'uri': '', 'definition': '', 'entity_type': 'obligations'}
+            # Add shortened label for compact chip display
+            entry['shortened_label'] = entry['label']
+            results.append(entry)
+        return results
+
+    def _load_provisions(self, case_id: int) -> List[Dict]:
+        """Load code provision references for a case."""
+        from sqlalchemy import text
+        query = text("""
+            SELECT entity_uri, entity_label, entity_definition
+            FROM temporary_rdf_storage
+            WHERE case_id = :case_id AND entity_type = 'provisions'
+            ORDER BY entity_label
+        """)
+        rows = db.session.execute(query, {"case_id": case_id}).fetchall()
+        return [
+            {'label': r.entity_label or '', 'uri': r.entity_uri or '', 'definition': r.entity_definition or ''}
+            for r in rows
+        ]
+
+    # =========================================================================
+    # TIMELINE
+    # =========================================================================
+
+    def get_timeline_events(self, case_id: int) -> List[Dict]:
+        """
+        Load timeline events for inline display.  Returns a list of dicts
+        with keys: label, event_type ('action'|'event'), description.
+        Sourced from Phase 4 narrative timeline, falling back to entity DB.
+        """
+        phase4 = self._load_phase4_data(case_id)
+        timeline = phase4.get('timeline', {})
+        raw_events = timeline.get('events', [])
+
+        if raw_events:
+            return [
+                {
+                    'label': ev.get('event_label', ev.get('label', '')),
+                    'event_type': 'action' if ev.get('event_type') == 'action'
+                                  or ev.get('phase_label') == 'Action' else 'event',
+                    'description': ev.get('description', ''),
+                }
+                for ev in raw_events
+            ]
+
+        # Fallback: build from entity records
+        from sqlalchemy import text
+        query = text("""
+            SELECT entity_label, entity_type, entity_definition
+            FROM temporary_rdf_storage
+            WHERE case_id = :case_id AND entity_type IN ('actions', 'events')
+            ORDER BY entity_type, entity_label
+        """)
+        rows = db.session.execute(query, {"case_id": case_id}).fetchall()
+        return [
+            {
+                'label': r.entity_label or '',
+                'event_type': 'action' if r.entity_type == 'actions' else 'event',
+                'description': r.entity_definition or '',
+            }
+            for r in rows
+        ]
+
+    # =========================================================================
+    # COMBINED TIMELINE (events + decision markers)
+    # =========================================================================
+
+    def build_combined_timeline(
+        self, case_id: int, decision_points: List[Dict], current_decision_index: int
+    ) -> List[Dict]:
+        """
+        Build a unified timeline interleaving Phase 4 events with decision
+        point markers.  Each item has:
+            item_type:  'event' | 'decision'
+            state:      'completed' | 'active' | 'future'  (decisions only)
+            dp_index:   int  (decisions only, 0-based)
+            label, event_type, description  (events)
+            short_label, decision_maker_label  (decisions)
+
+        Decision-type timeline events are matched to decision points by label
+        similarity.  Unmatched decision points are placed proportionally.
+        """
+        raw_events = self.get_timeline_events(case_id)
+        # Filter out structural markers (DP#, case_begins, board_resolution, conflict_emerges_*)
+        import re
+        timeline_events = [
+            ev for ev in raw_events
+            if not re.match(r'^DP\d+$', ev.get('label', ''))
+            and ev.get('label', '') not in ('case_begins', 'board_resolution')
+            and not ev.get('label', '').startswith('conflict_emerges_')
+        ]
+
+        if not timeline_events:
+            # No timeline data -- return decision points only as a flat list
+            return self._decisions_only_timeline(decision_points, current_decision_index)
+
+        # Build combined list
+        combined = []
+        dp_placed = set()
+
+        # Try to match timeline decision-events to our decision points
+        dp_anchors = {}  # timeline_index -> dp_index
+        for ti, ev in enumerate(timeline_events):
+            if ev.get('event_type') == 'decision' or 'decision' in ev.get('label', '').lower():
+                best_match = self._match_event_to_decision(ev, decision_points, dp_placed)
+                if best_match is not None:
+                    dp_anchors[ti] = best_match
+                    dp_placed.add(best_match)
+
+        # Place unmatched decision points proportionally
+        unmatched_dps = [i for i in range(len(decision_points)) if i not in dp_placed]
+        if unmatched_dps and timeline_events:
+            n_events = len(timeline_events)
+            for ui, dp_idx in enumerate(unmatched_dps):
+                # Distribute evenly across timeline positions
+                pos = int((dp_idx + 1) / (len(decision_points) + 1) * n_events)
+                pos = min(pos, n_events - 1)
+                # Find nearest unused slot
+                while pos in dp_anchors and pos < n_events - 1:
+                    pos += 1
+                dp_anchors[pos] = dp_idx
+                dp_placed.add(dp_idx)
+
+        # Build the interleaved list
+        for ti, ev in enumerate(timeline_events):
+            # Insert decision marker BEFORE matched event
+            if ti in dp_anchors:
+                dp_idx = dp_anchors[ti]
+                dp = decision_points[dp_idx]
+                state = self._decision_state(dp_idx, current_decision_index)
+                combined.append({
+                    'item_type': 'decision',
+                    'state': state,
+                    'dp_index': dp_idx,
+                    'short_label': dp.get('short_label', f'Decision {dp_idx + 1}'),
+                    'decision_maker_label': dp.get('decision_maker_label', ''),
+                })
+
+            # Determine event state relative to the current decision point
+            # Events before the first unplaced anchor are 'past', after are 'future'
+            event_state = self._event_state_from_anchors(ti, dp_anchors, current_decision_index)
+            combined.append({
+                'item_type': 'event',
+                'state': event_state,
+                'label': ev.get('label', ''),
+                'event_type': ev.get('event_type', 'event'),
+                'description': ev.get('description', ''),
+            })
+
+        # Append any decision points that still didn't get placed
+        for dp_idx in range(len(decision_points)):
+            if dp_idx not in dp_placed:
+                state = self._decision_state(dp_idx, current_decision_index)
+                dp = decision_points[dp_idx]
+                combined.append({
+                    'item_type': 'decision',
+                    'state': state,
+                    'dp_index': dp_idx,
+                    'short_label': dp.get('short_label', f'Decision {dp_idx + 1}'),
+                    'decision_maker_label': dp.get('decision_maker_label', ''),
+                })
+
+        return combined
+
+    def _decisions_only_timeline(
+        self, decision_points: List[Dict], current_decision_index: int
+    ) -> List[Dict]:
+        """Fallback when no timeline events exist: just list decision markers."""
+        return [
+            {
+                'item_type': 'decision',
+                'state': self._decision_state(i, current_decision_index),
+                'dp_index': i,
+                'short_label': dp.get('short_label', f'Decision {i + 1}'),
+                'decision_maker_label': dp.get('decision_maker_label', ''),
+            }
+            for i, dp in enumerate(decision_points)
+        ]
+
+    @staticmethod
+    def _decision_state(dp_index: int, current_index: int) -> str:
+        if dp_index < current_index:
+            return 'completed'
+        elif dp_index == current_index:
+            return 'active'
+        return 'future'
+
+    @staticmethod
+    def _match_event_to_decision(
+        event: Dict, decision_points: List[Dict], already_placed: set
+    ) -> Optional[int]:
+        """Find the best-matching decision point for a timeline event by label overlap."""
+        ev_label = event.get('label', '').lower()
+        if not ev_label:
+            return None
+
+        ev_words = set(ev_label.split())
+        best_score, best_idx = 0, None
+
+        for i, dp in enumerate(decision_points):
+            if i in already_placed:
+                continue
+            dp_label = dp.get('decision_maker_label', '').lower()
+            dp_words = set(dp_label.split())
+            # Word overlap score
+            overlap = len(ev_words & dp_words)
+            if overlap > best_score:
+                best_score = overlap
+                best_idx = i
+
+        return best_idx if best_score >= 1 else None
+
+    @staticmethod
+    def _event_state_from_anchors(
+        event_index: int, dp_anchors: Dict[int, int], current_decision_index: int
+    ) -> str:
+        """Determine whether a timeline event is past/current/future relative to progress."""
+        # Find the nearest decision anchor at or after this event
+        nearest_dp_idx = None
+        for anchor_pos in sorted(dp_anchors.keys()):
+            if anchor_pos >= event_index:
+                nearest_dp_idx = dp_anchors[anchor_pos]
+                break
+
+        if nearest_dp_idx is None:
+            # Event is after all decision anchors
+            return 'future'
+
+        if nearest_dp_idx < current_decision_index:
+            return 'past'
+        elif nearest_dp_idx == current_decision_index:
+            return 'current'
+        return 'future'
+
+    # =========================================================================
     # DATA LOADING HELPERS
     # =========================================================================
 

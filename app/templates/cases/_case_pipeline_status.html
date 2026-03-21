@@ -13,19 +13,16 @@ Required context variables:
 {% set step2_complete = pipeline_status.step2.complete if pipeline_status else false %}
 {% set step3_complete = pipeline_status.step3.complete if pipeline_status else false %}
 {% set step4_complete = pipeline_status.step4.complete if pipeline_status else false %}
-{% set step5_complete = pipeline_status.step5.complete if pipeline_status else false %}
-
 {% set step2_available = step1_complete %}
 {% set step3_available = step2_complete %}
 {% set step4_available = step3_complete %}
-{% set step5_available = step4_complete %}
 
 {# Smart URLs: go to review when complete, extraction when not #}
 {% set step1_url = url_for('entity_review.review_case_entities', case_id=case.id, section_type='facts') if pipeline_status.step1.facts_complete else url_for('cases.case_pipeline', case_id=case.id) %}
 {% set step2_url = url_for('entity_review.review_case_entities_pass2', case_id=case.id, section_type='facts') if pipeline_status.step2.facts_complete else url_for('cases.case_pipeline', case_id=case.id) %}
 {% set step3_url = url_for('entity_review.review_enhanced_temporal', case_id=case.id) if step3_complete else url_for('cases.case_pipeline', case_id=case.id) %}
 {% set step4_url = url_for('step4.step4_review', case_id=case.id) if step4_complete else url_for('step4.step4_synthesis', case_id=case.id) %}
-{% set step5_url = url_for('step5.step5_scenario_generation', case_id=case.id) %}
+
 
 <div class="card mb-4 pipeline-status-card">
     <div class="card-body py-2">
@@ -107,21 +104,7 @@ Required context variables:
                 </span>
                 {% endif %}
 
-                {# Step 5: Scenario Exploration #}
-                {% if step5_available %}
-                <a href="{{ step5_url }}"
-                   class="btn btn-sm pipeline-step-btn {% if step5_complete %}btn-success{% elif step5_available %}btn-outline-primary{% endif %}"
-                   title="Interactive Scenario Exploration">
-                    <span class="step-num">5</span>
-                    <span class="step-name d-none d-md-inline">Scenario</span>
-                </a>
-                {% else %}
-                <span class="btn btn-sm btn-outline-secondary pipeline-step-btn disabled" title="Complete Step 4 first">
-                    <span class="step-num">5</span>
-                    <span class="step-name d-none d-md-inline">Scenario</span>
-                    <i class="bi bi-lock-fill ms-1"></i>
-                </span>
-                {% endif %}
+                {# Step 5: Scenario Exploration (hidden — not part of current paper scope) #}
             </div>
         </div>
     </div>

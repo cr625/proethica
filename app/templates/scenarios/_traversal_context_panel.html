@@ -1,0 +1,117 @@
+{# Traversal Context Panel -- sticky left sidebar with decision context
+   Expects: enriched_context (dict), current_decision #}
+
+<div class="traversal-context-panel" id="context-panel">
+
+    {# Decision Maker #}
+    {% if enriched_context.decision_maker and enriched_context.decision_maker.label %}
+    {% set dm = enriched_context.decision_maker %}
+    <div class="context-section">
+        <div class="context-section-title">
+            <i class="bi bi-person-fill"></i> Decision Maker
+        </div>
+        <div class="card-body py-2 px-3">
+            <div class="fw-semibold">{{ dm.label }}</div>
+            {% if dm.professional_position %}
+            <div class="small text-muted mt-1">{{ dm.professional_position }}</div>
+            {% endif %}
+            {% if dm.role_type %}
+            <span class="badge bg-secondary mt-1" style="font-size: 0.7rem;">{{ dm.role_type }}</span>
+            {% endif %}
+            {% if dm.ethical_stance %}
+            <div class="small mt-2 fst-italic text-body-secondary">{{ dm.ethical_stance }}</div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {# Setting (first decision only) #}
+    {% if enriched_context.setting_summary %}
+    <div class="context-section">
+        <div class="context-section-title">
+            <i class="bi bi-building"></i> Setting
+        </div>
+        <div class="card-body py-2 px-3">
+            <div class="small">{{ enriched_context.setting_summary }}</div>
+        </div>
+    </div>
+    {% endif %}
+
+    {# Competing Obligations (At Stake) #}
+    {% if enriched_context.enriched_obligations %}
+    <div class="context-section">
+        <div class="context-section-title">
+            <i class="bi bi-exclamation-triangle"></i> At Stake
+        </div>
+        <div class="card-body py-2 px-3">
+            {% for obl in enriched_context.enriched_obligations %}
+            <div class="obligation-detail{% if not loop.last %} mb-2 pb-2 border-bottom{% endif %}">
+                <div class="d-flex align-items-start gap-1">
+                    <span class="badge onto-type-{{ obl.entity_type }} flex-shrink-0" style="font-size: 0.65rem; margin-top: 2px;">
+                        {{ obl.entity_type }}
+                    </span>
+                    <span class="small fw-medium">{{ obl.label }}</span>
+                </div>
+                {% if obl.definition %}
+                <div class="small text-muted mt-1" style="line-height: 1.4;">
+                    {{ obl.definition[:200] }}{% if obl.definition|length > 200 %}...{% endif %}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {# Ethical Tensions #}
+    {% if enriched_context.matched_conflicts %}
+    <div class="context-section">
+        <div class="context-section-title">
+            <i class="bi bi-lightning"></i> Ethical Tensions
+        </div>
+        <div class="card-body py-2 px-3">
+            {% for conflict in enriched_context.matched_conflicts %}
+            <div class="tension-card p-2 mb-2 rounded">
+                <div class="d-flex flex-wrap gap-1 mb-1">
+                    <span class="badge onto-type-{{ conflict.entity1_type }}" style="font-size: 0.6rem;">{{ conflict.entity1_label[:40] }}{% if conflict.entity1_label|length > 40 %}...{% endif %}</span>
+                    <span class="small text-muted">vs</span>
+                    <span class="badge onto-type-{{ conflict.entity2_type }}" style="font-size: 0.6rem;">{{ conflict.entity2_label[:40] }}{% if conflict.entity2_label|length > 40 %}...{% endif %}</span>
+                </div>
+                {% if conflict.conflict_type %}
+                <div class="small text-muted" style="font-size: 0.75rem;">{{ conflict.conflict_type|replace('_', ' ')|title }}</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {# Code Provisions #}
+    {% if enriched_context.provisions %}
+    <div class="context-section">
+        <div class="context-section-title">
+            <i class="bi bi-book"></i> Code Provisions
+        </div>
+        <div class="card-body py-2 px-3">
+            {% for prov in enriched_context.provisions %}
+            <div class="provision-ref{% if not loop.last %} mb-2 pb-2 border-bottom{% endif %}">
+                <div class="small fw-medium">{{ prov.label }}</div>
+                {% if prov.definition %}
+                <div class="small text-muted" style="line-height: 1.4;">{{ prov.definition[:150] }}{% if prov.definition|length > 150 %}...{% endif %}</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {# Empty state #}
+    {% if not enriched_context.decision_maker and not enriched_context.enriched_obligations and not enriched_context.matched_conflicts and not enriched_context.provisions %}
+    <div class="context-section">
+        <div class="card-body py-3 px-3 text-center text-muted small">
+            No contextual data available for this decision point.
+        </div>
+    </div>
+    {% endif %}
+
+</div>

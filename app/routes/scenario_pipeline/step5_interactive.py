@@ -13,6 +13,7 @@ Routes:
 """
 
 import logging
+import os
 import uuid
 from datetime import datetime
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
@@ -22,7 +23,8 @@ from app.models.scenario_exploration import ScenarioExplorationSession, Scenario
 from app.services.interactive_scenario_service import interactive_scenario_service
 from app.services.pipeline_status_service import PipelineStatusService
 from app.services.provenance_service import get_provenance_service
-from app.utils.environment_auth import auth_required_for_write, auth_optional
+from flask_login import login_required
+from app.utils.environment_auth import auth_required_for_write
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +84,7 @@ def register_interactive_routes(bp):
             return jsonify({'success': False, 'error': 'Failed to start interactive exploration'}), 500
 
     @bp.route('/case/<int:case_id>/step5/interactive/<session_uuid>')
-    @auth_optional
+    @login_required
     def interactive_exploration(case_id, session_uuid):
         """Continue an interactive exploration session (traversal view)."""
         try:
@@ -115,6 +117,23 @@ def register_interactive_routes(bp):
             previous_choices = [c.to_dict() for c in session.choices]
             pipeline_status = PipelineStatusService.get_step_status(case_id)
 
+            # Entity lookup for inline popovers
+            from app.services.unified_entity_resolver import UnifiedEntityResolver
+            resolver = UnifiedEntityResolver(case_id=case_id)
+            entity_lookup_by_label = resolver.get_label_index()
+
+            # Enriched context panel data
+            enriched_context = interactive_scenario_service.get_enriched_decision_context(
+                case_id, session.current_decision_index
+            )
+
+            # Combined timeline (events + decision markers) for right column
+            combined_timeline = interactive_scenario_service.build_combined_timeline(
+                case_id, decision_points, session.current_decision_index
+            )
+
+            ontserve_web_url = os.environ.get('ONTSERVE_WEB_URL', 'http://localhost:5003')
+
             return render_template(
                 'scenarios/step5_traversal.html',
                 case=case,
@@ -122,10 +141,14 @@ def register_interactive_routes(bp):
                 current_decision=current_decision,
                 decision_points=decision_points,
                 previous_choices=previous_choices,
+                combined_timeline=combined_timeline,
                 current_step=5,
                 prev_step_url=f"/scenario_pipeline/case/{case_id}/step5",
                 next_step_url="#",
-                pipeline_status=pipeline_status
+                pipeline_status=pipeline_status,
+                entity_lookup_by_label=entity_lookup_by_label,
+                enriched_context=enriched_context,
+                ontserve_web_url=ontserve_web_url,
             )
 
         except Exception as e:
@@ -171,7 +194,7 @@ def register_interactive_routes(bp):
             ) as activity:
                 result = interactive_scenario_service.process_choice(
                     session=session,
-                    chosen_option_index=chosen_option_index,
+                    chosen_display_index=chosen_option_index,
                     time_spent_seconds=time_spent
                 )
 
@@ -205,7 +228,7 @@ def register_interactive_routes(bp):
                                    session_uuid=session_uuid))
 
     @bp.route('/case/<int:case_id>/step5/interactive/<session_uuid>/summary')
-    @auth_optional
+    @login_required
     def interactive_summary(case_id, session_uuid):
         """Summary page between traversal and analysis (board reveal)."""
         case = Document.query.get_or_404(case_id)
@@ -232,7 +255,7 @@ def register_interactive_routes(bp):
         )
 
     @bp.route('/case/<int:case_id>/step5/interactive/<session_uuid>/analysis')
-    @auth_optional
+    @login_required
     def interactive_analysis(case_id, session_uuid):
         """View branching analysis comparing user choices to board choices."""
         try:
@@ -276,7 +299,7 @@ def register_interactive_routes(bp):
             return str(e), 500
 
     @bp.route('/case/<int:case_id>/step5/sessions')
-    @auth_optional
+    @login_required
     def list_sessions(case_id):
         """List all exploration sessions for a case."""
         try:

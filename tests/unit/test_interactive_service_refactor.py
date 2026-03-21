@@ -80,7 +80,9 @@ def test_get_analysis_data_builds_comparison(service, sample_phase4_data):
         ),
     ]
 
-    with patch.object(service, '_load_phase4_data', return_value=sample_phase4_data):
+    curated_dps = [{'original_branch_index': 0, 'question': 'Disclose or not?'}]
+    with patch.object(service, '_load_phase4_data', return_value=sample_phase4_data), \
+         patch.object(service, '_load_decision_points', return_value=curated_dps):
         analysis = service.get_analysis_data(mock_session)
 
     assert analysis["total_decisions"] == 1

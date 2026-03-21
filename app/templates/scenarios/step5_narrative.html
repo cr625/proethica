@@ -134,16 +134,32 @@
     </div>
     <div class="card-body">
         {% if narrative.resolution and narrative.resolution.conclusions %}
+        {% set board_conclusions = narrative.resolution.conclusions|selectattr('conclusion_type', 'equalto', 'board_explicit')|list %}
+        {% set other_conclusions = narrative.resolution.conclusions|rejectattr('conclusion_type', 'equalto', 'board_explicit')|list %}
+        {% if board_conclusions %}
         <ul class="list-group list-group-flush">
-            {% for conc in narrative.resolution.conclusions[:3] %}
+            {% for conc in board_conclusions %}
             <li class="list-group-item px-0">
-                <strong>{{ conc.label }}</strong>
-                {% if conc.text %}
-                <p class="mb-0 mt-1 small text-muted">{{ conc.text[:200] }}{% if conc.text|length > 200 %}...{% endif %}</p>
-                {% endif %}
+                <span class="badge bg-success me-2">Board Finding</span>
+                <span>{{ conc.text[:250] }}{% if conc.text|length > 250 %}...{% endif %}</span>
             </li>
             {% endfor %}
         </ul>
+        {% if other_conclusions %}
+        <p class="text-muted mt-3 mb-0 small">
+            Plus {{ other_conclusions|length }} extended analysis conclusion{{ 's' if other_conclusions|length != 1 }}.
+            <a href="{{ url_for('step5.decision_wizard', case_id=case.id) }}">View full analysis</a>
+        </p>
+        {% endif %}
+        {% else %}
+        <ul class="list-group list-group-flush">
+            {% for conc in narrative.resolution.conclusions[:5] %}
+            <li class="list-group-item px-0">
+                <span>{{ conc.text[:250] }}{% if conc.text|length > 250 %}...{% endif %}</span>
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
         {% else %}
         <p class="text-muted mb-0"><em>Board conclusions will be shown here after extraction.</em></p>
         {% endif %}

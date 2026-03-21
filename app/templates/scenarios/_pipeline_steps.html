@@ -211,22 +211,7 @@ Required context variables:
         {% endif %}
     </div>
 
-    {# Step 5: Interactive Exploration #}
-    {% set step5_available = pipeline_status.step4.complete if pipeline_status else false %}
-    {% set step5_active = current_step == 5 %}
-    {% if step5_available %}
-    <a href="{{ url_for('step5.step5_scenario_generation', case_id=case.id) }}"
-       class="pipeline-step {% if step5_active %}active{% endif %}">
-        <span class="step-number {% if step5_active %}{% endif %}">5</span>
-        <span class="step-label">Scenario</span>
-    </a>
-    {% else %}
-    <span class="pipeline-step disabled">
-        <span class="step-number">5</span>
-        <span class="step-label">Scenario</span>
-        <span class="step-lock"><i class="bi bi-lock-fill"></i></span>
-    </span>
-    {% endif %}
+    {# Step 5: Interactive Exploration (hidden — not part of current paper scope) #}
 
     {# Provenance - always available #}
     <hr class="my-2">

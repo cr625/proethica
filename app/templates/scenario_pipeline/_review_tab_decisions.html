@@ -13,15 +13,16 @@
     </div>
     <div class="card-body">
         {% if decision_points and decision_points|length > 0 %}
-        <!-- Validation Score Legend -->
+        <!-- Legend -->
         <div class="alert alert-light border py-2 px-3 mb-3" style="font-size: 0.85rem;">
             <strong>Legend:</strong>
-            <span class="ms-2"><i class="bi bi-hand-thumbs-up text-success"></i> PRO</span>
-            <span class="ms-2"><i class="bi bi-hand-thumbs-down text-danger"></i> CON</span>
+            <span class="ms-2"><i class="bi bi-check-circle-fill text-success"></i> Board's choice</span>
+            <span class="ms-2"><i class="bi bi-check-circle text-success"></i> Warrants</span>
+            <span class="ms-2"><i class="bi bi-x-circle text-danger"></i> Rebuttals</span>
             <span class="mx-3">|</span>
             <span class="badge bg-secondary text-white" style="font-size: 0.75rem;">N%</span>
-            <span class="ms-1">= Validation Score</span>
-            {{ info_link_inline('argument-validation', 'Role ethics validation (Oakley & Cocking 2001)') }}{{ research_caveat('validation-weighting', 'Validation weighting is heuristic, not from literature') }}
+            <span class="ms-1">= Q&C Alignment</span>
+            {{ info_link_inline('toulmin-model', 'Toulmin (1958) argument structure') }}
         </div>
         <div class="list-group">
             {% for dp in decision_points %}
@@ -49,11 +50,28 @@
                         {% if dp.options %}
                         <div>
                             <small class="text-secondary"><strong>Options:</strong></small>
-                            <ol class="mb-0 ps-3 mt-1 small">
+                            <div class="mt-1">
                                 {% for opt in dp.options %}
-                                <li>{{ opt.label or opt.description or opt.option_id or opt }}</li>
+                                <div class="d-flex align-items-start mb-2 small">
+                                    <span class="me-2 mt-1">
+                                        {% if opt.is_board_choice %}
+                                        <i class="bi bi-check-circle-fill text-success" title="Board's choice"></i>
+                                        {% else %}
+                                        <i class="bi bi-circle text-muted"></i>
+                                        {% endif %}
+                                    </span>
+                                    <div>
+                                        <strong>{{ opt.label or opt.option_id or 'Option ' ~ loop.index }}</strong>
+                                        {% if opt.is_board_choice %}
+                                        <span class="badge bg-light text-dark border border-success ms-1" style="font-size: 0.7rem;">Board's choice</span>
+                                        {% endif %}
+                                        {% if opt.description %}
+                                        <p class="text-muted mb-0 mt-1">{{ opt.description }}</p>
+                                        {% endif %}
+                                    </div>
+                                </div>
                                 {% endfor %}
-                            </ol>
+                            </div>
                         </div>
                         {% endif %}
                         {% if dp.arguments %}
@@ -86,6 +104,59 @@
                                 </div>
                                 {% endfor %}
                             </div>
+                        </div>
+                        {% elif dp.toulmin %}
+                        <div class="mt-3 pt-2 border-top">
+                            <small class="text-secondary">
+                                <strong>Toulmin Analysis</strong>
+                                {{ info_link_inline('toulmin-model', 'Toulmin (1958) argument structure') }}
+                            </small>
+                            <div class="row mt-2">
+                                {% if dp.toulmin.warrants_summary %}
+                                <div class="col-md-6 mb-2">
+                                    <div class="card border-success card-sm">
+                                        <div class="card-body py-2 px-3">
+                                            <div class="mb-1">
+                                                <i class="bi bi-check-circle text-success"></i>
+                                                <strong class="small">Warrants</strong>
+                                                {% if dp.toulmin.backing_provisions %}
+                                                <span class="float-end">
+                                                    {% for prov in dp.toulmin.backing_provisions %}
+                                                    <span class="badge bg-secondary" style="font-size: 0.7rem;">{{ prov }}</span>
+                                                    {% endfor %}
+                                                </span>
+                                                {% endif %}
+                                            </div>
+                                            <p class="small text-muted mb-0">{{ dp.toulmin.warrants_summary }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                                {% if dp.toulmin.rebuttals_summary %}
+                                <div class="col-md-6 mb-2">
+                                    <div class="card border-danger card-sm">
+                                        <div class="card-body py-2 px-3">
+                                            <div class="mb-1">
+                                                <i class="bi bi-x-circle text-danger"></i>
+                                                <strong class="small">Rebuttals</strong>
+                                            </div>
+                                            <p class="small text-muted mb-0">{{ dp.toulmin.rebuttals_summary }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% if dp.toulmin.data_summary %}
+                            <div class="card border-0 bg-light mt-1">
+                                <div class="card-body py-2 px-3">
+                                    <div class="mb-1">
+                                        <i class="bi bi-file-earmark-text text-primary"></i>
+                                        <strong class="small">Grounds</strong>
+                                    </div>
+                                    <p class="small text-muted mb-0">{{ dp.toulmin.data_summary }}</p>
+                                </div>
+                            </div>
+                            {% endif %}
                         </div>
                         {% endif %}
                     </div>

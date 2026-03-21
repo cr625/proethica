@@ -10,8 +10,7 @@ from typing import Dict, List, Any, Optional
 import logging
 import anthropic
 from langchain_anthropic import ChatAnthropic
-from langchain_classic.chains import LLMChain
-from langchain_classic.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate
 from flask import current_app
 
 # Set up logging
@@ -63,37 +62,37 @@ class LangChainClaudeService:
             logger.error(f"Consider checking compatibility between langchain-anthropic and anthropic package versions")
             raise
     
-    def create_chain(self, template: str, input_variables: List[str]) -> LLMChain:
+    def create_chain(self, template: str, input_variables: List[str]):
         """
-        Create a LangChain with the specified template.
-        
+        Create a runnable chain with the specified template.
+
         Args:
             template: Prompt template string
             input_variables: List of input variable names
-            
+
         Returns:
-            LangChain instance
+            Runnable chain (prompt | llm)
         """
         try:
             prompt = PromptTemplate(
                 template=template,
                 input_variables=input_variables
             )
-            return LLMChain(llm=self.llm, prompt=prompt)
+            return prompt | self.llm
         except Exception as e:
-            logger.error(f"Error creating LangChain: {str(e)}")
+            logger.error(f"Error creating chain: {str(e)}")
             raise
-    
-    def run_chain(self, chain: LLMChain, **kwargs) -> str:
+
+    def run_chain(self, chain, **kwargs) -> str:
         """
         Run a chain with the specified inputs.
-        
+
         Args:
-            chain: LangChain instance
+            chain: Runnable chain
             **kwargs: Input variables for the chain
-            
+
         Returns:
-            Chain output
+            Chain output as string
         """
         # Check if we should use Claude or return a mock response
         use_claude = True
@@ -101,21 +100,21 @@ class LangChainClaudeService:
             use_claude = current_app.config.get('USE_CLAUDE', True)
         except RuntimeError:
             use_claude = os.environ.get('USE_CLAUDE', 'true').lower() == 'true'
-        
+
         if use_claude:
             try:
-                logger.info("Running actual LangChain with Claude for response")
-                return chain.run(**kwargs)
+                logger.info("Running chain with Claude for response")
+                result = chain.invoke(kwargs)
+                if hasattr(result, 'content'):
+                    return result.content
+                return str(result)
             except Exception as e:
-                logger.error(f"Error running LangChain: {str(e)}")
-                # Return a default response in case of error
+                logger.error(f"Error running chain: {str(e)}")
                 return "I encountered an error processing your request. Please try again or ask a different question."
         else:
-            # Generate a mock response when USE_CLAUDE is False
-            logger.info("Using mock response instead of running LangChain with Claude")
-            # Create a summary of the input parameters to include in the mock response
+            logger.info("Using mock response instead of running chain with Claude")
             input_summary = ", ".join([f"{k}: {str(v)[:50]}..." for k, v in kwargs.items()])
-            return f"This is a mock LangChain response.\n\nRequest parameters: {input_summary}\n\nMock responses are being used because USE_CLAUDE is set to false in the environment configuration."
+            return f"This is a mock response.\n\nRequest parameters: {input_summary}\n\nMock responses are being used because USE_CLAUDE is set to false in the environment configuration."
     
     def get_guidelines_for_world(self, world_id: Optional[int] = None) -> str:
         """

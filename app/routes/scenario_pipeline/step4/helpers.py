@@ -634,7 +634,9 @@ def _load_decision_points_for_review(case_id: int) -> List[Dict]:
                 'options': data.get('options', []),
                 'qc_alignment_score': data.get('qc_alignment_score', 0),
                 'source': data.get('source', 'algorithmic'),
-                'arguments': args_by_dp.get(focus_id, [])
+                'arguments': args_by_dp.get(focus_id, []),
+                'toulmin': data.get('toulmin', {}),
+                'board_resolution': data.get('board_resolution', '')
             })
 
     return decision_points

@@ -259,6 +259,10 @@ def _load_narrative_elements(case_id: int):
                     result['setting'] = ne['setting']
                 if ne.get('resolution'):
                     result['resolution'] = ne['resolution']
+                    # Enrich conclusions with conclusion_type if missing
+                    for conc in result['resolution'].get('conclusions', []):
+                        if 'conclusion_type' not in conc:
+                            conc['conclusion_type'] = _infer_conclusion_type(conc.get('label', ''))
         except (json.JSONDecodeError, TypeError):
             pass
 
@@ -352,7 +356,8 @@ def _load_narrative_elements(case_id: int):
                 {
                     'uri': c.entity_uri or '',
                     'label': c.entity_label or '',
-                    'text': c.entity_definition or (c.rdf_json_ld.get('definition', '') if c.rdf_json_ld else '')
+                    'text': c.entity_definition or (c.rdf_json_ld.get('definition', '') if c.rdf_json_ld else ''),
+                    'conclusion_type': (c.rdf_json_ld or {}).get('conclusionType', ''),
                 }
                 for c in conclusions
             ]
@@ -445,6 +450,26 @@ def _deduplicate_characters(characters: list) -> list:
         result.append(data)
 
     return result
+
+
+def _infer_conclusion_type(label: str) -> str:
+    """Infer conclusion type from label numbering convention.
+
+    Board conclusions are numbered 1-9, analytical extensions 100-199,
+    question responses 200-299, principle syntheses 300-399.
+    """
+    import re
+    match = re.search(r'(\d+)$', label)
+    if not match:
+        return ''
+    num = int(match.group(1))
+    if num < 10:
+        return 'board_explicit'
+    if num < 200:
+        return 'analytical_extension'
+    if num < 300:
+        return 'question_response'
+    return 'principle_synthesis'
 
 
 def _is_ontology_class(uri: str) -> bool:

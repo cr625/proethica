@@ -14,14 +14,13 @@ from dataclasses import dataclass
 
 # LangChain imports
 try:
-    from langchain_classic.chains import LLMChain
-    from langchain_classic.prompts import PromptTemplate
+    from langchain_core.prompts import PromptTemplate
     from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
-    from langchain_classic.callbacks import get_openai_callback
+    from langchain_community.callbacks import get_openai_callback
 except ImportError:
     # Fallback for environments without LangChain
-    LLMChain = None
     PromptTemplate = None
+    get_openai_callback = None
 
 # ProEthica imports
 from .base import ConceptCandidate

@@ -60,25 +60,6 @@
 </div>
 {% endif %}
 
-<!-- Action Buttons -->
-<div class="card border-0 shadow-sm mb-4">
-    <div class="card-body p-4 text-center">
-        <form method="POST" action="{{ url_for('step5.start_interactive_exploration', case_id=case.id) }}" class="d-inline">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="btn btn-primary btn-lg px-5">
-                <i class="bi bi-play-fill me-2"></i> Begin Interactive Exploration
-            </button>
-        </form>
-        <p class="text-muted mt-3 mb-0 small">
-            {{ curated_count }} decision points
-            {% if seeds and seeds.branches and curated_count != seeds.branches|length %}
-                (curated from {{ seeds.branches|length }})
-            {% endif %}
-            {% if completed_sessions_count %} &middot; {{ completed_sessions_count }} session{{ 's' if completed_sessions_count != 1 }} completed{% endif %}
-        </p>
-    </div>
-</div>
-
 <!-- Analytical Views -->
 <div class="row">
     <div class="col-md-4 mb-3">

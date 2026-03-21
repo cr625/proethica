@@ -9,8 +9,8 @@ See docs/LLM_SERVICE_MIGRATION_PLAN.md for migration strategy.
 """
 
 from typing import Dict, List, Any, Optional, Union
-from langchain_classic.prompts import PromptTemplate
-from langchain_classic.llms.base import BaseLLM
+from langchain_core.prompts import PromptTemplate
+from langchain_core.language_models import BaseLLM
 from langchain_community.llms.fake import FakeListLLM
 from langchain_core.runnables import RunnableSequence
 import os

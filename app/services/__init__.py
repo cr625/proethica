@@ -1,11 +1,9 @@
 # Import services to make them available when importing from app.services
 from app.services.event_engine import EventEngine
-from app.services.decision_engine import DecisionEngine
 from app.services.mcp_client import MCPClient
 # Import embedding service conditionally to avoid circular imports
 # This approach allows Triple to import db without causing circular imports
 # EmbeddingService is still available through lazy import in modules that need it
-from app.services.enhanced_decision_engine import EnhancedDecisionEngine
 from app.services.rdf_service import RDFService
 
 # Use a function for conditional importing to avoid circular dependencies

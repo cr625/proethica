@@ -15,16 +15,15 @@ from enum import Enum
 
 # LangChain imports
 try:
-    from langchain_classic.chains import LLMChain, SequentialChain
-    from langchain_classic.prompts import PromptTemplate, ChatPromptTemplate
+    from langchain_core.prompts import PromptTemplate, ChatPromptTemplate
     from langchain_core.output_parsers import BaseOutputParser
     from langchain_core.exceptions import OutputParserException
-    from langchain_classic.callbacks import get_openai_callback
-    from langchain_classic.memory import ConversationBufferWindowMemory
+    from langchain_community.callbacks import get_openai_callback
 except ImportError:
     # Graceful fallback
-    LLMChain = SequentialChain = PromptTemplate = None
-    ChatPromptTemplate = BaseOutputParser = OutputParserException = None
+    PromptTemplate = ChatPromptTemplate = None
+    BaseOutputParser = OutputParserException = None
+    get_openai_callback = None
 
 # ProEthica imports
 from .base import ConceptCandidate
@@ -112,7 +111,7 @@ class LangChainConceptOrchestrator:
         self.splitter = GeneralizedConceptSplitter(provider)
         
         # Initialize LangChain components if available
-        self.chains = self._initialize_chains() if LLMChain else {}
+        self.chains = self._initialize_chains() if PromptTemplate else {}
         
     def _initialize_chains(self) -> Dict[str, Any]:
         """Initialize LangChain chains for different processing stages."""

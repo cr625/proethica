@@ -1,0 +1,103 @@
+{#
+  Scenario Widget Macros
+  Reusable display components for interactive scenario exploration.
+  Import: {% from 'macros/_scenario_widgets.html' import timeline_strip, obligation_chips %}
+#}
+
+
+{# ──────────────────────────────────────────────────────────────────────────
+   timeline_strip
+   Collapsible vertical timeline showing actions and events chronologically.
+   Renders server-side from pre-loaded data (no JS fetch needed).
+
+   Parameters:
+     events       - list of dicts: {label, event_type ('action'|'event'), description}
+     case_id      - int, for the "full review" link
+     collapse_id  - str, unique ID for Bootstrap collapse (default: 'timelineStrip')
+     expanded     - bool, whether to start expanded (default: false)
+   ────────────────────────────────────────────────────────────────────────── #}
+{% macro timeline_strip(events, case_id, collapse_id='timelineStrip', expanded=false) %}
+{% if events %}
+<div class="timeline-strip-wrapper">
+    <button class="btn btn-sm btn-link text-muted timeline-strip-toggle p-0"
+            type="button"
+            data-bs-toggle="collapse"
+            data-bs-target="#{{ collapse_id }}"
+            aria-expanded="{{ 'true' if expanded else 'false' }}"
+            aria-controls="{{ collapse_id }}">
+        <i class="bi bi-clock-history me-1"></i>
+        <span class="small">Timeline</span>
+        <i class="bi bi-chevron-down ms-1 timeline-chevron" style="font-size: 0.65rem;"></i>
+    </button>
+
+    <div class="collapse {{ 'show' if expanded else '' }}" id="{{ collapse_id }}">
+        <div class="timeline-strip-content">
+            <div class="d-flex gap-3 mb-2 small text-muted align-items-center">
+                <span><i class="bi bi-play-circle me-1" style="color:#0d6efd;"></i>Action</span>
+                <span><i class="bi bi-lightning me-1" style="color:#dc3545;"></i>Event</span>
+                <span>{{ events|length }} items</span>
+            </div>
+
+            <div class="ts-timeline">
+                {% for ev in events %}
+                <div class="ts-node {{ 'ts-event' if ev.event_type == 'event' else 'ts-action' }}"
+                     title="{{ ev.description[:200] if ev.description else ev.label }}">
+                    <span class="ts-icon">
+                        {% if ev.event_type == 'event' %}
+                        <i class="bi bi-lightning"></i>
+                        {% else %}
+                        <i class="bi bi-play-circle"></i>
+                        {% endif %}
+                    </span>
+                    <span class="ts-label">{{ ev.label }}</span>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="ts-full-link">
+                <a href="/scenario_pipeline/case/{{ case_id }}/enhanced_temporal/review"
+                   class="text-decoration-none small">
+                    <i class="bi bi-box-arrow-up-right me-1"></i>Full temporal review
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endmacro %}
+
+
+{# ──────────────────────────────────────────────────────────────────────────
+   obligation_chips
+   Inline obligation/constraint chips with "vs" tension connectors.
+   Each chip triggers a popover (initialized by JS in the parent template).
+
+   Parameters:
+     obligations  - list of dicts: {label, shortened_label, entity_type, definition, uri}
+   ────────────────────────────────────────────────────────────────────────── #}
+{% macro obligation_chips(obligations) %}
+{% if obligations %}
+<div class="obligation-chip-stack">
+    {% for obl in obligations %}
+    {% set chip_class = 'chip-' + obl.entity_type if obl.entity_type in ['obligations', 'constraints'] else 'chip-default' %}
+    <span class="obligation-chip {{ chip_class }}"
+          tabindex="0"
+          data-bs-toggle="popover"
+          data-bs-trigger="focus"
+          data-bs-html="true"
+          data-bs-placement="top"
+          data-obl-label="{{ obl.label }}"
+          data-obl-type="{{ obl.entity_type }}"
+          data-obl-definition="{{ obl.definition|e }}"
+          data-obl-uri="{{ obl.uri }}"
+          title="{{ obl.label }}">
+        <span class="chip-label">{{ obl.shortened_label }}</span>
+        <i class="bi bi-info-circle chip-info-icon"></i>
+    </span>
+    {% if not loop.last %}
+    <span class="tension-vs">vs</span>
+    {% endif %}
+    {% endfor %}
+</div>
+{% endif %}
+{% endmacro %}

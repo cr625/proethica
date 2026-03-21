@@ -1,101 +1,214 @@
-{% extends "scenarios/base_step.html" %}
+{% extends "base.html" %}
+{% from 'macros/_scenario_widgets.html' import obligation_chips %}
 
-{% block step_title %}Interactive Exploration{% endblock %}
-{% block step_header %}Interactive Exploration{% endblock %}
-{% block step_subtitle %}Make decisions at each point in this ethics case{% endblock %}
+{% block title %}Interactive Exploration - {{ case.title }}{% endblock %}
 
-{% block step_styles %}
+{% block styles %}
+{{ super() }}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/ontology-labels.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/scenario-traversal.css') }}">
+<style>
+    .pipeline-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+    }
+</style>
 {% endblock %}
 
-{% block step_info %}Decision {{ current_decision.decision_index + 1 }} of {{ current_decision.total_decisions }}{% endblock %}
-
-{% block step_content %}
-
-<!-- Stepper Bar -->
-<div class="scenario-stepper d-flex justify-content-center align-items-center flex-wrap mb-4">
-    {% for dp in decision_points %}
-    {% set state = 'completed' if dp.index < current_decision.decision_index else ('active' if dp.index == current_decision.decision_index else 'future') %}
-    <div class="step-pill {{ state }}" title="{{ dp.short_label }}" data-bs-toggle="tooltip">
-        {% if state == 'completed' %}
-        <i class="bi bi-check-lg me-1"></i>
-        {% endif %}
-        {{ dp.index + 1 }}
+{% block content %}
+<!-- Pipeline header -->
+<div class="pipeline-header">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="mb-2">
+                    <i class="bi bi-signpost-split"></i> Interactive Exploration
+                </h1>
+                <p class="mb-0 lead">{{ case.title }}</p>
+            </div>
+            <div class="col-md-4 text-md-end pe-md-4">
+                <div class="mb-1">
+                    <span class="fs-3 fw-bold">
+                        Decision {{ current_decision.decision_index + 1 }}
+                        <span class="fw-normal opacity-75">of {{ current_decision.total_decisions }}</span>
+                    </span>
+                </div>
+                <a href="{{ url_for('cases.view_case', id=case.id) }}" class="text-white-50 text-decoration-none small">
+                    <i class="bi bi-arrow-left me-1"></i>Back to Case
+                </a>
+            </div>
+        </div>
     </div>
-    {% endfor %}
 </div>
 
-<!-- Decision Card -->
-<div class="decision-card mx-auto" style="view-transition-name: decision-card;">
-    <div class="card">
-        <!-- Context Block -->
-        {% if current_decision.context %}
-        <div class="context-block card-body bg-light border-bottom">
-            <p class="mb-0 text-muted">{{ current_decision.context }}</p>
-        </div>
-        {% endif %}
+<div class="container-fluid px-lg-5">
+    <div class="row">
 
-        <div class="card-body">
-            <!-- Question -->
-            <div class="question-text mb-3">
-                {{ current_decision.decision_point.question }}
-            </div>
+        {# ============================================================
+           LEFT COLUMN: Decision Card
+           ============================================================ #}
+        <div class="col-lg-8 col-xl-8">
+            <div class="decision-area-wrapper" id="decision-area">
+                <div class="decision-card" style="view-transition-name: decision-card;">
 
-            <!-- Competing Obligations -->
-            {% if current_decision.competing_obligation_labels %}
-            <div class="mb-3">
-                {% for obl in current_decision.competing_obligation_labels %}
-                <span class="badge obligation-badge me-1">{{ obl }}</span>
-                {% endfor %}
-            </div>
-            {% endif %}
-
-            <!-- Option Cards -->
-            <form method="POST"
-                  action="{{ url_for('step5.make_choice', case_id=case.id, session_uuid=session.session_uuid) }}"
-                  id="choice-form">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <input type="hidden" name="option_index" id="selected-option-index" value="">
-                <input type="hidden" name="time_spent_seconds" id="time-spent" value="0">
-
-                <div class="mb-3">
-                    {% for option in current_decision.options %}
-                    <div class="option-card p-3 mb-2 rounded border"
-                         data-option-index="{{ loop.index0 }}"
-                         role="button"
-                         tabindex="0">
-                        <div class="d-flex align-items-center">
-                            <div class="option-radio me-3">
-                                <i class="bi bi-circle option-unselected"></i>
-                                <i class="bi bi-check-circle-fill option-selected d-none text-primary"></i>
-                            </div>
-                            <div class="option-label fw-medium">{{ option.label }}</div>
-                        </div>
+                    {# Decision Maker Chip #}
+                    {% if enriched_context.decision_maker and enriched_context.decision_maker.label %}
+                    {% set dm = enriched_context.decision_maker %}
+                    <div class="decision-maker-chip"
+                         tabindex="0"
+                         data-bs-toggle="popover"
+                         data-bs-trigger="focus"
+                         data-bs-html="true"
+                         data-bs-placement="bottom"
+                         data-bs-content="<div>
+                             {% if dm.role_type %}<span class='badge bg-secondary mb-1'>{{ dm.role_type }}</span><br>{% endif %}
+                             {% if dm.professional_position %}<strong>{{ dm.professional_position }}</strong><br>{% endif %}
+                             {% if dm.ethical_stance %}<em class='text-muted small'>{{ dm.ethical_stance }}</em>{% endif %}
+                         </div>">
+                        <span class="dm-icon"><i class="bi bi-person-fill"></i></span>
+                        <span class="dm-name">{{ dm.label }}</span>
+                        {% if dm.professional_position %}
+                        <span class="dm-position">{{ dm.professional_position }}</span>
+                        {% endif %}
                     </div>
-                    {% endfor %}
+                    {% endif %}
+
+                    {# Context Block #}
+                    {% if current_decision.context %}
+                    <div class="context-block card-body bg-light border-bottom">
+                        <p class="mb-0 text-muted">{{ current_decision.context }}</p>
+                    </div>
+                    {% endif %}
+
+                    <div class="card-body">
+                        {# Question #}
+                        <div class="question-text mb-3">
+                            {{ current_decision.decision_point.question }}
+                        </div>
+
+                        {# Obligation/Constraint Chips with tension connectors #}
+                        <div class="mb-3">
+                        {{ obligation_chips(enriched_context.enriched_obligations) }}
+                        </div>
+
+                        {# Option Cards #}
+                        <form method="POST"
+                              action="{{ url_for('step5.make_choice', case_id=case.id, session_uuid=session.session_uuid) }}"
+                              id="choice-form">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="option_index" id="selected-option-index" value="">
+                            <input type="hidden" name="time_spent_seconds" id="time-spent" value="0">
+
+                            <div class="mb-3">
+                                {% for option in current_decision.options %}
+                                <div class="option-card"
+                                     data-option-index="{{ loop.index0 }}"
+                                     role="button"
+                                     tabindex="0">
+                                    <div class="d-flex align-items-center">
+                                        <div class="option-radio me-3">
+                                            <i class="bi bi-circle option-unselected"></i>
+                                            <i class="bi bi-check-circle-fill option-selected d-none text-primary"></i>
+                                        </div>
+                                        <div class="option-label fw-medium">{{ option.label }}</div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+
+                            {# Submit Strip #}
+                            <button type="submit" class="option-submit-strip" id="submit-choice" disabled>
+                                <i class="bi bi-arrow-right"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# ============================================================
+           RIGHT COLUMN: Decision History
+           ============================================================ #}
+        <div class="col-lg-4 col-xl-4">
+            <div class="timeline-sidebar" id="timeline-sidebar">
+                <div class="timeline-sidebar-header">
+                    <h6 class="mb-0">
+                        <i class="bi bi-signpost-split me-1"></i> Your Decisions
+                    </h6>
+                    <span class="badge bg-secondary">
+                        {{ current_decision.decision_index + 1 }}/{{ current_decision.total_decisions }}
+                    </span>
                 </div>
 
-                <!-- Submit Button -->
-                <div class="text-end">
-                    <button type="submit" class="btn btn-primary btn-lg" id="submit-choice" disabled>
-                        Make This Choice <i class="bi bi-arrow-right ms-1"></i>
-                    </button>
+                <div class="timeline-sidebar-body">
+                    <div class="sidebar-timeline">
+                        {# -- Completed decisions: show what the user chose -- #}
+                        {% for choice in previous_choices %}
+                        <div class="stl-node stl-decision stl-completed">
+                            <div class="stl-marker stl-marker-decision">
+                                <i class="bi bi-check-lg"></i>
+                            </div>
+                            <div class="stl-content">
+                                <div class="stl-decision-label">
+                                    Decision {{ choice.decision_point_index + 1 }}
+                                </div>
+                                <div class="stl-choice-made">
+                                    <i class="bi bi-arrow-return-right me-1"></i>{{ choice.chosen_option_label }}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+
+                        {# -- Current active decision -- #}
+                        <div class="stl-node stl-decision stl-active">
+                            <div class="stl-marker stl-marker-decision">
+                                <i class="bi bi-signpost-split"></i>
+                            </div>
+                            <div class="stl-content">
+                                <div class="stl-decision-label">
+                                    Decision {{ current_decision.decision_index + 1 }}
+                                </div>
+                                <div class="stl-decision-detail">
+                                    Awaiting your choice...
+                                </div>
+                            </div>
+                        </div>
+
+                        {# -- Future decisions: just numbered placeholders -- #}
+                        {% for dp in decision_points %}
+                        {% if dp.index > current_decision.decision_index %}
+                        <div class="stl-node stl-decision stl-future">
+                            <div class="stl-marker stl-marker-decision">
+                                <span class="stl-dp-number">{{ dp.index + 1 }}</span>
+                            </div>
+                            <div class="stl-content">
+                                <div class="stl-decision-label">
+                                    Decision {{ dp.index + 1 }}
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
                 </div>
-            </form>
+            </div>
         </div>
+
     </div>
 </div>
 
 {% endblock %}
 
-{% block step_navigation_bottom %}
-{# No standard prev/next navigation during traversal #}
-{% endblock %}
-
-{% block step_scripts %}
+{% block scripts %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/ontology-popovers.js') }}"></script>
 <script>
 (function() {
-    // Initialize Bootstrap tooltips on stepper pills
+    // =====================================================================
+    // Bootstrap tooltips
+    // =====================================================================
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     tooltipTriggerList.forEach(function(el) { new bootstrap.Tooltip(el); });
 
@@ -104,20 +217,30 @@
         document.documentElement.classList.add('no-view-transitions');
     }
 
+    // =====================================================================
+    // Decision maker popover
+    // =====================================================================
+    var dmChip = document.querySelector('.decision-maker-chip[data-bs-toggle="popover"]');
+    if (dmChip) {
+        new bootstrap.Popover(dmChip, { container: 'body', sanitize: false });
+    }
+
+    var ontserveBaseUrl = '{{ ontserve_web_url }}';
+
+    // =====================================================================
     // Option selection
+    // =====================================================================
     var optionCards = document.querySelectorAll('.option-card');
     var hiddenInput = document.getElementById('selected-option-index');
     var submitBtn = document.getElementById('submit-choice');
 
     optionCards.forEach(function(card) {
         card.addEventListener('click', function() {
-            // Deselect all
             optionCards.forEach(function(c) {
                 c.classList.remove('selected');
                 c.querySelector('.option-unselected').classList.remove('d-none');
                 c.querySelector('.option-selected').classList.add('d-none');
             });
-            // Select this one
             this.classList.add('selected');
             this.querySelector('.option-unselected').classList.add('d-none');
             this.querySelector('.option-selected').classList.remove('d-none');
@@ -133,7 +256,9 @@
         });
     });
 
+    // =====================================================================
     // Time tracking
+    // =====================================================================
     var startTime = Date.now();
     var timeInput = document.getElementById('time-spent');
     document.getElementById('choice-form').addEventListener('submit', function() {
@@ -141,10 +266,127 @@
         timeInput.value = elapsed;
     });
 
-    // View Transition on form submit (cross-document transitions via CSS)
-    // Note: document.startViewTransition() is for same-page DOM updates.
-    // For page-to-page transitions, use @view-transition CSS at-rule (auto opt-in).
-    // No JS interception needed; the CSS handles it.
+    // =====================================================================
+    // Scroll active decision into view in the timeline sidebar
+    // =====================================================================
+    var activeNode = document.querySelector('.stl-decision.stl-active');
+    if (activeNode) {
+        var sidebar = document.querySelector('.timeline-sidebar-body');
+        if (sidebar) {
+            // Delay to let layout settle
+            setTimeout(function() {
+                activeNode.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            }, 200);
+        }
+    }
+
+    // =====================================================================
+    // Entity annotation (inline popovers in text)
+    // =====================================================================
+    {% if entity_lookup_by_label %}
+    var ENTITY_LOOKUP_BY_LABEL = {
+        {% for label, entity in entity_lookup_by_label.items() %}
+        "{{ label|e }}": {
+            label: "{{ (entity.label or '')|e }}",
+            definition: "{{ (entity.definition or '')|e|replace('\n', ' ')|replace('\r', '') }}",
+            entityType: "{{ (entity.extraction_type or entity.entity_type or '')|e }}",
+            source: "{{ (entity.source or 'case')|e }}",
+            sourcePass: {{ entity.source_pass or 'null' }},
+            uri: "{{ (entity.uri or '')|e }}",
+            aliasTypes: {{ (entity.alias_types or [])|tojson }},
+            ontologyTarget: "{{ (entity.ontology_target or '')|e }}"
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    };
+
+    document.addEventListener('DOMContentLoaded', function() {
+        var decisionArea = document.getElementById('decision-area');
+
+        if (decisionArea) {
+            scanTextForEntities(decisionArea, ENTITY_LOOKUP_BY_LABEL, {
+                excludeSelector: '.onto-label, a, button, .badge, .obligation-chip'
+            });
+            initializePopovers(decisionArea, ontserveBaseUrl);
+        }
+
+        // Initialize obligation chip popovers AFTER entity scanning
+        // to avoid DOM mutations breaking popover bindings
+        initObligationChipPopovers();
+    });
+    {% else %}
+    document.addEventListener('DOMContentLoaded', function() {
+        initObligationChipPopovers();
+    });
+    {% endif %}
+
+    function initObligationChipPopovers() {
+        document.querySelectorAll('.obligation-chip[data-bs-toggle="popover"]').forEach(function(chip) {
+            // Skip if already initialized
+            if (bootstrap.Popover.getInstance(chip)) return;
+
+            var fullLabel = chip.dataset.oblLabel || '';
+            var oblType = chip.dataset.oblType || '';
+            var definition = chip.dataset.oblDefinition || '';
+            var uri = chip.dataset.oblUri || '';
+
+            var defDisplay = definition;
+            if (defDisplay.length > 200) {
+                defDisplay = defDisplay.substring(0, 200) + '...';
+            }
+
+            var content = '<div class="obl-chip-popover">';
+            content += '<div class="obl-full-label">' + fullLabel + '</div>';
+            if (oblType) {
+                content += '<span class="badge onto-type-' + oblType + ' mb-2" style="font-size:0.7rem;">' + oblType + '</span>';
+            }
+            if (defDisplay) {
+                content += '<div class="obl-definition">' + defDisplay + '</div>';
+            }
+
+            {% if enriched_context.provisions %}
+            var provisions = [
+                {% for prov in enriched_context.provisions %}
+                { label: "{{ prov.label|e }}", definition: "{{ (prov.definition or '')|e|replace('\n', ' ')|replace('\r', '') }}" }{% if not loop.last %},{% endif %}
+                {% endfor %}
+            ];
+            for (var p = 0; p < provisions.length; p++) {
+                var provWords = provisions[p].label.toLowerCase().split(/\s+/);
+                var oblLower = fullLabel.toLowerCase();
+                var matchCount = provWords.filter(function(w) { return w.length > 3 && oblLower.indexOf(w) !== -1; }).length;
+                if (matchCount >= 2 || (provWords.length <= 3 && matchCount >= 1)) {
+                    var provDef = provisions[p].definition;
+                    if (provDef.length > 120) provDef = provDef.substring(0, 120) + '...';
+                    content += '<div class="obl-provision"><strong>' + provisions[p].label + '</strong>';
+                    if (provDef) content += '<br>' + provDef;
+                    content += '</div>';
+                    break;
+                }
+            }
+            {% endif %}
+
+            if (uri && uri.indexOf('#') !== -1 && ontserveBaseUrl) {
+                var fragment = uri.split('#').pop();
+                var ontTarget = '';
+                var uriBase = uri.split('#')[0];
+                var lastSlash = uriBase.lastIndexOf('/');
+                if (lastSlash !== -1) ontTarget = uriBase.substring(lastSlash + 1);
+                if (ontTarget && fragment) {
+                    var ontUrl = ontserveBaseUrl + '/entity/' + encodeURIComponent(ontTarget) + '/' + encodeURIComponent(fragment);
+                    content += '<div class="obl-ontserve-link"><a href="' + ontUrl + '" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right me-1"></i>View in OntServe</a></div>';
+                }
+            }
+
+            content += '</div>';
+
+            new bootstrap.Popover(chip, {
+                container: 'body',
+                sanitize: false,
+                trigger: 'click',
+                content: content,
+                html: true
+            });
+        });
+    }
 })();
 </script>
 {% endblock %}
