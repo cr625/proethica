@@ -348,6 +348,13 @@ document.addEventListener('DOMContentLoaded', function() {
             var target = pane.querySelector('[data-entity-uri="' + uri + '"]');
             if (!target) return;
 
+            // Auto-expand accordion if target is inside a collapsed one
+            var accordionBody = target.closest('.accordion-collapse');
+            if (accordionBody && !accordionBody.classList.contains('show')) {
+                var bsCollapse = bootstrap.Collapse.getOrCreateInstance(accordionBody, {toggle: false});
+                bsCollapse.show();
+            }
+
             target.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
             // Apply highlight pulse

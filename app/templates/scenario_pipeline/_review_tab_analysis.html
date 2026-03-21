@@ -21,16 +21,34 @@
                 <span class="badge bg-warning text-dark ms-2">{{ rich_analysis.causal_links|length }}</span>
             </h6>
             {% if rich_analysis.causal_links %}
-            <div class="row">
+            <div class="accordion" id="causalLinksAccordion">
                 {% for cl in rich_analysis.causal_links %}
-                <div class="col-md-6 mb-3">
-                    <div class="card border-warning">
-                        <div class="card-body py-2">
-                            <h6 class="card-title mb-2">{{ cl.action_label }}</h6>
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed py-2" type="button"
+                                data-bs-toggle="collapse"
+                                data-bs-target="#cl-{{ loop.index }}"
+                                aria-expanded="false"
+                                aria-controls="cl-{{ loop.index }}">
+                            <span class="me-2">{{ cl.action_label }}</span>
+                            {% if cl.fulfills_obligations %}
+                            <span class="badge bg-success ms-auto me-1">{{ cl.fulfills_obligations|length }} fulfills</span>
+                            {% else %}
+                            <span class="badge bg-light text-muted border ms-auto me-1">0 fulfills</span>
+                            {% endif %}
+                            {% if cl.violates_obligations %}
+                            <span class="badge bg-danger">{{ cl.violates_obligations|length }} violates</span>
+                            {% else %}
+                            <span class="badge bg-light text-muted border">0 violates</span>
+                            {% endif %}
+                        </button>
+                    </h2>
+                    <div id="cl-{{ loop.index }}" class="accordion-collapse collapse"
+                         data-bs-parent="#causalLinksAccordion">
+                        <div class="accordion-body">
                             {% if cl.action_definition %}
                             <p class="text-muted small mb-2">{{ cl.action_definition }}</p>
                             {% endif %}
-                            <!-- Fulfills Section -->
                             <div class="mb-2 p-2 rounded" style="background-color: rgba(25, 135, 84, 0.08);">
                                 <small class="text-success fw-bold d-block mb-1">Fulfills</small>
                                 {% if cl.fulfills_obligations %}
@@ -43,7 +61,6 @@
                                 <span class="text-muted small">None</span>
                                 {% endif %}
                             </div>
-                            <!-- Violates Section -->
                             <div class="p-2 rounded" style="background-color: rgba(220, 53, 69, 0.08);">
                                 <small class="text-danger fw-bold d-block mb-1">Violates</small>
                                 {% if cl.violates_obligations %}
