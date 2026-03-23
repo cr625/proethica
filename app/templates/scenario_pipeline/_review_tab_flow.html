@@ -8,13 +8,17 @@
     </div>
     <div class="card-body">
         <!-- Graph Controls -->
-        <div class="mb-3">
+        <div class="mb-3 d-flex flex-wrap gap-2 align-items-center">
             <button id="reset-graph" class="btn btn-sm btn-outline-secondary">
                 <i class="bi bi-arrow-clockwise"></i> Reset Layout
             </button>
-            <div class="btn-group ms-2" role="group">
+            <div class="btn-group" role="group">
                 <input type="checkbox" class="btn-check" id="show-labels" checked autocomplete="off">
                 <label class="btn btn-outline-secondary btn-sm" for="show-labels">Show Labels</label>
+            </div>
+            <div class="btn-group" role="group">
+                <input type="checkbox" class="btn-check" id="show-entities" autocomplete="off">
+                <label class="btn btn-outline-secondary btn-sm" for="show-entities">Show Entities</label>
             </div>
         </div>
 
@@ -47,24 +51,24 @@
         </div>
 
         <!-- Legend -->
-        <div class="mt-3">
-            <h6>Node Types & Relationships</h6>
-            <div class="row">
-                <div class="col-md-6">
+        <div class="mt-3 small">
+            <p class="text-muted mb-2">The board's deliberative chain: which code provisions informed which ethical questions, and how those questions were resolved. Toggle "Show Entities" to see which entities each provision applies to.</p>
+            <div class="d-flex flex-wrap gap-4">
+                <div>
                     <strong>Nodes:</strong>
-                    <div class="d-flex flex-wrap gap-3 mt-2">
-                        <span><span class="badge" style="background-color: #495057;">&#9632;</span> NSPE Provisions</span>
-                        <span><span class="badge" style="background-color: #0dcaf0; color: #212529;">&#9670;</span> Questions</span>
-                        <span><span class="badge" style="background-color: #198754;">&#9644;</span> Conclusions</span>
-                        <span><span class="badge" style="background-color: #1d4ed8;">&#9644;</span> Entities (labels)</span>
+                    <div class="d-flex flex-wrap gap-2 mt-1">
+                        <span><span class="badge" style="background-color: #495057;">&#9632;</span> Provision (e.g., I.1.)</span>
+                        <span><span class="badge" style="background-color: #0dcaf0; color: #212529;">&#9670;</span> Question: Board = board-explicit, Impl = implicit, Tens = principle tension, Theo = theoretical, CF = counterfactual</span>
+                        <span><span class="badge" style="background-color: #198754;">&#9644;</span> Conclusion: Board = board-explicit, Resp = question response, Ext = analytical extension, Synth = principle synthesis</span>
+                        <span><span class="badge" style="background-color: #1d4ed8;">&#9644;</span> Entity (hidden by default)</span>
                     </div>
                 </div>
-                <div class="col-md-6">
-                    <strong>Edge Colors:</strong>
-                    <div class="mt-2">
-                        <span class="badge" style="background-color: #495057;">&rarr;</span> Provision informs Question<br>
-                        <span class="badge" style="background-color: #0dcaf0; color: #212529;">&rarr;</span> Question answered by Conclusion<br>
-                        <span class="badge" style="background-color: #1d4ed8;">&rarr;</span> Provision applies to Entity
+                <div>
+                    <strong>Edges:</strong>
+                    <div class="d-flex flex-wrap gap-2 mt-1">
+                        <span><span class="badge" style="background-color: #495057;">&rarr;</span> informs</span>
+                        <span><span class="badge" style="background-color: #0dcaf0; color: #212529;">&rarr;</span> answered by</span>
+                        <span><span class="badge" style="background-color: #1d4ed8;">&rarr;</span> applies to</span>
                     </div>
                 </div>
             </div>

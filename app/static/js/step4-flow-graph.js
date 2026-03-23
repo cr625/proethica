@@ -77,19 +77,42 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // Question type abbreviations for compact labels
+    var qTypeAbbrev = {
+        'board_explicit': 'Board',
+        'implicit': 'Impl',
+        'principle_tension': 'Tens',
+        'theoretical': 'Theo',
+        'counterfactual': 'CF'
+    };
+
+    // Conclusion type abbreviations
+    var cTypeAbbrev = {
+        'board_explicit': 'Board',
+        'question_response': 'Resp',
+        'analytical_extension': 'Ext',
+        'principle_synthesis': 'Synth'
+    };
+
     // Add Question nodes
     questions.forEach(function(q) {
         var nodeId = 'q_' + q.id;
         nodeIds.add(nodeId);
 
+        var qNum = (q.rdf_json_ld && q.rdf_json_ld.questionNumber) || '';
+        var qType = (q.rdf_json_ld && q.rdf_json_ld.questionType) || '';
+        var abbrev = qTypeAbbrev[qType] || '';
+        var compactLabel = 'Q' + qNum + (abbrev ? '\n' + abbrev : '');
+
         elements.push({
             group: 'nodes',
             data: {
                 id: nodeId,
-                label: q.entity_label,
+                label: compactLabel,
                 type: 'question',
                 fullText: q.entity_definition,
-                nodeType: 'Question'
+                nodeType: 'Question (' + (abbrev || qType) + ')',
+                questionType: qType
             }
         });
 
@@ -126,14 +149,23 @@ document.addEventListener('DOMContentLoaded', function() {
         var nodeId = 'c_' + c.id;
         nodeIds.add(nodeId);
 
+        var cType = (c.rdf_json_ld && c.rdf_json_ld.conclusionType) || '';
+        var abbrev = cTypeAbbrev[cType] || '';
+        var answersQs = (c.rdf_json_ld && c.rdf_json_ld.answersQuestions) || [];
+        var compactLabel = abbrev || 'C';
+        if (answersQs.length > 0) {
+            compactLabel = 'Q' + answersQs[0] + '\n' + abbrev;
+        }
+
         elements.push({
             group: 'nodes',
             data: {
                 id: nodeId,
-                label: c.entity_label,
+                label: compactLabel,
                 type: 'conclusion',
                 fullText: c.entity_definition,
-                nodeType: 'Conclusion'
+                nodeType: 'Conclusion (' + (abbrev || cType) + ')',
+                conclusionType: cType
             }
         });
 
@@ -220,12 +252,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     'label': function(ele) {
                         var label = ele.data('label') || '';
                         var type = ele.data('type');
+                        // Questions and conclusions already have compact labels
+                        if (type === 'question' || type === 'conclusion' || type === 'provision') {
+                            return label;
+                        }
                         var displayLabel = formatLabelForDisplay(label);
-                        var maxLen;
-                        if (type === 'provision') maxLen = 10;
-                        else if (type === 'question' || type === 'conclusion') maxLen = 14;
-                        else if (isShortCode(label)) maxLen = 8;
-                        else maxLen = 18;
+                        var maxLen = isShortCode(label) ? 8 : 18;
                         return displayLabel.length > maxLen ? displayLabel.substring(0, maxLen) + '...' : displayLabel;
                     },
                     'color': function(ele) {
@@ -340,6 +372,56 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // Hide entity nodes and their edges by default (show only P->Q->C chain)
+    cy.nodes().filter(function(n) {
+        var type = n.data('type');
+        return type !== 'provision' && type !== 'question' && type !== 'conclusion';
+    }).style('display', 'none');
+
+    cy.edges().filter(function(e) {
+        return e.data('edgeType') === 'provision_to_entity';
+    }).style('display', 'none');
+
+    // Re-run layout after hiding to use the space better
+    cy.layout({
+        name: 'cose',
+        idealEdgeLength: 120,
+        nodeOverlap: 40,
+        avoidOverlap: true,
+        nodeDimensionsIncludeLabels: true,
+        fit: true,
+        padding: 40,
+        animate: true,
+        animationDuration: 300
+    }).run();
+
+    // Toggle entity visibility
+    var showEntitiesCheckbox = document.getElementById('show-entities');
+    if (showEntitiesCheckbox) {
+        showEntitiesCheckbox.addEventListener('change', function(e) {
+            var displayVal = e.target.checked ? 'element' : 'none';
+            cy.nodes().filter(function(n) {
+                var type = n.data('type');
+                return type !== 'provision' && type !== 'question' && type !== 'conclusion';
+            }).style('display', displayVal);
+            cy.edges().filter(function(edge) {
+                return edge.data('edgeType') === 'provision_to_entity';
+            }).style('display', displayVal);
+            // Re-layout
+            cy.layout({
+                name: 'cose',
+                idealEdgeLength: e.target.checked ? 150 : 120,
+                nodeOverlap: 40,
+                avoidOverlap: true,
+                nodeDimensionsIncludeLabels: true,
+                fit: true,
+                padding: 40,
+                animate: true,
+                animationDuration: 300
+            }).run();
+        });
+    }
+
     // Reset layout
     document.getElementById('reset-graph').addEventListener('click', function() {
         cy.layout({
@@ -358,12 +440,9 @@ document.addEventListener('DOMContentLoaded', function() {
             cy.style().selector('node').style('label', function(ele) {
                 var label = ele.data('label') || '';
                 var type = ele.data('type');
+                if (type === 'question' || type === 'conclusion' || type === 'provision') return label;
                 var displayLabel = formatLabelForDisplay(label);
-                var maxLen;
-                if (type === 'provision') maxLen = 10;
-                else if (type === 'question' || type === 'conclusion') maxLen = 14;
-                else if (isShortCode(label)) maxLen = 8;
-                else maxLen = 18;
+                var maxLen = isShortCode(label) ? 8 : 18;
                 return displayLabel.length > maxLen ? displayLabel.substring(0, maxLen) + '...' : displayLabel;
             }).update();
         } else {
