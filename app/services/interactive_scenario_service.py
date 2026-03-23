@@ -28,6 +28,18 @@ from app.models.scenario_exploration import ScenarioExplorationSession, Scenario
 logger = logging.getLogger(__name__)
 
 
+def get_phase4_prompt(case_id: int):
+    """Get the latest phase4_narrative ExtractionPrompt record for a case.
+
+    Shared accessor used by both InteractiveScenarioService and step5 route
+    module to avoid duplicating the query.
+    """
+    return ExtractionPrompt.query.filter_by(
+        case_id=case_id,
+        concept_type='phase4_narrative'
+    ).order_by(ExtractionPrompt.created_at.desc()).first()
+
+
 class InteractiveScenarioService:
     """Service for managing interactive scenario explorations (pure data reader)."""
 
@@ -704,11 +716,7 @@ class InteractiveScenarioService:
 
     def _load_phase4_data(self, case_id: int) -> Dict:
         """Load the full phase4_narrative JSON for a case."""
-        prompt = ExtractionPrompt.query.filter_by(
-            case_id=case_id,
-            concept_type='phase4_narrative'
-        ).order_by(ExtractionPrompt.created_at.desc()).first()
-
+        prompt = get_phase4_prompt(case_id)
         if prompt and prompt.raw_response:
             try:
                 return json.loads(prompt.raw_response)
@@ -718,10 +726,7 @@ class InteractiveScenarioService:
 
     def _load_decision_points(self, case_id: int) -> List[Dict]:
         """Load decision points from Phase 4 data, filtered by interactive selection."""
-        prompt = ExtractionPrompt.query.filter_by(
-            case_id=case_id,
-            concept_type='phase4_narrative'
-        ).order_by(ExtractionPrompt.created_at.desc()).first()
+        prompt = get_phase4_prompt(case_id)
 
         if prompt and prompt.raw_response:
             try:
@@ -735,10 +740,18 @@ class InteractiveScenarioService:
                     if selection and selection.get('branch_indices'):
                         selected_indices = set(selection['branch_indices'])
                     else:
-                        # No stored selection — compute on the fly
+                        # No stored selection -- compute and persist so the
+                        # selection is stable even if scoring heuristics change
                         from app.services.scenario_consolidation_service import consolidate_branches
                         result = consolidate_branches(branches)
                         selected_indices = set(result['branch_indices'])
+                        seeds['interactive_selection'] = result
+                        prompt.raw_response = json.dumps(data)
+                        db.session.commit()
+                        logger.info(
+                            f"Persisted interactive_selection for case {case_id}: "
+                            f"{len(selected_indices)} of {len(branches)} branches"
+                        )
 
                     decision_points = []
                     for i, branch in enumerate(branches):

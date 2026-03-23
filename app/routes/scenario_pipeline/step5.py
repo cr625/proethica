@@ -16,6 +16,7 @@ from app.models import Document, TemporaryRDFStorage, ExtractionPrompt, db
 from app.models.scenario_exploration import ScenarioExplorationSession
 from app.utils.environment_auth import auth_required_for_llm, auth_optional
 from app.services.pipeline_status_service import PipelineStatusService
+from app.services.interactive_scenario_service import get_phase4_prompt
 
 # Import scenario generation
 from app.routes.scenario_pipeline.generate_scenario import generate_scenario_from_case
@@ -182,11 +183,7 @@ def _load_phase4_data(case_id: int):
 
     Returns dict with narrative_elements, timeline, scenario_seeds, insights
     """
-    # Get the latest Phase 4 extraction prompt
-    prompt = ExtractionPrompt.query.filter_by(
-        case_id=case_id,
-        concept_type='phase4_narrative'
-    ).order_by(ExtractionPrompt.created_at.desc()).first()
+    prompt = get_phase4_prompt(case_id)
 
     if not prompt or not prompt.results_summary:
         return None
