@@ -1,64 +1,339 @@
-{# Step 4 Review -- Precedents tab (cited prior BER cases).
-   Parent provides: case, precedents
+{# Step 4 Review -- Precedents tab.
+   Parent provides: case, precedents, precedent_features, cited_cases, similar_cases
+   Two-layer cross-case architecture:
+     1. Explicit layer: board-authored citations (precedent_citation entities + cited_case_ids)
+     2. Implicit layer: similarity-based matches (from component embeddings)
 #}
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0"><i class="bi bi-journal-bookmark"></i> Cited Precedent Cases</h5>
+        <h5 class="mb-0"><i class="bi bi-journal-bookmark"></i> Cross-Case Connections</h5>
         <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}#precedentsSection" class="btn btn-sm btn-outline-secondary">
             <i class="bi bi-arrow-left"></i> View Extraction
         </a>
     </div>
     <div class="card-body">
+
+        {# ── Explicit Layer: Board-Authored Citations ── #}
+        {# Merge cited_cases (from case_precedent_features) with extracted citation detail (precedent entities).
+           Build a lookup: internalCaseId -> extracted precedent entity, so each cited case card
+           can include citation type, principle, and excerpts without duplication. #}
+        {% set prec_by_case_id = namespace(data={}) %}
+        {% set unmatched_precs = [] %}
         {% if precedents %}
-            {% for prec in precedents %}
-            <div class="card mb-3">
-                <div class="card-header bg-light">
-                    <h6 class="mb-0">
-                        <strong>{{ prec.entity_label }}</strong>
-                        {% if prec.rdf_json_ld and prec.rdf_json_ld.citationType %}
-                        {% set ct = prec.rdf_json_ld.citationType %}
-                        <span class="badge ms-2 {% if ct == 'supporting' %}bg-success{% elif ct == 'distinguishing' %}bg-warning text-dark{% elif ct == 'analogizing' %}bg-info{% elif ct == 'overruling' %}bg-danger{% else %}bg-secondary{% endif %}">
-                            {{ ct }}
-                        </span>
-                        {% endif %}
-                        {% if prec.rdf_json_ld and prec.rdf_json_ld.resolved %}
-                        <span class="badge bg-primary ms-1" title="Resolved to internal case">
-                            <i class="bi bi-link-45deg"></i> linked
-                        </span>
-                        {% endif %}
-                    </h6>
-                </div>
-                <div class="card-body">
-                    {% if prec.rdf_json_ld and prec.rdf_json_ld.principleEstablished %}
-                    <p class="mb-2"><strong>Principle Established:</strong></p>
-                    <p class="text-muted mb-3">{{ prec.rdf_json_ld.principleEstablished }}</p>
-                    {% endif %}
+        {% for prec in precedents %}
+            {% set internal_id = prec.rdf_json_ld.internalCaseId|default(None) if prec.rdf_json_ld else None %}
+            {% if internal_id %}
+                {% set _ = prec_by_case_id.data.update({internal_id: prec}) %}
+            {% else %}
+                {% set _ = unmatched_precs.append(prec) %}
+            {% endif %}
+        {% endfor %}
+        {% endif %}
 
-                    {% if prec.entity_definition %}
-                    <p class="mb-2"><strong>Citation Context:</strong></p>
-                    <p class="text-muted mb-3">{{ prec.entity_definition }}</p>
-                    {% endif %}
+        {% set has_citations = (precedents and precedents|length > 0) or (cited_cases and cited_cases|length > 0) %}
 
-                    {% if prec.rdf_json_ld and prec.rdf_json_ld.relevantExcerpts %}
-                    <p class="mb-2"><strong>Relevant Excerpts:</strong></p>
-                    {% for excerpt in prec.rdf_json_ld.relevantExcerpts %}
-                    <div class="alert alert-info mb-2">
-                        <small class="text-muted"><strong>From {{ excerpt.section }}:</strong></small><br>
-                        "{{ excerpt.text }}"
+        {% if has_citations %}
+        <div class="mb-4">
+            <h6 class="d-flex align-items-center mb-3">
+                <span class="badge bg-dark me-2">Explicit</span>
+                Board-Cited Precedents
+                <span class="badge bg-secondary ms-2">{{ cited_cases|length if cited_cases else (precedents|length if precedents else 0) }}</span>
+                {% if cited_cases and cited_cases|length > 0 %}
+                <a href="{{ url_for('precedents.lineage_graph_view', case_id=case.id) }}"
+                   class="btn btn-sm btn-outline-dark ms-auto" title="View citation lineage graph">
+                    <i class="bi bi-diagram-2"></i> Lineage Graph
+                </a>
+                {% endif %}
+            </h6>
+            <p class="text-muted small mb-3">Cases explicitly cited by the Board in this opinion. These represent direct expert judgment about intertextual relevance.</p>
+
+            {# Cited cases enriched with extracted citation detail #}
+            {% if cited_cases and cited_cases|length > 0 %}
+            {% for cited in cited_cases %}
+            {% set prec = prec_by_case_id.data.get(cited.id) %}
+            {% set prec_id = 'prec-cited-' ~ cited.id %}
+            {% set ct = prec.rdf_json_ld.citationType if prec and prec.rdf_json_ld and prec.rdf_json_ld.citationType else '' %}
+
+            <div class="precedent-item mb-2">
+                <div class="precedent-header d-flex align-items-start p-2 rounded"
+                     {% if prec %}data-bs-toggle="collapse" data-bs-target="#{{ prec_id }}" role="button"
+                     aria-expanded="false" aria-controls="{{ prec_id }}"{% endif %}>
+                    {% if prec %}<i class="bi bi-chevron-right precedent-chevron me-2 mt-1"></i>{% endif %}
+                    <div class="flex-grow-1">
+                        <div class="d-flex align-items-center flex-wrap gap-2">
+                            <strong>
+                                <a href="{{ url_for('scenario_pipeline.overview', case_id=cited.id) }}" class="text-decoration-none" onclick="event.stopPropagation();">
+                                    {% if cited.case_number %}Case {{ cited.case_number }}{% else %}Case #{{ cited.id }}{% endif %}
+                                </a>
+                            </strong>
+                            <small class="text-muted">{{ cited.title[:60] }}{% if cited.title|length > 60 %}...{% endif %}</small>
+                            {% if ct %}
+                            <span class="badge {% if ct == 'supporting' %}bg-success{% elif ct == 'distinguishing' %}bg-warning text-dark{% elif ct == 'analogizing' %}bg-info{% elif ct == 'overruling' %}bg-danger{% else %}bg-secondary{% endif %}">
+                                {{ ct }}
+                            </span>
+                            {% endif %}
+                        </div>
+                        {% if prec and prec.rdf_json_ld and prec.rdf_json_ld.principleEstablished %}
+                        <small class="text-muted d-block mt-1">{{ prec.rdf_json_ld.principleEstablished[:120] }}{% if prec.rdf_json_ld.principleEstablished|length > 120 %}...{% endif %}</small>
+                        {% endif %}
                     </div>
-                    {% endfor %}
-                    {% endif %}
-
-                    {% if prec.rdf_json_ld and prec.rdf_json_ld.internalCaseId %}
-                    <a href="{{ url_for('scenario_pipeline.overview', case_id=prec.rdf_json_ld.internalCaseId) }}" class="btn btn-sm btn-outline-primary">
-                        <i class="bi bi-box-arrow-up-right"></i> View Cited Case
+                    <a href="{{ url_for('step4.step4_review', case_id=cited.id) }}"
+                       class="btn btn-sm btn-outline-primary ms-2 flex-shrink-0" title="View synthesis" onclick="event.stopPropagation();">
+                        <i class="bi bi-box-arrow-up-right"></i>
                     </a>
-                    {% endif %}
+                </div>
+
+                {% if prec %}
+                <div class="collapse" id="{{ prec_id }}">
+                    <div class="precedent-detail ps-4 pe-2 pb-3 pt-2">
+                        {% if prec.rdf_json_ld and prec.rdf_json_ld.principleEstablished %}
+                        <p class="mb-2"><strong>Principle Established:</strong></p>
+                        <p class="text-muted mb-3">{{ prec.rdf_json_ld.principleEstablished }}</p>
+                        {% endif %}
+
+                        {% if prec.entity_definition %}
+                        <p class="mb-2"><strong>Citation Context:</strong></p>
+                        <p class="text-muted mb-3">{{ prec.entity_definition }}</p>
+                        {% endif %}
+
+                        {% if prec.rdf_json_ld and prec.rdf_json_ld.relevantExcerpts %}
+                        <div class="mb-3">
+                            <small class="fw-semibold text-uppercase text-muted d-block mb-1">Relevant Excerpts</small>
+                            {% for excerpt in prec.rdf_json_ld.relevantExcerpts %}
+                            <div class="excerpt-card mb-2 p-2 border-start border-info border-3 bg-light rounded-end">
+                                <small class="text-muted fw-semibold">{{ excerpt.section }}:</small>
+                                <small class="fst-italic">"{{ excerpt.text }}"</small>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+
+            {# Any extracted citations that didn't match a cited_case_id (orphaned) #}
+            {% if unmatched_precs %}
+            {% for prec in unmatched_precs %}
+            {% set prec_id = 'prec-' ~ prec.id %}
+            {% set ct = prec.rdf_json_ld.citationType if prec.rdf_json_ld and prec.rdf_json_ld.citationType else '' %}
+            <div class="precedent-item mb-2">
+                <div class="precedent-header d-flex align-items-start p-2 rounded"
+                     data-bs-toggle="collapse" data-bs-target="#{{ prec_id }}" role="button"
+                     aria-expanded="false" aria-controls="{{ prec_id }}">
+                    <i class="bi bi-chevron-right precedent-chevron me-2 mt-1"></i>
+                    <div class="flex-grow-1">
+                        <div class="d-flex align-items-center flex-wrap gap-2">
+                            <strong>{{ prec.entity_label }}</strong>
+                            {% if ct %}
+                            <span class="badge {% if ct == 'supporting' %}bg-success{% elif ct == 'distinguishing' %}bg-warning text-dark{% elif ct == 'analogizing' %}bg-info{% elif ct == 'overruling' %}bg-danger{% else %}bg-secondary{% endif %}">
+                                {{ ct }}
+                            </span>
+                            {% endif %}
+                        </div>
+                        {% if prec.rdf_json_ld and prec.rdf_json_ld.principleEstablished %}
+                        <small class="text-muted d-block mt-1">{{ prec.rdf_json_ld.principleEstablished[:120] }}{% if prec.rdf_json_ld.principleEstablished|length > 120 %}...{% endif %}</small>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="collapse" id="{{ prec_id }}">
+                    <div class="precedent-detail ps-4 pe-2 pb-3 pt-2">
+                        {% if prec.rdf_json_ld and prec.rdf_json_ld.principleEstablished %}
+                        <p class="mb-2"><strong>Principle Established:</strong></p>
+                        <p class="text-muted mb-3">{{ prec.rdf_json_ld.principleEstablished }}</p>
+                        {% endif %}
+                        {% if prec.entity_definition %}
+                        <p class="mb-2"><strong>Citation Context:</strong></p>
+                        <p class="text-muted mb-3">{{ prec.entity_definition }}</p>
+                        {% endif %}
+                        {% if prec.rdf_json_ld and prec.rdf_json_ld.relevantExcerpts %}
+                        <div class="mb-3">
+                            <small class="fw-semibold text-uppercase text-muted d-block mb-1">Relevant Excerpts</small>
+                            {% for excerpt in prec.rdf_json_ld.relevantExcerpts %}
+                            <div class="excerpt-card mb-2 p-2 border-start border-info border-3 bg-light rounded-end">
+                                <small class="text-muted fw-semibold">{{ excerpt.section }}:</small>
+                                <small class="fst-italic">"{{ excerpt.text }}"</small>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        {% if prec.rdf_json_ld and prec.rdf_json_ld.internalCaseId %}
+                        <a href="{{ url_for('scenario_pipeline.overview', case_id=prec.rdf_json_ld.internalCaseId) }}" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-box-arrow-up-right"></i> View Cited Case
+                        </a>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
             {% endfor %}
-        {% else %}
-            <p class="text-muted">No precedent case references extracted yet.</p>
+            {% endif %}
+
+            {% elif precedents and precedents|length > 0 %}
+            {# No cited_cases but have extracted citation entities #}
+            {% for prec in precedents %}
+            {% set prec_id = 'prec-' ~ prec.id %}
+            {% set ct = prec.rdf_json_ld.citationType if prec.rdf_json_ld and prec.rdf_json_ld.citationType else '' %}
+            <div class="precedent-item mb-2">
+                <div class="precedent-header d-flex align-items-start p-2 rounded"
+                     data-bs-toggle="collapse" data-bs-target="#{{ prec_id }}" role="button"
+                     aria-expanded="false" aria-controls="{{ prec_id }}">
+                    <i class="bi bi-chevron-right precedent-chevron me-2 mt-1"></i>
+                    <div class="flex-grow-1">
+                        <div class="d-flex align-items-center flex-wrap gap-2">
+                            <strong>{{ prec.entity_label }}</strong>
+                            {% if ct %}
+                            <span class="badge {% if ct == 'supporting' %}bg-success{% elif ct == 'distinguishing' %}bg-warning text-dark{% elif ct == 'analogizing' %}bg-info{% elif ct == 'overruling' %}bg-danger{% else %}bg-secondary{% endif %}">
+                                {{ ct }}
+                            </span>
+                            {% endif %}
+                            {% if prec.rdf_json_ld and prec.rdf_json_ld.resolved %}
+                            <span class="badge bg-primary" title="Resolved to internal case">
+                                <i class="bi bi-link-45deg"></i> linked
+                            </span>
+                            {% endif %}
+                        </div>
+                        {% if prec.rdf_json_ld and prec.rdf_json_ld.principleEstablished %}
+                        <small class="text-muted d-block mt-1">{{ prec.rdf_json_ld.principleEstablished[:120] }}{% if prec.rdf_json_ld.principleEstablished|length > 120 %}...{% endif %}</small>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="collapse" id="{{ prec_id }}">
+                    <div class="precedent-detail ps-4 pe-2 pb-3 pt-2">
+                        {% if prec.rdf_json_ld and prec.rdf_json_ld.principleEstablished %}
+                        <p class="mb-2"><strong>Principle Established:</strong></p>
+                        <p class="text-muted mb-3">{{ prec.rdf_json_ld.principleEstablished }}</p>
+                        {% endif %}
+                        {% if prec.entity_definition %}
+                        <p class="mb-2"><strong>Citation Context:</strong></p>
+                        <p class="text-muted mb-3">{{ prec.entity_definition }}</p>
+                        {% endif %}
+                        {% if prec.rdf_json_ld and prec.rdf_json_ld.relevantExcerpts %}
+                        <div class="mb-3">
+                            <small class="fw-semibold text-uppercase text-muted d-block mb-1">Relevant Excerpts</small>
+                            {% for excerpt in prec.rdf_json_ld.relevantExcerpts %}
+                            <div class="excerpt-card mb-2 p-2 border-start border-info border-3 bg-light rounded-end">
+                                <small class="text-muted fw-semibold">{{ excerpt.section }}:</small>
+                                <small class="fst-italic">"{{ excerpt.text }}"</small>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        {% if prec.rdf_json_ld and prec.rdf_json_ld.internalCaseId %}
+                        <a href="{{ url_for('scenario_pipeline.overview', case_id=prec.rdf_json_ld.internalCaseId) }}" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-box-arrow-up-right"></i> View Cited Case
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+            {% endif %}
+        </div>
         {% endif %}
+
+        {# ── Implicit Layer: Similarity-Based Matches ── #}
+        {% if similar_cases and similar_cases|length > 0 %}
+        <div class="mb-3">
+            <h6 class="d-flex align-items-center mb-3">
+                <span class="badge bg-outline-dark similarity-badge me-2">Implicit</span>
+                Similar Cases
+                <span class="badge bg-secondary ms-2">{{ similar_cases|length }}</span>
+                <a href="{{ url_for('precedents.similarity_network_view', case_id=case.id) }}"
+                   class="btn btn-sm btn-outline-dark ms-auto" title="View similarity network">
+                    <i class="bi bi-share"></i> Similarity Network
+                </a>
+            </h6>
+            <p class="text-muted small mb-3">Cases sharing ontology classes or structural similarity. These connections arise from constrained extraction against a shared vocabulary.</p>
+
+            {% for sim in similar_cases %}
+            {% set sim_id = 'sim-' ~ sim.case_id %}
+            <div class="similar-case-item mb-2">
+                <div class="similar-case-header d-flex align-items-center p-2 rounded"
+                     data-bs-toggle="collapse" data-bs-target="#{{ sim_id }}" role="button"
+                     aria-expanded="false" aria-controls="{{ sim_id }}">
+                    <i class="bi bi-chevron-right similar-chevron me-2"></i>
+                    <div class="flex-grow-1 d-flex align-items-center flex-wrap gap-2">
+                        <a href="{{ url_for('scenario_pipeline.overview', case_id=sim.case_id) }}" class="fw-semibold text-decoration-none" onclick="event.stopPropagation();">
+                            {{ sim.title[:60] }}{% if sim.title|length > 60 %}...{% endif %}
+                        </a>
+                        {% if sim.is_cited_precedent %}
+                        <span class="badge bg-dark" title="Also explicitly cited by the Board"><i class="bi bi-link-45deg"></i> cited</span>
+                        {% endif %}
+                        {% if sim.is_cited_by %}
+                        <span class="badge bg-outline-dark" title="This case cites the current case">cites this</span>
+                        {% endif %}
+                    </div>
+                    <div class="d-flex align-items-center gap-2 ms-2">
+                        <div class="similarity-bar" title="Similarity: {{ "%.0f"|format(sim.overall_score * 100) }}%">
+                            <div class="similarity-fill" style="width: {{ (sim.overall_score * 100)|int }}%;"></div>
+                        </div>
+                        <small class="text-muted text-nowrap">{{ "%.0f"|format(sim.overall_score * 100) }}%</small>
+                    </div>
+                </div>
+
+                <div class="collapse" id="{{ sim_id }}">
+                    <div class="similar-detail ps-4 pe-2 pb-2 pt-2">
+                        {# Score breakdown #}
+                        {% if sim.component_scores %}
+                        <div class="d-flex flex-wrap gap-2 mb-2">
+                            {% for component, score in sim.component_scores.items() %}
+                            {% if score > 0 %}
+                            <span class="badge bg-light text-dark border" title="{{ component }}: {{ "%.0f"|format(score * 100) }}%">
+                                {{ component|replace('_', ' ')|title }} {{ "%.0f"|format(score * 100) }}%
+                            </span>
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        {# Shared features #}
+                        {% if sim.matching_provisions %}
+                        <small class="d-block mb-1"><strong>Shared provisions:</strong> {{ sim.matching_provisions|join(', ') }}</small>
+                        {% endif %}
+                        {% if sim.overlapping_tags %}
+                        <small class="d-block mb-1"><strong>Shared topics:</strong> {{ sim.overlapping_tags|join(', ') }}</small>
+                        {% endif %}
+                        {% if sim.overlapping_citations %}
+                        <small class="d-block mb-1"><strong>Shared citations:</strong> {{ sim.overlapping_citations|join(', ') }}</small>
+                        {% endif %}
+                        {% if sim.outcome_match %}
+                        <small class="d-block mb-1"><span class="badge bg-success">Same outcome</span> {{ sim.target_outcome|default('') }}</small>
+                        {% endif %}
+                        {% if sim.transformation_match %}
+                        <small class="d-block mb-1"><span class="badge bg-purple text-white">Same transformation</span> {{ sim.target_transformation|default('') }}</small>
+                        {% endif %}
+
+                        <a href="{{ url_for('step4.step4_review', case_id=sim.case_id) }}" class="btn btn-sm btn-outline-primary mt-2">
+                            <i class="bi bi-box-arrow-up-right"></i> View Synthesis
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {# Empty state #}
+        {% if not has_citations and (not similar_cases or similar_cases|length == 0) %}
+        <p class="text-muted">No cross-case connections available. Run the extraction pipeline to generate precedent features.</p>
+        {% endif %}
+
     </div>
 </div>
+
+<script>
+// Chevron rotation for precedent and similar case items
+document.querySelectorAll('#precedents .precedent-header, #precedents .similar-case-header').forEach(function(header) {
+    var target = document.querySelector(header.dataset.bsTarget);
+    if (!target) return;
+    var chevron = header.querySelector('.precedent-chevron, .similar-chevron');
+    if (!chevron) return;
+    target.addEventListener('show.bs.collapse', function() {
+        chevron.classList.replace('bi-chevron-right', 'bi-chevron-down');
+    });
+    target.addEventListener('hide.bs.collapse', function() {
+        chevron.classList.replace('bi-chevron-down', 'bi-chevron-right');
+    });
+});
+</script>

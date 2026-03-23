@@ -1,0 +1,177 @@
+{# Step 4 Review -- Timeline tab (visual event sequence + causal flow).
+   Parent provides: case, narrative_data, entity_lookup, ontology_label macro, info_link macro
+   Visual timeline design adapted from step5_timeline.html.
+   Decision events rendered compactly (detail on Decisions tab).
+#}
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-clock-history"></i> Event Timeline</h5>
+        <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}#phase4-card" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> View Extraction
+        </a>
+    </div>
+    <div class="card-body">
+        {% if narrative_data and narrative_data.has_data and narrative_data.events %}
+
+        {# Legend #}
+        <div class="d-flex flex-wrap gap-3 mb-3 small">
+            <span><span class="tl-legend-dot tl-dot-state"></span> Initial state</span>
+            <span><span class="tl-legend-dot tl-dot-action"></span> Action</span>
+            <span><span class="tl-legend-dot tl-dot-event"></span> Event</span>
+            <span><span class="tl-legend-dot tl-dot-conflict"></span> Conflict</span>
+            <span><span class="tl-legend-dot tl-dot-decision"></span> Decision point</span>
+            <span><span class="tl-legend-dot tl-dot-outcome"></span> Resolution</span>
+        </div>
+
+        {# Visual Timeline #}
+        <div class="tl-container">
+            {% for event in narrative_data.events %}
+            {% set etype = event.event_type if event.event_type else (event.type if event.type else '') %}
+            {% set phase = event.phase_label if event.phase_label else '' %}
+            {% set is_decision = (etype == 'decision') %}
+            {% set is_conflict = ('Conflict' in phase) %}
+            {% set is_outcome = (etype == 'outcome' or etype == 'resolution') %}
+            {% set is_action = (etype == 'action') %}
+            {% set is_state = (etype == 'state') %}
+
+            {# Determine CSS class #}
+            {% if is_decision %}{% set tl_class = 'tl-decision' %}
+            {% elif is_conflict %}{% set tl_class = 'tl-conflict' %}
+            {% elif is_outcome %}{% set tl_class = 'tl-outcome' %}
+            {% elif is_action %}{% set tl_class = 'tl-action' %}
+            {% elif is_state %}{% set tl_class = 'tl-state' %}
+            {% else %}{% set tl_class = 'tl-event' %}
+            {% endif %}
+
+            <div class="tl-item {{ tl_class }}">
+                <div class="tl-marker">
+                    {% if is_decision %}
+                    <i class="bi bi-signpost-split"></i>
+                    {% elif is_action %}
+                    <i class="bi bi-person-walking"></i>
+                    {% elif is_outcome %}
+                    <i class="bi bi-check-circle"></i>
+                    {% elif is_conflict %}
+                    <i class="bi bi-exclamation-triangle"></i>
+                    {% elif is_state %}
+                    <i class="bi bi-flag"></i>
+                    {% else %}
+                    <i class="bi bi-circle"></i>
+                    {% endif %}
+                </div>
+                <div class="tl-content {% if is_decision %}tl-content-compact{% endif %}">
+                    <div class="tl-header">
+                        <span class="tl-seq">{{ event.sequence }}</span>
+                        <span class="tl-phase badge
+                            {% if is_state %}bg-secondary
+                            {% elif is_action %}bg-info
+                            {% elif is_decision %}bg-warning text-dark
+                            {% elif is_conflict %}bg-danger
+                            {% elif is_outcome %}bg-success
+                            {% else %}bg-light text-dark{% endif %}">
+                            {{ phase }}
+                        </span>
+                    </div>
+                    {% if is_decision %}
+                    {# Compact decision: just DP number as label, description expandable #}
+                    <div class="tl-label small">
+                        <strong>{{ event.event_label }}</strong>
+                        {% if event.description %}
+                        <span class="text-muted ms-1 tl-decision-preview">{{ event.description[:60] }}{% if event.description|length > 60 %}...{% endif %}</span>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    {# Full event card #}
+                    <div class="tl-label">
+                        <strong>{{ event.event_label }}</strong>
+                    </div>
+                    {% if event.description %}
+                    <div class="tl-description">{{ event.description }}</div>
+                    {% endif %}
+                    {% if event.entity_labels and event.entity_labels|length > 0 %}
+                    <div class="tl-entities mt-2">
+                        {% for label in event.entity_labels[:4] %}
+                        <span class="badge bg-light text-dark border me-1" style="font-size: 0.7rem;">{{ label }}</span>
+                        {% endfor %}
+                        {% if event.entity_labels|length > 4 %}
+                        <span class="badge bg-secondary" style="font-size: 0.65rem;">+{{ event.entity_labels|length - 4 }}</span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        {# Causal Flow (enables + precipitates) #}
+        {% if narrative_data.causal_links %}
+        {% set enables_links = [] %}
+        {% for link in narrative_data.causal_links %}
+            {% set ltype = link.link_type if link.link_type else (link.type if link.type else '') %}
+            {% set has_source = link.source_label or link.source_uri %}
+            {% set has_target = link.target_label or link.target_uri %}
+            {% if has_source and has_target and ltype == 'enables' %}
+                {% set _ = enables_links.append(link) %}
+            {% endif %}
+        {% endfor %}
+
+        {% if enables_links %}
+        <div class="mt-4">
+            <h6 class="border-bottom pb-2 mb-3">
+                <i class="bi bi-arrow-right-circle text-secondary me-2"></i>
+                Causal Flow
+                {{ info_link('causal-normative-links', 'Event Calculus (Berreby et al. 2017)') }}
+            </h6>
+            <div class="mb-3">
+                <div class="causal-flow-header d-flex align-items-center mb-2"
+                     data-bs-toggle="collapse" data-bs-target="#enables-flow" role="button"
+                     aria-expanded="false">
+                    <i class="bi bi-chevron-right causal-chevron me-1" style="font-size: 0.7rem;"></i>
+                    <small class="text-info fw-bold"><i class="bi bi-arrow-right-circle me-1"></i>Enables</small>
+                    <span class="badge bg-info ms-2" style="font-size: 0.65rem;">{{ enables_links|length }}</span>
+                    <small class="text-muted ms-2">action enables event</small>
+                </div>
+                <div class="collapse" id="enables-flow">
+                    <ul class="mb-0 small ps-4">
+                        {% for link in enables_links %}
+                        <li class="mb-1">
+                            <span class="text-primary">
+                                {%- if link.source_uri -%}{{ ontology_label(link.source_uri, entity_lookup) }}{%- else -%}{{ link.source_label }}{%- endif -%}
+                            </span>
+                            <i class="bi bi-arrow-right mx-1 text-muted"></i>
+                            <span class="text-success">
+                                {%- if link.target_uri -%}{{ ontology_label(link.target_uri, entity_lookup) }}{%- else -%}{{ link.target_label }}{%- endif -%}
+                            </span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% endif %}
+
+        {% else %}
+        <div class="alert alert-warning mb-0">
+            <i class="bi bi-exclamation-triangle me-1"></i> No timeline data available.
+            <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}#phase4-card">Run Phase 4 (Narrative Construction)</a> first.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+document.querySelectorAll('#timeline .causal-flow-header').forEach(function(header) {
+    var target = document.querySelector(header.dataset.bsTarget);
+    if (!target) return;
+    var chevron = header.querySelector('.causal-chevron');
+    if (!chevron) return;
+    target.addEventListener('show.bs.collapse', function() {
+        chevron.classList.replace('bi-chevron-right', 'bi-chevron-down');
+    });
+    target.addEventListener('hide.bs.collapse', function() {
+        chevron.classList.replace('bi-chevron-down', 'bi-chevron-right');
+    });
+});
+</script>

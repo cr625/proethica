@@ -148,13 +148,13 @@
         </button>
     </li>
     <li class="nav-item" role="presentation">
-        <button class="nav-link" id="richanalysis-tab" data-bs-toggle="tab" data-bs-target="#richanalysis" type="button">
-            <i class="bi bi-lightbulb"></i> Analysis
+        <button class="nav-link" id="decision-points-tab" data-bs-toggle="tab" data-bs-target="#decisionpoints" type="button">
+            <i class="bi bi-signpost-split"></i> Decisions <span class="badge bg-primary">{{ decision_points|length if decision_points else 0 }}</span>
         </button>
     </li>
     <li class="nav-item" role="presentation">
-        <button class="nav-link" id="decision-points-tab" data-bs-toggle="tab" data-bs-target="#decisionpoints" type="button">
-            <i class="bi bi-signpost-split"></i> Decisions <span class="badge bg-primary">{{ decision_points|length if decision_points else 0 }}</span>
+        <button class="nav-link" id="timeline-tab" data-bs-toggle="tab" data-bs-target="#timeline" type="button">
+            <i class="bi bi-clock-history"></i> Timeline
         </button>
     </li>
     <li class="nav-item" role="presentation">
@@ -181,11 +181,11 @@
     <div class="tab-pane fade" id="questions" role="tabpanel">
         {% include 'scenario_pipeline/_review_tab_questions.html' %}
     </div>
-    <div class="tab-pane fade" id="richanalysis" role="tabpanel">
-        {% include 'scenario_pipeline/_review_tab_analysis.html' %}
-    </div>
     <div class="tab-pane fade" id="decisionpoints" role="tabpanel">
         {% include 'scenario_pipeline/_review_tab_decisions.html' %}
+    </div>
+    <div class="tab-pane fade" id="timeline" role="tabpanel">
+        {% include 'scenario_pipeline/_review_tab_timeline.html' %}
     </div>
     <div class="tab-pane fade" id="narrative" role="tabpanel">
         {% include 'scenario_pipeline/_review_tab_narrative.html' %}
@@ -261,9 +261,10 @@ document.addEventListener('DOMContentLoaded', function() {
         'fullgraph': 'Entities',
         'graph': 'Flow',
         'provisions': 'Provisions',
+        'precedents': 'Precedents',
         'questions': 'Q&C',
-        'richanalysis': 'Analysis',
         'decisionpoints': 'Decisions',
+        'timeline': 'Timeline',
         'narrative': 'Narrative'
     };
 
@@ -273,8 +274,8 @@ document.addEventListener('DOMContentLoaded', function() {
         'provisions': 'provisions-tab',
         'precedents': 'precedents-tab',
         'questions': 'questions-tab',
-        'richanalysis': 'richanalysis-tab',
         'decisionpoints': 'decision-points-tab',
+        'timeline': 'timeline-tab',
         'narrative': 'narrative-tab'
     };
 

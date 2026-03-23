@@ -1,6 +1,24 @@
 {# Step 4 Review -- Questions & Conclusions tab (linked + split views).
-   Parent provides: case, questions, conclusions, research_caveat macro
+   Parent provides: case, questions, conclusions, rich_analysis, entity_lookup,
+                    ontology_label macro, research_caveat macro
+   Absorbs Question Emergence (triggers, warrants) and Resolution Patterns
+   (determinative principles/facts) from the former Analysis tab.
 #}
+
+{# --- Build QE/RP lookups by question/conclusion text (first 60 chars) --- #}
+{% set qe_lookup = namespace(data={}) %}
+{% set rp_lookup = namespace(data={}) %}
+{% if rich_analysis %}
+    {% for qe in rich_analysis.question_emergence %}
+        {% set key = qe.question_text[:60] %}
+        {% set _ = qe_lookup.data.update({key: qe}) %}
+    {% endfor %}
+    {% for rp in rich_analysis.resolution_patterns %}
+        {% set key = rp.conclusion_text[:60] %}
+        {% set _ = rp_lookup.data.update({key: rp}) %}
+    {% endfor %}
+{% endif %}
+
 <!-- Header with link back to extraction -->
 <div class="card mb-3">
     <div class="card-header d-flex justify-content-between align-items-center">
@@ -21,7 +39,7 @@
     </div>
 </div>
 
-<!-- LINKED VIEW: Accordion with Q->C relationships -->
+<!-- LINKED VIEW: Accordion with Q->C relationships + analytical overlays -->
 <div id="linkedViewContent">
     <div class="alert alert-info mb-3">
         <i class="bi bi-info-circle"></i> Each question is shown with its corresponding conclusion(s). Board questions are expanded by default.
@@ -34,7 +52,7 @@
         {% set q_type = question.rdf_json_ld.questionType if (question.rdf_json_ld and question.rdf_json_ld.questionType) else 'unknown' %}
         {% set is_board = (q_type == 'board_explicit') %}
 
-        {# Pre-compute matched conclusions (needed for header badge count) #}
+        {# Pre-compute matched conclusions #}
         {% set question_num = (question.rdf_json_ld.questionNumber|string) if (question.rdf_json_ld and question.rdf_json_ld.questionNumber) else question.entity_label|replace('Question_', '')|replace('Question ', '')|replace('Q', '') %}
         {% set matched_conclusions = [] %}
         {% for conclusion in conclusions %}
@@ -48,6 +66,9 @@
                 {% endfor %}
             {% endif %}
         {% endfor %}
+
+        {# Look up Question Emergence data #}
+        {% set qe = qe_lookup.data.get(question.entity_definition[:60]) %}
 
         <div class="accordion-item qc-link-card {% if is_board %}qc-board-explicit{% endif %}" id="qc-pair-{{ loop.index }}">
             <h2 class="accordion-header">
@@ -103,6 +124,72 @@
                     </div>
                     {% endif %}
 
+                    {# Question Emergence overlay: triggers + competing warrants #}
+                    {% if qe %}
+                    {% set trigger_count = (qe.data_events|length) + (qe.data_actions|length) %}
+                    {% set warrant_count = qe.competing_warrants|length %}
+                    {% if trigger_count > 0 or warrant_count > 0 %}
+                    <div class="qc-emergence-overlay border rounded p-2 mb-3" style="background-color: rgba(13, 202, 240, 0.05);">
+                        <div class="d-flex align-items-center mb-2 qc-emergence-toggle"
+                             data-bs-toggle="collapse" data-bs-target="#qe-overlay-{{ loop.index }}" role="button"
+                             aria-expanded="false">
+                            <i class="bi bi-chevron-right qc-overlay-chevron me-1" style="font-size: 0.7rem;"></i>
+                            <small class="fw-semibold text-info">Emergence</small>
+                            {% if trigger_count > 0 %}
+                            <span class="badge bg-secondary ms-2" style="font-size: 0.65rem;">{{ trigger_count }} triggers</span>
+                            {% endif %}
+                            {% if warrant_count > 0 %}
+                            <span class="badge bg-warning text-dark ms-1" style="font-size: 0.65rem;">{{ warrant_count }} competing warrants</span>
+                            {% endif %}
+                        </div>
+                        <div class="collapse" id="qe-overlay-{{ loop.index }}">
+                            <div class="row small">
+                                {% if qe.data_events %}
+                                <div class="col-md-4">
+                                    <small class="fw-semibold text-uppercase text-muted d-block mb-1">Triggering Events</small>
+                                    <ul class="mb-0 ps-3">
+                                        {% for evt in qe.data_events %}
+                                        <li>{{ ontology_label(evt, entity_lookup) }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                                {% endif %}
+                                {% if qe.data_actions %}
+                                <div class="col-md-4">
+                                    <small class="fw-semibold text-uppercase text-muted d-block mb-1">Triggering Actions</small>
+                                    <ul class="mb-0 ps-3">
+                                        {% for act in qe.data_actions %}
+                                        <li>{{ ontology_label(act, entity_lookup) }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                                {% endif %}
+                                {% if qe.competing_warrants %}
+                                <div class="col-md-4">
+                                    <small class="fw-semibold text-uppercase text-muted d-block mb-1">Competing Warrants</small>
+                                    <ul class="mb-0 list-unstyled ps-1">
+                                        {% for cw_pair in qe.competing_warrants %}
+                                        <li class="mb-1 p-1 rounded" style="background-color: rgba(255, 193, 7, 0.1);">
+                                            {% if cw_pair is iterable and cw_pair is not string %}
+                                            <span class="d-flex align-items-center flex-wrap gap-1">
+                                                {{ ontology_label(cw_pair[0], entity_lookup) }}
+                                                <i class="bi bi-arrow-left-right text-warning mx-1"></i>
+                                                {{ ontology_label(cw_pair[1], entity_lookup) if cw_pair|length > 1 else '' }}
+                                            </span>
+                                            {% else %}
+                                            {{ ontology_label(cw_pair, entity_lookup) }}
+                                            {% endif %}
+                                        </li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endif %}
+
                     <!-- Arrow to Conclusions -->
                     <div class="text-center my-2">
                         <span class="qc-arrow"><i class="bi bi-arrow-down-circle-fill"></i></span>
@@ -123,6 +210,10 @@
                             {% set ns_idx.val = loop.index %}
                         {% endif %}
                     {% endfor %}
+
+                    {# Look up Resolution Pattern data for this conclusion #}
+                    {% set rp = rp_lookup.data.get(conclusion.entity_definition[:60]) %}
+
                     <div class="card linked-conclusion mb-2 {% if c_type == 'board_explicit' %}border-success{% endif %}">
                         <div class="card-body py-2">
                             <div class="d-flex justify-content-between align-items-start">
@@ -144,12 +235,58 @@
                                 </div>
                             </div>
                             {% if conclusion.rdf_json_ld.citedProvisions %}
-                            <div class="mt-2">
+                            <div class="mt-1">
                                 <small class="text-muted">Cites:</small>
                                 {% for prov in conclusion.rdf_json_ld.citedProvisions %}
                                 <span class="badge bg-secondary badge-sm">{{ prov }}</span>
                                 {% endfor %}
                             </div>
+                            {% endif %}
+
+                            {# Resolution Pattern overlay: determinative principles + facts #}
+                            {% if rp %}
+                            {% set princ_count = rp.determinative_principles|length %}
+                            {% set fact_count = rp.determinative_facts|length %}
+                            {% if princ_count > 0 or fact_count > 0 %}
+                            <div class="qc-resolution-overlay border-top mt-2 pt-2">
+                                <div class="d-flex align-items-center mb-1 qc-resolution-toggle"
+                                     data-bs-toggle="collapse" data-bs-target="#rp-overlay-{{ ns_idx.val }}" role="button"
+                                     aria-expanded="false">
+                                    <i class="bi bi-chevron-right qc-overlay-chevron me-1" style="font-size: 0.7rem;"></i>
+                                    <small class="fw-semibold text-success">Resolution</small>
+                                    {% if princ_count > 0 %}
+                                    <span class="badge bg-primary ms-2" style="font-size: 0.65rem;">{{ princ_count }} principles</span>
+                                    {% endif %}
+                                    {% if fact_count > 0 %}
+                                    <span class="badge bg-dark ms-1" style="font-size: 0.65rem;">{{ fact_count }} facts</span>
+                                    {% endif %}
+                                </div>
+                                <div class="collapse" id="rp-overlay-{{ ns_idx.val }}">
+                                    <div class="row small mt-1">
+                                        {% if rp.determinative_principles %}
+                                        <div class="col-md-6">
+                                            <small class="fw-semibold text-uppercase text-muted d-block mb-1">Determinative Principles</small>
+                                            <ul class="mb-0 ps-3">
+                                                {% for princ in rp.determinative_principles %}
+                                                <li>{{ ontology_label(princ, entity_lookup) }}</li>
+                                                {% endfor %}
+                                            </ul>
+                                        </div>
+                                        {% endif %}
+                                        {% if rp.determinative_facts %}
+                                        <div class="col-md-6">
+                                            <small class="fw-semibold text-uppercase text-muted d-block mb-1">Determinative Facts</small>
+                                            <ul class="mb-0 ps-3">
+                                                {% for fact in rp.determinative_facts %}
+                                                <li>{{ ontology_label(fact, entity_lookup) }}</li>
+                                                {% endfor %}
+                                            </ul>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
                             {% endif %}
                         </div>
                     </div>
@@ -185,6 +322,11 @@
             </div>
             <div class="card-body">
                 {% for conclusion in unlinked_conclusions %}
+                {% set rp = rp_lookup.data.get(conclusion.entity_definition[:60]) %}
+                {% set ns_uidx = namespace(val='') %}
+                {% for c in conclusions %}
+                    {% if c.id == conclusion.id %}{% set ns_uidx.val = loop.index %}{% endif %}
+                {% endfor %}
                 <div class="mb-3 pb-3 {% if not loop.last %}border-bottom{% endif %}">
                     <strong>{{ conclusion.entity_label }}</strong>
                     <p class="mb-1">{{ conclusion.entity_definition }}</p>
@@ -193,6 +335,48 @@
                     {% for prov in conclusion.rdf_json_ld.citedProvisions %}
                     <span class="badge bg-secondary badge-sm">{{ prov }}</span>
                     {% endfor %}
+                    {% endif %}
+
+                    {# Resolution overlay for unlinked conclusions too #}
+                    {% if rp %}
+                    {% set princ_count = rp.determinative_principles|length %}
+                    {% set fact_count = rp.determinative_facts|length %}
+                    {% if princ_count > 0 or fact_count > 0 %}
+                    <div class="qc-resolution-overlay border-top mt-2 pt-2">
+                        <div class="d-flex align-items-center mb-1 qc-resolution-toggle"
+                             data-bs-toggle="collapse" data-bs-target="#rp-overlay-u-{{ ns_uidx.val }}" role="button"
+                             aria-expanded="false">
+                            <i class="bi bi-chevron-right qc-overlay-chevron me-1" style="font-size: 0.7rem;"></i>
+                            <small class="fw-semibold text-success">Resolution</small>
+                            <span class="badge bg-primary ms-2" style="font-size: 0.65rem;">{{ princ_count }} principles</span>
+                            <span class="badge bg-dark ms-1" style="font-size: 0.65rem;">{{ fact_count }} facts</span>
+                        </div>
+                        <div class="collapse" id="rp-overlay-u-{{ ns_uidx.val }}">
+                            <div class="row small mt-1">
+                                {% if rp.determinative_principles %}
+                                <div class="col-md-6">
+                                    <small class="fw-semibold text-uppercase text-muted d-block mb-1">Determinative Principles</small>
+                                    <ul class="mb-0 ps-3">
+                                        {% for princ in rp.determinative_principles %}
+                                        <li>{{ ontology_label(princ, entity_lookup) }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                                {% endif %}
+                                {% if rp.determinative_facts %}
+                                <div class="col-md-6">
+                                    <small class="fw-semibold text-uppercase text-muted d-block mb-1">Determinative Facts</small>
+                                    <ul class="mb-0 ps-3">
+                                        {% for fact in rp.determinative_facts %}
+                                        <li>{{ ontology_label(fact, entity_lookup) }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
                     {% endif %}
                 </div>
                 {% endfor %}
@@ -221,7 +405,6 @@
                 {% set q_num = (question.rdf_json_ld.questionNumber|string) if (question.rdf_json_ld and question.rdf_json_ld.questionNumber) else '' %}
                 {% set q_type = question.rdf_json_ld.questionType if (question.rdf_json_ld and question.rdf_json_ld.questionType) else 'unknown' %}
 
-                {# Find matching conclusions for this question #}
                 {% set matched_conclusions = [] %}
                 {% for conclusion in conclusions %}
                     {% if conclusion.rdf_json_ld and conclusion.rdf_json_ld.answersQuestions %}
@@ -232,7 +415,6 @@
                 {% endfor %}
 
                 <tr>
-                    <!-- Question Cell -->
                     <td class="{% if q_type == 'board_explicit' %}table-warning{% endif %}">
                         <div class="d-flex justify-content-between align-items-start mb-2">
                             <strong>Question {{ loop.index }}</strong>
@@ -250,13 +432,10 @@
                         </div>
                         <p class="mb-0">{{ question.entity_definition }}</p>
                     </td>
-
-                    <!-- Conclusion Cell -->
                     <td class="{% if matched_conclusions and matched_conclusions[0].rdf_json_ld.conclusionType == 'board_explicit' %}table-success{% endif %}">
                         {% if matched_conclusions %}
                             {% for conclusion in matched_conclusions %}
                             {% set c_type = conclusion.rdf_json_ld.conclusionType if conclusion.rdf_json_ld else 'unknown' %}
-                            {# Find conclusion's display index #}
                             {% set ns_c_idx = namespace(val='') %}
                             {% for c in conclusions %}
                                 {% if c.id == conclusion.id %}
@@ -297,7 +476,7 @@
     {% endif %}
 </div>
 
-<!-- Q&C View Toggle Script -->
+<!-- Q&C View Toggle + Overlay Chevron Scripts -->
 <script>
 (function() {
     var linked = document.getElementById('linkedView');
@@ -318,5 +497,19 @@
             }
         });
     }
+
+    // Chevron rotation for emergence/resolution overlays
+    document.querySelectorAll('#questions .qc-emergence-toggle, #questions .qc-resolution-toggle').forEach(function(toggle) {
+        var target = document.querySelector(toggle.dataset.bsTarget);
+        if (!target) return;
+        var chevron = toggle.querySelector('.qc-overlay-chevron');
+        if (!chevron) return;
+        target.addEventListener('show.bs.collapse', function() {
+            chevron.classList.replace('bi-chevron-right', 'bi-chevron-down');
+        });
+        target.addEventListener('hide.bs.collapse', function() {
+            chevron.classList.replace('bi-chevron-down', 'bi-chevron-right');
+        });
+    });
 })();
 </script>

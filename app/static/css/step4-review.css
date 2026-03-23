@@ -3,6 +3,170 @@
 .bg-purple { background-color: #6F42C1 !important; }
 .applies-to-item { font-size: 0.9rem; }
 
+/* ── Provisions tab: Progressive disclosure ── */
+
+.provision-section-header {
+    font-size: 0.95rem;
+    border-bottom: 1px solid #dee2e6;
+    padding-bottom: 0.5rem;
+}
+
+.provision-header {
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+    border: 1px solid transparent;
+}
+.provision-header:hover {
+    background-color: #f8f9fa;
+    border-color: #dee2e6;
+}
+.provision-header[aria-expanded="true"] {
+    background-color: #f0f4ff;
+    border-color: #c5d3f0;
+}
+
+.provision-chevron {
+    transition: transform 0.2s ease;
+    font-size: 0.8rem;
+    color: #6c757d;
+    flex-shrink: 0;
+}
+
+.provision-label {
+    font-size: 0.9rem;
+}
+
+.provision-preview {
+    font-size: 0.8rem;
+    line-height: 1.3;
+    max-height: 2.6em;
+    overflow: hidden;
+}
+
+.provision-count-badge {
+    border: 1px solid #6c757d;
+    color: #6c757d;
+    background: transparent;
+    font-size: 0.7rem;
+    font-weight: normal;
+}
+
+.provision-detail {
+    border-left: 3px solid #c5d3f0;
+    margin-left: 0.5rem;
+}
+
+/* ── Precedents tab: Cross-case context ── */
+
+.cited-case-card {
+    transition: background-color 0.15s ease;
+}
+.cited-case-card:hover {
+    background-color: #f8f9fa;
+}
+
+.precedent-header, .similar-case-header {
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+    border: 1px solid transparent;
+}
+.precedent-header:hover, .similar-case-header:hover {
+    background-color: #f8f9fa;
+    border-color: #dee2e6;
+}
+
+.precedent-chevron, .similar-chevron {
+    transition: transform 0.2s ease;
+    font-size: 0.8rem;
+    color: #6c757d;
+    flex-shrink: 0;
+}
+
+.precedent-detail, .similar-detail {
+    border-left: 3px solid #c5d3f0;
+    margin-left: 0.5rem;
+}
+
+/* ── Analysis tab: Progressive disclosure for QE/RP ── */
+
+.analysis-header {
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+    border: 1px solid transparent;
+}
+.analysis-header:hover {
+    background-color: #f8f9fa;
+    border-color: #dee2e6;
+}
+
+.analysis-chevron {
+    transition: transform 0.2s ease;
+    font-size: 0.8rem;
+    color: #6c757d;
+    flex-shrink: 0;
+}
+
+.analysis-detail {
+    border-left: 3px solid #c5d3f0;
+    margin-left: 0.5rem;
+}
+
+.similarity-badge {
+    border: 1px solid #343a40;
+    color: #343a40;
+    background: transparent;
+}
+
+.similarity-bar {
+    width: 60px;
+    height: 8px;
+    background-color: #e9ecef;
+    border-radius: 4px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.similarity-fill {
+    height: 100%;
+    background-color: #0d6efd;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+/* Entity type group headers (collapsed comma-separated summaries) */
+.entity-type-header {
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+.entity-type-header:hover {
+    background-color: #f8f9fa;
+}
+
+.entity-group-chevron {
+    transition: transform 0.2s ease;
+    color: #adb5bd;
+    flex-shrink: 0;
+}
+
+.entity-summary-text {
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.entity-detail-item {
+    font-size: 0.85rem;
+}
+.entity-detail-item:last-child {
+    border-bottom: none !important;
+}
+
+.entity-detail-list {
+    border-left: 2px solid #e9ecef;
+    margin-left: 0.25rem;
+}
+
 /* Q&C link cards */
 .qc-link-card {
     border-left: 4px solid #FFC107;
@@ -80,6 +244,208 @@
 }
 #entity-nav-toast-container .toast {
     min-width: 250px;
+}
+
+/* Q&C tab: Emergence/Resolution overlay toggles */
+.qc-emergence-toggle, .qc-resolution-toggle {
+    cursor: pointer;
+}
+.qc-emergence-toggle:hover, .qc-resolution-toggle:hover {
+    opacity: 0.8;
+}
+.qc-overlay-chevron {
+    transition: transform 0.2s ease;
+    color: #6c757d;
+    flex-shrink: 0;
+}
+
+/* ── Decisions tab: Progressive disclosure for DPs ── */
+
+.decision-header {
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+    border: 1px solid transparent;
+}
+.decision-header:hover {
+    background-color: #f8f9fa;
+    border-color: #dee2e6;
+}
+
+.decision-chevron {
+    transition: transform 0.2s ease;
+    color: #6c757d;
+    flex-shrink: 0;
+}
+
+.decision-detail {
+    border-left: 3px solid #c5d3f0;
+    margin-left: 0.5rem;
+}
+
+/* ── Narrative tab: Characters/Tensions progressive disclosure ── */
+
+.character-card {
+    transition: background-color 0.15s ease;
+}
+.character-card:hover {
+    background-color: #f8f9fa;
+}
+
+.character-toggle {
+    cursor: pointer;
+}
+
+.narrative-header {
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+    border: 1px solid transparent;
+}
+.narrative-header:hover {
+    background-color: #f8f9fa;
+    border-color: #dee2e6;
+}
+
+.narrative-chevron {
+    transition: transform 0.2s ease;
+    color: #6c757d;
+    flex-shrink: 0;
+}
+
+/* ── Timeline tab: Visual vertical timeline ── */
+
+.tl-container {
+    position: relative;
+    padding-left: 40px;
+}
+
+.tl-container::before {
+    content: '';
+    position: absolute;
+    left: 19px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(to bottom, #6c757d 0%, #0d6efd 20%, #f6c23e 60%, #198754 100%);
+}
+
+.tl-item {
+    position: relative;
+    margin-bottom: 16px;
+    padding-left: 30px;
+}
+
+.tl-marker {
+    position: absolute;
+    left: -30px;
+    top: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: white;
+    border: 2px solid #dee2e6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    color: #858796;
+    z-index: 1;
+}
+
+.tl-action .tl-marker { border-color: #0dcaf0; color: #0dcaf0; }
+.tl-decision .tl-marker { border-color: #f6c23e; color: #f6c23e; background: #fff8e1; }
+.tl-conflict .tl-marker { border-color: #dc3545; color: #dc3545; background: #fef2f2; }
+.tl-outcome .tl-marker { border-color: #198754; color: #198754; background: #e8f8f5; }
+.tl-state .tl-marker { border-color: #6c757d; color: #6c757d; }
+
+.tl-content {
+    background: white;
+    border: 1px solid #e3e6f0;
+    border-radius: 0.4rem;
+    padding: 10px 14px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.tl-decision .tl-content { border-left: 3px solid #f6c23e; }
+.tl-conflict .tl-content { border-left: 3px solid #dc3545; }
+.tl-outcome .tl-content { border-left: 3px solid #198754; }
+.tl-action .tl-content { border-left: 3px solid #0dcaf0; }
+
+.tl-content-compact {
+    padding: 6px 12px;
+}
+
+.tl-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.tl-seq {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #0d6efd;
+    color: white;
+    font-size: 0.7rem;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.tl-decision .tl-seq { background: #f6c23e; color: #212529; }
+.tl-conflict .tl-seq { background: #dc3545; }
+.tl-outcome .tl-seq { background: #198754; }
+
+.tl-phase {
+    font-size: 0.65rem;
+}
+
+.tl-label {
+    font-size: 0.9rem;
+    margin-bottom: 4px;
+}
+
+.tl-description {
+    color: #5a5c69;
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+.tl-decision-preview {
+    font-size: 0.8rem;
+}
+
+/* Legend dots */
+.tl-legend-dot {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid;
+    margin-right: 4px;
+    vertical-align: middle;
+}
+.tl-dot-state { border-color: #6c757d; }
+.tl-dot-action { border-color: #0dcaf0; }
+.tl-dot-event { border-color: #858796; }
+.tl-dot-conflict { border-color: #dc3545; }
+.tl-dot-decision { border-color: #f6c23e; background: #fff8e1; }
+.tl-dot-outcome { border-color: #198754; background: #e8f8f5; }
+
+/* Causal flow headers */
+.causal-flow-header {
+    cursor: pointer;
+}
+.causal-flow-header:hover {
+    opacity: 0.8;
+}
+.causal-chevron {
+    transition: transform 0.2s ease;
+    color: #6c757d;
+    flex-shrink: 0;
 }
 
 /* Board-explicit question accordion headers */

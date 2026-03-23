@@ -321,7 +321,8 @@ def register_view_routes(bp):
                                outcome_type, outcome_confidence, outcome_reasoning,
                                provisions_cited, subject_tags,
                                principle_tensions, obligation_conflicts,
-                               features_version, extracted_at
+                               features_version, extracted_at,
+                               cited_case_ids
                         FROM case_precedent_features
                         WHERE case_id = :case_id
                     """),
@@ -343,10 +344,76 @@ def register_view_routes(bp):
                         'principle_tensions': result[7] or [],
                         'obligation_conflicts': result[8] or [],
                         'features_version': result[9],
-                        'extracted_at': result[10]
+                        'extracted_at': result[10],
+                        'cited_case_ids': result[11] or []
                     }
             except Exception as e:
                 logger.debug(f"No transformation data found for case {case_id}: {e}")
+
+            # Cross-case context for Precedents tab
+            cited_cases = []
+            similar_cases = []
+            try:
+                # Resolve cited case IDs to titles
+                cited_ids = precedent_features.get('cited_case_ids', []) if precedent_features else []
+                if cited_ids:
+                    cited_docs = Document.query.filter(Document.id.in_(cited_ids)).all()
+                    for doc in cited_docs:
+                        case_number = (doc.doc_metadata or {}).get('case_number', '')
+                        cited_cases.append({
+                            'id': doc.id,
+                            'title': doc.title,
+                            'case_number': case_number
+                        })
+
+                # Top 10 similar cases using paper weights (ICCBR 2026)
+                # Paper formula: 0.40*embedding + 0.25*provisions + 0.15*outcome + 0.10*tags + 0.10*principles
+                from app.routes.precedents import _find_precedents_for_case
+                PAPER_WEIGHTS = {
+                    'component_similarity': 0.40,
+                    'provision_overlap': 0.25,
+                    'outcome_alignment': 0.15,
+                    'tag_overlap': 0.10,
+                    'principle_overlap': 0.10,
+                }
+                from app.services.precedent.similarity_service import PrecedentSimilarityService
+                sim_svc = PrecedentSimilarityService()
+                sim_results = sim_svc.find_similar_cases(
+                    case_id, limit=10, min_score=0.1,
+                    weights=PAPER_WEIGHTS, use_component_embedding=True
+                )
+                # Enrich with citation flags and case metadata
+                source_cited_ids = set(cited_ids)
+                for r in sim_results:
+                    target_doc = Document.query.get(r.target_case_id)
+                    target_title = target_doc.title if target_doc else f'Case {r.target_case_id}'
+                    # Check if target cites the source
+                    target_cited_ids = set()
+                    try:
+                        t_result = db.session.execute(
+                            text("SELECT cited_case_ids FROM case_precedent_features WHERE case_id = :cid"),
+                            {'cid': r.target_case_id}
+                        ).fetchone()
+                        if t_result and t_result[0]:
+                            target_cited_ids = set(t_result[0])
+                    except Exception:
+                        pass
+                    similar_cases.append({
+                        'case_id': r.target_case_id,
+                        'title': target_title,
+                        'overall_score': round(r.overall_similarity, 3),
+                        'component_scores': {k: round(v, 3) for k, v in r.component_scores.items()},
+                        'matching_provisions': r.matching_provisions or [],
+                        'outcome_match': r.outcome_match,
+                        'target_outcome': r.component_scores.get('outcome_alignment', 0) > 0,
+                        'is_cited_precedent': r.target_case_id in source_cited_ids,
+                        'is_cited_by': case_id in target_cited_ids,
+                        'overlapping_tags': [],
+                        'overlapping_citations': [],
+                        'transformation_match': False,
+                    })
+            except Exception as e:
+                logger.debug(f"Cross-case context unavailable for case {case_id}: {e}")
 
             # Build comprehensive data inventory for downstream services
             entity_type_counts = {}
@@ -485,6 +552,8 @@ def register_view_routes(bp):
                 'annotation_breakdown': annotation_counts,
                 'transformation_data': transformation_data,
                 'precedent_features': precedent_features,
+                'cited_cases': cited_cases,
+                'similar_cases': similar_cases,
                 'data_inventory': data_inventory,
                 'entity_type_counts': entity_type_counts,
                 'pipeline_status': pipeline_status,

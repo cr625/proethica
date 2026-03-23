@@ -1,65 +1,279 @@
 {# Step 4 Review -- Provisions tab (NSPE code provisions).
    Parent provides: case, provisions
+   Progressive disclosure: Section groups > Provision accordions > Entity type groups
+   Design: Shneiderman (1996) overview-first; Wang Baldonado et al. (2000) self-evidence;
+           Tidwell (2020) List Inlay; multi-select collapse (not single-select accordion).
 #}
+
+{# --- Build section groups from flat provision list --- #}
+{% set ns = namespace(sections={}) %}
+{% if provisions %}
+{% for provision in provisions %}
+    {% set code = provision.rdf_json_ld.codeProvision|default('') if provision.rdf_json_ld else '' %}
+    {% if code.startswith('I.') and not code.startswith('II.') and not code.startswith('III.') %}
+        {% set section_key = 'I' %}
+    {% elif code.startswith('II.') and not code.startswith('III.') %}
+        {% set section_key = 'II' %}
+    {% elif code.startswith('III.') %}
+        {% set section_key = 'III' %}
+    {% else %}
+        {% set section_key = 'Other' %}
+    {% endif %}
+    {% if section_key not in ns.sections %}
+        {% set _ = ns.sections.update({section_key: []}) %}
+    {% endif %}
+    {% set _ = ns.sections[section_key].append(provision) %}
+{% endfor %}
+{% endif %}
+
+{# Section display metadata #}
+{% set section_meta = {
+    'I': {'name': 'Fundamental Canons', 'icon': 'bi-shield-check'},
+    'II': {'name': 'Rules of Practice', 'icon': 'bi-journal-text'},
+    'III': {'name': 'Professional Obligations', 'icon': 'bi-people'},
+    'Other': {'name': 'Other Provisions', 'icon': 'bi-file-text'}
+} %}
+
+{# Ordered section keys #}
+{% set section_order = ['I', 'II', 'III', 'Other'] %}
+
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0"><i class="bi bi-file-text"></i> NSPE Code Provisions Referenced</h5>
-        <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}#provisionsSection" class="btn btn-sm btn-outline-secondary">
-            <i class="bi bi-arrow-left"></i> View Extraction
-        </a>
+        <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-sm btn-outline-secondary" onclick="toggleAllProvisions(this)" data-state="collapsed" title="Expand or collapse all provisions">
+                <i class="bi bi-arrows-expand"></i> Expand All
+            </button>
+            <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}#provisionsSection" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> View Extraction
+            </a>
+        </div>
     </div>
     <div class="card-body">
         {% if provisions %}
-            {% for provision in provisions %}
-            <div class="card mb-3">
-                <div class="card-header bg-light">
-                    <h6 class="mb-0">
-                        <strong>{{ provision.entity_label }}</strong>
-                        {% if provision.rdf_json_ld and provision.rdf_json_ld.codeProvision %}
-                        <span class="badge bg-secondary ms-2">{{ provision.rdf_json_ld.codeProvision }}</span>
-                        {% endif %}
-                    </h6>
-                </div>
-                <div class="card-body">
-                    <p class="mb-2"><strong>Full Text:</strong></p>
-                    <p class="text-muted mb-3">{{ provision.entity_definition }}</p>
 
-                    {% if provision.rdf_json_ld and provision.rdf_json_ld.relevantExcerpts %}
-                    <p class="mb-2"><strong>Relevant Case Excerpts:</strong></p>
-                    {% for excerpt in provision.rdf_json_ld.relevantExcerpts %}
-                    <div class="alert alert-info mb-2">
-                        <small class="text-muted"><strong>From {{ excerpt.section }}:</strong></small><br>
-                        "{{ excerpt.text }}"
-                        {% if excerpt.confidence %}
-                        <br><small class="text-muted">Confidence: {{ "%.1f"|format(excerpt.confidence * 100) }}%</small>
-                        {% endif %}
-                    </div>
-                    {% endfor %}
-                    {% endif %}
+        {# --- Section groups --- #}
+        {% for section_key in section_order %}
+        {% if section_key in ns.sections %}
+        {% set section_provisions = ns.sections[section_key] %}
+        {% set meta = section_meta[section_key] %}
+        {% set section_entity_count = namespace(total=0) %}
+        {% for p in section_provisions %}
+            {% if p.rdf_json_ld and p.rdf_json_ld.appliesTo %}
+                {% set section_entity_count.total = section_entity_count.total + p.rdf_json_ld.appliesTo|length %}
+            {% endif %}
+        {% endfor %}
 
-                    {% if provision.rdf_json_ld and provision.rdf_json_ld.appliesTo %}
-                    <p class="mb-2"><strong>Applies To:</strong></p>
-                    <div class="applies-to-list">
-                        {% for entity in provision.rdf_json_ld.appliesTo %}
-                        <div class="applies-to-item mb-2 p-2 border rounded bg-light">
-                            <div class="d-flex align-items-center">
-                                <span class="badge me-2 onto-type-{{ entity.entity_type|lower|default('default') }}">
-                                    {{ entity.entity_type|default('Entity') }}
-                                </span>
-                                <strong>{{ entity.entity_label|default(entity) }}</strong>
-                            </div>
-                            {% if entity.reasoning %}
-                            <small class="text-muted d-block mt-1 fst-italic">{{ entity.reasoning }}</small>
+        <div class="provision-section mb-4">
+            <h6 class="provision-section-header d-flex align-items-center mb-3">
+                <i class="bi {{ meta.icon }} me-2 text-muted"></i>
+                <span>Section {{ section_key }}. {{ meta.name }}</span>
+                <span class="badge bg-secondary ms-2">{{ section_provisions|length }}</span>
+                <small class="text-muted ms-2">{{ section_entity_count.total }} entities</small>
+            </h6>
+
+            {# --- Individual provisions within section --- #}
+            {% for provision in section_provisions %}
+            {% set prov_id = 'prov-' ~ provision.id %}
+            {% set code = provision.rdf_json_ld.codeProvision|default('') if provision.rdf_json_ld else '' %}
+            {% set applies_to = provision.rdf_json_ld.appliesTo|default([]) if provision.rdf_json_ld else [] %}
+            {% set excerpts = provision.rdf_json_ld.relevantExcerpts|default([]) if provision.rdf_json_ld else [] %}
+
+            <div class="provision-item mb-2">
+                {# Level 1: Collapsed provision header #}
+                <div class="provision-header d-flex align-items-start p-2 rounded"
+                     data-bs-toggle="collapse" data-bs-target="#{{ prov_id }}" role="button"
+                     aria-expanded="false" aria-controls="{{ prov_id }}">
+                    <i class="bi bi-chevron-right provision-chevron me-2 mt-1"></i>
+                    <div class="flex-grow-1">
+                        <div class="d-flex align-items-center flex-wrap gap-2">
+                            {% if code %}
+                            <span class="badge bg-dark">{{ code }}</span>
+                            {% endif %}
+                            <strong class="provision-label">{{ provision.entity_label }}</strong>
+                            {% if applies_to %}
+                            <span class="badge bg-outline-secondary provision-count-badge">{{ applies_to|length }} entities</span>
+                            {% endif %}
+                            {% if excerpts %}
+                            <span class="badge bg-info bg-opacity-25 text-info-emphasis" title="Has case excerpts"><i class="bi bi-quote"></i> {{ excerpts|length }}</span>
                             {% endif %}
                         </div>
-                        {% endfor %}
+                        {# Information scent: first line of definition, truncated #}
+                        <small class="text-muted provision-preview d-block mt-1">{{ provision.entity_definition[:120] }}{% if provision.entity_definition|length > 120 %}...{% endif %}</small>
                     </div>
-                    {% endif %}
+                </div>
+
+                {# Level 2: Expanded provision detail #}
+                <div class="collapse" id="{{ prov_id }}">
+                    <div class="provision-detail ps-4 pe-2 pb-3 pt-2">
+
+                        {# Full text #}
+                        <p class="mb-2 text-muted">{{ provision.entity_definition }}</p>
+
+                        {# Relevant excerpts #}
+                        {% if excerpts %}
+                        <div class="mb-3">
+                            <small class="fw-semibold text-uppercase text-muted d-block mb-1">Case Excerpts</small>
+                            {% for excerpt in excerpts %}
+                            <div class="excerpt-card mb-2 p-2 border-start border-info border-3 bg-light rounded-end">
+                                <small class="text-muted fw-semibold">{{ excerpt.section }}:</small>
+                                <small class="fst-italic">"{{ excerpt.text }}"</small>
+                                {% if excerpt.confidence %}
+                                <small class="text-muted d-block">{{ "%.0f"|format(excerpt.confidence * 100) }}% confidence</small>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        {# Applies To: grouped by entity type, collapsed as comma-separated #}
+                        {% if applies_to %}
+                        <div class="applies-to-grouped">
+                            <small class="fw-semibold text-uppercase text-muted d-block mb-2">Applies To ({{ applies_to|length }})</small>
+
+                            {# Build type groups #}
+                            {% set type_groups = namespace(data={}) %}
+                            {% for entity in applies_to %}
+                                {% set etype = entity.entity_type|default('entity')|lower %}
+                                {% if etype not in type_groups.data %}
+                                    {% set _ = type_groups.data.update({etype: []}) %}
+                                {% endif %}
+                                {% set _ = type_groups.data[etype].append(entity) %}
+                            {% endfor %}
+
+                            {# Entity type display order #}
+                            {% set type_order = ['role', 'principle', 'obligation', 'state', 'resource', 'action', 'event', 'capability', 'constraint'] %}
+
+                            {% for etype in type_order %}
+                            {% if etype in type_groups.data %}
+                            {% set entities = type_groups.data[etype] %}
+                            {% set group_id = prov_id ~ '-' ~ etype %}
+
+                            <div class="entity-type-group mb-1">
+                                {# Collapsed: type badge + comma-separated labels #}
+                                <div class="entity-type-header d-flex align-items-start p-1 rounded"
+                                     data-bs-toggle="collapse" data-bs-target="#{{ group_id }}" role="button"
+                                     aria-expanded="false" aria-controls="{{ group_id }}">
+                                    <i class="bi bi-chevron-right entity-group-chevron me-1 mt-1" style="font-size: 0.7rem;"></i>
+                                    <span class="badge me-1 onto-type-{{ etype }}">{{ etype|title }}</span>
+                                    <span class="badge bg-light text-dark me-2">{{ entities|length }}</span>
+                                    <span class="entity-summary-text text-muted small">{% for e in entities %}{{ e.entity_label|default(e) }}{% if not loop.last %}, {% endif %}{% endfor %}</span>
+                                </div>
+
+                                {# Expanded: individual entity detail cards #}
+                                <div class="collapse" id="{{ group_id }}">
+                                    <div class="entity-detail-list ps-3 py-1">
+                                        {% for entity in entities %}
+                                        <div class="entity-detail-item d-flex align-items-start py-1 border-bottom"
+                                             data-entity-uri="{{ entity.entity_uri|default('') }}">
+                                            <span class="badge me-2 onto-type-{{ etype }}" style="font-size: 0.7rem;">{{ etype|title }}</span>
+                                            <div>
+                                                <span class="fw-semibold small">{{ entity.entity_label|default(entity) }}</span>
+                                                {% if entity.reasoning %}
+                                                <small class="text-muted d-block fst-italic">{{ entity.reasoning }}</small>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {% endif %}
+                            {% endfor %}
+
+                            {# Any types not in the ordered list #}
+                            {% for etype, entities in type_groups.data.items() %}
+                            {% if etype not in type_order %}
+                            {% set group_id = prov_id ~ '-' ~ etype %}
+                            <div class="entity-type-group mb-1">
+                                <div class="entity-type-header d-flex align-items-start p-1 rounded"
+                                     data-bs-toggle="collapse" data-bs-target="#{{ group_id }}" role="button"
+                                     aria-expanded="false" aria-controls="{{ group_id }}">
+                                    <i class="bi bi-chevron-right entity-group-chevron me-1 mt-1" style="font-size: 0.7rem;"></i>
+                                    <span class="badge me-1 bg-secondary">{{ etype|title }}</span>
+                                    <span class="badge bg-light text-dark me-2">{{ entities|length }}</span>
+                                    <span class="entity-summary-text text-muted small">{% for e in entities %}{{ e.entity_label|default(e) }}{% if not loop.last %}, {% endif %}{% endfor %}</span>
+                                </div>
+                                <div class="collapse" id="{{ group_id }}">
+                                    <div class="entity-detail-list ps-3 py-1">
+                                        {% for entity in entities %}
+                                        <div class="entity-detail-item d-flex align-items-start py-1 border-bottom"
+                                             data-entity-uri="{{ entity.entity_uri|default('') }}">
+                                            <span class="badge me-2 bg-secondary" style="font-size: 0.7rem;">{{ etype|title }}</span>
+                                            <div>
+                                                <span class="fw-semibold small">{{ entity.entity_label|default(entity) }}</span>
+                                                {% if entity.reasoning %}
+                                                <small class="text-muted d-block fst-italic">{{ entity.reasoning }}</small>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                    </div>
                 </div>
             </div>
             {% endfor %}
+        </div>
+        {% endif %}
+        {% endfor %}
+
         {% else %}
             <p class="text-muted">No code provisions extracted yet.</p>
         {% endif %}
     </div>
 </div>
+
+<script>
+// Chevron rotation on collapse toggle
+document.querySelectorAll('#provisions .provision-header').forEach(function(header) {
+    var target = document.querySelector(header.dataset.bsTarget);
+    if (!target) return;
+    target.addEventListener('show.bs.collapse', function() {
+        header.querySelector('.provision-chevron').classList.replace('bi-chevron-right', 'bi-chevron-down');
+        header.setAttribute('aria-expanded', 'true');
+    });
+    target.addEventListener('hide.bs.collapse', function() {
+        header.querySelector('.provision-chevron').classList.replace('bi-chevron-down', 'bi-chevron-right');
+        header.setAttribute('aria-expanded', 'false');
+    });
+});
+document.querySelectorAll('#provisions .entity-type-header').forEach(function(header) {
+    var target = document.querySelector(header.dataset.bsTarget);
+    if (!target) return;
+    target.addEventListener('show.bs.collapse', function() {
+        header.querySelector('.entity-group-chevron').classList.replace('bi-chevron-right', 'bi-chevron-down');
+    });
+    target.addEventListener('hide.bs.collapse', function() {
+        header.querySelector('.entity-group-chevron').classList.replace('bi-chevron-down', 'bi-chevron-right');
+    });
+});
+
+// Expand/Collapse All toggle
+function toggleAllProvisions(btn) {
+    var state = btn.dataset.state;
+    var panels = document.querySelectorAll('#provisions .provision-item > .collapse');
+    panels.forEach(function(panel) {
+        var bsCollapse = bootstrap.Collapse.getOrCreateInstance(panel, {toggle: false});
+        if (state === 'collapsed') {
+            bsCollapse.show();
+        } else {
+            bsCollapse.hide();
+        }
+    });
+    if (state === 'collapsed') {
+        btn.dataset.state = 'expanded';
+        btn.innerHTML = '<i class="bi bi-arrows-collapse"></i> Collapse All';
+    } else {
+        btn.dataset.state = 'collapsed';
+        btn.innerHTML = '<i class="bi bi-arrows-expand"></i> Expand All';
+    }
+}
+</script>
