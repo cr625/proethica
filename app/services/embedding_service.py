@@ -111,7 +111,7 @@ class EmbeddingService:
 
         except Exception as e:
             # Log the error and re-raise
-            print(f"Error extracting text from {file_path} ({file_type}): {str(e)}")
+            logger.error(f"Error extracting text from {file_path} ({file_type}): {str(e)}")
             raise
     
     def _extract_from_pdf(self, file_path: str) -> str:
@@ -265,9 +265,8 @@ class EmbeddingService:
             
             final_text = '\n'.join(cleaned_lines)
             
-            # Debug logging
-            print(f"Extracted text from URL: {url}")
-            print(f"Text length: {len(final_text)} characters")
+            logger.debug(f"Extracted text from URL: {url}")
+            logger.debug(f"Text length: {len(final_text)} characters")
             
             return final_text
         except ImportError:
@@ -384,7 +383,7 @@ class EmbeddingService:
         
         # Single line status output - only on first initialization
         if not EmbeddingService._initialized:
-            print(f"Embedding service initialized: [{', '.join(provider_status)}] Priority: {priority_str}")
+            logger.info(f"Embedding service initialized: [{', '.join(provider_status)}] Priority: {priority_str}")
             EmbeddingService._initialized = True
                 
     def get_embedding(self, text: str) -> List[float]:
@@ -424,16 +423,16 @@ class EmbeddingService:
                     self.embedding_dimension = len(embedding)
                     return embedding
             except Exception as e:
-                print(f"Error using {provider} embeddings: {str(e)}")
+                logger.warning(f"Error using {provider} embeddings: {str(e)}")
                 continue
         
         # Fallback to random if all providers fail
         try:
             states = {p: (self.providers.get(p, {}).get("available", False)) for p in self.provider_priority}
             reasons = {p: self.providers.get(p, {}).get("reason") for p in self.provider_priority}
-            print(f"Warning: All embedding providers failed. Using random embeddings. States={states} Reasons={reasons}")
+            logger.warning(f"All embedding providers failed. Using random embeddings. States={states} Reasons={reasons}")
         except Exception:
-            print("Warning: All embedding providers failed. Using random embeddings.")
+            logger.warning("All embedding providers failed. Using random embeddings.")
         return self._get_random_embedding()
     
     def _get_local_embedding(self, text: str) -> List[float]:
@@ -448,7 +447,7 @@ class EmbeddingService:
                     from sentence_transformers import SentenceTransformer
                     model_name = self.model_name
                     self.providers["local"]["model"] = SentenceTransformer(model_name, local_files_only=True, device="cpu")
-                    print("Local embedding: CUDA error detected, falling back to CPU")
+                    logger.warning("Local embedding: CUDA error detected, falling back to CPU")
                     embedding = self.providers["local"]["model"].encode(text)
                 except Exception:
                     raise
@@ -501,7 +500,7 @@ class EmbeddingService:
         embeddings_endpoint = f"{api_base.rstrip('/')}/embeddings"
         
         try:
-            print(f"Using Claude embeddings API: {embeddings_endpoint}")
+            logger.debug(f"Using Claude embeddings API: {embeddings_endpoint}")
             response = requests.post(
                 embeddings_endpoint,
                 headers=headers, 
@@ -521,7 +520,7 @@ class EmbeddingService:
             # Try alternative API path if first attempt fails with 404
             elif response.status_code == 404:
                 # Alternative v2 endpoint
-                print("Original endpoint not found, trying alternative API version...")
+                logger.debug("Original endpoint not found, trying alternative API version...")
                 headers["anthropic-version"] = "2023-01-01"  # Try a different API version
                 alt_endpoint = f"{api_base.rstrip('/')}/v1/embeddings"
                 
@@ -539,13 +538,13 @@ class EmbeddingService:
                         return result["embeddings"][0]
                 
                 # If that also fails, use the Claude completion API to get embeddings
-                print("Embeddings API unavailable. Falling back to simulated embedding...")
+                logger.warning("Embeddings API unavailable. Falling back to simulated embedding...")
                 return self._get_random_embedding()  # Fall back to random for now
             
             # Other errors
             raise Exception(f"Claude API error: {response.status_code} {response.text}")
         except Exception as e:
-            print(f"Claude embedding API error: {str(e)}")
+            logger.error(f"Claude embedding API error: {str(e)}")
             raise
 
     def _get_openai_embedding(self, text: str) -> List[float]:
@@ -656,7 +655,7 @@ class EmbeddingService:
         
         triples = query.all()
         
-        print(f"Updating embeddings for {len(triples)} triples...")
+        logger.info(f"Updating embeddings for {len(triples)} triples...")
         
         for triple in triples:
             self.update_triple_embeddings(triple, commit=False)
@@ -905,14 +904,14 @@ class EmbeddingService:
         """
         embeddings = []
         
-        print(f"Generating embeddings for {len(chunks)} chunks...")
+        logger.info(f"Generating embeddings for {len(chunks)} chunks...")
         
         for chunk in chunks:
             try:
                 embedding = self.get_embedding(chunk)
                 embeddings.append(embedding)
             except Exception as e:
-                print(f"Error generating embedding for chunk: {str(e)}")
+                logger.error(f"Error generating embedding for chunk: {str(e)}")
                 # Use zero vector as fallback for failed embeddings
                 embeddings.append([0.0] * self.embedding_dimension)
         

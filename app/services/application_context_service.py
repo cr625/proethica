@@ -11,10 +11,13 @@ import os
 import json
 import importlib
 import inspect
+import logging
 import re
 from typing import Dict, List, Any, Optional, Union, Type
 from datetime import datetime
 import time
+
+logger = logging.getLogger(__name__)
 
 from app import db
 from app.models.world import World
@@ -75,7 +78,7 @@ class ApplicationContextService:
         
         # Single line initialization message
         providers_count = len(self.context_providers)
-        print(f"ApplicationContextService v{self.CONTEXT_VERSION} initialized with {providers_count} providers")
+        logger.info(f"ApplicationContextService v{self.CONTEXT_VERSION} initialized with {providers_count} providers")
     
     def _load_configuration(self) -> Dict[str, Any]:
         """
@@ -95,7 +98,7 @@ class ApplicationContextService:
                     try:
                         return json.loads(config_entry.config)
                     except json.JSONDecodeError:
-                        print("Invalid JSON in app_config.config")
+                        logger.warning("Invalid JSON in app_config.config")
             except (ImportError, AttributeError):
                 # AppConfig model doesn't exist, skip this step
                 pass
@@ -107,9 +110,9 @@ class ApplicationContextService:
                     with open(config_path, 'r') as f:
                         return json.load(f)
             except Exception as e:
-                print(f"Error loading config file: {str(e)}")
+                logger.error(f"Error loading config file: {str(e)}")
         except Exception as e:
-            print(f"Error loading configuration: {str(e)}")
+            logger.error(f"Error loading configuration: {str(e)}")
         
         # Default configuration if nothing else works
         return {
@@ -205,7 +208,7 @@ class ApplicationContextService:
                 # app.models doesn't exist as a package
                 pass
         except Exception as e:
-            print(f"Error initializing model registry: {str(e)}")
+            logger.error(f"Error initializing model registry: {str(e)}")
         
         return model_registry
     
@@ -403,7 +406,7 @@ class ApplicationContextService:
                 ttl = self.config.get('caching', {}).get('ttl_seconds', 300)
                 
                 if time.time() - cache_time < ttl:
-                    print(f"Using cached context for {cache_key}")
+                    logger.debug(f"Using cached context for {cache_key}")
                     return self.cache[cache_key]
         
         # Create request context
@@ -428,7 +431,7 @@ class ApplicationContextService:
                 if provider_context:
                     context[f'{provider_name}_context'] = provider_context
             except Exception as e:
-                print(f"Error getting context from provider {provider.__class__.__name__}: {str(e)}")
+                logger.error(f"Error getting context from provider {provider.__class__.__name__}: {str(e)}")
         
         # Store in cache
         if self.config.get('caching', {}).get('enabled', False):
@@ -645,10 +648,10 @@ class ApplicationContextService:
             # Create instance and register
             provider = provider_class(self)
             self.context_providers.append(provider)
-            print(f"Dynamically registered context provider: {provider_class.__name__}")
+            logger.info(f"Dynamically registered context provider: {provider_class.__name__}")
             return True
         except Exception as e:
-            print(f"Error registering context provider: {str(e)}")
+            logger.error(f"Error registering context provider: {str(e)}")
             return False
     
     # Methods for world entity integration
@@ -682,7 +685,7 @@ class ApplicationContextService:
             
             return case_data
         except Exception as e:
-            print(f"Error getting case: {str(e)}")
+            logger.error(f"Error getting case: {str(e)}")
             return None
     
     def get_world(self, world_id: int) -> Dict[str, Any]:
@@ -712,7 +715,7 @@ class ApplicationContextService:
             
             return world_data
         except Exception as e:
-            print(f"Error getting world: {str(e)}")
+            logger.error(f"Error getting world: {str(e)}")
             return None
     
     def get_entity_triples(self, case_id: int) -> List[Dict[str, Any]]:
@@ -755,7 +758,7 @@ class ApplicationContextService:
                 
             return triple_list
         except Exception as e:
-            print(f"Error getting entity triples: {str(e)}")
+            logger.error(f"Error getting entity triples: {str(e)}")
             return []
     
     def store_entity_triples(self, case_id: int, triples: List[Dict[str, Any]], replace: bool = False) -> bool:
@@ -798,7 +801,7 @@ class ApplicationContextService:
             db.session.commit()
             return True
         except Exception as e:
-            print(f"Error storing entity triples: {str(e)}")
+            logger.error(f"Error storing entity triples: {str(e)}")
             db.session.rollback()
             return False
     
@@ -896,7 +899,7 @@ class ApplicationContextService:
             
             return result
         except Exception as e:
-            print(f"Error getting world entities: {str(e)}")
+            logger.error(f"Error getting world entities: {str(e)}")
             return {
                 'world_id': world_id,
                 'entities': {
@@ -979,7 +982,7 @@ class ApplicationContextService:
                 'description': entity.description
             }
         except Exception as e:
-            print(f"Error creating entity: {str(e)}")
+            logger.error(f"Error creating entity: {str(e)}")
             db.session.rollback()
             return {
                 'success': False,
@@ -1031,7 +1034,7 @@ class ApplicationContextService:
                     
                 db.session.commit()
             except Exception as e:
-                print(f"Error saving configuration to database: {str(e)}")
+                logger.error(f"Error saving configuration to database: {str(e)}")
                 
                 # Try to save to file as fallback
                 config_path = os.path.join(os.path.dirname(__file__), '..', 'config', 'application_context.json')
@@ -1044,7 +1047,7 @@ class ApplicationContextService:
             
             return True
         except Exception as e:
-            print(f"Error updating configuration: {str(e)}")
+            logger.error(f"Error updating configuration: {str(e)}")
             return False
     
     def generate_schema_documentation(self) -> str:

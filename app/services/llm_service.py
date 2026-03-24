@@ -8,6 +8,7 @@ Maintained for compatibility with 24 existing service files.
 See docs/LLM_SERVICE_MIGRATION_PLAN.md for migration strategy.
 """
 
+import logging
 from typing import Dict, List, Any, Optional, Union
 from langchain_core.prompts import PromptTemplate
 from langchain_core.language_models import BaseLLM
@@ -18,6 +19,9 @@ import json
 import time
 from datetime import datetime
 from app.services.mcp_client import MCPClient
+
+logger = logging.getLogger(__name__)
+
 
 class Message:
     """Class representing a message in a conversation."""
@@ -227,10 +231,10 @@ class LLMService:
                 )
                 
             except ImportError:
-                print("Warning: langchain_anthropic not available, falling back to mock LLM")
+                logger.warning("langchain_anthropic not available, falling back to mock LLM")
                 return self._create_mock_llm()
             except Exception as e:
-                print(f"Warning: Error initializing Claude ({e}), falling back to mock LLM")
+                logger.warning(f"Error initializing Claude ({e}), falling back to mock LLM")
                 return self._create_mock_llm()
         
         # Default to mock LLM
@@ -298,7 +302,7 @@ class LLMService:
                     return self._format_guidelines(guidelines_data['guidelines'])
         
         except Exception as e:
-            print(f"Error retrieving guidelines: {str(e)}")
+            logger.error(f"Error retrieving guidelines: {str(e)}")
             
             # Fallback to mock data in case of error
             try:
@@ -552,7 +556,7 @@ class LLMService:
                     "guidelines": guidelines
                 })
         except Exception as e:
-            print(f"Error generating response: {str(e)}")
+            logger.error(f"Error generating response: {str(e)}")
             # Use a default response in case of error
             response = "I'm sorry, I encountered an error processing your request. Please try again or ask a different question."
         

@@ -1,5 +1,6 @@
 """Scenario CRUD operations and helpers."""
 
+import logging
 from flask import request, jsonify, render_template, redirect, url_for, flash
 from flask_login import login_required
 from app import db
@@ -8,6 +9,8 @@ from app.models.character import Character
 from app.models.condition import Condition
 from app.models.resource import Resource
 from app.models.world import World
+
+logger = logging.getLogger(__name__)
 
 
 def _cleanup_case_scenario_references(scenario):
@@ -35,7 +38,7 @@ def _cleanup_case_scenario_references(scenario):
     if latest_scenario.get('scenario_id') == scenario_id:
         case.doc_metadata['latest_scenario'] = {}
         metadata_updated = True
-        print(f"Removed scenario {scenario_id} from latest_scenario in case {source_case_id}")
+        logger.info(f"Removed scenario {scenario_id} from latest_scenario in case {source_case_id}")
 
     # Clean up scenario_versions array
     scenario_versions = case.doc_metadata.get('scenario_versions', [])
@@ -50,7 +53,7 @@ def _cleanup_case_scenario_references(scenario):
     removed_count = original_count - len(case.doc_metadata['scenario_versions'])
     if removed_count > 0:
         metadata_updated = True
-        print(f"Removed {removed_count} scenario version(s) for scenario {scenario_id} from case {source_case_id}")
+        logger.info(f"Removed {removed_count} scenario version(s) for scenario {scenario_id} from case {source_case_id}")
 
     # Mark metadata as modified for SQLAlchemy to detect changes
     if metadata_updated:

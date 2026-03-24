@@ -93,7 +93,6 @@ class LLMValidationTracker:
         )
         
         logger.info(f"Started LLM validation session: {session_id}")
-        print(f"📝 Starting LLM validation session: {session_id}")
         return session_id
     
     def log_phase_feedback(self, phase_name: str, validation_data: Dict[str, Any], 
@@ -127,12 +126,11 @@ class LLMValidationTracker:
         logger.info(f"LLM Phase {phase_name}: confidence={confidence:.2f}, "
                    f"insights={len(insights)}, warnings={len(warnings)}")
         
-        # Print abbreviated feedback to console for immediate visibility
-        print(f"🤖 LLM {phase_name}: {insights[0] if insights else 'Processing complete'}")
+        logger.debug(f"LLM {phase_name}: {insights[0] if insights else 'Processing complete'}")
         if warnings:
-            print(f"⚠️  LLM Warning: {warnings[0]}")
+            logger.warning(f"LLM Warning: {warnings[0]}")
         if improvements and len(improvements) > 0:
-            print(f"💡 LLM Suggestion: {improvements[0]}")
+            logger.debug(f"LLM Suggestion: {improvements[0]}")
     
     def complete_validation_session(self) -> Optional[LLMValidationSession]:
         """Complete the current validation session and save to log."""
@@ -152,11 +150,9 @@ class LLMValidationTracker:
         logger.info(f"Completed LLM validation session {session.session_id}: "
                    f"{len(session.feedbacks)} phases, avg_confidence={avg_confidence:.2f}")
         
-        # Print session summary
-        print(f"\n📋 LLM Validation Complete:")
-        print(f"   - Phases: {len(session.feedbacks)}")
-        print(f"   - Avg Confidence: {avg_confidence:.2f}")
-        print(f"   - Processing Time: {session.total_processing_time:.1f}s")
+        logger.info(f"LLM Validation Complete: phases={len(session.feedbacks)}, "
+                    f"avg_confidence={avg_confidence:.2f}, "
+                    f"processing_time={session.total_processing_time:.1f}s")
         
         completed_session = self.current_session
         self.current_session = None

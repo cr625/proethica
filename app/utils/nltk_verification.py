@@ -31,7 +31,7 @@ def verify_nltk_resources():
             f"Missing required NLTK resources: {', '.join(missing)}. "
             f"Please run 'python scripts/setup_nltk_resources.py' to install them."
         )
-        print(f"\nNLTK Setup Required: {error_msg}\n")
+        logger.warning(error_msg)
         raise RuntimeError(error_msg)
 
     return True

@@ -1,6 +1,7 @@
 """Action CRUD routes for scenarios."""
 
 import json
+import logging
 from flask import request, jsonify, render_template, redirect, url_for, flash
 from flask_login import login_required
 from app import db
@@ -8,6 +9,8 @@ from app.models.scenario import Scenario
 from app.models.character import Character
 from app.models.world import World
 from app.services.mcp_client import MCPClient
+
+logger = logging.getLogger(__name__)
 
 
 def register_action_routes(bp):
@@ -29,7 +32,7 @@ def register_action_routes(bp):
                 if entities and 'entities' in entities and 'actions' in entities['entities']:
                     action_types = entities['entities']['actions']
             except Exception as e:
-                print(f"Error retrieving action types from ontology: {str(e)}")
+                logger.warning(f"Error retrieving action types from ontology: {str(e)}")
 
         return render_template('create_action.html', scenario=scenario, action_types=action_types)
 
@@ -58,7 +61,7 @@ def register_action_routes(bp):
                 if entities and 'entities' in entities and 'actions' in entities['entities']:
                     action_types = entities['entities']['actions']
             except Exception as e:
-                print(f"Error retrieving action types from ontology: {str(e)}")
+                logger.warning(f"Error retrieving action types from ontology: {str(e)}")
 
         return render_template('edit_action.html', scenario=scenario, action=action, action_types=action_types)
 
@@ -165,21 +168,21 @@ def register_action_routes(bp):
         try:
             # Delete related events
             events = Event.query.filter_by(action_id=action.id).all()
-            print(f"Found {len(events)} events to delete for action {action_id}")
+            logger.debug(f"Found {len(events)} events to delete for action {action_id}")
             for event in events:
-                print(f"Deleting event {event.id}")
+                logger.debug(f"Deleting event {event.id}")
                 db.session.delete(event)
 
             # Delete the action
-            print(f"Deleting action {action_id}")
+            logger.debug(f"Deleting action {action_id}")
             db.session.delete(action)
             db.session.commit()
-            print(f"Action {action_id} and related events deleted successfully")
+            logger.info(f"Action {action_id} and related events deleted successfully")
 
             flash('Action deleted successfully', 'success')
         except Exception as e:
             db.session.rollback()
-            print(f"Error deleting action {action_id}: {str(e)}")
+            logger.error(f"Error deleting action {action_id}: {str(e)}")
             flash(f'Error deleting action: {str(e)}', 'danger')
 
         return redirect(url_for('scenarios.view_scenario', id=scenario.id))

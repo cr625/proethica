@@ -1,6 +1,7 @@
 """Event CRUD routes for scenarios."""
 
 import json
+import logging
 from flask import request, jsonify, render_template, redirect, url_for, flash
 from flask_login import login_required
 from app import db
@@ -8,6 +9,8 @@ from app.models.scenario import Scenario
 from app.models.character import Character
 from app.models.world import World
 from app.services.mcp_client import MCPClient
+
+logger = logging.getLogger(__name__)
 
 
 def register_event_routes(bp):
@@ -30,7 +33,7 @@ def register_event_routes(bp):
                 if entities and 'entities' in entities and 'actions' in entities['entities']:
                     action_types = entities['entities']['actions']
             except Exception as e:
-                print(f"Error retrieving action types from ontology: {str(e)}")
+                logger.warning(f"Error retrieving action types from ontology: {str(e)}")
 
         return render_template('create_event.html', scenario=scenario, action_types=action_types)
 
@@ -60,7 +63,7 @@ def register_event_routes(bp):
                 if entities and 'entities' in entities and 'actions' in entities['entities']:
                     action_types = entities['entities']['actions']
             except Exception as e:
-                print(f"Error retrieving action types from ontology: {str(e)}")
+                logger.warning(f"Error retrieving action types from ontology: {str(e)}")
 
         return render_template('edit_event.html', scenario=scenario, event=event, action_types=action_types)
 
@@ -143,21 +146,21 @@ def register_event_routes(bp):
 
         # Check if this event is linked to an action
         if event.action_id:
-            print(f"Event {event_id} is linked to action {event.action_id} and cannot be deleted directly")
+            logger.warning(f"Event {event_id} is linked to action {event.action_id} and cannot be deleted directly")
             flash('This event is linked to an action and cannot be deleted directly. Delete the action instead.', 'warning')
             return redirect(url_for('scenarios.view_scenario', id=scenario.id))
 
         try:
             # Delete the event
-            print(f"Deleting event {event_id}")
+            logger.debug(f"Deleting event {event_id}")
             db.session.delete(event)
             db.session.commit()
-            print(f"Event {event_id} deleted successfully")
+            logger.info(f"Event {event_id} deleted successfully")
 
             flash('Event deleted successfully', 'success')
         except Exception as e:
             db.session.rollback()
-            print(f"Error deleting event {event_id}: {str(e)}")
+            logger.error(f"Error deleting event {event_id}: {str(e)}")
             flash(f'Error deleting event: {str(e)}', 'danger')
 
         return redirect(url_for('scenarios.view_scenario', id=scenario.id))

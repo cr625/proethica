@@ -411,7 +411,7 @@ def register_creation_processing_routes(bp):
                     if request.form.get('conclusion_items'):
                         conclusion_items = json.loads(request.form.get('conclusion_items'))
                 except Exception as e:
-                    print(f"Warning: Error parsing JSON lists: {str(e)}")
+                    logger.warning(f"Error parsing JSON lists: {str(e)}")
 
                 combined_content = f"<h2>Facts</h2>\n{facts}\n\n"
 
@@ -555,7 +555,7 @@ def register_creation_processing_routes(bp):
 
         except Exception as e:
             import traceback
-            print(traceback.format_exc())
+            logger.error(traceback.format_exc())
             flash(f'Error processing URL: {str(e)}', 'danger')
             return redirect(url_for('cases.url_form'))
 
@@ -654,7 +654,7 @@ def register_creation_processing_routes(bp):
 
         except Exception as e:
             import traceback
-            print(traceback.format_exc())
+            logger.error(traceback.format_exc())
             flash(f'Error processing document: {str(e)}', 'danger')
             return redirect(url_for('cases.upload_document_form'))
 

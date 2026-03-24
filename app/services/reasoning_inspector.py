@@ -66,8 +66,8 @@ class ReasoningInspector:
             self._step_counter = 0
             
             if self.debug_to_console:
-                print(f"🔍 Started reasoning trace: {session_id}")
-            
+                logger.debug(f"Started reasoning trace: {session_id}")
+
             logger.info(f"Started reasoning trace {session_id} for case {case_id} ({feature_type})")
             return session_id
             
@@ -99,9 +99,9 @@ class ReasoningInspector:
         """
         if not self.current_trace:
             if self.debug_to_console:
-                print(f"⚠️  No active trace for LLM interaction: {phase}")
+                logger.debug(f"No active trace for LLM interaction: {phase}")
             return -1
-        
+
         try:
             self._step_counter += 1
             
@@ -142,7 +142,7 @@ class ReasoningInspector:
             if self.debug_to_console:
                 conf_str = f" ({int(confidence_score * 100)}%)" if confidence_score else ""
                 time_str = f" in {processing_time:.1f}s" if processing_time else ""
-                print(f"🤖 LLM {phase}{conf_str}{time_str}")
+                logger.debug(f"LLM {phase}{conf_str}{time_str}")
             
             logger.info(f"Captured LLM interaction: {phase} (step {self._step_counter})")
             return step.id
@@ -169,7 +169,7 @@ class ReasoningInspector:
         """
         if not self.current_trace:
             if self.debug_to_console:
-                print(f"⚠️  No active trace for ontology query: {phase}")
+                logger.debug(f"No active trace for ontology query: {phase}")
             return -1
         
         try:
@@ -206,7 +206,7 @@ class ReasoningInspector:
             
             if self.debug_to_console:
                 time_str = f" in {processing_time:.1f}s" if processing_time else ""
-                print(f"🔍 Ontology {entity_type} query: {len(results)} results{time_str}")
+                logger.debug(f"Ontology {entity_type} query: {len(results)} results{time_str}")
             
             logger.info(f"Captured ontology query: {phase} ({entity_type}) -> {len(results)} results")
             return step.id
@@ -232,7 +232,7 @@ class ReasoningInspector:
         """
         if not self.current_trace:
             if self.debug_to_console:
-                print(f"⚠️  No active trace for algorithm step: {phase}")
+                logger.debug(f"No active trace for algorithm step: {phase}")
             return -1
         
         try:
@@ -255,7 +255,7 @@ class ReasoningInspector:
             
             if self.debug_to_console:
                 time_str = f" in {processing_time:.1f}s" if processing_time else ""
-                print(f"⚙️  Algorithm {phase}{time_str}")
+                logger.debug(f"Algorithm {phase}{time_str}")
             
             logger.info(f"Captured algorithm step: {phase}")
             return step.id
@@ -281,7 +281,7 @@ class ReasoningInspector:
         """
         if not self.current_trace:
             if self.debug_to_console:
-                print(f"⚠️  No active trace for preprocessing step: {phase}")
+                logger.debug(f"No active trace for preprocessing step: {phase}")
             return -1
         
         try:
@@ -316,7 +316,7 @@ class ReasoningInspector:
             
             if self.debug_to_console:
                 reduction = len(original_text) - len(processed_text)
-                print(f"📝 Preprocessing {phase}: -{reduction} chars")
+                logger.debug(f"Preprocessing {phase}: -{reduction} chars")
             
             logger.info(f"Captured preprocessing step: {phase}")
             return step.id
@@ -348,7 +348,7 @@ class ReasoningInspector:
                 db.session.commit()
                 
                 if self.debug_to_console:
-                    print(f"❌ Error in {step.phase_name}: {error_message[:100]}")
+                    logger.debug(f"Error in {step.phase_name}: {error_message[:100]}")
                 
                 logger.warning(f"Added error to step {step.id}: {error_message}")
                 
@@ -376,7 +376,7 @@ class ReasoningInspector:
             self.current_trace.calculate_statistics()
             
             if self.debug_to_console:
-                print(f"✅ Completed trace {self.current_trace.session_id}: "
+                logger.debug(f"Completed trace {self.current_trace.session_id}: "
                       f"{self.current_trace.total_steps} steps, "
                       f"{self.current_trace.processing_time:.1f}s total")
             

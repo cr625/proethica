@@ -85,7 +85,7 @@ def register_core_routes(bp):
                 db.session.commit()
                 ontologies = [bfo_ontology]
             except Exception as e:
-                print(f"Error creating BFO ontology: {str(e)}")
+                logger.warning(f"Error creating BFO ontology: {str(e)}")
 
         return render_template('create_world.html', ontologies=ontologies)
 
@@ -161,23 +161,23 @@ def register_core_routes(bp):
                         status_result = mcp_client.get_ontology_status(world.ontology_source)
                         ontology_status = status_result.get('status', 'current')
                     except Exception as e:
-                        print(f"Error checking ontology status: {str(e)}")
+                        logger.warning(f"Error checking ontology status: {str(e)}")
 
                 # Debug logging
-                print(f"Retrieved entities result: {entities.keys() if isinstance(entities, dict) else 'not a dict'}")
+                logger.debug(f"Retrieved entities result: {entities.keys() if isinstance(entities, dict) else 'not a dict'}")
                 if isinstance(entities, dict):
-                    print(f"is_mock value: {entities.get('is_mock', 'not found')}")
+                    logger.debug(f"is_mock value: {entities.get('is_mock', 'not found')}")
                 if 'entities' in entities:
                     entity_types = entities['entities'].keys() if isinstance(entities['entities'], dict) else 'not a dict'
-                    print(f"Entity types: {entity_types}")
+                    logger.debug(f"Entity types: {entity_types}")
 
             except Exception as e:
                 import traceback
                 stack_trace = traceback.format_exc()
                 error_message = f"Error retrieving world entities: {str(e)}"
                 entities = {"entities": {}, "error": error_message}
-                print(error_message)
-                print(stack_trace)
+                logger.error(error_message)
+                logger.debug(stack_trace)
 
         # Get all guidelines for this world
         from app.models.guideline import Guideline

@@ -7,9 +7,12 @@ of entity triples, including querying based on time, building timelines,
 and generating temporal context for Claude.
 """
 
+import logging
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Any, Union, Tuple
 from sqlalchemy import and_, or_, desc, asc
+
+logger = logging.getLogger(__name__)
 
 from app import db
 from app.models.entity_triple import EntityTriple
@@ -77,7 +80,7 @@ class TemporalContextService:
             
         except Exception as e:
             db.session.rollback()
-            print(f"Error enhancing event with temporal data: {str(e)}")
+            logger.error(f"Error enhancing event with temporal data: {str(e)}")
             return False
 
     def enhance_action_with_temporal_data(
@@ -134,7 +137,7 @@ class TemporalContextService:
             
         except Exception as e:
             db.session.rollback()
-            print(f"Error enhancing action with temporal data: {str(e)}")
+            logger.error(f"Error enhancing action with temporal data: {str(e)}")
             return False
 
     def create_temporal_relation(
@@ -166,7 +169,7 @@ class TemporalContextService:
             ]
             
             if relation_type not in valid_relations:
-                print(f"Invalid relation type: {relation_type}")
+                logger.warning(f"Invalid relation type: {relation_type}")
                 return False
                 
             # Create the relation by setting a reference on the source triple
@@ -200,7 +203,7 @@ class TemporalContextService:
             
         except Exception as e:
             db.session.rollback()
-            print(f"Error creating temporal relation: {str(e)}")
+            logger.error(f"Error creating temporal relation: {str(e)}")
             return False
 
     def find_triples_in_timeframe(
@@ -257,7 +260,7 @@ class TemporalContextService:
             return query.all()
             
         except Exception as e:
-            print(f"Error finding triples in timeframe: {str(e)}")
+            logger.error(f"Error finding triples in timeframe: {str(e)}")
             return []
 
     def find_temporal_sequence(
@@ -296,7 +299,7 @@ class TemporalContextService:
             return query.all()
             
         except Exception as e:
-            print(f"Error finding temporal sequence: {str(e)}")
+            logger.error(f"Error finding temporal sequence: {str(e)}")
             return []
 
     def find_temporal_relations(
@@ -322,7 +325,7 @@ class TemporalContextService:
             return query.all()
             
         except Exception as e:
-            print(f"Error finding temporal relations: {str(e)}")
+            logger.error(f"Error finding temporal relations: {str(e)}")
             return []
 
     def build_timeline(self, scenario_id: int) -> Dict[str, List[Dict]]:
@@ -434,7 +437,7 @@ class TemporalContextService:
             }
             
         except Exception as e:
-            print(f"Error building timeline: {str(e)}")
+            logger.error(f"Error building timeline: {str(e)}")
             return {"events": [], "actions": [], "decisions": []}
 
     def get_temporal_context_for_claude(self, scenario_id: int) -> str:
@@ -560,7 +563,7 @@ class TemporalContextService:
             return context
             
         except Exception as e:
-            print(f"Error generating temporal context: {str(e)}")
+            logger.error(f"Error generating temporal context: {str(e)}")
             return "Error generating timeline context."
 
     def _get_entity_description(self, uri: str) -> Optional[str]:
@@ -595,5 +598,5 @@ class TemporalContextService:
             return uri
             
         except Exception as e:
-            print(f"Error getting entity description: {str(e)}")
+            logger.error(f"Error getting entity description: {str(e)}")
             return uri

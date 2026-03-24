@@ -29,7 +29,7 @@ def register_view_routes(bp):
             if isinstance(document.doc_metadata, dict):
                 metadata = document.doc_metadata
             else:
-                print(f"Warning: doc_metadata for document {document.id} is not a dictionary: {type(document.doc_metadata)}")
+                logger.warning(f"doc_metadata for document {document.id} is not a dictionary: {type(document.doc_metadata)}")
 
         case = {
             'id': document.id,

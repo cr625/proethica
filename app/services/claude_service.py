@@ -46,7 +46,7 @@ class ClaudeService:
             # Check if the environment variable exists
             self.api_key = os.environ.get("ANTHROPIC_API_KEY")
             if not self.api_key:
-                print("WARNING: No ANTHROPIC_API_KEY found, falling back to mock mode")
+                logger.warning("No ANTHROPIC_API_KEY found, falling back to mock mode")
                 self.use_mock = True
         
         # Initialize standard configuration - use centralized config if model not specified
@@ -62,11 +62,11 @@ class ClaudeService:
                 # Initialize the client with the API key, but don't fail if it doesn't work
                 self.client = Anthropic(api_key=self.api_key)
                 if os.environ.get('DEBUG', '').lower() == 'true':
-                    print(f"Claude service initialized with model {self.model}" +
+                    logger.debug(f"Claude service initialized with model {self.model}" +
                           (", using mock mode" if self.use_mock else ""))
             except Exception as e:
-                print(f"Failed to initialize Anthropic client: {str(e)}")
-                print("Falling back to mock mode")
+                logger.error(f"Failed to initialize Anthropic client: {str(e)}")
+                logger.warning("Falling back to mock mode")
                 self.use_mock = True
         
         # Get MCP client for accessing guidelines (same as LLMService)
@@ -172,11 +172,11 @@ class ClaudeService:
                 return {}
                 
             # Get entities from MCP client using the get_world_entities method
-            print(f"Getting entities for world {world_id} with ontology source: {world.ontology_source}")
+            logger.debug(f"Getting entities for world {world_id} with ontology source: {world.ontology_source}")
             entities = self.mcp_client.get_world_entities(world.ontology_source)
             return entities
         except Exception as e:
-            print(f"Error getting world entities: {str(e)}")
+            logger.error(f"Error getting world entities: {str(e)}")
             return {}
     
     def build_system_prompt(self, world_id=None):
@@ -287,8 +287,8 @@ class ClaudeService:
                 raise Exception("Mock fallback mode is enabled, using mock response")
                 
         except Exception as e:
-            print(f"Error generating response from Claude: {str(e)}")
-            print(f"Falling back to mock response (USE_MOCK_FALLBACK={use_mock})")
+            logger.error(f"Error generating response from Claude: {str(e)}")
+            logger.warning(f"Falling back to mock response (USE_MOCK_FALLBACK={use_mock})")
             
             # Create a realistic mock response based on the last message
             last_message = ""
@@ -395,8 +395,8 @@ class ClaudeService:
                 raise Exception("Mock fallback mode is enabled, using mock options")
                 
         except Exception as e:
-            print(f"Error generating prompt options from Claude: {str(e)}")
-            print(f"Falling back to mock options (USE_MOCK_FALLBACK={use_mock})")
+            logger.error(f"Error generating prompt options from Claude: {str(e)}")
+            logger.warning(f"Falling back to mock options (USE_MOCK_FALLBACK={use_mock})")
             
             # Create context-aware mock options
             mock_options = []

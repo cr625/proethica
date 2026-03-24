@@ -152,13 +152,13 @@ def get_llm_client():
                     client.available_models = [preferred_model, ModelConfig.CLAUDE_MODELS["sonnet-4.6"], ModelConfig.CLAUDE_MODELS["opus-4.6"]]
                     
                 model_list = ", ".join(client.available_models[:3]) + ("..." if len(client.available_models) > 3 else "")
-                print(f"Initialized Anthropic client version {anthropic_version} ({client.api_version}) with models: {model_list}")
+                logger.info("Initialized Anthropic client version %s (%s) with models: %s", anthropic_version, client.api_version, model_list)
                 return client
             except Exception as e:
-                print(f"Error setting up Anthropic client: {str(e)}")
+                logger.warning("Error setting up Anthropic client: %s", e)
                 raise
     except (ImportError, Exception) as e:
-        print(f"Failed to initialize Anthropic: {str(e)}")
+        logger.warning("Failed to initialize Anthropic: %s", e)
     
     # If Anthropic failed, try OpenAI
     try:
@@ -170,7 +170,7 @@ def get_llm_client():
             models = client.models.list()
             return client
     except (ImportError, Exception) as e:
-        print(f"Failed to initialize OpenAI: {str(e)}")
+        logger.warning("Failed to initialize OpenAI: %s", e)
     
     # If both failed, raise an exception
     raise RuntimeError("No LLM client available. Please set up Anthropic or OpenAI API keys.")
@@ -191,7 +191,7 @@ def get_embedding_client():
             # Test with a simple request to make sure it's configured correctly
             return client
     except (ImportError, Exception) as e:
-        print(f"Failed to initialize OpenAI for embeddings: {str(e)}")
+        logger.warning("Failed to initialize OpenAI for embeddings: %s", e)
     
     # If OpenAI failed, try to use a local transformer-based embedding model
     try:
@@ -202,7 +202,7 @@ def get_embedding_client():
         model = SentenceTransformer('all-MiniLM-L6-v2')
         return model
     except (ImportError, Exception) as e:
-        print(f"Failed to initialize local embedding model: {str(e)}")
+        logger.warning("Failed to initialize local embedding model: %s", e)
     
     # If both failed, raise an exception
     raise RuntimeError("No embedding client available. Please set up OpenAI API keys or install sentence-transformers.")
@@ -231,7 +231,7 @@ def create_embeddings(texts, client=None):
             )
             return [item.embedding for item in response.data]
         except Exception as e:
-            print(f"Error creating OpenAI embeddings: {str(e)}")
+            logger.error("Error creating OpenAI embeddings: %s", e)
             raise
     
     # Assume it's a SentenceTransformer model
@@ -240,5 +240,5 @@ def create_embeddings(texts, client=None):
         # Convert to Python lists for consistent return type
         return [embedding.tolist() for embedding in embeddings]
     except Exception as e:
-        print(f"Error creating SentenceTransformer embeddings: {str(e)}")
+        logger.error("Error creating SentenceTransformer embeddings: %s", e)
         raise

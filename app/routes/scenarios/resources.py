@@ -1,5 +1,6 @@
 """Resource CRUD routes for scenarios."""
 
+import logging
 from flask import request, jsonify, render_template, redirect, url_for, flash
 from flask_login import login_required
 from app import db
@@ -8,6 +9,8 @@ from app.models.resource import Resource
 from app.models.resource_type import ResourceType
 from app.models.world import World
 from app.services.mcp_client import MCPClient
+
+logger = logging.getLogger(__name__)
 
 
 def register_resource_routes(bp):
@@ -32,17 +35,17 @@ def register_resource_routes(bp):
                 if entities and 'entities' in entities and 'resources' in entities['entities']:
                     ontology_resource_types = entities['entities']['resources']
             except Exception as e:
-                print(f"Error retrieving resource types from ontology: {str(e)}")
+                logger.warning(f"Error retrieving resource types from ontology: {str(e)}")
 
         # Debug information
-        print(f"Found {len(resource_types)} database resource types for world_id {scenario.world_id}")
-        print(f"Found {len(ontology_resource_types)} ontology resource types for world_id {scenario.world_id}")
+        logger.debug(f"Found {len(resource_types)} database resource types for world_id {scenario.world_id}")
+        logger.debug(f"Found {len(ontology_resource_types)} ontology resource types for world_id {scenario.world_id}")
 
         for rt in resource_types:
-            print(f"DB Resource Type - ID: {rt.id}, Name: {rt.name}, Category: {rt.category}")
-            print(f"Description: {rt.description}")
-            print(f"Ontology URI: {rt.ontology_uri}")
-            print("-" * 50)
+            logger.debug(f"DB Resource Type - ID: {rt.id}, Name: {rt.name}, Category: {rt.category}")
+            logger.debug(f"Description: {rt.description}")
+            logger.debug(f"Ontology URI: {rt.ontology_uri}")
+            logger.debug("-" * 50)
 
         return render_template(
             'create_resource.html',
@@ -77,7 +80,7 @@ def register_resource_routes(bp):
                 if entities and 'entities' in entities and 'resources' in entities['entities']:
                     ontology_resource_types = entities['entities']['resources']
             except Exception as e:
-                print(f"Error retrieving resource types from ontology: {str(e)}")
+                logger.warning(f"Error retrieving resource types from ontology: {str(e)}")
 
         return render_template(
             'edit_resource.html',
@@ -148,7 +151,7 @@ def register_resource_routes(bp):
                                     resource.type = resource_type_name  # Update the type field for backward compatibility
                                     break
                     except Exception as e:
-                        print(f"Error retrieving resource type from ontology: {str(e)}")
+                        logger.warning(f"Error retrieving resource type from ontology: {str(e)}")
             else:
                 # This is a database resource type ID
                 resource.resource_type_id = resource_type_id
@@ -233,7 +236,7 @@ def register_resource_routes(bp):
                                 resource_type_id = db_res_type.id
                                 break
                 except Exception as e:
-                    print(f"Error retrieving resource type from ontology: {str(e)}")
+                    logger.warning(f"Error retrieving resource type from ontology: {str(e)}")
 
         # Create resource
         resource = Resource(

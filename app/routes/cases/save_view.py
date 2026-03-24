@@ -32,7 +32,7 @@ def register_save_view_routes(bp):
             if date_parts_str:
                 date_parts = json.loads(date_parts_str)
         except Exception as e:
-            print(f"Warning: Error parsing date_parts: {str(e)}")
+            logger.warning(f"Error parsing date_parts: {str(e)}")
 
         user_id = None
         try:
@@ -69,7 +69,7 @@ def register_save_view_routes(bp):
                 if subject_tags_str:
                     subject_tags = json.loads(subject_tags_str)
             except Exception as e:
-                print(f"Warning: Error parsing subject_tags: {str(e)}")
+                logger.warning(f"Error parsing subject_tags: {str(e)}")
                 subject_tags_str = request.form.get('subject_tags', '')
                 if subject_tags_str:
                     subject_tags = [subject_tags_str]
@@ -83,11 +83,11 @@ def register_save_view_routes(bp):
                 if request.form.get('conclusion_items'):
                     conclusion_items = json.loads(request.form.get('conclusion_items'))
             except Exception as e:
-                print(f"Warning: Error parsing JSON lists: {str(e)}")
+                logger.warning(f"Error parsing JSON lists: {str(e)}")
 
             # Parse questions from HTML if list is empty
             if not questions_list and question_html:
-                print("Attempting to parse questions from question_html")
+                logger.debug("Attempting to parse questions from question_html")
 
                 questions_raw = question_html
 
@@ -101,19 +101,19 @@ def register_save_view_routes(bp):
                             temp_questions.append(q.strip())
 
                     if temp_questions:
-                        print(f"Successfully parsed {len(temp_questions)} questions from text")
+                        logger.debug(f"Successfully parsed {len(temp_questions)} questions from text")
                         questions_list = temp_questions
 
                 if not questions_list:
                     numbered_questions = re.findall(r'(\d+\.\s*[^.;?!]*[.;?!])', questions_raw)
                     if numbered_questions:
                         questions_list = [q.strip() for q in numbered_questions]
-                        print(f"Found {len(questions_list)} numbered questions")
+                        logger.debug(f"Found {len(questions_list)} numbered questions")
                     else:
                         line_splits = re.split(r'[\r\n]+', questions_raw)
                         if len(line_splits) > 1:
                             questions_list = [q.strip() for q in line_splits if q.strip()]
-                            print(f"Split into {len(questions_list)} questions by line breaks")
+                            logger.debug(f"Split into {len(questions_list)} questions by line breaks")
 
             # Build HTML content
             from app.routes.cases.creation_processing import _build_case_html
@@ -166,7 +166,7 @@ def register_save_view_routes(bp):
 
         except Exception as e:
             import traceback
-            print(traceback.format_exc())
+            logger.error(traceback.format_exc())
             flash(f'Error saving case: {str(e)}', 'danger')
             return redirect(url_for('cases.url_form'))
 

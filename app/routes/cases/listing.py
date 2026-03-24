@@ -99,7 +99,7 @@ def register_listing_routes(bp):
                     if isinstance(doc.doc_metadata, dict):
                         metadata = doc.doc_metadata
                     else:
-                        print(f"Warning: doc_metadata for document {doc.id} is not a dictionary: {type(doc.doc_metadata)}")
+                        logger.warning(f"doc_metadata for document {doc.id} is not a dictionary: {type(doc.doc_metadata)}")
 
                 # Extract year from metadata or case number
                 year = metadata.get('year', '')
@@ -247,7 +247,7 @@ def register_listing_routes(bp):
                         if isinstance(document.doc_metadata, dict):
                             metadata = document.doc_metadata
                         else:
-                            print(f"Warning: doc_metadata for document {document.id} is not a dictionary: {type(document.doc_metadata)}")
+                            logger.warning(f"doc_metadata for document {document.id} is not a dictionary: {type(document.doc_metadata)}")
 
                     year = metadata.get('year', '')
                     if not year and metadata.get('case_number'):

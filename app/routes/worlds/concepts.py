@@ -1224,7 +1224,7 @@ def register_concept_routes(bp):
                 references_data = mcp_client.get_references_for_world(world)
                 references = {'results': references_data}
         except Exception as e:
-            print(f"Error retrieving references: {str(e)}")
+            logger.warning(f"Error retrieving references: {str(e)}")
             references = {'results': []}
 
         return render_template('world_references.html', world=world, references=references, query=query)

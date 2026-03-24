@@ -1,6 +1,7 @@
 """Character CRUD routes for scenarios."""
 
 import json
+import logging
 from flask import request, jsonify, render_template, redirect, url_for, flash
 from flask_login import login_required
 from app import db
@@ -11,6 +12,8 @@ from app.models.condition_type import ConditionType
 from app.models.world import World
 from app.models.role import Role
 from app.services.mcp_client import MCPClient
+
+logger = logging.getLogger(__name__)
 
 
 def register_character_routes(bp):
@@ -38,14 +41,14 @@ def register_character_routes(bp):
             try:
                 # Get all entity types from ontology in one request
                 entities = mcp_client.get_world_entities(world.ontology_source)
-                print(f"Retrieved entities result: {entities.keys() if isinstance(entities, dict) else 'not a dict'}")
+                logger.debug(f"Retrieved entities result: {entities.keys() if isinstance(entities, dict) else 'not a dict'}")
                 if isinstance(entities, dict):
-                    print(f"is_mock value: {entities.get('is_mock', 'not found')}")
+                    logger.debug(f"is_mock value: {entities.get('is_mock', 'not found')}")
 
                 if entities and 'entities' in entities:
-                    print(f"Final entities structure: {entities.keys()}")
+                    logger.debug(f"Final entities structure: {entities.keys()}")
                     entity_dict = entities['entities']
-                    print(f"Entity types: {entity_dict.keys() if isinstance(entity_dict, dict) else 'not a dict'}")
+                    logger.debug(f"Entity types: {entity_dict.keys() if isinstance(entity_dict, dict) else 'not a dict'}")
 
                     # Extract roles if available
                     if 'roles' in entity_dict:
@@ -55,14 +58,14 @@ def register_character_routes(bp):
                     if 'conditions' in entity_dict:
                         ontology_condition_types = entity_dict['conditions']
             except Exception as e:
-                print(f"Error retrieving entities from ontology: {str(e)}")
+                logger.warning(f"Error retrieving entities from ontology: {str(e)}")
 
         # Debug information
-        print(f"Found {len(db_roles)} database roles for world_id {scenario.world_id}")
-        print(f"Found {len(ontology_roles)} ontology roles for world_id {scenario.world_id}")
+        logger.debug(f"Found {len(db_roles)} database roles for world_id {scenario.world_id}")
+        logger.debug(f"Found {len(ontology_roles)} ontology roles for world_id {scenario.world_id}")
 
-        print(f"Found {len(condition_types)} database condition types for world_id {scenario.world_id}")
-        print(f"Found {len(ontology_condition_types)} ontology condition types for world_id {scenario.world_id}")
+        logger.debug(f"Found {len(condition_types)} database condition types for world_id {scenario.world_id}")
+        logger.debug(f"Found {len(ontology_condition_types)} ontology condition types for world_id {scenario.world_id}")
 
         return render_template(
             'create_character.html',
@@ -107,7 +110,7 @@ def register_character_routes(bp):
                                 role_description = role['description']
                                 break
                 except Exception as e:
-                    print(f"Error retrieving role from ontology: {str(e)}")
+                    logger.warning(f"Error retrieving role from ontology: {str(e)}")
 
             # Create or find a role in the database to associate with this character
             db_role = Role.query.filter_by(ontology_uri=role_id, world_id=scenario.world_id).first()
@@ -192,7 +195,7 @@ def register_character_routes(bp):
                                     condition_type_id = db_cond_type.id
                                     break
                     except Exception as e:
-                        print(f"Error retrieving condition type from ontology: {str(e)}")
+                        logger.warning(f"Error retrieving condition type from ontology: {str(e)}")
 
             # Create condition
             condition = Condition(
@@ -210,11 +213,11 @@ def register_character_routes(bp):
         from app.services.rdf_service import RDFService
         rdf_service = RDFService()
         try:
-            print(f"Syncing new character {character.id} ({character.name}) to RDF triple store")
+            logger.info(f"Syncing new character {character.id} ({character.name}) to RDF triple store")
             rdf_service.sync_character(character)
-            print(f"Character {character.id} successfully synced with RDF triple store")
+            logger.info(f"Character {character.id} successfully synced with RDF triple store")
         except Exception as e:
-            print(f"Error syncing character with RDF triple store: {str(e)}")
+            logger.warning(f"Error syncing character with RDF triple store: {str(e)}")
 
         return jsonify({
             'success': True,
@@ -256,7 +259,7 @@ def register_character_routes(bp):
         if character.role_id:
             if character.role_from_role and character.role_from_role.ontology_uri:
                 ontology_role_uri = character.role_from_role.ontology_uri
-                print(f"Character's role has ontology URI: {ontology_role_uri}")
+                logger.debug(f"Character's role has ontology URI: {ontology_role_uri}")
 
         if world and world.ontology_source:
             try:
@@ -275,13 +278,13 @@ def register_character_routes(bp):
                             for role in ontology_roles:
                                 if role['id'] == ontology_role_uri:
                                     role['selected'] = True
-                                    print(f"Marked ontology role {role['label']} as selected")
+                                    logger.debug(f"Marked ontology role {role['label']} as selected")
 
                     # Extract condition types if available
                     if 'conditions' in entity_dict:
                         ontology_condition_types = entity_dict['conditions']
             except Exception as e:
-                print(f"Error retrieving entities from ontology: {str(e)}")
+                logger.warning(f"Error retrieving entities from ontology: {str(e)}")
 
         # If role is unmatched, generate a suggested description to prefill
         suggested_role_description = None
@@ -293,7 +296,7 @@ def register_character_routes(bp):
                 desc_payload = rds.generate(character.original_llm_role or character.role, world=world_obj)
                 suggested_role_description = desc_payload.get('description')
             except Exception as e:
-                print(f"Role description suggestion failed: {e}")
+                logger.warning(f"Role description suggestion failed: {e}")
 
         return render_template(
             'edit_character.html',
@@ -384,10 +387,10 @@ def register_character_routes(bp):
                                     character.role_id = db_role.id
                                     character.role = role_name  # Update the legacy role field
                                     role_assigned = True
-                                    print(f"Updated character role to ontology role: {role_name} (ID: {db_role.id})")
+                                    logger.info(f"Updated character role to ontology role: {role_name} (ID: {db_role.id})")
                                     break
                     except Exception as e:
-                        print(f"Error retrieving role from ontology: {str(e)}")
+                        logger.warning(f"Error retrieving role from ontology: {str(e)}")
             else:
                 # This is a database role ID - convert to integer
                 try:
@@ -400,12 +403,12 @@ def register_character_routes(bp):
                     if role:
                         character.role = role.name
                         role_assigned = True
-                        print(f"Updated character role to database role: {role.name} (ID: {role_int})")
+                        logger.info(f"Updated character role to database role: {role.name} (ID: {role_int})")
                     else:
-                        print(f"Warning: Role with ID {role_int} not found in database")
+                        logger.warning(f"Role with ID {role_int} not found in database")
                 except ValueError:
                     # Ignore invalid special strings
-                    print(f"Warning: Invalid role_id format: {role_id}")
+                    logger.warning(f"Invalid role_id format: {role_id}")
 
         # Optionally add suggested role to cases ontology when unmatched
         if data.get('add_to_cases_ontology'):
@@ -429,7 +432,7 @@ def register_character_routes(bp):
                         character.matching_method = 'user_add_cases_ontology'
                         character.matching_reasoning = 'User accepted LLM suggestion and added role to cases ontology.'
                 except Exception as e:
-                    print(f"Error adding role to cases ontology: {e}")
+                    logger.warning(f"Error adding role to cases ontology: {e}")
 
         # Update conditions
         # First, handle existing conditions that were updated
@@ -479,7 +482,7 @@ def register_character_routes(bp):
                                                 condition.condition_type_id = db_cond_type.id
                                                 break
                                 except Exception as e:
-                                    print(f"Error retrieving condition type from ontology: {str(e)}")
+                                    logger.warning(f"Error retrieving condition type from ontology: {str(e)}")
                         else:
                             # This is a database condition type ID
                             condition.condition_type_id = condition_type_id
@@ -521,7 +524,7 @@ def register_character_routes(bp):
                                         condition_type_id = db_cond_type.id
                                         break
                         except Exception as e:
-                            print(f"Error retrieving condition type from ontology: {str(e)}")
+                            logger.warning(f"Error retrieving condition type from ontology: {str(e)}")
 
                 # Create condition
                 condition = Condition(
@@ -545,11 +548,11 @@ def register_character_routes(bp):
         rdf_service = RDFService()
         try:
             # Sync will delete existing triples and create new ones based on current character state
-            print(f"Syncing character {character.id} ({character.name}) to RDF triple store")
+            logger.info(f"Syncing character {character.id} ({character.name}) to RDF triple store")
             rdf_service.sync_character(character)
-            print(f"Character {character.id} successfully synced with RDF triple store")
+            logger.info(f"Character {character.id} successfully synced with RDF triple store")
         except Exception as e:
-            print(f"Error syncing character with RDF triple store: {str(e)}")
+            logger.warning(f"Error syncing character with RDF triple store: {str(e)}")
 
         return jsonify({
             'success': True,
@@ -579,11 +582,11 @@ def register_character_routes(bp):
         # Delete character triples from the RDF store
         try:
             rdf_service = RDFService()
-            print(f"Deleting RDF triples for character {character_id} ({character.name})")
+            logger.info(f"Deleting RDF triples for character {character_id} ({character.name})")
             deleted_count = rdf_service.delete_triples(character_id=character_id)
-            print(f"Deleted {deleted_count} RDF triples for character {character_id}")
+            logger.info(f"Deleted {deleted_count} RDF triples for character {character_id}")
         except Exception as e:
-            print(f"Error deleting RDF triples for character {character_id}: {str(e)}")
+            logger.warning(f"Error deleting RDF triples for character {character_id}: {str(e)}")
 
         # First, find all actions associated with this character
         actions = Action.query.filter_by(character_id=character_id).all()

@@ -6,9 +6,12 @@ This service provides functionality for working with BFO concepts,
 particularly those related to temporal aspects of entities in the system.
 """
 
+import logging
 from typing import Dict, List, Optional, Any, Union
 from rdflib import Graph, Namespace, URIRef, Literal, RDF, RDFS, OWL
 import os
+
+logger = logging.getLogger(__name__)
 
 # Define BFO and related namespaces
 BFO = Namespace("http://purl.obolibrary.org/obo/")
@@ -40,7 +43,7 @@ class BFOService:
                 self.graph.parse(intermediate_path, format="turtle")
                 
         except Exception as e:
-            print(f"Error loading ontologies: {str(e)}")
+            logger.warning(f"Error loading ontologies: {str(e)}")
             # Continue with an empty graph
     
     def get_temporal_region_types(self) -> Dict[str, URIRef]:

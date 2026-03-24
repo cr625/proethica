@@ -1,11 +1,14 @@
 """Decision, reference, and simulation routes for scenarios."""
 
+import logging
 from flask import request, jsonify, render_template, redirect, url_for
 from flask_login import login_required
 from app import db
 from app.models.scenario import Scenario
 from app.models.character import Character
 from app.services.mcp_client import MCPClient
+
+logger = logging.getLogger(__name__)
 
 
 def register_decision_routes(bp):
@@ -78,7 +81,7 @@ def register_decision_routes(bp):
                 references_data = mcp_client.get_references_for_scenario(scenario)
                 references = {'results': references_data}
         except Exception as e:
-            print(f"Error retrieving references: {str(e)}")
+            logger.warning(f"Error retrieving references: {str(e)}")
             references = {'results': []}
 
         return render_template('scenario_references.html', scenario=scenario, references=references, query=query)

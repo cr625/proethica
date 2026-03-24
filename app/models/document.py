@@ -3,10 +3,13 @@ Base document model (includes guidelines, case studies, and other document types
 """
 
 from datetime import datetime
+import logging
 from flask_sqlalchemy import SQLAlchemy
 from app.models import db
 import os
 import re
+
+logger = logging.getLogger(__name__)
 from sqlalchemy.dialects.postgresql import JSON
 from app.models.pgvector import Vector
 
@@ -94,7 +97,7 @@ class Document(db.Model):
                     self.content = f.read()
                 return self.content
             except Exception as e:
-                print(f"Error reading file {self.file_path}: {str(e)}")
+                logger.error("Error reading file %s: %s", self.file_path, e)
                 return f"Error reading file: {str(e)}"
         
         return None
