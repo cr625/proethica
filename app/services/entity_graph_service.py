@@ -331,8 +331,7 @@ def build_qc_flow(case_id: int) -> dict:
 
     Returns dict with questions, conclusions, links, metadata, and success flag.
     """
-    # Lazy import to avoid circular dependency via step4/__init__.py
-    from app.routes.scenario_pipeline.step4.helpers import (
+    from app.services.step4_data_helpers import (
         _classify_conclusion_type, _count_conclusion_types,
     )
 
@@ -433,11 +432,10 @@ def extract_questions_conclusions(
     Returns:
         Tuple of (questions, conclusions)
     """
-    # Lazy imports to avoid circular dependency via step4/__init__.py
     from app.routes.scenario_pipeline.step4.config import (
         STEP4_POWERFUL_MODEL,
     )
-    from app.routes.scenario_pipeline.step4.helpers import (
+    from app.services.step4_data_helpers import (
         get_all_case_entities, _count_conclusion_types_from_list,
     )
 
@@ -621,8 +619,7 @@ def perform_cross_section_synthesis(
     Returns:
         Dict with synthesis results
     """
-    # Lazy import to avoid circular dependency via step4/__init__.py
-    from app.routes.scenario_pipeline.step4.helpers import _store_synthesis_results
+    from app.services.step4_data_helpers import _store_synthesis_results
 
     logger.info(f"Part C: Starting cross-section synthesis for case {case_id}")
 
