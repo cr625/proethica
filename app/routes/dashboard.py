@@ -31,7 +31,6 @@ except ImportError:
     # Create a placeholder for testing if the model doesn't exist yet
     TemporaryConcept = None
 from app.services.ontology_entity_service import OntologyEntityService
-from app.services.recommendation_engine import recommendation_engine
 from app.services.firac_analysis_service import firac_analysis_service
 from app.services.ethics_committee_agent import ethics_committee_agent
 
@@ -112,122 +111,12 @@ def world_dashboard(world_id):
     
     # Get world analysis status
     analysis_status = get_world_analysis_status(world_id)
-    
-    # Get recommendations status
-    recommendations_status = get_world_recommendations_status(world_id)
-    
+
     return render_template(
         'dashboard/world.html',
         world=world,
         stats=world_stats,
-        analysis_status=analysis_status,
-        recommendations_status=recommendations_status
-    )
-
-
-@dashboard_bp.route('/case/<int:case_id>/recommendations')
-@login_required
-def case_recommendations(case_id):
-    """Generate and display recommendations for a specific case."""
-    
-    try:
-        # Generate recommendations using the new engine
-        recommendations = recommendation_engine.generate_recommendations(case_id)
-        
-        return render_template(
-            'dashboard/recommendations.html',
-            recommendations=recommendations
-        )
-    except Exception as e:
-        logger.error(f"Error generating recommendations for case {case_id}: {e}")
-        return render_template(
-            'dashboard/recommendations_error.html',
-            case_id=case_id,
-            error=str(e)
-        )
-
-
-@dashboard_bp.route('/api/case/<int:case_id>/recommendations')
-@login_required
-def api_case_recommendations(case_id):
-    """API endpoint for case recommendations."""
-    
-    try:
-        recommendations = recommendation_engine.generate_recommendations(case_id)
-        
-        # Convert to JSON-serializable format
-        return jsonify({
-            'status': 'success',
-            'case_id': recommendations.case_id,
-            'case_title': recommendations.case_title,
-            'overall_risk_assessment': recommendations.overall_risk_assessment,
-            'key_ethical_themes': recommendations.key_ethical_themes,
-            'recommendations': [
-                {
-                    'id': rec.id,
-                    'title': rec.title,
-                    'type': rec.recommendation_type,
-                    'confidence': rec.confidence,
-                    'priority': rec.priority,
-                    'summary': rec.summary,
-                    'detailed_explanation': rec.detailed_explanation,
-                    'ethical_reasoning': rec.ethical_reasoning,
-                    'risk_level': rec.risk_level,
-                    'predicted_outcome': rec.predicted_outcome,
-                    'outcome_confidence': rec.outcome_confidence,
-                    'guideline_concepts': rec.guideline_concepts,
-                    'similar_cases': rec.similar_cases,
-                    'pattern_indicators': rec.pattern_indicators,
-                    'stakeholder_considerations': rec.stakeholder_considerations,
-                    'implementation_steps': rec.implementation_steps,
-                    'potential_challenges': rec.potential_challenges
-                }
-                for rec in recommendations.recommendations
-            ],
-            'confidence_overview': recommendations.confidence_overview,
-            'processing_metadata': recommendations.processing_metadata
-        })
-    except Exception as e:
-        logger.error(f"Error generating API recommendations for case {case_id}: {e}")
-        return jsonify({
-            'status': 'error',
-            'message': str(e)
-        }), 500
-
-
-@dashboard_bp.route('/recommendations/test')
-@login_required
-def test_recommendations():
-    """Test page for recommendation engine."""
-    
-    # Get sample cases - if associations exist, get cases with associations, otherwise get any cases
-    if CaseGuidelineAssociation is not None:
-        try:
-            cases_with_associations = db.session.query(Document.id, Document.title)\
-                .join(CaseGuidelineAssociation, Document.id == CaseGuidelineAssociation.case_id)\
-                .distinct()\
-                .limit(5)\
-                .all()
-        except Exception as e:
-            logger.warning(f"Could not query associations: {e}")
-            cases_with_associations = []
-    else:
-        cases_with_associations = []
-    
-    # If no cases with associations, get any cases that look like NSPE cases
-    if not cases_with_associations:
-        try:
-            cases_with_associations = db.session.query(Document.id, Document.title)\
-                .filter(Document.doc_metadata.op('->>')('case_number').isnot(None))\
-                .limit(5)\
-                .all()
-        except Exception as e:
-            logger.warning(f"Could not query cases: {e}")
-            cases_with_associations = []
-    
-    return render_template(
-        'dashboard/test_recommendations.html',
-        cases=cases_with_associations
+        analysis_status=analysis_status
     )
 
 
@@ -787,12 +676,6 @@ def get_workflow_status():
             'description': 'Case-guideline hybrid associations',
             'completion': 100
         },
-        'recommendation_engine': {
-            'name': 'Recommendation Engine',
-            'status': 'operational',
-            'description': 'Synthesize associations into recommendations',
-            'completion': 100
-        },
         'decision_visualization': {
             'name': 'Decision Visualization',
             'status': 'partial',
@@ -887,17 +770,6 @@ def assess_capabilities():
             ],
             'completion': 40
         },
-        'recommendation_generation': {
-            'name': 'Recommendation Generation',
-            'status': 'excellent',
-            'features': [
-                'Recommendation synthesis (operational)',
-                'Confidence ranking (operational)',
-                'Explanation generation (operational)',
-                'Implementation guidance (operational)'
-            ],
-            'completion': 95
-        },
         'outcome_learning': {
             'name': 'Outcome Learning',
             'status': 'missing',
@@ -985,29 +857,3 @@ def get_world_analysis_status(world_id):
     }
 
 
-def get_world_recommendations_status(world_id):
-    """Get recommendation status for a specific world."""
-    
-    # Check if we have association data
-    if CaseGuidelineAssociation is not None:
-        try:
-            associations_count = CaseGuidelineAssociation.query.filter_by(world_id=world_id).count()
-            if associations_count > 0:
-                return {
-                    'available': True,
-                    'reason': 'Recommendation engine operational with association data',
-                    'associations_count': associations_count,
-                    'confidence_average': 0.75,  # Placeholder - could calculate real average
-                    'status': 'operational'
-                }
-        except Exception as e:
-            logger.warning(f"Could not check associations: {e}")
-    
-    # Fallback - engine is available but with basic recommendations
-    return {
-        'available': True,
-        'reason': 'Recommendation engine operational (basic recommendations available)',
-        'associations_count': 0,
-        'confidence_average': 0.8,  # Basic recommendations have 80% confidence
-        'status': 'basic_mode'
-    }

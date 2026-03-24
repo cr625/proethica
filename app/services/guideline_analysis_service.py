@@ -22,6 +22,8 @@ from app.models.ontology import Ontology
 from sqlalchemy import text
 from model_config import ModelConfig
 
+logger = logging.getLogger(__name__)
+
 # MCP Integration
 try:
     from app.services.ontserve_mcp_client import get_ontserve_mcp_client, MCPClientError, ONTSERVE_MCP_TOOLS
@@ -29,8 +31,6 @@ try:
 except ImportError:
     MCP_AVAILABLE = False
     logger.warning("MCP client not available - falling back to static ontology index")
-
-logger = logging.getLogger(__name__)
 
 
 class GuidelineAnalysisService:

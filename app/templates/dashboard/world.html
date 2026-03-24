@@ -92,17 +92,6 @@
                         </div>
                         
                         <div class="col-md-6">
-                            <h5>Recommendation Status</h5>
-                            {% if recommendations_status.available %}
-                                <div class="alert alert-success">
-                                    <i class="fas fa-check-circle"></i> Recommendations available
-                                </div>
-                            {% else %}
-                                <div class="alert alert-warning">
-                                    <i class="fas fa-exclamation-triangle"></i> {{ recommendations_status.reason }}
-                                </div>
-                            {% endif %}
-                            
                             <h5>Entity Triples</h5>
                             <p class="mb-1"><strong>Total:</strong> {{ analysis_status.entity_triples }}</p>
                             <p class="mb-1"><strong>Status:</strong> 
@@ -224,9 +213,6 @@
                         <button class="btn btn-outline-success" onclick="runAnalysis()">
                             <i class="fas fa-cogs"></i> Run Analysis
                         </button>
-                        <button class="btn btn-outline-warning" onclick="generateRecommendations()" {% if not recommendations_status.available %}disabled{% endif %}>
-                            <i class="fas fa-lightbulb"></i> Generate Recommendations
-                        </button>
                     </div>
                 </div>
             </div>
@@ -247,10 +233,5 @@ function runAnalysis() {
     // TODO: Implement world analysis trigger
 }
 
-function generateRecommendations() {
-    // This would generate recommendations for the world
-    alert('Recommendation generation would be triggered for world: {{ world.id }}');
-    // TODO: Implement recommendation generation
-}
 </script>
 {% endblock %}
