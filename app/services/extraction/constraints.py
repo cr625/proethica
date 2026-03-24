@@ -16,9 +16,13 @@ from .base import ConceptCandidate, MatchedConcept, SemanticTriple, Extractor, L
 from .policy_gatekeeper import RelationshipPolicyGatekeeper
 from model_config import ModelConfig
 
+import logging
+logger = logging.getLogger(__name__)
+
 try:
     from app.utils.llm_utils import get_llm_client
-except Exception:
+except ImportError:
+    logger.debug("Optional dependency not available", exc_info=True)
     get_llm_client = None  # type: ignore
 
 
@@ -60,9 +64,9 @@ class ConstraintsExtractor(Extractor):
                                     }
                                 ))
                     return candidates
-            except Exception:
-                pass
-                
+            except Exception as e:
+                logger.debug(f"LLM provider fallback: {e}")
+
         return self._extract_heuristic(text, guideline_id)
 
     def _extract_heuristic(self, text: str, guideline_id: Optional[int] = None) -> List[ConceptCandidate]:
@@ -219,8 +223,8 @@ Return JSON: [{{"label": "constraint", "description": "description", "confidence
                 else:
                     text_out = getattr(resp, 'text', None) or str(resp)
                 return self._parse_json_items(text_out, root_key='constraints')
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"LLM provider fallback: {e}")
         return []
 
     @staticmethod

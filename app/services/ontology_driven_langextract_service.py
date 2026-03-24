@@ -30,7 +30,8 @@ class OntologyDrivenLangExtractService:
     def __init__(self):
         """Initialize the ontology-driven service"""
         self.base_service = ProEthicaLangExtractService()
-        self.ontserve_mcp_url = os.environ.get('ONTSERVE_MCP_URL', 'http://localhost:8082')
+        from app.services.ontserve_config import get_ontserve_mcp_url
+        self.ontserve_mcp_url = get_ontserve_mcp_url()
         self.mcp_enabled = os.environ.get('ENABLE_MCP_ONTOLOGY_ACCESS', 'false').lower() == 'true'
         
         # Cache for ontology data to avoid repeated queries
@@ -81,7 +82,8 @@ class OntologyDrivenLangExtractService:
         try:
             response = requests.get(f"{self.ontserve_mcp_url}/health", timeout=2)
             return response.status_code == 200
-        except:
+        except Exception:
+            logger.debug("MCP connection test failed", exc_info=True)
             return False
     
     def _get_section_type_info(self, section_title: str, case_domain: str) -> Optional[Dict[str, Any]]:

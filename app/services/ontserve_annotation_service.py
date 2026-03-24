@@ -244,7 +244,8 @@ class OntServeAnnotationService:
             url = urljoin(self.ontserve_url, f"/api/ontology/{ontology_name}")
             response = self.session.get(url, timeout=self.timeout)
             return response.status_code == 200
-        except:
+        except Exception:
+            logger.debug("Failed to check ontology existence in OntServe", exc_info=True)
             return False
     
     def _clear_world_cache(self, world_id: int):

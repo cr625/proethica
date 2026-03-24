@@ -16,10 +16,14 @@ from .base import ConceptCandidate, MatchedConcept, SemanticTriple, Extractor, L
 from .policy_gatekeeper import RelationshipPolicyGatekeeper
 from model_config import ModelConfig
 
+import logging
+logger = logging.getLogger(__name__)
+
 # LLM utils are optional at runtime; import guarded
 try:
     from app.utils.llm_utils import get_llm_client
-except Exception:  # pragma: no cover - environment without Flask/LLM
+except ImportError:  # pragma: no cover - environment without Flask/LLM
+    logger.debug("Optional dependency not available", exc_info=True)
     get_llm_client = None  # type: ignore
 
 
@@ -70,10 +74,9 @@ class StatesExtractor(Extractor):
                         for i in items
                         if (i.get('label') or i.get('state') or i.get('name'))
                     ]
-            except Exception:
-                # Fall through to heuristic if provider path fails
-                pass
-                
+            except Exception as e:
+                logger.debug(f"LLM provider fallback: {e}")
+
         # Heuristic extraction as fallback
         return self._extract_heuristic(text, guideline_id)
 
@@ -202,8 +205,8 @@ class StatesExtractor(Extractor):
                 resp = model.generate_content(prompt)
                 output = getattr(resp, 'text', None) or (resp.candidates[0].content.parts[0].text if getattr(resp, 'candidates', None) else '')
                 return self._parse_json_items(output, root_key='states')
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"LLM provider fallback: {e}")
 
         # Try Anthropic messages API
         try:
@@ -225,8 +228,8 @@ class StatesExtractor(Extractor):
                 else:
                     text_out = getattr(resp, 'text', None) or str(resp)
                 return self._parse_json_items(text_out, root_key='states')
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"LLM provider fallback: {e}")
 
         # Try OpenAI Chat Completions
         try:
@@ -239,8 +242,8 @@ class StatesExtractor(Extractor):
                 )
                 text_out = resp.choices[0].message.content if getattr(resp, 'choices', None) else ''
                 return self._parse_json_items(text_out, root_key='states')
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"LLM provider fallback: {e}")
 
         return []
 

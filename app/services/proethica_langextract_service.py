@@ -166,7 +166,8 @@ Provide clear, structured analysis suitable for professional ethics education.""
                         try:
                             import json
                             extraction_data = json.loads(extraction.extraction_text)
-                        except:
+                        except Exception:
+                            logger.debug("Failed to parse extraction_text as JSON, using raw text fallback", exc_info=True)
                             # If not JSON, create basic structure from raw text
                             extraction_data = {
                                 'key_concepts': [{'term': extraction.extraction_text, 'ethical_relevance': 'general'}]

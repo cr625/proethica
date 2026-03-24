@@ -8,9 +8,13 @@ from slugify import slugify
 from .base import ConceptCandidate, MatchedConcept, SemanticTriple, Extractor, Linker
 from .policy_gatekeeper import RelationshipPolicyGatekeeper
 from model_config import ModelConfig
+import logging
+logger = logging.getLogger(__name__)
+
 try:
     from app.utils.llm_utils import get_llm_client
-except Exception:
+except ImportError:
+    logger.debug("Optional dependency not available", exc_info=True)
     get_llm_client = None  # type: ignore
 
 
@@ -44,8 +48,8 @@ class PrinciplesExtractor(Extractor):
                         for i in items
                         if (i.get('label') or i.get('principle') or i.get('name'))
                     ]
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"LLM provider fallback: {e}")
         sentences = re.split(r"(?<=[\.!?])\s+", text.strip())
         # Common principle keywords in engineering ethics contexts
         kw = re.compile(r"\b(safety|welfare|integrity|honesty|objectivity|fairness|competence|confidentiality|public\s+welfare|responsibility|transparency|accountability|sustainability|respect|dignity|justice|equity|excellence|quality|trust|loyalty)\b", re.IGNORECASE)
@@ -100,8 +104,8 @@ class PrinciplesExtractor(Extractor):
                 principles = self._parse_json_items(output, root_key='principles')
                 # Apply atomic splitting to ensure we get atomic concepts
                 return self._ensure_atomic_principles(principles)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"LLM provider fallback: {e}")
 
         # Anthropic
         try:
@@ -124,8 +128,8 @@ class PrinciplesExtractor(Extractor):
                 principles = self._parse_json_items(text_out, root_key='principles')
                 # Apply atomic splitting to ensure we get atomic concepts
                 return self._ensure_atomic_principles(principles)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"LLM provider fallback: {e}")
 
         # OpenAI
         try:
@@ -140,8 +144,8 @@ class PrinciplesExtractor(Extractor):
                 principles = self._parse_json_items(text_out, root_key='principles')
                 # Apply atomic splitting to ensure we get atomic concepts
                 return self._ensure_atomic_principles(principles)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"LLM provider fallback: {e}")
 
         return []
     

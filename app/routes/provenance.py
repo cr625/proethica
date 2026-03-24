@@ -2,10 +2,13 @@
 Provenance viewer routes for PROV-O tracking visualization.
 """
 
+import logging
 from flask import Blueprint, render_template, jsonify, request, redirect, url_for
 from sqlalchemy import desc, func, text
 import json
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 from app.models import db
 from app.models.provenance import (
@@ -305,7 +308,8 @@ def get_case_provenance(case_id):
                 content_json = json.loads(entity.content)
                 entity_data['preview'] = f"Extracted {len(content_json)} items"
                 entity_data['items'] = content_json[:5]  # First 5 items
-            except:
+            except Exception:
+                logger.debug("Failed to parse entity content as JSON", exc_info=True)
                 entity_data['preview'] = 'Extraction results'
         
         entity_list.append(entity_data)

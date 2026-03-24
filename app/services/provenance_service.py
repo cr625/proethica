@@ -8,10 +8,13 @@ analytical operations in ProEthica.
 
 import hashlib
 import json
+import logging
 from datetime import datetime
 from typing import Optional, Dict, Any, List, Union
 from contextlib import contextmanager
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from app.models import db
 from app.models.provenance import (
@@ -66,7 +69,8 @@ class ProvenanceService:
                     cached_agent = self.session.merge(cached_agent)
                     self._agent_cache[cache_key] = cached_agent
                 return cached_agent
-            except:
+            except Exception:
+                logger.warning("Failed to merge cached agent into session, clearing cache", exc_info=True)
                 # If merge fails, clear cache and recreate
                 del self._agent_cache[cache_key]
 

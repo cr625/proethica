@@ -220,7 +220,8 @@ class ContentExtractor:
             try:
                 text = BeautifulSoup(html_content, 'html.parser').get_text()
                 return re.sub(r'\s+', ' ', text).strip()
-            except:
+            except Exception:
+                logger.warning("Fallback HTML text extraction also failed", exc_info=True)
                 return ""
     
     def extract_title(self, html_content, url=None):

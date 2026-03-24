@@ -16,6 +16,7 @@ from flask import jsonify, Response, stream_with_context
 from app.models import Document, TemporaryRDFStorage, ExtractionPrompt, db
 from app.utils.llm_utils import get_llm_client
 from app.utils.environment_auth import auth_required_for_llm
+from app.services.ontserve_config import get_ontserve_mcp_url
 from app.routes.scenario_pipeline.step4.config import (
     STEP4_SECTION_TYPE, STEP4_DEFAULT_MODEL, STEP4_POWERFUL_MODEL,
 )
@@ -472,7 +473,7 @@ def register_phase3_routes(bp, get_all_case_entities, load_phase2_data):
                     llm_model=STEP4_DEFAULT_MODEL,
                     llm_prompt_length=len(llm_prompt) if llm_prompt else 0,
                     llm_response_length=len(llm_response) if llm_response else 0,
-                    mcp_server_url=os.environ.get("ONTSERVE_MCP_URL", "http://localhost:8082")
+                    mcp_server_url=get_ontserve_mcp_url()
                 )
                 if enrichment_result:
                     synthesis_trace.entities_resolved = enrichment_result.resolution_log
@@ -515,7 +516,7 @@ def register_phase3_routes(bp, get_all_case_entities, load_phase2_data):
                             },
                             activity=mcp_activity,
                             entity_type='mcp_resolved_entities',
-                            metadata={'mcp_server': os.environ.get("ONTSERVE_MCP_URL", "http://localhost:8082")}
+                            metadata={'mcp_server': get_ontserve_mcp_url()}
                         )
 
                 # Track LLM Refinement as separate activity

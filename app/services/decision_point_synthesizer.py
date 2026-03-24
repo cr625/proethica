@@ -22,6 +22,7 @@ from app.models import TemporaryRDFStorage, ExtractionPrompt
 from app.utils.llm_utils import get_llm_client
 from app.utils.llm_json_utils import parse_json_response
 from app.domains import DomainConfig, get_domain_config
+from app.services.ontserve_config import get_ontserve_mcp_url
 from model_config import ModelConfig
 
 # E1-E3 Services
@@ -415,7 +416,7 @@ class DecisionPointSynthesizer:
                         llm_model=ModelConfig.get_claude_model("default"),
                         llm_prompt_length=len(llm_prompt),
                         llm_response_length=len(llm_response),
-                        mcp_server_url=os.environ.get("ONTSERVE_MCP_URL", "http://localhost:8082")
+                        mcp_server_url=get_ontserve_mcp_url()
                     )
                     if fallback_enrichment:
                         fallback_trace.entities_resolved = fallback_enrichment.resolution_log
@@ -481,7 +482,7 @@ class DecisionPointSynthesizer:
             llm_prompt_length=len(result.llm_prompt or ""),
             llm_response_length=len(result.llm_response or ""),
             llm_temperature=0.2,
-            mcp_server_url=os.environ.get("ONTSERVE_MCP_URL", "http://localhost:8082")
+            mcp_server_url=get_ontserve_mcp_url()
         )
 
         # Add enrichment info if available

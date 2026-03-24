@@ -1091,8 +1091,8 @@ def _run_phase4(case_id: int, llm_client) -> dict:
             try:
                 summary = json.loads(transformation_record.results_summary) if isinstance(transformation_record.results_summary, str) else transformation_record.results_summary
                 transformation_type = summary.get('transformation_type')
-            except:
-                pass
+            except Exception:
+                logger.warning("Failed to parse transformation_record results_summary", exc_info=True)
 
         # Load causal links (from database, as dicts)
         links_raw = TemporaryRDFStorage.query.filter_by(

@@ -16,7 +16,7 @@ import logging
 import os
 import uuid
 from datetime import datetime
-from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
+from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash, current_app
 
 from app.models import db, Document
 from app.models.scenario_exploration import ScenarioExplorationSession, ScenarioExplorationChoice
@@ -132,7 +132,7 @@ def register_interactive_routes(bp):
                 case_id, decision_points, session.current_decision_index
             )
 
-            ontserve_web_url = os.environ.get('ONTSERVE_WEB_URL', 'http://localhost:5003')
+            ontserve_web_url = current_app.config.get('ONTSERVE_WEB_URL', 'http://localhost:5003')
 
             return render_template(
                 'scenarios/step5_traversal.html',

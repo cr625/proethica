@@ -32,9 +32,11 @@ class SectionTripleAssociationStorage:
             db_url: Database connection URL
         """
         self.db_url = db_url or os.environ.get(
-            "DATABASE_URL",
-            "postgresql://postgres:PASS@localhost:5432/ai_ethical_dm"
+            "DATABASE_URL") or os.environ.get(
+            "SQLALCHEMY_DATABASE_URI"
         )
+        if not self.db_url:
+            raise RuntimeError("DATABASE_URL or SQLALCHEMY_DATABASE_URI must be set")
         
         self.engine = None
         self.metadata = MetaData()

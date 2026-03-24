@@ -10,10 +10,14 @@ from .atomic_extraction_mixin import AtomicExtractionMixin
 from .policy_gatekeeper import RelationshipPolicyGatekeeper
 from model_config import ModelConfig
 
+import logging
+logger = logging.getLogger(__name__)
+
 # LLM utils are optional at runtime; import guarded
 try:
     from app.utils.llm_utils import get_llm_client
-except Exception:  # pragma: no cover - environment without Flask/LLM
+except ImportError:  # pragma: no cover - environment without Flask/LLM
+    logger.debug("Optional dependency not available", exc_info=True)
     get_llm_client = None  # type: ignore
 
 
@@ -77,10 +81,9 @@ class ObligationsExtractor(Extractor, AtomicExtractionMixin):
                                 debug={'source': 'provider', 'provider': self.provider}
                             ))
                     return candidates
-            except Exception:
-                # Fall through to heuristic if provider path fails
-                pass
-                
+            except Exception as e:
+                logger.debug(f"LLM provider fallback: {e}")
+
         # Heuristic extraction as fallback
         return self._extract_heuristic(text, guideline_id)
 
@@ -158,8 +161,8 @@ class ObligationsExtractor(Extractor, AtomicExtractionMixin):
                 resp = model.generate_content(prompt)
                 output = getattr(resp, 'text', None) or (resp.candidates[0].content.parts[0].text if getattr(resp, 'candidates', None) else '')
                 return self._parse_json_items(output, root_key='obligations')
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"LLM provider fallback: {e}")
 
         # Try Anthropic messages API
         try:
@@ -181,8 +184,8 @@ class ObligationsExtractor(Extractor, AtomicExtractionMixin):
                 else:
                     text_out = getattr(resp, 'text', None) or str(resp)
                 return self._parse_json_items(text_out, root_key='obligations')
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"LLM provider fallback: {e}")
 
         # Try OpenAI Chat Completions
         try:
@@ -195,8 +198,8 @@ class ObligationsExtractor(Extractor, AtomicExtractionMixin):
                 )
                 text_out = resp.choices[0].message.content if getattr(resp, 'choices', None) else ''
                 return self._parse_json_items(text_out, root_key='obligations')
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"LLM provider fallback: {e}")
 
         return []
 

@@ -25,6 +25,8 @@ from app import db
 from app.services.ttl_triple_association.section_triple_association_service import SectionTripleAssociationService
 from app.services.ttl_triple_association.section_triple_association_storage import SectionTripleAssociationStorage
 
+logger = logging.getLogger(__name__)
+
 # Create blueprint
 doc_structure_bp = Blueprint('doc_structure', __name__, url_prefix='/structure')
 
@@ -61,7 +63,8 @@ def view_structure(id):
             # If it's not a dict (likely a string), try to parse it
             try:
                 metadata = json.loads(document.doc_metadata)
-            except:
+            except Exception:
+                logger.warning("Failed to parse document metadata", exc_info=True)
                 flash('Error parsing document metadata', 'warning')
                 metadata = {}
     
@@ -331,7 +334,8 @@ def view_structure(id):
                     if row[6]:  # pattern_indicators
                         try:
                             pattern_indicators = json.loads(row[6]) if isinstance(row[6], str) else row[6]
-                        except:
+                        except Exception:
+                            logger.debug("Failed to parse pattern_indicators JSON", exc_info=True)
                             pattern_indicators = {}
                     
                     enhanced_associations_data.append({
@@ -643,7 +647,8 @@ def generate_structure(id):
                 # If it's not a dict (likely a string), try to parse it
                 try:
                     metadata = json.loads(document.doc_metadata)
-                except:
+                except Exception:
+                    logger.warning("Failed to parse document metadata for annotation", exc_info=True)
                     flash('Error parsing document metadata', 'warning')
                     return redirect(url_for('doc_structure.view_structure', id=id))
         

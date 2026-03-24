@@ -799,8 +799,8 @@ class OntServeCommitService:
                     response = requests.post(f"{self.mcp_url}/refresh_cache")
                     if response.status_code == 200:
                         logger.info("MCP server cache refreshed")
-                except:
-                    pass  # MCP refresh is optional
+                except Exception:
+                    logger.debug("MCP server cache refresh failed (optional)", exc_info=True)
 
                 return {
                     'success': True,

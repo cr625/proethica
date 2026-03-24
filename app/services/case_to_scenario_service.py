@@ -226,8 +226,8 @@ class CaseToScenarioService:
                     app = create_app()
                     with app.app_context():
                         self._update_case_progress(case_id, 0, "FAILED", f"Error: {str(e)}")
-                except:
-                    pass
+                except Exception:
+                    logger.warning("Failed to update case progress after deconstruction error", exc_info=True)
                 return {"success": False, "error": str(e)}
         
         # Start background task

@@ -5,7 +5,7 @@ This dashboard provides a comprehensive overview of the system's capabilities,
 current data, and workflow status.
 """
 
-from flask import Blueprint, render_template, jsonify, request
+from flask import Blueprint, render_template, jsonify, request, current_app
 from flask_login import login_required
 from sqlalchemy import func, desc
 from datetime import datetime, timedelta
@@ -426,7 +426,7 @@ def get_simplified_system_status():
     status = {
         'mcp_server': False,
         'database': False,
-        'mcp_url': os.environ.get('ONTSERVE_MCP_URL', 'http://localhost:8082')
+        'mcp_url': current_app.config.get('ONTSERVE_MCP_URL', 'http://localhost:8082')
     }
     
     # Check MCP server
@@ -434,16 +434,16 @@ def get_simplified_system_status():
         response = requests.get(f"{status['mcp_url']}/health", timeout=2)
         if response.status_code == 200:
             status['mcp_server'] = True
-    except:
-        pass
+    except Exception:
+        logger.debug("MCP server health check failed", exc_info=True)
     
     # Check database
     try:
         # Simple query to check database connection
         World.query.limit(1).first()
         status['database'] = True
-    except:
-        pass
+    except Exception:
+        logger.warning("Database connection check failed", exc_info=True)
     
     return status
 
@@ -682,7 +682,8 @@ def get_system_statistics():
             "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public'"
         )
         table_count = result.scalar()
-    except:
+    except Exception:
+        logger.warning("Failed to query database table count", exc_info=True)
         table_count = 0
     
     return {

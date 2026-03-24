@@ -28,7 +28,8 @@ class MCPTransport:
     def __init__(self, base_url: Optional[str] = None, timeout: int = 30):
         self.base_url = (
             base_url
-            or os.environ.get("ONTSERVE_MCP_URL", "http://localhost:8082")
+            or os.environ.get("ONTSERVE_MCP_URL")
+            or "http://localhost:8082"
         ).rstrip("/")
         self.mcp_endpoint = f"{self.base_url}/mcp"
         self.timeout = timeout

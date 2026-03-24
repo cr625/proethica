@@ -308,7 +308,8 @@ class GuidelineSectionService:
                             else:
                                 # If no JSON structure, create empty dict
                                 current_metadata = {}
-                        except:
+                        except Exception:
+                            logger.debug("Failed to parse section metadata JSON, using empty dict", exc_info=True)
                             # If JSON parsing fails, create new metadata
                             current_metadata = {}
                     
@@ -347,7 +348,8 @@ class GuidelineSectionService:
                 # Try to convert to dict if not already
                 try:
                     metadata_dict = dict(document.guideline_metadata)
-                except:
+                except Exception:
+                    logger.debug("Failed to convert guideline_metadata to dict, using empty dict", exc_info=True)
                     metadata_dict = {}
                 
             # Ensure document_structure exists

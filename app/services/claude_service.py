@@ -8,6 +8,7 @@ Maintained for compatibility with existing service files.
 See docs/LLM_SERVICE_MIGRATION_PLAN.md for migration strategy.
 """
 
+import logging
 from typing import Dict, List, Any, Optional, Union
 from anthropic import Anthropic
 from app.services.llm_service import Message, Conversation
@@ -16,6 +17,9 @@ import os
 import time
 import json
 import re
+
+logger = logging.getLogger(__name__)
+
 
 class ClaudeService:
     """Service for interacting with Anthropic's Claude models."""
@@ -378,8 +382,8 @@ class ClaudeService:
                     options = json.loads(content)
                     if isinstance(options, list) and all('id' in opt and 'text' in opt for opt in options):
                         return options
-                except:
-                    pass
+                except Exception:
+                    logger.debug("Failed to parse full response as JSON options", exc_info=True)
                     
                 # If all parsing fails, return appropriate default options
                 if world_id:
@@ -410,7 +414,8 @@ class ClaudeService:
                             {"id": 4, "text": f"What are the key challenges in {world.name}?"},
                             {"id": 5, "text": f"[Using mock options due to API unavailability]"}
                         ]
-                except:
+                except Exception:
+                    logger.debug("Failed to look up world name for mock options, using default world options", exc_info=True)
                     # Fall back to default world options if we can't get the world name
                     mock_options = self._default_world_options
             else:

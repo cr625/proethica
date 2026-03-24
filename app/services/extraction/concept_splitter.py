@@ -29,8 +29,11 @@ from model_config import ModelConfig
 # LLM utils
 try:
     from app.utils.llm_utils import get_llm_client
-except Exception:
+except ImportError:
+    logging.getLogger(__name__).debug("Optional dependency not available", exc_info=True)
     get_llm_client = None
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -274,7 +277,8 @@ Confidence: [0.0-1.0]
                     import json
                     concepts_str = concepts_str.replace("'", '"')  # Handle single quotes
                     atomic_concepts = json.loads(concepts_str)
-                except:
+                except Exception:
+                    logger.debug("Failed to parse atomic concepts JSON, using fallback parsing", exc_info=True)
                     # Fallback parsing
                     concepts_str = concepts_str.strip('[]"\'')
                     atomic_concepts = [c.strip().strip('"\'') for c in concepts_str.split('","') if c.strip()]
@@ -283,7 +287,8 @@ Confidence: [0.0-1.0]
             elif line.startswith("Confidence:"):
                 try:
                     confidence = float(line.split(":", 1)[1].strip())
-                except:
+                except Exception:
+                    logger.debug("Failed to parse confidence value, using default 0.7", exc_info=True)
                     confidence = 0.7
 
         # Validate atomic concepts

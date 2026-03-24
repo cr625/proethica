@@ -17,10 +17,14 @@ from .atomic_extraction_mixin import AtomicExtractionMixin
 from .policy_gatekeeper import RelationshipPolicyGatekeeper
 from model_config import ModelConfig
 
+import logging
+logger = logging.getLogger(__name__)
+
 # LLM utils are optional at runtime; import guarded
 try:
     from app.utils.llm_utils import get_llm_client
-except Exception:  # pragma: no cover - environment without Flask/LLM
+except ImportError:  # pragma: no cover - environment without Flask/LLM
+    logger.debug("Optional dependency not available", exc_info=True)
     get_llm_client = None  # type: ignore
 
 
@@ -95,10 +99,9 @@ class ResourcesExtractor(Extractor, AtomicExtractionMixin):
                     ]
                     # Apply unified atomic splitting to LLM results
                     return self._apply_atomic_splitting(candidates)
-            except Exception:
-                # Fall through to heuristic if provider path fails
-                pass
-                
+            except Exception as e:
+                logger.debug(f"LLM provider fallback: {e}")
+
         # Heuristic extraction as fallback
         candidates = self._extract_heuristic(text, guideline_id)
         
@@ -277,8 +280,8 @@ class ResourcesExtractor(Extractor, AtomicExtractionMixin):
                     )
                 
                 return self._parse_json_items(output, root_key='resources')
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"LLM provider fallback: {e}")
 
         # Try Anthropic messages API
         try:
@@ -325,8 +328,8 @@ class ResourcesExtractor(Extractor, AtomicExtractionMixin):
                     )
                 
                 return self._parse_json_items(text_out, root_key='resources')
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"LLM provider fallback: {e}")
 
         # Try OpenAI Chat Completions
         try:
@@ -364,8 +367,8 @@ class ResourcesExtractor(Extractor, AtomicExtractionMixin):
                     )
                 
                 return self._parse_json_items(text_out, root_key='resources')
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"LLM provider fallback: {e}")
 
         return []
 

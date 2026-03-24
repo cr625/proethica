@@ -32,8 +32,11 @@ from model_config import ModelConfig
 
 try:
     from app.utils.llm_utils import get_llm_client
-except Exception:
+except ImportError:
+    logging.getLogger(__name__).debug("Optional dependency not available", exc_info=True)
     get_llm_client = None
+
+logger = logging.getLogger(__name__)
 
 
 class ProcessingStage(Enum):
@@ -79,8 +82,8 @@ class ConceptValidationParser(BaseOutputParser[Dict[str, Any]]):
                 elif line.lower().startswith('confidence:'):
                     try:
                         result['confidence'] = float(line.split(':', 1)[1].strip())
-                    except:
-                        pass
+                    except Exception:
+                        logger.debug("Failed to parse confidence value from validation result", exc_info=True)
                 elif line.lower().startswith('reasoning:'):
                     result['reasoning'] = line.split(':', 1)[1].strip()
                 elif line.lower().startswith('suggestions:'):

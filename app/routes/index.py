@@ -2,12 +2,15 @@
 Index route for the application.
 """
 
+import logging
 from flask import Blueprint, render_template, current_app, redirect, url_for, Response, session, request
 from app.models.world import World
 from app.models.scenario import Scenario
 from app.models.guideline import Guideline
 from app.models.document import Document
 from app.routes.health import check_mcp
+
+logger = logging.getLogger(__name__)
 
 # Create a blueprint for the index routes
 index_bp = Blueprint('index', __name__)
@@ -45,8 +48,8 @@ def index():
         try:
             from app.models.ontology import Ontology
             ontologies = Ontology.query.all()
-        except:
-            pass
+        except Exception:
+            logger.debug("Ontology model not available", exc_info=True)
         
         # Get pending reviews count and concept count
         pending_reviews = 0
@@ -57,13 +60,13 @@ def index():
                 needs_type_review=True,
                 entity_type='guideline_concept'
             ).count()
-            
+
             # Count total guideline concepts (ontology concepts)
             concept_count = EntityTriple.query.filter_by(
                 entity_type='guideline_concept'
             ).count()
-        except:
-            pass
+        except Exception:
+            logger.debug("EntityTriple model not available", exc_info=True)
         
         # Get case count for the quick start card - filtered by selected domain if set
         total_cases = 0
@@ -80,8 +83,8 @@ def index():
                 query = query.filter(Document.world_id == selected_domain_id)
 
             total_cases = query.count()
-        except:
-            pass
+        except Exception:
+            logger.debug("Document model not available for case count", exc_info=True)
 
         # System status checks
         mcp_result = check_mcp()

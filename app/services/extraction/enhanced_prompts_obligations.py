@@ -73,7 +73,8 @@ def create_enhanced_obligations_prompt(text: str, include_mcp_context: bool = Fa
                         from app.services.external_mcp_client import get_external_mcp_client
                         external_client = get_external_mcp_client()
                         existing_principles = external_client.get_all_principle_entities()
-                    except:
+                    except Exception:
+                        logger.warning("Failed to fetch principle entities from MCP client", exc_info=True)
                         existing_principles = []
         
             # Organize obligations hierarchically

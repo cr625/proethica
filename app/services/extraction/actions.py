@@ -16,10 +16,14 @@ from .base import ConceptCandidate, MatchedConcept, SemanticTriple, Extractor, L
 from .policy_gatekeeper import RelationshipPolicyGatekeeper
 from model_config import ModelConfig
 
+import logging
+logger = logging.getLogger(__name__)
+
 # LLM utils are optional at runtime; import guarded
 try:
     from app.utils.llm_utils import get_llm_client
-except Exception:  # pragma: no cover - environment without Flask/LLM
+except ImportError:  # pragma: no cover - environment without Flask/LLM
+    logger.debug("Optional dependency not available", exc_info=True)
     get_llm_client = None  # type: ignore
 
 
@@ -64,9 +68,9 @@ class ActionsExtractor(Extractor):
                                     }
                                 ))
                     return candidates
-            except Exception:
-                pass
-                
+            except Exception as e:
+                logger.debug(f"LLM provider fallback: {e}")
+
         return self._extract_heuristic(text, guideline_id)
 
     def _extract_heuristic(self, text: str, guideline_id: Optional[int] = None) -> List[ConceptCandidate]:
@@ -244,8 +248,8 @@ Return STRICT JSON with array under key 'actions':
                 else:
                     text_out = getattr(resp, 'text', None) or str(resp)
                 return self._parse_json_items(text_out, root_key='actions')
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"LLM provider fallback: {e}")
 
         return []
 

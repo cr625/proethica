@@ -10,7 +10,7 @@ import os
 import re
 from typing import Dict, List
 
-from flask import render_template, request, jsonify, redirect, url_for, session as flask_session
+from flask import render_template, request, jsonify, redirect, url_for, session as flask_session, current_app
 
 from app.models import Document, TemporaryRDFStorage, ExtractionPrompt, db
 from app.services.pipeline_status_service import PipelineStatusService
@@ -128,7 +128,7 @@ def register_view_routes(bp):
                 ))
             ).count()
 
-            ontserve_web_url = os.environ.get('ONTSERVE_WEB_URL', 'http://localhost:5003')
+            ontserve_web_url = current_app.config.get('ONTSERVE_WEB_URL', 'http://localhost:5003')
 
             # Entity change detection (compare committed hashes vs OntServe current)
             from app.services.entity_change_detector import get_changed_entity_uris
@@ -568,7 +568,7 @@ def register_view_routes(bp):
                 'entity_lookup': entity_lookup,
                 'entity_lookup_by_label': entity_lookup_by_label,
                 'validation_study_mode': validation_study_mode,
-                'ontserve_web_url': os.environ.get('ONTSERVE_WEB_URL', 'http://localhost:5003')
+                'ontserve_web_url': current_app.config.get('ONTSERVE_WEB_URL', 'http://localhost:5003')
             }
 
             return render_template('scenario_pipeline/step4_review.html', **context)

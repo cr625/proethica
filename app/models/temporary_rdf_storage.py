@@ -11,8 +11,11 @@ Draft/Publish Workflow (2025-12-10):
 """
 
 import hashlib
+import logging
 from datetime import datetime, timezone
 from app.models import db
+
+logger = logging.getLogger(__name__)
 
 
 class TemporaryRDFStorage(db.Model):
@@ -155,7 +158,8 @@ class TemporaryRDFStorage(db.Model):
             # This catches dict_values, dict_keys, etc.
             try:
                 return list(data)
-            except:
+            except Exception:
+                logger.debug("Failed to convert iterable to list, using str()", exc_info=True)
                 return str(data)
         else:
             return data
@@ -526,7 +530,8 @@ class TemporaryRDFStorage(db.Model):
                     if 'built-in method' in str_val or 'method' in str_val:
                         return None
                     return str_val
-                except:
+                except Exception:
+                    logger.debug("Failed to convert value to string during serialization", exc_info=True)
                     return None
 
         return clean_value(data)

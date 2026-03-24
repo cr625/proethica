@@ -7,7 +7,7 @@ Review pages for displaying extracted entities across passes and sessions.
 import logging
 import os
 
-from flask import render_template, request, redirect, url_for, flash
+from flask import render_template, request, redirect, url_for, flash, current_app
 from app.models import Document, db, TemporaryRDFStorage
 from app.services.case_entity_storage_service import CaseEntityStorageService
 from app.utils.environment_auth import auth_optional
@@ -331,7 +331,7 @@ def register_review_view_routes(bp):
             from app.services.pipeline_status_service import PipelineStatusService
             pipeline_status = PipelineStatusService.get_step_status(case_id)
 
-            ontserve_web_url = os.environ.get('ONTSERVE_WEB_URL', 'http://localhost:5003')
+            ontserve_web_url = current_app.config.get('ONTSERVE_WEB_URL', 'http://localhost:5003')
 
             # Entity change detection
             from app.services.entity_change_detector import get_changed_entity_uris
@@ -488,7 +488,7 @@ def register_review_view_routes(bp):
             from app.services.pipeline_status_service import PipelineStatusService
             pipeline_status = PipelineStatusService.get_step_status(case_id)
 
-            ontserve_web_url = os.environ.get('ONTSERVE_WEB_URL', 'http://localhost:5003')
+            ontserve_web_url = current_app.config.get('ONTSERVE_WEB_URL', 'http://localhost:5003')
 
             # Entity change detection
             from app.services.entity_change_detector import get_changed_entity_uris
