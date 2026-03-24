@@ -7,6 +7,8 @@ modules and service-layer callers (entity_graph_service, etc.).
 Moved from app/routes/scenario_pipeline/step4/helpers.py to fix the
 service-imports-from-routes layering violation.  The route helpers module
 re-exports these symbols for backward compatibility.
+
+Transaction policy: does NOT commit. Callers own the transaction boundary.
 """
 
 import json
@@ -217,6 +219,5 @@ def _store_synthesis_results(case_id: int, synthesis) -> None:
     )
 
     db.session.add(extraction_prompt)
-    db.session.commit()
 
     logger.info(f"Stored synthesis results for case {case_id}")

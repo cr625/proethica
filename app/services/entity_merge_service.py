@@ -7,6 +7,8 @@ into unified records in temporary_rdf_storage.
 When the same entity (e.g., "Engineer K") is extracted from both facts and discussion,
 this service merges their properties into a single record while preserving provenance
 from each section.
+
+Transaction policy: does NOT commit. Callers own the transaction boundary.
 """
 
 import logging
@@ -242,7 +244,6 @@ class EntityMergeService:
         if existing:
             # Merge into existing entity
             merged = self.merge_entity_properties(existing, rdf_json_ld, extraction_session_id)
-            db.session.commit()
             return merged, True
         else:
             # Create new entity
@@ -273,7 +274,6 @@ class EntityMergeService:
                 is_selected=True
             )
             db.session.add(entity)
-            db.session.commit()
             return entity, False
 
     def merge_case_entities(self, case_id: int) -> Dict[str, Any]:
@@ -321,8 +321,6 @@ class EntityMergeService:
                     db.session.delete(duplicate)
                     deleted_count += 1
                 merged_count += 1
-
-        db.session.commit()
 
         return {
             'case_id': case_id,
