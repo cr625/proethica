@@ -56,12 +56,8 @@ class RolesExtractor(Extractor, AtomicExtractionMixin):
         try:
             # Check if external MCP integration is enabled
             import os
-            # Ensure .env file is loaded
-            try:
-                from dotenv import load_dotenv
-                load_dotenv()
-            except ImportError:
-                pass
+            from dotenv import load_dotenv
+            load_dotenv()
             
             use_external_mcp = os.environ.get('ENABLE_EXTERNAL_MCP_ACCESS', 'true').lower() == 'true'
             logger.info(f"ENABLE_EXTERNAL_MCP_ACCESS = {os.environ.get('ENABLE_EXTERNAL_MCP_ACCESS')}")
@@ -106,51 +102,8 @@ class RolesExtractor(Extractor, AtomicExtractionMixin):
     
     def _create_roles_prompt(self, text: str) -> str:
         """Create a focused prompt that extracts ONLY roles."""
-        # Import enhanced prompt if available, otherwise use standard
-        try:
-            from .enhanced_prompts_roles_resources import get_enhanced_roles_prompt
-            return get_enhanced_roles_prompt(text, include_mcp_context=False)
-        except ImportError:
-            # Fallback to standard prompt
-            return f"""
-You are analyzing an ethics guideline to extract ROLES only. Do NOT extract principles, obligations, or other concepts.
-
-FOCUS: Identify only the ROLES mentioned in this guideline text.
-
-ROLE TYPES:
-1. **Professional Roles**: People who have professional obligations (e.g., Engineer, Project Manager, Supervisor)
-2. **Stakeholder Roles**: People affected by or interacting with professionals (e.g., Client, Employer, Public, Community)
-
-EXAMPLES OF ROLES:
-- Engineer, Senior Engineer, Structural Engineer
-- Client, Customer, Employer, Supervisor
-- Public, Community, Society, Citizens
-- Contractor, Consultant, Manager, Administrator
-
-GUIDELINES:
-- Extract specific role mentions, not general concepts
-- Include both individual roles (Engineer) and role categories (Public)
-- Roles should be people/entities, not processes or principles
-- Each role should have clear definition of who fills this role
-
-GUIDELINE TEXT:
-{text}
-
-OUTPUT FORMAT:
-Return a JSON array with this structure:
-[
-  {{
-    "label": "Engineer Role",
-    "description": "Professional engineer responsible for technical work", 
-    "type": "role",
-    "role_classification": "professional",
-    "text_references": ["specific quote from text"],
-    "importance": "high"
-  }}
-]
-
-Focus on accuracy over quantity. Extract only clear, unambiguous roles.
-"""
+        from .enhanced_prompts_roles_resources import get_enhanced_roles_prompt
+        return get_enhanced_roles_prompt(text, include_mcp_context=False)
 
     def _create_roles_prompt_with_external_mcp(self, text: str) -> str:
         """Create enhanced roles prompt with external MCP ontology context."""
@@ -166,71 +119,8 @@ Focus on accuracy over quantity. Extract only clear, unambiguous roles.
             
             logger.info(f"Retrieved {len(existing_roles)} existing roles from external MCP for context")
             
-            # Try to use enhanced prompt with MCP context
-            try:
-                from .enhanced_prompts_roles_resources import get_enhanced_roles_prompt
-                return get_enhanced_roles_prompt(text, include_mcp_context=True, existing_roles=existing_roles)
-            except ImportError:
-                # Fallback to building context manually
-                # Build ontology context
-                ontology_context = "EXISTING ROLES IN ONTOLOGY:\n"
-                if existing_roles:
-                    ontology_context += f"Found {len(existing_roles)} existing role concepts:\n"
-                    for role in existing_roles:  # Show all roles
-                        label = role.get('label', 'Unknown')
-                        description = role.get('description', 'No description')
-                        ontology_context += f"- {label}: {description}\n"
-                else:
-                    ontology_context += "No existing roles found in ontology (fresh setup)\n"
-                
-                logger.info(f"Retrieved {len(existing_roles)} existing roles from external MCP for context")
-            
-            # Create enhanced prompt with ontology context
-            enhanced_prompt = f"""
-{ontology_context}
-
-You are analyzing an ethics guideline to extract ROLES only. Do NOT extract principles, obligations, or other concepts.
-
-IMPORTANT: Consider the existing roles above when extracting. For each role you extract:
-1. Check if it matches an existing role (mark as existing)
-2. If it's genuinely new, mark as new
-3. Provide clear reasoning for why it's new vs existing
-
-FOCUS: Identify only the ROLES mentioned in this guideline text.
-
-ROLE TYPES:
-1. **Professional Roles**: People who have professional obligations (e.g., Engineer, Project Manager, Supervisor)
-2. **Stakeholder Roles**: People affected by or interacting with professionals (e.g., Client, Employer, Public, Community)
-
-GUIDELINES:
-- Extract specific role mentions, not general concepts
-- Include both individual roles (Engineer) and role categories (Public)
-- Roles should be people/entities, not processes or principles
-- Each role should have clear definition of who fills this role
-- Consider existing ontology roles when determining if extracted role is new
-
-GUIDELINE TEXT:
-{text}
-
-OUTPUT FORMAT:
-Return a JSON array with this structure:
-[
-  {{
-    "label": "Engineer Role",
-    "description": "Professional engineer responsible for technical work", 
-    "type": "role",
-    "role_classification": "professional",
-    "text_references": ["specific quote from text"],
-    "importance": "high",
-    "is_existing": false,
-    "ontology_match_reasoning": "Similar to existing Engineer concepts but more specific"
-  }}
-]
-
-Focus on accuracy over quantity. Extract only clear, unambiguous roles.
-"""
-            
-            return enhanced_prompt
+            from .enhanced_prompts_roles_resources import get_enhanced_roles_prompt
+            return get_enhanced_roles_prompt(text, include_mcp_context=True, existing_roles=existing_roles)
             
         except Exception as e:
             logger.error(f"Failed to get external MCP context: {e}")

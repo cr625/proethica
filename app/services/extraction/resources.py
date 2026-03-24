@@ -20,12 +20,7 @@ from model_config import ModelConfig
 import logging
 logger = logging.getLogger(__name__)
 
-# LLM utils are optional at runtime; import guarded
-try:
-    from app.utils.llm_utils import get_llm_client
-except ImportError:  # pragma: no cover - environment without Flask/LLM
-    logger.debug("Optional dependency not available", exc_info=True)
-    get_llm_client = None  # type: ignore
+from app.utils.llm_utils import get_llm_client
 
 
 class ResourcesExtractor(Extractor, AtomicExtractionMixin):
@@ -374,40 +369,8 @@ class ResourcesExtractor(Extractor, AtomicExtractionMixin):
 
     def _create_resources_prompt(self, text: str) -> str:
         """Create standard resources extraction prompt."""
-        # Import enhanced prompt if available, otherwise use standard
-        try:
-            from .enhanced_prompts_roles_resources import get_enhanced_resources_prompt
-            return get_enhanced_resources_prompt(text, include_mcp_context=False)
-        except ImportError:
-            # Fallback to standard prompt
-            return f"""
-You are an ontology-aware extractor. From the guideline excerpt, list distinct resources and decision-making tools.
-
-FOCUS: Extract resources that guide ethical decision-making and professional practice.
-
-RESOURCE TYPES TO EXTRACT:
-1. **Ethics Codes**: Professional codes of ethics (e.g., NSPE Code, IEEE Code)
-2. **Technical Standards**: Industry standards, specifications, technical guidelines
-3. **Legal Resources**: Laws, regulations, statutes, legal requirements
-4. **Guidance Documents**: Best practices, procedures, professional guidelines
-5. **Decision Tools**: Frameworks, methodologies, assessment tools, checklists
-6. **Reference Materials**: Handbooks, manuals, guides, documentation
-7. **Knowledge Sources**: Precedents, case studies, expert consultations
-
-EXAMPLES:
-- "NSPE Code of Ethics"
-- "IEEE Standards"
-- "Professional Engineering License Requirements"
-- "Safety Assessment Framework"
-- "Technical Design Standards"
-- "Best Practices Guidelines"
-- "Legal Precedents"
-
-Return STRICT JSON with an array under key 'resources'. Each item: {{label, description, confidence}}.
-
-Guideline excerpt:
-{text}
-"""
+        from .enhanced_prompts_roles_resources import get_enhanced_resources_prompt
+        return get_enhanced_resources_prompt(text, include_mcp_context=False)
 
     def _create_resources_prompt_with_mcp(self, text: str) -> str:
         """Create enhanced resources prompt with external MCP ontology context."""
@@ -441,67 +404,8 @@ Guideline excerpt:
             
             logger.info(f"Retrieved {len(existing_resources)} existing resources from external MCP for context")
             
-            # Try to use enhanced prompt with MCP context
-            try:
-                from .enhanced_prompts_roles_resources import get_enhanced_resources_prompt
-                return get_enhanced_resources_prompt(text, include_mcp_context=True, existing_resources=existing_resources)
-            except ImportError:
-                # Fallback to building context manually
-                # Create enhanced prompt with ontology context
-                enhanced_prompt = f"""
-{ontology_context}
-
-You are an ontology-aware extractor analyzing an ethics guideline to extract RESOURCES.
-
-IMPORTANT: Consider the existing resources above when extracting. For each resource you extract:
-1. Check if it matches an existing resource (mark as existing)
-2. If it's genuinely new, mark as new
-3. Provide clear reasoning for why it's new vs existing
-
-FOCUS: Extract resources that guide ethical decision-making and professional practice.
-
-RESOURCE TYPES TO EXTRACT:
-1. **Ethics Codes**: Professional codes of ethics (e.g., NSPE Code, IEEE Code)
-2. **Technical Standards**: Industry standards, specifications, technical guidelines
-3. **Legal Resources**: Laws, regulations, statutes, legal requirements
-4. **Guidance Documents**: Best practices, procedures, professional guidelines
-5. **Decision Tools**: Frameworks, methodologies, assessment tools, checklists
-6. **Reference Materials**: Handbooks, manuals, guides, documentation
-7. **Knowledge Sources**: Precedents, case studies, expert consultations
-
-EXAMPLES:
-- "NSPE Code of Ethics" - Professional engineering ethics code
-- "IEEE Standards" - Technical standards for electrical engineering
-- "Safety Assessment Framework" - Tool for evaluating project safety
-- "Professional Engineering License" - Legal requirement for practice
-- "Technical Design Standards" - Guidelines for engineering design
-- "Best Practices Manual" - Reference document for procedures
-
-GUIDELINES:
-- Extract tangible resources, documents, and tools
-- Include both specific named resources and general categories
-- Focus on resources that support decision-making
-- Resources should be actionable sources of guidance or information
-
-GUIDELINE TEXT:
-{text}
-
-OUTPUT FORMAT:
-Return STRICT JSON with an array under key 'resources':
-[
-  {{
-    "label": "NSPE Code of Ethics",
-    "description": "National Society of Professional Engineers' code of ethical conduct", 
-    "confidence": 0.9,
-    "is_existing": false,
-    "ontology_match_reasoning": "Similar to existing engineering codes but more specific"
-  }}
-]
-
-Focus on accuracy over quantity. Extract only clear, unambiguous resources.
-"""
-            
-            return enhanced_prompt
+            from .enhanced_prompts_roles_resources import get_enhanced_resources_prompt
+            return get_enhanced_resources_prompt(text, include_mcp_context=True, existing_resources=existing_resources)
             
         except Exception as e:
             import logging

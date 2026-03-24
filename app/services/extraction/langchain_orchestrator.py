@@ -13,28 +13,15 @@ import asyncio
 from dataclasses import dataclass
 from enum import Enum
 
-# LangChain imports
-try:
-    from langchain_core.prompts import PromptTemplate, ChatPromptTemplate
-    from langchain_core.output_parsers import BaseOutputParser
-    from langchain_core.exceptions import OutputParserException
-    from langchain_community.callbacks import get_openai_callback
-except ImportError:
-    # Graceful fallback
-    PromptTemplate = ChatPromptTemplate = None
-    BaseOutputParser = OutputParserException = None
-    get_openai_callback = None
+from langchain_core.prompts import PromptTemplate, ChatPromptTemplate
+from langchain_core.output_parsers import BaseOutputParser
+from langchain_core.exceptions import OutputParserException
+from langchain_community.callbacks import get_openai_callback
 
-# ProEthica imports
 from .base import ConceptCandidate
 from .concept_splitter import GeneralizedConceptSplitter, SplitResult
 from model_config import ModelConfig
-
-try:
-    from app.utils.llm_utils import get_llm_client
-except ImportError:
-    logging.getLogger(__name__).debug("Optional dependency not available", exc_info=True)
-    get_llm_client = None
+from app.utils.llm_utils import get_llm_client
 
 logger = logging.getLogger(__name__)
 

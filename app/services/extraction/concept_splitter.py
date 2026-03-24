@@ -12,26 +12,13 @@ import os
 import logging
 from dataclasses import dataclass
 
-# LangChain imports
-try:
-    from langchain_core.prompts import PromptTemplate
-    from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
-    from langchain_community.callbacks import get_openai_callback
-except ImportError:
-    # Fallback for environments without LangChain
-    PromptTemplate = None
-    get_openai_callback = None
+from langchain_core.prompts import PromptTemplate
+from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
+from langchain_community.callbacks import get_openai_callback
 
-# ProEthica imports
 from .base import ConceptCandidate
 from model_config import ModelConfig
-
-# LLM utils
-try:
-    from app.utils.llm_utils import get_llm_client
-except ImportError:
-    logging.getLogger(__name__).debug("Optional dependency not available", exc_info=True)
-    get_llm_client = None
+from app.utils.llm_utils import get_llm_client
 
 logger = logging.getLogger(__name__)
 

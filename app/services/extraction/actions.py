@@ -19,12 +19,7 @@ from model_config import ModelConfig
 import logging
 logger = logging.getLogger(__name__)
 
-# LLM utils are optional at runtime; import guarded
-try:
-    from app.utils.llm_utils import get_llm_client
-except ImportError:  # pragma: no cover - environment without Flask/LLM
-    logger.debug("Optional dependency not available", exc_info=True)
-    get_llm_client = None  # type: ignore
+from app.utils.llm_utils import get_llm_client
 
 
 class ActionsExtractor(Extractor):

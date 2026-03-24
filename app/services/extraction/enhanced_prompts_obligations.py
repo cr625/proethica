@@ -14,13 +14,8 @@ from datetime import datetime
 
 from .base import ConceptCandidate
 
-# Optional provenance tracking
-try:
-    from app.models.provenance import ProvenanceActivity
-    from app.services.provenance_service import get_provenance_service
-except ImportError:
-    ProvenanceActivity = None
-    get_provenance_service = lambda: None
+from app.models.provenance import ProvenanceActivity
+from app.services.provenance_service import get_provenance_service
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)  # Temporarily enable DEBUG for troubleshooting
