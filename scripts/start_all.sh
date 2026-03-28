@@ -94,11 +94,10 @@ start_mcp() {
 
     log_info "Starting OntServe MCP server..."
     cd "$ONTSERVE_DIR"
-    source "$ONTSERVE_VENV/bin/activate"
-    nohup python servers/mcp_server.py > "$PID_DIR/mcp_server.log" 2>&1 &
+    # Use explicit python path for nohup (venv activation doesn't persist in subshell)
+    nohup "$ONTSERVE_VENV/bin/python" servers/mcp_server.py > "$PID_DIR/mcp_server.log" 2>&1 &
     MCP_PID=$!
     echo $MCP_PID > "$PID_DIR/mcp_server.pid"
-    deactivate
 
     # Wait for MCP to start
     for i in {1..15}; do
@@ -132,10 +131,9 @@ start_celery() {
 
     log_info "Starting Celery worker..."
     cd "$PROETHICA_DIR"
-    source "$PROETHICA_VENV/bin/activate"
     # IMPORTANT: ProEthica dir must come FIRST so its celery_config.py is found before OntExtract's
-    export PYTHONPATH="$PROETHICA_DIR:$ONTO_DIR:$PYTHONPATH"
-    nohup celery -A celery_config worker --loglevel=info > "$PID_DIR/celery.log" 2>&1 &
+    # Use explicit celery path for nohup (venv activation doesn't persist in subshell)
+    PYTHONPATH="$PROETHICA_DIR:$ONTO_DIR:$PYTHONPATH" nohup "$PROETHICA_VENV/bin/celery" -A celery_config worker --loglevel=info > "$PID_DIR/celery.log" 2>&1 &
     CELERY_PID=$!
     echo $CELERY_PID > "$PID_DIR/celery.pid"
 
