@@ -16,8 +16,8 @@ class RolePropertySuggestionsService:
     """
 
     PREDICATES = {
-        'hasObligation': 'http://proethica.org/ontology/intermediate#hasObligation',
-        'adheresToPrinciple': 'http://proethica.org/ontology/intermediate#adheresToPrinciple',
+        'hasObligation': 'http://proethica.org/ontology/core#hasObligation',
+        'adheresToPrinciple': 'http://proethica.org/ontology/core#adheresToPrinciple',
         'pursuesEnd': 'http://proethica.org/ontology/intermediate#pursuesEnd',
         'governedByCode': 'http://proethica.org/ontology/intermediate#governedByCode',
     }
@@ -169,8 +169,8 @@ class RolePropertySuggestionsService:
                     """
                     DELETE FROM guideline_semantic_triples
                     WHERE guideline_id = :guideline_id AND predicate IN (
-                        'http://proethica.org/ontology/intermediate#hasObligation',
-                        'http://proethica.org/ontology/intermediate#adheresToPrinciple',
+                        'http://proethica.org/ontology/core#hasObligation',
+                        'http://proethica.org/ontology/core#adheresToPrinciple',
                         'http://proethica.org/ontology/intermediate#pursuesEnd',
                         'http://proethica.org/ontology/intermediate#governedByCode'
                     )

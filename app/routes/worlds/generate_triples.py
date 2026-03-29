@@ -26,9 +26,9 @@ ALIGNMENT_PREDICATES = [
     'http://proethica.org/ontology/addressesCondition',
     'http://proethica.org/ontology/isNewTermCandidate',
     'http://proethica.org/ontology/suggestedParent',
-    # Stage 2 inferred role links (intermediate ontology namespace)
-    'http://proethica.org/ontology/intermediate#hasObligation',
-    'http://proethica.org/ontology/intermediate#adheresToPrinciple',
+    # Stage 2 inferred role links (core ontology namespace)
+    'http://proethica.org/ontology/core#hasObligation',
+    'http://proethica.org/ontology/core#adheresToPrinciple',
     'http://proethica.org/ontology/intermediate#pursuesEnd',
     'http://proethica.org/ontology/intermediate#governedByCode'
 ]
@@ -194,9 +194,9 @@ def generate_triples_direct(world_id, document_id):
                     # Build inferred links
                     for r in sorted(role_uris):
                         for p in sorted(principle_uris):
-                            _add_inferred(r, 'http://proethica.org/ontology/intermediate#adheresToPrinciple', 'adheres to principle', p)
+                            _add_inferred(r, 'http://proethica.org/ontology/core#adheresToPrinciple', 'adheres to principle', p)
                         for o in sorted(obligation_uris):
-                            _add_inferred(r, 'http://proethica.org/ontology/intermediate#hasObligation', 'has obligation', o)
+                            _add_inferred(r, 'http://proethica.org/ontology/core#hasObligation', 'has obligation', o)
                         for c in sorted(code_uris):
                             _add_inferred(r, 'http://proethica.org/ontology/intermediate#governedByCode', 'governed by code', c)
                         for e in sorted(end_uris):

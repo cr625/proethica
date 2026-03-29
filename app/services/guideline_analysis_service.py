@@ -48,10 +48,10 @@ class GuidelineAnalysisService:
         self._ontology_index = None
         self._ontology_embeddings = None
         self._label_index = {}
-        # Common predicate IRIs (intermediate ontology)
+        # Common predicate IRIs
         self.PREDICATES = {
-            'hasObligation': 'http://proethica.org/ontology/intermediate#hasObligation',
-            'adheresToPrinciple': 'http://proethica.org/ontology/intermediate#adheresToPrinciple',
+            'hasObligation': 'http://proethica.org/ontology/core#hasObligation',
+            'adheresToPrinciple': 'http://proethica.org/ontology/core#adheresToPrinciple',
             'pursuesEnd': 'http://proethica.org/ontology/intermediate#pursuesEnd',
             'governedByCode': 'http://proethica.org/ontology/intermediate#governedByCode'
         }
@@ -148,7 +148,7 @@ class GuidelineAnalysisService:
                     rel_triples = [
                         {
                             'subject': t.subject_uri,
-                            'predicate': self.PREDICATES.get('hasObligation', 'http://proethica.org/ontology/intermediate#hasObligation'),
+                            'predicate': self.PREDICATES.get('hasObligation', 'http://proethica.org/ontology/core#hasObligation'),
                             'object': t.object_uri,
                             'confidence': 1.0,
                             'inference_type': 'extracted',
@@ -201,7 +201,7 @@ class GuidelineAnalysisService:
                     pr_rel_triples = [
                         {
                             'subject': t.subject_uri,
-                            'predicate': self.PREDICATES.get('adheresToPrinciple', 'http://proethica.org/ontology/intermediate#adheresToPrinciple'),
+                            'predicate': self.PREDICATES.get('adheresToPrinciple', 'http://proethica.org/ontology/core#adheresToPrinciple'),
                             'object': t.object_uri,
                             'confidence': 1.0,
                             'inference_type': 'extracted',
@@ -1806,8 +1806,8 @@ class GuidelineAnalysisService:
                 """
                 DELETE FROM guideline_semantic_triples
                 WHERE guideline_id = :guideline_id AND predicate IN (
-                    'http://proethica.org/ontology/intermediate#hasObligation',
-                    'http://proethica.org/ontology/intermediate#adheresToPrinciple',
+                    'http://proethica.org/ontology/core#hasObligation',
+                    'http://proethica.org/ontology/core#adheresToPrinciple',
                     'http://proethica.org/ontology/intermediate#pursuesEnd',
                     'http://proethica.org/ontology/intermediate#governedByCode'
                 )
@@ -1943,8 +1943,8 @@ class GuidelineAnalysisService:
     def _get_predicate_type(self, predicate: str) -> str:
         """Get human-readable type of predicate."""
         predicate_types = {
-            'http://proethica.org/ontology/intermediate#hasObligation': 'has obligation',
-            'http://proethica.org/ontology/intermediate#adheresToPrinciple': 'adheres to principle',
+            'http://proethica.org/ontology/core#hasObligation': 'has obligation',
+            'http://proethica.org/ontology/core#adheresToPrinciple': 'adheres to principle',
             'http://proethica.org/ontology/intermediate#pursuesEnd': 'pursues end',
             'http://proethica.org/ontology/intermediate#governedByCode': 'governed by code'
         }
