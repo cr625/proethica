@@ -797,6 +797,44 @@ def api_pending_precedents():
     })
 
 
+@precedents_bp.route('/lineage/print', methods=['GET'])
+@auth_optional
+def lineage_print_view():
+    """Chromeless lineage graph sized for paper figures."""
+    focus_case_id = request.args.get('case_id', type=int)
+    hops = request.args.get('hops', 2, type=int)
+    preset = request.args.get('preset', 'teaser')
+    show_panel = request.args.get('panel', 'true').lower() == 'true'
+
+    focus_case = None
+    if focus_case_id:
+        focus_case = Document.query.get(focus_case_id)
+
+    cases_query = text("""
+        SELECT d.id, d.title, d.doc_metadata->>'case_number' as case_number
+        FROM documents d
+        JOIN case_precedent_features cpf ON cpf.case_id = d.id
+        ORDER BY
+            CAST(split_part(d.doc_metadata->>'case_number', '-', 1) AS INTEGER),
+            CAST(split_part(d.doc_metadata->>'case_number', '-', 2) AS INTEGER)
+    """)
+    rows = db.session.execute(cases_query).fetchall()
+    case_list = [
+        {'id': r[0], 'title': r[1], 'case_number': r[2] or ''}
+        for r in rows
+    ]
+
+    return render_template(
+        'lineage_print.html',
+        focus_case=focus_case,
+        focus_case_id=focus_case_id,
+        cases=case_list,
+        hops=hops,
+        preset=preset,
+        show_panel=show_panel,
+    )
+
+
 @precedents_bp.route('/lineage', methods=['GET'])
 @auth_optional
 def lineage_graph_view():
@@ -807,12 +845,14 @@ def lineage_graph_view():
     if focus_case_id:
         focus_case = Document.query.get(focus_case_id)
 
-    # Case list for the focus selector dropdown
+    # Case list for the focus selector dropdown (numeric sort on YY-N case numbers)
     cases_query = text("""
         SELECT d.id, d.title, d.doc_metadata->>'case_number' as case_number
         FROM documents d
         JOIN case_precedent_features cpf ON cpf.case_id = d.id
-        ORDER BY d.doc_metadata->>'case_number'
+        ORDER BY
+            CAST(split_part(d.doc_metadata->>'case_number', '-', 1) AS INTEGER),
+            CAST(split_part(d.doc_metadata->>'case_number', '-', 2) AS INTEGER)
     """)
     rows = db.session.execute(cases_query).fetchall()
     case_list = [
@@ -837,6 +877,7 @@ def api_lineage_graph():
     Returns nodes (cases) and directed edges (citing case -> cited precedent).
     """
     focus_case_id = request.args.get('case_id', type=int)
+    hops = request.args.get('hops', type=int)
     show_all = request.args.get('show_all', 'false').lower() == 'true'
 
     try:
@@ -897,27 +938,45 @@ def api_lineage_graph():
                 all_nodes[tgt]['in_degree'] += 1
                 all_nodes[tgt]['cited_by'].append(src)
 
-        # Focus mode: BFS to collect ego-network
+        # Focus mode: collect ego-network around focus case
         if focus_case_id and focus_case_id in all_nodes:
-            reachable = {focus_case_id}
-            # BFS forward (descendants: cases that cite the focus, transitively)
-            queue = [focus_case_id]
-            while queue:
-                current = queue.pop(0)
-                for neighbor in all_nodes[current].get('cited_by', []):
-                    if neighbor not in reachable:
-                        reachable.add(neighbor)
-                        queue.append(neighbor)
-            # BFS backward (ancestors: cases the focus cites, transitively)
-            queue = [focus_case_id]
-            visited_back = {focus_case_id}
-            while queue:
-                current = queue.pop(0)
-                for neighbor in all_nodes[current].get('cites', []):
-                    if neighbor not in visited_back:
-                        visited_back.add(neighbor)
-                        reachable.add(neighbor)
-                        queue.append(neighbor)
+            if hops is not None and hops >= 0:
+                # Undirected BFS limited to N hops from focus case
+                reachable = {focus_case_id}
+                frontier = {focus_case_id}
+                for _ in range(hops):
+                    next_frontier = set()
+                    for node_id in frontier:
+                        for neighbor in all_nodes[node_id].get('cites', []):
+                            if neighbor not in reachable and neighbor in all_nodes:
+                                next_frontier.add(neighbor)
+                                reachable.add(neighbor)
+                        for neighbor in all_nodes[node_id].get('cited_by', []):
+                            if neighbor not in reachable and neighbor in all_nodes:
+                                next_frontier.add(neighbor)
+                                reachable.add(neighbor)
+                    frontier = next_frontier
+                    if not frontier:
+                        break
+            else:
+                # Directed BFS: full transitive closure (ancestors + descendants)
+                reachable = {focus_case_id}
+                queue = [focus_case_id]
+                while queue:
+                    current = queue.pop(0)
+                    for neighbor in all_nodes[current].get('cited_by', []):
+                        if neighbor not in reachable:
+                            reachable.add(neighbor)
+                            queue.append(neighbor)
+                queue = [focus_case_id]
+                visited_back = {focus_case_id}
+                while queue:
+                    current = queue.pop(0)
+                    for neighbor in all_nodes[current].get('cites', []):
+                        if neighbor not in visited_back:
+                            visited_back.add(neighbor)
+                            reachable.add(neighbor)
+                            queue.append(neighbor)
 
             all_edges = [e for e in all_edges
                          if e['source'] in reachable and e['target'] in reachable]

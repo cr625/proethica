@@ -9,6 +9,45 @@
 {% block step_styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/ontology-labels.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/step4-review.css') }}">
+{% if print_mode %}
+<style>
+    /* ── Print mode: hide all chrome ── */
+    .header, .navbar, .footer, .pipeline-header,
+    .pipeline-steps-card, .col-md-3,
+    .step-info, .case-title,
+    #step-navigation-bottom, .step-navigation-bottom,
+    .d-flex.flex-wrap.gap-2.mb-4 { display: none !important; }
+
+    body { padding: 0 !important; margin: 0 !important; background: #fff !important; overflow: hidden !important; }
+    .container-fluid { padding: 0 !important; margin: 0 !important; max-width: none !important; }
+    .col-md-9 { width: 100% !important; flex: none !important; max-width: none !important; padding: 0 !important; }
+    .row { margin: 0 !important; }
+    .mb-4 { margin-bottom: 0 !important; }
+
+    /* Hide summary cards row */
+    .row.mb-4:has(.card.text-center) { display: none !important; }
+
+    /* Hide tab bar -- we show only the selected tab */
+    #reviewTabs { display: none !important; }
+
+    /* Tab content fills the frame */
+    .tab-content { padding: 0 !important; }
+    .tab-pane { padding: 16px !important; }
+
+    /* ── Print toolbar (fixed, outside screenshot area) ── */
+    #print-toolbar {
+        position: fixed; top: 0; left: 0; right: 0;
+        background: #f8f9fa; border-bottom: 1px solid #dee2e6;
+        padding: 8px 16px; z-index: 10000;
+        display: flex; align-items: center; gap: 14px;
+        font-size: 13px;
+    }
+    #print-toolbar select { font-size: 13px; width: auto; }
+
+    /* Push content below toolbar */
+    .container-fluid { padding-top: 48px !important; }
+</style>
+{% endif %}
 {% endblock %}
 
 {% block step_content %}
@@ -392,4 +431,53 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 })();
 </script>
+{% if print_mode %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Inject toolbar
+    const toolbar = document.createElement('div');
+    toolbar.id = 'print-toolbar';
+    toolbar.innerHTML = `
+        <label class="mb-0">Tab:</label>
+        <select id="print-tab-selector" class="form-select form-select-sm">
+            <option value="fullgraph">Entities</option>
+            <option value="graph">Flow</option>
+            <option value="provisions">Provisions</option>
+            <option value="precedents">Precedents</option>
+            <option value="questions">Q&C</option>
+            <option value="decisionpoints">Decisions</option>
+            <option value="timeline">Timeline</option>
+            <option value="narrative">Narrative</option>
+        </select>
+    `;
+    document.body.prepend(toolbar);
+
+    // Activate the requested tab
+    const tabParam = '{{ print_tab }}' || 'questions';
+    const tabSel = document.getElementById('print-tab-selector');
+    tabSel.value = tabParam;
+
+    function activateTab(tabId) {
+        // Hide all tab panes
+        document.querySelectorAll('.tab-pane').forEach(p => {
+            p.classList.remove('show', 'active');
+        });
+        // Show target
+        const target = document.getElementById(tabId);
+        if (target) {
+            target.classList.add('show', 'active');
+        }
+    }
+
+    activateTab(tabParam);
+
+    tabSel.addEventListener('change', function() {
+        activateTab(this.value);
+        const url = new URL(window.location);
+        url.searchParams.set('tab', this.value);
+        window.history.replaceState({}, '', url);
+    });
+});
+</script>
+{% endif %}
 {% endblock %}
