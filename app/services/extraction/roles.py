@@ -511,8 +511,8 @@ class RolesLinker:
     
     def __init__(self):
         self.predicates = {
-            'hasObligation': 'http://proethica.org/ontology/intermediate#hasObligation',
-            'adheresToPrinciple': 'http://proethica.org/ontology/intermediate#adheresToPrinciple',
+            'hasObligation': 'http://proethica.org/ontology/core#hasObligation',
+            'adheresToPrinciple': 'http://proethica.org/ontology/core#adheresToPrinciple',
             'pursuesEnd': 'http://proethica.org/ontology/intermediate#pursuesEnd',
             'governedByCode': 'http://proethica.org/ontology/intermediate#governedByCode'
         }

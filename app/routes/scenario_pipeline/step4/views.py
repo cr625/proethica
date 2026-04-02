@@ -571,6 +571,11 @@ def register_view_routes(bp):
                 'ontserve_web_url': current_app.config.get('ONTSERVE_WEB_URL', 'http://localhost:5003')
             }
 
+            # Print mode: chromeless view for paper screenshots
+            context['print_mode'] = request.args.get('print', '') == '1'
+            context['print_tab'] = request.args.get('tab', '')
+            context['print_preset'] = request.args.get('preset', 'column')
+
             return render_template('scenario_pipeline/step4_review.html', **context)
 
         except Exception as e:

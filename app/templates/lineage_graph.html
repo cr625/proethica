@@ -211,6 +211,13 @@
                     </select>
                 </div>
 
+                <div id="hops-control" class="d-flex align-items-center" style="display: none !important;">
+                    <label class="form-label mb-0 me-1 small">Depth:</label>
+                    <button class="btn btn-sm btn-outline-secondary px-1 py-0" id="hops-minus" style="line-height: 1.4;">&minus;</button>
+                    <span id="hops-value" class="mx-1 small fw-semibold" style="min-width: 24px; text-align: center;">2</span>
+                    <button class="btn btn-sm btn-outline-secondary px-1 py-0" id="hops-plus" style="line-height: 1.4;">+</button>
+                </div>
+
                 <div class="form-check form-check-inline mb-0">
                     <input class="form-check-input" type="checkbox" id="show-labels" checked>
                     <label class="form-check-label small" for="show-labels">Labels</label>
@@ -272,6 +279,9 @@ document.addEventListener('DOMContentLoaded', function() {
     let graphData = null;
     let simulation = null;
     let currentZoom = null;
+    let currentHops = 2;
+    const MIN_HOPS = 1;
+    const MAX_HOPS = 8;
 
     const outcomeColors = {
         'ethical': '#198754',
@@ -290,6 +300,23 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('loading-overlay').classList.add('hidden');
     }
 
+    function updateHopsDisplay() {
+        document.getElementById('hops-value').textContent = currentHops;
+        document.getElementById('hops-minus').disabled = currentHops <= MIN_HOPS;
+        document.getElementById('hops-plus').disabled = currentHops >= MAX_HOPS;
+    }
+
+    function toggleHopsControl() {
+        const caseId = document.getElementById('case-selector').value;
+        const hopsCtrl = document.getElementById('hops-control');
+        if (caseId) {
+            hopsCtrl.style.cssText = '';
+        } else {
+            hopsCtrl.style.display = 'none';
+            hopsCtrl.style.setProperty('display', 'none', 'important');
+        }
+    }
+
     function loadGraph() {
         showLoading('Fetching citation data...');
 
@@ -297,7 +324,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const showAll = document.getElementById('show-all').checked;
 
         let url = '/cases/precedents/api/lineage_graph?';
-        if (caseId) url += `case_id=${caseId}&`;
+        if (caseId) {
+            url += `case_id=${caseId}&hops=${currentHops}&`;
+        }
         if (showAll) url += 'show_all=true&';
 
         fetch(url)
@@ -314,6 +343,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 setTimeout(() => {
                     renderGraph(data);
                     hideLoading();
+                    // Auto-open detail panel for focus case
+                    if (caseId) {
+                        const focusNode = data.nodes.find(n => n.is_focus);
+                        if (focusNode) {
+                            showNodeDetails({stopPropagation: () => {}}, focusNode);
+                        }
+                    }
                 }, 50);
             })
             .catch(err => {
@@ -428,16 +464,20 @@ document.addEventListener('DOMContentLoaded', function() {
             .text(d => d);
 
         // Force simulation (X only, Y is pinned)
-        const edgeCount = edges.length;
-        const chargeStr = edgeCount < 80 ? -300 : -150;
+        // Scale forces by node count: fewer nodes get stronger repulsion,
+        // weaker centering, and wider collision to fill the space
+        const nodeCount = nodes.length;
+        const chargeStr = nodeCount < 20 ? -500 : nodeCount < 50 ? -350 : -150;
+        const centerStr = nodeCount < 20 ? 0.015 : nodeCount < 50 ? 0.025 : 0.04;
+        const collisionPad = nodeCount < 20 ? 20 : nodeCount < 50 ? 14 : 8;
 
         simulation = d3.forceSimulation(nodes)
             .force('link', d3.forceLink(edges)
                 .id(d => d.id)
                 .strength(0.03))
             .force('charge', d3.forceManyBody().strength(chargeStr))
-            .force('x', d3.forceX((leftMargin + width) / 2).strength(0.04))
-            .force('collision', d3.forceCollide().radius(d => radiusScale(d.in_degree) + 8))
+            .force('x', d3.forceX((leftMargin + width) / 2).strength(centerStr))
+            .force('collision', d3.forceCollide().radius(d => radiusScale(d.in_degree) + collisionPad))
             .alphaDecay(0.03)
             .on('tick', ticked);
 
@@ -527,18 +567,27 @@ document.addEventListener('DOMContentLoaded', function() {
 
         function fitToView() {
             if (!nodes.length) return;
-            const bounds = g.node().getBBox();
-            if (bounds.width === 0 || bounds.height === 0) return;
+
+            // Compute bounds from node positions (not SVG getBBox,
+            // which includes gridlines spanning the full canvas width)
+            const pad = d3.max(nodes, n => radiusScale(n.in_degree)) + 20;
+            const xExtent = d3.extent(nodes, n => n.x);
+            const yExtent = d3.extent(nodes, n => n.fy !== undefined ? n.fy : n.y);
+            const bx = xExtent[0] - pad;
+            const by = yExtent[0] - pad;
+            const bw = (xExtent[1] - xExtent[0]) + pad * 2;
+            const bh = (yExtent[1] - yExtent[0]) + pad * 2;
+            if (bw === 0 || bh === 0) return;
 
             const fullWidth = container.clientWidth;
             const fullHeight = container.clientHeight;
             const scale = Math.min(
-                fullWidth / (bounds.width + 40),
-                fullHeight / (bounds.height + 40),
+                fullWidth / bw,
+                fullHeight / bh,
                 1.5
             );
-            const tx = (fullWidth - bounds.width * scale) / 2 - bounds.x * scale;
-            const ty = (fullHeight - bounds.height * scale) / 2 - bounds.y * scale;
+            const tx = (fullWidth - bw * scale) / 2 - bx * scale;
+            const ty = (fullHeight - bh * scale) / 2 - by * scale;
 
             svg.transition().duration(500).call(
                 zoom.transform,
@@ -677,12 +726,32 @@ document.addEventListener('DOMContentLoaded', function() {
     // Controls
     document.getElementById('case-selector').addEventListener('change', function() {
         const val = this.value;
+        toggleHopsControl();
         if (val) {
+            currentHops = 2;
+            updateHopsDisplay();
             window.history.replaceState({}, '', `/cases/precedents/lineage?case_id=${val}`);
         } else {
+            document.getElementById('details-panel').classList.remove('visible');
             window.history.replaceState({}, '', '/cases/precedents/lineage');
         }
         loadGraph();
+    });
+
+    document.getElementById('hops-minus').addEventListener('click', function() {
+        if (currentHops > MIN_HOPS) {
+            currentHops--;
+            updateHopsDisplay();
+            loadGraph();
+        }
+    });
+
+    document.getElementById('hops-plus').addEventListener('click', function() {
+        if (currentHops < MAX_HOPS) {
+            currentHops++;
+            updateHopsDisplay();
+            loadGraph();
+        }
     });
 
     document.getElementById('show-labels').addEventListener('change', function() {
@@ -704,6 +773,8 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Initial load
+    toggleHopsControl();
+    updateHopsDisplay();
     loadGraph();
 });
 </script>
