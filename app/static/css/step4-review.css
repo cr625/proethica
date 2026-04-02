@@ -435,6 +435,145 @@
 .tl-dot-decision { border-color: #f6c23e; background: #fff8e1; }
 .tl-dot-outcome { border-color: #198754; background: #e8f8f5; }
 
+/* ── Compact Timeline ── */
+.tl-compact {
+    position: relative;
+    margin-left: 10px;
+    padding-left: 32px;
+    border-left: 3px solid #e2e8f0;
+    margin-bottom: 1rem;
+}
+
+.tl-compact-node {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    margin-bottom: 1px;
+    border-radius: 4px;
+    font-size: 0.82rem;
+    background: #f8fafc;
+    border: 1px solid transparent;
+    min-height: 30px;
+}
+.tl-compact-node:hover {
+    background: #f1f5f9;
+    border-color: #e2e8f0;
+}
+
+.tl-compact-icon {
+    position: absolute;
+    left: -24px;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    background: white;
+    border-radius: 50%;
+    z-index: 1;
+    color: #858796;
+}
+.tl-compact-node::after {
+    content: '';
+    position: absolute;
+    left: -12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 12px;
+    height: 1px;
+    background: #e2e8f0;
+}
+.tl-compact-node.tl-action .tl-compact-icon { color: #0dcaf0; }
+.tl-compact-node.tl-decision .tl-compact-icon { color: #f6c23e; }
+.tl-compact-node.tl-conflict .tl-compact-icon { color: #dc3545; }
+.tl-compact-node.tl-outcome .tl-compact-icon { color: #198754; }
+.tl-compact-node.tl-state .tl-compact-icon { color: #6c757d; }
+
+.tl-compact-seq {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #0d6efd;
+    color: white;
+    font-size: 0.6rem;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+.tl-compact-node.tl-decision .tl-compact-seq { background: #f6c23e; color: #212529; }
+.tl-compact-node.tl-conflict .tl-compact-seq { background: #dc3545; }
+.tl-compact-node.tl-outcome .tl-compact-seq { background: #198754; }
+.tl-compact-node.tl-state .tl-compact-seq { background: #6c757d; }
+.tl-compact-node.tl-action .tl-compact-seq { background: #0dcaf0; }
+
+.tl-compact-label {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.tl-compact-label strong {
+    font-size: 0.82rem;
+}
+.tl-compact-desc {
+    color: #6c757d;
+    font-size: 0.75rem;
+    margin-left: 4px;
+}
+.tl-compact-link {
+    text-decoration: none;
+    color: inherit;
+    cursor: pointer;
+}
+.tl-compact-link:hover {
+    color: #b8860b;
+}
+.tl-compact-link:hover strong {
+    text-decoration: underline;
+}
+.tl-compact-entities {
+    margin-left: 6px;
+    display: inline-flex;
+    gap: 2px;
+    vertical-align: middle;
+}
+
+.tl-compact-phase {
+    font-size: 0.6rem;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+/* ── Decision Points on Timeline ── */
+.tl-dp-item {
+    border: 1px solid #f0e6c8;
+    border-radius: 0.4rem;
+    transition: box-shadow 0.3s ease;
+}
+.tl-dp-header {
+    cursor: pointer;
+    background: #fffdf5;
+    border-radius: 0.4rem;
+}
+.tl-dp-header:hover {
+    background: #fff8e1;
+}
+.tl-dp-chevron {
+    transition: transform 0.2s ease;
+    color: #6c757d;
+    flex-shrink: 0;
+}
+.tl-dp-highlight {
+    box-shadow: 0 0 0 3px rgba(246, 194, 62, 0.4);
+    transition: box-shadow 0.3s ease;
+}
+
 /* Causal flow headers */
 .causal-flow-header {
     cursor: pointer;

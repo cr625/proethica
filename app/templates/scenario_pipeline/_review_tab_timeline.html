@@ -1,7 +1,8 @@
-{# Step 4 Review -- Timeline tab (visual event sequence + causal flow).
-   Parent provides: case, narrative_data, entity_lookup, ontology_label macro, info_link macro
-   Visual timeline design adapted from step5_timeline.html.
-   Decision events rendered compactly (detail on Decisions tab).
+{# Step 4 Review -- Timeline tab.
+   Parent provides: case, narrative_data, decision_points, entity_lookup,
+                    ontology_label macro, info_link macro
+   Layout: compact visual timeline at top, then decision points arranged
+   hierarchically below (collapsed), then causal flow.
 #}
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
@@ -23,8 +24,9 @@
             <span><span class="tl-legend-dot tl-dot-outcome"></span> Resolution</span>
         </div>
 
-        {# Visual Timeline #}
-        <div class="tl-container">
+        {# ── Compact Visual Timeline ── #}
+        <div class="tl-compact">
+            {% set dp_index = namespace(val=0) %}
             {% for event in narrative_data.events %}
             {% set etype = event.event_type if event.event_type else (event.type if event.type else '') %}
             {% set phase = event.phase_label if event.phase_label else '' %}
@@ -34,8 +36,7 @@
             {% set is_action = (etype == 'action') %}
             {% set is_state = (etype == 'state') %}
 
-            {# Determine CSS class #}
-            {% if is_decision %}{% set tl_class = 'tl-decision' %}
+            {% if is_decision %}{% set tl_class = 'tl-decision' %}{% set dp_index.val = dp_index.val + 1 %}
             {% elif is_conflict %}{% set tl_class = 'tl-conflict' %}
             {% elif is_outcome %}{% set tl_class = 'tl-outcome' %}
             {% elif is_action %}{% set tl_class = 'tl-action' %}
@@ -43,68 +44,159 @@
             {% else %}{% set tl_class = 'tl-event' %}
             {% endif %}
 
-            <div class="tl-item {{ tl_class }}">
-                <div class="tl-marker">
-                    {% if is_decision %}
-                    <i class="bi bi-signpost-split"></i>
-                    {% elif is_action %}
-                    <i class="bi bi-person-walking"></i>
-                    {% elif is_outcome %}
-                    <i class="bi bi-check-circle"></i>
-                    {% elif is_conflict %}
-                    <i class="bi bi-exclamation-triangle"></i>
-                    {% elif is_state %}
-                    <i class="bi bi-flag"></i>
-                    {% else %}
-                    <i class="bi bi-circle"></i>
+            <div class="tl-compact-node {{ tl_class }}">
+                <span class="tl-compact-icon">
+                    {% if is_decision %}<i class="bi bi-signpost-split"></i>
+                    {% elif is_action %}<i class="bi bi-person-walking"></i>
+                    {% elif is_outcome %}<i class="bi bi-check-circle"></i>
+                    {% elif is_conflict %}<i class="bi bi-exclamation-triangle"></i>
+                    {% elif is_state %}<i class="bi bi-flag"></i>
+                    {% else %}<i class="bi bi-circle"></i>
                     {% endif %}
-                </div>
-                <div class="tl-content {% if is_decision %}tl-content-compact{% endif %}">
-                    <div class="tl-header">
-                        <span class="tl-seq">{{ event.sequence }}</span>
-                        <span class="tl-phase badge
-                            {% if is_state %}bg-secondary
-                            {% elif is_action %}bg-info
-                            {% elif is_decision %}bg-warning text-dark
-                            {% elif is_conflict %}bg-danger
-                            {% elif is_outcome %}bg-success
-                            {% else %}bg-light text-dark{% endif %}">
-                            {{ phase }}
-                        </span>
-                    </div>
-                    {% if is_decision %}
-                    {# Compact decision: just DP number as label, description expandable #}
-                    <div class="tl-label small">
-                        <strong>{{ event.event_label }}</strong>
-                        {% if event.description %}
-                        <span class="text-muted ms-1 tl-decision-preview">{{ event.description[:60] }}{% if event.description|length > 60 %}...{% endif %}</span>
-                        {% endif %}
-                    </div>
-                    {% else %}
-                    {# Full event card #}
-                    <div class="tl-label">
-                        <strong>{{ event.event_label }}</strong>
-                    </div>
-                    {% if event.description %}
-                    <div class="tl-description">{{ event.description }}</div>
-                    {% endif %}
+                </span>
+                <span class="tl-compact-seq">{{ event.sequence }}</span>
+                {% if is_decision %}
+                {# Extract DP id from phase_label like "Decision: DP1" #}
+                {% set dp_id_match = phase.replace('Decision: ', '').replace('Decision:', '').strip() %}
+                <a href="#tl-dp-{{ dp_id_match or 'DP' ~ dp_index.val }}" class="tl-compact-label tl-compact-link">
+                    <strong>{{ dp_id_match or event.event_label }}</strong>
+                    <span class="tl-compact-desc">{{ event.event_label }}{% if event.description %}: {{ event.description[:50] }}{% if event.description|length > 50 %}...{% endif %}{% endif %}</span>
+                </a>
+                {% else %}
+                <span class="tl-compact-label">
+                    <strong>{{ event.event_label }}</strong>
                     {% if event.entity_labels and event.entity_labels|length > 0 %}
-                    <div class="tl-entities mt-2">
-                        {% for label in event.entity_labels[:4] %}
-                        <span class="badge bg-light text-dark border me-1" style="font-size: 0.7rem;">{{ label }}</span>
+                    <span class="tl-compact-entities">
+                        {% for label in event.entity_labels[:3] %}
+                        <span class="badge bg-light text-dark border" style="font-size: 0.6rem;">{{ label }}</span>
                         {% endfor %}
-                        {% if event.entity_labels|length > 4 %}
-                        <span class="badge bg-secondary" style="font-size: 0.65rem;">+{{ event.entity_labels|length - 4 }}</span>
+                        {% if event.entity_labels|length > 3 %}
+                        <span class="badge bg-secondary" style="font-size: 0.55rem;">+{{ event.entity_labels|length - 3 }}</span>
                         {% endif %}
-                    </div>
+                    </span>
                     {% endif %}
-                    {% endif %}
-                </div>
+                </span>
+                {% endif %}
+                <span class="tl-compact-phase badge
+                    {% if is_state %}bg-secondary
+                    {% elif is_action %}bg-info
+                    {% elif is_decision %}bg-warning text-dark
+                    {% elif is_conflict %}bg-danger
+                    {% elif is_outcome %}bg-success
+                    {% else %}bg-light text-dark{% endif %}">{{ phase }}</span>
             </div>
             {% endfor %}
         </div>
 
-        {# Causal Flow (enables + precipitates) #}
+        {# ── Decision Points on Timeline ── #}
+        {% set timeline_dps = [] %}
+        {% for event in narrative_data.events %}
+            {% if (event.event_type if event.event_type else '') == 'decision' %}
+                {% set _ = timeline_dps.append(event) %}
+            {% endif %}
+        {% endfor %}
+
+        {% if timeline_dps and decision_points %}
+        <div class="mt-4">
+            <h6 class="border-bottom pb-2 mb-3">
+                <i class="bi bi-signpost-split text-warning me-2"></i>
+                Decision Points
+                <span class="badge bg-warning text-dark ms-1">{{ timeline_dps|length }}</span>
+                <small class="text-muted ms-2">Expand for summary; full arguments on <a href="#" onclick="document.getElementById('decision-points-tab').click(); return false;">Decisions tab</a></small>
+            </h6>
+
+            {% for event in timeline_dps %}
+            {% set dp_label = event.phase_label.replace('Decision: ', '').replace('Decision:', '').strip() if event.phase_label else event.event_label %}
+            {# Find matching canonical DP #}
+            {% set matched_dp = namespace(val=None) %}
+            {% for dp in decision_points %}
+                {% if dp.focus_id == dp_label or dp.focus_id == event.event_label %}
+                    {% set matched_dp.val = dp %}
+                {% endif %}
+            {% endfor %}
+
+            {% set dp_anchor = dp_label or 'DP' ~ loop.index %}
+            <div class="tl-dp-item mb-2" id="tl-dp-{{ dp_anchor }}">
+                <div class="tl-dp-header d-flex align-items-center p-2 rounded"
+                     data-bs-toggle="collapse" data-bs-target="#tl-dp-body-{{ loop.index }}" role="button"
+                     aria-expanded="false">
+                    <i class="bi bi-chevron-right tl-dp-chevron me-2" style="font-size: 0.7rem;"></i>
+                    <span class="tl-compact-seq tl-decision me-2" style="width: 18px; height: 18px; font-size: 0.6rem;">{{ event.sequence }}</span>
+                    <span class="badge bg-warning text-dark me-2">{{ dp_label }}</span>
+                    <span class="small text-truncate me-2" style="max-width: 400px;">{{ event.event_label }}</span>
+                    {% if matched_dp.val and matched_dp.val.options %}
+                    <span class="badge bg-secondary ms-auto me-1">{{ matched_dp.val.options|length }} options</span>
+                    {% endif %}
+                    {% if matched_dp.val and matched_dp.val.options and matched_dp.val.options|selectattr('is_board_choice')|list|length > 0 %}
+                    <i class="bi bi-check-circle-fill text-success" title="Board choice identified"></i>
+                    {% endif %}
+                </div>
+                <div class="collapse" id="tl-dp-body-{{ loop.index }}">
+                    <div class="ps-4 pe-2 pb-2 pt-2 small">
+                        {% if event.description %}
+                        <p class="text-muted mb-2">{{ event.description }}</p>
+                        {% endif %}
+
+                        {% if matched_dp.val %}
+                        {# Options with board choice indicator #}
+                        {% if matched_dp.val.options %}
+                        <div class="mb-2">
+                            {% for opt in matched_dp.val.options %}
+                            <div class="d-flex align-items-start mb-1">
+                                <span class="me-2 mt-1">
+                                    {% if opt.is_board_choice %}
+                                    <i class="bi bi-check-circle-fill text-success"></i>
+                                    {% else %}
+                                    <i class="bi bi-circle text-muted"></i>
+                                    {% endif %}
+                                </span>
+                                <div>
+                                    <strong>{{ opt.label or opt.option_id or 'Option ' ~ loop.index }}</strong>
+                                    {% if opt.is_board_choice %}
+                                    <span class="badge bg-light text-dark border border-success ms-1" style="font-size: 0.6rem;">Board's choice</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        {# Toulmin summary preview #}
+                        {% if matched_dp.val.toulmin %}
+                        <div class="row g-2 mb-2">
+                            {% if matched_dp.val.toulmin.warrants_summary %}
+                            <div class="col-md-6">
+                                <div class="p-2 rounded border-start border-success border-3 bg-light">
+                                    <i class="bi bi-check-circle text-success"></i> <strong>Warrants</strong>
+                                    <p class="text-muted mb-0 mt-1" style="font-size: 0.8rem;">{{ matched_dp.val.toulmin.warrants_summary[:120] }}{% if matched_dp.val.toulmin.warrants_summary|length > 120 %}...{% endif %}</p>
+                                </div>
+                            </div>
+                            {% endif %}
+                            {% if matched_dp.val.toulmin.rebuttals_summary %}
+                            <div class="col-md-6">
+                                <div class="p-2 rounded border-start border-danger border-3 bg-light">
+                                    <i class="bi bi-x-circle text-danger"></i> <strong>Rebuttals</strong>
+                                    <p class="text-muted mb-0 mt-1" style="font-size: 0.8rem;">{{ matched_dp.val.toulmin.rebuttals_summary[:120] }}{% if matched_dp.val.toulmin.rebuttals_summary|length > 120 %}...{% endif %}</p>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+
+                        <a href="#" class="small text-primary" onclick="document.getElementById('decision-points-tab').click(); setTimeout(function(){ var el = document.getElementById('dp-{{ matched_dp.val.focus_id or dp_label }}'); if(el) { el.scrollIntoView({behavior:'smooth'}); el.querySelector('[data-bs-toggle]')?.click(); }}, 200); return false;">
+                            <i class="bi bi-arrow-right-circle me-1"></i>Full argument on Decisions tab
+                        </a>
+                        {% else %}
+                        <span class="text-muted">No canonical decision point matched.</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {# ── Causal Flow (enables + precipitates) ── #}
         {% if narrative_data.causal_links %}
         {% set enables_links = [] %}
         {% for link in narrative_data.causal_links %}
@@ -162,16 +254,37 @@
 </div>
 
 <script>
-document.querySelectorAll('#timeline .causal-flow-header').forEach(function(header) {
+// Chevron rotation for DP items and causal flow
+document.querySelectorAll('#timeline .tl-dp-header, #timeline .causal-flow-header').forEach(function(header) {
     var target = document.querySelector(header.dataset.bsTarget);
     if (!target) return;
-    var chevron = header.querySelector('.causal-chevron');
+    var chevron = header.querySelector('.tl-dp-chevron, .causal-chevron');
     if (!chevron) return;
     target.addEventListener('show.bs.collapse', function() {
         chevron.classList.replace('bi-chevron-right', 'bi-chevron-down');
     });
     target.addEventListener('hide.bs.collapse', function() {
         chevron.classList.replace('bi-chevron-down', 'bi-chevron-right');
+    });
+});
+
+// Smooth-scroll from compact timeline DP links to DP section
+document.querySelectorAll('#timeline .tl-compact-link').forEach(function(link) {
+    link.addEventListener('click', function(e) {
+        e.preventDefault();
+        var targetId = this.getAttribute('href').substring(1);
+        var el = document.getElementById(targetId);
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Auto-expand if collapsed
+            var collapse = el.querySelector('.collapse:not(.show)');
+            if (collapse) {
+                var bsCollapse = new bootstrap.Collapse(collapse, { toggle: true });
+            }
+            // Flash highlight
+            el.classList.add('tl-dp-highlight');
+            setTimeout(function() { el.classList.remove('tl-dp-highlight'); }, 1500);
+        }
     });
 });
 </script>
