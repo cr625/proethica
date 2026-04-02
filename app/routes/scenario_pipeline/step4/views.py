@@ -24,6 +24,7 @@ from app.routes.scenario_pipeline.step4.helpers import (
     _load_narrative_for_review,
     _get_all_entities_for_graph,
     _load_decision_points_for_review,
+    _load_temporal_timeline,
     _classify_conclusion_type,
     _count_conclusion_types,
 )
@@ -530,6 +531,8 @@ def register_view_routes(bp):
             if request.args.get('validation_mode') == '1':
                 flask_session['validation_study_mode'] = True
 
+            decision_points_data = _load_decision_points_for_review(case_id)
+
             context = {
                 'case': case,
                 'saved_synthesis': saved_synthesis,
@@ -563,8 +566,9 @@ def register_view_routes(bp):
                 'next_step_url': None,
                 'next_step_name': None,
                 'rich_analysis': rich_analysis,
-                'decision_points': _load_decision_points_for_review(case_id),
+                'decision_points': decision_points_data,
                 'narrative_data': _load_narrative_for_review(case_id),
+                'temporal_timeline': _load_temporal_timeline(case_id, decision_points_data),
                 'entity_lookup': entity_lookup,
                 'entity_lookup_by_label': entity_lookup_by_label,
                 'validation_study_mode': validation_study_mode,

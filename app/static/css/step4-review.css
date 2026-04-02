@@ -544,34 +544,65 @@
     vertical-align: middle;
 }
 
-.tl-compact-phase {
-    font-size: 0.6rem;
+.tl-compact-marker {
+    font-size: 0.7rem;
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 250px;
+}
+
+.tl-compact-dp-badge {
     flex-shrink: 0;
+    font-size: 0.7rem;
+    color: #b8860b;
+    background: #fff8e1;
+    border: 1px solid #f6c23e;
+    border-radius: 10px;
+    padding: 1px 8px;
     white-space: nowrap;
 }
 
-/* ── Decision Points on Timeline ── */
-.tl-dp-item {
-    border: 1px solid #f0e6c8;
-    border-radius: 0.4rem;
-    transition: box-shadow 0.3s ease;
-}
-.tl-dp-header {
+.tl-has-dps {
     cursor: pointer;
-    background: #fffdf5;
-    border-radius: 0.4rem;
 }
-.tl-dp-header:hover {
+.tl-has-dps:hover .tl-compact-dp-badge {
+    background: #f6c23e;
+    color: #212529;
+}
+.tl-compact-expanded {
+    background: #fffdf5;
+    border-color: #f0e6c8;
+}
+
+/* ── Nested Decision Points under Timeline ── */
+.tl-dp-collapse {
+    margin-left: 30px;
+    margin-bottom: 2px;
+}
+.tl-dp-nest {
+    border-left: 3px solid #f6c23e;
+    margin-left: 10px;
+    padding-left: 12px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+}
+.tl-dp-nested-item {
+    padding: 6px 8px;
+    margin-bottom: 3px;
+    background: #fffdf5;
+    border: 1px solid #f0e6c8;
+    border-radius: 4px;
+    font-size: 0.82rem;
+}
+.tl-dp-nested-item:hover {
     background: #fff8e1;
 }
-.tl-dp-chevron {
+
+.tl-entry-chevron {
     transition: transform 0.2s ease;
-    color: #6c757d;
-    flex-shrink: 0;
-}
-.tl-dp-highlight {
-    box-shadow: 0 0 0 3px rgba(246, 194, 62, 0.4);
-    transition: box-shadow 0.3s ease;
 }
 
 /* Causal flow headers */

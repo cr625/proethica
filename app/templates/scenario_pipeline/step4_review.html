@@ -24,8 +24,9 @@
     .row { margin: 0 !important; }
     .mb-4 { margin-bottom: 0 !important; }
 
-    /* Hide summary cards row */
+    /* Hide summary cards row and transformation details */
     .row.mb-4:has(.card.text-center) { display: none !important; }
+    .alert.alert-light.border.mb-4 { display: none !important; }
 
     /* Hide tab bar -- we show only the selected tab */
     #reviewTabs { display: none !important; }
@@ -46,6 +47,12 @@
 
     /* Push content below toolbar */
     .container-fluid { padding-top: 48px !important; }
+
+    /* ── Print: timeline-specific ── */
+    #timeline .card-header .btn { display: none !important; }
+    #timeline .tl-compact-marker { max-width: 180px; font-size: 0.65rem; }
+    .tl-compact-node { font-size: 0.78rem; }
+    .tl-dp-nested-item { font-size: 0.78rem; }
 </style>
 {% endif %}
 {% endblock %}
@@ -477,6 +484,26 @@ document.addEventListener('DOMContentLoaded', function() {
         url.searchParams.set('tab', this.value);
         window.history.replaceState({}, '', url);
     });
+
+    // Auto-expand specific items for screenshot composition.
+    // Use ?expand=2 to expand the 2nd timeline entry (0-indexed),
+    // or ?expand_dp=dp-DP1 to expand a specific decision point.
+    const expandParam = new URLSearchParams(window.location.search).get('expand');
+    if (expandParam !== null) {
+        const idx = parseInt(expandParam) + 1; // template loop.index is 1-based
+        const collapseEl = document.getElementById('tl-entry-' + idx);
+        if (collapseEl) {
+            new bootstrap.Collapse(collapseEl, { toggle: true });
+        }
+    }
+    const expandDp = new URLSearchParams(window.location.search).get('expand_dp');
+    if (expandDp) {
+        const dpEl = document.getElementById(expandDp);
+        if (dpEl) {
+            const collapseEl = dpEl.querySelector('.collapse');
+            if (collapseEl) new bootstrap.Collapse(collapseEl, { toggle: true });
+        }
+    }
 });
 </script>
 {% endif %}

@@ -553,7 +553,8 @@ def _load_decision_points_for_review(case_id: int) -> List[Dict]:
                 'source': data.get('source', 'algorithmic'),
                 'arguments': args_by_dp.get(focus_id, []),
                 'toulmin': data.get('toulmin', {}),
-                'board_resolution': data.get('board_resolution', '')
+                'board_resolution': data.get('board_resolution', ''),
+                'involved_action_uris': data.get('involved_action_uris', [])
             })
 
     return decision_points
@@ -667,6 +668,118 @@ def _load_narrative_for_review(case_id: int) -> Optional[Dict]:
         logger.debug(f"Could not load narrative for case {case_id}: {e}")
 
     return {'has_data': False}
+
+
+def _load_temporal_timeline(case_id: int, decision_points: List[Dict]) -> Dict:
+    """Load Pass 3 temporal extraction data and match decision points to timeline entries.
+
+    Returns dict with:
+        - entries: list of timeline entries (actions/events) in temporal order,
+          each with a 'decision_points' list of matched DPs
+        - summary: counts of actions, events, total
+        - has_data: bool
+    """
+    temporal_entities = TemporaryRDFStorage.query.filter_by(
+        case_id=case_id,
+        extraction_type='temporal_dynamics_enhanced'
+    ).all()
+
+    if not temporal_entities:
+        return {'has_data': False, 'entries': [], 'summary': {}}
+
+    actions = []
+    events = []
+    timeline_timepoints = []
+
+    for entity in temporal_entities:
+        rdf = entity.rdf_json_ld or {}
+        etype = rdf.get('@type', '')
+        marker = rdf.get('proeth:temporalMarker', '')
+        rdf_id = rdf.get('@id', '')
+        # Extract URI fragment for DP matching (strip Action_/Event_ prefix)
+        fragment = rdf_id.split('#')[-1] if '#' in rdf_id else ''
+        clean_fragment = fragment
+        for prefix in ('Action_', 'Event_'):
+            if clean_fragment.startswith(prefix):
+                clean_fragment = clean_fragment[len(prefix):]
+                break
+
+        entry = {
+            'label': entity.entity_label,
+            'marker': marker,
+            'rdf_id': rdf_id,
+            'fragment': clean_fragment,
+            'description': rdf.get('proeth:description', ''),
+        }
+
+        if 'Action' in etype:
+            entry['kind'] = 'action'
+            actions.append(entry)
+        elif 'Event' in etype:
+            entry['kind'] = 'event'
+            events.append(entry)
+        elif 'Timeline' in entity.entity_label:
+            timeline_timepoints = rdf.get('proeth:hasTimepoints', [])
+
+    # Build ordered timeline from timepoints, matching to actions/events by marker
+    all_temporal = actions + events
+    marker_to_entry = {}
+    for e in all_temporal:
+        if e['marker']:
+            marker_to_entry[e['marker']] = e
+
+    entries = []
+    seen = set()
+    for tp in timeline_timepoints:
+        marker = tp.get('proeth:timepoint', '')
+        if marker in marker_to_entry and marker not in seen:
+            entries.append(marker_to_entry[marker])
+            seen.add(marker)
+
+    # Append any remaining entities not matched by timepoints
+    for e in all_temporal:
+        if e['marker'] not in seen:
+            entries.append(e)
+            seen.add(e['marker'])
+
+    # Match decision points to timeline entries by URI fragment.
+    # Build a lookup: clean_fragment -> list of entry indices
+    fragment_to_idx = {}
+    for i, entry in enumerate(entries):
+        if entry['fragment']:
+            fragment_to_idx[entry['fragment']] = i
+
+    for entry in entries:
+        entry['decision_points'] = []
+
+    for dp in decision_points:
+        action_uris = dp.get('involved_action_uris', [])
+        if not action_uris:
+            # Try single action_uri field
+            single = dp.get('action_uri', '')
+            if single:
+                action_uris = [single]
+
+        matched_indices = set()
+        for uri in action_uris:
+            frag = uri.split('#')[-1] if '#' in uri else ''
+            if frag in fragment_to_idx:
+                matched_indices.add(fragment_to_idx[frag])
+
+        # Assign DP to the first matched timeline entry (primary temporal position)
+        if matched_indices:
+            primary_idx = min(matched_indices)
+            entries[primary_idx]['decision_points'].append(dp)
+
+    return {
+        'has_data': True,
+        'entries': entries,
+        'summary': {
+            'actions': len(actions),
+            'events': len(events),
+            'total': len(entries),
+        }
+    }
 
 
 def _get_all_entities_for_graph(case_id: int) -> List:
