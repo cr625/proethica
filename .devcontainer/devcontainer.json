@@ -17,8 +17,15 @@
   "customizations": {
     "vscode": {
       "extensions": [
+        "anthropic.claude-code",
         "ms-python.python",
-        "ms-python.debugpy"
+        "ms-python.vscode-pylance",
+        "ms-python.debugpy",
+        "github.vscode-pull-request-github",
+        "github.vscode-github-actions",
+        "github.remotehub",
+        "ms-vscode.remote-repositories",
+        "redhat.vscode-yaml"
       ],
       "settings": {
         "terminal.integrated.cwd": "/workspaces"
