@@ -1,0 +1,25 @@
+{
+  "name": "ProEthica + OntServe",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspaces/proethica",
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/itsmechlark/features/postgresql:1": {}
+  },
+  "forwardPorts": [5000, 5003, 8082],
+  "portsAttributes": {
+    "5000": { "label": "ProEthica Web" },
+    "5003": { "label": "OntServe Web" },
+    "8082": { "label": "OntServe MCP" }
+  },
+  "postCreateCommand": "bash .devcontainer/setup.sh",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.debugpy"
+      ]
+    }
+  }
+}
