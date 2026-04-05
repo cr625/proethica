@@ -35,11 +35,11 @@ gunzip -c /tmp/ontserve.sql.gz | PGPASSWORD=PASS psql -h "$DB_HOST" -U postgres 
 
 rm -f /tmp/*.sql.gz
 
-# Clone OntServe alongside proethica
+# Clone OntServe alongside proethica (full checkout on development branch for active development)
 ONTSERVE_DIR="/workspaces/OntServe"
 if [ ! -d "$ONTSERVE_DIR" ]; then
   echo "Cloning OntServe..."
-  git clone https://github.com/cr625/OntServe.git "$ONTSERVE_DIR"
+  git clone -b development https://github.com/cr625/OntServe.git "$ONTSERVE_DIR"
 fi
 
 # Generate ProEthica .env with Codespace-appropriate DB hosts
@@ -94,6 +94,10 @@ pip install -q -r requirements.txt
 deactivate
 
 cd /workspaces/proethica
+
+# Configure git for both repos so you can commit and push
+git config --global --add safe.directory /workspaces/proethica
+git config --global --add safe.directory /workspaces/OntServe
 
 # Check for missing API keys
 if [ "$ANTHROPIC_API_KEY" = "" ] || [ "$ANTHROPIC_API_KEY" = "MISSING_SET_CODESPACE_SECRET" ]; then
