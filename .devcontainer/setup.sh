@@ -24,13 +24,15 @@ done
 echo "Downloading database dumps..."
 gh release download codespace-db -R cr625/proethica -p "*.sql.gz" -D /tmp --clobber
 
-# Create databases and restore
+# Create databases, enable pgvector, and restore
 echo "Restoring ProEthica database (ai_ethical_dm)..."
 PGPASSWORD=PASS psql -h "$DB_HOST" -U postgres -c "CREATE DATABASE ai_ethical_dm;" 2>/dev/null || true
+PGPASSWORD=PASS psql -h "$DB_HOST" -U postgres -d ai_ethical_dm -c "CREATE EXTENSION IF NOT EXISTS vector;"
 gunzip -c /tmp/ai_ethical_dm.sql.gz | PGPASSWORD=PASS psql -h "$DB_HOST" -U postgres -d ai_ethical_dm
 
 echo "Restoring OntServe database..."
 PGPASSWORD=PASS psql -h "$DB_HOST" -U postgres -c "CREATE DATABASE ontserve;" 2>/dev/null || true
+PGPASSWORD=PASS psql -h "$DB_HOST" -U postgres -d ontserve -c "CREATE EXTENSION IF NOT EXISTS vector;"
 gunzip -c /tmp/ontserve.sql.gz | PGPASSWORD=PASS psql -h "$DB_HOST" -U postgres -d ontserve
 
 rm -f /tmp/*.sql.gz
@@ -78,22 +80,13 @@ cat > "$ONTSERVE_DIR/.env" <<ENVEOF
 ONTSERVE_DB_URL=postgresql://postgres:PASS@${DB_HOST}:5432/ontserve
 ENVEOF
 
-# Install ProEthica dependencies
-echo "Installing ProEthica dependencies..."
-python -m venv venv-proethica
-source venv-proethica/bin/activate
-pip install -q -r requirements.txt
+# Single shared venv for both projects (saves ~400-500MB disk)
+echo "Installing dependencies (shared venv)..."
+VENV_DIR="/workspaces/venv"
+python -m venv "$VENV_DIR"
+source "$VENV_DIR/bin/activate"
+pip install -q -r requirements.txt -r "$ONTSERVE_DIR/requirements.txt"
 deactivate
-
-# Install OntServe dependencies
-echo "Installing OntServe dependencies..."
-cd "$ONTSERVE_DIR"
-python -m venv venv-ontserve
-source venv-ontserve/bin/activate
-pip install -q -r requirements.txt
-deactivate
-
-cd /workspaces/proethica
 
 # Configure git for both repos so you can commit and push
 git config --global --add safe.directory /workspaces/proethica
@@ -112,8 +105,10 @@ echo ""
 echo "=== Setup complete ==="
 echo ""
 echo "To start services:"
+echo "  source /workspaces/venv/bin/activate"
+echo ""
 echo "  # Terminal 1 - OntServe MCP (start this first):"
-echo "  cd $ONTSERVE_DIR && source venv-ontserve/bin/activate && python servers/mcp_server.py"
+echo "  cd $ONTSERVE_DIR && python servers/mcp_server.py"
 echo ""
 echo "  # Terminal 2 - ProEthica:"
-echo "  source venv-proethica/bin/activate && python run.py"
+echo "  cd /workspaces/proethica && python run.py"
