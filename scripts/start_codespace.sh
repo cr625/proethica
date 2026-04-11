@@ -43,7 +43,7 @@ install_deps() {
 wait_for_postgres() {
     log_info "Waiting for PostgreSQL..."
     for i in {1..30}; do
-        if pg_isready -h postgres -q 2>/dev/null; then
+        if pg_isready -h localhost -q 2>/dev/null; then
             log_info "PostgreSQL is ready"
             return 0
         fi
@@ -103,13 +103,14 @@ start_ontserve_web() {
     if [ ! -f "$ONTSERVE_DIR/web/app.py" ]; then
         log_warn "OntServe Web not found — skipping"; return 0
     fi
-    log_info "Starting OntServe Web..."
+    log_info "Starting OntServe Web (torch/embeddings imports take ~20s)..."
     cd "$ONTSERVE_DIR"
     # Run as module-style to keep OntServe root (not web/) as the primary sys.path entry,
     # avoiding web/services/ shadowing the top-level services/ package.
-    PYTHONPATH="$ONTSERVE_DIR" nohup "$ONTSERVE_VENV/bin/python" -c "import runpy, sys; sys.path.remove('') if '' in sys.path else None; runpy.run_path('web/app.py', run_name='__main__')" > "$PID_DIR/ontserve_web.log" 2>&1 &
+    # -u forces unbuffered stdout/stderr so the log file streams in real time.
+    PYTHONPATH="$ONTSERVE_DIR" nohup "$ONTSERVE_VENV/bin/python" -u -c "import runpy, sys; sys.path.remove('') if '' in sys.path else None; runpy.run_path('web/app.py', run_name='__main__')" > "$PID_DIR/ontserve_web.log" 2>&1 &
     echo $! > "$PID_DIR/ontserve_web.pid"
-    for i in {1..15}; do
+    for i in {1..60}; do
         nc -z localhost 5003 2>/dev/null && { log_info "OntServe Web started (PID: $(cat "$PID_DIR/ontserve_web.pid"))"; return 0; }
         # Check if process died (e.g. missing pgvector extension)
         if ! kill -0 "$(cat "$PID_DIR/ontserve_web.pid")" 2>/dev/null; then
@@ -119,7 +120,7 @@ start_ontserve_web() {
         fi
         sleep 1
     done
-    log_warn "OntServe Web timed out — check $PID_DIR/ontserve_web.log"
+    log_warn "OntServe Web timed out after 60s — check $PID_DIR/ontserve_web.log"
     return 0
 }
 
@@ -180,8 +181,8 @@ show_status() {
         && echo -e "  Celery:         ${GREEN}RUNNING${NC}" \
         || echo -e "  Celery:         ${RED}STOPPED${NC}"
 
-    pg_isready -h postgres -q 2>/dev/null \
-        && echo -e "  PostgreSQL:     ${GREEN}RUNNING${NC}  (host: postgres)" \
+    pg_isready -h localhost -q 2>/dev/null \
+        && echo -e "  PostgreSQL:     ${GREEN}RUNNING${NC}  (host: localhost)" \
         || echo -e "  PostgreSQL:     ${RED}STOPPED${NC}"
 
     echo -e "${CYAN}========================================${NC}"
