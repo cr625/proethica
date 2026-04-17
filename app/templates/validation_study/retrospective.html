@@ -63,6 +63,7 @@
     {% endif %}
 
     <form method="POST" action="{{ url_for('study.retrospective') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="row">
             <div class="col-lg-8">
                 <!-- View Ranking -->
@@ -71,7 +72,7 @@
                         <h5 class="mb-0"><i class="bi bi-sort-numeric-down me-2"></i>View Ranking</h5>
                     </div>
                     <div class="card-body">
-                        <p>Rank the four synthesis views from most valuable (1) to least valuable (4) for understanding cases.</p>
+                        <p>Rank the five synthesis views from most valuable (1) to least valuable (5) for understanding cases.</p>
 
                         <div id="rankContainer">
                             <div class="rank-item" data-view="provisions">
@@ -84,14 +85,14 @@
                                 <input type="hidden" name="rank_provisions_view" value="1">
                             </div>
 
-                            <div class="rank-item" data-view="questions">
+                            <div class="rank-item" data-view="qc">
                                 <span class="rank-number">2</span>
                                 <span class="view-icon" style="color: #6f42c1;"><i class="bi bi-question-circle"></i></span>
                                 <div>
-                                    <strong>Questions View</strong>
-                                    <br><small class="text-muted">Ethical questions and their structure</small>
+                                    <strong>Q&amp;C View</strong>
+                                    <br><small class="text-muted">Questions linked to conclusions with emergence/resolution overlays</small>
                                 </div>
-                                <input type="hidden" name="rank_questions_view" value="2">
+                                <input type="hidden" name="rank_qc_view" value="2">
                             </div>
 
                             <div class="rank-item" data-view="decisions">
@@ -99,19 +100,29 @@
                                 <span class="view-icon" style="color: #fd7e14;"><i class="bi bi-signpost-split"></i></span>
                                 <div>
                                     <strong>Decisions View</strong>
-                                    <br><small class="text-muted">Decision points and alternatives</small>
+                                    <br><small class="text-muted">Decision points with arguments for and against each option</small>
                                 </div>
                                 <input type="hidden" name="rank_decisions_view" value="3">
                             </div>
 
-                            <div class="rank-item" data-view="narrative">
+                            <div class="rank-item" data-view="timeline">
                                 <span class="rank-number">4</span>
+                                <span class="view-icon" style="color: #20c997;"><i class="bi bi-clock-history"></i></span>
+                                <div>
+                                    <strong>Timeline View</strong>
+                                    <br><small class="text-muted">Actions and events in temporal sequence with nested decision points</small>
+                                </div>
+                                <input type="hidden" name="rank_timeline_view" value="4">
+                            </div>
+
+                            <div class="rank-item" data-view="narrative">
+                                <span class="rank-number">5</span>
                                 <span class="view-icon text-success"><i class="bi bi-journal-text"></i></span>
                                 <div>
                                     <strong>Narrative View</strong>
-                                    <br><small class="text-muted">Timeline, characters, scenarios</small>
+                                    <br><small class="text-muted">Characters with ethical tensions and opening states</small>
                                 </div>
-                                <input type="hidden" name="rank_narrative_view" value="4">
+                                <input type="hidden" name="rank_narrative_view" value="5">
                             </div>
                         </div>
 
@@ -195,9 +206,8 @@
                     </div>
                     <div class="card-body">
                         <p class="mb-3">
-                            <strong>Participant:</strong> {{ participant_id }}<br>
-                            <strong>Domain:</strong> {{ domain|title }}<br>
-                            <strong>Cases Evaluated:</strong> {{ session.completed_cases|length if session.completed_cases else 0 }}
+                            <strong>Participant code:</strong> <code>{{ participant_code }}</code><br>
+                            <strong>Cases completed:</strong> {{ session.completed_cases|length if session.completed_cases else 0 }}
                         </p>
 
                         <hr>

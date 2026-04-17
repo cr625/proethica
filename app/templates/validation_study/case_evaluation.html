@@ -223,9 +223,11 @@
     </div>
 
     <form id="evaluationForm" method="POST" action="{{ url_for('study.submit_evaluation', case_id=document.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <!-- Hidden time tracking fields -->
         <input type="hidden" name="time_facts_review" id="time_facts_review" value="0">
         <input type="hidden" name="time_views_review" id="time_views_review" value="0">
+        <input type="hidden" name="time_timeline_review" id="time_timeline_review" value="0">
         <input type="hidden" name="time_utility_rating" id="time_utility_rating" value="0">
         <input type="hidden" name="time_comprehension" id="time_comprehension" value="0">
         <input type="hidden" name="time_alignment" id="time_alignment" value="0">
@@ -266,7 +268,7 @@
         <div id="step-views" class="step-content {% if current_step != 'views' %}hidden-step{% endif %}">
             <div class="row">
                 <div class="col-12 mb-3">
-                    <p class="lead">Review the four synthesis views below. These views present the case analysis in different structured formats.</p>
+                    <p class="lead">Review the five synthesis views below. These views present the case analysis in different structured formats.</p>
                 </div>
             </div>
 
@@ -278,13 +280,18 @@
                     </button>
                 </li>
                 <li class="nav-item">
-                    <button class="nav-link" id="questions-tab" data-bs-toggle="tab" data-bs-target="#questions-pane" type="button">
-                        <i class="bi bi-question-circle me-1"></i> Questions ({{ views.questions.count }})
+                    <button class="nav-link" id="qc-tab" data-bs-toggle="tab" data-bs-target="#qc-pane" type="button">
+                        <i class="bi bi-question-circle me-1"></i> Q&amp;C ({{ views.qc.count }})
                     </button>
                 </li>
                 <li class="nav-item">
                     <button class="nav-link" id="decisions-tab" data-bs-toggle="tab" data-bs-target="#decisions-pane" type="button">
                         <i class="bi bi-signpost-split me-1"></i> Decisions ({{ views.decisions.count }})
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" id="timeline-tab" data-bs-toggle="tab" data-bs-target="#timeline-pane" type="button">
+                        <i class="bi bi-clock-history me-1"></i> Timeline ({{ views.timeline.count }})
                     </button>
                 </li>
                 <li class="nav-item">
@@ -327,23 +334,23 @@
                     </div>
                 </div>
 
-                <!-- Questions View -->
-                <div class="tab-pane fade" id="questions-pane">
+                <!-- Q&C View -->
+                <div class="tab-pane fade" id="qc-pane">
                     <div class="view-card card">
                         <div class="card-header">
-                            <span>Questions View</span>
-                            <span class="badge bg-purple" style="background: #6f42c1;">{{ views.questions.count }} questions</span>
+                            <span>Q&amp;C View (Questions and Conclusions)</span>
+                            <span class="badge bg-purple" style="background: #6f42c1;">{{ views.qc.count }} questions</span>
                         </div>
                         <div class="card-body view-content">
-                            <p class="text-muted small">{{ views.questions.description }}</p>
-                            {% for q in views.questions.questions %}
+                            <p class="text-muted small">{{ views.qc.description }}</p>
+                            {% for q in views.qc.questions %}
                             <div class="question-item">
                                 <strong>{{ q.number }}</strong>
                                 <span class="badge bg-secondary ms-2">{{ q.question_type }}</span>
                                 <p class="mb-1">{{ q.question_text }}</p>
                                 {% if q.linked_conclusions %}
                                 <div class="mt-2 ps-3 border-start border-success">
-                                    <small class="text-muted">Linked Conclusions:</small>
+                                    <small class="text-muted">Board's conclusion for this question:</small>
                                     {% for c in q.linked_conclusions %}
                                     <p class="mb-1 small">{{ c.text|truncate(200) }}</p>
                                     {% endfor %}
@@ -394,6 +401,53 @@
                             {% else %}
                             <p class="text-muted">No decision points extracted for this case.</p>
                             {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Timeline View -->
+                <div class="tab-pane fade" id="timeline-pane">
+                    <div class="view-card card">
+                        <div class="card-header">
+                            <span>Timeline View</span>
+                            <span class="badge" style="background: #20c997;">{{ views.timeline.count }} entries &middot; {{ views.timeline.decision_point_count }} decision points</span>
+                        </div>
+                        <div class="card-body view-content">
+                            <p class="text-muted small">{{ views.timeline.description }}</p>
+                            {% for entry in views.timeline.entries %}
+                            <div class="timeline-item mb-2 ps-3 border-start" style="border-color: {% if entry.kind == 'action' %}#0d6efd{% else %}#6c757d{% endif %} !important;">
+                                <small class="text-muted">{{ entry.sequence }}. {{ entry.kind|title }}</small>
+                                {% if entry.is_decision_point %}
+                                <span class="badge" style="background: #fd7e14;" title="This entry is a decision point">DP</span>
+                                {% endif %}
+                                <strong class="d-block">{{ entry.label }}</strong>
+                                {% if entry.temporal_marker %}<div class="small text-muted"><i class="bi bi-clock"></i> {{ entry.temporal_marker }}</div>{% endif %}
+                                {% if entry.description %}<p class="small mb-1">{{ entry.description|truncate(200) }}</p>{% endif %}
+                                {% if entry.alternative_count %}
+                                <div class="small text-muted">Alternatives considered: {{ entry.alternative_count }}</div>
+                                {% endif %}
+                                {% if entry.violates_obligations %}
+                                <div class="small"><span class="text-danger">Violates:</span>
+                                    {% for ob in entry.violates_obligations[:2] %}
+                                    <span class="badge bg-danger-subtle text-danger-emphasis">{{ ob|truncate(50) }}</span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% else %}
+                            <p class="text-muted">No temporal extraction available for this case.</p>
+                            {% endfor %}
+
+                            {% if views.timeline.causal_flow %}
+                            <details class="mt-3">
+                                <summary class="small text-muted">Causal flow ({{ views.timeline.causal_flow|length }} enables links)</summary>
+                                <ul class="small mt-2">
+                                    {% for edge in views.timeline.causal_flow[:10] %}
+                                    <li>{{ edge.from_label }} <em>{{ edge.relation }}</em> {{ edge.to_label|truncate(80) }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </details>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -503,7 +557,7 @@
                         </div>
 
                         <div class="likert-item">
-                            <div class="likert-label">This view helped me understand the normative foundation for evaluating the case</div>
+                            <div class="likert-label">This view helped me understand the ethical basis for evaluating the case.</div>
                             <div class="likert-scale">
                                 {% for i in range(1, 8) %}
                                 <label>
@@ -516,16 +570,16 @@
                         </div>
                     </div>
 
-                    <!-- Questions View Utility -->
+                    <!-- Q&C View Utility -->
                     <div class="likert-group">
-                        <h6 class="border-bottom pb-2"><i class="bi bi-question-circle me-2"></i>Questions View Utility</h6>
+                        <h6 class="border-bottom pb-2"><i class="bi bi-question-circle me-2"></i>Q&amp;C View Utility</h6>
 
                         <div class="likert-item">
-                            <div class="likert-label">The extracted questions helped me see the ethical issues at stake</div>
+                            <div class="likert-label">The extracted questions helped me see the ethical issues at stake.</div>
                             <div class="likert-scale">
                                 {% for i in range(1, 8) %}
                                 <label>
-                                    <input type="radio" name="ques_issues_visible" value="{{ i }}" {% if existing_eval and existing_eval.ques_issues_visible == i %}checked{% endif %} required>
+                                    <input type="radio" name="qc_issues_visible" value="{{ i }}" {% if existing_eval and existing_eval.qc_issues_visible == i %}checked{% endif %} required>
                                     <span class="scale-btn">{{ i }}</span>
                                 </label>
                                 {% endfor %}
@@ -534,11 +588,11 @@
                         </div>
 
                         <div class="likert-item">
-                            <div class="likert-label">The structure of questions aided my understanding</div>
+                            <div class="likert-label">The connections between questions and conclusions clarified how the board reached its findings.</div>
                             <div class="likert-scale">
                                 {% for i in range(1, 8) %}
                                 <label>
-                                    <input type="radio" name="ques_structure_aided" value="{{ i }}" {% if existing_eval and existing_eval.ques_structure_aided == i %}checked{% endif %} required>
+                                    <input type="radio" name="qc_emergence_resolution" value="{{ i }}" {% if existing_eval and existing_eval.qc_emergence_resolution == i %}checked{% endif %} required>
                                     <span class="scale-btn">{{ i }}</span>
                                 </label>
                                 {% endfor %}
@@ -547,11 +601,11 @@
                         </div>
 
                         <div class="likert-item">
-                            <div class="likert-label">This view helped me identify what a committee would need to deliberate</div>
+                            <div class="likert-label">This view helped me identify what questions an ethics review would need to address.</div>
                             <div class="likert-scale">
                                 {% for i in range(1, 8) %}
                                 <label>
-                                    <input type="radio" name="ques_deliberation_needs" value="{{ i }}" {% if existing_eval and existing_eval.ques_deliberation_needs == i %}checked{% endif %} required>
+                                    <input type="radio" name="qc_deliberation_needs" value="{{ i }}" {% if existing_eval and existing_eval.qc_deliberation_needs == i %}checked{% endif %} required>
                                     <span class="scale-btn">{{ i }}</span>
                                 </label>
                                 {% endfor %}
@@ -565,7 +619,7 @@
                         <h6 class="border-bottom pb-2"><i class="bi bi-signpost-split me-2"></i>Decisions View Utility</h6>
 
                         <div class="likert-item">
-                            <div class="likert-label">The decision points helped me understand the choices the professional faced</div>
+                            <div class="likert-label">The decision points helped me understand the choices the professional faced.</div>
                             <div class="likert-scale">
                                 {% for i in range(1, 8) %}
                                 <label>
@@ -578,11 +632,11 @@
                         </div>
 
                         <div class="likert-item">
-                            <div class="likert-label">The alternatives presented gave useful context for evaluation</div>
+                            <div class="likert-label">The arguments for and against each option helped me evaluate the choices that were made.</div>
                             <div class="likert-scale">
                                 {% for i in range(1, 8) %}
                                 <label>
-                                    <input type="radio" name="decs_alternatives_context" value="{{ i }}" {% if existing_eval and existing_eval.decs_alternatives_context == i %}checked{% endif %} required>
+                                    <input type="radio" name="decs_argumentative_structure" value="{{ i }}" {% if existing_eval and existing_eval.decs_argumentative_structure == i %}checked{% endif %} required>
                                     <span class="scale-btn">{{ i }}</span>
                                 </label>
                                 {% endfor %}
@@ -591,11 +645,55 @@
                         </div>
 
                         <div class="likert-item">
-                            <div class="likert-label">This view helped me trace how the professional's actions related to their obligations</div>
+                            <div class="likert-label">This view helped me trace how the professional's actions related to their obligations.</div>
                             <div class="likert-scale">
                                 {% for i in range(1, 8) %}
                                 <label>
                                     <input type="radio" name="decs_actions_obligations" value="{{ i }}" {% if existing_eval and existing_eval.decs_actions_obligations == i %}checked{% endif %} required>
+                                    <span class="scale-btn">{{ i }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Timeline View Utility -->
+                    <div class="likert-group">
+                        <h6 class="border-bottom pb-2"><i class="bi bi-clock-history me-2"></i>Timeline View Utility</h6>
+
+                        <div class="likert-item">
+                            <div class="likert-label">The temporal sequence of events helped me understand how the situation developed.</div>
+                            <div class="likert-scale">
+                                {% for i in range(1, 8) %}
+                                <label>
+                                    <input type="radio" name="timeline_temporal_sequence" value="{{ i }}" {% if existing_eval and existing_eval.timeline_temporal_sequence == i %}checked{% endif %} required>
+                                    <span class="scale-btn">{{ i }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
+                        </div>
+
+                        <div class="likert-item">
+                            <div class="likert-label">The causal links between events clarified why certain actions raised ethical concerns.</div>
+                            <div class="likert-scale">
+                                {% for i in range(1, 8) %}
+                                <label>
+                                    <input type="radio" name="timeline_causal_links" value="{{ i }}" {% if existing_eval and existing_eval.timeline_causal_links == i %}checked{% endif %} required>
+                                    <span class="scale-btn">{{ i }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
+                        </div>
+
+                        <div class="likert-item">
+                            <div class="likert-label">This view helped me identify when obligations were activated or violated.</div>
+                            <div class="likert-scale">
+                                {% for i in range(1, 8) %}
+                                <label>
+                                    <input type="radio" name="timeline_obligation_activation" value="{{ i }}" {% if existing_eval and existing_eval.timeline_obligation_activation == i %}checked{% endif %} required>
                                     <span class="scale-btn">{{ i }}</span>
                                 </label>
                                 {% endfor %}
@@ -609,11 +707,11 @@
                         <h6 class="border-bottom pb-2"><i class="bi bi-journal-text me-2"></i>Narrative View Utility</h6>
 
                         <div class="likert-item">
-                            <div class="likert-label">The character profiles and timeline helped me understand the situation</div>
+                            <div class="likert-label">The character profiles and ethical tensions helped me understand who was affected and why.</div>
                             <div class="likert-scale">
                                 {% for i in range(1, 8) %}
                                 <label>
-                                    <input type="radio" name="narr_situation_understood" value="{{ i }}" {% if existing_eval and existing_eval.narr_situation_understood == i %}checked{% endif %} required>
+                                    <input type="radio" name="narr_characters_tensions" value="{{ i }}" {% if existing_eval and existing_eval.narr_characters_tensions == i %}checked{% endif %} required>
                                     <span class="scale-btn">{{ i }}</span>
                                 </label>
                                 {% endfor %}
@@ -622,7 +720,7 @@
                         </div>
 
                         <div class="likert-item">
-                            <div class="likert-label">The relationship information clarified who was involved and how</div>
+                            <div class="likert-label">The relationship information clarified the professional dynamics in the case.</div>
                             <div class="likert-scale">
                                 {% for i in range(1, 8) %}
                                 <label>
@@ -635,11 +733,11 @@
                         </div>
 
                         <div class="likert-item">
-                            <div class="likert-label">The sequence of events and decisions was clear</div>
+                            <div class="likert-label">This view provided a useful overview of the ethical significance of the case.</div>
                             <div class="likert-scale">
                                 {% for i in range(1, 8) %}
                                 <label>
-                                    <input type="radio" name="narr_sequence_clear" value="{{ i }}" {% if existing_eval and existing_eval.narr_sequence_clear == i %}checked{% endif %} required>
+                                    <input type="radio" name="narr_ethical_significance" value="{{ i }}" {% if existing_eval and existing_eval.narr_ethical_significance == i %}checked{% endif %} required>
                                     <span class="scale-btn">{{ i }}</span>
                                 </label>
                                 {% endfor %}
@@ -653,7 +751,7 @@
                         <h6 class="border-bottom pb-2"><i class="bi bi-check-circle me-2"></i>Overall Utility</h6>
 
                         <div class="likert-item">
-                            <div class="likert-label">The structured presentation helped me understand this case</div>
+                            <div class="likert-label">The structured presentation helped me understand this case.</div>
                             <div class="likert-scale">
                                 {% for i in range(1, 8) %}
                                 <label>
@@ -666,7 +764,9 @@
                         </div>
 
                         <div class="likert-item">
-                            <div class="likert-label">The presentation surfaced considerations I might have missed reading only the facts</div>
+                            <div class="likert-label">I could have reached the same understanding from the case facts alone.
+                                <span class="badge bg-light text-dark ms-1" title="This item is reverse-coded during analysis">reverse-coded</span>
+                            </div>
                             <div class="likert-scale">
                                 {% for i in range(1, 8) %}
                                 <label>
@@ -679,7 +779,7 @@
                         </div>
 
                         <div class="likert-item">
-                            <div class="likert-label">This type of structured synthesis would be useful for professional ethics deliberation</div>
+                            <div class="likert-label">This type of structured synthesis would be useful for professional ethics deliberation.</div>
                             <div class="likert-scale">
                                 {% for i in range(1, 8) %}
                                 <label>

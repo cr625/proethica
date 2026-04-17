@@ -1,11 +1,13 @@
 """
-Synthesis View Builder for Chapter 4 Validation.
+Synthesis View Builder for the ProEthica user-study interface.
 
-Builds the four synthesis views for evaluation display:
-- Provisions View: Code provision mappings (Phase 2A)
-- Questions View: Ethical questions structure (Phase 2B)
-- Decisions View: Decision points and alternatives (Phase 3)
-- Narrative View: Timeline, profiles, relationships (Phase 4)
+Builds the five synthesis views evaluated in the IRB-approved study
+(EvaluationStudyPlan.md):
+- Provisions View: Code provision mappings (Step 4 Phase 2A)
+- Q&C View: Ethical questions linked to conclusions (Step 4 Phase 2B)
+- Decisions View: Decision points with Toulmin argumentative structure (Step 4 Phase 3)
+- Timeline View: Actions/Events with nested decision points (Step 3 + Step 4 Phase 3)
+- Narrative View: Characters with ethical tensions and opening states (Step 4 Phase 4)
 """
 
 import json
@@ -16,11 +18,11 @@ from app.models.document_section import DocumentSection
 
 
 class SynthesisViewBuilder:
-    """Build synthesis views for Chapter 4 evaluation display.
+    """Build synthesis views for the user-study interface.
 
     Pulls synthesis data from existing Step 4 pipeline outputs stored in:
-    - TemporaryRDFStorage: Entity-level extractions
-    - ExtractionPrompt: LLM synthesis outputs (decision points, narrative)
+    - TemporaryRDFStorage: Entity-level extractions (Step 3 + Step 4 Phase 2)
+    - ExtractionPrompt: LLM synthesis outputs (Step 4 Phase 3 + Phase 4)
     - DocumentSection: Case text sections
     """
 
@@ -63,13 +65,13 @@ class SynthesisViewBuilder:
                           'of the professional code apply and how they connect to specific facts.'
         }
 
-    def get_questions_view(self, case_id: int) -> Dict[str, Any]:
-        """Get ethical questions from Step 4 Phase 2B.
+    def get_qc_view(self, case_id: int) -> Dict[str, Any]:
+        """Get Q&C (Questions and Conclusions) view from Step 4 Phase 2B.
 
-        Returns questions with:
+        Returns questions linked to their board/analytical conclusions with:
         - Question text and type classification
-        - Linked conclusions (if any)
-        - Entity involvement breakdown
+        - Conclusions linked to each question via answersQuestions relation
+        - Entity involvement breakdown and emergence/resolution overlays
         """
         questions = TemporaryRDFStorage.query.filter_by(
             case_id=case_id,
@@ -118,12 +120,15 @@ class SynthesisViewBuilder:
             })
 
         return {
-            'view_type': 'questions',
+            'view_type': 'qc',
             'count': len(formatted),
             'questions': formatted,
-            'description': 'Ethical questions that emerge from the case, structured to expose '
-                          'what a deliberating committee would need to address.'
+            'description': 'Ethical questions linked to their conclusions with emergence and '
+                          'resolution overlays, showing how the board reached its findings.'
         }
+
+    # Backwards-compatible alias while any remaining callers transition.
+    get_questions_view = get_qc_view
 
     def get_decisions_view(self, case_id: int) -> Dict[str, Any]:
         """Get decision points from Step 4 Phase 3.
@@ -192,6 +197,80 @@ class SynthesisViewBuilder:
                           'alternatives considered and actions taken.'
         }
 
+    def get_timeline_view(self, case_id: int) -> Dict[str, Any]:
+        """Get Timeline view from Step 3 temporal extraction.
+
+        Returns Actions and Events in temporal sequence with decision-point
+        nesting and causal flow. Per HyperText'26 section 3.2:
+        - Actions = volitional conduct by identified participants
+        - Events = occurrences outside agent control
+        - Decision points synthesized in Step 4 nest beneath the Action/Event
+          they originate from.
+
+        Data source: `temporal_dynamics_enhanced` rows in `temporary_rdf_storage`
+        carry typed JSON-LD with `@type` = `proeth:Action` | `proeth:Event`,
+        `proeth:temporalMarker`, `proeth-scenario:isDecisionPoint`,
+        `proeth-scenario:alternativeActions`, and obligation links.
+        """
+        temporal_entries = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            extraction_type='temporal_dynamics_enhanced'
+        ).order_by(
+            TemporaryRDFStorage.id  # Preserves extraction order (no reliable temporal sort key)
+        ).all()
+
+        entries = []
+        causal_flow = []
+        decision_point_entries = 0
+
+        for seq, row in enumerate(temporal_entries, start=1):
+            rdf = row.rdf_json_ld or {}
+            at_type = rdf.get('@type', '') or ''
+            kind = 'action' if 'Action' in at_type else 'event' if 'Event' in at_type else 'entry'
+            is_dp = bool(rdf.get('proeth-scenario:isDecisionPoint'))
+            alternatives = rdf.get('proeth-scenario:alternativeActions', []) or []
+
+            fulfills = rdf.get('proeth:fulfillsObligation', []) or []
+            violates = rdf.get('proeth:violatesObligation', []) or []
+
+            entry = {
+                'sequence': seq,
+                'kind': kind,
+                'label': row.entity_label,
+                'entity_iri': rdf.get('@id', ''),
+                'temporal_marker': rdf.get('proeth:temporalMarker', ''),
+                'agent': rdf.get('proeth:hasAgent', ''),
+                'narrative_role': rdf.get('proeth-scenario:narrativeRole', ''),
+                'description': rdf.get('proeth:description', ''),
+                'is_decision_point': is_dp,
+                'alternative_count': len(alternatives) if isinstance(alternatives, list) else 0,
+                'fulfills_obligations': fulfills if isinstance(fulfills, list) else [],
+                'violates_obligations': violates if isinstance(violates, list) else [],
+            }
+            entries.append(entry)
+            if is_dp:
+                decision_point_entries += 1
+
+            foreseen = rdf.get('proeth:foreseenUnintendedEffects', [])
+            if isinstance(foreseen, list):
+                for effect in foreseen:
+                    causal_flow.append({
+                        'from_label': row.entity_label,
+                        'to_label': effect,
+                        'relation': 'enables'
+                    })
+
+        return {
+            'view_type': 'timeline',
+            'count': len(entries),
+            'decision_point_count': decision_point_entries,
+            'entries': entries,
+            'causal_flow': causal_flow,
+            'description': 'Actions and Events in temporal sequence with decision points '
+                          'nested beneath their corresponding entries; causal flow shows '
+                          'enables links between actions and events.'
+        }
+
     def get_narrative_view(self, case_id: int) -> Dict[str, Any]:
         """Get narrative elements from Step 4 Phase 4.
 
@@ -234,11 +313,12 @@ class SynthesisViewBuilder:
         }
 
     def get_all_views(self, case_id: int) -> Dict[str, Any]:
-        """Get all four synthesis views for evaluation display."""
+        """Get all five synthesis views for the study display."""
         return {
             'provisions': self.get_provisions_view(case_id),
-            'questions': self.get_questions_view(case_id),
+            'qc': self.get_qc_view(case_id),
             'decisions': self.get_decisions_view(case_id),
+            'timeline': self.get_timeline_view(case_id),
             'narrative': self.get_narrative_view(case_id)
         }
 
@@ -401,91 +481,93 @@ class SynthesisViewBuilder:
         }
 
     def case_has_synthesis(self, case_id: int, require_complete: bool = True) -> bool:
-        """Check if a case has sufficient synthesis data for evaluation.
+        """Check if a case has sufficient synthesis data for study display.
 
         Args:
             case_id: Document ID to check
-            require_complete: If True, require all 4 views (provisions, questions,
-                            decisions, narrative). If False, only require provisions
-                            and questions.
-
-        Chapter 4 requires complete synthesis with all four views for valid
-        evaluation. Cases without decisions or narrative should not be included.
+            require_complete: If True, require all five views (Provisions, Q&C,
+                            Decisions, Timeline, Narrative). If False, only
+                            require Provisions and Q&C.
         """
-        # Check for published provisions
+        # Provisions
         provision_count = TemporaryRDFStorage.query.filter_by(
             case_id=case_id,
             extraction_type='code_provision_reference',
             is_published=True
         ).count()
 
-        # Check for published questions
+        # Q&C (questions)
         question_count = TemporaryRDFStorage.query.filter_by(
             case_id=case_id,
             extraction_type='ethical_question',
             is_published=True
         ).count()
 
-        # Basic requirement: provisions and questions
         if provision_count == 0 or question_count == 0:
             return False
 
         if not require_complete:
             return True
 
-        # Complete synthesis requires decisions and narrative too
-        # Check for decisions - can be in ExtractionPrompt OR TemporaryRDFStorage
+        # Decisions - ExtractionPrompt or TemporaryRDFStorage
         decision_count = ExtractionPrompt.query.filter_by(
             case_id=case_id,
             concept_type='phase3_decision_synthesis'
         ).count()
 
         if decision_count == 0:
-            # Fallback: check TemporaryRDFStorage for canonical_decision_point
             decision_count = TemporaryRDFStorage.query.filter_by(
                 case_id=case_id,
                 extraction_type='canonical_decision_point'
             ).count()
 
-        # Check for narrative (phase4_narrative from ExtractionPrompt)
+        # Timeline (Step 3 temporal extraction)
+        timeline_count = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            extraction_type='temporal_dynamics_enhanced'
+        ).count()
+
+        # Narrative (Step 4 Phase 4)
         narrative_count = ExtractionPrompt.query.filter_by(
             case_id=case_id,
             concept_type='phase4_narrative'
         ).count()
 
-        return decision_count > 0 and narrative_count > 0
+        return decision_count > 0 and timeline_count > 0 and narrative_count > 0
 
     def get_evaluable_cases(self, domain: Optional[str] = None, require_complete: bool = True) -> List[Dict[str, Any]]:
-        """Get list of cases that have synthesis data and are ready for evaluation.
+        """Get list of cases that have synthesis data and are ready for the study.
 
         Args:
-            domain: Domain filter (currently unused - all are engineering)
-            require_complete: If True, only return cases with all 4 synthesis views.
+            domain: Domain filter (currently unused - IRB scope is engineering only)
+            require_complete: If True, only return cases with all 5 synthesis views.
 
-        Chapter 4 specifies 23 cases, but only cases with complete synthesis
-        (provisions, questions, decisions, narrative) are ready for evaluation.
+        The 23-case IRB-approved study pool lives in
+        `app.config.study_case_pool.STUDY_CASE_POOL_IDS`. Intersect with cases
+        that pass the synthesis check. In practice all 23 should pass because
+        the pool was selected from cases with full-prompt extraction and
+        downstream synthesis.
         """
-        # Start with all cases
-        query = Document.query.filter(
-            Document.document_type.in_(['case', 'case_study'])
-        )
+        from app.config.study_case_pool import STUDY_CASE_POOL_IDS
 
-        cases = query.all()
+        cases = Document.query.filter(
+            Document.id.in_(STUDY_CASE_POOL_IDS)
+        ).all()
 
         evaluable = []
         for case in cases:
             if self.case_has_synthesis(case.id, require_complete=require_complete):
                 views = self.get_all_views(case.id)
-                # Extract case_number from metadata or title
                 case_number = self._extract_case_number(case)
                 evaluable.append({
                     'id': case.id,
                     'title': case.title,
                     'case_number': case_number,
-                    'domain': 'engineering',  # Default to engineering ethics
+                    'domain': 'engineering',
                     'provision_count': views['provisions']['count'],
-                    'question_count': views['questions']['count'],
+                    'qc_count': views['qc']['count'],
                     'decision_count': views['decisions']['count'],
+                    'timeline_count': views['timeline']['count'],
                     'has_narrative': views['narrative']['has_content']
                 })
 

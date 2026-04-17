@@ -1,74 +1,95 @@
 """
-View Utility Study Routes.
+ProEthica user-study routes (IRB Protocol 2603011709).
 
-Evaluator-facing routes for the synthesis view utility assessment:
-- Part 1: Component Utility Assessment (rate each synthesis view)
-- Part 2: Ground Truth Alignment (comprehension questions, reveal conclusions)
-- Part 3: Retrospective Reflection (rank views, provide feedback)
+Participant flow:
+- Landing page displays the HRP-506 Information Sheet and a consent checkbox.
+- On consent, the system generates a random 8-character participant code and
+  creates a new ValidationSession. The code is the participant's only
+  credential for returning to their session.
+- Each participant is assigned 3-4 cases from the 23-case pool
+  (`app.config.study_case_pool`) via `case_assignment_service.assign_cases`.
+- For each case: read Facts, review five synthesis views, rate 18 Likert
+  items, answer 4 comprehension questions, reveal board Discussion +
+  Conclusions (gated on comprehension completeness), rate alignment.
+- After all cases: rank the five views and provide open feedback.
 
-This evaluates whether structured synthesis VIEWS help evaluators
-understand professional ethics cases.
+Admin routes stay behind `@admin_required_production`. Participant routes do
+NOT require login; authentication is by possession of the random code only.
 """
 
 import logging
-import hashlib
+import secrets
 import uuid
 from datetime import datetime
 from flask import Blueprint, request, render_template, redirect, url_for, flash, session, jsonify
-from flask_login import login_required, current_user
 from app import db
 from app.models import Document
 from app.models.view_utility_evaluation import (
     ValidationSession, ViewUtilityEvaluation, RetrospectiveReflection
 )
 from app.services.validation.synthesis_view_builder import SynthesisViewBuilder
+from app.services.validation.case_assignment_service import assign_cases
 
-# Configure logging
 logger = logging.getLogger(__name__)
 
-# Create blueprint - evaluator-facing study routes (login required, not admin)
 study_bp = Blueprint('study', __name__)
 
+# Information Sheet version currently served. Bump this when the .docx changes
+# and update `_info_sheet_v2.html` (and this constant) together.
+INFO_SHEET_VERSION = 'v2'
 
-def generate_participant_id():
-    """Generate anonymous but consistent participant ID from session/IP."""
-    if 'study_participant_id' in session:
-        return session['study_participant_id']
-
-    identifier = f"{request.remote_addr}:{request.user_agent.string}"
-    hash_val = hashlib.sha256(identifier.encode()).hexdigest()[:8]
-    participant_id = f"V{hash_val.upper()}"
-
-    session['study_participant_id'] = participant_id
-    return participant_id
+# Ambiguity-stripped alphabet for participant codes (no 0/O, 1/I, L).
+CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+CODE_LENGTH = 8
 
 
-def get_or_create_session(evaluator_id: str, domain: str = 'engineering') -> ValidationSession:
-    """Get existing session or create new one for evaluator."""
-    existing = ValidationSession.query.filter_by(
-        evaluator_id=evaluator_id
-    ).filter(
-        ValidationSession.completed_at.is_(None)
-    ).first()
+def generate_participant_code() -> str:
+    """Random 8-character alphanumeric code. No crosswalk to identity."""
+    return ''.join(secrets.choice(CODE_ALPHABET) for _ in range(CODE_LENGTH))
 
-    if existing:
-        return existing
 
-    # Create new session
-    session_id = str(uuid.uuid4())[:8]
-    view_builder = SynthesisViewBuilder()
-    evaluable_cases = view_builder.get_evaluable_cases(domain=domain)
+def get_participant_code() -> str | None:
+    """Read code from query string or session. Returns None if unknown."""
+    code = request.args.get('code', '').strip().upper()
+    if code:
+        session['participant_code'] = code
+        return code
+    return session.get('participant_code')
+
+
+def load_session(code: str) -> ValidationSession | None:
+    """Fetch a session by participant code, or None if the code is bogus."""
+    if not code:
+        return None
+    return ValidationSession.query.filter_by(participant_code=code).first()
+
+
+def create_session(domain: str = 'engineering') -> ValidationSession:
+    """Create a new study session with a fresh random code.
+
+    Consent must have been acknowledged before this is called; the caller is
+    responsible for setting `consent_acknowledged_at` and `info_sheet_version`.
+    """
+    code = generate_participant_code()
+    # Vanishingly small collision probability, but belt-and-suspenders:
+    while ValidationSession.query.filter_by(participant_code=code).first() is not None:
+        code = generate_participant_code()
+
+    assigned = assign_cases(code)
 
     new_session = ValidationSession(
-        session_id=session_id,
-        evaluator_id=evaluator_id,
+        session_id=str(uuid.uuid4())[:8],
+        evaluator_id=code,
+        participant_code=code,
         evaluator_domain=domain,
-        assigned_cases=[c['id'] for c in evaluable_cases],
-        completed_cases=[]
+        assigned_cases=assigned,
+        completed_cases=[],
+        consent_acknowledged_at=datetime.utcnow(),
+        info_sheet_version=INFO_SHEET_VERSION,
     )
     db.session.add(new_session)
     db.session.commit()
-
+    session['participant_code'] = code
     return new_session
 
 
@@ -77,47 +98,93 @@ def get_or_create_session(evaluator_id: str, domain: str = 'engineering') -> Val
 # =============================================================================
 
 @study_bp.route('/')
-@login_required
 def index():
-    """Chapter 4 validation landing page."""
-    participant_id = generate_participant_id()
-    domain = request.args.get('domain', session.get('evaluator_domain', 'engineering'))
-    session['evaluator_domain'] = domain
+    """Landing page.
 
-    # Get or create validation session
-    val_session = get_or_create_session(participant_id, domain)
+    Three possible renderings depending on state:
+    1. No code → Information Sheet + consent form (POST to `/enroll`).
+    2. Code present, session found → study dashboard with assigned cases.
+    3. Code present, no session → invalid-code message + retry form.
+    """
+    code = get_participant_code()
 
-    # Get evaluable cases
+    if not code:
+        return render_template('validation_study/index.html',
+                               phase='consent',
+                               info_sheet_version=INFO_SHEET_VERSION)
+
+    val_session = load_session(code)
+    if not val_session:
+        flash(f'No study session found for code {code}. Check for typos or start a new session.', 'warning')
+        session.pop('participant_code', None)
+        return render_template('validation_study/index.html',
+                               phase='consent',
+                               info_sheet_version=INFO_SHEET_VERSION,
+                               invalid_code=code)
+
     view_builder = SynthesisViewBuilder()
-    evaluable_cases = view_builder.get_evaluable_cases(domain=domain)
-
-    # Determine next case to evaluate
+    assigned_ids = val_session.assigned_cases or []
     completed = set(val_session.completed_cases or [])
+
+    case_summaries = []
     next_case = None
-    for case in evaluable_cases:
-        if case['id'] not in completed:
-            next_case = case
-            break
+    for cid in assigned_ids:
+        doc = Document.query.get(cid)
+        if not doc:
+            continue
+        summary = {
+            'id': cid,
+            'title': doc.title,
+            'case_number': view_builder._extract_case_number(doc),
+            'is_complete': cid in completed,
+        }
+        case_summaries.append(summary)
+        if next_case is None and cid not in completed:
+            next_case = summary
 
     return render_template('validation_study/index.html',
-                           participant_id=participant_id,
-                           domain=domain,
+                           phase='dashboard',
+                           participant_code=code,
                            session=val_session,
-                           evaluable_cases=evaluable_cases,
+                           case_summaries=case_summaries,
                            next_case=next_case,
                            completed_count=len(completed),
-                           total_count=len(evaluable_cases))
+                           total_count=len(assigned_ids))
+
+
+@study_bp.route('/enroll', methods=['POST'])
+def enroll():
+    """Create a new session after the participant acknowledges the consent."""
+    if request.form.get('consent') != 'yes':
+        flash('You must acknowledge the information sheet to participate.', 'warning')
+        return redirect(url_for('study.index'))
+
+    val_session = create_session(domain='engineering')
+    flash(
+        f'Your participant code is {val_session.participant_code}. '
+        f'Write it down or screenshot it now. You will need this code to return '
+        f'to your session. If you lose it, you cannot resume and would need to restart.',
+        'info'
+    )
+    return redirect(url_for('study.index', code=val_session.participant_code))
+
+
+@study_bp.route('/exit')
+def exit_session():
+    """Clear the current code from the browser session (code itself still works for return)."""
+    session.pop('participant_code', None)
+    flash('You have exited. Re-enter your code to return to your session.', 'info')
+    return redirect(url_for('study.index'))
 
 
 @study_bp.route('/session/<session_id>/status')
-@login_required
 def session_status(session_id):
     """Get current session status (for AJAX)."""
     val_session = ValidationSession.query.filter_by(session_id=session_id).first_or_404()
 
     return jsonify({
         'session_id': val_session.session_id,
-        'evaluator_id': val_session.evaluator_id,
+        'participant_code': val_session.participant_code,
         'progress_percent': val_session.progress_percent,
         'completed_cases': val_session.completed_cases or [],
         'assigned_cases': val_session.assigned_cases or [],
@@ -129,63 +196,80 @@ def session_status(session_id):
 # CASE EVALUATION ROUTES
 # =============================================================================
 
+def _require_session():
+    """Resolve and return the current session, or a redirect response."""
+    code = get_participant_code()
+    if not code:
+        flash('Please enroll or enter your participant code to continue.', 'warning')
+        return None, redirect(url_for('study.index'))
+    val_session = load_session(code)
+    if not val_session:
+        flash(f'No study session found for code {code}.', 'warning')
+        session.pop('participant_code', None)
+        return None, redirect(url_for('study.index'))
+    return val_session, None
+
+
 @study_bp.route('/case/<int:case_id>', methods=['GET'])
-@login_required
 def evaluate_case(case_id):
     """Main evaluation page for a case - implements stepped flow."""
-    participant_id = generate_participant_id()
-    domain = session.get('evaluator_domain', 'engineering')
+    val_session, redirect_resp = _require_session()
+    if redirect_resp:
+        return redirect_resp
 
-    # Get validation session
-    val_session = get_or_create_session(participant_id, domain)
-
-    # Get case document
-    document = Document.query.get_or_404(case_id)
-
-    # Get synthesis views
-    view_builder = SynthesisViewBuilder()
-
-    if not view_builder.case_has_synthesis(case_id):
-        flash('This case does not have sufficient synthesis data for evaluation.', 'warning')
+    assigned_ids = val_session.assigned_cases or []
+    if case_id not in assigned_ids:
+        flash('This case is not in your assigned set.', 'warning')
         return redirect(url_for('study.index'))
 
-    # Get all views
+    document = Document.query.get_or_404(case_id)
+
+    view_builder = SynthesisViewBuilder()
+    if not view_builder.case_has_synthesis(case_id):
+        flash('This case does not have sufficient synthesis data for the study.', 'warning')
+        return redirect(url_for('study.index'))
+
     case_facts = view_builder.get_case_facts(case_id)
     views = view_builder.get_all_views(case_id)
 
-    # Check if already evaluated
     existing_eval = ViewUtilityEvaluation.query.filter_by(
         session_id=val_session.id,
         case_id=case_id
     ).first()
 
-    # Determine current step
     step = request.args.get('step', 'facts')
-    if step not in ['facts', 'views', 'utility', 'comprehension', 'reveal', 'alignment']:
+    valid_steps = ['facts', 'views', 'utility', 'comprehension', 'reveal', 'alignment']
+    if step not in valid_steps:
         step = 'facts'
+
+    # A10: reveal step is gated on comprehension completeness.
+    if step in ('reveal', 'alignment'):
+        if not existing_eval or not existing_eval.comprehension_complete:
+            flash('Please complete the comprehension questions before revealing the board conclusions.', 'warning')
+            return redirect(url_for('study.evaluate_case', case_id=case_id, step='comprehension'))
 
     return render_template('validation_study/case_evaluation.html',
                            document=document,
                            case_facts=case_facts,
                            views=views,
-                           participant_id=participant_id,
+                           participant_code=val_session.participant_code,
                            session=val_session,
                            existing_eval=existing_eval,
-                           current_step=step,
-                           domain=domain)
+                           current_step=step)
 
 
 @study_bp.route('/case/<int:case_id>/submit', methods=['POST'])
-@login_required
 def submit_evaluation(case_id):
-    """Submit evaluation for a case."""
-    participant_id = generate_participant_id()
-    domain = session.get('evaluator_domain', 'engineering')
+    """Submit evaluation for a case. 18 Likert items + 4 comprehension + alignment."""
+    val_session, redirect_resp = _require_session()
+    if redirect_resp:
+        return redirect_resp
 
-    val_session = get_or_create_session(participant_id, domain)
+    if case_id not in (val_session.assigned_cases or []):
+        flash('This case is not in your assigned set.', 'warning')
+        return redirect(url_for('study.index'))
 
     try:
-        # Create or update evaluation
         evaluation = ViewUtilityEvaluation.query.filter_by(
             session_id=val_session.id,
             case_id=case_id
@@ -195,12 +279,11 @@ def submit_evaluation(case_id):
             evaluation = ViewUtilityEvaluation(
                 session_id=val_session.id,
                 case_id=case_id,
-                evaluator_id=participant_id,
+                evaluator_id=val_session.participant_code,
                 started_at=datetime.utcnow()
             )
             db.session.add(evaluation)
 
-        # Helper to get form value as integer
         def get_int(name):
             val = request.form.get(name)
             if val is not None and val != '':
@@ -210,45 +293,57 @@ def submit_evaluation(case_id):
                     return None
             return None
 
-        # Part 1: View Utility Items (15 items)
-        # Provisions View
+        # Part 1: 18 Likert items (3 per view × 5 views + 3 overall)
+
+        # Provisions
         evaluation.prov_standards_identified = get_int('prov_standards_identified')
         evaluation.prov_connections_clear = get_int('prov_connections_clear')
         evaluation.prov_normative_foundation = get_int('prov_normative_foundation')
 
-        # Questions View
-        evaluation.ques_issues_visible = get_int('ques_issues_visible')
-        evaluation.ques_structure_aided = get_int('ques_structure_aided')
-        evaluation.ques_deliberation_needs = get_int('ques_deliberation_needs')
+        # Q&C
+        evaluation.qc_issues_visible = get_int('qc_issues_visible')
+        evaluation.qc_emergence_resolution = get_int('qc_emergence_resolution')
+        evaluation.qc_deliberation_needs = get_int('qc_deliberation_needs')
 
-        # Decisions View
+        # Decisions
         evaluation.decs_choices_understood = get_int('decs_choices_understood')
-        evaluation.decs_alternatives_context = get_int('decs_alternatives_context')
+        evaluation.decs_argumentative_structure = get_int('decs_argumentative_structure')
         evaluation.decs_actions_obligations = get_int('decs_actions_obligations')
 
-        # Narrative View
-        evaluation.narr_situation_understood = get_int('narr_situation_understood')
-        evaluation.narr_relationships_clear = get_int('narr_relationships_clear')
-        evaluation.narr_sequence_clear = get_int('narr_sequence_clear')
+        # Timeline
+        evaluation.timeline_temporal_sequence = get_int('timeline_temporal_sequence')
+        evaluation.timeline_causal_links = get_int('timeline_causal_links')
+        evaluation.timeline_obligation_activation = get_int('timeline_obligation_activation')
 
-        # Overall Utility
+        # Narrative
+        evaluation.narr_characters_tensions = get_int('narr_characters_tensions')
+        evaluation.narr_relationships_clear = get_int('narr_relationships_clear')
+        evaluation.narr_ethical_significance = get_int('narr_ethical_significance')
+
+        # Overall (item 2 is reverse-coded; stored raw)
         evaluation.overall_helped_understand = get_int('overall_helped_understand')
         evaluation.overall_surfaced_considerations = get_int('overall_surfaced_considerations')
         evaluation.overall_useful_deliberation = get_int('overall_useful_deliberation')
 
-        # Part 2: Comprehension Questions
+        # Part 2A: Comprehension
         evaluation.comp_main_tensions = request.form.get('comp_main_tensions', '').strip()
         evaluation.comp_relevant_provisions = request.form.get('comp_relevant_provisions', '').strip()
         evaluation.comp_decision_points = request.form.get('comp_decision_points', '').strip()
         evaluation.comp_deliberation_factors = request.form.get('comp_deliberation_factors', '').strip()
 
-        # Part 2: Alignment Self-Assessment
+        # Part 2B: Alignment
+        alignment_submitted = bool(request.form.get('alignment_self_rating'))
+        if alignment_submitted and not evaluation.comprehension_complete:
+            flash('Please complete the comprehension questions before the alignment step.', 'warning')
+            return redirect(url_for('study.evaluate_case', case_id=case_id, step='comprehension'))
+
         evaluation.alignment_self_rating = get_int('alignment_self_rating')
         evaluation.alignment_reflection = request.form.get('alignment_reflection', '').strip()
 
-        # Track time spent (from hidden fields)
+        # Timing
         evaluation.time_facts_review = get_int('time_facts_review')
         evaluation.time_views_review = get_int('time_views_review')
+        evaluation.time_timeline_review = get_int('time_timeline_review')
         evaluation.time_utility_rating = get_int('time_utility_rating')
         evaluation.time_comprehension = get_int('time_comprehension')
         evaluation.time_alignment = get_int('time_alignment')
@@ -256,8 +351,6 @@ def submit_evaluation(case_id):
         # Mark completion
         if evaluation.is_complete:
             evaluation.completed_at = datetime.utcnow()
-
-            # Update session completed cases
             completed = set(val_session.completed_cases or [])
             completed.add(case_id)
             val_session.completed_cases = list(completed)
@@ -266,15 +359,13 @@ def submit_evaluation(case_id):
 
         if evaluation.is_complete:
             flash('Evaluation submitted successfully.', 'success')
-
-            # Check if all cases completed
             if val_session.is_complete:
                 return redirect(url_for('study.retrospective'))
-            else:
-                return redirect(url_for('study.index'))
+            return redirect(url_for('study.index'))
         else:
-            flash('Evaluation saved. Please complete all fields.', 'warning')
-            return redirect(url_for('study.evaluate_case', case_id=case_id, step='utility'))
+            flash('Progress saved. Continue where you left off.', 'info')
+            next_step = request.form.get('next_step') or 'utility'
+            return redirect(url_for('study.evaluate_case', case_id=case_id, step=next_step))
 
     except Exception as e:
         logger.exception(f"Error submitting evaluation for case {case_id}: {str(e)}")
@@ -284,13 +375,22 @@ def submit_evaluation(case_id):
 
 
 @study_bp.route('/case/<int:case_id>/reveal')
-@login_required
 def reveal_conclusions(case_id):
-    """Reveal board conclusions after comprehension questions."""
-    view_builder = SynthesisViewBuilder()
-    conclusions = view_builder.get_board_conclusions(case_id)
+    """Reveal board conclusions. Gated on comprehension completeness."""
+    val_session, redirect_resp = _require_session()
+    if redirect_resp:
+        return jsonify({'error': 'no_session'}), 403
 
-    return jsonify(conclusions)
+    existing = ViewUtilityEvaluation.query.filter_by(
+        session_id=val_session.id,
+        case_id=case_id
+    ).first()
+    if not existing or not existing.comprehension_complete:
+        return jsonify({'error': 'comprehension_required',
+                        'message': 'Complete the comprehension questions before revealing.'}), 400
+
+    view_builder = SynthesisViewBuilder()
+    return jsonify(view_builder.get_board_conclusions(case_id))
 
 
 # =============================================================================
@@ -298,31 +398,27 @@ def reveal_conclusions(case_id):
 # =============================================================================
 
 @study_bp.route('/retrospective', methods=['GET', 'POST'])
-@login_required
 def retrospective():
-    """Post-study retrospective reflection."""
-    participant_id = generate_participant_id()
-    domain = session.get('evaluator_domain', 'engineering')
-
-    val_session = get_or_create_session(participant_id, domain)
+    """Post-study retrospective reflection (5-view ranking + open feedback)."""
+    val_session, redirect_resp = _require_session()
+    if redirect_resp:
+        return redirect_resp
 
     if request.method == 'POST':
-        return _submit_retrospective(val_session, participant_id, domain)
+        return _submit_retrospective(val_session)
 
-    # Check if retrospective already submitted
     existing = RetrospectiveReflection.query.filter_by(
         session_id=val_session.id
     ).first()
 
     return render_template('validation_study/retrospective.html',
-                           participant_id=participant_id,
-                           domain=domain,
+                           participant_code=val_session.participant_code,
                            session=val_session,
                            existing=existing)
 
 
-def _submit_retrospective(val_session, participant_id, domain):
-    """Process retrospective submission."""
+def _submit_retrospective(val_session):
+    """Process retrospective submission. Enforces 1-5 rank permutation."""
     try:
         reflection = RetrospectiveReflection.query.filter_by(
             session_id=val_session.id
@@ -331,8 +427,8 @@ def _submit_retrospective(val_session, participant_id, domain):
         if not reflection:
             reflection = RetrospectiveReflection(
                 session_id=val_session.id,
-                evaluator_id=participant_id,
-                evaluator_domain=domain
+                evaluator_id=val_session.participant_code,
+                evaluator_domain=val_session.evaluator_domain
             )
             db.session.add(reflection)
 
@@ -345,28 +441,30 @@ def _submit_retrospective(val_session, participant_id, domain):
                     return None
             return None
 
-        # View rankings
         reflection.rank_provisions_view = get_int('rank_provisions_view')
-        reflection.rank_questions_view = get_int('rank_questions_view')
+        reflection.rank_qc_view = get_int('rank_qc_view')
         reflection.rank_decisions_view = get_int('rank_decisions_view')
+        reflection.rank_timeline_view = get_int('rank_timeline_view')
         reflection.rank_narrative_view = get_int('rank_narrative_view')
 
-        # Surfaced considerations
+        if not reflection.rankings_valid:
+            flash('Please assign each view a distinct rank from 1 through 5.', 'warning')
+            db.session.rollback()
+            return redirect(url_for('study.retrospective'))
+
         surfaced = request.form.get('surfaced_missed_considerations')
         reflection.surfaced_missed_considerations = (surfaced == 'yes')
         reflection.surfaced_considerations_text = request.form.get('surfaced_considerations_text', '').strip()
 
-        # Open feedback
         reflection.missing_elements = request.form.get('missing_elements', '').strip()
         reflection.improvement_suggestions = request.form.get('improvement_suggestions', '').strip()
         reflection.general_comments = request.form.get('general_comments', '').strip()
 
-        # Mark session complete
         val_session.completed_at = datetime.utcnow()
 
         db.session.commit()
 
-        flash('Thank you for completing the validation study!', 'success')
+        flash('Thank you for completing the study.', 'success')
         return redirect(url_for('study.complete'))
 
     except Exception as e:
@@ -377,13 +475,11 @@ def _submit_retrospective(val_session, participant_id, domain):
 
 
 @study_bp.route('/complete')
-@login_required
 def complete():
     """Study completion page."""
-    participant_id = generate_participant_id()
-
+    code = get_participant_code()
     return render_template('validation_study/complete.html',
-                           participant_id=participant_id)
+                           participant_code=code)
 
 
 # =============================================================================
@@ -391,17 +487,14 @@ def complete():
 # =============================================================================
 
 @study_bp.route('/api/evaluable-cases')
-@login_required
 def api_evaluable_cases():
-    """Get list of cases available for evaluation."""
-    domain = request.args.get('domain')
+    """Get list of cases available for the study (23-case pool)."""
     view_builder = SynthesisViewBuilder()
-    cases = view_builder.get_evaluable_cases(domain=domain)
+    cases = view_builder.get_evaluable_cases()
     return jsonify({'cases': cases, 'count': len(cases)})
 
 
 @study_bp.route('/api/case/<int:case_id>/views')
-@login_required
 def api_case_views(case_id):
     """Get all synthesis views for a case (for AJAX loading)."""
     view_builder = SynthesisViewBuilder()
@@ -413,7 +506,6 @@ def api_case_views(case_id):
 
 
 @study_bp.route('/api/case/<int:case_id>/facts')
-@login_required
 def api_case_facts(case_id):
     """Get case facts only (Discussion/Conclusions withheld)."""
     view_builder = SynthesisViewBuilder()
@@ -592,27 +684,15 @@ def admin_evaluator_progress():
 # =============================================================================
 
 @study_bp.route('/view-synthesis/<int:case_id>')
-@login_required
 def view_synthesis(case_id):
-    """Redirect to Step 4 Review in validation study mode.
-
-    Sets session flag so the validation demo panel is visible on Step 4.
-    Used when study participants need to examine synthesis views.
-    """
-    # Set session flag for validation mode
+    """Redirect to Step 4 Review in validation-study mode (legacy integration)."""
     session['validation_study_mode'] = True
-
-    # Redirect to Step 4 review with validation_mode query param (belt & suspenders)
     return redirect(url_for('step4.step4_review', case_id=case_id, validation_mode='1'))
 
 
 @study_bp.route('/exit-validation-mode')
-@login_required
 def exit_validation_mode():
-    """Clear validation study mode from session.
-
-    Called when user wants to exit validation mode and return to normal Step 4 view.
-    """
+    """Clear validation-study mode from session."""
     session.pop('validation_study_mode', None)
     flash('Exited validation study mode.', 'info')
     return redirect(url_for('main.home'))
@@ -623,16 +703,14 @@ def exit_validation_mode():
 # =============================================================================
 
 @study_bp.route('/demo/view/<view_type>')
-@login_required
 def demo_view_utility(view_type):
     """Demo page showing a single synthesis view with Likert ratings.
 
-    For presentation screenshots - shows combined view + rating interface.
+    For screenshots. Not a study route - no participant code required.
     """
-    if view_type not in ['provisions', 'questions', 'decisions', 'narrative']:
+    if view_type not in ['provisions', 'qc', 'decisions', 'timeline', 'narrative']:
         view_type = 'provisions'
 
-    # Get first evaluable case for demo
     view_builder = SynthesisViewBuilder()
     evaluable_cases = view_builder.get_evaluable_cases()
 
@@ -640,7 +718,7 @@ def demo_view_utility(view_type):
         flash('No cases with complete synthesis available for demo.', 'warning')
         return redirect(url_for('study.index'))
 
-    # Use Case 7 (AI in Engineering) if available, otherwise first case
+    # Use Case 7 (AI in Engineering) if available, otherwise first pool case
     case_id = 7
     case_exists = any(c['id'] == 7 for c in evaluable_cases)
     if not case_exists:
@@ -649,7 +727,6 @@ def demo_view_utility(view_type):
     document = Document.query.get_or_404(case_id)
     views = view_builder.get_all_views(case_id)
 
-    # Map view type to data
     view_data = views.get(view_type, views['provisions'])
 
     return render_template('validation_study/view_utility_demo.html',

@@ -146,7 +146,7 @@ def create_app(config_name=None):
     from app.routes.document_structure import doc_structure_bp
     from app.routes.test_routes import test_bp
     from app.routes.experiment import experiment_bp
-    from app.routes.chapter4_validation import study_bp
+    from app.routes.study import study_bp
     from app.routes.type_management import type_management_bp
     from app.routes.debug_env import debug_env_bp
     from app.routes.wizard import wizard_bp
