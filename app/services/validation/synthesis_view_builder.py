@@ -221,35 +221,50 @@ class SynthesisViewBuilder:
 
         entries = []
         causal_flow = []
-        decision_point_entries = 0
 
-        for seq, row in enumerate(temporal_entries, start=1):
+        def _uri_fragment(uri: str) -> str:
+            frag = uri.split('#')[-1] if '#' in uri else ''
+            for prefix in ('Action_', 'Event_'):
+                if frag.startswith(prefix):
+                    frag = frag[len(prefix):]
+                    break
+            return frag
+
+        seq = 0
+        for row in temporal_entries:
             rdf = row.rdf_json_ld or {}
             at_type = rdf.get('@type', '') or ''
-            kind = 'action' if 'Action' in at_type else 'event' if 'Event' in at_type else 'entry'
-            is_dp = bool(rdf.get('proeth-scenario:isDecisionPoint'))
+            if 'Action' in at_type:
+                kind = 'action'
+            elif 'Event' in at_type:
+                kind = 'event'
+            else:
+                # Skip Timeline-skeleton, State, and other temporal types that
+                # production also excludes from the rendered timeline.
+                continue
+            seq += 1
             alternatives = rdf.get('proeth-scenario:alternativeActions', []) or []
 
             fulfills = rdf.get('proeth:fulfillsObligation', []) or []
             violates = rdf.get('proeth:violatesObligation', []) or []
 
+            entry_iri = rdf.get('@id', '')
             entry = {
                 'sequence': seq,
                 'kind': kind,
                 'label': row.entity_label,
-                'entity_iri': rdf.get('@id', ''),
+                'entity_iri': entry_iri,
+                'fragment': _uri_fragment(entry_iri),
                 'temporal_marker': rdf.get('proeth:temporalMarker', ''),
                 'agent': rdf.get('proeth:hasAgent', ''),
                 'narrative_role': rdf.get('proeth-scenario:narrativeRole', ''),
                 'description': rdf.get('proeth:description', ''),
-                'is_decision_point': is_dp,
                 'alternative_count': len(alternatives) if isinstance(alternatives, list) else 0,
                 'fulfills_obligations': fulfills if isinstance(fulfills, list) else [],
                 'violates_obligations': violates if isinstance(violates, list) else [],
+                'decision_points': [],  # filled below by fragment match
             }
             entries.append(entry)
-            if is_dp:
-                decision_point_entries += 1
 
             foreseen = rdf.get('proeth:foreseenUnintendedEffects', [])
             if isinstance(foreseen, list):
@@ -260,10 +275,50 @@ class SynthesisViewBuilder:
                         'relation': 'enables'
                     })
 
+        # Match synthesized decision points to their temporal-entry host
+        # (same URI-fragment strategy as the production step4 review helper).
+        fragment_to_idx = {e['fragment']: i for i, e in enumerate(entries) if e['fragment']}
+        dp_rows = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            extraction_type='canonical_decision_point'
+        ).order_by(TemporaryRDFStorage.created_at).all()
+
+        for dp_row in dp_rows:
+            data = dp_row.rdf_json_ld or {}
+            action_uris = data.get('involved_action_uris') or []
+            if not action_uris:
+                single = data.get('action_uri') or ''
+                if single:
+                    action_uris = [single]
+
+            matched_indices = set()
+            for uri in action_uris:
+                frag = _uri_fragment(uri)
+                if frag in fragment_to_idx:
+                    matched_indices.add(fragment_to_idx[frag])
+
+            if not matched_indices:
+                continue
+
+            # Primary host = earliest matching temporal entry.
+            primary = min(matched_indices)
+            entries[primary]['decision_points'].append({
+                'focus_id': data.get('focus_id', ''),
+                'focus_number': data.get('focus_number', 0),
+                'entity_label': data.get('description', dp_row.entity_label),
+                'options': data.get('options', []) or [],
+            })
+
+        entries_with_dps = sum(1 for e in entries if e['decision_points'])
+        total_dps_attached = sum(len(e['decision_points']) for e in entries)
+
         return {
             'view_type': 'timeline',
             'count': len(entries),
-            'decision_point_count': decision_point_entries,
+            'action_count': sum(1 for e in entries if e['kind'] == 'action'),
+            'event_count': sum(1 for e in entries if e['kind'] == 'event'),
+            'decision_point_count': total_dps_attached,
+            'entries_with_decision_points': entries_with_dps,
             'entries': entries,
             'causal_flow': causal_flow,
             'description': 'Actions and Events in temporal sequence with decision points '
@@ -272,15 +327,19 @@ class SynthesisViewBuilder:
         }
 
     def get_narrative_view(self, case_id: int) -> Dict[str, Any]:
-        """Get narrative elements from Step 4 Phase 4.
+        """Get Narrative view content per paper \u00a73.2 (integrative view).
 
-        Returns narrative with:
-        - Characters (protagonist, stakeholders)
-        - Timeline events
-        - Initial fluents (starting conditions)
-        - Scenario seeds
+        Returns the character-driven retelling: characters drawn from
+        extracted Roles, ethical tensions drawn from Obligations and
+        Constraints (stored as `conflicts` in Phase 4 output), and an
+        opening-context paragraph drawn from States (in second-person
+        address).
+
+        The Phase 4 JSON is nested
+        (`narrative_elements.characters`, `narrative_elements.conflicts`,
+        `scenario_seeds.opening_context`); this builder flattens those
+        shapes so the template can render each section uniformly.
         """
-        # Get Phase 4 narrative from ExtractionPrompt
         phase4_prompt = ExtractionPrompt.query.filter_by(
             case_id=case_id,
             concept_type='phase4_narrative'
@@ -288,28 +347,79 @@ class SynthesisViewBuilder:
             ExtractionPrompt.created_at.desc()
         ).first()
 
-        narrative = {}
+        raw: Dict[str, Any] = {}
         if phase4_prompt and phase4_prompt.raw_response:
             try:
-                narrative = json.loads(phase4_prompt.raw_response)
+                raw = json.loads(phase4_prompt.raw_response)
             except json.JSONDecodeError:
                 pass
 
-        # Extract key narrative components with defaults
-        characters = narrative.get('characters', [])
-        timeline = narrative.get('timeline', narrative.get('events', []))
-        initial_fluents = narrative.get('initial_fluents', [])
-        scenarios = narrative.get('scenarios', narrative.get('scenario_seeds', []))
+        narrative_elements = raw.get('narrative_elements') or {}
+        scenario_seeds = raw.get('scenario_seeds') or {}
+
+        characters = narrative_elements.get('characters') or []
+        raw_tensions = narrative_elements.get('conflicts') or []
+        opening_context = scenario_seeds.get('opening_context') or ''
+
+        protagonist_label = scenario_seeds.get('protagonist_label') or ''
+
+        # Flatten tensions + attach a composite moral-intensity score (Jones 1991)
+        # so the template can sort rated tensions above unrated ones. Each of the
+        # five intensity dimensions maps to a 0-3 ordinal; the composite is the
+        # sum. Unrated tensions score 0 and sink to the bottom of the list.
+        INTENSITY_SCORES = {
+            'low': 1, 'medium': 2, 'high': 3,
+            'distal': 1, 'near-term': 2, 'immediate': 3,
+            'indirect': 1, 'direct': 3,
+            'dispersed': 1, 'concentrated': 3,
+        }
+        def _score(*values: str) -> int:
+            return sum(INTENSITY_SCORES.get((v or '').lower(), 0) for v in values)
+
+        tensions = []
+        for c in raw_tensions:
+            composite = _score(
+                c.get('magnitude_of_consequences'),
+                c.get('probability_of_effect'),
+                c.get('temporal_immediacy'),
+                c.get('proximity'),
+                c.get('concentration_of_effect'),
+            )
+            tensions.append({
+                'description': c.get('description') or '',
+                'conflict_type': c.get('conflict_type') or '',
+                'entity1_label': c.get('entity1_label') or '',
+                'entity1_type': c.get('entity1_type') or '',
+                'entity2_label': c.get('entity2_label') or '',
+                'entity2_type': c.get('entity2_type') or '',
+                'magnitude_of_consequences': c.get('magnitude_of_consequences') or '',
+                'probability_of_effect': c.get('probability_of_effect') or '',
+                'temporal_immediacy': c.get('temporal_immediacy') or '',
+                'proximity': c.get('proximity') or '',
+                'concentration_of_effect': c.get('concentration_of_effect') or '',
+                'affected_role_labels': c.get('affected_role_labels') or [],
+                'resolution_rationale': c.get('resolution_rationale') or '',
+                'intensity_score': composite,
+            })
+        # Sort descending by composite intensity; stable for ties so the
+        # extractor's emission order is preserved within equal-intensity bands.
+        tensions.sort(key=lambda t: t['intensity_score'], reverse=True)
+        rated_tension_count = sum(1 for t in tensions if t['intensity_score'] > 0)
+
+        has_content = bool(characters or tensions or opening_context)
 
         return {
             'view_type': 'narrative',
-            'has_content': bool(narrative),
+            'has_content': has_content,
             'characters': characters,
-            'timeline': timeline,
-            'initial_fluents': initial_fluents,
-            'scenarios': scenarios,
-            'description': 'Case timeline, participant profiles, and relationship networks '
-                          'generated through semantic representation.'
+            'tensions': tensions,
+            'opening_context': opening_context,
+            'protagonist_label': protagonist_label,
+            'character_count': len(characters),
+            'tension_count': len(tensions),
+            'rated_tension_count': rated_tension_count,
+            'description': ('Characters with ethical tensions and an opening-context '
+                            'account. Answers: who was involved and what was at stake?'),
         }
 
     def get_all_views(self, case_id: int) -> Dict[str, Any]:

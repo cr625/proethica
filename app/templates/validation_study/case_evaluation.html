@@ -145,6 +145,80 @@
     .hidden-step {
         display: none;
     }
+    /* Segue cards: framing paragraph above each view pane */
+    .segue-card {
+        background: #f8f9fa;
+        border-left: 4px solid #999;
+        border-radius: 4px;
+        padding: 0.75rem 1rem;
+        margin-bottom: 1rem;
+        font-style: italic;
+        color: #444;
+        line-height: 1.5;
+    }
+    .segue-card .segue-caption {
+        font-style: normal;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #6c757d;
+        margin-bottom: 0.35rem;
+    }
+    .segue-card.segue-narrative  { border-left-color: #198754; }
+    .segue-card.segue-timeline   { border-left-color: #20c997; }
+    .segue-card.segue-qc         { border-left-color: #6f42c1; }
+    .segue-card.segue-decisions  { border-left-color: #fd7e14; }
+    .segue-card.segue-provisions { border-left-color: #0d6efd; }
+    /* Between-view navigation footer */
+    .view-footer-nav {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid #dee2e6;
+    }
+    .visited-check { font-size: 0.9em; }
+    /* Tension rows: collapsed summary with chevron that rotates when expanded */
+    .tension-row-header:hover { background: #f8f9fa; }
+    .tension-row-header[aria-expanded="true"] .tension-chevron {
+        transform: rotate(90deg);
+        transition: transform 0.15s ease;
+    }
+    .tension-chevron { transition: transform 0.15s ease; display: inline-block; }
+    /* Compact Timeline (copied from production step4-review.css, scoped to #study-timeline) */
+    #study-timeline.tl-compact { position: relative; margin-left: 10px; padding-left: 32px; border-left: 3px solid #e2e8f0; margin-bottom: 1rem; }
+    #study-timeline .tl-compact-node { position: relative; display: flex; align-items: center; gap: 6px; padding: 4px 8px; margin-bottom: 1px; border-radius: 4px; font-size: 0.82rem; background: #f8fafc; border: 1px solid transparent; min-height: 30px; }
+    #study-timeline .tl-compact-node:hover { background: #f1f5f9; border-color: #e2e8f0; }
+    #study-timeline .tl-compact-icon { position: absolute; left: -24px; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; background: #fff; border-radius: 50%; z-index: 1; color: #858796; }
+    #study-timeline .tl-compact-node::after { content: ''; position: absolute; left: -12px; top: 50%; transform: translateY(-50%); width: 12px; height: 1px; background: #e2e8f0; }
+    #study-timeline .tl-compact-node.tl-action .tl-compact-icon { color: #0dcaf0; }
+    #study-timeline .tl-compact-node.tl-event .tl-compact-icon { color: #dc3545; }
+    #study-timeline .tl-compact-seq { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; background: #0d6efd; color: #fff; font-size: 0.6rem; font-weight: 600; flex-shrink: 0; }
+    #study-timeline .tl-compact-node.tl-action .tl-compact-seq { background: #0dcaf0; }
+    #study-timeline .tl-compact-node.tl-event .tl-compact-seq { background: #dc3545; }
+    #study-timeline .tl-compact-label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #study-timeline .tl-compact-label strong { font-size: 0.82rem; }
+    #study-timeline .tl-compact-marker { font-size: 0.65rem; flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px; }
+    #study-timeline .tl-compact-dp-badge { flex-shrink: 0; font-size: 0.7rem; color: #b8860b; background: #fff8e1; border: 1px solid #f6c23e; border-radius: 10px; padding: 1px 8px; white-space: nowrap; }
+    #study-timeline .tl-has-dps { cursor: pointer; }
+    #study-timeline .tl-has-dps:hover .tl-compact-dp-badge { background: #f6c23e; color: #212529; }
+    #study-timeline .tl-compact-expanded { background: #fffdf5; border-color: #f0e6c8; }
+    #study-timeline .tl-dp-collapse { margin-left: 30px; margin-bottom: 2px; }
+    #study-timeline .tl-dp-nest { border-left: 3px solid #f6c23e; margin-left: 10px; padding-left: 12px; padding-top: 4px; padding-bottom: 4px; }
+    #study-timeline .tl-dp-nested-item { padding: 6px 8px; margin-bottom: 3px; background: #fffdf5; border: 1px solid #f0e6c8; border-radius: 4px; font-size: 0.78rem; }
+    #study-timeline .tl-dp-nested-item:hover { background: #fff8e1; }
+    #study-timeline .tl-entry-chevron { transition: transform 0.2s ease; }
+    /* Nine-component entity-type chips for Provisions "applies to" */
+    .onto-type-role        { background: #1f77b4; color: #fff; }
+    .onto-type-principle   { background: #ff7f0e; color: #fff; }
+    .onto-type-obligation  { background: #2ca02c; color: #fff; }
+    .onto-type-state       { background: #9467bd; color: #fff; }
+    .onto-type-resource    { background: #8c564b; color: #fff; }
+    .onto-type-action      { background: #0dcaf0; color: #212529; }
+    .onto-type-event       { background: #dc3545; color: #fff; }
+    .onto-type-capability  { background: #17a2b8; color: #fff; }
+    .onto-type-constraint  { background: #6c757d; color: #fff; }
+    .onto-type-entity      { background: #adb5bd; color: #212529; }
     /* Facts section readability */
     .facts-section .case-text-content {
         line-height: 1.8;
@@ -268,74 +342,294 @@
         <div id="step-views" class="step-content {% if current_step != 'views' %}hidden-step{% endif %}">
             <div class="row">
                 <div class="col-12 mb-3">
-                    <p class="lead">Review the five synthesis views below. These views present the case analysis in different structured formats.</p>
+                    <p class="lead">Walk through the five synthesis views in order. Each view offers a different analytical lens on the same case; the guided sequence moves from the case as a human story to the formal code provisions that ground it. You can also click any tab to revisit.</p>
                 </div>
             </div>
 
-            <!-- View Tabs -->
+            <!-- View Tabs: narrative-first progressive reveal (see .claude/plans/study-narrative-reveal-design.md) -->
             <ul class="nav nav-tabs mb-3" id="viewTabs" role="tablist">
                 <li class="nav-item">
-                    <button class="nav-link active" id="provisions-tab" data-bs-toggle="tab" data-bs-target="#provisions-pane" type="button">
-                        <i class="bi bi-book me-1"></i> Provisions ({{ views.provisions.count }})
+                    <button class="nav-link active" id="narrative-tab" data-bs-toggle="tab" data-bs-target="#narrative-pane" type="button">
+                        <i class="bi bi-check-circle-fill visited-check text-success me-1 d-none"></i>
+                        <i class="bi bi-journal-text me-1"></i> Narrative
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" id="timeline-tab" data-bs-toggle="tab" data-bs-target="#timeline-pane" type="button">
+                        <i class="bi bi-check-circle-fill visited-check text-success me-1 d-none"></i>
+                        <i class="bi bi-clock-history me-1"></i> Timeline ({{ views.timeline.count }})
                     </button>
                 </li>
                 <li class="nav-item">
                     <button class="nav-link" id="qc-tab" data-bs-toggle="tab" data-bs-target="#qc-pane" type="button">
+                        <i class="bi bi-check-circle-fill visited-check text-success me-1 d-none"></i>
                         <i class="bi bi-question-circle me-1"></i> Q&amp;C ({{ views.qc.count }})
                     </button>
                 </li>
                 <li class="nav-item">
                     <button class="nav-link" id="decisions-tab" data-bs-toggle="tab" data-bs-target="#decisions-pane" type="button">
+                        <i class="bi bi-check-circle-fill visited-check text-success me-1 d-none"></i>
                         <i class="bi bi-signpost-split me-1"></i> Decisions ({{ views.decisions.count }})
                     </button>
                 </li>
                 <li class="nav-item">
-                    <button class="nav-link" id="timeline-tab" data-bs-toggle="tab" data-bs-target="#timeline-pane" type="button">
-                        <i class="bi bi-clock-history me-1"></i> Timeline ({{ views.timeline.count }})
-                    </button>
-                </li>
-                <li class="nav-item">
-                    <button class="nav-link" id="narrative-tab" data-bs-toggle="tab" data-bs-target="#narrative-pane" type="button">
-                        <i class="bi bi-journal-text me-1"></i> Narrative
+                    <button class="nav-link" id="provisions-tab" data-bs-toggle="tab" data-bs-target="#provisions-pane" type="button">
+                        <i class="bi bi-check-circle-fill visited-check text-success me-1 d-none"></i>
+                        <i class="bi bi-book me-1"></i> Provisions ({{ views.provisions.count }})
                     </button>
                 </li>
             </ul>
 
             <div class="tab-content" id="viewTabsContent">
-                <!-- Provisions View -->
-                <div class="tab-pane fade show active" id="provisions-pane">
+
+                <!-- 1. Narrative View (first: story-grounding) -->
+                <div class="tab-pane fade show active" id="narrative-pane">
+                    <div class="segue-card segue-narrative">
+                        <div class="segue-caption">View 1 of 5 &mdash; Narrative</div>
+                        Start with the people. This view reconstructs the case as a character-driven account: who the professional is, who else has a stake in the outcome, and what competing obligations they carry into the situation. Read it as the opening of a story &mdash; the analytical scaffolding follows.
+                    </div>
                     <div class="view-card card">
                         <div class="card-header">
-                            <span>Provisions View</span>
-                            <span class="badge bg-primary">{{ views.provisions.count }} provisions</span>
+                            <span>Narrative View</span>
+                            <span class="badge bg-success">{{ views.narrative.character_count }} characters &middot; {{ views.narrative.tension_count }} tensions</span>
                         </div>
                         <div class="card-body view-content">
-                            <p class="text-muted small">{{ views.provisions.description }}</p>
-                            {% for prov in views.provisions.provisions %}
-                            <div class="provision-item">
-                                <strong>{{ prov.code_section }}</strong>
-                                {% if prov.iao_label %}<span class="text-muted ms-2">{{ prov.iao_label }}</span>{% endif %}
-                                <p class="mb-1">{{ prov.provision_text }}</p>
-                                {% if prov.case_excerpt %}
-                                <div class="small text-muted fst-italic">"{{ prov.case_excerpt|truncate(200) }}"</div>
-                                {% endif %}
-                                {% if prov.applies_to %}
-                                <div class="mt-1">
-                                    {% for entity in prov.applies_to %}
-                                    <span class="entity-badge badge bg-light text-dark">{{ entity }}</span>
-                                    {% endfor %}
-                                </div>
-                                {% endif %}
+                            <p class="text-muted small">{{ views.narrative.description }}</p>
+
+                            {% if views.narrative.has_content %}
+
+                            {% if views.narrative.opening_context %}
+                            <h6>Opening Context</h6>
+                            <div class="mb-4 p-3 bg-light rounded border-start border-4 border-success">
+                                <p class="mb-0" style="white-space: pre-wrap;">{{ views.narrative.opening_context }}</p>
                             </div>
+                            {% endif %}
+
+                            {% if views.narrative.characters %}
+                            <h6>Characters ({{ views.narrative.character_count }})</h6>
+                            <div class="mb-4">
+                                {% for char in views.narrative.characters %}
+                                <div class="mb-3 ps-3 border-start border-2">
+                                    <div>
+                                        <strong>{{ char.label or char.role }}</strong>
+                                        {% if char.role_type %}
+                                        <span class="badge ms-2 {% if char.role_type == 'protagonist' %}bg-success{% else %}bg-secondary{% endif %}">{{ char.role_type }}</span>
+                                        {% endif %}
+                                    </div>
+                                    {% if char.professional_position %}
+                                    <p class="small mb-1 text-muted">{{ char.professional_position }}</p>
+                                    {% endif %}
+                                    {% if char.motivations %}
+                                    <div class="small">
+                                        <em>Motivations:</em>
+                                        <ul class="mb-0">
+                                            {% for m in char.motivations[:3] %}<li>{{ m }}</li>{% endfor %}
+                                        </ul>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+
+                            {% if views.narrative.tensions %}
+                            {% set rated = views.narrative.rated_tension_count or 0 %}
+                            {% set total = views.narrative.tension_count or 0 %}
+                            <h6>
+                                Ethical Tensions
+                                {% if rated and rated < total %}
+                                    <span class="text-muted fw-normal small">({{ rated }} of {{ total }} rated by moral intensity shown)</span>
+                                {% else %}
+                                    ({{ total }})
+                                {% endif %}
+                            </h6>
+                            <p class="text-muted small mb-2">
+                                Sorted by composite moral intensity (magnitude, probability, immediacy, proximity, concentration) per Jones (1991). Click any tension to expand.
+                            </p>
+                            <div class="mb-3" id="tensionList">
+                                {% for t in views.narrative.tensions %}
+                                {% set tension_id = 'study-tension-' ~ loop.index %}
+                                <div class="tension-row mb-1 border rounded bg-white{% if t.intensity_score == 0 %} d-none tension-unrated{% endif %}">
+                                    <div class="d-flex align-items-center flex-wrap gap-2 p-2 tension-row-header"
+                                         data-bs-toggle="collapse" data-bs-target="#{{ tension_id }}"
+                                         role="button" aria-expanded="false" aria-controls="{{ tension_id }}"
+                                         style="cursor: pointer;">
+                                        <i class="bi bi-chevron-right small text-muted tension-chevron"></i>
+                                        <span class="entity-badge badge bg-warning text-dark" title="{{ t.entity1_type }}">{{ t.entity1_label|truncate(60) }}</span>
+                                        <span class="text-muted small">vs.</span>
+                                        <span class="entity-badge badge bg-warning text-dark" title="{{ t.entity2_type }}">{{ t.entity2_label|truncate(60) }}</span>
+                                        {% if t.magnitude_of_consequences or t.probability_of_effect %}
+                                        <span class="badge bg-light text-dark border ms-auto" style="font-size: 0.7rem;" title="Moral intensity — M: magnitude of consequences, P: probability of effect">
+                                            {% if t.magnitude_of_consequences %}M:{{ t.magnitude_of_consequences[:1]|upper }}{% endif %}
+                                            {% if t.probability_of_effect %} P:{{ t.probability_of_effect[:1]|upper }}{% endif %}
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="collapse" id="{{ tension_id }}">
+                                        <div class="p-2 pt-0 ps-4 small">
+                                            {% if t.description %}
+                                            <p class="mb-2">{{ t.description }}</p>
+                                            {% endif %}
+                                            {% if t.conflict_type %}
+                                            <div class="mb-1">
+                                                <span class="text-muted">Type:</span>
+                                                <span class="badge bg-light text-dark">{{ t.conflict_type|replace('_', ' ') }}</span>
+                                            </div>
+                                            {% endif %}
+                                            {% if t.affected_role_labels %}
+                                            <div class="mb-1">
+                                                <span class="text-muted">Affects:</span>
+                                                {% for r in t.affected_role_labels %}<span class="badge bg-info-subtle text-info-emphasis">{{ r }}</span>{% endfor %}
+                                            </div>
+                                            {% endif %}
+                                            {% if t.magnitude_of_consequences or t.probability_of_effect or t.temporal_immediacy or t.proximity or t.concentration_of_effect %}
+                                            <div class="mb-1">
+                                                <span class="text-muted">Moral intensity:</span>
+                                                {% if t.magnitude_of_consequences %}<span class="badge {{ 'bg-danger' if t.magnitude_of_consequences == 'high' else ('bg-warning text-dark' if t.magnitude_of_consequences == 'medium' else 'bg-secondary') }}">Magnitude: {{ t.magnitude_of_consequences }}</span>{% endif %}
+                                                {% if t.probability_of_effect %}<span class="badge {{ 'bg-danger' if t.probability_of_effect == 'high' else ('bg-warning text-dark' if t.probability_of_effect == 'medium' else 'bg-secondary') }}">Probability: {{ t.probability_of_effect }}</span>{% endif %}
+                                                {% if t.temporal_immediacy %}<span class="badge {{ 'bg-danger' if t.temporal_immediacy == 'immediate' else ('bg-warning text-dark' if t.temporal_immediacy == 'near-term' else 'bg-secondary') }}">{{ t.temporal_immediacy }}</span>{% endif %}
+                                                {% if t.proximity %}<span class="badge bg-info">{{ t.proximity }}</span>{% endif %}
+                                                {% if t.concentration_of_effect %}<span class="badge bg-secondary">{{ t.concentration_of_effect }}</span>{% endif %}
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% if rated and rated < total %}
+                            <p class="small text-muted mb-2">
+                                <button type="button" class="btn btn-link btn-sm p-0 align-baseline" id="toggleUnratedTensionsBtn" onclick="toggleUnratedTensions()">
+                                    Show {{ total - rated }} additional tensions without moral-intensity ratings
+                                </button>
+                            </p>
+                            {% endif %}
+                            {% endif %}
+
                             {% else %}
-                            <p class="text-muted">No provisions extracted for this case.</p>
-                            {% endfor %}
+                            <p class="text-muted">No narrative data extracted for this case.</p>
+                            {% endif %}
                         </div>
+                    </div>
+                    <div class="view-footer-nav">
+                        <button type="button" class="btn btn-outline-secondary" onclick="goToStep('facts')">
+                            <i class="bi bi-arrow-left me-1"></i> Back to Facts
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="activateViewTab('timeline-tab')">
+                            Next: Timeline <i class="bi bi-arrow-right ms-1"></i>
+                        </button>
                     </div>
                 </div>
 
-                <!-- Q&C View -->
+                <!-- 2. Timeline View -->
+                <div class="tab-pane fade" id="timeline-pane">
+                    <div class="segue-card segue-timeline">
+                        <div class="segue-caption">View 2 of 5 &mdash; Timeline</div>
+                        Now place the story on a timeline. Each entry is an Action taken by a participant or an Event outside their control, in sequence. Decision points nest beneath the moments at which the professional faced a choice. Watch for actions whose consequences only become ethically loaded once a later event has occurred.
+                    </div>
+                    <div class="view-card card">
+                        <div class="card-header">
+                            <span>Timeline View</span>
+                            <span class="badge" style="background: #20c997;">{{ views.timeline.count }} entries &middot; {{ views.timeline.decision_point_count }} decision points</span>
+                        </div>
+                        <div class="card-body view-content">
+                            <p class="text-muted small">{{ views.timeline.description }}</p>
+
+                            {% if views.timeline.entries %}
+                            <div class="d-flex flex-wrap gap-2 mb-3 small">
+                                <span class="badge bg-light text-dark border"><i class="bi bi-list-ol me-1"></i>{{ views.timeline.count }} sequenced</span>
+                                <span class="badge bg-light text-dark border"><i class="bi bi-person-walking me-1" style="color: #0dcaf0;"></i>{{ views.timeline.action_count }} actions</span>
+                                <span class="badge bg-light text-dark border"><i class="bi bi-lightning me-1" style="color: #dc3545;"></i>{{ views.timeline.event_count }} events</span>
+                                {% if views.timeline.entries_with_decision_points %}
+                                <span class="badge bg-light text-dark border"><i class="bi bi-signpost-split me-1" style="color: #f6c23e;"></i>{{ views.timeline.entries_with_decision_points }} with decision points</span>
+                                {% endif %}
+                            </div>
+
+                            <div id="study-timeline" class="tl-compact">
+                                {% for entry in views.timeline.entries %}
+                                {% set is_action = (entry.kind == 'action') %}
+                                <div class="tl-compact-node {{ 'tl-action' if is_action else 'tl-event' }} {{ 'tl-has-dps' if entry.decision_points else '' }}"
+                                     {% if entry.decision_points %}data-bs-toggle="collapse" data-bs-target="#study-tl-entry-{{ loop.index }}" role="button" aria-expanded="false"{% endif %}>
+                                    <span class="tl-compact-icon">
+                                        {% if is_action %}<i class="bi bi-person-walking"></i>
+                                        {% else %}<i class="bi bi-lightning"></i>{% endif %}
+                                    </span>
+                                    <span class="tl-compact-seq">{{ loop.index }}</span>
+                                    <span class="tl-compact-label"><strong>{{ entry.label }}</strong></span>
+                                    {% if entry.temporal_marker %}<span class="tl-compact-marker text-muted">{{ entry.temporal_marker }}</span>{% endif %}
+                                    {% if entry.decision_points %}
+                                    <span class="tl-compact-dp-badge">
+                                        <i class="bi bi-signpost-split me-1"></i>{{ entry.decision_points|length }}
+                                        <i class="bi bi-chevron-right tl-entry-chevron ms-1" style="font-size: 0.6rem;"></i>
+                                    </span>
+                                    {% endif %}
+                                </div>
+
+                                {% if entry.decision_points %}
+                                <div class="collapse tl-dp-collapse" id="study-tl-entry-{{ loop.index }}">
+                                    <div class="tl-dp-nest">
+                                        {% for dp in entry.decision_points %}
+                                        <div class="tl-dp-nested-item">
+                                            <div class="d-flex align-items-start">
+                                                <span class="badge bg-warning text-dark me-2 mt-1" style="font-size: 0.65rem;">{{ dp.focus_id }}</span>
+                                                <div class="flex-grow-1">
+                                                    <div class="small fw-semibold">{{ dp.entity_label|truncate(80) }}</div>
+                                                    {% if dp.options %}
+                                                    <div class="mt-1">
+                                                        {% for opt in dp.options %}
+                                                        <span class="d-inline-flex align-items-center me-2 small">
+                                                            {% if opt.is_board_choice %}
+                                                            <i class="bi bi-check-circle-fill text-success me-1" style="font-size: 0.7rem;"></i>
+                                                            {% else %}
+                                                            <i class="bi bi-circle text-muted me-1" style="font-size: 0.7rem;"></i>
+                                                            {% endif %}
+                                                            <span class="{{ 'fw-semibold' if opt.is_board_choice else 'text-muted' }}">{{ (opt.label or opt.option_id or 'Option ' ~ loop.index)|truncate(40) }}</span>
+                                                        </span>
+                                                        {% endfor %}
+                                                    </div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% endif %}
+                                {% endfor %}
+                            </div>
+
+                            {% if views.timeline.causal_flow %}
+                            <details class="mt-3">
+                                <summary class="small text-muted">Causal flow ({{ views.timeline.causal_flow|length }} enables links)</summary>
+                                <ul class="small mt-2">
+                                    {% for edge in views.timeline.causal_flow[:10] %}
+                                    <li>{{ edge.from_label }} <em>{{ edge.relation }}</em> {{ edge.to_label|truncate(80) }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </details>
+                            {% endif %}
+
+                            {% else %}
+                            <p class="text-muted">No temporal extraction available for this case.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="view-footer-nav">
+                        <button type="button" class="btn btn-outline-secondary" onclick="activateViewTab('narrative-tab')">
+                            <i class="bi bi-arrow-left me-1"></i> Previous: Narrative
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="activateViewTab('qc-tab')">
+                            Next: Q&amp;C <i class="bi bi-arrow-right ms-1"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 3. Q&C View -->
                 <div class="tab-pane fade" id="qc-pane">
+                    <div class="segue-card segue-qc">
+                        <div class="segue-caption">View 3 of 5 &mdash; Questions and Conclusions</div>
+                        The sequence raises ethical questions. This view pairs each question the Board addressed with the conclusion it reached, and annotates both &mdash; which Events triggered the question, which Principles determined the resolution. This is where the case transitions from narrative to formal deliberation.
+                    </div>
                     <div class="view-card card">
                         <div class="card-header">
                             <span>Q&amp;C View (Questions and Conclusions)</span>
@@ -362,10 +656,22 @@
                             {% endfor %}
                         </div>
                     </div>
+                    <div class="view-footer-nav">
+                        <button type="button" class="btn btn-outline-secondary" onclick="activateViewTab('timeline-tab')">
+                            <i class="bi bi-arrow-left me-1"></i> Previous: Timeline
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="activateViewTab('decisions-tab')">
+                            Next: Decisions <i class="bi bi-arrow-right ms-1"></i>
+                        </button>
+                    </div>
                 </div>
 
-                <!-- Decisions View -->
+                <!-- 4. Decisions View -->
                 <div class="tab-pane fade" id="decisions-pane">
+                    <div class="segue-card segue-decisions">
+                        <div class="segue-caption">View 4 of 5 &mdash; Decisions</div>
+                        At each decision point the professional could have chosen differently. This view lays out the options the Board considered, the argument structure for and against each one (claim, warrant, grounds, rebuttal), and the Board's choice. Disagreement between your intuition and the Board's reasoning often shows up here first.
+                    </div>
                     <div class="view-card card">
                         <div class="card-header">
                             <span>Decisions View</span>
@@ -403,118 +709,99 @@
                             {% endfor %}
                         </div>
                     </div>
+                    <div class="view-footer-nav">
+                        <button type="button" class="btn btn-outline-secondary" onclick="activateViewTab('qc-tab')">
+                            <i class="bi bi-arrow-left me-1"></i> Previous: Q&amp;C
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="activateViewTab('provisions-tab')">
+                            Next: Provisions <i class="bi bi-arrow-right ms-1"></i>
+                        </button>
+                    </div>
                 </div>
 
-                <!-- Timeline View -->
-                <div class="tab-pane fade" id="timeline-pane">
+                <!-- 5. Provisions View (last: formal code grounding) -->
+                <div class="tab-pane fade" id="provisions-pane">
+                    <div class="segue-card segue-provisions">
+                        <div class="segue-caption">View 5 of 5 &mdash; Provisions</div>
+                        Finally, anchor the analysis in the NSPE Code of Ethics. This view groups provisions by Code section and shows which extracted Obligations, Principles, and Constraints trace back to each. Use it as a check: do the code citations match the ethical tensions you identified in the Narrative and Decisions views?
+                    </div>
                     <div class="view-card card">
                         <div class="card-header">
-                            <span>Timeline View</span>
-                            <span class="badge" style="background: #20c997;">{{ views.timeline.count }} entries &middot; {{ views.timeline.decision_point_count }} decision points</span>
+                            <span>Provisions View</span>
+                            <span class="badge bg-primary">{{ views.provisions.count }} provisions</span>
                         </div>
                         <div class="card-body view-content">
-                            <p class="text-muted small">{{ views.timeline.description }}</p>
-                            {% for entry in views.timeline.entries %}
-                            <div class="timeline-item mb-2 ps-3 border-start" style="border-color: {% if entry.kind == 'action' %}#0d6efd{% else %}#6c757d{% endif %} !important;">
-                                <small class="text-muted">{{ entry.sequence }}. {{ entry.kind|title }}</small>
-                                {% if entry.is_decision_point %}
-                                <span class="badge" style="background: #fd7e14;" title="This entry is a decision point">DP</span>
+                            <p class="text-muted small">{{ views.provisions.description }}</p>
+                            {% for prov in views.provisions.provisions %}
+                            <div class="provision-item mb-3">
+                                <strong>{{ prov.code_section }}</strong>
+                                {% if prov.iao_label %}<span class="text-muted ms-2 small">{{ prov.iao_label }}</span>{% endif %}
+                                <p class="mb-1">{{ prov.provision_text }}</p>
+                                {% if prov.case_excerpt %}
+                                <div class="small text-muted fst-italic mb-1">&ldquo;{{ prov.case_excerpt|truncate(200) }}&rdquo;</div>
                                 {% endif %}
-                                <strong class="d-block">{{ entry.label }}</strong>
-                                {% if entry.temporal_marker %}<div class="small text-muted"><i class="bi bi-clock"></i> {{ entry.temporal_marker }}</div>{% endif %}
-                                {% if entry.description %}<p class="small mb-1">{{ entry.description|truncate(200) }}</p>{% endif %}
-                                {% if entry.alternative_count %}
-                                <div class="small text-muted">Alternatives considered: {{ entry.alternative_count }}</div>
-                                {% endif %}
-                                {% if entry.violates_obligations %}
-                                <div class="small"><span class="text-danger">Violates:</span>
-                                    {% for ob in entry.violates_obligations[:2] %}
-                                    <span class="badge bg-danger-subtle text-danger-emphasis">{{ ob|truncate(50) }}</span>
+                                {% if prov.applies_to %}
+                                {% set prov_id = 'prov-applies-' ~ loop.index %}
+                                {# Group applied entities by type so the common case (multiple roles/obligations
+                                   per provision) collapses into a scannable chip row. #}
+                                {% set type_groups = namespace(data={}) %}
+                                {% for entity in prov.applies_to %}
+                                    {% set etype = (entity.entity_type if entity is mapping else '')|default('entity', true)|lower %}
+                                    {% if etype not in type_groups.data %}
+                                        {% set _ = type_groups.data.update({etype: []}) %}
+                                    {% endif %}
+                                    {% set _ = type_groups.data[etype].append(entity) %}
+                                {% endfor %}
+                                {% set type_order = ['role', 'principle', 'obligation', 'state', 'resource', 'action', 'event', 'capability', 'constraint', 'entity'] %}
+                                <div class="applies-to mt-2">
+                                    <small class="text-muted me-2">Applies to:</small>
+                                    {% for etype in type_order %}
+                                    {% if etype in type_groups.data %}
+                                    {% set entities = type_groups.data[etype] %}
+                                    {% set group_id = prov_id ~ '-' ~ etype %}
+                                    <span class="d-inline-block me-2 mb-1">
+                                        <span class="badge onto-type-{{ etype }}">{{ etype|title }} &times; {{ entities|length }}</span>
+                                        <button type="button" class="btn btn-link btn-sm p-0 align-baseline ms-1 small"
+                                                data-bs-toggle="collapse" data-bs-target="#{{ group_id }}"
+                                                aria-expanded="false" aria-controls="{{ group_id }}">show</button>
+                                    </span>
+                                    <div class="collapse mt-1" id="{{ group_id }}">
+                                        <ul class="list-unstyled ps-3 small mb-2">
+                                            {% for entity in entities %}
+                                            <li class="mb-1">
+                                                <span class="badge onto-type-{{ etype }} me-1" style="font-size: 0.65rem;">{{ etype|title }}</span>
+                                                <span class="fw-semibold">{{ entity.entity_label|default(entity, true) }}</span>
+                                                {% if entity is mapping and entity.reasoning %}
+                                                <div class="text-muted fst-italic small">{{ entity.reasoning }}</div>
+                                                {% endif %}
+                                            </li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
+                                    {% endif %}
                                     {% endfor %}
                                 </div>
                                 {% endif %}
                             </div>
                             {% else %}
-                            <p class="text-muted">No temporal extraction available for this case.</p>
+                            <p class="text-muted">No provisions extracted for this case.</p>
                             {% endfor %}
-
-                            {% if views.timeline.causal_flow %}
-                            <details class="mt-3">
-                                <summary class="small text-muted">Causal flow ({{ views.timeline.causal_flow|length }} enables links)</summary>
-                                <ul class="small mt-2">
-                                    {% for edge in views.timeline.causal_flow[:10] %}
-                                    <li>{{ edge.from_label }} <em>{{ edge.relation }}</em> {{ edge.to_label|truncate(80) }}</li>
-                                    {% endfor %}
-                                </ul>
-                            </details>
-                            {% endif %}
                         </div>
                     </div>
-                </div>
-
-                <!-- Narrative View -->
-                <div class="tab-pane fade" id="narrative-pane">
-                    <div class="view-card card">
-                        <div class="card-header">
-                            <span>Narrative View</span>
-                        </div>
-                        <div class="card-body view-content">
-                            <p class="text-muted small">{{ views.narrative.description }}</p>
-
-                            {% if views.narrative.has_content %}
-                            {% if views.narrative.characters %}
-                            <h6>Characters</h6>
-                            <div class="mb-3">
-                                {% for char in views.narrative.characters %}
-                                <div class="mb-2 ps-3 border-start">
-                                    <strong>{{ char.name or char.role }}</strong>
-                                    {% if char.role_type %}<span class="badge bg-info">{{ char.role_type }}</span>{% endif %}
-                                    {% if char.motivation %}<p class="small mb-0">{{ char.motivation }}</p>{% endif %}
-                                </div>
-                                {% endfor %}
-                            </div>
-                            {% endif %}
-
-                            {% if views.narrative.timeline %}
-                            <h6>Timeline</h6>
-                            <div class="mb-3">
-                                {% for event in views.narrative.timeline %}
-                                {% if loop.index <= 5 %}
-                                <div class="mb-2 ps-3 border-start">
-                                    {% if event.time %}<small class="text-muted">{{ event.time }}</small>{% endif %}
-                                    <p class="mb-0 small">{{ event.description or event.event }}</p>
-                                </div>
-                                {% endif %}
-                                {% endfor %}
-                            </div>
-                            {% endif %}
-
-                            {% if views.narrative.scenarios %}
-                            <h6>Scenario Seeds</h6>
-                            <div class="mb-3">
-                                {% for scenario in views.narrative.scenarios %}
-                                {% if loop.index <= 2 %}
-                                <div class="mb-2 p-2 bg-light rounded small">{{ scenario.description or scenario }}</div>
-                                {% endif %}
-                                {% endfor %}
-                            </div>
-                            {% endif %}
-                            {% else %}
-                            <p class="text-muted">No narrative data extracted for this case.</p>
-                            {% endif %}
-                        </div>
+                    <div class="view-footer-nav">
+                        <button type="button" class="btn btn-outline-secondary" onclick="activateViewTab('decisions-tab')">
+                            <i class="bi bi-arrow-left me-1"></i> Previous: Decisions
+                        </button>
+                        <button type="button" class="btn btn-primary" id="continue-to-utility-btn" disabled title="Visit all five views to continue" onclick="goToStep('utility')">
+                            Continue to Utility Rating <i class="bi bi-arrow-right ms-1"></i>
+                        </button>
                     </div>
                 </div>
             </div>
 
-            <div class="mt-3">
-                <button type="button" class="btn btn-outline-secondary" onclick="goToStep('facts')">
-                    <i class="bi bi-arrow-left me-1"></i> Back
-                </button>
-                <button type="button" class="btn btn-primary" onclick="goToStep('utility')">
-                    Continue to Utility Rating <i class="bi bi-arrow-right ms-1"></i>
-                </button>
-            </div>
+            <p class="small text-muted mt-2" id="views-gate-hint">
+                <i class="bi bi-info-circle me-1"></i> Visit each of the five views to enable the Continue button. Use the Next arrows, or click any tab directly.
+            </p>
         </div>
 
         <!-- STEP 3: UTILITY RATING -->
@@ -526,16 +813,16 @@
                 <div class="card-body">
                     <p>Rate how well each synthesis view helped you understand this case. Use the scale from 1 (Strongly Disagree) to 7 (Strongly Agree).</p>
 
-                    <!-- Provisions View Utility -->
+                    <!-- Narrative View Utility (View 1) -->
                     <div class="likert-group">
-                        <h6 class="border-bottom pb-2"><i class="bi bi-book me-2"></i>Provisions View Utility</h6>
+                        <h6 class="border-bottom pb-2"><i class="bi bi-journal-text me-2"></i>Narrative View Utility</h6>
 
                         <div class="likert-item">
-                            <div class="likert-label">The code provision mapping helped me identify which professional standards apply to this case</div>
+                            <div class="likert-label">The character profiles and ethical tensions helped me understand who was affected and why.</div>
                             <div class="likert-scale">
                                 {% for i in range(1, 8) %}
                                 <label>
-                                    <input type="radio" name="prov_standards_identified" value="{{ i }}" {% if existing_eval and existing_eval.prov_standards_identified == i %}checked{% endif %} required>
+                                    <input type="radio" name="narr_characters_tensions" value="{{ i }}" {% if existing_eval and existing_eval.narr_characters_tensions == i %}checked{% endif %} required>
                                     <span class="scale-btn">{{ i }}</span>
                                 </label>
                                 {% endfor %}
@@ -544,11 +831,11 @@
                         </div>
 
                         <div class="likert-item">
-                            <div class="likert-label">The connections between provisions and case facts were clear</div>
+                            <div class="likert-label">The relationship information clarified the professional dynamics in the case.</div>
                             <div class="likert-scale">
                                 {% for i in range(1, 8) %}
                                 <label>
-                                    <input type="radio" name="prov_connections_clear" value="{{ i }}" {% if existing_eval and existing_eval.prov_connections_clear == i %}checked{% endif %} required>
+                                    <input type="radio" name="narr_relationships_clear" value="{{ i }}" {% if existing_eval and existing_eval.narr_relationships_clear == i %}checked{% endif %} required>
                                     <span class="scale-btn">{{ i }}</span>
                                 </label>
                                 {% endfor %}
@@ -557,11 +844,11 @@
                         </div>
 
                         <div class="likert-item">
-                            <div class="likert-label">This view helped me understand the ethical basis for evaluating the case.</div>
+                            <div class="likert-label">This view provided a useful overview of the ethical significance of the case.</div>
                             <div class="likert-scale">
                                 {% for i in range(1, 8) %}
                                 <label>
-                                    <input type="radio" name="prov_normative_foundation" value="{{ i }}" {% if existing_eval and existing_eval.prov_normative_foundation == i %}checked{% endif %} required>
+                                    <input type="radio" name="narr_ethical_significance" value="{{ i }}" {% if existing_eval and existing_eval.narr_ethical_significance == i %}checked{% endif %} required>
                                     <span class="scale-btn">{{ i }}</span>
                                 </label>
                                 {% endfor %}
@@ -570,95 +857,7 @@
                         </div>
                     </div>
 
-                    <!-- Q&C View Utility -->
-                    <div class="likert-group">
-                        <h6 class="border-bottom pb-2"><i class="bi bi-question-circle me-2"></i>Q&amp;C View Utility</h6>
-
-                        <div class="likert-item">
-                            <div class="likert-label">The extracted questions helped me see the ethical issues at stake.</div>
-                            <div class="likert-scale">
-                                {% for i in range(1, 8) %}
-                                <label>
-                                    <input type="radio" name="qc_issues_visible" value="{{ i }}" {% if existing_eval and existing_eval.qc_issues_visible == i %}checked{% endif %} required>
-                                    <span class="scale-btn">{{ i }}</span>
-                                </label>
-                                {% endfor %}
-                            </div>
-                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
-                        </div>
-
-                        <div class="likert-item">
-                            <div class="likert-label">The connections between questions and conclusions clarified how the board reached its findings.</div>
-                            <div class="likert-scale">
-                                {% for i in range(1, 8) %}
-                                <label>
-                                    <input type="radio" name="qc_emergence_resolution" value="{{ i }}" {% if existing_eval and existing_eval.qc_emergence_resolution == i %}checked{% endif %} required>
-                                    <span class="scale-btn">{{ i }}</span>
-                                </label>
-                                {% endfor %}
-                            </div>
-                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
-                        </div>
-
-                        <div class="likert-item">
-                            <div class="likert-label">This view helped me identify what questions an ethics review would need to address.</div>
-                            <div class="likert-scale">
-                                {% for i in range(1, 8) %}
-                                <label>
-                                    <input type="radio" name="qc_deliberation_needs" value="{{ i }}" {% if existing_eval and existing_eval.qc_deliberation_needs == i %}checked{% endif %} required>
-                                    <span class="scale-btn">{{ i }}</span>
-                                </label>
-                                {% endfor %}
-                            </div>
-                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
-                        </div>
-                    </div>
-
-                    <!-- Decisions View Utility -->
-                    <div class="likert-group">
-                        <h6 class="border-bottom pb-2"><i class="bi bi-signpost-split me-2"></i>Decisions View Utility</h6>
-
-                        <div class="likert-item">
-                            <div class="likert-label">The decision points helped me understand the choices the professional faced.</div>
-                            <div class="likert-scale">
-                                {% for i in range(1, 8) %}
-                                <label>
-                                    <input type="radio" name="decs_choices_understood" value="{{ i }}" {% if existing_eval and existing_eval.decs_choices_understood == i %}checked{% endif %} required>
-                                    <span class="scale-btn">{{ i }}</span>
-                                </label>
-                                {% endfor %}
-                            </div>
-                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
-                        </div>
-
-                        <div class="likert-item">
-                            <div class="likert-label">The arguments for and against each option helped me evaluate the choices that were made.</div>
-                            <div class="likert-scale">
-                                {% for i in range(1, 8) %}
-                                <label>
-                                    <input type="radio" name="decs_argumentative_structure" value="{{ i }}" {% if existing_eval and existing_eval.decs_argumentative_structure == i %}checked{% endif %} required>
-                                    <span class="scale-btn">{{ i }}</span>
-                                </label>
-                                {% endfor %}
-                            </div>
-                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
-                        </div>
-
-                        <div class="likert-item">
-                            <div class="likert-label">This view helped me trace how the professional's actions related to their obligations.</div>
-                            <div class="likert-scale">
-                                {% for i in range(1, 8) %}
-                                <label>
-                                    <input type="radio" name="decs_actions_obligations" value="{{ i }}" {% if existing_eval and existing_eval.decs_actions_obligations == i %}checked{% endif %} required>
-                                    <span class="scale-btn">{{ i }}</span>
-                                </label>
-                                {% endfor %}
-                            </div>
-                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
-                        </div>
-                    </div>
-
-                    <!-- Timeline View Utility -->
+                    <!-- Timeline View Utility (View 2) -->
                     <div class="likert-group">
                         <h6 class="border-bottom pb-2"><i class="bi bi-clock-history me-2"></i>Timeline View Utility</h6>
 
@@ -702,16 +901,16 @@
                         </div>
                     </div>
 
-                    <!-- Narrative View Utility -->
+                    <!-- Q&C View Utility (View 3) -->
                     <div class="likert-group">
-                        <h6 class="border-bottom pb-2"><i class="bi bi-journal-text me-2"></i>Narrative View Utility</h6>
+                        <h6 class="border-bottom pb-2"><i class="bi bi-question-circle me-2"></i>Q&amp;C View Utility</h6>
 
                         <div class="likert-item">
-                            <div class="likert-label">The character profiles and ethical tensions helped me understand who was affected and why.</div>
+                            <div class="likert-label">The extracted questions helped me see the ethical issues at stake.</div>
                             <div class="likert-scale">
                                 {% for i in range(1, 8) %}
                                 <label>
-                                    <input type="radio" name="narr_characters_tensions" value="{{ i }}" {% if existing_eval and existing_eval.narr_characters_tensions == i %}checked{% endif %} required>
+                                    <input type="radio" name="qc_issues_visible" value="{{ i }}" {% if existing_eval and existing_eval.qc_issues_visible == i %}checked{% endif %} required>
                                     <span class="scale-btn">{{ i }}</span>
                                 </label>
                                 {% endfor %}
@@ -720,11 +919,11 @@
                         </div>
 
                         <div class="likert-item">
-                            <div class="likert-label">The relationship information clarified the professional dynamics in the case.</div>
+                            <div class="likert-label">The connections between questions and conclusions clarified how the board reached its findings.</div>
                             <div class="likert-scale">
                                 {% for i in range(1, 8) %}
                                 <label>
-                                    <input type="radio" name="narr_relationships_clear" value="{{ i }}" {% if existing_eval and existing_eval.narr_relationships_clear == i %}checked{% endif %} required>
+                                    <input type="radio" name="qc_emergence_resolution" value="{{ i }}" {% if existing_eval and existing_eval.qc_emergence_resolution == i %}checked{% endif %} required>
                                     <span class="scale-btn">{{ i }}</span>
                                 </label>
                                 {% endfor %}
@@ -733,11 +932,99 @@
                         </div>
 
                         <div class="likert-item">
-                            <div class="likert-label">This view provided a useful overview of the ethical significance of the case.</div>
+                            <div class="likert-label">This view helped me identify what questions an ethics review would need to address.</div>
                             <div class="likert-scale">
                                 {% for i in range(1, 8) %}
                                 <label>
-                                    <input type="radio" name="narr_ethical_significance" value="{{ i }}" {% if existing_eval and existing_eval.narr_ethical_significance == i %}checked{% endif %} required>
+                                    <input type="radio" name="qc_deliberation_needs" value="{{ i }}" {% if existing_eval and existing_eval.qc_deliberation_needs == i %}checked{% endif %} required>
+                                    <span class="scale-btn">{{ i }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Decisions View Utility (View 4) -->
+                    <div class="likert-group">
+                        <h6 class="border-bottom pb-2"><i class="bi bi-signpost-split me-2"></i>Decisions View Utility</h6>
+
+                        <div class="likert-item">
+                            <div class="likert-label">The decision points helped me understand the choices the professional faced.</div>
+                            <div class="likert-scale">
+                                {% for i in range(1, 8) %}
+                                <label>
+                                    <input type="radio" name="decs_choices_understood" value="{{ i }}" {% if existing_eval and existing_eval.decs_choices_understood == i %}checked{% endif %} required>
+                                    <span class="scale-btn">{{ i }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
+                        </div>
+
+                        <div class="likert-item">
+                            <div class="likert-label">The arguments for and against each option helped me evaluate the choices that were made.</div>
+                            <div class="likert-scale">
+                                {% for i in range(1, 8) %}
+                                <label>
+                                    <input type="radio" name="decs_argumentative_structure" value="{{ i }}" {% if existing_eval and existing_eval.decs_argumentative_structure == i %}checked{% endif %} required>
+                                    <span class="scale-btn">{{ i }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
+                        </div>
+
+                        <div class="likert-item">
+                            <div class="likert-label">This view helped me trace how the professional's actions related to their obligations.</div>
+                            <div class="likert-scale">
+                                {% for i in range(1, 8) %}
+                                <label>
+                                    <input type="radio" name="decs_actions_obligations" value="{{ i }}" {% if existing_eval and existing_eval.decs_actions_obligations == i %}checked{% endif %} required>
+                                    <span class="scale-btn">{{ i }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Provisions View Utility (View 5) -->
+                    <div class="likert-group">
+                        <h6 class="border-bottom pb-2"><i class="bi bi-book me-2"></i>Provisions View Utility</h6>
+
+                        <div class="likert-item">
+                            <div class="likert-label">The code provision mapping helped me identify which professional standards apply to this case</div>
+                            <div class="likert-scale">
+                                {% for i in range(1, 8) %}
+                                <label>
+                                    <input type="radio" name="prov_standards_identified" value="{{ i }}" {% if existing_eval and existing_eval.prov_standards_identified == i %}checked{% endif %} required>
+                                    <span class="scale-btn">{{ i }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
+                        </div>
+
+                        <div class="likert-item">
+                            <div class="likert-label">The connections between provisions and case facts were clear</div>
+                            <div class="likert-scale">
+                                {% for i in range(1, 8) %}
+                                <label>
+                                    <input type="radio" name="prov_connections_clear" value="{{ i }}" {% if existing_eval and existing_eval.prov_connections_clear == i %}checked{% endif %} required>
+                                    <span class="scale-btn">{{ i }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
+                        </div>
+
+                        <div class="likert-item">
+                            <div class="likert-label">This view helped me understand the ethical basis for evaluating the case.</div>
+                            <div class="likert-scale">
+                                {% for i in range(1, 8) %}
+                                <label>
+                                    <input type="radio" name="prov_normative_foundation" value="{{ i }}" {% if existing_eval and existing_eval.prov_normative_foundation == i %}checked{% endif %} required>
                                     <span class="scale-btn">{{ i }}</span>
                                 </label>
                                 {% endfor %}
@@ -916,6 +1203,50 @@
     // Time tracking
     let stepStartTime = Date.now();
     let currentStepName = '{{ current_step }}';
+
+    // Narrative-reveal: track which of the five views have been visited so
+    // we can gate the Continue-to-Utility button on seeing all five.
+    const VIEW_TAB_IDS = ['narrative-tab', 'timeline-tab', 'qc-tab', 'decisions-tab', 'provisions-tab'];
+    const viewsVisited = new Set();
+
+    function activateViewTab(tabId) {
+        const trigger = document.getElementById(tabId);
+        if (trigger && window.bootstrap) {
+            bootstrap.Tab.getOrCreateInstance(trigger).show();
+        }
+    }
+
+    function markTabVisited(tabId) {
+        viewsVisited.add(tabId);
+        const trigger = document.getElementById(tabId);
+        if (trigger) {
+            const check = trigger.querySelector('.visited-check');
+            if (check) check.classList.remove('d-none');
+        }
+        updateUtilityGate();
+    }
+
+    function toggleUnratedTensions() {
+        const rows = document.querySelectorAll('#tensionList .tension-unrated');
+        const btn = document.getElementById('toggleUnratedTensionsBtn');
+        if (!rows.length || !btn) return;
+        const isHidden = rows[0].classList.contains('d-none');
+        rows.forEach(r => r.classList.toggle('d-none', !isHidden));
+        btn.textContent = isHidden
+            ? 'Hide ' + rows.length + ' additional tensions without moral-intensity ratings'
+            : 'Show ' + rows.length + ' additional tensions without moral-intensity ratings';
+    }
+
+    function updateUtilityGate() {
+        const btn = document.getElementById('continue-to-utility-btn');
+        const hint = document.getElementById('views-gate-hint');
+        if (!btn) return;
+        if (viewsVisited.size >= VIEW_TAB_IDS.length) {
+            btn.disabled = false;
+            btn.removeAttribute('title');
+            if (hint) hint.classList.add('d-none');
+        }
+    }
 
     function updateTimeTracking(fromStep) {
         const elapsed = Date.now() - stepStartTime;
@@ -1102,6 +1433,36 @@
 
         // Set up facts chunking for readability
         setupFactsChunking();
+
+        // Rotate the chevron on each timeline entry that has nested decision points.
+        document.querySelectorAll('#study-timeline .tl-has-dps').forEach(function(node) {
+            const targetSel = node.dataset.bsTarget;
+            if (!targetSel) return;
+            const target = document.querySelector(targetSel);
+            if (!target) return;
+            const chevron = node.querySelector('.tl-entry-chevron');
+            target.addEventListener('show.bs.collapse', function() {
+                if (chevron) chevron.classList.replace('bi-chevron-right', 'bi-chevron-down');
+                node.classList.add('tl-compact-expanded');
+            });
+            target.addEventListener('hide.bs.collapse', function() {
+                if (chevron) chevron.classList.replace('bi-chevron-down', 'bi-chevron-right');
+                node.classList.remove('tl-compact-expanded');
+            });
+        });
+
+        // Narrative-reveal: mark each view visited on first activation, and
+        // mark the initially active tab (Narrative) as visited immediately.
+        VIEW_TAB_IDS.forEach(function(tabId) {
+            const trigger = document.getElementById(tabId);
+            if (!trigger) return;
+            trigger.addEventListener('shown.bs.tab', function(e) {
+                markTabVisited(e.target.id);
+            });
+            if (trigger.classList.contains('active')) {
+                markTabVisited(tabId);
+            }
+        });
     });
 </script>
 {% endblock %}
