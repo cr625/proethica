@@ -1,6 +1,6 @@
-{% extends "base.html" %}
+{% extends "validation_study/_base_study.html" %}
 
-{% block title %}Case Evaluation - View Utility Study{% endblock %}
+{% block title %}Case Evaluation - Study{% endblock %}
 
 {% block styles %}
 <style>
@@ -521,7 +521,7 @@
         <div id="step-utility" class="step-content {% if current_step != 'utility' %}hidden-step{% endif %}">
             <div class="card">
                 <div class="card-header bg-success text-white">
-                    <h5 class="mb-0"><i class="bi bi-star me-2"></i>View Utility Assessment</h5>
+                    <h5 class="mb-0"><i class="bi bi-star me-2"></i>Rate the views</h5>
                 </div>
                 <div class="card-body">
                     <p>Rate how well each synthesis view helped you understand this case. Use the scale from 1 (Strongly Disagree) to 7 (Strongly Agree).</p>

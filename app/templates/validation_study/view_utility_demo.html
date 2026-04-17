@@ -1,6 +1,6 @@
-{% extends "base.html" %}
+{% extends "validation_study/_base_study.html" %}
 
-{% block title %}View Utility Assessment - {{ view_name|title }} View{% endblock %}
+{% block title %}{{ view_name|title }} View Demo{% endblock %}
 
 {% block styles %}
 <style>
@@ -312,7 +312,7 @@
     <div class="study-header">
         <div class="d-flex justify-content-between align-items-start">
             <div>
-                <h1>View Utility Assessment</h1>
+                <h1>View Utility Demo</h1>
                 <p class="case-ref mb-0">{{ document.title }} (Case #{{ document.case_number or document.id }})</p>
             </div>
             <div class="study-badge">
