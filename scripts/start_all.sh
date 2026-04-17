@@ -99,16 +99,25 @@ start_mcp() {
     MCP_PID=$!
     echo $MCP_PID > "$PID_DIR/mcp_server.pid"
 
-    # Wait for MCP to start
-    for i in {1..15}; do
+    # Wait up to 60s for MCP to bind port 8082.
+    # SPARQL service loads ~134 ontologies (~525k triples) before the HTTP
+    # listener starts, which takes 20-30s on a cold start. A 15s wait used
+    # to declare failure while the server was still initializing.
+    log_info "Waiting for MCP to bind port 8082 (can take 20-30s while SPARQL loads)..."
+    for i in {1..60}; do
+        # Bail early if the child died
+        if ! kill -0 $MCP_PID 2>/dev/null; then
+            log_error "OntServe MCP server process exited (check $PID_DIR/mcp_server.log)"
+            return 1
+        fi
         if check_mcp; then
-            log_info "OntServe MCP server started (PID: $MCP_PID)"
+            log_info "OntServe MCP server started (PID: $MCP_PID) after ${i}s"
             return 0
         fi
         sleep 1
     done
 
-    log_error "OntServe MCP server failed to start (check $PID_DIR/mcp_server.log)"
+    log_error "OntServe MCP server failed to bind port 8082 within 60s (check $PID_DIR/mcp_server.log)"
     return 1
 }
 
