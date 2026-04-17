@@ -370,7 +370,7 @@ class ValidationExportService:
         return progress
 
     # =========================================================================
-    # Chapter 4 View Utility Export Methods
+    # Study View Utility Export Methods (EvaluationStudyPlan.md Appendix A, v6)
     # =========================================================================
 
     VIEW_UTILITY_METRICS = {
@@ -379,20 +379,25 @@ class ValidationExportService:
             'prov_connections_clear',
             'prov_normative_foundation'
         ],
-        'QUESTIONS': [
-            'ques_issues_visible',
-            'ques_structure_aided',
-            'ques_deliberation_needs'
+        'QC': [
+            'qc_issues_visible',
+            'qc_emergence_resolution',
+            'qc_deliberation_needs'
         ],
         'DECISIONS': [
             'decs_choices_understood',
-            'decs_alternatives_context',
+            'decs_argumentative_structure',
             'decs_actions_obligations'
         ],
+        'TIMELINE': [
+            'timeline_temporal_sequence',
+            'timeline_causal_links',
+            'timeline_obligation_activation'
+        ],
         'NARRATIVE': [
-            'narr_situation_understood',
+            'narr_characters_tensions',
             'narr_relationships_clear',
-            'narr_sequence_clear'
+            'narr_ethical_significance'
         ],
         'OVERALL': [
             'overall_helped_understand',
@@ -403,25 +408,26 @@ class ValidationExportService:
 
     def get_chapter4_evaluation_data(
         self,
-        domain: Optional[str] = None
+        domain: Optional[str] = 'engineering'
     ) -> List[Dict]:
         """
-        Fetch Chapter 4 view utility evaluation data.
+        Fetch study view utility evaluation data (v6 schema: 5 views, 18 items).
 
         Args:
-            domain: Filter by evaluator domain ('engineering' or 'education')
+            domain: Filter by evaluator domain. Defaults to 'engineering' per
+                    IRB scope; pass None to include all domains.
 
         Returns:
             List of view utility evaluation records
         """
-        from app.models.view_utility_evaluation import ViewUtilityEvaluation
+        from app.models.view_utility_evaluation import ViewUtilityEvaluation, ValidationSession
 
         query = ViewUtilityEvaluation.query
 
         if domain:
             query = query.join(
-                ViewUtilityEvaluation.session
-            ).filter_by(evaluator_domain=domain)
+                ValidationSession, ViewUtilityEvaluation.session_id == ValidationSession.id
+            ).filter(ValidationSession.evaluator_domain == domain)
 
         evaluations = query.all()
 
@@ -436,30 +442,42 @@ class ValidationExportService:
                 'prov_connections_clear': e.prov_connections_clear,
                 'prov_normative_foundation': e.prov_normative_foundation,
                 'provisions_view_mean': e.provisions_view_mean,
-                # Questions View
-                'ques_issues_visible': e.ques_issues_visible,
-                'ques_structure_aided': e.ques_structure_aided,
-                'ques_deliberation_needs': e.ques_deliberation_needs,
-                'questions_view_mean': e.questions_view_mean,
+                # Q&C View
+                'qc_issues_visible': e.qc_issues_visible,
+                'qc_emergence_resolution': e.qc_emergence_resolution,
+                'qc_deliberation_needs': e.qc_deliberation_needs,
+                'qc_view_mean': e.qc_view_mean,
                 # Decisions View
                 'decs_choices_understood': e.decs_choices_understood,
-                'decs_alternatives_context': e.decs_alternatives_context,
+                'decs_argumentative_structure': e.decs_argumentative_structure,
                 'decs_actions_obligations': e.decs_actions_obligations,
                 'decisions_view_mean': e.decisions_view_mean,
+                # Timeline View
+                'timeline_temporal_sequence': e.timeline_temporal_sequence,
+                'timeline_causal_links': e.timeline_causal_links,
+                'timeline_obligation_activation': e.timeline_obligation_activation,
+                'timeline_view_mean': e.timeline_view_mean,
                 # Narrative View
-                'narr_situation_understood': e.narr_situation_understood,
+                'narr_characters_tensions': e.narr_characters_tensions,
                 'narr_relationships_clear': e.narr_relationships_clear,
-                'narr_sequence_clear': e.narr_sequence_clear,
+                'narr_ethical_significance': e.narr_ethical_significance,
                 'narrative_view_mean': e.narrative_view_mean,
                 # Overall Utility
                 'overall_helped_understand': e.overall_helped_understand,
                 'overall_surfaced_considerations': e.overall_surfaced_considerations,
                 'overall_useful_deliberation': e.overall_useful_deliberation,
                 'overall_utility_mean': e.overall_utility_mean,
+                # Comprehension (free text)
+                'comp_main_tensions': e.comp_main_tensions,
+                'comp_relevant_provisions': e.comp_relevant_provisions,
+                'comp_decision_points': e.comp_decision_points,
+                'comp_deliberation_factors': e.comp_deliberation_factors,
                 # Alignment
                 'alignment_self_rating': e.alignment_self_rating,
+                'alignment_reflection': e.alignment_reflection,
                 # Timestamps
-                'completed_at': e.completed_at.isoformat() if e.completed_at else None
+                'started_at': e.started_at.isoformat() if e.started_at else None,
+                'completed_at': e.completed_at.isoformat() if e.completed_at else None,
             })
 
         return results
@@ -502,10 +520,17 @@ class ValidationExportService:
             case_id = eval_record['case_id']
 
             if use_means:
-                # Export view means
-                for view in ['PROVISIONS', 'QUESTIONS', 'DECISIONS', 'NARRATIVE', 'OVERALL']:
+                # Export view means (5 views + overall)
+                view_to_mean_key = {
+                    'PROVISIONS': 'provisions_view_mean',
+                    'QC': 'qc_view_mean',
+                    'DECISIONS': 'decisions_view_mean',
+                    'TIMELINE': 'timeline_view_mean',
+                    'NARRATIVE': 'narrative_view_mean',
+                    'OVERALL': 'overall_utility_mean',
+                }
+                for view, mean_key in view_to_mean_key.items():
                     col_name = f"case_{case_id:03d}_{view}"
-                    mean_key = f"{view.lower()}_view_mean" if view != 'OVERALL' else 'overall_utility_mean'
                     value = eval_record.get(mean_key)
                     evaluator_data[evaluator_id][col_name] = value
                     all_columns.add(col_name)
@@ -590,8 +615,9 @@ class ValidationExportService:
 
         view_scores = {
             'PROVISIONS': [],
-            'QUESTIONS': [],
+            'QC': [],
             'DECISIONS': [],
+            'TIMELINE': [],
             'NARRATIVE': [],
             'OVERALL': [],
             'ALIGNMENT': []
@@ -600,10 +626,12 @@ class ValidationExportService:
         for eval_record in evaluations:
             if eval_record.get('provisions_view_mean') is not None:
                 view_scores['PROVISIONS'].append(eval_record['provisions_view_mean'])
-            if eval_record.get('questions_view_mean') is not None:
-                view_scores['QUESTIONS'].append(eval_record['questions_view_mean'])
+            if eval_record.get('qc_view_mean') is not None:
+                view_scores['QC'].append(eval_record['qc_view_mean'])
             if eval_record.get('decisions_view_mean') is not None:
                 view_scores['DECISIONS'].append(eval_record['decisions_view_mean'])
+            if eval_record.get('timeline_view_mean') is not None:
+                view_scores['TIMELINE'].append(eval_record['timeline_view_mean'])
             if eval_record.get('narrative_view_mean') is not None:
                 view_scores['NARRATIVE'].append(eval_record['narrative_view_mean'])
             if eval_record.get('overall_utility_mean') is not None:
@@ -638,10 +666,10 @@ class ValidationExportService:
 
     def get_chapter4_retrospective_summary(
         self,
-        domain: Optional[str] = None
+        domain: Optional[str] = 'engineering'
     ) -> Dict[str, Any]:
         """
-        Get summary of retrospective reflections including view rankings.
+        Get summary of retrospective reflections including view rankings (5 views).
 
         Returns:
             Dictionary with retrospective summary data
@@ -661,8 +689,9 @@ class ValidationExportService:
         # Aggregate rankings (lower = more valuable)
         rank_totals = {
             'PROVISIONS': [],
-            'QUESTIONS': [],
+            'QC': [],
             'DECISIONS': [],
+            'TIMELINE': [],
             'NARRATIVE': []
         }
 
@@ -671,10 +700,12 @@ class ValidationExportService:
         for r in reflections:
             if r.rank_provisions_view is not None:
                 rank_totals['PROVISIONS'].append(r.rank_provisions_view)
-            if r.rank_questions_view is not None:
-                rank_totals['QUESTIONS'].append(r.rank_questions_view)
+            if r.rank_qc_view is not None:
+                rank_totals['QC'].append(r.rank_qc_view)
             if r.rank_decisions_view is not None:
                 rank_totals['DECISIONS'].append(r.rank_decisions_view)
+            if r.rank_timeline_view is not None:
+                rank_totals['TIMELINE'].append(r.rank_timeline_view)
             if r.rank_narrative_view is not None:
                 rank_totals['NARRATIVE'].append(r.rank_narrative_view)
 

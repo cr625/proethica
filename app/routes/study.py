@@ -589,11 +589,11 @@ def admin_dashboard():
         'available_cases': available_cases,
         'cases_with_predictions': cases_with_predictions_count,
         # View utility stats
-        'chapter4_sessions': view_utility_sessions,
-        'chapter4_completed_sessions': view_utility_completed_sessions,
-        'chapter4_evaluations': view_utility_evaluations,
-        'chapter4_evaluators': view_utility_evaluators,
-        'chapter4_retrospectives': view_utility_retrospectives
+        'study_sessions': view_utility_sessions,
+        'study_completed_sessions': view_utility_completed_sessions,
+        'study_evaluations': view_utility_evaluations,
+        'study_evaluators': view_utility_evaluators,
+        'study_retrospectives': view_utility_retrospectives
     }
 
     # Get recent studies
@@ -628,18 +628,21 @@ def admin_dashboard():
 @study_bp.route('/admin/export')
 @admin_required_production
 def admin_export():
-    """Export validation data for Krippendorff's alpha analysis."""
+    """Export study view-utility data for Krippendorff's alpha analysis.
+
+    Default scope is the engineering domain (IRB-approved pool); pass
+    `?domain=all` to include any stray non-engineering sessions.
+    `?level=items` returns per-item data for Krippendorff; otherwise view means.
+    """
     from app.services.experiment.validation_export_service import ValidationExportService
 
-    # Get query parameters
     format_type = request.args.get('format', 'csv')
-    domain = request.args.get('domain')
+    domain_param = request.args.get('domain', 'engineering')
+    domain = None if domain_param == 'all' else domain_param
     use_means = request.args.get('level', 'means') == 'means'
-    experiment_run_id = request.args.get('experiment_run_id', type=int)
 
     export_service = ValidationExportService()
-    content, filename = export_service.export_for_krippendorff(
-        experiment_run_id=experiment_run_id,
+    content, filename = export_service.export_chapter4_for_krippendorff(
         domain=domain,
         use_means=use_means,
         format=format_type

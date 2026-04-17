@@ -1,5 +1,6 @@
 """
-Validation services for Chapter 4 evaluation.
+Validation services for the IRB-approved ProEthica user study
+(Protocol 2603011709, EvaluationStudyPlan.md).
 
 These services support the view utility assessment methodology.
 """

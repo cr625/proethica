@@ -325,9 +325,9 @@ class SynthesisViewBuilder:
     def get_case_facts(self, case_id: int) -> Dict[str, Any]:
         """Get case facts section only (Discussion/Conclusions withheld).
 
-        Chapter 4 Section 4.3.1: Evaluators receive the Facts section from NSPE
-        Board of Ethical Review cases. Discussion and Conclusions sections are
-        withheld to prevent anchoring on board reasoning.
+        EvaluationStudyPlan.md Appendix A: Evaluators receive the Facts section
+        from NSPE Board of Ethical Review cases. Discussion and Conclusions
+        sections are withheld to prevent anchoring on board reasoning.
 
         Uses HTML-formatted content from doc_metadata.sections_dual when available,
         which provides properly formatted text with paragraphs.
@@ -415,7 +415,7 @@ class SynthesisViewBuilder:
     def get_board_conclusions(self, case_id: int) -> Dict[str, Any]:
         """Get board conclusions for reveal after comprehension questions.
 
-        Chapter 4 Section 4.3.2 Part 2: Board conclusions are revealed after
+        EvaluationStudyPlan.md Appendix A: Board conclusions are revealed after
         evaluators answer comprehension questions, allowing comparison.
 
         Uses HTML-formatted content from doc_metadata.sections_dual when available.
