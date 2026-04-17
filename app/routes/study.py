@@ -22,6 +22,7 @@ import secrets
 import uuid
 from datetime import datetime
 from flask import Blueprint, request, render_template, redirect, url_for, flash, session, jsonify
+from flask_wtf.csrf import CSRFError
 from app import db
 from app.models import Document
 from app.models.view_utility_evaluation import (
@@ -33,6 +34,19 @@ from app.services.validation.case_assignment_service import assign_cases
 logger = logging.getLogger(__name__)
 
 study_bp = Blueprint('study', __name__)
+
+
+@study_bp.errorhandler(CSRFError)
+def handle_csrf_error(e):
+    """Graceful handling for stale CSRF tokens on study forms.
+
+    Most common cause: the dev server restarted between the landing-page load
+    and the form submit, invalidating the token. Participant flow should
+    bounce back to the landing page (which renders a fresh token) rather
+    than show a bare 400 page.
+    """
+    flash('Your session expired or the page was stale. Please start again.', 'warning')
+    return redirect(url_for('study.index'))
 
 # Information Sheet version currently served. Bump this when the .docx changes
 # and update `_info_sheet_v2.html` (and this constant) together.
