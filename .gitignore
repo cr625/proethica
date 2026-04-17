@@ -127,3 +127,12 @@ site/
 # Local tool configuration
 pyproject.toml
 pytest.ini
+
+# Production-only artifacts (sibling repo + ad-hoc scripts/data dumps living in /opt/proethica)
+/shared/
+/init_db.py
+/simple_app.py
+/simple_restore.sh
+/restore_sample_data.sh
+/smoke_test_prod.sh
+/proethica_sample_data_*.sql
