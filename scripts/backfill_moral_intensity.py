@@ -225,16 +225,35 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true",
                         help="Count unrated tensions; do not call the LLM or write back.")
     parser.add_argument("--case-id", type=int, default=None,
-                        help="Run on a single case ID instead of the whole pool.")
+                        help="Run on a single case ID instead of the default pool.")
+    parser.add_argument("--all", action="store_true",
+                        help="Run on every case that has a phase4_narrative row "
+                             "(instead of the 23-case study pool).")
     args = parser.parse_args()
 
-    case_ids = [args.case_id] if args.case_id else list(STUDY_CASE_POOL_IDS)
-    log.info("Pool: %d cases (%s)", len(case_ids),
-             ", ".join(str(c) for c in case_ids))
-
     app = create_app()
-    totals = {"total": 0, "already_rated": 0, "newly_rated": 0, "missed": 0}
     with app.app_context():
+        if args.case_id:
+            case_ids = [args.case_id]
+            scope = f"single case {args.case_id}"
+        elif args.all:
+            rows = (
+                db.session.query(ExtractionPrompt.case_id)
+                .filter_by(concept_type="phase4_narrative")
+                .distinct()
+                .order_by(ExtractionPrompt.case_id)
+                .all()
+            )
+            case_ids = [r[0] for r in rows]
+            scope = "all cases with phase4_narrative"
+        else:
+            case_ids = list(STUDY_CASE_POOL_IDS)
+            scope = "23-case study pool"
+
+        log.info("Scope: %s (%d case%s)", scope, len(case_ids),
+                 "" if len(case_ids) == 1 else "s")
+
+        totals = {"total": 0, "already_rated": 0, "newly_rated": 0, "missed": 0}
         for cid in case_ids:
             log.info("--- case %s ---", cid)
             stats = backfill_case(cid, dry_run=args.dry_run)
