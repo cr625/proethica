@@ -825,13 +825,20 @@ Output as JSON array:
             for r in foundation.roles[:10]
         ])
 
-        # Existing tensions found algorithmically
-        existing_tensions = "\n".join([
-            f"- {t.entity1_label} vs {t.entity2_label}: {t.description}"
-            for t in tensions[:5]
-        ]) if tensions else "None identified yet"
+        # Existing tensions found algorithmically (ALL of them, not just first 5).
+        # Each tension is passed with its conflict_id so the LLM can return
+        # ratings keyed back to the originating tension, avoiding the fragile
+        # substring matching the previous prompt relied on.
+        if tensions:
+            existing_tensions = "\n".join([
+                f"[{t.conflict_id}] {t.entity1_label} vs {t.entity2_label}"
+                + (f": {t.description}" if t.description else "")
+                for t in tensions
+            ])
+        else:
+            existing_tensions = "None identified yet"
 
-        prompt = f"""Analyze these extracted entities from an NSPE engineering ethics case and identify ethical tensions.
+        prompt = f"""Analyze ethical tensions in an NSPE engineering ethics case. Each tension has an algorithmically assigned ID (e.g. tension_3). Rate every listed tension on Jones (1991) moral-intensity dimensions, and optionally add up to 3 additional tensions you judge the algorithmic pass missed.
 
 OBLIGATIONS (duties the engineer must fulfill):
 {obligations_list}
@@ -842,34 +849,52 @@ CONSTRAINTS (limitations on what the engineer can do):
 ROLES INVOLVED:
 {roles_list}
 
-TENSIONS ALREADY IDENTIFIED:
+EXISTING TENSIONS TO RATE (all of these):
 {existing_tensions}
 
-Identify ethical tensions between obligations and/or constraints. For each tension, assess its moral intensity using Jones (1991) factors.
+For EACH existing tension above, return a rating keyed by its ID. For any additional tensions you identify, return them in the "additional" array with full entity details. Use these fields per Jones (1991):
 
-Focus on tensions that create genuine ethical dilemmas - where fulfilling one duty may compromise another.
+- magnitude_of_consequences: high | medium | low (how serious are potential harms?)
+- probability_of_effect: high | medium | low (how likely are negative outcomes?)
+- temporal_immediacy: immediate | near-term | long-term (when will consequences occur?)
+- proximity: direct | indirect | remote (how close is the decision-maker to the affected parties?)
+- concentration_of_effect: concentrated | diffuse (are harms focused on a few parties or spread across many?)
 
-Output as JSON array (identify 2-5 key tensions):
+Output JSON with this exact shape:
 ```json
-[
-  {{
-    "entity1_id": "URI fragment of first entity",
-    "entity1_label": "Label of first entity",
-    "entity1_type": "obligation or constraint",
-    "entity2_id": "URI fragment of second entity",
-    "entity2_label": "Label of second entity",
-    "entity2_type": "obligation or constraint",
-    "description": "Clear description of why these are in tension",
-    "conflict_type": "obligation_vs_obligation or obligation_vs_constraint",
-    "affected_roles": ["Role labels affected by this tension"],
-    "magnitude_of_consequences": "high/medium/low - how serious are potential harms?",
-    "probability_of_effect": "high/medium/low - how likely are negative outcomes?",
-    "temporal_immediacy": "immediate/near-term/long-term - when will consequences occur?",
-    "proximity": "direct/indirect/remote - how close is decision-maker to affected parties?",
-    "concentration_of_effect": "concentrated/diffuse - are harms focused or spread out?"
-  }}
-]
-```"""
+{{
+  "ratings": [
+    {{
+      "conflict_id": "tension_1",
+      "magnitude_of_consequences": "high",
+      "probability_of_effect": "medium",
+      "temporal_immediacy": "immediate",
+      "proximity": "direct",
+      "concentration_of_effect": "concentrated"
+    }}
+  ],
+  "additional": [
+    {{
+      "entity1_id": "URI fragment of first entity",
+      "entity1_label": "Label of first entity",
+      "entity1_type": "obligation or constraint",
+      "entity2_id": "URI fragment of second entity",
+      "entity2_label": "Label of second entity",
+      "entity2_type": "obligation or constraint",
+      "description": "Why these are in tension",
+      "conflict_type": "obligation_vs_obligation or obligation_vs_constraint",
+      "affected_roles": ["Role labels affected"],
+      "magnitude_of_consequences": "high",
+      "probability_of_effect": "medium",
+      "temporal_immediacy": "immediate",
+      "proximity": "direct",
+      "concentration_of_effect": "concentrated"
+    }}
+  ]
+}}
+```
+
+Rate every tension in EXISTING TENSIONS TO RATE. The "additional" array may be empty."""
 
         llm_trace = None
         try:
@@ -893,73 +918,77 @@ Output as JSON array (identify 2-5 key tensions):
                 'model': ModelConfig.get_claude_model("default")
             }
 
-            llm_tensions = parse_json_response(response_text, context="ethical_tension_detection")
+            parsed = parse_json_response(response_text, context="ethical_tension_detection")
 
-            if llm_tensions:
+            # New response shape: {"ratings": [...], "additional": [...]}.
+            # Stay tolerant of the older shape (a bare list of tensions) so a
+            # stale prompt elsewhere does not regress silently.
+            if isinstance(parsed, dict):
+                ratings = parsed.get('ratings') or []
+                additional = parsed.get('additional') or []
+            elif isinstance(parsed, list):
+                ratings, additional = [], parsed
+            else:
+                ratings, additional = [], []
 
-                # Build lookup for existing tensions to avoid duplicates
-                existing_pairs = set()
-                for t in tensions:
-                    pair = tuple(sorted([t.entity1_label.lower(), t.entity2_label.lower()]))
+            # Apply ratings to existing tensions by exact conflict_id match.
+            if ratings:
+                by_id = {t.conflict_id: t for t in tensions}
+                for r in ratings:
+                    cid = r.get('conflict_id')
+                    existing = by_id.get(cid) if cid else None
+                    if not existing:
+                        continue
+                    existing.magnitude_of_consequences = r.get('magnitude_of_consequences') or existing.magnitude_of_consequences
+                    existing.probability_of_effect = r.get('probability_of_effect') or existing.probability_of_effect
+                    existing.temporal_immediacy = r.get('temporal_immediacy') or existing.temporal_immediacy
+                    existing.proximity = r.get('proximity') or existing.proximity
+                    existing.concentration_of_effect = r.get('concentration_of_effect') or existing.concentration_of_effect
+                    existing.llm_enhanced = True
+
+            # Add new tensions proposed by the LLM (deduped by entity pair).
+            if additional:
+                existing_pairs = {
+                    tuple(sorted([t.entity1_label.lower(), t.entity2_label.lower()]))
+                    for t in tensions
+                }
+                next_id = len(tensions) + 1
+                for lt in additional:
+                    e1 = lt.get('entity1_label') or ''
+                    e2 = lt.get('entity2_label') or ''
+                    if not e1 or not e2:
+                        continue
+                    pair = tuple(sorted([e1.lower(), e2.lower()]))
+                    if pair in existing_pairs:
+                        continue
+                    entity1_uri = self._find_entity_uri(lt.get('entity1_id', ''), e1, foundation)
+                    entity2_uri = self._find_entity_uri(lt.get('entity2_id', ''), e2, foundation)
+                    tensions.append(NarrativeConflict(
+                        conflict_id=f"tension_{next_id}",
+                        description=lt.get('description', ''),
+                        conflict_type=lt.get('conflict_type', 'obligation_vs_obligation'),
+                        entity1_uri=entity1_uri,
+                        entity1_label=e1,
+                        entity1_type=lt.get('entity1_type', 'obligation'),
+                        entity2_uri=entity2_uri,
+                        entity2_label=e2,
+                        entity2_type=lt.get('entity2_type', 'obligation'),
+                        affected_role_labels=lt.get('affected_roles', []),
+                        magnitude_of_consequences=lt.get('magnitude_of_consequences'),
+                        probability_of_effect=lt.get('probability_of_effect'),
+                        temporal_immediacy=lt.get('temporal_immediacy'),
+                        proximity=lt.get('proximity'),
+                        concentration_of_effect=lt.get('concentration_of_effect'),
+                        llm_enhanced=True,
+                    ))
+                    next_id += 1
                     existing_pairs.add(pair)
 
-                # Add new tensions from LLM
-                tension_id = len(tensions) + 1
-                for lt in llm_tensions:
-                    pair = tuple(sorted([
-                        lt.get('entity1_label', '').lower(),
-                        lt.get('entity2_label', '').lower()
-                    ]))
-
-                    if pair not in existing_pairs and lt.get('entity1_label') and lt.get('entity2_label'):
-                        # Find URIs for entities
-                        entity1_uri = self._find_entity_uri(
-                            lt.get('entity1_id', ''),
-                            lt.get('entity1_label', ''),
-                            foundation
-                        )
-                        entity2_uri = self._find_entity_uri(
-                            lt.get('entity2_id', ''),
-                            lt.get('entity2_label', ''),
-                            foundation
-                        )
-
-                        tensions.append(NarrativeConflict(
-                            conflict_id=f"tension_{tension_id}",
-                            description=lt.get('description', ''),
-                            conflict_type=lt.get('conflict_type', 'obligation_vs_obligation'),
-                            entity1_uri=entity1_uri,
-                            entity1_label=lt.get('entity1_label', ''),
-                            entity1_type=lt.get('entity1_type', 'obligation'),
-                            entity2_uri=entity2_uri,
-                            entity2_label=lt.get('entity2_label', ''),
-                            entity2_type=lt.get('entity2_type', 'obligation'),
-                            affected_role_labels=lt.get('affected_roles', []),
-                            magnitude_of_consequences=lt.get('magnitude_of_consequences'),
-                            probability_of_effect=lt.get('probability_of_effect'),
-                            temporal_immediacy=lt.get('temporal_immediacy'),
-                            proximity=lt.get('proximity'),
-                            concentration_of_effect=lt.get('concentration_of_effect'),
-                            llm_enhanced=True
-                        ))
-                        tension_id += 1
-                        existing_pairs.add(pair)
-
-                # Also enhance existing tensions with moral intensity if not already present
-                for existing_tension in tensions:
-                    if not existing_tension.llm_enhanced:
-                        for lt in llm_tensions:
-                            if (existing_tension.entity1_label.lower() in lt.get('entity1_label', '').lower() or
-                                existing_tension.entity2_label.lower() in lt.get('entity2_label', '').lower()):
-                                existing_tension.magnitude_of_consequences = lt.get('magnitude_of_consequences')
-                                existing_tension.probability_of_effect = lt.get('probability_of_effect')
-                                existing_tension.temporal_immediacy = lt.get('temporal_immediacy')
-                                existing_tension.proximity = lt.get('proximity')
-                                existing_tension.concentration_of_effect = lt.get('concentration_of_effect')
-                                existing_tension.llm_enhanced = True
-                                break
-
-                logger.info(f"Enhanced tensions with LLM: {len(tensions)} total tensions for case {case_id}")
+            rated_count = sum(1 for t in tensions if t.llm_enhanced)
+            logger.info(
+                "Enhanced tensions with LLM for case %s: %d rated of %d total (%d additional)",
+                case_id, rated_count, len(tensions), len(additional)
+            )
 
         except Exception as e:
             logger.warning(f"LLM tension enhancement failed: {e}")
