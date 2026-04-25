@@ -90,39 +90,82 @@ class SynthesisViewBuilder:
             TemporaryRDFStorage.is_published == True
         ).all()
 
-        # Build conclusion lookup by question
-        conclusion_map = {}
+        # Build conclusion lookup by question.
+        # answersQuestions stores integer question numbers (e.g., 1, 101, 201).
+        # Questions use entity_label strings like "Question_1", "Question_101".
+        # Normalize keys to entity_label format so the lookup matches.
+        conclusion_map: Dict[str, list] = {}
         for conc in conclusions:
             rdf_data = conc.rdf_json_ld or {}
             answers = rdf_data.get('answersQuestions', [])
+            conc_label = conc.entity_label or ''
+            is_board = conc_label.startswith('Conclusion_') and conc_label.replace('Conclusion_', '').isdigit() and len(conc_label.replace('Conclusion_', '')) <= 2
             for q_ref in answers:
-                if q_ref not in conclusion_map:
-                    conclusion_map[q_ref] = []
-                conclusion_map[q_ref].append({
+                key = f"Question_{q_ref}" if isinstance(q_ref, int) else str(q_ref)
+                if key not in conclusion_map:
+                    conclusion_map[key] = []
+                conclusion_map[key].append({
                     'id': conc.id,
                     'label': conc.entity_label,
                     'text': conc.entity_definition,
+                    'conclusion_type': 'board' if is_board else 'analytical',
                     'cited_provisions': rdf_data.get('citedProvisions', [])
                 })
+
+        def _parent_question(label: str) -> Optional[str]:
+            """Derive parent board question from numbering convention.
+
+            Question_1 → None (is a board question)
+            Question_101 → "Question_1" (first digit = board question number)
+            Question_201 → "Question_2"
+            Question_301, Question_401 → "Question_3"
+            """
+            suffix = label.replace('Question_', '')
+            if not suffix.isdigit():
+                return None
+            n = int(suffix)
+            if n < 10:
+                return None  # board question itself
+            parent_n = n // 100
+            return f"Question_{parent_n}" if parent_n > 0 else None
 
         formatted = []
         for q in questions:
             rdf_data = q.rdf_json_ld or {}
-            q_number = q.entity_label  # e.g., "Q1"
+            q_number = q.entity_label  # e.g., "Question_1"
             formatted.append({
                 'id': q.id,
                 'number': q_number,
                 'question_text': q.entity_definition,
                 'question_type': rdf_data.get('questionType', 'board_explicit'),
+                'parent_question': _parent_question(q_number),
                 'related_provisions': rdf_data.get('relatedProvisions', []),
                 'mentioned_entities': rdf_data.get('mentionedEntities', {}),
                 'linked_conclusions': conclusion_map.get(q_number, [])
             })
 
+        # Build grouped structure: board questions with their sub-questions,
+        # split into analytical (implicit, principle_tension) and theory
+        # (theoretical, counterfactual) groups for progressive disclosure.
+        board_questions = [q for q in formatted if q['question_type'] == 'board_explicit']
+        analytical_by_parent: Dict[str, list] = {}
+        theory_by_parent: Dict[str, list] = {}
+        for q in formatted:
+            parent = q.get('parent_question')
+            if not parent:
+                continue
+            if q['question_type'] in ('implicit', 'principle_tension'):
+                analytical_by_parent.setdefault(parent, []).append(q)
+            else:
+                theory_by_parent.setdefault(parent, []).append(q)
+
         return {
             'view_type': 'qc',
             'count': len(formatted),
             'questions': formatted,
+            'board_questions': board_questions,
+            'analytical_by_parent': analytical_by_parent,
+            'theory_by_parent': theory_by_parent,
             'description': 'Ethical questions linked to their conclusions with emergence and '
                           'resolution overlays, showing how the board reached its findings.'
         }
@@ -150,18 +193,11 @@ class SynthesisViewBuilder:
         decisions = []
         if phase3_prompt and phase3_prompt.raw_response:
             try:
-                # Strip markdown code fences if present
-                response_text = phase3_prompt.raw_response.strip()
-                if response_text.startswith('```'):
-                    # Remove opening fence (```json or ```)
-                    lines = response_text.split('\n', 1)
-                    if len(lines) > 1:
-                        response_text = lines[1]
-                    # Remove closing fence
-                    if response_text.rstrip().endswith('```'):
-                        response_text = response_text.rstrip()[:-3].rstrip()
-
-                raw = json.loads(response_text)
+                from app.utils.llm_json_utils import parse_json_response
+                raw = parse_json_response(
+                    phase3_prompt.raw_response,
+                    context='phase3_decision_synthesis'
+                )
                 if isinstance(raw, list):
                     decisions = raw
                 elif isinstance(raw, dict):
@@ -169,25 +205,27 @@ class SynthesisViewBuilder:
             except json.JSONDecodeError:
                 pass
 
-        # Also check TemporaryRDFStorage for decision points
-        # Note: Decisions are synthesized output, not reviewed entities,
-        # so we don't require is_published=True like we do for provisions
-        if not decisions:
-            decision_entities = TemporaryRDFStorage.query.filter_by(
-                case_id=case_id,
-                extraction_type='canonical_decision_point'
-            ).all()
+        # TemporaryRDFStorage canonical_decision_point entries carry the
+        # full synthesized data (options, Toulmin, Q&C alignment) in
+        # rdf_json_ld.  Use them as the primary source when the
+        # ExtractionPrompt yields fewer items (the prompt often stores
+        # only one merged DP while the DB has the full set).
+        decision_entities = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            extraction_type='canonical_decision_point'
+        ).order_by(TemporaryRDFStorage.created_at).all()
 
+        if len(decision_entities) > len(decisions):
+            decisions = []
             for de in decision_entities:
                 rdf_data = de.rdf_json_ld or {}
-                decisions.append({
-                    'focus_id': de.entity_label,
-                    'description': de.entity_definition,
-                    'decision_question': rdf_data.get('decisionQuestion', ''),
-                    'obligations_in_tension': rdf_data.get('obligationsInTension', []),
-                    'alternatives': rdf_data.get('alternatives', []),
-                    'arguments': rdf_data.get('arguments', {})
-                })
+                # Pass through the full rdf_json_ld as the decision dict,
+                # supplementing with entity-level fields.
+                dp = dict(rdf_data)
+                dp.setdefault('focus_id', rdf_data.get('focus_id', de.entity_label))
+                dp.setdefault('description', rdf_data.get('description', de.entity_definition))
+                dp.setdefault('decision_question', rdf_data.get('decision_question', ''))
+                decisions.append(dp)
 
         return {
             'view_type': 'decisions',

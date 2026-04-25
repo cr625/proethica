@@ -50,8 +50,7 @@
         align-items: center;
     }
     .view-content {
-        max-height: 400px;
-        overflow-y: auto;
+        /* No max-height constraint; views flow naturally within the page */
     }
     .likert-group {
         margin-bottom: 1.5rem;
@@ -219,6 +218,31 @@
     .onto-type-capability  { background: #17a2b8; color: #fff; }
     .onto-type-constraint  { background: #6c757d; color: #fff; }
     .onto-type-entity      { background: #adb5bd; color: #212529; }
+    /* Q&C hierarchical view */
+    .qc-board-question { margin-bottom: 1.5rem; }
+    .qc-board-question > .card { border-left: 4px solid #FFC107; }
+    .qc-sub-questions { margin-left: 1rem; margin-top: 0.5rem; }
+    .qc-sub-question { border-left: 3px solid #dee2e6; padding-left: 0.75rem; margin-bottom: 0.75rem; }
+    .qc-conclusion { border-left: 4px solid #28A745; background-color: #f8fff8; padding: 0.5rem 0.75rem; margin-top: 0.5rem; margin-bottom: 0.5rem; border-radius: 4px; }
+    .qc-conclusion.qc-conclusion-analytical { border-left-color: #6c757d; background-color: #fafafa; }
+    .qc-conclusion-arrow { color: #28A745; font-size: 0.85rem; margin-right: 0.25rem; }
+    .qc-type-legend { font-size: 0.8rem; margin-bottom: 1rem; padding: 0.5rem 0.75rem; background: #f8f9fa; border-radius: 4px; }
+    .qc-type-legend .badge { font-size: 0.7rem; }
+    .qc-sub-toggle { font-size: 0.85rem; cursor: pointer; color: #6c757d; }
+    .qc-sub-toggle:hover { color: #0d6efd; }
+    /* Decisions progressive disclosure */
+    .dp-card { margin-bottom: 0.5rem; }
+    .dp-header { cursor: pointer; padding: 0.5rem 0.75rem; border-radius: 4px; border: 1px solid #dee2e6; transition: background-color 0.15s ease; display: flex; align-items: center; gap: 0.5rem; }
+    .dp-header:hover { background-color: #f8f9fa; border-color: #ced4da; }
+    .dp-chevron { transition: transform 0.2s ease; font-size: 0.8rem; }
+    .dp-header[aria-expanded="true"] .dp-chevron { transform: rotate(90deg); }
+    .dp-body { padding: 0.75rem; }
+    .dp-option { padding: 0.4rem 0.6rem; margin-bottom: 0.25rem; border-radius: 4px; font-size: 0.85rem; border: 1px solid #dee2e6; }
+    .dp-option-chosen { background-color: #d1e7dd; border-color: #a3cfbb; }
+    .dp-toulmin-card { padding: 0.5rem 0.75rem; margin-bottom: 0.5rem; border-radius: 4px; font-size: 0.85rem; }
+    .dp-toulmin-warrants { border-left: 3px solid #198754; background: #f0faf4; }
+    .dp-toulmin-rebuttals { border-left: 3px solid #dc3545; background: #fdf0f0; }
+    .dp-toulmin-grounds { border-left: 3px solid #0d6efd; background: #f0f4fa; }
     /* Facts section readability */
     .facts-section .case-text-content {
         line-height: 1.8;
@@ -628,7 +652,7 @@
                 <div class="tab-pane fade" id="qc-pane">
                     <div class="segue-card segue-qc">
                         <div class="segue-caption">View 3 of 5 &mdash; Questions and Conclusions</div>
-                        The sequence raises ethical questions. This view pairs each question the Board addressed with the conclusion it reached, and annotates both &mdash; which Events triggered the question, which Principles determined the resolution. This is where the case transitions from narrative to formal deliberation.
+                        The sequence raises ethical questions. This view pairs each question the Board addressed with the conclusion it reached. Board questions form the spine; analytical sub-questions elaborate on each. This is where the case transitions from narrative to formal deliberation.
                     </div>
                     <div class="view-card card">
                         <div class="card-header">
@@ -636,24 +660,138 @@
                             <span class="badge bg-purple" style="background: #6f42c1;">{{ views.qc.count }} questions</span>
                         </div>
                         <div class="card-body view-content">
-                            <p class="text-muted small">{{ views.qc.description }}</p>
-                            {% for q in views.qc.questions %}
-                            <div class="question-item">
-                                <strong>{{ q.number }}</strong>
-                                <span class="badge bg-secondary ms-2">{{ q.question_type }}</span>
-                                <p class="mb-1">{{ q.question_text }}</p>
-                                {% if q.linked_conclusions %}
-                                <div class="mt-2 ps-3 border-start border-success">
-                                    <small class="text-muted">Board's conclusion for this question:</small>
-                                    {% for c in q.linked_conclusions %}
-                                    <p class="mb-1 small">{{ c.text|truncate(200) }}</p>
-                                    {% endfor %}
-                                </div>
-                                {% endif %}
+                            {# Question type legend #}
+                            <div class="qc-type-legend">
+                                <span class="badge bg-primary me-1">Board</span> questions the Board explicitly addressed
+                                <span class="mx-1">|</span>
+                                <span class="badge bg-secondary me-1">Analytical</span> implied by the case facts
+                                <span class="mx-1">|</span>
+                                <span class="badge bg-info text-dark me-1">Principle Tension</span> competing principles
+                                <span class="mx-1">|</span>
+                                <span class="badge bg-dark me-1">Theoretical</span> ethical theory perspectives
+                                <span class="mx-1">|</span>
+                                <span class="badge bg-light text-dark border me-1">Counterfactual</span> alternative scenarios
                             </div>
+
+                            {% if views.qc.board_questions %}
+                            {% for bq in views.qc.board_questions %}
+                            {# ── Board Question accordion item ── #}
+                            <div class="qc-board-question">
+                                <div class="card">
+                                    <div class="card-header d-flex align-items-center py-2">
+                                        <span class="badge bg-primary me-2">Board</span>
+                                        <strong class="flex-grow-1">{{ bq.number }}</strong>
+                                        {% if bq.linked_conclusions %}
+                                        <span class="badge bg-success ms-1">{{ bq.linked_conclusions|length }} conclusion{{ 's' if bq.linked_conclusions|length != 1 }}</span>
+                                        {% endif %}
+                                        {% set n_subs = (views.qc.analytical_by_parent.get(bq.number, [])|length) + (views.qc.theory_by_parent.get(bq.number, [])|length) %}
+                                        {% if n_subs %}
+                                        <span class="badge bg-secondary ms-1">{{ n_subs }} sub-question{{ 's' if n_subs != 1 }}</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="card-body py-2">
+                                        <p class="mb-2">{{ bq.question_text }}</p>
+
+                                        {# Board question conclusions #}
+                                        {% for c in bq.linked_conclusions %}
+                                        <div class="qc-conclusion {{ 'qc-conclusion-analytical' if c.conclusion_type != 'board' }}">
+                                            <div class="d-flex align-items-start">
+                                                <span class="qc-conclusion-arrow"><i class="bi bi-arrow-return-right"></i></span>
+                                                <div>
+                                                    <span class="badge {{ 'bg-success' if c.conclusion_type == 'board' else 'bg-secondary' }} me-1" style="font-size: 0.65rem;">{{ c.conclusion_type|title }}</span>
+                                                    <strong class="small">{{ c.label }}</strong>
+                                                    <p class="mb-0 small mt-1">{{ c.text }}</p>
+                                                    {% if c.cited_provisions %}
+                                                    <div class="mt-1">
+                                                        {% for prov in c.cited_provisions %}
+                                                        <span class="badge bg-primary" style="font-size: 0.6rem;">{{ prov }}</span>
+                                                        {% endfor %}
+                                                    </div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+
+                                        {# Sub-questions grouped under this board question #}
+                                        {% set analytical_subs = views.qc.analytical_by_parent.get(bq.number, []) %}
+                                        {% set theory_subs = views.qc.theory_by_parent.get(bq.number, []) %}
+                                        {% if analytical_subs or theory_subs %}
+
+                                        {# Analytical sub-questions (implicit + principle_tension) #}
+                                        {% if analytical_subs %}
+                                        <div class="mt-3">
+                                            <a class="qc-sub-toggle text-decoration-none" data-bs-toggle="collapse"
+                                               href="#qc-analytical-{{ bq.number }}" role="button" aria-expanded="false">
+                                                <i class="bi bi-chevron-right me-1"></i>
+                                                {{ analytical_subs|length }} analytical question{{ 's' if analytical_subs|length != 1 }}
+                                            </a>
+                                            <div class="collapse" id="qc-analytical-{{ bq.number }}">
+                                                <div class="qc-sub-questions">
+                                                    {% for sq in analytical_subs %}
+                                                    <div class="qc-sub-question">
+                                                        <div class="d-flex align-items-center mb-1">
+                                                            <strong class="small me-2">{{ sq.number }}</strong>
+                                                            <span class="badge {{ 'bg-secondary' if sq.question_type == 'implicit' else 'bg-info text-dark' }}" style="font-size: 0.65rem;">{{ sq.question_type|replace('_', ' ')|title }}</span>
+                                                        </div>
+                                                        <p class="small mb-1">{{ sq.question_text }}</p>
+                                                        {% for c in sq.linked_conclusions %}
+                                                        <div class="qc-conclusion {{ 'qc-conclusion-analytical' if c.conclusion_type != 'board' }} ms-2">
+                                                            <div class="d-flex align-items-start">
+                                                                <span class="qc-conclusion-arrow"><i class="bi bi-arrow-return-right"></i></span>
+                                                                <div>
+                                                                    <span class="badge {{ 'bg-success' if c.conclusion_type == 'board' else 'bg-secondary' }}" style="font-size: 0.6rem;">{{ c.conclusion_type|title }}</span>
+                                                                    <span class="small">{{ c.text|truncate(200) }}</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        {% endfor %}
+                                                    </div>
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endif %}
+
+                                        {# Theoretical + counterfactual sub-questions #}
+                                        {% if theory_subs %}
+                                        <div class="mt-2">
+                                            <a class="qc-sub-toggle text-decoration-none" data-bs-toggle="collapse"
+                                               href="#qc-theory-{{ bq.number }}" role="button" aria-expanded="false">
+                                                <i class="bi bi-chevron-right me-1"></i>
+                                                {{ theory_subs|length }} theoretical/counterfactual question{{ 's' if theory_subs|length != 1 }}
+                                            </a>
+                                            <div class="collapse" id="qc-theory-{{ bq.number }}">
+                                                <div class="qc-sub-questions">
+                                                    {% for sq in theory_subs %}
+                                                    <div class="qc-sub-question" style="opacity: 0.85;">
+                                                        <div class="d-flex align-items-center mb-1">
+                                                            <strong class="small me-2">{{ sq.number }}</strong>
+                                                            <span class="badge {{ 'bg-dark' if sq.question_type == 'theoretical' else 'bg-light text-dark border' }}" style="font-size: 0.65rem;">{{ sq.question_type|title }}</span>
+                                                        </div>
+                                                        <p class="small mb-1">{{ sq.question_text }}</p>
+                                                        {% for c in sq.linked_conclusions %}
+                                                        <div class="qc-conclusion qc-conclusion-analytical ms-2">
+                                                            <div class="d-flex align-items-start">
+                                                                <span class="qc-conclusion-arrow"><i class="bi bi-arrow-return-right"></i></span>
+                                                                <span class="small">{{ c.text|truncate(200) }}</span>
+                                                            </div>
+                                                        </div>
+                                                        {% endfor %}
+                                                    </div>
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
                             {% else %}
                             <p class="text-muted">No questions extracted for this case.</p>
-                            {% endfor %}
+                            {% endif %}
                         </div>
                     </div>
                     <div class="view-footer-nav">
@@ -670,7 +808,7 @@
                 <div class="tab-pane fade" id="decisions-pane">
                     <div class="segue-card segue-decisions">
                         <div class="segue-caption">View 4 of 5 &mdash; Decisions</div>
-                        At each decision point the professional could have chosen differently. This view lays out the options the Board considered, the argument structure for and against each one (claim, warrant, grounds, rebuttal), and the Board's choice. Disagreement between your intuition and the Board's reasoning often shows up here first.
+                        At each decision point the professional could have chosen differently. This view lays out the options the Board considered, the argument structure for and against each one (warrants, rebuttals, grounds), and the Board's choice. Disagreement between your intuition and the Board's reasoning often shows up here first.
                     </div>
                     <div class="view-card card">
                         <div class="card-header">
@@ -680,29 +818,113 @@
                         <div class="card-body view-content">
                             <p class="text-muted small">{{ views.decisions.description }}</p>
                             {% for dec in views.decisions.decisions %}
-                            <div class="decision-item">
-                                <strong>{{ dec.focus_id or 'Decision Point' }}</strong>
-                                <p class="mb-1">{{ dec.description or dec.decision_question }}</p>
-                                {% if dec.obligations_in_tension %}
-                                <div class="mt-1">
-                                    <small class="text-muted">Obligations in tension:</small>
-                                    {% for ob in dec.obligations_in_tension %}
-                                    <span class="entity-badge badge bg-warning text-dark">{{ ob }}</span>
-                                    {% endfor %}
+                            <div class="dp-card">
+                                {# Collapsed header #}
+                                <div class="dp-header" data-bs-toggle="collapse"
+                                     data-bs-target="#dp-body-{{ loop.index }}" role="button"
+                                     aria-expanded="false" aria-controls="dp-body-{{ loop.index }}">
+                                    <i class="bi bi-chevron-right dp-chevron"></i>
+                                    <span class="badge bg-primary" style="font-size: 0.7rem;">{{ dec.focus_id or 'DP' ~ loop.index }}</span>
+                                    <span class="small flex-grow-1" style="min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                        {{ (dec.description or dec.decision_question)|truncate(80) }}
+                                    </span>
+                                    {% set opts = dec.options or dec.alternatives or [] %}
+                                    {% if opts %}
+                                    <span class="badge bg-secondary" style="font-size: 0.65rem;">{{ opts|length }} option{{ 's' if opts|length != 1 }}</span>
+                                    {% endif %}
+                                    {% set has_board_choice = opts|selectattr('is_board_choice', 'defined')|selectattr('is_board_choice')|list|length > 0 if opts else false %}
+                                    {% if has_board_choice %}
+                                    <i class="bi bi-check-circle-fill text-success" title="Board choice indicated"></i>
+                                    {% endif %}
                                 </div>
-                                {% endif %}
-                                {% if dec.alternatives %}
-                                <div class="mt-2">
-                                    <small class="text-muted">Alternatives:</small>
-                                    <ul class="mb-0 small">
-                                        {% for alt in dec.alternatives %}
-                                        {% if loop.index <= 3 %}
-                                        <li>{{ alt if alt is string else alt.description }}</li>
+
+                                {# Expanded body #}
+                                <div class="collapse" id="dp-body-{{ loop.index }}">
+                                    <div class="dp-body border border-top-0 rounded-bottom">
+                                        {# Full decision question #}
+                                        <p class="small mb-2">{{ dec.decision_question or dec.description }}</p>
+
+                                        {# Options with board choice #}
+                                        {% if opts %}
+                                        <div class="mb-2">
+                                            <small class="fw-semibold text-muted d-block mb-1">Options considered:</small>
+                                            {% for opt in opts %}
+                                            {% set is_chosen = opt.is_board_choice if opt.is_board_choice is defined else false %}
+                                            <div class="dp-option {{ 'dp-option-chosen' if is_chosen }}">
+                                                <div class="d-flex align-items-start">
+                                                    {% if is_chosen %}
+                                                    <i class="bi bi-check-circle-fill text-success me-2 mt-1" style="flex-shrink: 0;"></i>
+                                                    {% else %}
+                                                    <i class="bi bi-circle text-muted me-2 mt-1" style="flex-shrink: 0;"></i>
+                                                    {% endif %}
+                                                    <div>
+                                                        {% if opt.option_id %}<span class="badge bg-secondary me-1" style="font-size: 0.6rem;">{{ opt.option_id }}</span>{% endif %}
+                                                        <span>{{ opt.description if opt.description is defined else opt }}</span>
+                                                        {% if is_chosen %}<span class="badge bg-success ms-1" style="font-size: 0.6rem;">Board's choice</span>{% endif %}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
                                         {% endif %}
-                                        {% endfor %}
-                                    </ul>
+
+                                        {# Toulmin argument summary -- handle both flat keys
+                                           (toulmin_warrants) and nested object (toulmin.warrants_summary) #}
+                                        {% set tw = dec.toulmin_warrants or (dec.toulmin.warrants_summary if dec.toulmin is mapping else '') %}
+                                        {% set tr = dec.toulmin_rebuttals or (dec.toulmin.rebuttals_summary if dec.toulmin is mapping else '') %}
+                                        {% set td = dec.toulmin_data or (dec.toulmin.data_summary if dec.toulmin is mapping else '') %}
+                                        {% if tw or tr or td %}
+                                        <div class="mt-2">
+                                            <small class="fw-semibold text-muted d-block mb-1">Argument structure:</small>
+                                            {% if tw %}
+                                            <div class="dp-toulmin-card dp-toulmin-warrants">
+                                                <div class="d-flex align-items-start">
+                                                    <i class="bi bi-check-circle text-success me-2 mt-1" style="flex-shrink: 0;"></i>
+                                                    <div>
+                                                        <strong class="small">Warrants</strong>
+                                                        <p class="mb-0 small text-muted mt-1">{{ tw }}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {% endif %}
+                                            {% if tr %}
+                                            <div class="dp-toulmin-card dp-toulmin-rebuttals">
+                                                <div class="d-flex align-items-start">
+                                                    <i class="bi bi-x-circle text-danger me-2 mt-1" style="flex-shrink: 0;"></i>
+                                                    <div>
+                                                        <strong class="small">Rebuttals</strong>
+                                                        <p class="mb-0 small text-muted mt-1">{{ tr }}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {% endif %}
+                                            {% if td %}
+                                            <div class="dp-toulmin-card dp-toulmin-grounds">
+                                                <div class="d-flex align-items-start">
+                                                    <i class="bi bi-file-earmark-text text-primary me-2 mt-1" style="flex-shrink: 0;"></i>
+                                                    <div>
+                                                        <strong class="small">Grounds</strong>
+                                                        <p class="mb-0 small text-muted mt-1">{{ td }}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        {% endif %}
+
+                                        {# Obligations in tension (if present) #}
+                                        {% if dec.obligation_label or dec.constraint_label %}
+                                        <div class="mt-2">
+                                            {% if dec.obligation_label %}
+                                            <span class="entity-badge badge onto-type-obligation">{{ dec.obligation_label }}</span>
+                                            {% endif %}
+                                            {% if dec.constraint_label %}
+                                            <span class="entity-badge badge onto-type-constraint">{{ dec.constraint_label }}</span>
+                                            {% endif %}
+                                        </div>
+                                        {% endif %}
+                                    </div>
                                 </div>
-                                {% endif %}
                             </div>
                             {% else %}
                             <p class="text-muted">No decision points extracted for this case.</p>
@@ -814,8 +1036,11 @@
                     <p>Rate how well each synthesis view helped you understand this case. Use the scale from 1 (Strongly Disagree) to 7 (Strongly Agree).</p>
 
                     <!-- Narrative View Utility (View 1) -->
-                    <div class="likert-group">
-                        <h6 class="border-bottom pb-2"><i class="bi bi-journal-text me-2"></i>Narrative View Utility</h6>
+                    <div class="likert-group card">
+                        <div class="card-header py-2" style="background: rgba(25,135,84,0.1); border-left: 4px solid #198754;">
+                            <h6 class="mb-0"><i class="bi bi-journal-text me-2"></i>Narrative View</h6>
+                        </div>
+                        <div class="card-body pt-2 pb-0">
 
                         <div class="likert-item">
                             <div class="likert-label">The character profiles and ethical tensions helped me understand who was affected and why.</div>
@@ -855,11 +1080,15 @@
                             </div>
                             <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
                         </div>
+                        </div>
                     </div>
 
                     <!-- Timeline View Utility (View 2) -->
-                    <div class="likert-group">
-                        <h6 class="border-bottom pb-2"><i class="bi bi-clock-history me-2"></i>Timeline View Utility</h6>
+                    <div class="likert-group card">
+                        <div class="card-header py-2" style="background: rgba(32,201,151,0.1); border-left: 4px solid #20c997;">
+                            <h6 class="mb-0"><i class="bi bi-clock-history me-2"></i>Timeline View</h6>
+                        </div>
+                        <div class="card-body pt-2 pb-0">
 
                         <div class="likert-item">
                             <div class="likert-label">The temporal sequence of events helped me understand how the situation developed.</div>
@@ -899,11 +1128,15 @@
                             </div>
                             <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
                         </div>
+                        </div>
                     </div>
 
                     <!-- Q&C View Utility (View 3) -->
-                    <div class="likert-group">
-                        <h6 class="border-bottom pb-2"><i class="bi bi-question-circle me-2"></i>Q&amp;C View Utility</h6>
+                    <div class="likert-group card">
+                        <div class="card-header py-2" style="background: rgba(111,66,193,0.1); border-left: 4px solid #6f42c1;">
+                            <h6 class="mb-0"><i class="bi bi-question-circle me-2"></i>Q&amp;C View</h6>
+                        </div>
+                        <div class="card-body pt-2 pb-0">
 
                         <div class="likert-item">
                             <div class="likert-label">The extracted questions helped me see the ethical issues at stake.</div>
@@ -943,11 +1176,15 @@
                             </div>
                             <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
                         </div>
+                        </div>
                     </div>
 
                     <!-- Decisions View Utility (View 4) -->
-                    <div class="likert-group">
-                        <h6 class="border-bottom pb-2"><i class="bi bi-signpost-split me-2"></i>Decisions View Utility</h6>
+                    <div class="likert-group card">
+                        <div class="card-header py-2" style="background: rgba(253,126,20,0.1); border-left: 4px solid #fd7e14;">
+                            <h6 class="mb-0"><i class="bi bi-signpost-split me-2"></i>Decisions View</h6>
+                        </div>
+                        <div class="card-body pt-2 pb-0">
 
                         <div class="likert-item">
                             <div class="likert-label">The decision points helped me understand the choices the professional faced.</div>
@@ -987,11 +1224,15 @@
                             </div>
                             <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
                         </div>
+                        </div>
                     </div>
 
                     <!-- Provisions View Utility (View 5) -->
-                    <div class="likert-group">
-                        <h6 class="border-bottom pb-2"><i class="bi bi-book me-2"></i>Provisions View Utility</h6>
+                    <div class="likert-group card">
+                        <div class="card-header py-2" style="background: rgba(13,110,253,0.1); border-left: 4px solid #0d6efd;">
+                            <h6 class="mb-0"><i class="bi bi-book me-2"></i>Provisions View</h6>
+                        </div>
+                        <div class="card-body pt-2 pb-0">
 
                         <div class="likert-item">
                             <div class="likert-label">The code provision mapping helped me identify which professional standards apply to this case</div>
@@ -1031,11 +1272,15 @@
                             </div>
                             <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
                         </div>
+                        </div>
                     </div>
 
                     <!-- Overall Utility -->
-                    <div class="likert-group">
-                        <h6 class="border-bottom pb-2"><i class="bi bi-check-circle me-2"></i>Overall Utility</h6>
+                    <div class="likert-group card">
+                        <div class="card-header py-2" style="background: rgba(108,117,125,0.08); border-left: 4px solid #6c757d;">
+                            <h6 class="mb-0"><i class="bi bi-check-circle me-2"></i>Overall</h6>
+                        </div>
+                        <div class="card-body pt-2 pb-0">
 
                         <div class="likert-item">
                             <div class="likert-label">The structured presentation helped me understand this case.</div>
@@ -1076,6 +1321,7 @@
                                 {% endfor %}
                             </div>
                             <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
+                        </div>
                         </div>
                     </div>
                 </div>
