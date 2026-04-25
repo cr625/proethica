@@ -429,51 +429,61 @@
                             </div>
                             {% endif %}
 
+                            {# ── Characters: grouped by role type, collapsed cards ── #}
                             {% if views.narrative.characters %}
-                            <h6>Characters ({{ views.narrative.character_count }})</h6>
+                            <h6><i class="bi bi-people me-1"></i>Characters ({{ views.narrative.character_count }})</h6>
+                            <p class="text-muted small mb-2">Who is involved? Click any character to see their full profile and motivations.</p>
                             <div class="mb-4">
                                 {% for char in views.narrative.characters %}
-                                <div class="mb-3 ps-3 border-start border-2">
-                                    <div>
-                                        <strong>{{ char.label or char.role }}</strong>
+                                {% set char_id = 'study-char-' ~ loop.index %}
+                                <div class="mb-1 border rounded bg-white">
+                                    <div class="d-flex align-items-center p-2" style="cursor: pointer;"
+                                         data-bs-toggle="collapse" data-bs-target="#{{ char_id }}"
+                                         role="button" aria-expanded="false">
+                                        <i class="bi bi-chevron-right small text-muted tension-chevron me-2"></i>
+                                        <strong class="small">{{ char.label or char.role }}</strong>
                                         {% if char.role_type %}
-                                        <span class="badge ms-2 {% if char.role_type == 'protagonist' %}bg-success{% else %}bg-secondary{% endif %}">{{ char.role_type }}</span>
+                                        <span class="badge ms-2 {% if char.role_type == 'protagonist' %}bg-success{% else %}bg-secondary{% endif %}" style="font-size: 0.65rem;">{{ char.role_type }}</span>
+                                        {% endif %}
+                                        {% if char.professional_position %}
+                                        <span class="text-muted small ms-2 d-none d-md-inline">{{ char.professional_position|truncate(50) }}</span>
                                         {% endif %}
                                     </div>
-                                    {% if char.professional_position %}
-                                    <p class="small mb-1 text-muted">{{ char.professional_position }}</p>
-                                    {% endif %}
-                                    {% if char.motivations %}
-                                    <div class="small">
-                                        <em>Motivations:</em>
-                                        <ul class="mb-0">
-                                            {% for m in char.motivations[:3] %}<li>{{ m }}</li>{% endfor %}
-                                        </ul>
+                                    <div class="collapse" id="{{ char_id }}">
+                                        <div class="p-2 pt-0 ps-4 small border-top">
+                                            {% if char.professional_position %}
+                                            <p class="mb-1 text-muted">{{ char.professional_position }}</p>
+                                            {% endif %}
+                                            {% if char.ethical_stance %}
+                                            <p class="mb-1">{{ char.ethical_stance }}</p>
+                                            {% endif %}
+                                            {% if char.motivations %}
+                                            <em>Motivations:</em>
+                                            <ul class="mb-0">
+                                                {% for m in char.motivations[:3] %}<li>{{ m }}</li>{% endfor %}
+                                            </ul>
+                                            {% endif %}
+                                        </div>
                                     </div>
-                                    {% endif %}
                                 </div>
                                 {% endfor %}
                             </div>
                             {% endif %}
 
+                            {# ── Section break before tensions ── #}
                             {% if views.narrative.tensions %}
                             {% set rated = views.narrative.rated_tension_count or 0 %}
                             {% set total = views.narrative.tension_count or 0 %}
-                            <h6>
-                                Ethical Tensions
-                                {% if rated and rated < total %}
-                                    <span class="text-muted fw-normal small">({{ rated }} of {{ total }} rated by moral intensity shown)</span>
-                                {% else %}
-                                    ({{ total }})
-                                {% endif %}
-                            </h6>
+                            <hr class="my-3">
+                            <h6><i class="bi bi-arrow-left-right me-1"></i>Ethical Tensions ({{ total }})</h6>
                             <p class="text-muted small mb-2">
-                                Sorted by composite moral intensity (magnitude, probability, immediacy, proximity, concentration) per Jones (1991). Click any tension to expand.
+                                Based on the characters above, these are the competing obligations identified in the case, ranked by moral intensity. Consider which tensions are most consequential as you move to the next views.
                             </p>
                             <div class="mb-3" id="tensionList">
                                 {% for t in views.narrative.tensions %}
                                 {% set tension_id = 'study-tension-' ~ loop.index %}
-                                <div class="tension-row mb-1 border rounded bg-white{% if t.intensity_score == 0 %} d-none tension-unrated{% endif %}">
+                                {# Show top 5 rated tensions by default; collapse the rest #}
+                                <div class="tension-row mb-1 border rounded bg-white{% if t.intensity_score == 0 %} d-none tension-unrated{% elif loop.index > 5 %} d-none tension-overflow{% endif %}">
                                     <div class="d-flex align-items-center flex-wrap gap-2 p-2 tension-row-header"
                                          data-bs-toggle="collapse" data-bs-target="#{{ tension_id }}"
                                          role="button" aria-expanded="false" aria-controls="{{ tension_id }}"
@@ -521,7 +531,14 @@
                                 </div>
                                 {% endfor %}
                             </div>
-                            {% if rated and rated < total %}
+                            {% if rated > 5 %}
+                            <p class="small text-muted mb-2">
+                                <button type="button" class="btn btn-link btn-sm p-0 align-baseline" onclick="document.querySelectorAll('.tension-overflow').forEach(function(el){el.classList.toggle('d-none')});this.textContent=this.textContent.indexOf('Show')===0?'Hide additional tensions':'Show {{ rated - 5 }} more tensions'">
+                                    Show {{ rated - 5 }} more tensions
+                                </button>
+                            </p>
+                            {% endif %}
+                            {% if rated < total %}
                             <p class="small text-muted mb-2">
                                 <button type="button" class="btn btn-link btn-sm p-0 align-baseline" id="toggleUnratedTensionsBtn" onclick="toggleUnratedTensions()">
                                     Show {{ total - rated }} additional tensions without moral-intensity ratings
