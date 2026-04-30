@@ -19,6 +19,7 @@ NOT require login; authentication is by possession of the random code only.
 
 import hashlib
 import logging
+import os
 import secrets
 import uuid
 from datetime import datetime
@@ -51,7 +52,8 @@ def handle_csrf_error(e):
 
 # Information Sheet versions. Bump these when the .docx (or template) changes
 # and update the corresponding template together.
-INFO_SHEET_VERSION = 'v2'                    # Drexel-student senior-design channel (HRP-506)
+# v2.1 (2026-04-30): added mention of post-task demographics questionnaire.
+INFO_SHEET_VERSION = 'v2.1'                  # Drexel-student senior-design channel (HRP-506)
 INFO_SHEET_VERSION_PROLIFIC = 'v3-prolific'  # Prolific adult-population channel (HRP-506b)
 
 # Ambiguity-stripped alphabet for participant codes (no 0/O, 1/I, L).
@@ -61,6 +63,11 @@ CODE_LENGTH = 8
 # Prolific URL parameter names. Prolific's External Study integration injects
 # these via {{%PROLIFIC_PID%}}, {{%STUDY_ID%}}, {{%SESSION_ID%}} substitution.
 PROLIFIC_PARAMS = ('prolific_pid', 'study_id', 'session_id')
+
+# Prolific submission-completion URL pattern. Participants are redirected here
+# after they finish; the `cc` param is the fixed completion code registered in
+# the Prolific study config (env: PROLIFIC_COMPLETION_CODE_SUCCESS).
+PROLIFIC_COMPLETION_URL_BASE = 'https://app.prolific.co/submissions/complete'
 
 
 def generate_participant_code() -> str:
@@ -697,8 +704,20 @@ def _submit_demographics(val_session):
 
 @study_bp.route('/complete')
 def complete():
-    """Study completion page. Displays both participant_code and (for paid
-    panel completions) the Prolific completion_code with copy-to-clipboard.
+    """Study completion page.
+
+    For Drexel-channel participants: shows the per-session completion_code as
+    a small confirmation reference.
+
+    For Prolific-channel participants: shows a "Return to Prolific" button
+    (auto-redirect to Prolific's submissions/complete URL with the fixed
+    completion code from PROLIFIC_COMPLETION_CODE_SUCCESS env var) plus the
+    fixed code as a paste fallback. The per-session completion_code is shown
+    as a small "Reference" line for our internal audit.
+
+    If the env var is unset (e.g., before the Prolific account exists), the
+    page degrades to manual paste of the per-session code only, with a
+    dev-only banner noting the missing configuration.
     """
     code = get_participant_code()
     val_session = load_session(code) if code else None
@@ -709,10 +728,18 @@ def complete():
         and val_session.recruitment_source == 'prolific_engineering_trained'
     )
 
+    fixed_prolific_cc = os.environ.get('PROLIFIC_COMPLETION_CODE_SUCCESS', '').strip() or None
+    prolific_return_url = (
+        f"{PROLIFIC_COMPLETION_URL_BASE}?cc={fixed_prolific_cc}"
+        if fixed_prolific_cc else None
+    )
+
     return render_template('validation_study/complete.html',
                            participant_code=code,
                            completion_code=completion_code,
-                           is_prolific=is_prolific)
+                           is_prolific=is_prolific,
+                           fixed_prolific_cc=fixed_prolific_cc,
+                           prolific_return_url=prolific_return_url)
 
 
 # =============================================================================
@@ -757,91 +784,118 @@ from sqlalchemy import func, distinct
 @study_bp.route('/admin/')
 @admin_required_production
 def admin_dashboard():
-    """Validation studies management dashboard."""
-    from app.models.experiment import ExperimentRun, Prediction, ExperimentEvaluation
-    from app.services.experiment.validation_export_service import ValidationExportService
+    """Validation study admin dashboard.
 
-    # Get experiment statistics (old comparative system)
-    total_studies = ExperimentRun.query.count()
-    completed_studies = ExperimentRun.query.filter_by(status='completed').count()
+    Focused on the active view-utility study (validation pivot, plan
+    `validation-crowdsource-pivot.md`). Surfaces the operational metrics
+    needed to monitor enrollment, completion, per-case coverage (against
+    the 23-case pool with n>=5 threshold), and data-quality flags
+    (attention-check pass rate, demographics completion).
 
-    # Get prediction statistics
-    total_predictions = Prediction.query.count()
-    proethica_predictions = Prediction.query.filter_by(condition='proethica').count()
-    baseline_predictions = Prediction.query.filter_by(condition='baseline').count()
+    The legacy comparative-prediction system (ExperimentRun / Prediction /
+    double-blind evaluation) is intentionally NOT surfaced here during the
+    pivot. A collapsed link to `/experiment/` remains for ad-hoc access.
+    Revisit post-pivot if the legacy admin panels are still needed for
+    Chapter 4 secondary analyses.
+    """
+    from app.config.study_case_pool import STUDY_CASE_POOL_IDS, STUDY_CASE_POOL_SIZE
 
-    # Get evaluation statistics (old system)
-    total_evaluations = ExperimentEvaluation.query.count()
-    unique_evaluators = db.session.query(
-        func.count(distinct(ExperimentEvaluation.evaluator_id))
-    ).scalar() or 0
-
-    # Get case statistics
-    available_cases = Document.query.filter(
-        Document.document_type.in_(['case', 'case_study'])
-    ).count()
-
-    # Get cases with predictions
-    cases_with_pred_ids = db.session.query(distinct(Prediction.document_id)).all()
-    cases_with_predictions_count = len(cases_with_pred_ids)
-
-    # View Utility statistics
-    view_utility_sessions = ValidationSession.query.count()
-    view_utility_completed_sessions = ValidationSession.query.filter(
-        ValidationSession.completed_at.isnot(None)
-    ).count()
-    view_utility_evaluations = ViewUtilityEvaluation.query.count()
-    view_utility_evaluators = db.session.query(
-        func.count(distinct(ViewUtilityEvaluation.evaluator_id))
-    ).scalar() or 0
-    view_utility_retrospectives = RetrospectiveReflection.query.count()
-
-    # Build stats dictionary
-    stats = {
-        'total_studies': total_studies,
-        'completed_studies': completed_studies,
-        'total_predictions': total_predictions,
-        'proethica_predictions': proethica_predictions,
-        'baseline_predictions': baseline_predictions,
-        'total_evaluations': total_evaluations,
-        'unique_evaluators': unique_evaluators,
-        'available_cases': available_cases,
-        'cases_with_predictions': cases_with_predictions_count,
-        # View utility stats
-        'study_sessions': view_utility_sessions,
-        'study_completed_sessions': view_utility_completed_sessions,
-        'study_evaluations': view_utility_evaluations,
-        'study_evaluators': view_utility_evaluators,
-        'study_retrospectives': view_utility_retrospectives
+    # Enrollment, by recruitment_source.
+    by_source_rows = db.session.query(
+        ValidationSession.recruitment_source,
+        func.count(ValidationSession.id).label('enrolled'),
+        func.count(ValidationSession.completed_at).label('completed'),
+    ).group_by(ValidationSession.recruitment_source).all()
+    by_source = {
+        row.recruitment_source: {'enrolled': row.enrolled, 'completed': row.completed}
+        for row in by_source_rows
     }
+    # Ensure both channels appear in the UI even at zero.
+    for src in ('drexel_student', 'prolific_engineering_trained'):
+        by_source.setdefault(src, {'enrolled': 0, 'completed': 0})
 
-    # Get recent studies
-    studies = ExperimentRun.query.order_by(
-        ExperimentRun.created_at.desc()
+    total_enrolled = sum(s['enrolled'] for s in by_source.values())
+    total_completed = sum(s['completed'] for s in by_source.values())
+    total_in_progress = total_enrolled - total_completed
+
+    # Per-case coverage against the 23-case study pool.
+    # Counts distinct evaluators per case (only completed evaluations).
+    coverage_rows = db.session.query(
+        ViewUtilityEvaluation.case_id,
+        func.count(distinct(ViewUtilityEvaluation.evaluator_id)).label('n_raters'),
+    ).filter(
+        ViewUtilityEvaluation.case_id.in_(STUDY_CASE_POOL_IDS),
+        ViewUtilityEvaluation.completed_at.isnot(None),
+    ).group_by(ViewUtilityEvaluation.case_id).all()
+    coverage_map = {row.case_id: row.n_raters for row in coverage_rows}
+
+    # Build coverage list ordered by case_id, with title for display.
+    case_titles = {
+        d.id: d.title
+        for d in Document.query.filter(Document.id.in_(STUDY_CASE_POOL_IDS)).all()
+    }
+    coverage_threshold = 5  # Krippendorff floor per plan §0 #6
+    coverage = []
+    for cid in STUDY_CASE_POOL_IDS:
+        n = coverage_map.get(cid, 0)
+        coverage.append({
+            'case_id': cid,
+            'title': case_titles.get(cid, f'Case {cid}'),
+            'n_raters': n,
+            'meets_threshold': n >= coverage_threshold,
+        })
+    coverage_under = [c for c in coverage if not c['meets_threshold']]
+
+    # Data-quality flags.
+    total_evals = ViewUtilityEvaluation.query.filter(
+        ViewUtilityEvaluation.completed_at.isnot(None)
+    ).count()
+    attn_answered = ViewUtilityEvaluation.query.filter(
+        ViewUtilityEvaluation.attention_check_response.isnot(None)
+    ).count()
+    attn_passed = ViewUtilityEvaluation.query.filter(
+        ViewUtilityEvaluation.attention_check_response == 1
+    ).count()
+    low_effort_flagged = ViewUtilityEvaluation.query.filter(
+        ViewUtilityEvaluation.low_effort_flag.is_(True)
+    ).count()
+    demographics_completed = ValidationSession.query.filter(
+        ValidationSession.demographics_completed_at.isnot(None)
+    ).count()
+
+    # Recent sessions for the operations table (last 10).
+    recent_sessions = ValidationSession.query.order_by(
+        ValidationSession.started_at.desc()
     ).limit(10).all()
 
-    # Get cases that have predictions
-    cases_with_predictions = []
-    if cases_with_pred_ids:
-        pred_case_ids = [c[0] for c in cases_with_pred_ids if c[0] is not None]
-        if pred_case_ids:
-            cases = Document.query.filter(Document.id.in_(pred_case_ids)).all()
-            for case in cases:
-                from app.models.experiment import Prediction
-                prediction_count = Prediction.query.filter_by(document_id=case.id).count()
-                case.prediction_count = prediction_count
-                cases_with_predictions.append(case)
-
-    # Get all available cases for the generate predictions modal
-    all_cases = Document.query.filter(
-        Document.document_type.in_(['case', 'case_study'])
-    ).order_by(Document.title).all()
+    stats = {
+        'total_enrolled': total_enrolled,
+        'total_completed': total_completed,
+        'total_in_progress': total_in_progress,
+        'pool_size': STUDY_CASE_POOL_SIZE,
+        'coverage_threshold': coverage_threshold,
+        'cases_meeting_threshold': sum(1 for c in coverage if c['meets_threshold']),
+        'cases_under_threshold': len(coverage_under),
+        'total_evaluations': total_evals,
+        'attention_check_answered': attn_answered,
+        'attention_check_passed': attn_passed,
+        'attention_check_pass_rate': (
+            round(100.0 * attn_passed / attn_answered, 1) if attn_answered else None
+        ),
+        'low_effort_flagged': low_effort_flagged,
+        'demographics_completed': demographics_completed,
+        'demographics_completion_rate': (
+            round(100.0 * demographics_completed / total_completed, 1)
+            if total_completed else None
+        ),
+        'by_source': by_source,
+    }
 
     return render_template('validation_study/admin_dashboard.html',
-                         stats=stats,
-                         studies=studies,
-                         cases_with_predictions=cases_with_predictions,
-                         all_cases=all_cases)
+                           stats=stats,
+                           coverage=coverage,
+                           coverage_under=coverage_under,
+                           recent_sessions=recent_sessions)
 
 
 @study_bp.route('/admin/export')

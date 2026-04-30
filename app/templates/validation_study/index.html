@@ -66,10 +66,16 @@
       </div>
 
       <div class="card mt-3">
-        <div class="card-header"><h6 class="mb-0"><i class="bi bi-info-circle me-2"></i>About this study</h6></div>
+        <div class="card-header"><h6 class="mb-0"><i class="bi bi-info-circle me-2"></i>What to expect</h6></div>
         <div class="card-body small">
-          <p>You will review 3-4 ethics cases and rate five analytical views for each.</p>
-          <p class="mb-0">Total time: approximately 1 hour, spread across multiple sessions if you prefer.</p>
+          <p class="mb-2">After you start, you will be assigned 3&ndash;4 ethics cases. For each case (~15 minutes):</p>
+          <ul class="small mb-2 ps-3">
+            <li>Read the facts.</li>
+            <li>Review five analytical views.</li>
+            <li>Rate the views and answer brief comprehension questions.</li>
+          </ul>
+          <p class="mb-0">After all cases: rank the views, answer five demographic items, and finish.
+          Total time approximately 1 hour. You may pause and resume anytime using your participant code.</p>
         </div>
       </div>
     </div>
@@ -77,22 +83,33 @@
 
 {% elif phase == 'dashboard' %}
 
+  {% set is_first_visit = (completed_count == 0) %}
+  {% set is_prolific_participant = (session and session.recruitment_source == 'prolific_engineering_trained') %}
+
   <div class="row mb-4">
     <div class="col-12">
-      <div class="d-flex justify-content-between align-items-center">
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
         <div>
+          {% if is_first_visit %}
+          <h1 class="h2 mb-0"><i class="bi bi-stars text-primary me-2"></i>Welcome. Your study is set up</h1>
+          <p class="text-muted mb-0">The cards below preview each step. Start your first case when ready.</p>
+          {% else %}
           <h1 class="h2 mb-0"><i class="bi bi-clipboard-check text-primary me-2"></i>Your Study Dashboard</h1>
-          <p class="text-muted mb-0">Evaluate five synthesis views for professional ethics cases</p>
+          <p class="text-muted mb-0">Pick up where you left off, or review the steps below.</p>
+          {% endif %}
         </div>
         <div class="text-end">
           <div class="small text-muted">Your participant code:</div>
-          <div class="d-flex align-items-center">
+          <div class="d-flex align-items-center justify-content-end">
             <code class="fs-4 me-2" id="participant-code">{{ participant_code }}</code>
             <button class="btn btn-sm btn-outline-secondary"
                     onclick="navigator.clipboard.writeText('{{ participant_code }}')"
                     title="Copy to clipboard"><i class="bi bi-clipboard"></i></button>
           </div>
-          <div class="small text-muted">Save this code to return later.</div>
+          <div class="small text-muted">
+            <i class="bi bi-pause-circle me-1"></i>
+            You can pause anytime and return by re-entering this code.
+          </div>
         </div>
       </div>
     </div>
@@ -118,12 +135,19 @@
 
           {% if session.is_complete %}
           <a href="{{ url_for('study.retrospective') }}" class="btn btn-warning btn-lg w-100">
-            <i class="bi bi-journal-text me-1"></i> Complete retrospective reflection
+            <i class="bi bi-journal-text me-1"></i> Continue to view ranking
           </a>
+          <p class="small text-muted mb-0 mt-2">
+            All your cases are complete. Three short steps remain (see "After your cases" below).
+          </p>
           {% elif next_case %}
           <a href="{{ url_for('study.evaluate_case', case_id=next_case.id) }}" class="btn btn-primary btn-lg w-100">
-            <i class="bi bi-play-fill me-2"></i> Continue: {{ next_case.title|truncate(40) }}
+            <i class="bi bi-play-fill me-2"></i>
+            {% if is_first_visit %}Start your first case{% else %}Continue{% endif %}: {{ next_case.title|truncate(40) }}
           </a>
+          <p class="small text-muted mb-0 mt-2">
+            Each case takes about 15 minutes. You may pause and resume between cases.
+          </p>
           {% else %}
           <p class="text-muted mb-0">No cases assigned yet.</p>
           {% endif %}
@@ -133,15 +157,97 @@
 
     <div class="col-md-6">
       <div class="card">
-        <div class="card-header"><h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>For each case you will</h5></div>
+        <div class="card-header"><h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>What happens in each case</h5></div>
         <div class="card-body">
           <ol class="small mb-0">
-            <li>Read the case facts (Discussion and Conclusions withheld).</li>
-            <li>Review five synthesis views: Provisions, Q&amp;C, Decisions, Timeline, Narrative.</li>
-            <li>Rate 18 Likert items on how helpful each view was.</li>
-            <li>Answer four open-ended comprehension questions.</li>
-            <li>See the board's Discussion and Conclusions revealed.</li>
-            <li>Rate how well your answers aligned with the board's reasoning.</li>
+            <li>
+              <strong>Read the case facts.</strong>
+              The board's Discussion and Conclusions are hidden at first so we can compare your
+              read against the board's later.
+            </li>
+            <li>
+              <strong>Look at five views of the case.</strong>
+              Each view organizes the same case differently. See "The five views" below
+              for what each one shows.
+            </li>
+            <li>
+              <strong>Rate each view on a 1&ndash;7 scale</strong>,
+              from Strongly Disagree to Strongly Agree. About 18 short items per case.
+            </li>
+            <li>
+              <strong>Answer four short open-ended questions</strong>
+              about the case in your own words.
+            </li>
+            <li>
+              <strong>The board's Discussion and Conclusions are revealed</strong>
+              for you to read.
+            </li>
+            <li>
+              <strong>Rate how well your earlier answers lined up</strong>
+              with the board's reasoning.
+            </li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# View glossary + "after your cases" preview #}
+  <div class="row mb-4">
+    <div class="col-md-7">
+      <div class="card h-100">
+        <div class="card-header">
+          <h5 class="mb-0"><i class="bi bi-grid-3x3-gap me-2"></i>The five views, in tab order</h5>
+        </div>
+        <div class="card-body">
+          <dl class="row mb-0 small">
+            <dt class="col-sm-3"><i class="bi bi-journal-text text-success me-1"></i>Narrative</dt>
+            <dd class="col-sm-9">The people involved, what was at stake, and the ethical tensions in the situation.</dd>
+
+            <dt class="col-sm-3"><i class="bi bi-clock-history me-1" style="color: #6c757d;"></i>Timeline</dt>
+            <dd class="col-sm-9">The order of events, with the points where ethical obligations were activated.</dd>
+
+            <dt class="col-sm-3"><i class="bi bi-question-circle me-1" style="color: #6f42c1;"></i>Q&amp;C</dt>
+            <dd class="col-sm-9">Questions the board asked about the case, with how each was answered.</dd>
+
+            <dt class="col-sm-3"><i class="bi bi-signpost-split me-1" style="color: #fd7e14;"></i>Decisions</dt>
+            <dd class="col-sm-9">The choices the professional faced, with the arguments for each option.</dd>
+
+            <dt class="col-sm-3 mb-0"><i class="bi bi-book text-primary me-1"></i>Provisions</dt>
+            <dd class="col-sm-9 mb-0">Which sections of the professional code of ethics apply to the case.</dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-5">
+      <div class="card h-100">
+        <div class="card-header">
+          <h5 class="mb-0"><i class="bi bi-flag me-2"></i>After your {{ total_count }} cases</h5>
+        </div>
+        <div class="card-body">
+          <p class="small text-muted mb-2">
+            Three short steps remain after the last case:
+          </p>
+          <ol class="small mb-0">
+            <li>
+              <strong>Rank the five views</strong> from most to least useful
+              for understanding cases overall.
+            </li>
+            <li>
+              <strong>Brief demographics.</strong>
+              Five multiple-choice items about your background. You can skip any.
+            </li>
+            <li>
+              {% if is_prolific_participant %}
+              <strong>Completion code is shown.</strong>
+              Paste it into Prolific to receive your $9.00 payment
+              (within 14 days).
+              {% else %}
+              <strong>Thank-you screen.</strong>
+              Confirms your participation has been recorded.
+              {% endif %}
+            </li>
           </ol>
         </div>
       </div>

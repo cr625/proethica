@@ -11,32 +11,78 @@
                     <i class="bi bi-check-circle-fill text-success" style="font-size: 5rem;"></i>
                 </div>
 
-                <h1 class="h2 mb-3">Thank You!</h1>
+                <h1 class="h2 mb-3">Thank You.</h1>
                 <p class="lead text-muted">
                     You have successfully completed the study.
                 </p>
 
                 <hr class="my-4">
 
-                {% if is_prolific and completion_code %}
-                <div class="alert alert-primary text-start">
+                {% if is_prolific %}
+                  {% if prolific_return_url %}
+                  {# Happy path: env-configured Prolific submission redirect #}
+                  <div class="alert alert-primary text-start">
+                    <h5 class="mb-2"><i class="bi bi-box-arrow-up-right me-2"></i>Return to Prolific to receive payment</h5>
+                    <p class="mb-3 small">
+                      Click the button below to return to Prolific. Your completion will be recorded automatically and payment will be processed.
+                    </p>
+                    <div class="d-grid mb-3">
+                      <a href="{{ prolific_return_url }}" class="btn btn-primary btn-lg">
+                        <i class="bi bi-arrow-return-right me-2"></i>Return to Prolific and submit
+                      </a>
+                    </div>
+
+                    <details class="small">
+                      <summary class="text-muted">Button not working? Paste this code into Prolific instead.</summary>
+                      <div class="mt-2 d-flex align-items-center gap-2">
+                        <code class="fs-5 px-3 py-2 bg-white border rounded">{{ fixed_prolific_cc }}</code>
+                        <button type="button" class="btn btn-sm btn-outline-primary"
+                                onclick="navigator.clipboard.writeText('{{ fixed_prolific_cc }}'); this.innerHTML='<i class=&quot;bi bi-check2&quot;></i> Copied';">
+                          <i class="bi bi-clipboard me-1"></i>Copy code
+                        </button>
+                      </div>
+                      <p class="text-muted small mb-0 mt-2">
+                        Paste this code into Prolific within 14 days for payment to be processed.
+                      </p>
+                    </details>
+                  </div>
+
+                  {% else %}
+                  {# Fallback: env var unset (e.g., Prolific account not yet provisioned). #}
+                  {# Show per-session code for manual paste; surface a dev-only warning. #}
+                  <div class="alert alert-primary text-start">
                     <h5 class="mb-2"><i class="bi bi-award me-2"></i>Your Prolific completion code</h5>
                     <p class="mb-3 small">
-                        Paste this code into Prolific within 14 days to receive payment. This code is unique to your participation.
+                      Paste this code into Prolific within 14 days to receive payment.
                     </p>
                     <div class="d-flex align-items-center gap-2 mb-2">
-                        <code class="fs-3 px-3 py-2 bg-white border rounded" id="completion-code">{{ completion_code }}</code>
-                        <button type="button" class="btn btn-outline-primary"
-                                onclick="navigator.clipboard.writeText('{{ completion_code }}'); this.innerHTML='<i class=&quot;bi bi-check2&quot;></i> Copied';"
-                                title="Copy completion code">
-                            <i class="bi bi-clipboard me-1"></i>Copy
-                        </button>
+                      <code class="fs-3 px-3 py-2 bg-white border rounded" id="completion-code">{{ completion_code }}</code>
+                      <button type="button" class="btn btn-outline-primary"
+                              onclick="navigator.clipboard.writeText('{{ completion_code }}'); this.innerHTML='<i class=&quot;bi bi-check2&quot;></i> Copied';"
+                              title="Copy completion code">
+                        <i class="bi bi-clipboard me-1"></i>Copy
+                      </button>
                     </div>
-                    <p class="small mb-0 text-muted">
-                        Or return to Prolific via the completion URL Prolific provided when you started the study; the code is also embedded there.
-                    </p>
-                </div>
+                  </div>
+                  {% if config.get('ENVIRONMENT') == 'development' %}
+                  <div class="alert alert-warning text-start small">
+                    <strong>Dev notice.</strong>
+                    PROLIFIC_COMPLETION_CODE_SUCCESS is not set in <code>.env</code>.
+                    The Prolific auto-redirect button is disabled; the per-session code is shown for manual paste only.
+                    Populate the env var once the Prolific researcher account and study exist.
+                  </div>
+                  {% endif %}
+                  {% endif %}
+
+                  {# Internal audit reference, always shown for Prolific channel #}
+                  {% if completion_code %}
+                  <p class="text-muted small mb-3">
+                    Reference: <code>{{ completion_code }}</code>
+                  </p>
+                  {% endif %}
+
                 {% elif completion_code %}
+                {# Drexel channel: per-session code as confirmation reference #}
                 <div class="alert alert-light text-start border">
                     <p class="mb-2"><strong>Completion code:</strong> <code>{{ completion_code }}</code></p>
                     <p class="small text-muted mb-0">

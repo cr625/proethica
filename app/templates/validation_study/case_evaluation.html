@@ -409,8 +409,8 @@
                 <!-- 1. Narrative View (first: story-grounding) -->
                 <div class="tab-pane fade show active" id="narrative-pane">
                     <div class="segue-card segue-narrative">
-                        <div class="segue-caption">View 1 of 5 &mdash; Narrative</div>
-                        Start with the people. This view reconstructs the case as a character-driven account: who the professional is, who else has a stake in the outcome, and what competing obligations they carry into the situation. Read it as the opening of a story &mdash; the analytical scaffolding follows.
+                        <div class="segue-caption">View 1 of 5: Narrative</div>
+                        Start with the people. This view reconstructs the case as a character-driven account: who the professional is, who else has a stake in the outcome, and what competing obligations they carry into the situation. Read it as the opening of a story. The analytical scaffolding follows.
                     </div>
                     <div class="view-card card">
                         <div class="card-header">
@@ -493,7 +493,7 @@
                                         <span class="text-muted small">vs.</span>
                                         <span class="entity-badge badge bg-warning text-dark" title="{{ t.entity2_type }}">{{ t.entity2_label|truncate(60) }}</span>
                                         {% if t.magnitude_of_consequences or t.probability_of_effect %}
-                                        <span class="badge bg-light text-dark border ms-auto" style="font-size: 0.7rem;" title="Moral intensity — M: magnitude of consequences, P: probability of effect">
+                                        <span class="badge bg-light text-dark border ms-auto" style="font-size: 0.7rem;" title="Moral intensity. M: magnitude of consequences, P: probability of effect">
                                             {% if t.magnitude_of_consequences %}M:{{ t.magnitude_of_consequences[:1]|upper }}{% endif %}
                                             {% if t.probability_of_effect %} P:{{ t.probability_of_effect[:1]|upper }}{% endif %}
                                         </span>
@@ -565,7 +565,7 @@
                 <!-- 2. Timeline View -->
                 <div class="tab-pane fade" id="timeline-pane">
                     <div class="segue-card segue-timeline">
-                        <div class="segue-caption">View 2 of 5 &mdash; Timeline</div>
+                        <div class="segue-caption">View 2 of 5: Timeline</div>
                         Now place the story on a timeline. Each entry is an Action taken by a participant or an Event outside their control, in sequence. Decision points nest beneath the moments at which the professional faced a choice. Watch for actions whose consequences only become ethically loaded once a later event has occurred.
                     </div>
                     <div class="view-card card">
@@ -668,7 +668,7 @@
                 <!-- 3. Q&C View -->
                 <div class="tab-pane fade" id="qc-pane">
                     <div class="segue-card segue-qc">
-                        <div class="segue-caption">View 3 of 5 &mdash; Questions and Conclusions</div>
+                        <div class="segue-caption">View 3 of 5: Questions and Conclusions</div>
                         The sequence raises ethical questions. This view pairs each question the Board addressed with the conclusion it reached. Board questions form the spine; analytical sub-questions elaborate on each. This is where the case transitions from narrative to formal deliberation.
                     </div>
                     <div class="view-card card">
@@ -824,7 +824,7 @@
                 <!-- 4. Decisions View -->
                 <div class="tab-pane fade" id="decisions-pane">
                     <div class="segue-card segue-decisions">
-                        <div class="segue-caption">View 4 of 5 &mdash; Decisions</div>
+                        <div class="segue-caption">View 4 of 5: Decisions</div>
                         At each decision point the professional could have chosen differently. This view lays out the options the Board considered, the argument structure for and against each one (warrants, rebuttals, grounds), and the Board's choice. Disagreement between your intuition and the Board's reasoning often shows up here first.
                     </div>
                     <div class="view-card card">
@@ -961,7 +961,7 @@
                 <!-- 5. Provisions View (last: formal code grounding) -->
                 <div class="tab-pane fade" id="provisions-pane">
                     <div class="segue-card segue-provisions">
-                        <div class="segue-caption">View 5 of 5 &mdash; Provisions</div>
+                        <div class="segue-caption">View 5 of 5: Provisions</div>
                         Finally, anchor the analysis in the NSPE Code of Ethics. This view groups provisions by Code section and shows which extracted Obligations, Principles, and Constraints trace back to each. Use it as a check: do the code citations match the ethical tensions you identified in the Narrative and Decisions views?
                     </div>
                     <div class="view-card card">
