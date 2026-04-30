@@ -17,6 +17,7 @@ Admin routes stay behind `@admin_required_production`. Participant routes do
 NOT require login; authentication is by possession of the random code only.
 """
 
+import hashlib
 import logging
 import secrets
 import uuid
@@ -48,18 +49,43 @@ def handle_csrf_error(e):
     flash('Your session expired or the page was stale. Please start again.', 'warning')
     return redirect(url_for('study.index'))
 
-# Information Sheet version currently served. Bump this when the .docx changes
-# and update `_info_sheet_v2.html` (and this constant) together.
-INFO_SHEET_VERSION = 'v2'
+# Information Sheet versions. Bump these when the .docx (or template) changes
+# and update the corresponding template together.
+INFO_SHEET_VERSION = 'v2'                    # Drexel-student senior-design channel (HRP-506)
+INFO_SHEET_VERSION_PROLIFIC = 'v3-prolific'  # Prolific adult-population channel (HRP-506b)
 
 # Ambiguity-stripped alphabet for participant codes (no 0/O, 1/I, L).
 CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 CODE_LENGTH = 8
 
+# Prolific URL parameter names. Prolific's External Study integration injects
+# these via {{%PROLIFIC_PID%}}, {{%STUDY_ID%}}, {{%SESSION_ID%}} substitution.
+PROLIFIC_PARAMS = ('prolific_pid', 'study_id', 'session_id')
+
 
 def generate_participant_code() -> str:
     """Random 8-character alphanumeric code. No crosswalk to identity."""
     return ''.join(secrets.choice(CODE_ALPHABET) for _ in range(CODE_LENGTH))
+
+
+def generate_completion_code() -> str:
+    """Random 8-character completion code, distinct from the participant code.
+
+    Crowdsourcing platforms reject a study that prints the participant code
+    as the completion proof. The completion code is generated only at the
+    moment the participant finishes (post-demographics) and is what they
+    paste into Prolific.
+    """
+    return ''.join(secrets.choice(CODE_ALPHABET) for _ in range(CODE_LENGTH))
+
+
+def hash_prolific_pid(pid: str) -> str:
+    """SHA-256 hex of a Prolific PID, for duplicate-enrollment detection.
+
+    The plain PID is never persisted. Only the hash is stored, and only on
+    the validation_sessions row.
+    """
+    return hashlib.sha256(pid.encode('utf-8')).hexdigest()
 
 
 def get_participant_code() -> str | None:
@@ -78,7 +104,37 @@ def load_session(code: str) -> ValidationSession | None:
     return ValidationSession.query.filter_by(participant_code=code).first()
 
 
-def create_session(domain: str = 'engineering') -> ValidationSession:
+def capture_prolific_params() -> dict | None:
+    """Read Prolific URL parameters from the request and stash them in the
+    Flask session so they survive the consent submit.
+
+    Returns the captured dict, or None if no Prolific PID is present. Once
+    captured, subsequent requests can read them out of `session` without
+    relying on the URL.
+    """
+    pid = request.args.get('prolific_pid', '').strip()
+    if not pid:
+        return None
+    payload = {
+        'prolific_pid': pid,
+        'study_id': request.args.get('study_id', '').strip(),
+        'session_id': request.args.get('session_id', '').strip(),
+    }
+    session['prolific'] = payload
+    return payload
+
+
+def get_stashed_prolific() -> dict | None:
+    """Return the stashed Prolific params dict, or None."""
+    return session.get('prolific')
+
+
+def create_session(
+    domain: str = 'engineering',
+    recruitment_source: str = 'drexel_student',
+    prolific_pid_hash: str | None = None,
+    info_sheet_version: str = INFO_SHEET_VERSION,
+) -> ValidationSession:
     """Create a new study session with a fresh random code.
 
     Consent must have been acknowledged before this is called; the caller is
@@ -96,10 +152,12 @@ def create_session(domain: str = 'engineering') -> ValidationSession:
         evaluator_id=code,
         participant_code=code,
         evaluator_domain=domain,
+        recruitment_source=recruitment_source,
+        prolific_pid_hash=prolific_pid_hash,
         assigned_cases=assigned,
         completed_cases=[],
         consent_acknowledged_at=datetime.utcnow(),
-        info_sheet_version=INFO_SHEET_VERSION,
+        info_sheet_version=info_sheet_version,
     )
     db.session.add(new_session)
     db.session.commit()
@@ -119,13 +177,23 @@ def index():
     1. No code → Information Sheet + consent form (POST to `/enroll`).
     2. Code present, session found → study dashboard with assigned cases.
     3. Code present, no session → invalid-code message + retry form.
+
+    Prolific entry: when the URL carries ?prolific_pid=...&study_id=...&session_id=...,
+    those values are stashed in the Flask session and the consent screen renders
+    the adult-population (HRP-506b) information sheet instead of the
+    Drexel-student (HRP-506) one. Both reference the same IRB protocol.
     """
+    capture_prolific_params()
+
     code = get_participant_code()
+
+    is_prolific = get_stashed_prolific() is not None
 
     if not code:
         return render_template('validation_study/index.html',
                                phase='consent',
-                               info_sheet_version=INFO_SHEET_VERSION)
+                               info_sheet_version=(INFO_SHEET_VERSION_PROLIFIC if is_prolific else INFO_SHEET_VERSION),
+                               is_prolific=is_prolific)
 
     val_session = load_session(code)
     if not val_session:
@@ -133,7 +201,8 @@ def index():
         session.pop('participant_code', None)
         return render_template('validation_study/index.html',
                                phase='consent',
-                               info_sheet_version=INFO_SHEET_VERSION,
+                               info_sheet_version=(INFO_SHEET_VERSION_PROLIFIC if is_prolific else INFO_SHEET_VERSION),
+                               is_prolific=is_prolific,
                                invalid_code=code)
 
     view_builder = SynthesisViewBuilder()
@@ -168,12 +237,48 @@ def index():
 
 @study_bp.route('/enroll', methods=['POST'])
 def enroll():
-    """Create a new session after the participant acknowledges the consent."""
+    """Create a new session after the participant acknowledges the consent.
+
+    Routes the new session into one of two recruitment channels based on
+    whether a Prolific PID was stashed during the landing visit:
+    - With Prolific PID: 'prolific_engineering_trained', adult-population
+      consent (HRP-506b), Prolific completion-code redemption.
+    - Without: 'drexel_student', senior-design consent (HRP-506), the
+      original protocol channel.
+
+    Same IRB protocol number governs both channels post-amendment.
+    Duplicate enrollment from the same Prolific PID (e.g., a participant
+    who quit and restarted) is rejected.
+    """
     if request.form.get('consent') != 'yes':
         flash('You must acknowledge the information sheet to participate.', 'warning')
         return redirect(url_for('study.index'))
 
-    val_session = create_session(domain='engineering')
+    prolific = get_stashed_prolific()
+    if prolific:
+        pid_hash = hash_prolific_pid(prolific['prolific_pid'])
+        existing = ValidationSession.query.filter_by(prolific_pid_hash=pid_hash).first()
+        if existing is not None:
+            # Same Prolific account already enrolled. Resume rather than
+            # double-enroll. Discard the stashed PID so the resumed session
+            # is treated as a normal returning participant.
+            session.pop('prolific', None)
+            flash(
+                'A study session already exists for this Prolific account. '
+                f'Resuming your session: code {existing.participant_code}.',
+                'info'
+            )
+            return redirect(url_for('study.index', code=existing.participant_code))
+
+        val_session = create_session(
+            domain='engineering',
+            recruitment_source='prolific_engineering_trained',
+            prolific_pid_hash=pid_hash,
+            info_sheet_version=INFO_SHEET_VERSION_PROLIFIC,
+        )
+    else:
+        val_session = create_session(domain='engineering')
+
     flash(
         f'Your participant code is {val_session.participant_code}. '
         f'Write it down or screenshot it now. You will need this code to return '
@@ -339,6 +444,10 @@ def submit_evaluation(case_id):
         evaluation.overall_surfaced_considerations = get_int('overall_surfaced_considerations')
         evaluation.overall_useful_deliberation = get_int('overall_useful_deliberation')
 
+        # Attention check (plan §4.4). Pass = response equals 1 ("Strongly
+        # Disagree"). Stored raw; pass/fail derived at analysis time.
+        evaluation.attention_check_response = get_int('attention_check_response')
+
         # Part 2A: Comprehension
         evaluation.comp_main_tensions = request.form.get('comp_main_tensions', '').strip()
         evaluation.comp_relevant_provisions = request.form.get('comp_relevant_provisions', '').strip()
@@ -474,12 +583,13 @@ def _submit_retrospective(val_session):
         reflection.improvement_suggestions = request.form.get('improvement_suggestions', '').strip()
         reflection.general_comments = request.form.get('general_comments', '').strip()
 
-        val_session.completed_at = datetime.utcnow()
-
+        # Note: completed_at is NOT set here (post-pivot). The study now ends
+        # after the demographics page, where completed_at and completion_code
+        # are set together. Retrospective submission only persists the rankings
+        # and open feedback.
         db.session.commit()
 
-        flash('Thank you for completing the study.', 'success')
-        return redirect(url_for('study.complete'))
+        return redirect(url_for('study.demographics'))
 
     except Exception as e:
         logger.exception(f"Error submitting retrospective: {str(e)}")
@@ -488,12 +598,121 @@ def _submit_retrospective(val_session):
         return redirect(url_for('study.retrospective'))
 
 
+# Allowed demographic values, narrow enough to keep analysis categorical.
+# Free-text not accepted.
+_DEGREE_VALUES = {
+    'high_school', 'some_college', 'associate',
+    'bachelor', 'master', 'doctorate', 'other', 'prefer_not'
+}
+_EXPERIENCE_VALUES = {
+    'student', 'lt_2', '2_5', '6_10', '11_20', 'gt_20', 'prefer_not'
+}
+_ROLE_VALUES = {
+    'student', 'practicing_engineer', 'engineering_manager',
+    'engineering_educator', 'former_engineer', 'other', 'prefer_not'
+}
+
+
+@study_bp.route('/demographics', methods=['GET', 'POST'])
+def demographics():
+    """Post-task demographic capture (plan §4.3).
+
+    Single page between retrospective and complete. 4-6 closed-form items.
+    Submitting this page generates the completion_code and finalizes the
+    session (completed_at).
+    """
+    val_session, redirect_resp = _require_session()
+    if redirect_resp:
+        return redirect_resp
+
+    if request.method == 'POST':
+        return _submit_demographics(val_session)
+
+    return render_template('validation_study/demographics.html',
+                           participant_code=val_session.participant_code,
+                           session=val_session,
+                           is_prolific=(val_session.recruitment_source == 'prolific_engineering_trained'))
+
+
+def _submit_demographics(val_session):
+    """Persist demographics, generate completion code, finalize the session."""
+    try:
+        degree = request.form.get('highest_engineering_degree', '').strip()
+        experience = request.form.get('years_engineering_experience', '').strip()
+        role = request.form.get('role_category', '').strip()
+        familiarity_raw = request.form.get('nspe_pe_familiarity', '').strip()
+        prior_ethics_raw = request.form.get('prior_ethics_course', '').strip()
+
+        if degree not in _DEGREE_VALUES:
+            flash('Select an option for highest engineering-related degree.', 'warning')
+            return redirect(url_for('study.demographics'))
+        if experience not in _EXPERIENCE_VALUES:
+            flash('Select an option for engineering experience.', 'warning')
+            return redirect(url_for('study.demographics'))
+        if role not in _ROLE_VALUES:
+            flash('Select an option for current role.', 'warning')
+            return redirect(url_for('study.demographics'))
+
+        familiarity = None
+        if familiarity_raw:
+            familiarity = int(familiarity_raw)
+            if familiarity < 1 or familiarity > 5:
+                flash('NSPE/PE familiarity rating must be between 1 and 5.', 'warning')
+                return redirect(url_for('study.demographics'))
+
+        prior_ethics = None
+        if prior_ethics_raw == 'yes':
+            prior_ethics = True
+        elif prior_ethics_raw == 'no':
+            prior_ethics = False
+
+        val_session.highest_engineering_degree = degree
+        val_session.years_engineering_experience = experience
+        val_session.role_category = role
+        val_session.nspe_pe_familiarity = familiarity
+        val_session.prior_ethics_course = prior_ethics
+        val_session.demographics_completed_at = datetime.utcnow()
+
+        # Finalize: generate completion_code and stamp completed_at. The
+        # completion_code is what the participant pastes into Prolific.
+        if not val_session.completion_code:
+            code = generate_completion_code()
+            while ValidationSession.query.filter_by(completion_code=code).first() is not None:
+                code = generate_completion_code()
+            val_session.completion_code = code
+        if not val_session.completed_at:
+            val_session.completed_at = datetime.utcnow()
+
+        db.session.commit()
+
+        flash('Thank you for completing the study.', 'success')
+        return redirect(url_for('study.complete'))
+
+    except Exception as e:
+        logger.exception(f"Error submitting demographics: {str(e)}")
+        db.session.rollback()
+        flash(f'Error saving demographics: {str(e)}', 'error')
+        return redirect(url_for('study.demographics'))
+
+
 @study_bp.route('/complete')
 def complete():
-    """Study completion page."""
+    """Study completion page. Displays both participant_code and (for paid
+    panel completions) the Prolific completion_code with copy-to-clipboard.
+    """
     code = get_participant_code()
+    val_session = load_session(code) if code else None
+
+    completion_code = val_session.completion_code if val_session else None
+    is_prolific = (
+        val_session is not None
+        and val_session.recruitment_source == 'prolific_engineering_trained'
+    )
+
     return render_template('validation_study/complete.html',
-                           participant_code=code)
+                           participant_code=code,
+                           completion_code=completion_code,
+                           is_prolific=is_prolific)
 
 
 # =============================================================================

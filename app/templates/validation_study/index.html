@@ -9,7 +9,19 @@
 
   <div class="row">
     <div class="col-lg-8">
-      {% include "validation_study/_info_sheet_v2.html" %}
+      {% if is_prolific %}
+        <div class="alert alert-primary d-flex align-items-center mb-3" role="alert">
+          <i class="bi bi-shield-check me-2 fs-4"></i>
+          <div>
+            <strong>Welcome from Prolific.</strong>
+            Read the information sheet below, then click <em>Start study</em>.
+            Upon completion, a unique completion code will be displayed to paste back into Prolific.
+          </div>
+        </div>
+        {% include "validation_study/_info_sheet_v3_prolific.html" %}
+      {% else %}
+        {% include "validation_study/_info_sheet_v2.html" %}
+      {% endif %}
 
       <form action="{{ url_for('study.enroll') }}" method="post" class="mt-4">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

@@ -1229,6 +1229,22 @@
                             <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
                         </div>
 
+                        {# Attention-check item (plan §4.4). Embedded among the Decisions-view items
+                           rather than appended to the end so it cannot be trivially located by item
+                           position. Stored on view_utility_evaluations.attention_check_response. #}
+                        <div class="likert-item">
+                            <div class="likert-label"><em>To verify careful reading, please select &ldquo;Strongly Disagree&rdquo; for this item.</em></div>
+                            <div class="likert-scale">
+                                {% for i in range(1, 8) %}
+                                <label>
+                                    <input type="radio" name="attention_check_response" value="{{ i }}" {% if existing_eval and existing_eval.attention_check_response == i %}checked{% endif %} required>
+                                    <span class="scale-btn">{{ i }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
+                        </div>
+
                         <div class="likert-item">
                             <div class="likert-label">This view helped me trace how the professional's actions related to their obligations.</div>
                             <div class="likert-scale">

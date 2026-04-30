@@ -422,17 +422,19 @@ class ValidationExportService:
         """
         from app.models.view_utility_evaluation import ViewUtilityEvaluation, ValidationSession
 
-        query = ViewUtilityEvaluation.query
+        # Always join the session to surface recruitment_source, demographics,
+        # and completion metadata on each row (validation pivot, plan §4.6).
+        query = ViewUtilityEvaluation.query.join(
+            ValidationSession, ViewUtilityEvaluation.session_id == ValidationSession.id
+        ).add_entity(ValidationSession)
 
         if domain:
-            query = query.join(
-                ValidationSession, ViewUtilityEvaluation.session_id == ValidationSession.id
-            ).filter(ValidationSession.evaluator_domain == domain)
+            query = query.filter(ValidationSession.evaluator_domain == domain)
 
-        evaluations = query.all()
+        rows = query.all()
 
         results = []
-        for e in evaluations:
+        for e, s in rows:
             results.append({
                 'evaluation_id': e.id,
                 'evaluator_id': e.evaluator_id,
@@ -475,9 +477,27 @@ class ValidationExportService:
                 # Alignment
                 'alignment_self_rating': e.alignment_self_rating,
                 'alignment_reflection': e.alignment_reflection,
-                # Timestamps
+                # Attention / effort flags (validation pivot, plan §4.4 / §4.5)
+                'attention_check_response': e.attention_check_response,
+                'attention_check_passed': (
+                    None if e.attention_check_response is None
+                    else (e.attention_check_response == 1)
+                ),
+                'low_effort_flag': e.low_effort_flag,
+                # Per-evaluation timestamps
                 'started_at': e.started_at.isoformat() if e.started_at else None,
                 'completed_at': e.completed_at.isoformat() if e.completed_at else None,
+                # Session-level fields (validation pivot, plan §4.6)
+                'session_id': s.session_id,
+                'session_started_at': s.started_at.isoformat() if s.started_at else None,
+                'session_completed_at': s.completed_at.isoformat() if s.completed_at else None,
+                'completion_code': s.completion_code,
+                'recruitment_source': s.recruitment_source,
+                'highest_engineering_degree': s.highest_engineering_degree,
+                'years_engineering_experience': s.years_engineering_experience,
+                'role_category': s.role_category,
+                'nspe_pe_familiarity': s.nspe_pe_familiarity,
+                'prior_ethics_course': s.prior_ethics_course,
             })
 
         return results

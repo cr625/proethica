@@ -43,9 +43,36 @@ class ValidationSession(db.Model):
     # Random alphanumeric; no crosswalk to identity.
     participant_code = db.Column(db.String(16), unique=True, index=True)
 
+    # Completion code: distinct from participant_code. Generated at completed_at
+    # and shown on the Thank You page for the participant to paste into the
+    # crowdsourcing platform's completion field. Crowd platforms reject a study
+    # that prints the participant code as the completion proof.
+    completion_code = db.Column(db.String(16), unique=True, index=True)
+
+    # Recruitment channel tag. 'drexel_student' is the original senior-design
+    # channel under Protocol 2603011709; 'prolific_engineering_trained' is the
+    # paid Prolific panel pre-screened for engineering background, added by
+    # IRB amendment (validation pivot, week of 2026-04-28).
+    recruitment_source = db.Column(db.String(50), nullable=False, default='drexel_student')
+
+    # SHA-256 hex of the Prolific PID, stored only for duplicate-enrollment
+    # detection. Plain PID is never persisted. NULL for the Drexel-student
+    # channel.
+    prolific_pid_hash = db.Column(db.String(64), unique=True, index=True)
+
     # Consent gate (HRP-506 Information Sheet acknowledgement)
     consent_acknowledged_at = db.Column(db.DateTime)
     info_sheet_version = db.Column(db.String(20))
+
+    # Post-task demographics (4-6 closed-form items captured between alignment
+    # and complete). All categorical or ordinal; no free text. Lets Chapter 4
+    # describe the realised sample and run Prolific-only / Drexel-only subsets.
+    highest_engineering_degree = db.Column(db.String(50))
+    years_engineering_experience = db.Column(db.String(20))
+    role_category = db.Column(db.String(50))
+    nspe_pe_familiarity = db.Column(db.Integer)  # 1-5 Likert
+    prior_ethics_course = db.Column(db.Boolean)
+    demographics_completed_at = db.Column(db.DateTime)
 
     # Session configuration
     assigned_cases = db.Column(JSON)  # List of case_ids assigned to this participant
@@ -229,6 +256,17 @@ class ViewUtilityEvaluation(db.Model):
     time_utility_rating = db.Column(db.Integer)
     time_comprehension = db.Column(db.Integer)
     time_alignment = db.Column(db.Integer)
+
+    # Attention check (plan §4.4): single instructed-response item embedded
+    # among the utility items. 1-7 Likert; pass = 1 ("Strongly Disagree").
+    # Stored raw; pass/fail computed at analysis time.
+    attention_check_response = db.Column(db.Integer)
+
+    # Time-on-task floor flag (plan §4.5): set by a server-side check after
+    # submit if time_facts_review + time_views_review + time_comprehension is
+    # below the calibrated floor. NULL until the check has run; True flags a
+    # case for analyst review (not auto-rejected, per Prolific policy).
+    low_effort_flag = db.Column(db.Boolean)
 
     # Store which views were actually displayed (for debugging)
     views_displayed = db.Column(JSON)  # {'provisions': True, 'qc': True, 'decisions': True, 'timeline': True, 'narrative': True}

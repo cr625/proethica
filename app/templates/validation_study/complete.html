@@ -18,10 +18,37 @@
 
                 <hr class="my-4">
 
+                {% if is_prolific and completion_code %}
+                <div class="alert alert-primary text-start">
+                    <h5 class="mb-2"><i class="bi bi-award me-2"></i>Your Prolific completion code</h5>
+                    <p class="mb-3 small">
+                        Paste this code into Prolific within 14 days to receive payment. This code is unique to your participation.
+                    </p>
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <code class="fs-3 px-3 py-2 bg-white border rounded" id="completion-code">{{ completion_code }}</code>
+                        <button type="button" class="btn btn-outline-primary"
+                                onclick="navigator.clipboard.writeText('{{ completion_code }}'); this.innerHTML='<i class=&quot;bi bi-check2&quot;></i> Copied';"
+                                title="Copy completion code">
+                            <i class="bi bi-clipboard me-1"></i>Copy
+                        </button>
+                    </div>
+                    <p class="small mb-0 text-muted">
+                        Or return to Prolific via the completion URL Prolific provided when you started the study; the code is also embedded there.
+                    </p>
+                </div>
+                {% elif completion_code %}
+                <div class="alert alert-light text-start border">
+                    <p class="mb-2"><strong>Completion code:</strong> <code>{{ completion_code }}</code></p>
+                    <p class="small text-muted mb-0">
+                        Your participation has been recorded. No further action is required.
+                    </p>
+                </div>
+                {% endif %}
+
                 {% if participant_code %}
                 <div class="mb-4">
-                    <p><strong>Your participant code:</strong> <code>{{ participant_code }}</code></p>
-                    <p class="text-muted small">
+                    <p class="small mb-1"><strong>Your participant code:</strong> <code>{{ participant_code }}</code></p>
+                    <p class="text-muted small mb-0">
                         Your responses have been recorded anonymously under this code.
                     </p>
                 </div>
