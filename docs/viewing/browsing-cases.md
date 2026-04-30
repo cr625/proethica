@@ -86,7 +86,7 @@ Authenticated users see a pipeline status bar with numbered step buttons below t
 | **1** | Contextual | Roles, States, Resources |
 | **2** | Normative | Principles, Obligations, Constraints, Capabilities |
 | **3** | Temporal | Actions, Events, Causal Relationships |
-| **4** | Synthesis | Provisions, Precedents, Questions, Conclusions, Decision Points, Resolution Patterns |
+| **4** | Synthesis | Provisions, Precedents, Questions, Conclusions, Decision Points, Resolution Patterns, Causal-Normative Links, Question Emergence |
 
 Step button states indicate completion:
 

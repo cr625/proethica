@@ -10,6 +10,7 @@ Extraction results are organized by pipeline step:
 - **Step 2** -- Normative Requirements (Principles, Obligations, Constraints, Capabilities)
 - **Step 3** -- Temporal Dynamics (Actions, Events, causal chains, temporal relations)
 - **Step 4** -- Whole-Case Synthesis (Code Provisions, Precedent References, Ethical Questions, Conclusions, Decision Points, Resolution Patterns, Causal-Normative Links, Question Emergence)
+- **Step 5** -- Interactive Scenario (Narrative Overview, Entity Timeline, Decision Wizard). See [Interactive Scenario](interactive-scenario.md).
 
 Authenticated users access results via the pipeline status bar on the case detail page. Completed steps show a green filled button. The case detail page itself displays extracted entities as interactive RDF triple labels for all users.
 

@@ -1,7 +1,7 @@
 # ProEthica Ontology ObjectProperties Reference
 
-**Generated**: 2026-01-12
-**Source**: OntServe/ontologies/proethica-intermediate.ttl
+**Generated**: 2026-04-30
+**Source**: OntServe/ontologies/proethica-intermediate.ttl, proethica-core v2.5.0
 
 This document lists all ObjectProperties defined in the ProEthica ontology. These should be used for extracted relations instead of ad-hoc property names.
 
@@ -80,6 +80,18 @@ Connect guidelines to ethical concepts:
 | `:argumentAgainst` | EthicalArgument | DecisionOption | CON argument against option |
 | `:citesProvision` | EthicalArgument | EthicalCode | Argument cites code provision |
 
+## Defeasibility Relations (proethica-core v2.5.0)
+
+These properties expose obligation competition as first-class graph structure. They are SPARQL-queryable and reasoner-visible, replacing earlier narrative datatype encodings of competing-duties resolution.
+
+| Property | Domain | Range | Characteristic | Description |
+|----------|--------|-------|----------------|-------------|
+| `proeth-core:competesWith` | Obligation | Obligation | Symmetric | Two obligations stand in mutual competition |
+| `proeth-core:prevailsOver` | Obligation | Obligation | Directed | Winning obligation prevails over losing obligation |
+| `proeth-core:defeasibleUnder` | Obligation | State | Directed | Obligation is defeated under the named state |
+
+The three properties model obligation defeat as a triple: when an obligation `O1` `competesWith` `O2`, and a state `S` obtains, then `O1` `prevailsOver` `O2` `defeasibleUnder` `S`. Cases that report tension resolution between competing duties carry these edges so non-monotonic reasoners can compute defeat without parsing narrative text.
+
 ## Deprecated
 
 | Property | Replacement | Reason |
@@ -148,4 +160,4 @@ For Role relationships:
 
 ---
 
-**Last Updated**: 2026-01-12
+**Last Updated**: 2026-04-30

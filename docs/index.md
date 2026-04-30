@@ -82,20 +82,27 @@ ProEthica guides case analysis through a structured workflow:
 | 3 | Temporal Dynamics | Extract Actions, Events, Causal Relationships |
 | Reconcile | Entity Deduplication | Merge overlapping entities across passes |
 | 4 | Whole-Case Synthesis | Provisions, Precedents, Questions, Conclusions, Decision Points, Resolution Patterns, Causal-Normative Links, Question Emergence |
+| 5 | Interactive Scenario | Narrative Overview, Entity Timeline, Decision Wizard |
 
-Steps 1-2 extract from Facts and Discussion sections separately. Step 3 performs a unified extraction from the full case text. Step 4 synthesizes across all extracted entities and case text, producing 8 additional entity types (17 total). Pipeline operations require authentication; case browsing and entity viewing are available without login.
+Steps 1-2 extract from Facts and Discussion sections separately. Step 3 performs a unified extraction from the full case text. Step 4 synthesizes across all extracted entities and case text, producing 8 additional entity types (17 total). Step 5 presents the analyzed case as an interactive scenario for exploration. Pipeline operations through Step 4 require authentication; case browsing, entity viewing, and Step 5 scenario exploration are available without login.
 
 ## Citation
 
-> Rauch, C. B., & Weber, R. O. (2026). ProEthica: A Professional Role-Based Ethical Analysis Tool Using LLM-Orchestrated, Ontology-Supported Case-Based Reasoning. *Proceedings of the AAAI Conference on Artificial Intelligence*, 40.
+> Rauch, C. B., & Weber, R. O. (2026). ProEthica: A Professional Role Based Ethical Analysis Tool Using LLM-Orchestrated, Ontology Supported Case Based Reasoning. *Proceedings of the AAAI Conference on Artificial Intelligence*, 40(48), 41673-41675. [https://doi.org/10.1609/aaai.v40i48.42377](https://doi.org/10.1609/aaai.v40i48.42377)
 
 ```bibtex
-@article{rauch_weber_2026,
-  title     = {ProEthica: A Professional Role-Based Ethical Analysis Tool
-               Using LLM-Orchestrated, Ontology-Supported Case-Based Reasoning},
+@inproceedings{rauch_weber_2026_aaai,
+  title     = {ProEthica: A Professional Role Based Ethical Analysis Tool
+               Using LLM-Orchestrated, Ontology Supported Case Based Reasoning},
   author    = {Rauch, Christopher B. and Weber, Rosina O.},
-  journal   = {Proceedings of the AAAI Conference on Artificial Intelligence},
+  booktitle = {Proceedings of the AAAI Conference on Artificial Intelligence
+               (Demonstration Track)},
   volume    = {40},
-  year      = {2026}
+  number    = {48},
+  pages     = {41673--41675},
+  year      = {2026},
+  doi       = {10.1609/aaai.v40i48.42377}
 }
 ```
+
+See [Publications](papers/index.md) for the full list of related papers.

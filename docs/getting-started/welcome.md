@@ -75,12 +75,18 @@ The standard workflow proceeds through the following stages:
 
 1. Domain selection from the Professional Domains panel
 2. Case browsing or upload
-3. Extraction pipeline execution
+3. Extraction pipeline execution (Steps 1-4)
 4. Entity review and validation
 5. Precedent discovery through similarity matching
+6. Interactive scenario exploration (Step 5: Narrative Overview, Entity Timeline, Decision Wizard)
+
+## Demo Landing Page
+
+A condensed introduction to ProEthica is available at `/demo`. The page presents the system's capabilities, links to the demonstration video, and points to representative cases. The page was prepared for AAAI-26 conference attendees and remains available as a public entry point to the system.
 
 ## Related Documentation
 
 - [Interface Overview](first-login.md) - Navigation and UI elements
 - [Upload Cases](../analysis/uploading-cases.md) - Adding cases to the repository
 - [Nine-Component Framework](../concepts/nine-components.md) - Methodology reference
+- [Publications](../papers/index.md) - Research papers and citations

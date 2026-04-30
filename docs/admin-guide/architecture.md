@@ -7,18 +7,18 @@ ProEthica is a multi-service application combining Flask web interface, PostgreS
 ```text
                          ProEthica Pipeline
 +---------------+                                    +---------------+
-| Case          |  upload    +-----------+  9 types  | 7 Views       |
+| Case          |  upload    +-----------+  9 types  | Views         |
 | Narrative     |--+-------->| Steps 1-3 |---------->| + CBR         |
 | (NSPE BER)    |  | parse   | Extraction|           | Index         |
 +---------------+  |         +-----------+           +---------------+
-                   |               |                  ^
-                   |               | entities         |
-                   |               v                  |   
-                   |         +-----------+  8 types   |
-                   |         |  Step 4   |------------+
-                   |         | Synthesis |
-                   |         +-----------+
-                   |
+                   |               |                  ^      |
+                   |               | entities         |      |
+                   |               v                  |      v
+                   |         +-----------+  8 types   |  +-----------+
+                   |         |  Step 4   |------------+  |  Step 5   |
+                   |         | Synthesis |               |Interactive|
+                   |         +-----------+               | Scenario  |
+                   |                                     +-----------+
    PROCESSING      |      KNOWLEDGE            INFRASTRUCTURE
 +----------+       |    +----------+           +----------+
 | LLM      |       |    | Ontology |--serves-->| MCP      |
@@ -65,13 +65,15 @@ ProEthica is a multi-service application combining Flask web interface, PostgreS
 +-----------------------------------------------------------------------+
 ```
 
-| Service | Port | Purpose |
-|---------|------|---------|
-| ProEthica (Flask) | 5000 | Main web application |
-| OntServe MCP | 8082 | Ontology validation and queries |
-| PostgreSQL | 5432 | Data storage (two databases) |
-| Redis | 6379 | Task queue for pipeline automation |
-| Celery Worker | - | Background task processing |
+| Service | Port | Purpose | Required |
+|---------|------|---------|----------|
+| ProEthica (Flask) | 5000 | Main web application | Always |
+| OntServe MCP | 8082 | Ontology validation and queries | Always |
+| PostgreSQL | 5432 | Data storage (two databases) | Always |
+| Redis | 6379 | Task queue for pipeline automation | Pipeline Automation only |
+| Celery Worker | - | Background task processing | Pipeline Automation only |
+
+Single-case extractions run synchronously and do not require Redis or Celery. Batch processing across multiple cases via [Pipeline Automation](../analysis/pipeline-automation.md) requires both.
 
 ## Extraction Pipeline
 
@@ -120,6 +122,14 @@ The pipeline extracts nine component types across three steps, then synthesizes 
                    |   QC Audit (V0-V9)    |
                    | Verify all 17 types   |
                    +-----------------------+
+                               |
+                               v
+                   +-----------------------+
+                   |       Step 5          |
+                   | Interactive Scenario  |
+                   | (Narrative, Timeline, |
+                   |   Decision Wizard)    |
+                   +-----------------------+
 ```
 
 ### LLM Request Flow
@@ -147,7 +157,7 @@ All extraction calls use `claude-sonnet-4-6` via streaming. Prompts are stored a
 +-------------------------------------------------------+
 
 +--------------+    +--------------+    +--------------+
-|  documents   |    |doc_sections  |    |case_features |
+|  documents   |    |doc_sections  |    |case_precedent|
 +--------------+    +--------------+    +--------------+
 | id (PK)      |--->| id (PK)      |    | id (PK)      |
 | title        |    | doc_id (FK)  |<---| case_id (FK) |
@@ -159,7 +169,7 @@ All extraction calls use `claude-sonnet-4-6` via streaming. Prompts are stored a
        |
        v
 +--------------+    +--------------+    +--------------+
-|temp_rdf_     |    |extraction_   |    | pipeline_run |
+|temporary_rdf |    |extraction_   |    |pipeline_runs |
 |  storage     |    |  prompts     |    +--------------+
 +--------------+    +--------------+    | id (PK)      |
 | id (PK)      |    | id (PK)      |    | case_id (FK) |
@@ -191,11 +201,11 @@ All extraction calls use `claude-sonnet-4-6` via streaming. Prompts are stored a
 | `DocumentSection` | `document_sections` | Parsed case sections (Facts, Discussion) |
 | `TemporaryRDFStorage` | `temporary_rdf_storage` | Extracted entities with RDF representation |
 | `ExtractionPrompt` | `extraction_prompts` | LLM prompts and responses |
-| `PipelineRun` | `pipeline_run` | Background pipeline execution tracking |
+| `PipelineRun` | `pipeline_runs` | Background pipeline execution tracking |
 | `World` | `worlds` | Domain containers (e.g., Engineering Ethics) |
 | `Guideline` | `guidelines` | Professional codes of conduct |
 | `User` | `users` | Authentication and authorization |
-| `CaseFeatures` | `case_features` | Embedding vectors (384D, all-MiniLM-L6-v2) |
+| `CasePrecedentFeatures` | `case_precedent_features` | Embedding vectors (384D, all-MiniLM-L6-v2) |
 
 ## Code Organization
 
@@ -203,7 +213,7 @@ All extraction calls use `claude-sonnet-4-6` via streaming. Prompts are stored a
 
 | Component | Location | Purpose |
 |-----------|----------|---------|
-| Routes | `app/routes/` | Flask blueprints (42 registered) |
+| Routes | `app/routes/` | Flask blueprints (37 registered) |
 | Templates | `app/templates/` | Jinja2 HTML templates |
 | Services | `app/services/` | Business logic and extraction |
 | Models | `app/models/` | SQLAlchemy database models |
@@ -216,7 +226,7 @@ Large route files are decomposed into sub-module packages. Each package follows 
 
 | Package | Modules | Purpose |
 |---------|---------|---------|
-| `cases/` | 10 | Case listing, viewing, creation, editing, scenario generation |
+| `cases/` | 11 | Case listing, viewing, creation, editing, scenario generation |
 | `worlds/` | 8 | World management, guidelines, triples, concept mapping |
 | `scenario_pipeline/step4/` | 19 | Step 4 synthesis, entity management, streaming |
 | `entity_review/` | 4 | Entity selection, OntServe matching, reconciliation |
@@ -237,7 +247,7 @@ Single-file routes handle focused concerns: `admin.py`, `annotations.py`, `dashb
 
 ### OntServe Integration
 
-MCP (Model Context Protocol) provides ontology services via 11 tools over FastMCP Streamable HTTP:
+MCP (Model Context Protocol) provides ontology services via 12 tools over FastMCP Streamable HTTP:
 
 | Tool | Purpose |
 |------|---------|
@@ -250,6 +260,7 @@ MCP (Model Context Protocol) provides ontology services via 11 tools over FastMC
 | `get_candidate_concepts` | Retrieve pending concepts for review |
 | `get_domain_info` | Domain metadata and statistics |
 | `sparql_query` | Execute SPARQL queries against ontologies |
+| `wolfram_lookup` | Look up factual knowledge via Wolfram Alpha |
 | `store_extracted_entities` | Store ProEthica extraction results |
 | `get_case_entities` | Retrieve stored entities for a specific case |
 

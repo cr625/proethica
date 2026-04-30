@@ -76,6 +76,7 @@ nav:
       - Browsing Cases: viewing/browsing-cases.md
       - Viewing Extractions: viewing/viewing-extractions.md
       - Precedent Network: viewing/precedent-network.md
+      - Interactive Scenario: viewing/interactive-scenario.md
       - Guidelines: viewing/guidelines.md
   - Analysis:
       - Running Extractions: analysis/running-extractions.md
@@ -85,16 +86,15 @@ nav:
   - Administration:
       - Overview: admin-guide/index.md
       - Prompt Editor: admin-guide/prompt-editor.md
-      - Validation Studies: admin-guide/validation-studies.md
       - Pipeline Management: admin-guide/pipeline-management.md
       - User Management: admin-guide/user-management.md
+      - Service Health: admin-guide/health-dashboard.md
       - Architecture: admin-guide/architecture.md
       - Installation: admin-guide/installation.md
       - Ontology Integration: admin-guide/ontology-integration.md
       - Production Server: admin-guide/production-server.md
       - Settings: admin-guide/settings.md
-  - Domain Setup:
-      - Overview: domain-setup/index.md
+  - Publications: papers/index.md
   - "Back to ProEthica": "/"
 
 extra_css:

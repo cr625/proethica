@@ -15,7 +15,7 @@ Steps 1-3 extract the nine base concepts. Steps 1-2 extract separately from the 
 | Step 2 | Normative Requirements | Principles, Obligations, Constraints, Capabilities | Pass 1 (Facts), Pass 2 (Discussion) |
 | Step 3 | Temporal Dynamics | Actions, Events, causal chains, temporal relations | Unified (full case text) |
 
-After Steps 1-3, the pipeline continues with Reconcile (entity deduplication), OntServe commit, Step 4 (whole-case synthesis), a second OntServe commit, and QC audit. See [Pipeline Terminology](../concepts/terminology.md) for definitions.
+After Steps 1-3, the pipeline continues with Reconcile (entity deduplication), OntServe commit, Step 4 (whole-case synthesis), a second OntServe commit, and QC audit. Step 5 presents the fully analyzed case as an interactive scenario; it is read-only and does not require authentication. See [Pipeline Terminology](../concepts/terminology.md) for definitions and [Interactive Scenario](../viewing/interactive-scenario.md) for Step 5.
 
 ## Starting Extraction
 

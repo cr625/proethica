@@ -6,7 +6,7 @@ This document defines the standardized terminology for the ProEthica extraction 
 
 ```
 Pipeline
-├── Step (1-4) - Major pipeline stages (Step 5 planned)
+├── Step (1-5) - Major pipeline stages
 │   ├── Pass (1-2) - Sub-extraction within Steps 1-3
 │   │   └── Concept Types - Entity categories extracted
 │   ├── Reconcile - Entity deduplication between Steps 3 and 4
@@ -17,7 +17,7 @@ Pipeline
 
 | Term | Scope | Definition |
 |------|-------|------------|
-| **Step** | Pipeline | Major pipeline stage (1-4, with Step 5 planned). Each step produces distinct outputs. |
+| **Step** | Pipeline | Major pipeline stage (1-5). Steps 1-4 perform extraction and synthesis; Step 5 presents the analyzed case as an interactive scenario. |
 | **Pass** | Steps 1-3 | Sub-extraction within a step. Pass 1 extracts from Facts section; Pass 2 extracts from Discussion section. |
 | **Reconcile** | Between Steps 3-4 | Deduplication of overlapping entities across sections and passes before synthesis. |
 | **Phase** | Step 4 only | Sub-stages of synthesis operations. Phases 2A-2E, 3, and 4 perform different analysis tasks. |
@@ -110,9 +110,17 @@ Step 4 operates on both previously extracted entities and case text. It produces
 | Review | `/step4/entities` | Entity review and OntServe commit |
 | Full View | `/step4/review` | Tabbed view: Entities, Flow, Provisions, Precedents, Q&C, Analysis, Decisions, Narrative |
 
-### Step 5: Interactive Scenario (Planned)
+### Step 5: Interactive Scenario
 
-Step 5 is planned for interactive scenario exploration. Currently displays a placeholder page.
+Step 5 presents a fully analyzed case (Steps 1-4 complete) as an interactive scenario through three views:
+
+| View | Purpose |
+|------|---------|
+| Narrative Overview | Case story with characters, organized as a readable narrative |
+| Entity Timeline | Chronological visualization of actions and events with linked entities |
+| Decision Wizard | Step through ethical decision points with discovery prompts and reasoning paths |
+
+Step 5 is open to all users without authentication. See [Interactive Scenario](../viewing/interactive-scenario.md) for view-by-view details.
 
 ---
 

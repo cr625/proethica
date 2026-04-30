@@ -128,7 +128,7 @@ result = client.get_entities_by_category("Role")
 
 ## Available Methods
 
-OntServe MCP provides 11 tools. The three most commonly used in ProEthica's extraction pipeline are documented below. See [Architecture](architecture.md) for the full tool list.
+OntServe MCP provides 12 tools. The three most commonly used in ProEthica's extraction pipeline are documented below. See [Architecture](architecture.md) for the full tool list.
 
 ### get_entities_by_category
 

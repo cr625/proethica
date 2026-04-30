@@ -26,7 +26,7 @@ The top navigation provides access to main features:
 | **Case Relations** | Dropdown | Similar Cases, Similarity Network, Lineage Graph |
 | **Guidelines** | Link | Browse ethical guidelines and codes of ethics |
 | **Docs** | Link | This documentation |
-| **Tools** | Dropdown | Academic References; Linked Data (OntServe Web, Browse ProEthica Ontologies); Admin Tools (Batch Processing, Batch Queue, Validation Studies, Prompt Editor) |
+| **Tools** | Dropdown | Academic References; Linked Data (OntServe Web, Browse ProEthica Ontologies); Admin Tools (Batch Processing, Batch Queue, Prompt Editor) |
 | **[User]** | Dropdown | User menu with Logout |
 
 ![Case Relations Dropdown](../assets/images/screenshots/navbar-case-relations-dropdown.png)
@@ -81,6 +81,7 @@ The pipeline provides step-by-step case analysis (requires authentication). Acce
 | 3 | Temporal Dynamics | Unified extraction via LangGraph | Actions (A), Events (E), causal chains, Allen relations |
 | Reconcile | Entity Deduplication | Merge overlapping entities across passes | -- |
 | 4 | Whole-Case Synthesis | Multi-phase analysis (2A-2E, Phase 3, Phase 4) | Provisions, Precedents, Questions, Conclusions, Decision Points, Resolution Patterns, Causal-Normative Links, Question Emergence |
+| 5 | Interactive Scenario | Three views of the analyzed case | Narrative Overview, Entity Timeline, Decision Wizard |
 
 ### Pipeline Sidebar
 

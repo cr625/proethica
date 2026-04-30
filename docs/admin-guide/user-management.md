@@ -80,7 +80,7 @@ User management actions are logged:
 | **Bulk Reset** | Admin, user count, timestamp |
 | **Role Change** | Admin, target user, old/new role |
 
-View audit log at `/admin/audit-log`.
+Audit log entries are recorded in the database and surfaced through the admin dashboard.
 
 ## Access Control
 
