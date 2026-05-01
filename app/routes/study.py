@@ -792,7 +792,7 @@ def admin_dashboard():
     """Validation study admin dashboard.
 
     Focused on the active view-utility study (validation pivot, plan
-    `validation-crowdsource-pivot.md`). Surfaces the operational metrics
+    `proethica/.claude/plans/validation-study.md`). Surfaces the operational metrics
     needed to monitor enrollment, completion, per-case coverage (against
     the 23-case pool with n>=5 threshold), and data-quality flags
     (attention-check pass rate, demographics completion).
