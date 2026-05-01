@@ -53,7 +53,12 @@ def handle_csrf_error(e):
 # Information Sheet versions. Bump these when the .docx (or template) changes
 # and update the corresponding template together.
 # v2.1 (2026-04-30): added mention of post-task demographics questionnaire.
-INFO_SHEET_VERSION = 'v2.1'                  # Drexel-student senior-design channel (HRP-506)
+# v2.2 (2026-04-30 later): generalized "senior design" language to cover
+#   any Drexel student arrival; clarified that comprehension questions are
+#   required while other items are skippable (resolves UX walkthrough P1-1
+#   info-sheet vs HTML required-attribute conflict).
+# v3-prolific updated in lockstep with the comprehension-required clarification.
+INFO_SHEET_VERSION = 'v2.2'                  # Drexel-student senior-design channel (HRP-506)
 INFO_SHEET_VERSION_PROLIFIC = 'v3-prolific'  # Prolific adult-population channel (HRP-506b)
 
 # Ambiguity-stripped alphabet for participant codes (no 0/O, 1/I, L).

@@ -48,34 +48,46 @@
                   </div>
 
                   {% else %}
-                  {# Fallback: env var unset (e.g., Prolific account not yet provisioned). #}
-                  {# Show per-session code for manual paste; surface a dev-only warning. #}
-                  <div class="alert alert-primary text-start">
-                    <h5 class="mb-2"><i class="bi bi-award me-2"></i>Your Prolific completion code</h5>
-                    <p class="mb-3 small">
-                      Paste this code into Prolific within 14 days to receive payment.
+                  {# Configuration issue path: env var unset for a Prolific arrival.
+                     This should never happen in production once the Prolific account
+                     exists. We refuse to display the per-session audit code as if it
+                     were the Prolific redemption code (Prolific would reject it).
+                     Instead we tell the participant honestly that something went wrong
+                     and give them a recovery path: contact the research team with
+                     their participant code as a reference. #}
+                  <div class="alert alert-warning text-start">
+                    <h5 class="mb-2"><i class="bi bi-exclamation-triangle me-2"></i>Configuration issue</h5>
+                    <p class="mb-2 small">
+                      Your participation has been fully recorded, but the automatic
+                      Prolific return is not configured at this time. To receive your
+                      payment, please contact the research team and quote the
+                      reference number below. Payment will be processed manually
+                      within 1&ndash;3 business days.
                     </p>
-                    <div class="d-flex align-items-center gap-2 mb-2">
-                      <code class="fs-3 px-3 py-2 bg-white border rounded" id="completion-code">{{ completion_code }}</code>
-                      <button type="button" class="btn btn-outline-primary"
-                              onclick="navigator.clipboard.writeText('{{ completion_code }}'); this.innerHTML='<i class=&quot;bi bi-check2&quot;></i> Copied';"
-                              title="Copy completion code">
-                        <i class="bi bi-clipboard me-1"></i>Copy
-                      </button>
-                    </div>
+                    <p class="mb-2 small">
+                      <strong>Reference number:</strong>
+                      <code class="px-2 py-1 bg-white border rounded">{{ completion_code }}</code>
+                    </p>
+                    <p class="mb-0 small">
+                      <strong>Contact:</strong>
+                      Christopher Rauch (cr625@drexel.edu) or Rosina Weber (rw37@drexel.edu).
+                      Do not paste the reference number into Prolific; it is for the
+                      research team only.
+                    </p>
                   </div>
                   {% if config.get('ENVIRONMENT') == 'development' %}
-                  <div class="alert alert-warning text-start small">
+                  <div class="alert alert-secondary text-start small">
                     <strong>Dev notice.</strong>
-                    PROLIFIC_COMPLETION_CODE_SUCCESS is not set in <code>.env</code>.
-                    The Prolific auto-redirect button is disabled; the per-session code is shown for manual paste only.
-                    Populate the env var once the Prolific researcher account and study exist.
+                    <code>PROLIFIC_COMPLETION_CODE_SUCCESS</code> is not set in <code>.env</code>.
+                    Populate this env var once the Prolific researcher account and study exist
+                    and the participant-facing flow will activate the auto-redirect button.
                   </div>
                   {% endif %}
                   {% endif %}
 
-                  {# Internal audit reference, always shown for Prolific channel #}
-                  {% if completion_code %}
+                  {# Internal audit reference, shown only on the happy path
+                     (configuration-issue path already shows the code prominently). #}
+                  {% if prolific_return_url and completion_code %}
                   <p class="text-muted small mb-3">
                     Reference: <code>{{ completion_code }}</code>
                   </p>
