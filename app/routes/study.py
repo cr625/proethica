@@ -490,6 +490,19 @@ def submit_evaluation(case_id):
             completed.add(case_id)
             val_session.completed_cases = list(completed)
 
+            # Time-on-task floor check (plan validation-study.md §4.5).
+            # Tag for analyst review if the content-engagement timer sum
+            # (facts + views + comprehension, in ms) is below the configured
+            # floor. Leaves NULL when any of the three timers is missing.
+            content_timers = (
+                evaluation.time_facts_review,
+                evaluation.time_views_review,
+                evaluation.time_comprehension,
+            )
+            if all(t is not None for t in content_timers):
+                floor_seconds = int(os.environ.get('STUDY_TIME_FLOOR_SECONDS', '180'))
+                evaluation.low_effort_flag = sum(content_timers) < floor_seconds * 1000
+
         db.session.commit()
 
         if evaluation.is_complete:
