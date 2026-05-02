@@ -531,11 +531,61 @@ class AutoCommitService:
             g.serialize(destination=case_file, format='turtle')
             logger.info(f"Generated case TTL: {individuals_added} new, {individuals_merged} merged: {case_file}")
 
+            self._maybe_apply_defeasibility_edges(case_id, case_file)
+
             return str(case_file)
 
         except Exception as e:
             logger.error(f"Error generating case TTL for case {case_id}: {e}")
             return None
+
+    def _maybe_apply_defeasibility_edges(self, case_id: int, case_file) -> None:
+        """Run the defeasibility edge extractor over the just-written TTL.
+
+        This is the live-pipeline counterpart to the corpus backfill
+        script: after the case TTL is committed, we re-parse the file,
+        ask the LLM for proethica-core competesWith / prevailsOver /
+        defeasibleUnder edges between the obligations and states, and
+        re-serialize with those edges added.
+
+        Gated by the env var `DEFEASIBILITY_AUTOEXTRACT`. Default is
+        off so commits don't make implicit LLM calls; flip it on in the
+        live extraction service or downstream pipelines that want this
+        behaviour. The corpus backfill script is unaffected by this
+        gate -- it always runs the pipeline helper.
+        """
+        import os
+        from pathlib import Path
+
+        if os.getenv("DEFEASIBILITY_AUTOEXTRACT", "").lower() != "true":
+            return
+
+        try:
+            from app.services.extraction.defeasibility_pipeline import (
+                apply_defeasibility_edges,
+            )
+        except Exception as e:
+            logger.warning(
+                "Defeasibility hook: pipeline import failed (%s); skipping",
+                e,
+            )
+            return
+
+        try:
+            result = apply_defeasibility_edges(
+                case_id=case_id,
+                ttl_path=Path(case_file),
+                write_back=True,
+            )
+            logger.info(
+                "Defeasibility hook for case %s: %s", case_id, result
+            )
+        except Exception as e:
+            # Never let the hook fail the commit. Backfill remains the
+            # corpus-level safety net.
+            logger.exception(
+                "Defeasibility hook for case %s raised: %s", case_id, e
+            )
 
     def _merge_entity_properties(
         self,

@@ -1,0 +1,2229 @@
+{
+  "completed": {
+    "10": {
+      "case_id": 10,
+      "edges_emitted": 34,
+      "elapsed_s": 53.14,
+      "obligations": 9,
+      "post_counts": {
+        "competesWith": 14,
+        "defeasibleUnder": 15,
+        "prevailsOver": 5
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 13,
+      "status": "ok",
+      "triples_added": 34
+    },
+    "100": {
+      "case_id": 100,
+      "edges_emitted": 58,
+      "elapsed_s": 135.95,
+      "obligations": 24,
+      "post_counts": {
+        "competesWith": 24,
+        "defeasibleUnder": 25,
+        "prevailsOver": 9
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 19,
+      "status": "ok",
+      "triples_added": 58
+    },
+    "102": {
+      "case_id": 102,
+      "edges_emitted": 62,
+      "elapsed_s": 136.26,
+      "obligations": 19,
+      "post_counts": {
+        "competesWith": 20,
+        "defeasibleUnder": 35,
+        "prevailsOver": 7
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 14,
+      "status": "ok",
+      "triples_added": 62
+    },
+    "104": {
+      "case_id": 104,
+      "edges_emitted": 35,
+      "elapsed_s": 66.3,
+      "obligations": 14,
+      "post_counts": {
+        "competesWith": 16,
+        "defeasibleUnder": 14,
+        "prevailsOver": 5
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 9,
+      "status": "ok",
+      "triples_added": 35
+    },
+    "105": {
+      "case_id": 105,
+      "edges_emitted": 42,
+      "elapsed_s": 86.36,
+      "obligations": 19,
+      "post_counts": {
+        "competesWith": 20,
+        "defeasibleUnder": 16,
+        "prevailsOver": 6
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 12,
+      "status": "ok",
+      "triples_added": 42
+    },
+    "106": {
+      "case_id": 106,
+      "edges_emitted": 47,
+      "elapsed_s": 96.99,
+      "obligations": 15,
+      "post_counts": {
+        "competesWith": 16,
+        "defeasibleUnder": 26,
+        "prevailsOver": 5
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 12,
+      "status": "ok",
+      "triples_added": 47
+    },
+    "107": {
+      "case_id": 107,
+      "edges_emitted": 46,
+      "elapsed_s": 90.9,
+      "obligations": 18,
+      "post_counts": {
+        "competesWith": 16,
+        "defeasibleUnder": 21,
+        "prevailsOver": 9
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 16,
+      "status": "ok",
+      "triples_added": 46
+    },
+    "108": {
+      "case_id": 108,
+      "edges_emitted": 26,
+      "elapsed_s": 62.9,
+      "obligations": 8,
+      "post_counts": {
+        "competesWith": 8,
+        "defeasibleUnder": 12,
+        "prevailsOver": 6
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 8,
+      "status": "ok",
+      "triples_added": 26
+    },
+    "109": {
+      "case_id": 109,
+      "edges_emitted": 49,
+      "elapsed_s": 102.93,
+      "obligations": 19,
+      "post_counts": {
+        "competesWith": 14,
+        "defeasibleUnder": 29,
+        "prevailsOver": 6
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 11,
+      "status": "ok",
+      "triples_added": 49
+    },
+    "11": {
+      "case_id": 11,
+      "edges_emitted": 25,
+      "elapsed_s": 45.06,
+      "obligations": 12,
+      "post_counts": {
+        "competesWith": 10,
+        "defeasibleUnder": 10,
+        "prevailsOver": 5
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 13,
+      "status": "ok",
+      "triples_added": 25
+    },
+    "110": {
+      "case_id": 110,
+      "edges_emitted": 30,
+      "elapsed_s": 67.6,
+      "obligations": 11,
+      "post_counts": {
+        "competesWith": 12,
+        "defeasibleUnder": 12,
+        "prevailsOver": 6
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 10,
+      "status": "ok",
+      "triples_added": 30
+    },
+    "111": {
+      "case_id": 111,
+      "edges_emitted": 43,
+      "elapsed_s": 73.5,
+      "obligations": 26,
+      "post_counts": {
+        "competesWith": 16,
+        "defeasibleUnder": 19,
+        "prevailsOver": 8
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 15,
+      "status": "ok",
+      "triples_added": 43
+    },
+    "112": {
+      "case_id": 112,
+      "edges_emitted": 34,
+      "elapsed_s": 58.76,
+      "obligations": 15,
+      "post_counts": {
+        "competesWith": 12,
+        "defeasibleUnder": 16,
+        "prevailsOver": 6
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 12,
+      "status": "ok",
+      "triples_added": 34
+    },
+    "113": {
+      "case_id": 113,
+      "edges_emitted": 39,
+      "elapsed_s": 89.82,
+      "obligations": 25,
+      "post_counts": {
+        "competesWith": 18,
+        "defeasibleUnder": 16,
+        "prevailsOver": 5
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 14,
+      "status": "ok",
+      "triples_added": 39
+    },
+    "114": {
+      "case_id": 114,
+      "edges_emitted": 64,
+      "elapsed_s": 102.71,
+      "obligations": 32,
+      "post_counts": {
+        "competesWith": 30,
+        "defeasibleUnder": 24,
+        "prevailsOver": 10
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 10,
+      "status": "ok",
+      "triples_added": 64
+    },
+    "116": {
+      "case_id": 116,
+      "edges_emitted": 22,
+      "elapsed_s": 52.79,
+      "obligations": 13,
+      "post_counts": {
+        "competesWith": 8,
+        "defeasibleUnder": 9,
+        "prevailsOver": 5
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 9,
+      "status": "ok",
+      "triples_added": 22
+    },
+    "117": {
+      "case_id": 117,
+      "edges_emitted": 51,
+      "elapsed_s": 95.93,
+      "obligations": 14,
+      "post_counts": {
+        "competesWith": 20,
+        "defeasibleUnder": 21,
+        "prevailsOver": 10
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 9,
+      "status": "ok",
+      "triples_added": 51
+    },
+    "118": {
+      "case_id": 118,
+      "edges_emitted": 40,
+      "elapsed_s": 76.55,
+      "obligations": 23,
+      "post_counts": {
+        "competesWith": 18,
+        "defeasibleUnder": 16,
+        "prevailsOver": 6
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 7,
+      "status": "ok",
+      "triples_added": 40
+    },
+    "12": {
+      "case_id": 12,
+      "edges_emitted": 37,
+      "elapsed_s": 66.18,
+      "obligations": 17,
+      "post_counts": {
+        "competesWith": 14,
+        "defeasibleUnder": 18,
+        "prevailsOver": 5
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 14,
+      "status": "ok",
+      "triples_added": 37
+    },
+    "120": {
+      "case_id": 120,
+      "edges_emitted": 22,
+      "elapsed_s": 50.95,
+      "obligations": 16,
+      "post_counts": {
+        "competesWith": 2,
+        "defeasibleUnder": 19,
+        "prevailsOver": 1
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 7,
+      "status": "ok",
+      "triples_added": 22
+    },
+    "121": {
+      "case_id": 121,
+      "edges_emitted": 42,
+      "elapsed_s": 79.54,
+      "obligations": 18,
+      "post_counts": {
+        "competesWith": 18,
+        "defeasibleUnder": 16,
+        "prevailsOver": 8
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 10,
+      "status": "ok",
+      "triples_added": 42
+    },
+    "123": {
+      "case_id": 123,
+      "edges_emitted": 57,
+      "elapsed_s": 126.32,
+      "obligations": 20,
+      "post_counts": {
+        "competesWith": 22,
+        "defeasibleUnder": 28,
+        "prevailsOver": 7
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 12,
+      "status": "ok",
+      "triples_added": 57
+    },
+    "124": {
+      "case_id": 124,
+      "edges_emitted": 32,
+      "elapsed_s": 54.81,
+      "obligations": 18,
+      "post_counts": {
+        "competesWith": 14,
+        "defeasibleUnder": 13,
+        "prevailsOver": 5
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 11,
+      "status": "ok",
+      "triples_added": 32
+    },
+    "125": {
+      "case_id": 125,
+      "edges_emitted": 44,
+      "elapsed_s": 70.41,
+      "obligations": 20,
+      "post_counts": {
+        "competesWith": 22,
+        "defeasibleUnder": 16,
+        "prevailsOver": 6
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 11,
+      "status": "ok",
+      "triples_added": 44
+    },
+    "126": {
+      "case_id": 126,
+      "edges_emitted": 29,
+      "elapsed_s": 59.24,
+      "obligations": 16,
+      "post_counts": {
+        "competesWith": 10,
+        "defeasibleUnder": 15,
+        "prevailsOver": 4
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 13,
+      "status": "ok",
+      "triples_added": 29
+    },
+    "127": {
+      "case_id": 127,
+      "edges_emitted": 32,
+      "elapsed_s": 59.19,
+      "obligations": 9,
+      "post_counts": {
+        "competesWith": 12,
+        "defeasibleUnder": 16,
+        "prevailsOver": 4
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 13,
+      "status": "ok",
+      "triples_added": 32
+    },
+    "128": {
+      "case_id": 128,
+      "edges_emitted": 36,
+      "elapsed_s": 70.58,
+      "obligations": 21,
+      "post_counts": {
+        "competesWith": 14,
+        "defeasibleUnder": 16,
+        "prevailsOver": 6
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 15,
+      "status": "ok",
+      "triples_added": 36
+    },
+    "129": {
+      "case_id": 129,
+      "edges_emitted": 42,
+      "elapsed_s": 79.69,
+      "obligations": 14,
+      "post_counts": {
+        "competesWith": 14,
+        "defeasibleUnder": 20,
+        "prevailsOver": 8
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 15,
+      "status": "ok",
+      "triples_added": 42
+    },
+    "13": {
+      "case_id": 13,
+      "edges_emitted": 34,
+      "elapsed_s": 60.33,
+      "obligations": 11,
+      "post_counts": {
+        "competesWith": 16,
+        "defeasibleUnder": 13,
+        "prevailsOver": 5
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 12,
+      "status": "ok",
+      "triples_added": 34
+    },
+    "130": {
+      "case_id": 130,
+      "edges_emitted": 31,
+      "elapsed_s": 65.17,
+      "obligations": 15,
+      "post_counts": {
+        "competesWith": 14,
+        "defeasibleUnder": 13,
+        "prevailsOver": 4
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 12,
+      "status": "ok",
+      "triples_added": 31
+    },
+    "131": {
+      "case_id": 131,
+      "edges_emitted": 35,
+      "elapsed_s": 76.23,
+      "obligations": 22,
+      "post_counts": {
+        "competesWith": 14,
+        "defeasibleUnder": 13,
+        "prevailsOver": 8
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 10,
+      "status": "ok",
+      "triples_added": 35
+    },
+    "132": {
+      "case_id": 132,
+      "edges_emitted": 47,
+      "elapsed_s": 75.16,
+      "obligations": 28,
+      "post_counts": {
+        "competesWith": 18,
+        "defeasibleUnder": 20,
+        "prevailsOver": 9
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 22,
+      "status": "ok",
+      "triples_added": 47
+    },
+    "133": {
+      "case_id": 133,
+      "edges_emitted": 42,
+      "elapsed_s": 101.16,
+      "obligations": 23,
+      "post_counts": {
+        "competesWith": 16,
+        "defeasibleUnder": 19,
+        "prevailsOver": 7
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 19,
+      "status": "ok",
+      "triples_added": 42
+    },
+    "134": {
+      "case_id": 134,
+      "edges_emitted": 25,
+      "elapsed_s": 44.71,
+      "obligations": 13,
+      "post_counts": {
+        "competesWith": 10,
+        "defeasibleUnder": 10,
+        "prevailsOver": 5
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 8,
+      "status": "ok",
+      "triples_added": 25
+    },
+    "135": {
+      "case_id": 135,
+      "edges_emitted": 35,
+      "elapsed_s": 58.14,
+      "obligations": 15,
+      "post_counts": {
+        "competesWith": 16,
+        "defeasibleUnder": 13,
+        "prevailsOver": 6
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 6,
+      "status": "ok",
+      "triples_added": 35
+    },
+    "136": {
+      "case_id": 136,
+      "edges_emitted": 52,
+      "elapsed_s": 92.37,
+      "obligations": 20,
+      "post_counts": {
+        "competesWith": 24,
+        "defeasibleUnder": 19,
+        "prevailsOver": 9
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 18,
+      "status": "ok",
+      "triples_added": 52
+    },
+    "137": {
+      "case_id": 137,
+      "edges_emitted": 60,
+      "elapsed_s": 103.88,
+      "obligations": 33,
+      "post_counts": {
+        "competesWith": 20,
+        "defeasibleUnder": 28,
+        "prevailsOver": 12
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 20,
+      "status": "ok",
+      "triples_added": 60
+    },
+    "139": {
+      "case_id": 139,
+      "edges_emitted": 33,
+      "elapsed_s": 56.22,
+      "obligations": 15,
+      "post_counts": {
+        "competesWith": 16,
+        "defeasibleUnder": 11,
+        "prevailsOver": 6
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 9,
+      "status": "ok",
+      "triples_added": 33
+    },
+    "14": {
+      "case_id": 14,
+      "edges_emitted": 26,
+      "elapsed_s": 56.65,
+      "obligations": 14,
+      "post_counts": {
+        "competesWith": 6,
+        "defeasibleUnder": 15,
+        "prevailsOver": 5
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 11,
+      "status": "ok",
+      "triples_added": 26
+    },
+    "140": {
+      "case_id": 140,
+      "edges_emitted": 34,
+      "elapsed_s": 77.7,
+      "obligations": 25,
+      "post_counts": {
+        "competesWith": 14,
+        "defeasibleUnder": 14,
+        "prevailsOver": 6
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 16,
+      "status": "ok",
+      "triples_added": 34
+    },
+    "141": {
+      "case_id": 141,
+      "edges_emitted": 36,
+      "elapsed_s": 55.2,
+      "obligations": 14,
+      "post_counts": {
+        "competesWith": 18,
+        "defeasibleUnder": 13,
+        "prevailsOver": 5
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 9,
+      "status": "ok",
+      "triples_added": 36
+    },
+    "142": {
+      "case_id": 142,
+      "edges_emitted": 39,
+      "elapsed_s": 69.56,
+      "obligations": 17,
+      "post_counts": {
+        "competesWith": 18,
+        "defeasibleUnder": 15,
+        "prevailsOver": 6
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 17,
+      "status": "ok",
+      "triples_added": 39
+    },
+    "143": {
+      "case_id": 143,
+      "edges_emitted": 30,
+      "elapsed_s": 57.5,
+      "obligations": 16,
+      "post_counts": {
+        "competesWith": 10,
+        "defeasibleUnder": 16,
+        "prevailsOver": 4
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 7,
+      "status": "ok",
+      "triples_added": 30
+    },
+    "144": {
+      "case_id": 144,
+      "edges_emitted": 35,
+      "elapsed_s": 71.74,
+      "obligations": 17,
+      "post_counts": {
+        "competesWith": 12,
+        "defeasibleUnder": 17,
+        "prevailsOver": 6
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 10,
+      "status": "ok",
+      "triples_added": 35
+    },
+    "145": {
+      "case_id": 145,
+      "edges_emitted": 57,
+      "elapsed_s": 115.41,
+      "obligations": 24,
+      "post_counts": {
+        "competesWith": 26,
+        "defeasibleUnder": 22,
+        "prevailsOver": 9
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 10,
+      "status": "ok",
+      "triples_added": 57
+    },
+    "146": {
+      "case_id": 146,
+      "edges_emitted": 26,
+      "elapsed_s": 43.3,
+      "obligations": 13,
+      "post_counts": {
+        "competesWith": 14,
+        "defeasibleUnder": 7,
+        "prevailsOver": 5
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 4,
+      "status": "ok",
+      "triples_added": 26
+    },
+    "147": {
+      "case_id": 147,
+      "edges_emitted": 39,
+      "elapsed_s": 86.22,
+      "obligations": 24,
+      "post_counts": {
+        "competesWith": 16,
+        "defeasibleUnder": 18,
+        "prevailsOver": 5
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 14,
+      "status": "ok",
+      "triples_added": 39
+    },
+    "148": {
+      "case_id": 148,
+      "edges_emitted": 32,
+      "elapsed_s": 63.14,
+      "obligations": 18,
+      "post_counts": {
+        "competesWith": 10,
+        "defeasibleUnder": 15,
+        "prevailsOver": 7
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 13,
+      "status": "ok",
+      "triples_added": 32
+    },
+    "149": {
+      "case_id": 149,
+      "edges_emitted": 50,
+      "elapsed_s": 83.45,
+      "obligations": 26,
+      "post_counts": {
+        "competesWith": 20,
+        "defeasibleUnder": 20,
+        "prevailsOver": 10
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 11,
+      "status": "ok",
+      "triples_added": 50
+    },
+    "15": {
+      "case_id": 15,
+      "edges_emitted": 44,
+      "elapsed_s": 69.12,
+      "obligations": 17,
+      "post_counts": {
+        "competesWith": 16,
+        "defeasibleUnder": 19,
+        "prevailsOver": 9
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 14,
+      "status": "ok",
+      "triples_added": 44
+    },
+    "150": {
+      "case_id": 150,
+      "edges_emitted": 59,
+      "elapsed_s": 122.52,
+      "obligations": 22,
+      "post_counts": {
+        "competesWith": 24,
+        "defeasibleUnder": 28,
+        "prevailsOver": 7
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 14,
+      "status": "ok",
+      "triples_added": 59
+    },
+    "151": {
+      "case_id": 151,
+      "edges_emitted": 31,
+      "elapsed_s": 77.03,
+      "obligations": 21,
+      "post_counts": {
+        "competesWith": 8,
+        "defeasibleUnder": 16,
+        "prevailsOver": 7
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 10,
+      "status": "ok",
+      "triples_added": 31
+    },
+    "157": {
+      "case_id": 157,
+      "edges_emitted": 42,
+      "elapsed_s": 79.75,
+      "obligations": 20,
+      "post_counts": {
+        "competesWith": 18,
+        "defeasibleUnder": 19,
+        "prevailsOver": 5
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 11,
+      "status": "ok",
+      "triples_added": 42
+    },
+    "158": {
+      "case_id": 158,
+      "edges_emitted": 31,
+      "elapsed_s": 88.93,
+      "obligations": 16,
+      "post_counts": {
+        "competesWith": 10,
+        "defeasibleUnder": 14,
+        "prevailsOver": 7
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 10,
+      "status": "ok",
+      "triples_added": 31
+    },
+    "16": {
+      "case_id": 16,
+      "edges_emitted": 31,
+      "elapsed_s": 71.94,
+      "obligations": 11,
+      "post_counts": {
+        "competesWith": 12,
+        "defeasibleUnder": 15,
+        "prevailsOver": 4
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 16,
+      "status": "ok",
+      "triples_added": 31
+    },
+    "160": {
+      "case_id": 160,
+      "edges_emitted": 48,
+      "elapsed_s": 74.41,
+      "obligations": 28,
+      "post_counts": {
+        "competesWith": 20,
+        "defeasibleUnder": 19,
+        "prevailsOver": 9
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 16,
+      "status": "ok",
+      "triples_added": 48
+    },
+    "161": {
+      "case_id": 161,
+      "edges_emitted": 42,
+      "elapsed_s": 72.41,
+      "obligations": 25,
+      "post_counts": {
+        "competesWith": 18,
+        "defeasibleUnder": 14,
+        "prevailsOver": 10
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 14,
+      "status": "ok",
+      "triples_added": 42
+    },
+    "162": {
+      "case_id": 162,
+      "edges_emitted": 31,
+      "elapsed_s": 57.02,
+      "obligations": 15,
+      "post_counts": {
+        "competesWith": 12,
+        "defeasibleUnder": 15,
+        "prevailsOver": 4
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 9,
+      "status": "ok",
+      "triples_added": 31
+    },
+    "163": {
+      "case_id": 163,
+      "edges_emitted": 46,
+      "elapsed_s": 68.66,
+      "obligations": 16,
+      "post_counts": {
+        "competesWith": 22,
+        "defeasibleUnder": 15,
+        "prevailsOver": 9
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 12,
+      "status": "ok",
+      "triples_added": 46
+    },
+    "164": {
+      "case_id": 164,
+      "edges_emitted": 35,
+      "elapsed_s": 59.53,
+      "obligations": 16,
+      "post_counts": {
+        "competesWith": 18,
+        "defeasibleUnder": 12,
+        "prevailsOver": 5
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 8,
+      "status": "ok",
+      "triples_added": 35
+    },
+    "165": {
+      "case_id": 165,
+      "edges_emitted": 43,
+      "elapsed_s": 72.64,
+      "obligations": 12,
+      "post_counts": {
+        "competesWith": 14,
+        "defeasibleUnder": 23,
+        "prevailsOver": 6
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 15,
+      "status": "ok",
+      "triples_added": 43
+    },
+    "166": {
+      "case_id": 166,
+      "edges_emitted": 36,
+      "elapsed_s": 62.38,
+      "obligations": 16,
+      "post_counts": {
+        "competesWith": 16,
+        "defeasibleUnder": 14,
+        "prevailsOver": 6
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 7,
+      "status": "ok",
+      "triples_added": 36
+    },
+    "167": {
+      "case_id": 167,
+      "edges_emitted": 53,
+      "elapsed_s": 85.8,
+      "obligations": 23,
+      "post_counts": {
+        "competesWith": 18,
+        "defeasibleUnder": 24,
+        "prevailsOver": 11
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 11,
+      "status": "ok",
+      "triples_added": 53
+    },
+    "168": {
+      "case_id": 168,
+      "edges_emitted": 39,
+      "elapsed_s": 82.42,
+      "obligations": 19,
+      "post_counts": {
+        "competesWith": 16,
+        "defeasibleUnder": 17,
+        "prevailsOver": 6
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 13,
+      "status": "ok",
+      "triples_added": 39
+    },
+    "169": {
+      "case_id": 169,
+      "edges_emitted": 54,
+      "elapsed_s": 92.96,
+      "obligations": 19,
+      "post_counts": {
+        "competesWith": 16,
+        "defeasibleUnder": 30,
+        "prevailsOver": 8
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 15,
+      "status": "ok",
+      "triples_added": 54
+    },
+    "17": {
+      "case_id": 17,
+      "edges_emitted": 28,
+      "elapsed_s": 53.7,
+      "obligations": 9,
+      "post_counts": {
+        "competesWith": 8,
+        "defeasibleUnder": 15,
+        "prevailsOver": 5
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 16,
+      "status": "ok",
+      "triples_added": 28
+    },
+    "170": {
+      "case_id": 170,
+      "edges_emitted": 36,
+      "elapsed_s": 89.48,
+      "obligations": 17,
+      "post_counts": {
+        "competesWith": 16,
+        "defeasibleUnder": 12,
+        "prevailsOver": 8
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 6,
+      "status": "ok",
+      "triples_added": 36
+    },
+    "171": {
+      "case_id": 171,
+      "edges_emitted": 42,
+      "elapsed_s": 80.95,
+      "obligations": 29,
+      "post_counts": {
+        "competesWith": 14,
+        "defeasibleUnder": 23,
+        "prevailsOver": 5
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 18,
+      "status": "ok",
+      "triples_added": 42
+    },
+    "172": {
+      "case_id": 172,
+      "edges_emitted": 45,
+      "elapsed_s": 88.18,
+      "obligations": 18,
+      "post_counts": {
+        "competesWith": 16,
+        "defeasibleUnder": 20,
+        "prevailsOver": 9
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 15,
+      "status": "ok",
+      "triples_added": 45
+    },
+    "173": {
+      "case_id": 173,
+      "edges_emitted": 49,
+      "elapsed_s": 109.8,
+      "obligations": 18,
+      "post_counts": {
+        "competesWith": 16,
+        "defeasibleUnder": 24,
+        "prevailsOver": 9
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 12,
+      "status": "ok",
+      "triples_added": 49
+    },
+    "174": {
+      "case_id": 174,
+      "edges_emitted": 43,
+      "elapsed_s": 99.21,
+      "obligations": 19,
+      "post_counts": {
+        "competesWith": 20,
+        "defeasibleUnder": 17,
+        "prevailsOver": 6
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 11,
+      "status": "ok",
+      "triples_added": 43
+    },
+    "175": {
+      "case_id": 175,
+      "edges_emitted": 44,
+      "elapsed_s": 92.45,
+      "obligations": 23,
+      "post_counts": {
+        "competesWith": 18,
+        "defeasibleUnder": 18,
+        "prevailsOver": 8
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 21,
+      "status": "ok",
+      "triples_added": 44
+    },
+    "176": {
+      "case_id": 176,
+      "edges_emitted": 26,
+      "elapsed_s": 60.98,
+      "obligations": 13,
+      "post_counts": {
+        "competesWith": 12,
+        "defeasibleUnder": 10,
+        "prevailsOver": 4
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 9,
+      "status": "ok",
+      "triples_added": 26
+    },
+    "177": {
+      "case_id": 177,
+      "edges_emitted": 57,
+      "elapsed_s": 95.65,
+      "obligations": 23,
+      "post_counts": {
+        "competesWith": 24,
+        "defeasibleUnder": 24,
+        "prevailsOver": 9
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 14,
+      "status": "ok",
+      "triples_added": 57
+    },
+    "178": {
+      "case_id": 178,
+      "edges_emitted": 43,
+      "elapsed_s": 81.6,
+      "obligations": 25,
+      "post_counts": {
+        "competesWith": 16,
+        "defeasibleUnder": 22,
+        "prevailsOver": 5
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 20,
+      "status": "ok",
+      "triples_added": 43
+    },
+    "179": {
+      "case_id": 179,
+      "edges_emitted": 46,
+      "elapsed_s": 90.56,
+      "obligations": 18,
+      "post_counts": {
+        "competesWith": 16,
+        "defeasibleUnder": 22,
+        "prevailsOver": 8
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 12,
+      "status": "ok",
+      "triples_added": 46
+    },
+    "18": {
+      "case_id": 18,
+      "edges_emitted": 52,
+      "elapsed_s": 98.49,
+      "obligations": 24,
+      "post_counts": {
+        "competesWith": 18,
+        "defeasibleUnder": 27,
+        "prevailsOver": 7
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 16,
+      "status": "ok",
+      "triples_added": 52
+    },
+    "181": {
+      "case_id": 181,
+      "edges_emitted": 39,
+      "elapsed_s": 72.03,
+      "obligations": 18,
+      "post_counts": {
+        "competesWith": 16,
+        "defeasibleUnder": 17,
+        "prevailsOver": 6
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 13,
+      "status": "ok",
+      "triples_added": 39
+    },
+    "19": {
+      "case_id": 19,
+      "edges_emitted": 39,
+      "elapsed_s": 66.46,
+      "obligations": 19,
+      "post_counts": {
+        "competesWith": 14,
+        "defeasibleUnder": 18,
+        "prevailsOver": 7
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 12,
+      "status": "ok",
+      "triples_added": 39
+    },
+    "20": {
+      "case_id": 20,
+      "edges_emitted": 54,
+      "elapsed_s": 95.14,
+      "obligations": 27,
+      "post_counts": {
+        "competesWith": 18,
+        "defeasibleUnder": 27,
+        "prevailsOver": 9
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 19,
+      "status": "ok",
+      "triples_added": 54
+    },
+    "22": {
+      "case_id": 22,
+      "edges_emitted": 34,
+      "elapsed_s": 59.68,
+      "obligations": 18,
+      "post_counts": {
+        "competesWith": 16,
+        "defeasibleUnder": 11,
+        "prevailsOver": 7
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 9,
+      "status": "ok",
+      "triples_added": 34
+    },
+    "4": {
+      "case_id": 4,
+      "edges_emitted": 53,
+      "elapsed_s": 103.03,
+      "obligations": 21,
+      "post_counts": {
+        "competesWith": 24,
+        "defeasibleUnder": 24,
+        "prevailsOver": 5
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 17,
+      "status": "ok",
+      "triples_added": 53
+    },
+    "5": {
+      "case_id": 5,
+      "edges_emitted": 35,
+      "elapsed_s": 64.47,
+      "obligations": 8,
+      "post_counts": {
+        "competesWith": 12,
+        "defeasibleUnder": 18,
+        "prevailsOver": 5
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 18,
+      "status": "ok",
+      "triples_added": 35
+    },
+    "56": {
+      "case_id": 56,
+      "edges_emitted": 40,
+      "elapsed_s": 72.77,
+      "obligations": 20,
+      "post_counts": {
+        "competesWith": 14,
+        "defeasibleUnder": 20,
+        "prevailsOver": 6
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 14,
+      "status": "ok",
+      "triples_added": 40
+    },
+    "57": {
+      "case_id": 57,
+      "edges_emitted": 40,
+      "elapsed_s": 78.72,
+      "obligations": 15,
+      "post_counts": {
+        "competesWith": 14,
+        "defeasibleUnder": 20,
+        "prevailsOver": 6
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 13,
+      "status": "ok",
+      "triples_added": 40
+    },
+    "58": {
+      "case_id": 58,
+      "edges_emitted": 46,
+      "elapsed_s": 88.3,
+      "obligations": 24,
+      "post_counts": {
+        "competesWith": 16,
+        "defeasibleUnder": 20,
+        "prevailsOver": 10
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 14,
+      "status": "ok",
+      "triples_added": 46
+    },
+    "59": {
+      "case_id": 59,
+      "edges_emitted": 40,
+      "elapsed_s": 93.72,
+      "obligations": 16,
+      "post_counts": {
+        "competesWith": 14,
+        "defeasibleUnder": 20,
+        "prevailsOver": 6
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 13,
+      "status": "ok",
+      "triples_added": 40
+    },
+    "6": {
+      "case_id": 6,
+      "edges_emitted": 36,
+      "elapsed_s": 60.92,
+      "obligations": 23,
+      "post_counts": {
+        "competesWith": 14,
+        "defeasibleUnder": 17,
+        "prevailsOver": 5
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 15,
+      "status": "ok",
+      "triples_added": 36
+    },
+    "60": {
+      "case_id": 60,
+      "edges_emitted": 38,
+      "elapsed_s": 69.79,
+      "obligations": 20,
+      "post_counts": {
+        "competesWith": 10,
+        "defeasibleUnder": 22,
+        "prevailsOver": 6
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 13,
+      "status": "ok",
+      "triples_added": 38
+    },
+    "7": {
+      "case_id": 7,
+      "edges_emitted": 49,
+      "elapsed_s": 98.21,
+      "obligations": 23,
+      "post_counts": {
+        "competesWith": 18,
+        "defeasibleUnder": 25,
+        "prevailsOver": 6
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 16,
+      "status": "ok",
+      "triples_added": 49
+    },
+    "71": {
+      "case_id": 71,
+      "edges_emitted": 45,
+      "elapsed_s": 78.26,
+      "obligations": 25,
+      "post_counts": {
+        "competesWith": 12,
+        "defeasibleUnder": 23,
+        "prevailsOver": 10
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 13,
+      "status": "ok",
+      "triples_added": 45
+    },
+    "73": {
+      "case_id": 73,
+      "edges_emitted": 60,
+      "elapsed_s": 119.08,
+      "obligations": 37,
+      "post_counts": {
+        "competesWith": 22,
+        "defeasibleUnder": 31,
+        "prevailsOver": 7
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 34,
+      "status": "ok",
+      "triples_added": 60
+    },
+    "74": {
+      "case_id": 74,
+      "edges_emitted": 26,
+      "elapsed_s": 62.15,
+      "obligations": 16,
+      "post_counts": {
+        "competesWith": 10,
+        "defeasibleUnder": 12,
+        "prevailsOver": 4
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 11,
+      "status": "ok",
+      "triples_added": 26
+    },
+    "75": {
+      "case_id": 75,
+      "edges_emitted": 42,
+      "elapsed_s": 102.71,
+      "obligations": 18,
+      "post_counts": {
+        "competesWith": 16,
+        "defeasibleUnder": 20,
+        "prevailsOver": 6
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 12,
+      "status": "ok",
+      "triples_added": 42
+    },
+    "76": {
+      "case_id": 76,
+      "edges_emitted": 46,
+      "elapsed_s": 76.0,
+      "obligations": 24,
+      "post_counts": {
+        "competesWith": 16,
+        "defeasibleUnder": 22,
+        "prevailsOver": 8
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 12,
+      "status": "ok",
+      "triples_added": 46
+    },
+    "77": {
+      "case_id": 77,
+      "edges_emitted": 32,
+      "elapsed_s": 52.28,
+      "obligations": 14,
+      "post_counts": {
+        "competesWith": 12,
+        "defeasibleUnder": 11,
+        "prevailsOver": 9
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 7,
+      "status": "ok",
+      "triples_added": 32
+    },
+    "78": {
+      "case_id": 78,
+      "edges_emitted": 38,
+      "elapsed_s": 61.7,
+      "obligations": 14,
+      "post_counts": {
+        "competesWith": 18,
+        "defeasibleUnder": 13,
+        "prevailsOver": 7
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 12,
+      "status": "ok",
+      "triples_added": 38
+    },
+    "79": {
+      "case_id": 79,
+      "edges_emitted": 52,
+      "elapsed_s": 90.6,
+      "obligations": 27,
+      "post_counts": {
+        "competesWith": 16,
+        "defeasibleUnder": 27,
+        "prevailsOver": 9
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 18,
+      "status": "ok",
+      "triples_added": 52
+    },
+    "8": {
+      "case_id": 8,
+      "edges_emitted": 62,
+      "elapsed_s": 108.54,
+      "obligations": 23,
+      "post_counts": {
+        "competesWith": 30,
+        "defeasibleUnder": 26,
+        "prevailsOver": 6
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 16,
+      "status": "ok",
+      "triples_added": 62
+    },
+    "82": {
+      "case_id": 82,
+      "edges_emitted": 35,
+      "elapsed_s": 54.43,
+      "obligations": 17,
+      "post_counts": {
+        "competesWith": 16,
+        "defeasibleUnder": 11,
+        "prevailsOver": 8
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 9,
+      "status": "ok",
+      "triples_added": 35
+    },
+    "83": {
+      "case_id": 83,
+      "edges_emitted": 53,
+      "elapsed_s": 124.22,
+      "obligations": 22,
+      "post_counts": {
+        "competesWith": 24,
+        "defeasibleUnder": 19,
+        "prevailsOver": 10
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 17,
+      "status": "ok",
+      "triples_added": 53
+    },
+    "84": {
+      "case_id": 84,
+      "edges_emitted": 57,
+      "elapsed_s": 98.54,
+      "obligations": 23,
+      "post_counts": {
+        "competesWith": 22,
+        "defeasibleUnder": 25,
+        "prevailsOver": 10
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 14,
+      "status": "ok",
+      "triples_added": 57
+    },
+    "85": {
+      "case_id": 85,
+      "edges_emitted": 48,
+      "elapsed_s": 76.85,
+      "obligations": 19,
+      "post_counts": {
+        "competesWith": 20,
+        "defeasibleUnder": 18,
+        "prevailsOver": 10
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 15,
+      "status": "ok",
+      "triples_added": 48
+    },
+    "86": {
+      "case_id": 86,
+      "edges_emitted": 27,
+      "elapsed_s": 48.12,
+      "obligations": 8,
+      "post_counts": {
+        "competesWith": 12,
+        "defeasibleUnder": 10,
+        "prevailsOver": 5
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 14,
+      "status": "ok",
+      "triples_added": 27
+    },
+    "87": {
+      "case_id": 87,
+      "edges_emitted": 56,
+      "elapsed_s": 95.95,
+      "obligations": 28,
+      "post_counts": {
+        "competesWith": 18,
+        "defeasibleUnder": 29,
+        "prevailsOver": 9
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 14,
+      "status": "ok",
+      "triples_added": 56
+    },
+    "88": {
+      "case_id": 88,
+      "edges_emitted": 79,
+      "elapsed_s": 151.58,
+      "obligations": 46,
+      "post_counts": {
+        "competesWith": 24,
+        "defeasibleUnder": 46,
+        "prevailsOver": 9
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 33,
+      "status": "ok",
+      "triples_added": 79
+    },
+    "89": {
+      "case_id": 89,
+      "edges_emitted": 37,
+      "elapsed_s": 60.14,
+      "obligations": 17,
+      "post_counts": {
+        "competesWith": 14,
+        "defeasibleUnder": 15,
+        "prevailsOver": 8
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 11,
+      "status": "ok",
+      "triples_added": 37
+    },
+    "9": {
+      "case_id": 9,
+      "edges_emitted": 44,
+      "elapsed_s": 81.76,
+      "obligations": 16,
+      "post_counts": {
+        "competesWith": 20,
+        "defeasibleUnder": 17,
+        "prevailsOver": 7
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 10,
+      "status": "ok",
+      "triples_added": 44
+    },
+    "90": {
+      "case_id": 90,
+      "edges_emitted": 24,
+      "elapsed_s": 42.39,
+      "obligations": 12,
+      "post_counts": {
+        "competesWith": 10,
+        "defeasibleUnder": 10,
+        "prevailsOver": 4
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 7,
+      "status": "ok",
+      "triples_added": 24
+    },
+    "91": {
+      "case_id": 91,
+      "edges_emitted": 37,
+      "elapsed_s": 61.17,
+      "obligations": 15,
+      "post_counts": {
+        "competesWith": 16,
+        "defeasibleUnder": 13,
+        "prevailsOver": 8
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 9,
+      "status": "ok",
+      "triples_added": 37
+    },
+    "92": {
+      "case_id": 92,
+      "edges_emitted": 82,
+      "elapsed_s": 172.41,
+      "obligations": 25,
+      "post_counts": {
+        "competesWith": 26,
+        "defeasibleUnder": 42,
+        "prevailsOver": 14
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 22,
+      "status": "ok",
+      "triples_added": 82
+    },
+    "93": {
+      "case_id": 93,
+      "edges_emitted": 19,
+      "elapsed_s": 42.7,
+      "obligations": 14,
+      "post_counts": {
+        "competesWith": 8,
+        "defeasibleUnder": 9,
+        "prevailsOver": 2
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 9,
+      "status": "ok",
+      "triples_added": 19
+    },
+    "94": {
+      "case_id": 94,
+      "edges_emitted": 62,
+      "elapsed_s": 127.57,
+      "obligations": 34,
+      "post_counts": {
+        "competesWith": 26,
+        "defeasibleUnder": 29,
+        "prevailsOver": 7
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 22,
+      "status": "ok",
+      "triples_added": 62
+    },
+    "96": {
+      "case_id": 96,
+      "edges_emitted": 35,
+      "elapsed_s": 63.35,
+      "obligations": 17,
+      "post_counts": {
+        "competesWith": 14,
+        "defeasibleUnder": 18,
+        "prevailsOver": 3
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 11,
+      "status": "ok",
+      "triples_added": 35
+    },
+    "97": {
+      "case_id": 97,
+      "edges_emitted": 40,
+      "elapsed_s": 74.1,
+      "obligations": 15,
+      "post_counts": {
+        "competesWith": 12,
+        "defeasibleUnder": 20,
+        "prevailsOver": 8
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 10,
+      "status": "ok",
+      "triples_added": 40
+    },
+    "98": {
+      "case_id": 98,
+      "edges_emitted": 35,
+      "elapsed_s": 66.22,
+      "obligations": 15,
+      "post_counts": {
+        "competesWith": 12,
+        "defeasibleUnder": 19,
+        "prevailsOver": 4
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 9,
+      "status": "ok",
+      "triples_added": 35
+    },
+    "99": {
+      "case_id": 99,
+      "edges_emitted": 25,
+      "elapsed_s": 43.41,
+      "obligations": 8,
+      "post_counts": {
+        "competesWith": 10,
+        "defeasibleUnder": 10,
+        "prevailsOver": 5
+      },
+      "pre_counts": {
+        "competesWith": 0,
+        "defeasibleUnder": 0,
+        "prevailsOver": 0
+      },
+      "states": 11,
+      "status": "ok",
+      "triples_added": 25
+    }
+  },
+  "failed": {},
+  "started_at": "2026-05-02T01:45:17.599180+00:00"
+}

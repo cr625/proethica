@@ -30,7 +30,7 @@ Cross-references:
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
@@ -859,6 +859,77 @@ class ConstraintExtractionResult(BaseModel):
     """Top-level LLM output for constraint extraction."""
     new_constraint_classes: List[CandidateConstraintClass] = Field(default_factory=list)
     constraint_individuals: List[ConstraintIndividual] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Defeasibility edges (proethica-core v2.5.0 object properties)
+# ---------------------------------------------------------------------------
+# Object-property triples between extracted Obligation and State individuals.
+# Unlike the nine concept extractors, the defeasibility extractor does not
+# emit individuals -- it emits IRI-valued edges that participate in the
+# D-tuple competition pattern (KI2026 Fig. 1).
+#
+# Property axioms (from OntServe/ontologies/proethica-core.ttl):
+#   competesWith     -- symmetric, Obligation <-> Obligation
+#   prevailsOver     -- directed,  Obligation -> Obligation (winner -> loser)
+#   defeasibleUnder  -- directed,  Obligation -> State (the defeating context)
+# ---------------------------------------------------------------------------
+
+class DefeasibilityEdge(BaseModel):
+    """A single defeasibility edge proposed by the LLM.
+
+    The Literal types prevent drift on the predicate (only the three v2.5.0
+    object properties are valid) and on the source_field (which keys
+    PROV-O provenance back to the originating narrative datatype).
+    Symmetric closure of competesWith is added in code, not by the LLM
+    (see DefeasibilityEdgeExtractor.extract).
+    """
+    model_config = ConfigDict(populate_by_name=True)
+
+    predicate: Literal["competesWith", "prevailsOver", "defeasibleUnder"]
+    subject_iri: str = Field(
+        ..., description="Full IRI of the subject Obligation individual"
+    )
+    object_iri: str = Field(
+        ...,
+        description=(
+            "Full IRI of the object: an Obligation for competesWith/prevailsOver, "
+            "a State for defeasibleUnder"
+        ),
+    )
+    source_field: Literal[
+        "tensionresolution",
+        "balancingwith",
+        "constraintstatement",
+        "concreteexpression",
+        "interpretation",
+        "obligationstatement",
+        "casecontext",
+    ] = Field(
+        ...,
+        description=(
+            "Datatype field whose narrative supplied evidence for the edge. "
+            "Used as PROV-O provenance key on the emitted triple."
+        ),
+    )
+    source_text: str = Field(
+        ...,
+        description="Verbatim quote from the source_field that justifies the edge",
+    )
+    confidence: float = Field(0.7, ge=0.0, le=1.0)
+    source_individual_iri: Optional[str] = Field(
+        None,
+        description=(
+            "IRI of the individual whose datatype field supplied source_text. "
+            "May differ from subject_iri (e.g. a Principle's interpretation "
+            "field justifying an Obligation-Obligation edge)."
+        ),
+    )
+
+
+class DefeasibilityEdgeExtractionResult(BaseModel):
+    """Top-level LLM output for defeasibility edge extraction."""
+    edges: List[DefeasibilityEdge] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
