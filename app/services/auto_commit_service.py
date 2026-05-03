@@ -393,21 +393,13 @@ class AutoCommitService:
     def _check_duplicate(
         self, label: str, entity_type: str, definition: str = ""
     ) -> Optional[Tuple[str, float]]:
-        """
-        Check if a semantically equivalent class already exists in OntServe.
+        """Find an existing OntServe class equivalent to the candidate.
 
-        First tries lexical matching (exact, then substring with type filter),
-        then falls back to embedding-based cosine similarity against all
-        proethica classes loaded from ontology_entities.
-
-        Args:
-            label: The entity label
-            entity_type: The type of entity (role, state, etc.)
-            definition: Optional entity definition for richer embedding text
-
-        Returns:
-            (uri, confidence) if a match is found, None otherwise.
-            Confidence: 1.0 for exact label, 0.87 for substring, cosine for embedding.
+        Tries exact label match, then substring match with a URI-marker
+        type filter, then falls back to pgvector cosine similarity.
+        Returns ``(uri, confidence)`` or ``None``. Confidence is 1.0 for
+        exact label, 0.87 for substring, and the cosine score for the
+        embedding path.
         """
         # Load OntServe classes if not cached
         if self._ontserve_classes_cache is None:
@@ -492,9 +484,7 @@ class AutoCommitService:
 
             engine = create_engine(get_ontserve_db_url())
             with engine.connect() as conn:
-                # IVFFlat default probes=1 is approximate. Bump to 100
-                # (matches the index list count, effectively exact scan)
-                # so the matcher doesn't miss the true nearest neighbor.
+                # Probe every list so the IVFFlat lookup is exact, not approximate.
                 conn.execute(text("SET LOCAL ivfflat.probes = 100"))
                 row = conn.execute(sql, params).fetchone()
 
