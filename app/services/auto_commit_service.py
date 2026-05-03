@@ -10,6 +10,7 @@ Phase 3 of Entity-Ontology Linking implementation.
 
 import logging
 import json
+import numpy as np
 from datetime import datetime
 from typing import Dict, List, Any, Optional, Tuple
 from pathlib import Path
@@ -35,6 +36,10 @@ PROV = Namespace("http://www.w3.org/ns/prov#")
 CONFIDENCE_AUTO_ACCEPT = 0.90  # Auto-accept matches above this threshold
 CONFIDENCE_REVIEW = 0.75       # Require review for matches in this range
 CONFIDENCE_NEW_CLASS = 0.75    # Below this, treat as new class
+
+# Minimum cosine similarity for embedding-based duplicate detection.
+# Maps to the rubric MEDIUM band lower bound (ICCBR paper Section 3.3).
+EMBEDDING_MATCH_MIN = 0.70
 
 
 @dataclass
@@ -80,6 +85,9 @@ class AutoCommitService:
 
         # Cache for OntServe classes (loaded on demand)
         self._ontserve_classes_cache: Optional[Dict[str, Dict]] = None
+
+        # Embedding index built lazily from _ontserve_classes_cache
+        self._embedding_index: Optional[Dict] = None
 
         # Whether current commit uses versioned path (set by commit_case_entities)
         self._versioned_commit: bool = True
@@ -298,13 +306,19 @@ class AutoCommitService:
                     )
 
             # Low confidence or no match - check for duplicates before creating new class
-            duplicate_uri = self._check_duplicate(entity.entity_label, entity.entity_type)
+            match = self._check_duplicate(
+                entity.entity_label,
+                entity.entity_type,
+                entity.entity_definition or "",
+            )
 
-            if duplicate_uri:
-                # Update the entity with the found match
+            if match:
+                duplicate_uri, match_confidence = match
+                match_method = 'lexical' if match_confidence >= 1.0 else 'embedding'
+                band = "auto-link" if match_confidence >= CONFIDENCE_AUTO_ACCEPT else "review-flag"
                 entity.matched_ontology_uri = duplicate_uri
-                entity.match_method = 'embedding'
-                entity.match_confidence = 0.80  # Embedding match confidence
+                entity.match_method = match_method
+                entity.match_confidence = match_confidence
 
                 return EntityCommitResult(
                     entity_id=entity.id,
@@ -312,8 +326,8 @@ class AutoCommitService:
                     entity_type=entity.entity_type,
                     action='linked',
                     linked_uri=duplicate_uri,
-                    confidence=0.80,
-                    reasoning="Linked via embedding similarity check"
+                    confidence=match_confidence,
+                    reasoning=f"Duplicate check ({match_method}, {band}, score={match_confidence:.2f}): {entity.entity_label}",
                 )
 
             # No match found - create new class (handled in TTL generation)
@@ -335,19 +349,24 @@ class AutoCommitService:
                 error=str(e)
             )
 
-    def _check_duplicate(self, label: str, entity_type: str) -> Optional[str]:
+    def _check_duplicate(
+        self, label: str, entity_type: str, definition: str = ""
+    ) -> Optional[Tuple[str, float]]:
         """
         Check if a semantically equivalent class already exists in OntServe.
 
-        Uses embedding similarity to find potential matches for entities
-        without LLM-provided matches.
+        First tries lexical matching (exact, then substring with type filter),
+        then falls back to embedding-based cosine similarity against all
+        proethica classes loaded from ontology_entities.
 
         Args:
             label: The entity label
             entity_type: The type of entity (role, state, etc.)
+            definition: Optional entity definition for richer embedding text
 
         Returns:
-            URI of matching class if found, None otherwise
+            (uri, confidence) if a match is found, None otherwise.
+            Confidence: 1.0 for exact label, 0.87 for substring, cosine for embedding.
         """
         # Load OntServe classes if not cached
         if self._ontserve_classes_cache is None:
@@ -363,7 +382,7 @@ class AutoCommitService:
         for uri, class_info in self._ontserve_classes_cache.items():
             if class_info.get('label', '').lower().strip() == normalized_label:
                 logger.info(f"Found exact label match for '{label}': {uri}")
-                return uri
+                return uri, 1.0
 
         # Try partial match (label contains or is contained)
         for uri, class_info in self._ontserve_classes_cache.items():
@@ -373,12 +392,140 @@ class AutoCommitService:
                 class_type = class_info.get('type', '').lower()
                 if entity_type and entity_type.lower() in class_type:
                     logger.info(f"Found partial label match for '{label}': {uri}")
-                    return uri
+                    return uri, 0.87
 
-        # TODO: Implement embedding-based similarity check
-        # This would query OntServe's entity_embeddings table for similar entities
+        # Embedding-based similarity fallback
+        return self._check_embedding_duplicate(label, definition, entity_type)
 
-        return None
+    def _build_embedding_index(self) -> None:
+        """Build in-memory cosine index over the loaded OntServe classes cache.
+
+        Called lazily before the first embedding lookup. Embeds 'label: definition'
+        for every proethica class using the same all-MiniLM-L6-v2 model (384-dim)
+        used for case-level embeddings. Stores an L2-normalised (N x 384) numpy
+        matrix so cosine similarity reduces to a single matrix-vector product.
+        """
+        if not self._ontserve_classes_cache:
+            self._embedding_index = {'matrix': None, 'uris': [], 'types': []}
+            return
+
+        try:
+            from app.services.embedding_service import EmbeddingService
+            embedding_service = EmbeddingService.get_instance()
+
+            uris: List[str] = []
+            types: List[str] = []
+            vectors: List[np.ndarray] = []
+
+            for uri, class_info in self._ontserve_classes_cache.items():
+                label = (class_info.get('label') or '').strip()
+                defn = (class_info.get('definition') or '').strip()
+                entity_type = (class_info.get('type') or '').lower()
+
+                index_text = f"{label}: {defn}" if defn else label
+                if not index_text:
+                    continue
+
+                raw = embedding_service._get_local_embedding(index_text)
+                vec = (
+                    np.array(raw, dtype=np.float32)
+                    if isinstance(raw, list)
+                    else raw.astype(np.float32)
+                )
+                norm = np.linalg.norm(vec)
+                if norm == 0:
+                    continue
+                vec = vec / norm
+
+                uris.append(uri)
+                types.append(entity_type)
+                vectors.append(vec)
+
+            if vectors:
+                self._embedding_index = {
+                    'matrix': np.stack(vectors, axis=0),
+                    'uris': uris,
+                    'types': types,
+                }
+            else:
+                self._embedding_index = {'matrix': None, 'uris': [], 'types': []}
+
+            logger.info("Built embedding index with %d proethica classes", len(uris))
+
+        except Exception as e:
+            logger.warning("Could not build embedding index: %s", e)
+            self._embedding_index = {'matrix': None, 'uris': [], 'types': []}
+
+    def _check_embedding_duplicate(
+        self, label: str, definition: str, entity_type: str
+    ) -> Optional[Tuple[str, float]]:
+        """Query the embedding index for a cosine-similar class.
+
+        Embeds 'label: definition' with all-MiniLM-L6-v2, applies entity-type
+        filter, and returns (uri, cosine_score) if the best match meets
+        EMBEDDING_MATCH_MIN.  Rubric bands (ICCBR paper Section 3.3):
+
+          HIGH   cosine >= 0.85  -> caller applies auto-link logic
+          MEDIUM 0.70 <= c < 0.85 -> caller applies review-flag logic
+          below 0.70              -> returns None (novel class)
+        """
+        if self._embedding_index is None:
+            self._build_embedding_index()
+
+        matrix = (self._embedding_index or {}).get('matrix')
+        if matrix is None:
+            return None
+
+        uris: List[str] = self._embedding_index['uris']
+        types: List[str] = self._embedding_index['types']
+        if not uris:
+            return None
+
+        try:
+            from app.services.embedding_service import EmbeddingService
+            embedding_service = EmbeddingService.get_instance()
+
+            candidate_text = f"{label}: {definition}" if definition else label
+            raw = embedding_service._get_local_embedding(candidate_text)
+            vec = (
+                np.array(raw, dtype=np.float32)
+                if isinstance(raw, list)
+                else raw.astype(np.float32)
+            )
+            norm = np.linalg.norm(vec)
+            if norm == 0:
+                return None
+            vec = vec / norm
+
+            # Cosine similarity = dot product of L2-normalised vectors, shape (N,)
+            similarities: np.ndarray = matrix @ vec
+
+            normalized_type = entity_type.lower() if entity_type else ''
+            best_score = -1.0
+            best_uri: Optional[str] = None
+
+            for uri, cls_type, sim in zip(uris, types, similarities):
+                sim_val = float(sim)
+                # Type filter: skip if entity types are clearly incompatible
+                if normalized_type and cls_type:
+                    if normalized_type not in cls_type and cls_type not in normalized_type:
+                        continue
+                if sim_val > best_score:
+                    best_score = sim_val
+                    best_uri = uri
+
+            if best_uri is None or best_score < EMBEDDING_MATCH_MIN:
+                return None
+
+            logger.info(
+                "Embedding match: '%s' (%s) -> %s (cosine=%.3f)",
+                label, entity_type, best_uri, best_score,
+            )
+            return best_uri, best_score
+
+        except Exception as e:
+            logger.warning("Embedding duplicate check failed: %s", e)
+            return None
 
     def _load_ontserve_classes(self):
         """Load OntServe classes from database for duplicate checking."""
