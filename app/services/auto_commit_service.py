@@ -42,6 +42,26 @@ CONFIDENCE_NEW_CLASS = 0.75    # Below this, treat as new class
 EMBEDDING_MATCH_MIN = 0.70
 
 
+def _semantic_type_markers(entity_type: Optional[str]) -> List[str]:
+    """Return URI-substring forms to test for a D-tuple semantic type.
+
+    Class URIs follow the singular convention (FaithfulAgentObligation,
+    not FaithfulAgentObligations). Candidates may arrive as singular or
+    plural ('obligation' / 'obligations', 'capability' / 'capabilities').
+    Returns both the title-cased input and its naive singularization so
+    either form matches.
+    """
+    if not entity_type:
+        return []
+    base = entity_type.title()
+    forms = [base]
+    if base.endswith('ies'):
+        forms.append(base[:-3] + 'y')  # capabilities -> capability
+    elif base.endswith('s'):
+        forms.append(base[:-1])         # obligations -> obligation
+    return forms
+
+
 @dataclass
 class EntityCommitResult:
     """Result of committing a single entity."""
@@ -384,15 +404,16 @@ class AutoCommitService:
                 logger.info(f"Found exact label match for '{label}': {uri}")
                 return uri, 1.0
 
-        # Try partial match (label contains or is contained)
+        # Try partial match (label contains or is contained), gated by the
+        # same URI-substring type filter the embedding path uses.
+        type_markers = _semantic_type_markers(entity_type)
         for uri, class_info in self._ontserve_classes_cache.items():
             class_label = class_info.get('label', '').lower().strip()
             if normalized_label in class_label or class_label in normalized_label:
-                # Only match if same entity type
-                class_type = class_info.get('type', '').lower()
-                if entity_type and entity_type.lower() in class_type:
-                    logger.info(f"Found partial label match for '{label}': {uri}")
-                    return uri, 0.87
+                if type_markers and not any(m in uri for m in type_markers):
+                    continue
+                logger.info(f"Found partial label match for '{label}': {uri}")
+                return uri, 0.87
 
         # Embedding-based similarity fallback
         return self._check_embedding_duplicate(label, definition, entity_type)
@@ -500,16 +521,22 @@ class AutoCommitService:
             # Cosine similarity = dot product of L2-normalised vectors, shape (N,)
             similarities: np.ndarray = matrix @ vec
 
-            normalized_type = entity_type.lower() if entity_type else ''
+            # Type filter: candidates pass if the class URI contains the
+            # title-cased semantic type (e.g., 'Obligation' in URI for an
+            # 'obligation' candidate). The cache only holds class entities
+            # (entity_type='class' filter at SQL load), so the structural
+            # type is uninformative; the D-tuple component lives in the
+            # local-name suffix of the class URI by convention. A simple
+            # singularization keeps plural inputs ('obligations',
+            # 'capabilities') aligned with singular URI conventions.
+            type_markers = _semantic_type_markers(entity_type)
             best_score = -1.0
             best_uri: Optional[str] = None
 
-            for uri, cls_type, sim in zip(uris, types, similarities):
+            for uri, _cls_type, sim in zip(uris, types, similarities):
                 sim_val = float(sim)
-                # Type filter: skip if entity types are clearly incompatible
-                if normalized_type and cls_type:
-                    if normalized_type not in cls_type and cls_type not in normalized_type:
-                        continue
+                if type_markers and not any(m in uri for m in type_markers):
+                    continue
                 if sim_val > best_score:
                     best_score = sim_val
                     best_uri = uri
@@ -531,10 +558,18 @@ class AutoCommitService:
         """Load OntServe classes from database for duplicate checking."""
         try:
             # Query OntServe's ontology_entities table for proethica classes
+            # Restrict to class entities outside the core namespace. The
+            # duplicate matcher decides whether a proposed class collides with
+            # an existing one, so individuals and properties only add noise.
+            # core# holds the bare D-tuple base classes (Obligation, Capability,
+            # etc.) which would always trip the substring matcher trivially;
+            # candidates are by definition more specific than those.
             query = text("""
                 SELECT uri, label, entity_type, comment
                 FROM ontology_entities
                 WHERE uri LIKE 'http://proethica.org/ontology/%'
+                  AND uri NOT LIKE 'http://proethica.org/ontology/core#%'
+                  AND entity_type = 'class'
             """)
 
             # Use a separate connection to ontserve database
