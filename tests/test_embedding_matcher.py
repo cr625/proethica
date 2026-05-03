@@ -1,27 +1,9 @@
-"""
-Unit tests for embedding-based duplicate detection in AutoCommitService._check_duplicate.
+"""Unit tests for embedding-based duplicate detection.
 
-The matcher embeds 'label: definition' via all-MiniLM-L6-v2 and runs a single
-pgvector cosine query against ontology_entities. These tests mock both
-EmbeddingService (to control the candidate vector) and create_engine (to
-control the row returned by the SQL query). No real model, no real DB,
-no Flask app context.
-
-Coverage:
-  - High cosine (>= 0.85) -> (uri, score) auto-link band
-  - Medium cosine (0.70-0.85) -> (uri, score) review-flag band
-  - Low cosine (< 0.70) -> None (novel class)
-  - SQL returns no row -> None
-  - EmbeddingService raises -> None (and caller swallows)
-  - Type filter: marker LIKE clauses included in params for known type
-  - Plural/singular type variants both produce a usable marker
-  - Unknown semantic type falls back to title-cased form
-  - Empty entity_type omits LIKE filter entirely
-  - _check_duplicate: exact label -> (uri, 1.0)
-  - _check_duplicate: substring + type-marker match -> (uri, 0.87)
-  - _check_duplicate: substring with wrong type -> falls through
-  - _check_duplicate: empty cache + no SQL row -> None
-  - _check_duplicate: definition forwarded into embedding text
+The matcher embeds ``label: definition`` via all-MiniLM-L6-v2 and runs a
+single pgvector cosine query against ``ontology_entities``. These tests
+mock both ``EmbeddingService`` (candidate vector) and ``create_engine``
+(SQL row), so they run with no model, no DB, and no Flask app context.
 """
 
 from typing import Any, Dict, List, Optional
@@ -104,17 +86,17 @@ def _patch_pgvector(query_vec: List[float], sql_row, captured: Dict[str, Any]):
     return stack, mock_es_instance
 
 
-def _run_embedding(label, entity_type, definition, sql_row,
-                   query_vec=None, cache_entries=None):
-    """Drive _check_embedding_duplicate end to end with mocked deps.
+def _run_embedding(label, entity_type, definition, sql_row, query_vec=None):
+    """Drive ``_check_embedding_duplicate`` end-to-end with mocked deps.
 
-    Returns (result, captured) where result is the function's return and
-    captured has 'params' and 'sql' from the simulated SQL call.
+    Returns ``(result, captured)``. ``captured`` carries ``params`` and
+    ``sql`` from the simulated SQL call so callers can assert on the
+    bind values.
     """
     if query_vec is None:
-        query_vec = [0.1] * 384  # arbitrary; matcher does not see the vector
+        query_vec = [0.1] * 384
     captured: Dict[str, Any] = {}
-    service = _make_service(cache_entries)
+    service = _make_service()
     with _patch_pgvector(query_vec, sql_row, captured)[0]:
         result = service._check_embedding_duplicate(label, definition, entity_type)
     return result, captured
