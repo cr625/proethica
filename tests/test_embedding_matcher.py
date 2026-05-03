@@ -133,7 +133,7 @@ class TestCheckEmbeddingDuplicate:
         mock_emb = MagicMock()
         mock_emb._get_local_embedding.return_value = query_vec
         with patch(
-            "app.services.auto_commit_service.EmbeddingService"
+            "app.services.embedding_service.EmbeddingService"
         ) as MockCls:
             MockCls.get_instance.return_value = mock_emb
             return service._check_embedding_duplicate(
@@ -193,7 +193,7 @@ class TestCheckEmbeddingDuplicate:
         service = _make_service([], [], [])
         mock_emb = MagicMock()
         mock_emb._get_local_embedding.return_value = OBL_VEC
-        with patch("app.services.auto_commit_service.EmbeddingService") as MockCls:
+        with patch("app.services.embedding_service.EmbeddingService") as MockCls:
             MockCls.get_instance.return_value = mock_emb
             result = service._check_embedding_duplicate("Any", "", "obligation")
         assert result is None
@@ -211,7 +211,7 @@ class TestCheckEmbeddingDuplicate:
         query = _vec_with_cosine(obl2_vec, 0.95)
         mock_emb = MagicMock()
         mock_emb._get_local_embedding.return_value = query
-        with patch("app.services.auto_commit_service.EmbeddingService") as MockCls:
+        with patch("app.services.embedding_service.EmbeddingService") as MockCls:
             MockCls.get_instance.return_value = mock_emb
             result = service._check_embedding_duplicate(
                 "Non-Disclosure Duty", "", "obligation"
@@ -227,7 +227,7 @@ class TestCheckEmbeddingDuplicate:
         service = _make_service(INDEX_URIS, INDEX_TYPES, INDEX_VECTORS)
         mock_emb = MagicMock()
         mock_emb._get_local_embedding.side_effect = RuntimeError("model not loaded")
-        with patch("app.services.auto_commit_service.EmbeddingService") as MockCls:
+        with patch("app.services.embedding_service.EmbeddingService") as MockCls:
             MockCls.get_instance.return_value = mock_emb
             result = service._check_embedding_duplicate("Any Label", "", "obligation")
         assert result is None
@@ -282,7 +282,7 @@ class TestCheckDuplicate:
         query = _vec_with_cosine(CAP_VEC, 0.50)
         mock_emb = MagicMock()
         mock_emb._get_local_embedding.return_value = query
-        with patch("app.services.auto_commit_service.EmbeddingService") as MockCls:
+        with patch("app.services.embedding_service.EmbeddingService") as MockCls:
             MockCls.get_instance.return_value = mock_emb
             result = service._check_duplicate("Competence", "obligation")
         assert result is None
@@ -293,7 +293,7 @@ class TestCheckDuplicate:
         query = _vec_with_cosine(OBL_VEC, 0.91)
         mock_emb = MagicMock()
         mock_emb._get_local_embedding.return_value = query
-        with patch("app.services.auto_commit_service.EmbeddingService") as MockCls:
+        with patch("app.services.embedding_service.EmbeddingService") as MockCls:
             MockCls.get_instance.return_value = mock_emb
             result = service._check_duplicate(
                 "Client Data Protection Duty", "obligation"
@@ -309,7 +309,7 @@ class TestCheckDuplicate:
         query = _vec_with_cosine(OBL_VEC, 0.50)
         mock_emb = MagicMock()
         mock_emb._get_local_embedding.return_value = query
-        with patch("app.services.auto_commit_service.EmbeddingService") as MockCls:
+        with patch("app.services.embedding_service.EmbeddingService") as MockCls:
             MockCls.get_instance.return_value = mock_emb
             result = service._check_duplicate(
                 "CompletelyUnrelatedConcept999", "obligation"
@@ -328,7 +328,7 @@ class TestCheckDuplicate:
         query = _vec_with_cosine(OBL_VEC, 0.88)
         mock_emb = MagicMock()
         mock_emb._get_local_embedding.return_value = query
-        with patch("app.services.auto_commit_service.EmbeddingService") as MockCls:
+        with patch("app.services.embedding_service.EmbeddingService") as MockCls:
             MockCls.get_instance.return_value = mock_emb
             result = service._check_duplicate(
                 "Duty of Confidentiality",
