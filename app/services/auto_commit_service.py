@@ -41,13 +41,9 @@ CONFIDENCE_NEW_CLASS = 0.75    # Below this, treat as new class
 EMBEDDING_MATCH_MIN = 0.70
 
 
-# Explicit map of D-tuple semantic types to the URI-substring marker that
-# identifies their class URIs. ProEthica class URIs follow the singular
-# convention (FaithfulAgentObligation, CompetenceCapability), so every
-# semantic-type input -- singular or plural -- collapses to one canonical
-# marker. An explicit map is preferred over heuristic singularization
-# because (1) it cannot misfire on irregular plurals, and (2) the
-# vocabulary it intends to cover is closed (the nine D-tuple components).
+# D-tuple semantic types -> URI-substring marker for class URIs.
+# ProEthica class URIs use the singular form (FaithfulAgentObligation),
+# so plural inputs collapse to the same marker.
 _SEMANTIC_TYPE_TO_MARKERS: Dict[str, List[str]] = {
     'role':         ['Role'],
     'roles':        ['Role'],
@@ -71,17 +67,14 @@ _SEMANTIC_TYPE_TO_MARKERS: Dict[str, List[str]] = {
 
 
 def _semantic_type_markers(entity_type: Optional[str]) -> List[str]:
-    """URI-substring marker(s) to test for a D-tuple semantic type.
+    """URI-substring marker(s) for a D-tuple semantic type.
 
-    Looks up the lower-cased entity_type in the explicit map. Falls back
-    to a title-cased version of the raw input for unrecognised types so
-    the matcher continues to work for vocabulary outside the nine
+    Falls back to title-cased input for types outside the nine
     D-tuple components.
     """
     if not entity_type:
         return []
-    key = entity_type.lower()
-    return _SEMANTIC_TYPE_TO_MARKERS.get(key, [entity_type.title()])
+    return _SEMANTIC_TYPE_TO_MARKERS.get(entity_type.lower(), [entity_type.title()])
 
 
 @dataclass
