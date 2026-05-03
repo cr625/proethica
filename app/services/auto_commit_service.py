@@ -41,24 +41,47 @@ CONFIDENCE_NEW_CLASS = 0.75    # Below this, treat as new class
 EMBEDDING_MATCH_MIN = 0.70
 
 
-def _semantic_type_markers(entity_type: Optional[str]) -> List[str]:
-    """Return URI-substring forms to test for a D-tuple semantic type.
+# Explicit map of D-tuple semantic types to the URI-substring marker that
+# identifies their class URIs. ProEthica class URIs follow the singular
+# convention (FaithfulAgentObligation, CompetenceCapability), so every
+# semantic-type input -- singular or plural -- collapses to one canonical
+# marker. An explicit map is preferred over heuristic singularization
+# because (1) it cannot misfire on irregular plurals, and (2) the
+# vocabulary it intends to cover is closed (the nine D-tuple components).
+_SEMANTIC_TYPE_TO_MARKERS: Dict[str, List[str]] = {
+    'role':         ['Role'],
+    'roles':        ['Role'],
+    'principle':    ['Principle'],
+    'principles':   ['Principle'],
+    'obligation':   ['Obligation'],
+    'obligations':  ['Obligation'],
+    'state':        ['State'],
+    'states':       ['State'],
+    'resource':     ['Resource'],
+    'resources':    ['Resource'],
+    'action':       ['Action'],
+    'actions':      ['Action'],
+    'event':        ['Event'],
+    'events':       ['Event'],
+    'capability':   ['Capability'],
+    'capabilities': ['Capability'],
+    'constraint':   ['Constraint'],
+    'constraints':  ['Constraint'],
+}
 
-    Class URIs follow the singular convention (FaithfulAgentObligation,
-    not FaithfulAgentObligations). Candidates may arrive as singular or
-    plural ('obligation' / 'obligations', 'capability' / 'capabilities').
-    Returns both the title-cased input and its naive singularization so
-    either form matches.
+
+def _semantic_type_markers(entity_type: Optional[str]) -> List[str]:
+    """URI-substring marker(s) to test for a D-tuple semantic type.
+
+    Looks up the lower-cased entity_type in the explicit map. Falls back
+    to a title-cased version of the raw input for unrecognised types so
+    the matcher continues to work for vocabulary outside the nine
+    D-tuple components.
     """
     if not entity_type:
         return []
-    base = entity_type.title()
-    forms = [base]
-    if base.endswith('ies'):
-        forms.append(base[:-3] + 'y')  # capabilities -> capability
-    elif base.endswith('s'):
-        forms.append(base[:-1])         # obligations -> obligation
-    return forms
+    key = entity_type.lower()
+    return _SEMANTIC_TYPE_TO_MARKERS.get(key, [entity_type.title()])
 
 
 @dataclass
