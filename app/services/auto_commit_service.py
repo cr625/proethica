@@ -41,24 +41,40 @@ CONFIDENCE_NEW_CLASS = 0.75    # Below this, treat as new class
 EMBEDDING_MATCH_MIN = 0.70
 
 
-def _semantic_type_markers(entity_type: Optional[str]) -> List[str]:
-    """Return URI-substring forms to test for a D-tuple semantic type.
+# D-tuple semantic types -> URI-substring marker for class URIs.
+# ProEthica class URIs use the singular form (FaithfulAgentObligation),
+# so plural inputs collapse to the same marker.
+_SEMANTIC_TYPE_TO_MARKERS: Dict[str, List[str]] = {
+    'role':         ['Role'],
+    'roles':        ['Role'],
+    'principle':    ['Principle'],
+    'principles':   ['Principle'],
+    'obligation':   ['Obligation'],
+    'obligations':  ['Obligation'],
+    'state':        ['State'],
+    'states':       ['State'],
+    'resource':     ['Resource'],
+    'resources':    ['Resource'],
+    'action':       ['Action'],
+    'actions':      ['Action'],
+    'event':        ['Event'],
+    'events':       ['Event'],
+    'capability':   ['Capability'],
+    'capabilities': ['Capability'],
+    'constraint':   ['Constraint'],
+    'constraints':  ['Constraint'],
+}
 
-    Class URIs follow the singular convention (FaithfulAgentObligation,
-    not FaithfulAgentObligations). Candidates may arrive as singular or
-    plural ('obligation' / 'obligations', 'capability' / 'capabilities').
-    Returns both the title-cased input and its naive singularization so
-    either form matches.
+
+def _semantic_type_markers(entity_type: Optional[str]) -> List[str]:
+    """URI-substring marker(s) for a D-tuple semantic type.
+
+    Falls back to title-cased input for types outside the nine
+    D-tuple components.
     """
     if not entity_type:
         return []
-    base = entity_type.title()
-    forms = [base]
-    if base.endswith('ies'):
-        forms.append(base[:-3] + 'y')  # capabilities -> capability
-    elif base.endswith('s'):
-        forms.append(base[:-1])         # obligations -> obligation
-    return forms
+    return _SEMANTIC_TYPE_TO_MARKERS.get(entity_type.lower(), [entity_type.title()])
 
 
 @dataclass

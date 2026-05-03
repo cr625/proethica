@@ -72,7 +72,7 @@ PROLIFIC_PARAMS = ('prolific_pid', 'study_id', 'session_id')
 # Prolific submission-completion URL pattern. Participants are redirected here
 # after they finish; the `cc` param is the fixed completion code registered in
 # the Prolific study config (env: PROLIFIC_COMPLETION_CODE_SUCCESS).
-PROLIFIC_COMPLETION_URL_BASE = 'https://app.prolific.co/submissions/complete'
+PROLIFIC_COMPLETION_URL_BASE = 'https://app.prolific.com/submissions/complete'
 
 
 def generate_participant_code() -> str:

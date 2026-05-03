@@ -193,11 +193,37 @@ class TestCheckEmbeddingDuplicate:
         assert any("Obligation" in v for v in marker_values), captured["params"]
 
     def test_capability_plural_singularizes_to_capability(self):
-        """'capabilities' is the irregular plural that the -ies->y rule covers."""
+        """'capabilities' (irregular -ies plural) maps to 'Capability'."""
         row = _make_row(CAP_URI, "Competence Capability", 0.90)
         _, captured = _run_embedding("X", "capabilities", "", row)
         marker_values = [v for k, v in captured["params"].items() if k.startswith("m")]
         assert any("Capability" in v for v in marker_values), captured["params"]
+
+    def test_unknown_semantic_type_falls_back_to_titlecase(self):
+        """Vocabulary outside the nine D-tuple components still produces a
+        usable marker (title-cased version of the raw input)."""
+        row = _make_row(OBL_URI, "Confidentiality Obligation", 0.90)
+        _, captured = _run_embedding("X", "policy", "", row)
+        marker_values = [v for k, v in captured["params"].items() if k.startswith("m")]
+        # 'policy' -> 'Policy' fallback
+        assert any("Policy" in v for v in marker_values), captured["params"]
+
+    def test_all_nine_dtuple_types_have_markers(self):
+        """Each D-tuple component (singular and plural) maps to a marker."""
+        from app.services.auto_commit_service import _semantic_type_markers
+        for sing, plural, expected in [
+            ('role', 'roles', 'Role'),
+            ('principle', 'principles', 'Principle'),
+            ('obligation', 'obligations', 'Obligation'),
+            ('state', 'states', 'State'),
+            ('resource', 'resources', 'Resource'),
+            ('action', 'actions', 'Action'),
+            ('event', 'events', 'Event'),
+            ('capability', 'capabilities', 'Capability'),
+            ('constraint', 'constraints', 'Constraint'),
+        ]:
+            assert expected in _semantic_type_markers(sing), sing
+            assert expected in _semantic_type_markers(plural), plural
 
     def test_empty_entity_type_omits_marker_filter(self):
         """No semantic type -> no LIKE clauses in params (only :vec)."""
