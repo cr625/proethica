@@ -10,7 +10,6 @@ Phase 3 of Entity-Ontology Linking implementation.
 
 import logging
 import json
-import numpy as np
 from datetime import datetime
 from typing import Dict, List, Any, Optional, Tuple
 from pathlib import Path
@@ -103,11 +102,10 @@ class AutoCommitService:
         self.ontologies_dir = self.ontserve_path / "ontologies"
         self.ontologies_dir.mkdir(parents=True, exist_ok=True)
 
-        # Cache for OntServe classes (loaded on demand)
+        # Cache for OntServe classes (loaded on demand) - used by exact-label
+        # and substring lexical matchers. Embedding lookups go directly to
+        # ontology_entities via pgvector and do not consult this cache.
         self._ontserve_classes_cache: Optional[Dict[str, Dict]] = None
-
-        # Embedding index built lazily from _ontserve_classes_cache
-        self._embedding_index: Optional[Dict] = None
 
         # Whether current commit uses versioned path (set by commit_case_entities)
         self._versioned_commit: bool = True
@@ -372,21 +370,13 @@ class AutoCommitService:
     def _check_duplicate(
         self, label: str, entity_type: str, definition: str = ""
     ) -> Optional[Tuple[str, float]]:
-        """
-        Check if a semantically equivalent class already exists in OntServe.
+        """Find an existing OntServe class equivalent to the candidate.
 
-        First tries lexical matching (exact, then substring with type filter),
-        then falls back to embedding-based cosine similarity against all
-        proethica classes loaded from ontology_entities.
-
-        Args:
-            label: The entity label
-            entity_type: The type of entity (role, state, etc.)
-            definition: Optional entity definition for richer embedding text
-
-        Returns:
-            (uri, confidence) if a match is found, None otherwise.
-            Confidence: 1.0 for exact label, 0.87 for substring, cosine for embedding.
+        Tries exact label match, then substring match with a URI-marker
+        type filter, then falls back to pgvector cosine similarity.
+        Returns ``(uri, confidence)`` or ``None``. Confidence is 1.0 for
+        exact label, 0.87 for substring, and the cosine score for the
+        embedding path.
         """
         # Load OntServe classes if not cached
         if self._ontserve_classes_cache is None:
@@ -418,137 +408,74 @@ class AutoCommitService:
         # Embedding-based similarity fallback
         return self._check_embedding_duplicate(label, definition, entity_type)
 
-    def _build_embedding_index(self) -> None:
-        """Build in-memory cosine index over the loaded OntServe classes cache.
-
-        Called lazily before the first embedding lookup. Embeds 'label: definition'
-        for every proethica class using the same all-MiniLM-L6-v2 model (384-dim)
-        used for case-level embeddings. Stores an L2-normalised (N x 384) numpy
-        matrix so cosine similarity reduces to a single matrix-vector product.
-        """
-        if not self._ontserve_classes_cache:
-            self._embedding_index = {'matrix': None, 'uris': [], 'types': []}
-            return
-
-        try:
-            from app.services.embedding_service import EmbeddingService
-            embedding_service = EmbeddingService.get_instance()
-
-            uris: List[str] = []
-            types: List[str] = []
-            vectors: List[np.ndarray] = []
-
-            for uri, class_info in self._ontserve_classes_cache.items():
-                label = (class_info.get('label') or '').strip()
-                defn = (class_info.get('definition') or '').strip()
-                entity_type = (class_info.get('type') or '').lower()
-
-                index_text = f"{label}: {defn}" if defn else label
-                if not index_text:
-                    continue
-
-                raw = embedding_service._get_local_embedding(index_text)
-                vec = (
-                    np.array(raw, dtype=np.float32)
-                    if isinstance(raw, list)
-                    else raw.astype(np.float32)
-                )
-                norm = np.linalg.norm(vec)
-                if norm == 0:
-                    continue
-                vec = vec / norm
-
-                uris.append(uri)
-                types.append(entity_type)
-                vectors.append(vec)
-
-            if vectors:
-                self._embedding_index = {
-                    'matrix': np.stack(vectors, axis=0),
-                    'uris': uris,
-                    'types': types,
-                }
-            else:
-                self._embedding_index = {'matrix': None, 'uris': [], 'types': []}
-
-            logger.info("Built embedding index with %d proethica classes", len(uris))
-
-        except Exception as e:
-            logger.warning("Could not build embedding index: %s", e)
-            self._embedding_index = {'matrix': None, 'uris': [], 'types': []}
-
     def _check_embedding_duplicate(
         self, label: str, definition: str, entity_type: str
     ) -> Optional[Tuple[str, float]]:
-        """Query the embedding index for a cosine-similar class.
+        """Query OntServe via pgvector for the nearest cosine match.
 
-        Embeds 'label: definition' with all-MiniLM-L6-v2, applies entity-type
-        filter, and returns (uri, cosine_score) if the best match meets
-        EMBEDDING_MATCH_MIN.  Rubric bands (ICCBR paper Section 3.3):
+        Embeds 'label: definition' with all-MiniLM-L6-v2 and runs a single
+        cosine query against ``ontology_entities.embedding`` (vector(384)
+        with an IVFFlat cosine index already in place). The candidate's
+        semantic type narrows the search to URIs containing the matching
+        marker ('Obligation', 'Capability', etc.). Returns (uri, cosine)
+        when the top match meets EMBEDDING_MATCH_MIN; otherwise None.
 
-          HIGH   cosine >= 0.85  -> caller applies auto-link logic
-          MEDIUM 0.70 <= c < 0.85 -> caller applies review-flag logic
-          below 0.70              -> returns None (novel class)
+        Rubric bands (ICCBR paper Section 3.3):
+          HIGH   cosine >= 0.85       -> caller applies auto-link logic
+          MEDIUM 0.70 <= c < 0.85     -> caller applies review-flag logic
+          below  0.70                  -> None (novel class)
         """
-        if self._embedding_index is None:
-            self._build_embedding_index()
-
-        matrix = (self._embedding_index or {}).get('matrix')
-        if matrix is None:
-            return None
-
-        uris: List[str] = self._embedding_index['uris']
-        types: List[str] = self._embedding_index['types']
-        if not uris:
-            return None
-
         try:
             from app.services.embedding_service import EmbeddingService
             embedding_service = EmbeddingService.get_instance()
 
             candidate_text = f"{label}: {definition}" if definition else label
             raw = embedding_service._get_local_embedding(candidate_text)
-            vec = (
-                np.array(raw, dtype=np.float32)
-                if isinstance(raw, list)
-                else raw.astype(np.float32)
-            )
-            norm = np.linalg.norm(vec)
-            if norm == 0:
+            vec = list(raw) if not isinstance(raw, list) else raw
+
+            # Build optional URI substring filter for the semantic type.
+            markers = _semantic_type_markers(entity_type)
+            params: Dict[str, Any] = {"vec": vec}
+            if markers:
+                like_clauses = []
+                for i, marker in enumerate(markers):
+                    key = f"m{i}"
+                    like_clauses.append(f"uri LIKE :{key}")
+                    params[key] = f"%{marker}%"
+                marker_sql = "AND (" + " OR ".join(like_clauses) + ")"
+            else:
+                marker_sql = ""
+
+            sql = text(f"""
+                SELECT uri, label,
+                       1 - (embedding <=> CAST(:vec AS vector)) AS cosine
+                FROM ontology_entities
+                WHERE entity_type = 'class'
+                  AND uri LIKE 'http://proethica.org/ontology/%'
+                  AND uri NOT LIKE 'http://proethica.org/ontology/core#%'
+                  AND embedding IS NOT NULL
+                  {marker_sql}
+                ORDER BY embedding <=> CAST(:vec AS vector)
+                LIMIT 1
+            """)
+
+            engine = create_engine(get_ontserve_db_url())
+            with engine.connect() as conn:
+                # Probe every list so the IVFFlat lookup is exact, not approximate.
+                conn.execute(text("SET LOCAL ivfflat.probes = 100"))
+                row = conn.execute(sql, params).fetchone()
+
+            if row is None:
                 return None
-            vec = vec / norm
-
-            # Cosine similarity = dot product of L2-normalised vectors, shape (N,)
-            similarities: np.ndarray = matrix @ vec
-
-            # Type filter: candidates pass if the class URI contains the
-            # title-cased semantic type (e.g., 'Obligation' in URI for an
-            # 'obligation' candidate). The cache only holds class entities
-            # (entity_type='class' filter at SQL load), so the structural
-            # type is uninformative; the D-tuple component lives in the
-            # local-name suffix of the class URI by convention. A simple
-            # singularization keeps plural inputs ('obligations',
-            # 'capabilities') aligned with singular URI conventions.
-            type_markers = _semantic_type_markers(entity_type)
-            best_score = -1.0
-            best_uri: Optional[str] = None
-
-            for uri, _cls_type, sim in zip(uris, types, similarities):
-                sim_val = float(sim)
-                if type_markers and not any(m in uri for m in type_markers):
-                    continue
-                if sim_val > best_score:
-                    best_score = sim_val
-                    best_uri = uri
-
-            if best_uri is None or best_score < EMBEDDING_MATCH_MIN:
+            cosine = float(row.cosine)
+            if cosine < EMBEDDING_MATCH_MIN:
                 return None
 
             logger.info(
                 "Embedding match: '%s' (%s) -> %s (cosine=%.3f)",
-                label, entity_type, best_uri, best_score,
+                label, entity_type, row.uri, cosine,
             )
-            return best_uri, best_score
+            return row.uri, cosine
 
         except Exception as e:
             logger.warning("Embedding duplicate check failed: %s", e)
@@ -573,7 +500,6 @@ class AutoCommitService:
             """)
 
             # Use a separate connection to ontserve database
-            from sqlalchemy import create_engine
             ontserve_engine = create_engine(get_ontserve_db_url())
 
             with ontserve_engine.connect() as conn:

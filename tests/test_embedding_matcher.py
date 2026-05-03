@@ -1,88 +1,105 @@
-"""
-Unit tests for embedding-based duplicate detection in AutoCommitService._check_duplicate.
+"""Unit tests for embedding-based duplicate detection.
 
-Fully mocked: no SentenceTransformer model, no Flask app context, no database.
-The embedding index is built directly on the service instance; only the
-query-time embedding call is patched.
-
-Coverage:
-  - High cosine (>= 0.85) -> auto-link band
-  - Medium cosine (0.70-0.85) -> review-flag band
-  - Low cosine (< 0.70) -> novel class (None)
-  - Type filter prevents cross-type matching
-  - Plural/singular type variants pass filter
-  - Best-match selection among multiple same-type classes
-  - Empty index returns None without error
-  - _check_duplicate: exact label -> (uri, 1.0)
-  - _check_duplicate: substring + type match -> (uri, 0.87)
-  - _check_duplicate: wrong type substring -> falls through to embedding
-  - _check_duplicate: unknown label falls through to embedding
-  - _check_duplicate: empty cache -> None
+The matcher embeds ``label: definition`` via all-MiniLM-L6-v2 and runs a
+single pgvector cosine query against ``ontology_entities``. These tests
+mock both ``EmbeddingService`` (candidate vector) and ``create_engine``
+(SQL row), so they run with no model, no DB, and no Flask app context.
 """
 
-import numpy as np
-import pytest
+from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _make_unit_vec(seed: int, dim: int = 384) -> np.ndarray:
-    """Deterministic unit vector."""
-    rng = np.random.RandomState(seed)
-    v = rng.randn(dim).astype(np.float32)
-    return v / np.linalg.norm(v)
+def _make_service(cache_entries: Optional[Dict[str, Dict]] = None):
+    """Create a bare AutoCommitService bypassing __init__.
 
-
-def _vec_with_cosine(target: np.ndarray, cosine: float) -> np.ndarray:
-    """Unit vector with specified cosine similarity to *target*.
-
-    Decomposition: result = cosine*target + sin*perp, where perp is orthogonal.
-    """
-    target = target.astype(np.float32)
-    # Build a vector orthogonal to target
-    perp = np.zeros_like(target)
-    perp[0] = -target[1]
-    perp[1] = target[0]
-    if np.linalg.norm(perp) < 1e-6:
-        perp = np.zeros_like(target)
-        perp[1] = 1.0
-    perp = perp - np.dot(perp, target) * target
-    norm_p = np.linalg.norm(perp)
-    if norm_p < 1e-6:
-        return target.copy()
-    perp = perp / norm_p
-    sin_val = float(np.sqrt(max(0.0, 1.0 - cosine ** 2)))
-    result = cosine * target + sin_val * perp
-    return result / np.linalg.norm(result)
-
-
-def _make_service(index_uris, index_types, index_vectors, cache_entries=None):
-    """Create a bare AutoCommitService with a pre-built embedding index.
-
-    Bypasses __init__ entirely to avoid Flask/DB dependencies.
+    Skips Flask app and DB setup so the tests run in plain pytest.
     """
     from app.services.auto_commit_service import AutoCommitService
-
     service = object.__new__(AutoCommitService)
     service._versioned_commit = True
-
-    if index_vectors:
-        matrix = np.stack(
-            [v / np.linalg.norm(v) for v in index_vectors], axis=0
-        ).astype(np.float32)
-    else:
-        matrix = None
-
-    service._embedding_index = {
-        'matrix': matrix,
-        'uris': list(index_uris),
-        'types': list(index_types),
-    }
-    service._ontserve_classes_cache = cache_entries if cache_entries is not None else {}
+    service._ontserve_classes_cache = (
+        cache_entries if cache_entries is not None else {}
+    )
     return service
+
+
+def _make_row(uri: str, label: str, cosine: float):
+    """Mimic a SQLAlchemy Row that supports attribute access."""
+    row = MagicMock()
+    row.uri = uri
+    row.label = label
+    row.cosine = cosine
+    return row
+
+
+def _patch_pgvector(query_vec: List[float], sql_row, captured: Dict[str, Any]):
+    """Context-manager helper: patches EmbeddingService and create_engine.
+
+    sql_row may be a row mock, None (no match), or an Exception (raised by
+    fetchone). captured["params"] is filled with the SQL bind params after
+    execute() runs so tests can assert on the LIKE filters.
+    """
+    from contextlib import ExitStack
+
+    stack = ExitStack()
+    es_patch = stack.enter_context(
+        patch("app.services.embedding_service.EmbeddingService")
+    )
+    engine_patch = stack.enter_context(
+        patch("app.services.auto_commit_service.create_engine")
+    )
+
+    # candidate-side embedding
+    mock_es_instance = MagicMock()
+    mock_es_instance._get_local_embedding.return_value = query_vec
+    es_patch.get_instance.return_value = mock_es_instance
+
+    # SQL query result
+    mock_conn = MagicMock()
+
+    def _execute(sql, params=None):
+        sql_str = str(sql)
+        # SET LOCAL ivfflat.probes runs before the SELECT and has no params;
+        # only capture the SELECT call so tests can inspect bind values.
+        if "SELECT" in sql_str.upper() and params is not None:
+            captured["params"] = dict(params)
+            captured["sql"] = sql_str
+        result = MagicMock()
+        if isinstance(sql_row, Exception):
+            result.fetchone.side_effect = sql_row
+        else:
+            result.fetchone.return_value = sql_row
+        return result
+
+    mock_conn.execute.side_effect = _execute
+    mock_engine = MagicMock()
+    mock_engine.connect.return_value.__enter__.return_value = mock_conn
+    engine_patch.return_value = mock_engine
+
+    return stack, mock_es_instance
+
+
+def _run_embedding(label, entity_type, definition, sql_row, query_vec=None):
+    """Drive ``_check_embedding_duplicate`` end-to-end with mocked deps.
+
+    Returns ``(result, captured)``. ``captured`` carries ``params`` and
+    ``sql`` from the simulated SQL call so callers can assert on the
+    bind values.
+    """
+    if query_vec is None:
+        query_vec = [0.1] * 384
+    captured: Dict[str, Any] = {}
+    service = _make_service()
+    with _patch_pgvector(query_vec, sql_row, captured)[0]:
+        result = service._check_embedding_duplicate(label, definition, entity_type)
+    return result, captured
 
 
 # ---------------------------------------------------------------------------
@@ -93,252 +110,269 @@ OBL_URI = "http://proethica.org/ontology/intermediate#ConfidentialityObligation"
 ROLE_URI = "http://proethica.org/ontology/intermediate#FaithfulAgentRole"
 CAP_URI = "http://proethica.org/ontology/intermediate#CompetenceCapability"
 
-OBL_VEC = _make_unit_vec(seed=1)
-ROLE_VEC = _make_unit_vec(seed=2)
-CAP_VEC = _make_unit_vec(seed=3)
-
-INDEX_URIS = [OBL_URI, ROLE_URI, CAP_URI]
-INDEX_TYPES = ["obligation", "role", "capability"]
-INDEX_VECTORS = [OBL_VEC, ROLE_VEC, CAP_VEC]
-
 LEXICAL_CACHE = {
     OBL_URI: {
         'label': 'Confidentiality Obligation',
-        'type': 'obligation',
+        'type': 'class',
         'definition': 'Duty to protect client information',
     },
     ROLE_URI: {
         'label': 'Faithful Agent Role',
-        'type': 'role',
+        'type': 'class',
         'definition': 'Engineer acting as faithful agent for client',
     },
     CAP_URI: {
         'label': 'Competence Capability',
-        'type': 'capability',
+        'type': 'class',
         'definition': 'Professional competence and technical expertise',
     },
 }
 
 
 # ---------------------------------------------------------------------------
-# _check_embedding_duplicate tests
+# _check_embedding_duplicate
 # ---------------------------------------------------------------------------
 
 class TestCheckEmbeddingDuplicate:
-    """Direct unit tests for the embedding similarity path."""
 
-    def _run(self, query_vec, entity_type, *, service=None):
-        if service is None:
-            service = _make_service(INDEX_URIS, INDEX_TYPES, INDEX_VECTORS)
-        mock_emb = MagicMock()
-        mock_emb._get_local_embedding.return_value = query_vec
-        with patch(
-            "app.services.embedding_service.EmbeddingService"
-        ) as MockCls:
-            MockCls.get_instance.return_value = mock_emb
-            return service._check_embedding_duplicate(
-                "Candidate Label", "some definition", entity_type
-            )
-
-    def test_high_cosine_returns_uri_and_high_confidence(self):
-        """cosine >= 0.85 returns (uri, score >= 0.85) -> auto-link band."""
-        query = _vec_with_cosine(OBL_VEC, 0.92)
-        result = self._run(query, "obligation")
+    def test_high_cosine_returns_uri_and_score(self):
+        row = _make_row(OBL_URI, "Confidentiality Obligation", 0.92)
+        result, _ = _run_embedding("Some Duty", "obligation", "", row)
         assert result is not None
         uri, score = result
         assert uri == OBL_URI
-        assert score >= 0.85, f"Expected score >= 0.85, got {score:.4f}"
+        assert score == pytest.approx(0.92)
 
-    def test_medium_cosine_returns_uri_and_medium_confidence(self):
-        """0.70 <= cosine < 0.85 returns (uri, score) in that range -> review-flag."""
-        query = _vec_with_cosine(OBL_VEC, 0.77)
-        result = self._run(query, "obligation")
+    def test_medium_cosine_returns_uri_and_score(self):
+        row = _make_row(OBL_URI, "Confidentiality Obligation", 0.77)
+        result, _ = _run_embedding("Some Duty", "obligation", "", row)
         assert result is not None
         uri, score = result
         assert uri == OBL_URI
-        assert 0.70 <= score < 0.85, f"Expected [0.70, 0.85), got {score:.4f}"
+        assert 0.70 <= score < 0.85
 
     def test_low_cosine_returns_none(self):
-        """cosine < 0.70 returns None -> treat as novel class."""
-        query = _vec_with_cosine(OBL_VEC, 0.60)
-        result = self._run(query, "obligation")
+        """Top match below EMBEDDING_MATCH_MIN is rejected."""
+        row = _make_row(OBL_URI, "Confidentiality Obligation", 0.60)
+        result, _ = _run_embedding("Some Duty", "obligation", "", row)
         assert result is None
 
-    def test_type_filter_blocks_cross_type_match(self):
-        """Obligation candidate must not match a capability class."""
-        # Very close to CAP_VEC but entity_type='obligation'
-        query = _vec_with_cosine(CAP_VEC, 0.95)
-        result = self._run(query, "obligation")
-        # CAP_URI must not be returned (type mismatch)
-        assert result is None or (result[0] != CAP_URI)
-
-    def test_plural_type_passes_filter(self):
-        """'obligations' (plural) should match type 'obligation' in index."""
-        query = _vec_with_cosine(OBL_VEC, 0.90)
-        result = self._run(query, "obligations")
-        assert result is not None
-        uri, score = result
-        assert uri == OBL_URI
-
-    def test_no_type_filter_matches_best_overall(self):
-        """Empty entity_type skips filtering; best cosine across all classes wins."""
-        query = _vec_with_cosine(ROLE_VEC, 0.88)
-        result = self._run(query, "")
-        assert result is not None
-        uri, score = result
-        assert uri == ROLE_URI
-
-    def test_empty_index_returns_none(self):
-        """Empty embedding index returns None without raising."""
-        service = _make_service([], [], [])
-        mock_emb = MagicMock()
-        mock_emb._get_local_embedding.return_value = OBL_VEC
-        with patch("app.services.embedding_service.EmbeddingService") as MockCls:
-            MockCls.get_instance.return_value = mock_emb
-            result = service._check_embedding_duplicate("Any", "", "obligation")
+    def test_no_match_returns_none(self):
+        """Empty SQL result (e.g., empty table or all filtered out)."""
+        result, _ = _run_embedding("Some Duty", "obligation", "", None)
         assert result is None
 
-    def test_returns_best_among_same_type(self):
-        """When multiple same-type classes exist, returns the highest-cosine one."""
-        obl2_vec = _make_unit_vec(seed=10)
-        obl2_uri = "http://proethica.org/ontology/intermediate#NonDisclosureObligation"
-        uris = [OBL_URI, obl2_uri]
-        types = ["obligation", "obligation"]
-        vectors = [OBL_VEC, obl2_vec]
-        service = _make_service(uris, types, vectors)
+    def test_embedding_service_raises_returns_none(self):
+        from contextlib import ExitStack
+        captured: Dict[str, Any] = {}
 
-        # Query is very close to obl2_vec
-        query = _vec_with_cosine(obl2_vec, 0.95)
-        mock_emb = MagicMock()
-        mock_emb._get_local_embedding.return_value = query
-        with patch("app.services.embedding_service.EmbeddingService") as MockCls:
-            MockCls.get_instance.return_value = mock_emb
-            result = service._check_embedding_duplicate(
-                "Non-Disclosure Duty", "", "obligation"
+        service = _make_service()
+        with ExitStack() as stack:
+            es_patch = stack.enter_context(
+                patch("app.services.embedding_service.EmbeddingService")
+            )
+            mock_es = MagicMock()
+            mock_es._get_local_embedding.side_effect = RuntimeError("boom")
+            es_patch.get_instance.return_value = mock_es
+
+            result = service._check_embedding_duplicate("X", "", "obligation")
+        assert result is None
+
+    def test_type_marker_added_to_params_for_obligation(self):
+        row = _make_row(OBL_URI, "Confidentiality Obligation", 0.90)
+        _, captured = _run_embedding("X", "obligation", "", row)
+        # Singular obligation -> 'Obligation' marker
+        marker_values = [v for k, v in captured["params"].items() if k.startswith("m")]
+        assert any("Obligation" in v for v in marker_values), captured["params"]
+
+    def test_plural_type_marker_singularizes(self):
+        row = _make_row(OBL_URI, "Confidentiality Obligation", 0.90)
+        _, captured = _run_embedding("X", "obligations", "", row)
+        marker_values = [v for k, v in captured["params"].items() if k.startswith("m")]
+        # Both plural and singular forms expected
+        assert any("Obligation" in v for v in marker_values), captured["params"]
+
+    def test_capability_plural_singularizes_to_capability(self):
+        """'capabilities' is the irregular plural that the -ies->y rule covers."""
+        row = _make_row(CAP_URI, "Competence Capability", 0.90)
+        _, captured = _run_embedding("X", "capabilities", "", row)
+        marker_values = [v for k, v in captured["params"].items() if k.startswith("m")]
+        assert any("Capability" in v for v in marker_values), captured["params"]
+
+    def test_empty_entity_type_omits_marker_filter(self):
+        """No semantic type -> no LIKE clauses in params (only :vec)."""
+        row = _make_row(OBL_URI, "Confidentiality Obligation", 0.90)
+        _, captured = _run_embedding("X", "", "", row)
+        marker_keys = [k for k in captured["params"].keys() if k.startswith("m")]
+        assert marker_keys == [], captured["params"]
+        assert "vec" in captured["params"]
+
+    def test_definition_concatenated_into_embedding_text(self):
+        """The candidate text passed to EmbeddingService is 'label: definition'."""
+        row = _make_row(OBL_URI, "Confidentiality Obligation", 0.90)
+        captured: Dict[str, Any] = {}
+        service = _make_service()
+
+        from contextlib import ExitStack
+        with ExitStack() as stack:
+            es_patch = stack.enter_context(
+                patch("app.services.embedding_service.EmbeddingService")
+            )
+            engine_patch = stack.enter_context(
+                patch("app.services.auto_commit_service.create_engine")
+            )
+            mock_es = MagicMock()
+            mock_es._get_local_embedding.return_value = [0.1] * 384
+            es_patch.get_instance.return_value = mock_es
+
+            mock_conn = MagicMock()
+            mock_conn.execute.return_value.fetchone.return_value = row
+            mock_engine = MagicMock()
+            mock_engine.connect.return_value.__enter__.return_value = mock_conn
+            engine_patch.return_value = mock_engine
+
+            service._check_embedding_duplicate(
+                "Disclosure Duty",
+                "Engineer must report safety risks",
+                "obligation",
             )
 
-        assert result is not None
-        uri, score = result
-        assert uri == obl2_uri
-        assert score >= 0.85
-
-    def test_embedding_service_exception_returns_none(self):
-        """If EmbeddingService raises, _check_embedding_duplicate returns None."""
-        service = _make_service(INDEX_URIS, INDEX_TYPES, INDEX_VECTORS)
-        mock_emb = MagicMock()
-        mock_emb._get_local_embedding.side_effect = RuntimeError("model not loaded")
-        with patch("app.services.embedding_service.EmbeddingService") as MockCls:
-            MockCls.get_instance.return_value = mock_emb
-            result = service._check_embedding_duplicate("Any Label", "", "obligation")
-        assert result is None
+        called_with = mock_es._get_local_embedding.call_args[0][0]
+        assert called_with == "Disclosure Duty: Engineer must report safety risks"
 
 
 # ---------------------------------------------------------------------------
-# _check_duplicate integration tests (lexical + embedding pipeline)
+# _check_duplicate end-to-end (lexical + embedding fallthrough)
 # ---------------------------------------------------------------------------
 
 class TestCheckDuplicate:
-    """Integration tests for _check_duplicate: lexical paths and embedding fallthrough."""
-
-    def _make_full_service(self):
-        return _make_service(
-            INDEX_URIS, INDEX_TYPES, INDEX_VECTORS,
-            cache_entries=LEXICAL_CACHE,
-        )
 
     def test_exact_label_returns_confidence_one(self):
-        """Exact label match (case-insensitive) returns (uri, 1.0)."""
-        service = self._make_full_service()
+        service = _make_service(LEXICAL_CACHE)
         result = service._check_duplicate("Confidentiality Obligation", "obligation")
-        assert result is not None
-        uri, conf = result
-        assert uri == OBL_URI
-        assert conf == 1.0
+        assert result == (OBL_URI, 1.0)
 
     def test_exact_match_case_insensitive(self):
-        service = self._make_full_service()
+        service = _make_service(LEXICAL_CACHE)
         result = service._check_duplicate("FAITHFUL AGENT ROLE", "role")
-        assert result is not None
-        uri, conf = result
-        assert uri == ROLE_URI
-        assert conf == 1.0
+        assert result == (ROLE_URI, 1.0)
 
     def test_substring_match_returns_0_87(self):
-        """Substring match with matching type returns (uri, 0.87)."""
-        service = self._make_full_service()
-        # 'Faithful' is contained in 'Faithful Agent Role'
+        service = _make_service(LEXICAL_CACHE)
         result = service._check_duplicate("Faithful", "role")
         assert result is not None
         uri, conf = result
         assert uri == ROLE_URI
         assert conf == pytest.approx(0.87)
 
-    def test_substring_wrong_type_does_not_match_lexically(self):
-        """Substring match with mismatched type is not returned from lexical path."""
-        service = self._make_full_service()
-        # 'Competence' is a substring of 'Competence Capability' (type=capability)
-        # Querying with obligation type -> lexical path blocked
-        # Use a query vector with cosine below EMBEDDING_MATCH_MIN so it returns None
-        query = _vec_with_cosine(CAP_VEC, 0.50)
-        mock_emb = MagicMock()
-        mock_emb._get_local_embedding.return_value = query
-        with patch("app.services.embedding_service.EmbeddingService") as MockCls:
-            MockCls.get_instance.return_value = mock_emb
+    def test_substring_wrong_type_falls_through_to_embedding(self):
+        """Substring 'Competence' matches a Capability class label, but candidate
+        type 'obligation' should make the URI-marker filter reject it. The flow
+        then reaches the embedding path, which we mock to return None."""
+        service = _make_service(LEXICAL_CACHE)
+        from contextlib import ExitStack
+        with ExitStack() as stack:
+            es_patch = stack.enter_context(
+                patch("app.services.embedding_service.EmbeddingService")
+            )
+            engine_patch = stack.enter_context(
+                patch("app.services.auto_commit_service.create_engine")
+            )
+            es_patch.get_instance.return_value._get_local_embedding.return_value = [0.1] * 384
+            mock_conn = MagicMock()
+            mock_conn.execute.return_value.fetchone.return_value = None
+            engine_patch.return_value.connect.return_value.__enter__.return_value = mock_conn
+
             result = service._check_duplicate("Competence", "obligation")
         assert result is None
 
-    def test_unknown_label_falls_through_to_embedding_high(self):
-        """Unknown label with no lexical match uses embedding path at high cosine."""
-        service = self._make_full_service()
-        query = _vec_with_cosine(OBL_VEC, 0.91)
-        mock_emb = MagicMock()
-        mock_emb._get_local_embedding.return_value = query
-        with patch("app.services.embedding_service.EmbeddingService") as MockCls:
-            MockCls.get_instance.return_value = mock_emb
+    def test_unknown_label_falls_through_to_embedding_match(self):
+        service = _make_service(LEXICAL_CACHE)
+        from contextlib import ExitStack
+        with ExitStack() as stack:
+            es_patch = stack.enter_context(
+                patch("app.services.embedding_service.EmbeddingService")
+            )
+            engine_patch = stack.enter_context(
+                patch("app.services.auto_commit_service.create_engine")
+            )
+            es_patch.get_instance.return_value._get_local_embedding.return_value = [0.1] * 384
+            mock_conn = MagicMock()
+            mock_conn.execute.return_value.fetchone.return_value = _make_row(
+                OBL_URI, "Confidentiality Obligation", 0.91,
+            )
+            engine_patch.return_value.connect.return_value.__enter__.return_value = mock_conn
+
             result = service._check_duplicate(
                 "Client Data Protection Duty", "obligation"
             )
         assert result is not None
         uri, conf = result
         assert uri == OBL_URI
-        assert conf >= 0.85
+        assert conf == pytest.approx(0.91)
 
-    def test_unknown_label_falls_through_to_embedding_novel(self):
-        """Unknown label below embedding threshold returns None (novel class)."""
-        service = self._make_full_service()
-        query = _vec_with_cosine(OBL_VEC, 0.50)
-        mock_emb = MagicMock()
-        mock_emb._get_local_embedding.return_value = query
-        with patch("app.services.embedding_service.EmbeddingService") as MockCls:
-            MockCls.get_instance.return_value = mock_emb
+    def test_unknown_label_below_threshold_returns_none(self):
+        service = _make_service(LEXICAL_CACHE)
+        from contextlib import ExitStack
+        with ExitStack() as stack:
+            es_patch = stack.enter_context(
+                patch("app.services.embedding_service.EmbeddingService")
+            )
+            engine_patch = stack.enter_context(
+                patch("app.services.auto_commit_service.create_engine")
+            )
+            es_patch.get_instance.return_value._get_local_embedding.return_value = [0.1] * 384
+            mock_conn = MagicMock()
+            mock_conn.execute.return_value.fetchone.return_value = _make_row(
+                OBL_URI, "Confidentiality Obligation", 0.50,
+            )
+            engine_patch.return_value.connect.return_value.__enter__.return_value = mock_conn
+
             result = service._check_duplicate(
                 "CompletelyUnrelatedConcept999", "obligation"
             )
         assert result is None
 
-    def test_empty_cache_returns_none_immediately(self):
-        """Empty OntServe cache returns None without reaching embedding path."""
-        service = _make_service([], [], [], cache_entries={})
-        result = service._check_duplicate("Any Label", "role")
+    def test_empty_cache_no_sql_row_returns_none(self):
+        service = _make_service({})
+        from contextlib import ExitStack
+        with ExitStack() as stack:
+            es_patch = stack.enter_context(
+                patch("app.services.embedding_service.EmbeddingService")
+            )
+            engine_patch = stack.enter_context(
+                patch("app.services.auto_commit_service.create_engine")
+            )
+            es_patch.get_instance.return_value._get_local_embedding.return_value = [0.1] * 384
+            mock_conn = MagicMock()
+            mock_conn.execute.return_value.fetchone.return_value = None
+            engine_patch.return_value.connect.return_value.__enter__.return_value = mock_conn
+
+            result = service._check_duplicate("Any Label", "role")
         assert result is None
 
-    def test_definition_passed_to_embedding(self):
-        """Definition argument is forwarded to _check_embedding_duplicate."""
-        service = self._make_full_service()
-        query = _vec_with_cosine(OBL_VEC, 0.88)
-        mock_emb = MagicMock()
-        mock_emb._get_local_embedding.return_value = query
-        with patch("app.services.embedding_service.EmbeddingService") as MockCls:
-            MockCls.get_instance.return_value = mock_emb
-            result = service._check_duplicate(
-                "Duty of Confidentiality",
-                "obligation",
+    def test_definition_passed_through_to_embedding(self):
+        service = _make_service(LEXICAL_CACHE)
+        from contextlib import ExitStack
+        with ExitStack() as stack:
+            es_patch = stack.enter_context(
+                patch("app.services.embedding_service.EmbeddingService")
+            )
+            engine_patch = stack.enter_context(
+                patch("app.services.auto_commit_service.create_engine")
+            )
+            mock_es = MagicMock()
+            mock_es._get_local_embedding.return_value = [0.1] * 384
+            es_patch.get_instance.return_value = mock_es
+            mock_conn = MagicMock()
+            mock_conn.execute.return_value.fetchone.return_value = _make_row(
+                OBL_URI, "Confidentiality Obligation", 0.88,
+            )
+            engine_patch.return_value.connect.return_value.__enter__.return_value = mock_conn
+
+            service._check_duplicate(
+                "Duty of Confidentiality", "obligation",
                 "Engineer must keep client secrets",
             )
-        # Should succeed via embedding
-        assert result is not None
-        # EmbeddingService was called (embedding path was reached)
-        mock_emb._get_local_embedding.assert_called()
-        # The call text should include the definition
-        call_args = mock_emb._get_local_embedding.call_args[0][0]
-        assert "Engineer must keep client secrets" in call_args
+        passed = mock_es._get_local_embedding.call_args[0][0]
+        assert "Engineer must keep client secrets" in passed
