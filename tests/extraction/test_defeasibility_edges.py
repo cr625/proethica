@@ -453,6 +453,14 @@ class TestRealLLMIntegration:
     ANTHROPIC_API_KEY. Run with: pytest -m llm tests/extraction/test_defeasibility_edges.py
     """
 
+    @pytest.fixture(autouse=True)
+    def _flask_app_context(self):
+        """``get_llm_client`` reads ``current_app.config``; provide a context."""
+        from app import create_app
+        app = create_app("development")
+        with app.app_context():
+            yield
+
     def test_real_llm_reproduces_case72_edges(
         self, case72_obligations, case72_states, case72_narratives
     ):
