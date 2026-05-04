@@ -48,6 +48,10 @@ def setup_test_database():
                 END LOOP;
             END $$;
         """))
+        # No-op once installed. pgvector is not marked trusted on the
+        # production server, so a fresh ai_ethical_dm_test needs a one-time
+        # superuser install: `sudo -u postgres psql -d ai_ethical_dm_test
+        # -c "CREATE EXTENSION IF NOT EXISTS vector;"`.
         db.session.execute(db.text('CREATE EXTENSION IF NOT EXISTS vector'))
         db.session.commit()
         print("Reset public schema (tables/views only; extensions preserved).")
