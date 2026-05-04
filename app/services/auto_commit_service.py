@@ -36,6 +36,46 @@ CONFIDENCE_AUTO_ACCEPT = 0.90  # Auto-accept matches above this threshold
 CONFIDENCE_REVIEW = 0.75       # Require review for matches in this range
 CONFIDENCE_NEW_CLASS = 0.75    # Below this, treat as new class
 
+# Minimum cosine similarity for embedding-based duplicate detection.
+# Maps to the rubric MEDIUM band lower bound (ICCBR paper Section 3.3).
+EMBEDDING_MATCH_MIN = 0.70
+
+
+# D-tuple semantic types -> URI-substring marker for class URIs.
+# ProEthica class URIs use the singular form (FaithfulAgentObligation),
+# so plural inputs collapse to the same marker.
+_SEMANTIC_TYPE_TO_MARKERS: Dict[str, List[str]] = {
+    'role':         ['Role'],
+    'roles':        ['Role'],
+    'principle':    ['Principle'],
+    'principles':   ['Principle'],
+    'obligation':   ['Obligation'],
+    'obligations':  ['Obligation'],
+    'state':        ['State'],
+    'states':       ['State'],
+    'resource':     ['Resource'],
+    'resources':    ['Resource'],
+    'action':       ['Action'],
+    'actions':      ['Action'],
+    'event':        ['Event'],
+    'events':       ['Event'],
+    'capability':   ['Capability'],
+    'capabilities': ['Capability'],
+    'constraint':   ['Constraint'],
+    'constraints':  ['Constraint'],
+}
+
+
+def _semantic_type_markers(entity_type: Optional[str]) -> List[str]:
+    """URI-substring marker(s) for a D-tuple semantic type.
+
+    Falls back to title-cased input for types outside the nine
+    D-tuple components.
+    """
+    if not entity_type:
+        return []
+    return _SEMANTIC_TYPE_TO_MARKERS.get(entity_type.lower(), [entity_type.title()])
+
 
 @dataclass
 class EntityCommitResult:
@@ -78,7 +118,9 @@ class AutoCommitService:
         self.ontologies_dir = self.ontserve_path / "ontologies"
         self.ontologies_dir.mkdir(parents=True, exist_ok=True)
 
-        # Cache for OntServe classes (loaded on demand)
+        # Cache for OntServe classes (loaded on demand) - used by exact-label
+        # and substring lexical matchers. Embedding lookups go directly to
+        # ontology_entities via pgvector and do not consult this cache.
         self._ontserve_classes_cache: Optional[Dict[str, Dict]] = None
 
         # Whether current commit uses versioned path (set by commit_case_entities)
@@ -298,13 +340,19 @@ class AutoCommitService:
                     )
 
             # Low confidence or no match - check for duplicates before creating new class
-            duplicate_uri = self._check_duplicate(entity.entity_label, entity.entity_type)
+            match = self._check_duplicate(
+                entity.entity_label,
+                entity.entity_type,
+                entity.entity_definition or "",
+            )
 
-            if duplicate_uri:
-                # Update the entity with the found match
+            if match:
+                duplicate_uri, match_confidence = match
+                match_method = 'lexical' if match_confidence >= 1.0 else 'embedding'
+                band = "auto-link" if match_confidence >= CONFIDENCE_AUTO_ACCEPT else "review-flag"
                 entity.matched_ontology_uri = duplicate_uri
-                entity.match_method = 'embedding'
-                entity.match_confidence = 0.80  # Embedding match confidence
+                entity.match_method = match_method
+                entity.match_confidence = match_confidence
 
                 return EntityCommitResult(
                     entity_id=entity.id,
@@ -312,8 +360,8 @@ class AutoCommitService:
                     entity_type=entity.entity_type,
                     action='linked',
                     linked_uri=duplicate_uri,
-                    confidence=0.80,
-                    reasoning="Linked via embedding similarity check"
+                    confidence=match_confidence,
+                    reasoning=f"Duplicate check ({match_method}, {band}, score={match_confidence:.2f}): {entity.entity_label}",
                 )
 
             # No match found - create new class (handled in TTL generation)
@@ -335,19 +383,16 @@ class AutoCommitService:
                 error=str(e)
             )
 
-    def _check_duplicate(self, label: str, entity_type: str) -> Optional[str]:
-        """
-        Check if a semantically equivalent class already exists in OntServe.
+    def _check_duplicate(
+        self, label: str, entity_type: str, definition: str = ""
+    ) -> Optional[Tuple[str, float]]:
+        """Find an existing OntServe class equivalent to the candidate.
 
-        Uses embedding similarity to find potential matches for entities
-        without LLM-provided matches.
-
-        Args:
-            label: The entity label
-            entity_type: The type of entity (role, state, etc.)
-
-        Returns:
-            URI of matching class if found, None otherwise
+        Tries exact label match, then substring match with a URI-marker
+        type filter, then falls back to pgvector cosine similarity.
+        Returns ``(uri, confidence)`` or ``None``. Confidence is 1.0 for
+        exact label, 0.87 for substring, and the cosine score for the
+        embedding path.
         """
         # Load OntServe classes if not cached
         if self._ontserve_classes_cache is None:
@@ -363,35 +408,114 @@ class AutoCommitService:
         for uri, class_info in self._ontserve_classes_cache.items():
             if class_info.get('label', '').lower().strip() == normalized_label:
                 logger.info(f"Found exact label match for '{label}': {uri}")
-                return uri
+                return uri, 1.0
 
-        # Try partial match (label contains or is contained)
+        # Try partial match (label contains or is contained), gated by the
+        # same URI-substring type filter the embedding path uses.
+        type_markers = _semantic_type_markers(entity_type)
         for uri, class_info in self._ontserve_classes_cache.items():
             class_label = class_info.get('label', '').lower().strip()
             if normalized_label in class_label or class_label in normalized_label:
-                # Only match if same entity type
-                class_type = class_info.get('type', '').lower()
-                if entity_type and entity_type.lower() in class_type:
-                    logger.info(f"Found partial label match for '{label}': {uri}")
-                    return uri
+                if type_markers and not any(m in uri for m in type_markers):
+                    continue
+                logger.info(f"Found partial label match for '{label}': {uri}")
+                return uri, 0.87
 
-        # TODO: Implement embedding-based similarity check
-        # This would query OntServe's entity_embeddings table for similar entities
+        # Embedding-based similarity fallback
+        return self._check_embedding_duplicate(label, definition, entity_type)
 
-        return None
+    def _check_embedding_duplicate(
+        self, label: str, definition: str, entity_type: str
+    ) -> Optional[Tuple[str, float]]:
+        """Query OntServe via pgvector for the nearest cosine match.
+
+        Embeds 'label: definition' with all-MiniLM-L6-v2 and runs a single
+        cosine query against ``ontology_entities.embedding`` (vector(384)
+        with an IVFFlat cosine index already in place). The candidate's
+        semantic type narrows the search to URIs containing the matching
+        marker ('Obligation', 'Capability', etc.). Returns (uri, cosine)
+        when the top match meets EMBEDDING_MATCH_MIN; otherwise None.
+
+        Rubric bands (ICCBR paper Section 3.3):
+          HIGH   cosine >= 0.85       -> caller applies auto-link logic
+          MEDIUM 0.70 <= c < 0.85     -> caller applies review-flag logic
+          below  0.70                  -> None (novel class)
+        """
+        try:
+            from app.services.embedding_service import EmbeddingService
+            embedding_service = EmbeddingService.get_instance()
+
+            candidate_text = f"{label}: {definition}" if definition else label
+            raw = embedding_service._get_local_embedding(candidate_text)
+            vec = list(raw) if not isinstance(raw, list) else raw
+
+            # Build optional URI substring filter for the semantic type.
+            markers = _semantic_type_markers(entity_type)
+            params: Dict[str, Any] = {"vec": vec}
+            if markers:
+                like_clauses = []
+                for i, marker in enumerate(markers):
+                    key = f"m{i}"
+                    like_clauses.append(f"uri LIKE :{key}")
+                    params[key] = f"%{marker}%"
+                marker_sql = "AND (" + " OR ".join(like_clauses) + ")"
+            else:
+                marker_sql = ""
+
+            sql = text(f"""
+                SELECT uri, label,
+                       1 - (embedding <=> CAST(:vec AS vector)) AS cosine
+                FROM ontology_entities
+                WHERE entity_type = 'class'
+                  AND uri LIKE 'http://proethica.org/ontology/%'
+                  AND uri NOT LIKE 'http://proethica.org/ontology/core#%'
+                  AND embedding IS NOT NULL
+                  {marker_sql}
+                ORDER BY embedding <=> CAST(:vec AS vector)
+                LIMIT 1
+            """)
+
+            engine = create_engine(get_ontserve_db_url())
+            with engine.connect() as conn:
+                # Probe every list so the IVFFlat lookup is exact, not approximate.
+                conn.execute(text("SET LOCAL ivfflat.probes = 100"))
+                row = conn.execute(sql, params).fetchone()
+
+            if row is None:
+                return None
+            cosine = float(row.cosine)
+            if cosine < EMBEDDING_MATCH_MIN:
+                return None
+
+            logger.info(
+                "Embedding match: '%s' (%s) -> %s (cosine=%.3f)",
+                label, entity_type, row.uri, cosine,
+            )
+            return row.uri, cosine
+
+        except Exception as e:
+            logger.warning("Embedding duplicate check failed: %s", e)
+            return None
 
     def _load_ontserve_classes(self):
         """Load OntServe classes from database for duplicate checking."""
         try:
             # Query OntServe's ontology_entities table for proethica classes
+            # Restrict to class entities outside the core namespace. The
+            # duplicate matcher decides whether a proposed class collides with
+            # an existing one, so individuals and properties only add noise.
+            # core# holds the bare D-tuple base classes (Obligation, Capability,
+            # etc.) which would always trip the substring matcher trivially;
+            # candidates are by definition more specific than those.
             query = text("""
                 SELECT uri, label, entity_type, comment
                 FROM ontology_entities
                 WHERE uri LIKE 'http://proethica.org/ontology/%'
+                  AND uri NOT LIKE 'http://proethica.org/ontology/core#%'
+                  AND entity_type = 'class'
             """)
 
             # Use a separate connection to ontserve database
-            from sqlalchemy import create_engine
             ontserve_engine = create_engine(get_ontserve_db_url())
 
             with ontserve_engine.connect() as conn:
