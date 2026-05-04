@@ -78,9 +78,9 @@ Nginx caches rendered HTML pages from Flask/Gunicorn. On first request, the page
 | `proxy_cache_use_stale` | error timeout updating 5xx | Serve stale if backend down |
 | `proxy_cache_lock` | on | One request populates new cache entry |
 
-**Cache status header** (`X-Cache-Status`): MISS (fetched from app), HIT (served from cache), STALE (served stale during background refresh), BYPASS (POST requests).
+**Cache status header** (`X-Cache-Status`): MISS (fetched from app), HIT (served from cache), STALE (served stale during background refresh), BYPASS (POST requests or authenticated users).
 
-**Not cached**: POST requests, `/demo` (static files served by nginx directly), `/ontology/*` and `/resolve` (proxied to OntServe).
+**Not cached**: POST requests, requests carrying the `proeth_auth` cookie (set by Flask on login), `/demo` (static files served by nginx directly), `/ontology/*` and `/resolve` (proxied to OntServe). The `proeth_auth` bypass prevents logged-in users from being served cached anonymous HTML.
 
 Gzip enabled for all text content types at compression level 6.
 
