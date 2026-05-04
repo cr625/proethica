@@ -334,20 +334,24 @@ class TestEntityCount:
         assert annotator.get_entity_count() == 1  # only "valid term"
 
 
-# --- Integration test (requires DB, skipped by default) ---
+# --- Live integration test: requires populated dev DB plus OntServe MCP. ---
+# Deselected by default (see pytest.ini live_db marker); run with `pytest -m live_db`.
 
-@pytest.mark.skipif(
-    True,  # Change to False to run against live DB
-    reason="Requires live database with extracted case data"
-)
+@pytest.mark.live_db
 class TestLiveAnnotation:
-    def test_annotate_case7_text(self, app):
+    @pytest.fixture(autouse=True)
+    def _dev_app_context(self):
+        from app import create_app
+        app = create_app("development")
         with app.app_context():
-            annotator = TextAnnotator(case_id=7)
-            spans = annotator.annotate(
-                "Engineer A had an obligation to ensure public safety "
-                "through professional competence."
-            )
-            assert len(spans) >= 2
-            labels = {s.matched_text.lower() for s in spans}
-            assert 'engineer a' in labels
+            yield
+
+    def test_annotate_case7_text(self):
+        annotator = TextAnnotator(case_id=7)
+        spans = annotator.annotate(
+            "Engineer A had an obligation to ensure public safety "
+            "through professional competence."
+        )
+        assert len(spans) >= 2
+        labels = {s.matched_text.lower() for s in spans}
+        assert 'engineer a' in labels
