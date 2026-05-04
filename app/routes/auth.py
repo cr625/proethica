@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from flask import Blueprint, request, render_template, redirect, url_for, flash
 from flask_login import login_user, logout_user, login_required, current_user
 from urllib.parse import urlparse
@@ -7,6 +7,28 @@ from app.models.user import User
 from app.forms import LoginForm, RegistrationForm
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
+
+# Marker cookie nginx checks (proxy_cache_bypass $cookie_proeth_auth) to
+# skip the anonymous response cache for authenticated users. Value is not
+# sensitive; presence alone is the signal.
+_AUTH_MARKER_COOKIE = 'proeth_auth'
+_AUTH_MARKER_REMEMBER_SECONDS = int(timedelta(days=365).total_seconds())
+
+
+def _set_auth_marker(response, *, remember: bool):
+    response.set_cookie(
+        _AUTH_MARKER_COOKIE, '1',
+        max_age=_AUTH_MARKER_REMEMBER_SECONDS if remember else None,
+        httponly=True,
+        samesite='Lax',
+        path='/',
+    )
+    return response
+
+
+def _clear_auth_marker(response):
+    response.delete_cookie(_AUTH_MARKER_COOKIE, path='/')
+    return response
 
 
 def _log_auth_activity(action: str, user_id: int = None, username: str = None):
@@ -29,9 +51,10 @@ def _log_auth_activity(action: str, user_id: int = None, username: str = None):
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
     """Handle user login."""
-    # Redirect if user is already logged in
+    # Redirect if user is already logged in. Reapply the marker cookie in
+    # case it has been lost (e.g., session predates the marker rollout).
     if current_user.is_authenticated:
-        return redirect(url_for('index.index'))
+        return _set_auth_marker(redirect(url_for('index.index')), remember=False)
     
     form = LoginForm()
     if form.validate_on_submit():
@@ -67,7 +90,9 @@ def login():
                         next_page += '?' + parsed.query
             if not next_page or not next_page.startswith('/'):
                 next_page = url_for('index.index')
-            return redirect(next_page)
+            return _set_auth_marker(
+                redirect(next_page), remember=bool(form.remember_me.data)
+            )
         else:
             flash('Invalid username or password', 'danger')
     
@@ -86,4 +111,4 @@ def logout():
     _log_auth_activity('Logout', user_id=current_user.id, username=current_user.username)
     logout_user()
     flash('You have been logged out.', 'info')
-    return redirect(url_for('index.index'))
+    return _clear_auth_marker(redirect(url_for('index.index')))
