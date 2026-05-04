@@ -31,13 +31,26 @@ def setup_test_database():
     print("Setting up test database with db.create_all()...")
 
     with app.app_context():
-        # Full schema reset: drop everything and recreate from models.
-        # CASCADE handles views and other dependent objects.
-        db.session.execute(db.text('DROP SCHEMA IF EXISTS public CASCADE'))
-        db.session.execute(db.text('CREATE SCHEMA public'))
+        # Drop all tables/views inside the public schema individually instead of
+        # `DROP SCHEMA public CASCADE`. The schema-level drop also removes
+        # extensions installed in public (notably pgvector), which on managed
+        # hosts can only be reinstalled by a superuser. Per-object drops leave
+        # the schema and its extensions intact.
+        db.session.execute(db.text("""
+            DO $$
+            DECLARE r RECORD;
+            BEGIN
+                FOR r IN SELECT viewname FROM pg_views WHERE schemaname = 'public' LOOP
+                    EXECUTE 'DROP VIEW IF EXISTS public.' || quote_ident(r.viewname) || ' CASCADE';
+                END LOOP;
+                FOR r IN SELECT tablename FROM pg_tables WHERE schemaname = 'public' LOOP
+                    EXECUTE 'DROP TABLE IF EXISTS public.' || quote_ident(r.tablename) || ' CASCADE';
+                END LOOP;
+            END $$;
+        """))
         db.session.execute(db.text('CREATE EXTENSION IF NOT EXISTS vector'))
         db.session.commit()
-        print("Reset public schema.")
+        print("Reset public schema (tables/views only; extensions preserved).")
 
         # Create all tables from models
         db.create_all()
