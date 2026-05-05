@@ -1,21 +1,59 @@
 # ProEthica
 
-**Live:** https://proethica.org
+**Live:** <https://proethica.org>
 
-**Documentation:** https://proethica.org/docs
+**Documentation:** <https://proethica.org/docs>
 
 ## Overview
 
-ProEthica extracts and analyzes ethical concepts from professional ethics case studies using a 9-component formal methodology (Roles, Principles, Obligations, States, Resources, Constraints, Capabilities, Actions, Events). The system generates structured scenarios with decision points, arguments, and outcome analysis.
+ProEthica extracts and analyzes ethical concepts from professional ethics case studies using a 9-component formal methodology (Roles, Principles, Obligations, States, Resources, Constraints, Capabilities, Actions, Events). The system generates structured scenarios with decision points, arguments, and outcome analysis. The current corpus contains 118 NSPE Board of Ethical Review cases with full extraction.
 
-## Requirements
+## Access Modes
+
+ProEthica supports three modes of access, ordered by required infrastructure.
+
+### 1. Browsing the Extracted Corpus
+
+The public deployment at <https://proethica.org> provides:
+
+- Case list and detail views at `/cases/`
+- Extracted 9-component entities per case
+- Scenario timelines and decision-point analysis at `/scenario_pipeline/<case_id>`
+- Precedent retrieval and similarity search
+- Validation study participation at `/validation/`
+
+No installation is required for this mode.
+
+### 2. Reproducing the ICCBR 2026 Experiments
+
+Experiment data and scripts are in [`experiments/iccbr-2026/`](experiments/iccbr-2026/). The analysis scripts query pre-computed embeddings and features from the `case_precedent_features` table. They do not call LLMs or modify the database.
+
+```bash
+cd proethica
+python -m venv venv-proethica
+source venv-proethica/bin/activate
+pip install flask flask-sqlalchemy flask-login flask-wtf psycopg2-binary \
+  pgvector sqlalchemy alembic numpy scipy sentence-transformers
+
+export SQLALCHEMY_DATABASE_URI=postgresql://user:pass@localhost:5432/ai_ethical_dm
+export ANTHROPIC_API_KEY=dummy  # required by app init, not used by experiments
+
+PYTHONPATH=$(pwd) python scripts/analysis/weight_sweep.py
+```
+
+See [`experiments/iccbr-2026/README.md`](experiments/iccbr-2026/README.md) for experiment descriptions, results, and the full script list.
+
+### 3. Running the Full Extraction Pipeline
+
+Required for extracting new cases or modifying the extraction logic.
+
+Requirements:
 
 - Python 3.11+
 - PostgreSQL 16+ with pgvector extension
 - Anthropic API key (Claude)
-- [OntServe](https://github.com/cr625/OntServe) MCP server (port 8082) for ontology management
-
-## Quick Start
+- [OntServe](https://github.com/cr625/OntServe) MCP server (port 8082)
+- Redis and Celery for background extraction jobs
 
 ```bash
 # Terminal 1: OntServe MCP (required)
@@ -27,49 +65,11 @@ python -m venv venv-proethica
 source venv-proethica/bin/activate
 pip install -r requirements.txt
 cp .env.production.example .env
-# Edit .env with your database and API credentials
+# Edit .env with database and API credentials
 python run.py
 ```
 
-Access at: http://localhost:5000
-
-See the [Installation Guide](https://proethica.org/docs/admin-guide/installation/) for full setup instructions including PostgreSQL, Redis, Celery, and OntServe configuration.
-
-## ICCBR 2026 Experiments
-
-Experiment data and results for the ICCBR 2026 paper are in [`experiments/iccbr-2026/`](experiments/iccbr-2026/). The experiments evaluate component-aware case retrieval against expert citation ground truth across 119 NSPE Board of Ethical Review cases.
-
-To reproduce the experiments without the full system (no OntServe, no LLM keys, no Celery/Redis):
-
-```bash
-# 1. Install minimal dependencies
-cd proethica
-python -m venv venv-proethica
-source venv-proethica/bin/activate
-pip install flask flask-sqlalchemy flask-login flask-wtf psycopg2-binary \
-  pgvector sqlalchemy alembic numpy scipy sentence-transformers
-
-# 2. Configure database access
-export DATABASE_URL=postgresql://user:pass@localhost:5432/ai_ethical_dm
-export ANTHROPIC_API_KEY=dummy  # not used by experiments, but required by app init
-
-# 3. Run any experiment
-PYTHONPATH=$(pwd) python scripts/analysis/weight_sweep.py
-```
-
-The analysis scripts query pre-computed embeddings and features from the `case_precedent_features` table. They do not call LLMs or modify the database. See [`experiments/iccbr-2026/README.md`](experiments/iccbr-2026/README.md) for experiment descriptions, results, and the full script list.
-
-## CBR Retrieval Component
-
-The precedent retrieval system can run independently of the extraction pipeline. It requires Flask, PostgreSQL with pgvector, and the sentence-transformers embedding model (all-MiniLM-L6-v2, downloaded automatically on first use).
-
-```bash
-# Start with retrieval only (no OntServe, no Celery)
-export ANTHROPIC_API_KEY=dummy
-PYTHONPATH=$(pwd) python run.py
-```
-
-The web interface at http://localhost:5000 provides case browsing, similarity search, and precedent discovery. Extraction features require the full setup (LLM keys, OntServe, Celery).
+Access at <http://localhost:5000>. See the [Installation Guide](https://proethica.org/docs/admin-guide/installation/) for full setup including PostgreSQL, Redis, Celery, and OntServe configuration.
 
 ## License
 
