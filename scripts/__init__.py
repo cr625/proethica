@@ -1,1 +1,0 @@
-# ProEthica scripts package
