@@ -80,43 +80,9 @@ Gzip is enabled for all text content types at compression level 6.
 
 See `docs-internal/production-server-ops.md` for the authoritative ops reference.
 
-## Offline Data Scripts
+## Offline Data Population
 
-These scripts run one-time or after data changes. They are NOT part of routine deployments.
-
-### Similarity cache (precedent network graph)
-
-Pre-computes pairwise similarity scores for the precedent network. Required after adding new cases or updating extraction data.
-
-```bash
-python scripts/populate_similarity_cache.py --all
-# Or for specific cases:
-python scripts/populate_similarity_cache.py --cases 73,74,75
-```
-
-### Section embeddings
-
-Generates 384D embeddings for document sections. Normally populated via the web UI **Generate Embeddings** button on the case structure page, but can be batch-run:
-
-```bash
-python scripts/populate_section_embeddings.py --all
-```
-
-### Component embeddings
-
-Generates per-component (R, P, O, S, Rs, A, E, Ca, Cs) and combined embeddings from extracted entities:
-
-```bash
-python scripts/populate_component_embeddings.py --all
-```
-
-### Precedent features
-
-Extracts structural features for precedent matching:
-
-```bash
-python scripts/populate_precedent_features.py
-```
+After adding new cases or updating extraction data, several offline jobs populate derived data: similarity cache (precedent network), section embeddings (384D), per-component embeddings, and precedent features. Section embeddings can be triggered from the web UI **Generate Embeddings** button on the case structure page. Operational details for the other jobs are maintained in `docs-internal/`.
 
 ## Environment Variables
 

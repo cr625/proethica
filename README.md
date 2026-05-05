@@ -38,7 +38,7 @@ pip install flask flask-sqlalchemy flask-login flask-wtf psycopg2-binary \
 export SQLALCHEMY_DATABASE_URI=postgresql://user:pass@localhost:5432/ai_ethical_dm
 export ANTHROPIC_API_KEY=dummy  # required by app init, not used by experiments
 
-PYTHONPATH=$(pwd) python scripts/analysis/weight_sweep.py
+PYTHONPATH=$(pwd) python experiments/iccbr-2026/analysis/weight_sweep.py
 ```
 
 See [`experiments/iccbr-2026/README.md`](experiments/iccbr-2026/README.md) for experiment descriptions, results, and the full script list.

@@ -440,8 +440,7 @@ def api_similarity_network():
                 })
 
         # On-demand computation disabled to prevent OOM on large case sets.
-        # The similarity cache should be pre-populated via:
-        #   python scripts/populate_similarity_cache.py
+        # The similarity cache must be pre-populated by an offline job.
         computed_count = 0
 
         # Entity-based filtering (if entity_type_filter is set)

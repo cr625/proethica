@@ -3,16 +3,9 @@ TTL-level driver for defeasibility edge extraction.
 
 This module sits between `DefeasibilityEdgeExtractor` (the LLM call) and
 the rdflib serialization that produces case ontology TTL files. It is
-shared by:
-
-  - the corpus backfill script (`scripts/backfill_defeasibility_edges.py`),
-    which iterates over the 117 non-72 case ontologies;
-  - the live commit pipeline (`auto_commit_service._generate_case_ttl`),
-    which can opt-in to running defeasibility extraction immediately
-    after a case TTL is written.
-
-Reference: proethica/.claude/plans/defeasibility-edge-extraction.md
-Phases A4 + A5 (live integration) and Phase C1 (backfill).
+shared by the corpus backfill driver and the live commit pipeline
+(`auto_commit_service._generate_case_ttl`), which can opt-in to running
+defeasibility extraction immediately after a case TTL is written.
 """
 
 from __future__ import annotations

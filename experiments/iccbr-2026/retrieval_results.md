@@ -1,7 +1,7 @@
 # Three-Way Embedding Comparison Results
 
 **Date:** 2026-03-13 10:57
-**Script:** `scripts/analysis/evaluate_ground_truth_v3.py`
+**Script:** `experiments/iccbr-2026/analysis/evaluate_ground_truth_v3.py`
 
 ## Experimental Design
 

@@ -104,7 +104,7 @@ def init_provenance_csrf_exemption(app):
 def run_qc_audit_api(case_id):
     """Run V0-V9 QC audit for a case and store results."""
     try:
-        from scripts.analysis.run_qc_audit import run_audit, store_audit
+        from app.services.qc.run_qc_audit import run_audit, store_audit
         audit = run_audit(case_id)
         store_audit(audit)
         return jsonify({'success': True, 'audit': audit})

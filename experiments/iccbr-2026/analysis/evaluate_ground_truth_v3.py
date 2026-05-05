@@ -356,7 +356,7 @@ def write_markdown(agg, per_source, per_edge, output_dir):
     lines.append("# Three-Way Embedding Comparison Results")
     lines.append("")
     lines.append(f"**Date:** {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-    lines.append(f"**Script:** `scripts/analysis/evaluate_ground_truth_v3.py`")
+    lines.append(f"**Script:** `experiments/iccbr-2026/analysis/evaluate_ground_truth_v3.py`")
     lines.append("")
 
     lines.append("## Experimental Design")

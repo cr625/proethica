@@ -1,7 +1,7 @@
 # Weight Sweep Results
 
 **Date:** 2026-03-14 09:11
-**Script:** `scripts/analysis/weight_sweep.py`
+**Script:** `experiments/iccbr-2026/analysis/weight_sweep.py`
 
 Retrieval metrics as a function of embedding weight (alpha). At each alpha: score = alpha * embedding + (1 - alpha) * set_features.
 
