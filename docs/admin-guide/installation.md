@@ -123,14 +123,6 @@ celery -A celery_config.celery worker --loglevel=info
 
 The worker processes background pipeline tasks (batch extraction, queue management). See [Pipeline Automation](../analysis/pipeline-automation.md) for details.
 
-### All Services at Once
-
-```bash
-./scripts/start_all.sh start
-```
-
-This starts OntServe MCP, Redis, Celery worker, and Flask in the correct order.
-
 ### Service Dependencies
 
 | Service | Port | Purpose | Required |

@@ -24,16 +24,6 @@ Pipeline automation requires:
 
 ## Starting Services
 
-### Option 1: Single Command (Recommended)
-
-```bash
-./scripts/start_all.sh start
-```
-
-This starts all required services in correct order.
-
-### Option 2: Manual Start
-
 **Terminal 1 - Redis**:
 ```bash
 redis-server
@@ -51,14 +41,6 @@ PYTHONPATH=/path/to/parent:$PYTHONPATH celery -A celery_config worker --loglevel
 cd /path/to/proethica
 source venv-proethica/bin/activate
 PYTHONPATH=/path/to/parent:$PYTHONPATH python run.py
-```
-
-### Service Management
-
-```bash
-./scripts/start_all.sh status   # Check status
-./scripts/start_all.sh stop     # Stop services
-./scripts/start_all.sh restart  # Restart all
 ```
 
 ## Pipeline Dashboard
