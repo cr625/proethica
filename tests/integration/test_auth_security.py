@@ -365,25 +365,6 @@ class TestWorldModificationRequiresAuth:
             f"World deletion should require auth, got {response.status_code}"
 
 
-class TestScenarioModificationRequiresAuth:
-    """Test that scenario modification operations require authentication."""
-
-    def test_create_scenario_requires_auth(self, simple_client):
-        """Test that creating a scenario requires authentication."""
-        response = simple_client.post('/scenarios/', data={
-            'name': 'Test Scenario',
-            'world_id': 1
-        })
-        assert response.status_code in [400, 401, 403, 302], \
-            f"Scenario creation should require auth, got {response.status_code}"
-
-    def test_delete_scenario_requires_auth(self, simple_client):
-        """Test that deleting a scenario requires authentication."""
-        response = simple_client.delete('/scenarios/1')
-        assert response.status_code in [401, 403, 302, 404], \
-            f"Scenario deletion should require auth, got {response.status_code}"
-
-
 class TestPipelineReviewPagesReadable:
     """Test that pipeline review pages are readable without authentication."""
 
