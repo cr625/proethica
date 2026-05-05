@@ -191,23 +191,16 @@ Or configure as a systemd service for automatic restart.
 
 ### Nginx Configuration
 
-Nginx serves as a reverse proxy with caching and bot protection. Configure:
+Nginx serves as a reverse proxy with bot protection. Configure:
 
 - **Reverse proxy** to the gunicorn socket/port
-- **Response caching** with `proxy_cache` for rendered HTML pages
 - **Rate limiting** with `limit_req_zone` to prevent abuse
 - **Security headers** (HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy)
 - **TLS** via Let's Encrypt / certbot
 
+Response caching is currently disabled for `location /`; see the Caching section in `production-server.md` for the rationale and the conditions under which it could be reintroduced.
+
 Note: nginx's `add_header` inheritance is per-block. Any `add_header` in a location block suppresses all headers from parent contexts. Include security headers in every location block.
-
-**Cache management:**
-
-```bash
-# Check cache status header on a response
-curl -sI https://proethica.org/ | grep X-Cache-Status
-# HIT = served from cache, MISS = fetched from gunicorn
-```
 
 ### robots.txt
 

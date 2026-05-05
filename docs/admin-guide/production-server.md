@@ -66,23 +66,19 @@ Reverse proxy on ports 80/443 with TLS (Let's Encrypt).
 
 ### Caching
 
-Nginx caches rendered HTML pages from Flask/Gunicorn. On first request, the page is built from DB queries and cached. Subsequent requests within the TTL are served from nginx without hitting the app. `proxy_cache_background_update` serves stale pages while refreshing in the background -- no visitor ever waits for a cold page build after initial population.
+Nginx response caching is currently disabled. The `proxy_cache_path` zone is still declared in `/etc/nginx/nginx.conf` for `proethica.org`, but no `location` block in the active site configuration references it. The `/var/cache/nginx/proethica` directory exists but stays empty.
 
-| Parameter | Value | Effect |
-|-----------|-------|--------|
-| `proxy_cache_valid 200` | 30m | Successful responses cached 30 minutes |
-| `proxy_cache_valid 404` | 1m | 404s cached 1 minute |
-| `inactive` | 60m | Entries not accessed in 60 minutes evicted |
-| `max_size` | 200m | Total cache disk cap |
-| `proxy_cache_background_update` | on | Refresh expired entries in background |
-| `proxy_cache_use_stale` | error timeout updating 5xx | Serve stale if backend down |
-| `proxy_cache_lock` | on | One request populates new cache entry |
+**Why the cache was removed.** Flask's session signing produces a fresh `Set-Cookie: session=...` on every response and sets `Vary: Cookie` to advertise that fact. Honoring those signals correctly yields near-zero cache hit rate. Ignoring them with `proxy_ignore_headers Set-Cookie Vary` causes every visitor to share a single signed Flask session cookie, which defeats CSRF protection and clobbers authenticated session cookies on the GET that follows login. Both states are net negatives, so the cache was removed from `location /` on 2026-05-04.
 
-**Cache status header** (`X-Cache-Status`): MISS (fetched from app), HIT (served from cache), STALE (served stale during background refresh), BYPASS (POST requests or authenticated users).
+A `proeth_auth` cookie is still set by Flask on login (and cleared on logout). Its original purpose was to drive `proxy_cache_bypass` so authenticated users skipped the anonymous cache. With the cache removed, the cookie is vestigial. The Flask code is retained harmlessly in case a correctly designed response cache is reintroduced later.
 
-**Not cached**: POST requests, requests carrying the `proeth_auth` cookie (set by Flask on login), `/demo` (static files served by nginx directly), `/ontology/*` and `/resolve` (proxied to OntServe). The `proeth_auth` bypass prevents logged-in users from being served cached anonymous HTML.
+**Reintroducing response caching.** If response caching is reintroduced for the main app, change the Flask side first to issue session cookies only on first visit and on auth events, not on every response. Then `Vary: Cookie` works correctly and anonymous visitors share cache entries while authenticated users skip the cache. Until that change ships, do not add `proxy_cache` directives to `location /`.
 
-Gzip enabled for all text content types at compression level 6.
+Static assets, `/demo` (alias-served files, no cookies), and OntServe endpoints (port 5003, separate site) remain safe candidates for caching in dedicated `location` blocks.
+
+Gzip is enabled for all text content types at compression level 6.
+
+See `docs-internal/production-server-ops.md` for the authoritative ops reference.
 
 ## Offline Data Scripts
 
@@ -165,8 +161,6 @@ Managed by Let's Encrypt / certbot. Auto-renewal via systemd timer.
 8. Configure `.env` with API keys and database credentials
 9. Install systemd service file, enable and start
 10. Configure nginx site with TLS (certbot)
-11. Configure nginx caching
-12. Configure sudoers entries
-13. Restore database from dev dump
-14. Run offline data scripts (embeddings, similarity cache)
-15. Warm nginx cache
+11. Configure sudoers entries
+12. Restore database from dev dump
+13. Run offline data scripts (embeddings, similarity cache)
