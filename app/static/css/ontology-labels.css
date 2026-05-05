@@ -13,7 +13,7 @@
 .onto-popover-content .onto-definition { font-size: 0.85rem; margin: 8px 0; color: #495057; }
 .onto-popover-content .onto-pass-badge { font-size: 0.65rem; }
 
-/* Entity type colors -- canonical palette matching ENTITY_RESOLUTION_PLAN.md */
+/* Entity type colors -- canonical palette (see docs-internal/references/TERMINOLOGY_SUMMARY.md) */
 /* Pass 1: Contextual Framework */
 .onto-type-roles, .onto-type-role { background-color: #0d6efd; color: white; }
 .onto-type-states, .onto-type-state { background-color: #6f42c1; color: white; }
