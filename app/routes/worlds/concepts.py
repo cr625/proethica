@@ -7,7 +7,6 @@ import rdflib
 from datetime import datetime
 from app import db
 from app.models.world import World
-from app.models.scenario import Scenario
 from app.models.ontology import Ontology
 from app.models import Document
 from app.models.entity_triple import EntityTriple
@@ -880,18 +879,8 @@ def register_concept_routes(bp):
                 else:
                     flash('No new concepts were added (all were duplicates)', 'info')
 
-                # Get concepts from result for template
-                actual_guideline_id = GuidelineConceptIntegrationService._get_actual_guideline_id(document_id)
-                concepts = GuidelineConceptIntegrationService.get_concepts_from_guideline(actual_guideline_id) if actual_guideline_id else []
-
-                # Render success template with results
-                return render_template('guideline_ontology_success.html',
-                                      world=world,
-                                      guideline=guideline,
-                                      result=result,
-                                      concepts=concepts,
-                                      world_id=world_id,
-                                      document_id=document_id)
+                # Redirect back to guideline detail; success message already flashed above
+                return redirect(url_for('worlds.view_guideline', id=world_id, document_id=document_id))
             else:
                 # Handle errors
                 error_message = result.get('error', 'Unknown error occurred')
@@ -1228,14 +1217,3 @@ def register_concept_routes(bp):
             references = {'results': []}
 
         return render_template('world_references.html', world=world, references=references, query=query)
-
-    # Scenarios routes
-    @bp.route('/<int:id>/scenarios', methods=['GET'])
-    def world_scenarios(id):
-        """Display scenarios for a specific world."""
-        world = World.query.get_or_404(id)
-
-        # Get scenarios for this world
-        scenarios = Scenario.query.filter_by(world_id=world.id).all()
-
-        return render_template('world_scenarios.html', world=world, scenarios=scenarios)

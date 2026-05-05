@@ -5,37 +5,13 @@ This module provides routes for managing domains in the application.
 Now enhanced to support the new domain registry system.
 """
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
+from flask import Blueprint, request, redirect, url_for, flash, jsonify
 from flask_login import login_required
 from app.models.world import World
 from app.services.domain_registry import domain_registry
 
 # Create a blueprint for the domains routes
 domains_bp = Blueprint('domains', __name__)
-
-@domains_bp.route('/')
-@login_required
-def list_domains():
-    """
-    List all available domain types from the domain registry.
-    
-    Returns:
-        Rendered template with domain configurations
-    """
-    domains = domain_registry.get_all_domains()
-    return render_template('domains/list.html', domains=domains)
-
-@domains_bp.route('/registry')
-@login_required 
-def view_registry():
-    """
-    View the domain registry details including all configurations.
-    
-    Returns:
-        Rendered template with registry information
-    """
-    domains = domain_registry.get_all_domains()
-    return render_template('domains/registry.html', domains=domains)
 
 @domains_bp.route('/api/domains')
 def api_list_domains():

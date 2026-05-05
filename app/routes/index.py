@@ -118,16 +118,6 @@ def demo():
     return render_template('demo.html')
 
 
-@index_bp.route('/about')
-def about():
-    """
-    Render the about page.
-
-    Returns:
-        Rendered about template
-    """
-    return render_template('about.html')
-
 @index_bp.route('/health')
 def health():
     """

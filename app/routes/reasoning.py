@@ -32,20 +32,6 @@ def inspect_trace(trace_id):
                          steps=steps_data,
                          case=case)
 
-@reasoning_bp.route('/case/<int:case_id>/traces')
-def case_traces(case_id):
-    """List all traces for a case"""
-    case = Document.query.get_or_404(case_id)
-    traces = ReasoningTrace.query.filter_by(case_id=case_id)\
-                                .order_by(ReasoningTrace.started_at.desc())\
-                                .all()
-    
-    traces_data = [trace.to_dict() for trace in traces]
-    
-    return render_template('case_traces.html', 
-                         case=case, 
-                         traces=traces_data)
-
 @reasoning_bp.route('/api/trace/<int:trace_id>')
 def api_get_trace(trace_id):
     """API endpoint for trace data"""

@@ -535,68 +535,6 @@ def examples_index():
                              domains=[])
 
 
-@prompt_builder_bp.route('/examples/<domain_name>')
-@login_required
-def examples_domain(domain_name):
-    """
-    View and manage examples for a specific domain.
-    """
-    try:
-        # Get examples for this domain
-        examples = LangExtractExample.query.filter_by(
-            domain=domain_name,
-            active=True
-        ).order_by(LangExtractExample.example_type, LangExtractExample.priority.desc()).all()
-        
-        # Get example types and section types
-        example_types = ['factual', 'question', 'analysis', 'conclusion', 'code_reference', 'dissenting', 'generic']
-        section_types = get_ontology_section_types()
-        
-        return render_template('prompt_builder/examples_domain.html',
-                             domain_name=domain_name,
-                             examples=examples,
-                             example_types=example_types,
-                             section_types=section_types)
-    
-    except Exception as e:
-        logger.error(f"Error loading examples for domain {domain_name}: {e}")
-        flash(f'Error loading examples: {e}', 'error')
-        return redirect(url_for('prompt_builder.examples_index'))
-
-
-@prompt_builder_bp.route('/examples/editor')
-@prompt_builder_bp.route('/examples/editor/<int:example_id>')
-@login_required
-def examples_editor(example_id=None):
-    """
-    LangExtract example editor with structured extraction support.
-    """
-    try:
-        example = None
-        if example_id:
-            example = LangExtractExample.query.get_or_404(example_id)
-        
-        # Get available domains and types
-        domains = ['generic'] + [w.name.lower() for w in db.session.execute(text("SELECT name FROM worlds")).fetchall()]
-        example_types = ['factual', 'question', 'analysis', 'conclusion', 'code_reference', 'dissenting', 'generic']
-        section_types = get_ontology_section_types()
-        
-        # Get extraction class schemas for different types
-        extraction_schemas = get_extraction_class_schemas()
-        
-        return render_template('prompt_builder/examples_editor.html',
-                             example=example,
-                             domains=domains,
-                             example_types=example_types,
-                             section_types=section_types,
-                             extraction_schemas=extraction_schemas)
-    
-    except Exception as e:
-        logger.error(f"Error loading example editor: {e}")
-        flash(f'Error loading editor: {e}', 'error')
-        return redirect(url_for('prompt_builder.examples_index'))
-
-
 @prompt_builder_bp.route('/api/example', methods=['POST'])
 @login_required
 def save_example():

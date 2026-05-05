@@ -66,7 +66,6 @@ class TestPublicPageAccess:
         '/cases/',                              # Cases list
         '/worlds/',                             # Worlds list
         '/guidelines/',                         # Guidelines page
-        '/domains/',                            # Domains page
         '/tools/references',                    # References page
     ]
 

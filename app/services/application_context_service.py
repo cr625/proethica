@@ -297,16 +297,6 @@ class ApplicationContextService:
                     'delete': {'url': '/worlds/{id}/delete', 'params': ['id'], 'method': 'POST'}
                 }
             },
-            'scenarios': {
-                'url': '/scenarios',
-                'description': 'List of ethical scenarios',
-                'actions': {
-                    'view': {'url': '/scenarios/{id}', 'params': ['id']},
-                    'create': {'url': '/scenarios/create', 'method': 'GET/POST'},
-                    'edit': {'url': '/scenarios/{id}/edit', 'params': ['id'], 'method': 'GET/POST'},
-                    'delete': {'url': '/scenarios/{id}/delete', 'params': ['id'], 'method': 'POST'}
-                }
-            },
             'characters': {
                 'url': '/characters',
                 'description': 'List of characters in scenarios',
