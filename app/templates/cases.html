@@ -144,13 +144,6 @@
                                 {% endif %}
                                 {% endfor %}
                                 <span class="mx-1 text-muted">|</span>
-                                {% if case.pipeline_status == 'synthesized' %}
-                                <a href="{{ url_for('step4.step4_review', case_id=case.id) }}"
-                                   class="badge bg-primary bg-opacity-25 text-primary text-decoration-none"
-                                   title="View aggregated synthesis: entities, provisions, precedents, Q&amp;C, analysis">
-                                    <i class="bi bi-journal-richtext"></i> Synthesis
-                                </a>
-                                {% endif %}
                                 <a href="{{ url_for('precedents.find_precedents', case_id=case.id) }}"
                                    class="badge bg-info bg-opacity-25 text-info text-decoration-none"
                                    title="Find cases similar to this one">
@@ -159,16 +152,8 @@
                             </div>
                         </div>
                         {% else %}
-                        <!-- No tags, but still show Find Similar + Synthesis -->
                         <div class="card-header border-top py-2 case-tags-bar">
                             <div class="d-flex flex-wrap align-items-center gap-2">
-                                {% if case.pipeline_status == 'synthesized' %}
-                                <a href="{{ url_for('step4.step4_review', case_id=case.id) }}"
-                                   class="badge bg-primary bg-opacity-25 text-primary text-decoration-none"
-                                   title="View aggregated synthesis: entities, provisions, precedents, Q&amp;C, analysis">
-                                    <i class="bi bi-journal-richtext"></i> Synthesis
-                                </a>
-                                {% endif %}
                                 <a href="{{ url_for('precedents.find_precedents', case_id=case.id) }}"
                                    class="badge bg-info bg-opacity-25 text-info text-decoration-none"
                                    title="Find cases similar to this one">
