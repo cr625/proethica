@@ -6,12 +6,12 @@ Runs V0-V9 verification checks against extracted case data and stores
 results in the case_verification_results table for provenance tracking.
 
 Usage:
-    python scripts/analysis/run_qc_audit.py 4                  # Single case
-    python scripts/analysis/run_qc_audit.py --batch 4 5 6 7 8  # Specific cases
-    python scripts/analysis/run_qc_audit.py --phase1            # All 25 Phase 1 cases
-    python scripts/analysis/run_qc_audit.py 4 --dry-run         # Check without storing
-    python scripts/analysis/run_qc_audit.py --phase1 -v         # Verbose (show all checks)
-    python scripts/analysis/run_qc_audit.py --phase1 --report   # Generate markdown report
+    python -m app.services.qc.run_qc_audit 4                  # Single case
+    python -m app.services.qc.run_qc_audit --batch 4 5 6 7 8  # Specific cases
+    python -m app.services.qc.run_qc_audit --phase1            # All 25 Phase 1 cases
+    python -m app.services.qc.run_qc_audit 4 --dry-run         # Check without storing
+    python -m app.services.qc.run_qc_audit --phase1 -v         # Verbose (show all checks)
+    python -m app.services.qc.run_qc_audit --phase1 --report   # Generate markdown report
 
 Checks:
     V0  Section Text Integrity    CRITICAL  Facts + discussion sections exist

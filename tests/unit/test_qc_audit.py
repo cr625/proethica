@@ -1,4 +1,4 @@
-"""Tests for scripts/analysis/run_qc_audit.py -- QC check logic.
+"""Tests for app/services/qc/run_qc_audit.py -- QC check logic.
 
 Tests the pure-logic V4, V6, V7 checks without database.
 V0, V1, V8, V9 require DB queries and are tested separately in integration tests.
@@ -6,7 +6,7 @@ V0, V1, V8, V9 require DB queries and are tested separately in integration tests
 import re
 import pytest
 
-from scripts.analysis.run_qc_audit import (
+from app.services.qc.run_qc_audit import (
     REQUIRED_TYPES,
     EMPIRICAL_RANGES,
     check_v7,
