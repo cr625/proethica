@@ -15,9 +15,9 @@ Approach:
 All computation is in-memory -- no database embeddings are modified.
 
 Usage:
-    python scripts/analysis/ablation_citation_text.py
-    python scripts/analysis/ablation_citation_text.py --verbose
-    python scripts/analysis/ablation_citation_text.py --output ablation_results.csv
+    python experiments/iccbr-2026/analysis/ablation_citation_text.py
+    python experiments/iccbr-2026/analysis/ablation_citation_text.py --verbose
+    python experiments/iccbr-2026/analysis/ablation_citation_text.py --output ablation_results.csv
 """
 
 import argparse

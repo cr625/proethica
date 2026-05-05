@@ -296,7 +296,7 @@ def write_markdown(results, output_dir):
     lines.append("# Weight Sweep Results")
     lines.append("")
     lines.append(f"**Date:** {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-    lines.append(f"**Script:** `scripts/analysis/weight_sweep.py`")
+    lines.append(f"**Script:** `experiments/iccbr-2026/analysis/weight_sweep.py`")
     lines.append("")
     lines.append(
         "Retrieval metrics as a function of embedding weight (alpha). "

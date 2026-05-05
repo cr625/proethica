@@ -52,7 +52,7 @@ Then run any experiment script from the repository root:
 ```bash
 export DATABASE_URL=postgresql://user:pass@localhost:5432/ai_ethical_dm
 export ANTHROPIC_API_KEY=dummy
-PYTHONPATH=$(pwd) python scripts/analysis/weight_sweep.py
+PYTHONPATH=$(pwd) python experiments/iccbr-2026/analysis/weight_sweep.py
 ```
 
 ## Contents

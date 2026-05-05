@@ -114,7 +114,7 @@ Pre-computed features for all 119 cases are provided in [`data/features.pkl`](da
 
 For access to the extraction pipeline, case text, and the complete application, install ProEthica from the repository root. Documentation is at [proethica.org/docs](https://proethica.org/docs).
 
-The full analysis scripts are in `scripts/analysis/` and run against the ProEthica database:
+The full analysis scripts are in `experiments/iccbr-2026/analysis/` and run against the ProEthica database:
 
 | Experiment | Script | Arguments |
 |:----------:|--------|-----------|

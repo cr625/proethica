@@ -450,7 +450,7 @@ def write_markdown(agg, ref_agg, per_edge, output_dir):
     lines.append("# Embedding-Only Ablation Results")
     lines.append("")
     lines.append(f"**Date:** {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-    lines.append(f"**Script:** `scripts/analysis/embedding_ablation.py`")
+    lines.append(f"**Script:** `experiments/iccbr-2026/analysis/embedding_ablation.py`")
     lines.append(f"**Spec:** `EMBEDDING_ABLATION_SPEC.md`")
     lines.append("")
 
