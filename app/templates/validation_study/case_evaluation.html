@@ -1047,15 +1047,21 @@
                         <button type="button" class="btn btn-outline-secondary" onclick="activateViewTab('decisions-tab')">
                             <i class="bi bi-arrow-left me-1"></i> Previous: Decisions
                         </button>
-                        <button type="button" class="btn btn-primary" onclick="document.getElementById('overall-panel').scrollIntoView({behavior:'smooth'})">
-                            Continue to Overall Assessment <i class="bi bi-arrow-down ms-1"></i>
+                        <button type="button" class="btn btn-primary" id="goto-overall-btn"
+                                disabled
+                                title="Visit all five views to unlock the Overall Assessment"
+                                onclick="document.getElementById('overall-panel').scrollIntoView({behavior:'smooth'})">
+                            <span class="goto-overall-label">Visit remaining views to unlock Overall Assessment</span>
+                            <i class="bi bi-arrow-down ms-1"></i>
                         </button>
                     </div>
                 </div>
             </div>
 
-            <!-- Overall Assessment panel (cross-cutting; sibling of the five view tabs) -->
-            <div class="card mt-4" id="overall-panel">
+            <!-- Overall Assessment panel (cross-cutting; revealed only after all five view tabs
+                 have been visited, so participants cannot rate the panel before exposure to the
+                 stimulus the items summarize). -->
+            <div class="card mt-4 d-none" id="overall-panel">
                 <div class="card-header bg-secondary text-white">
                     <h5 class="mb-0"><i class="bi bi-clipboard-check me-2"></i>Overall Assessment</h5>
                 </div>
@@ -1567,19 +1573,72 @@
             }
             delete tabStartMs[tabId];
         }
+        // Tab-visit tracking, separate from rating-completion. Drives the
+        // Overall-panel reveal: the panel measures a summary judgment over
+        // all five views, so it is hidden until the participant has seen
+        // all five at least once. Visiting (clicking the tab) is sufficient;
+        // rating commitment is not required, which preserves the
+        // reader-controlled depth principle (Pirolli & Card 1999;
+        // Shneiderman 1996) while preventing premature summary rating
+        // (Bruun & Ahm 2015; Alaybek et al. 2022 peak-end meta-analysis).
+        const tabsVisited = new Set();
+        function markTabVisited(tabId) {
+            tabsVisited.add(tabId);
+            updateOverallReveal();
+        }
+        function updateOverallReveal() {
+            const panel = document.getElementById('overall-panel');
+            const btn = document.getElementById('goto-overall-btn');
+            const allVisited = tabsVisited.size >= VIEW_TAB_IDS.length;
+            if (panel && allVisited) {
+                panel.classList.remove('d-none');
+            }
+            if (btn) {
+                btn.disabled = !allVisited;
+                const label = btn.querySelector('.goto-overall-label');
+                if (label) {
+                    label.textContent = allVisited
+                        ? 'Continue to Overall Assessment'
+                        : 'Visit remaining views to unlock Overall Assessment';
+                }
+                if (allVisited) {
+                    btn.removeAttribute('title');
+                }
+            }
+        }
+
         VIEW_TAB_IDS.forEach(function(tabId) {
             const trigger = document.getElementById(tabId);
             if (!trigger) return;
             trigger.addEventListener('shown.bs.tab', function(e) {
                 startTabTimer(e.target.id);
+                markTabVisited(e.target.id);
             });
             trigger.addEventListener('hidden.bs.tab', function(e) {
                 stopTabTimer(e.target.id);
             });
             if (trigger.classList.contains('active')) {
                 startTabTimer(tabId);
+                markTabVisited(tabId);
             }
         });
+
+        // Resume case: a returning participant whose previous session already
+        // produced ratings should not have to re-visit tabs to unlock Overall.
+        // Treat any pane with ≥1 checked radio as visited. If the Overall
+        // panel itself has any rating, the participant must have previously
+        // reached the all-five-visited state, so reveal it unconditionally.
+        VIEW_KEYS.forEach(function(view) {
+            const paneId = PANE_IDS[view];
+            const pane = document.getElementById(paneId);
+            if (pane && pane.querySelector('input[type="radio"]:checked')) {
+                markTabVisited(`${view}-tab`);
+            }
+        });
+        const overallPanel = document.getElementById('overall-panel');
+        if (overallPanel && overallPanel.querySelector('input[type="radio"]:checked')) {
+            VIEW_TAB_IDS.forEach(markTabVisited);
+        }
         // Stop the active tab's timer when the user leaves step-views.
         // goToStep is the only path off this step in normal flow.
         const _origGoToStep = goToStep;
