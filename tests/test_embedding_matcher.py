@@ -402,3 +402,181 @@ class TestCheckDuplicate:
             )
         passed = mock_es._get_local_embedding.call_args[0][0]
         assert "Engineer must keep client secrets" in passed
+
+# ---------------------------------------------------------------------------
+# needs_review flag (post-ICCBR canonicalization #1)
+# ---------------------------------------------------------------------------
+
+class TestNeedsReviewFlag:
+    """Verify that EntityCommitResult.needs_review and CommitSummary.review_count
+    are set correctly for medium-band confidence matches.
+
+    Rubric bands (ICCBR paper Section 3.3):
+      HIGH   cosine >= 0.85  -> needs_review=False
+      MEDIUM 0.70 <= c < 0.85 -> needs_review=True
+      below  0.70            -> no match (novel class)
+    """
+
+    def _make_entity(self, label="Some Duty", entity_type="obligation",
+                     definition="A professional duty",
+                     matched_uri=None, match_confidence=None):
+        """Create a minimal mock TemporaryRDFStorage entity."""
+        entity = MagicMock()
+        entity.id = 1
+        entity.entity_label = label
+        entity.entity_type = entity_type
+        entity.extraction_type = entity_type
+        entity.entity_definition = definition
+        entity.matched_ontology_uri = matched_uri
+        entity.match_confidence = match_confidence
+        entity.match_reasoning = "test reasoning"
+        entity.match_method = None
+        return entity
+
+    def test_high_cosine_embedding_match_not_flagged(self):
+        """Cosine >= 0.90 from embedding path -> needs_review=False."""
+        service = _make_service(LEXICAL_CACHE)
+        entity = self._make_entity()
+
+        from contextlib import ExitStack
+        with ExitStack() as stack:
+            es_patch = stack.enter_context(
+                patch("app.services.embedding_service.EmbeddingService")
+            )
+            engine_patch = stack.enter_context(
+                patch("app.services.auto_commit_service.create_engine")
+            )
+            es_patch.get_instance.return_value._get_local_embedding.return_value = [0.1] * 384
+            mock_conn = MagicMock()
+            mock_conn.execute.return_value.fetchone.return_value = _make_row(
+                OBL_URI, "Confidentiality Obligation", 0.91
+            )
+            engine_patch.return_value.connect.return_value.__enter__.return_value = mock_conn
+
+            result = service._process_entity(entity)
+
+        assert result.action == 'linked'
+        assert result.needs_review is False
+
+    def test_medium_cosine_embedding_match_flagged_for_review(self):
+        """Cosine in [0.70, 0.85) from embedding path -> needs_review=True."""
+        service = _make_service(LEXICAL_CACHE)
+        entity = self._make_entity()
+
+        from contextlib import ExitStack
+        with ExitStack() as stack:
+            es_patch = stack.enter_context(
+                patch("app.services.embedding_service.EmbeddingService")
+            )
+            engine_patch = stack.enter_context(
+                patch("app.services.auto_commit_service.create_engine")
+            )
+            es_patch.get_instance.return_value._get_local_embedding.return_value = [0.1] * 384
+            mock_conn = MagicMock()
+            mock_conn.execute.return_value.fetchone.return_value = _make_row(
+                OBL_URI, "Confidentiality Obligation", 0.77
+            )
+            engine_patch.return_value.connect.return_value.__enter__.return_value = mock_conn
+
+            result = service._process_entity(entity)
+
+        assert result.action == 'linked'
+        assert result.needs_review is True
+
+    def test_lexical_exact_match_not_flagged(self):
+        """Exact lexical match (confidence 1.0) -> needs_review=False."""
+        service = _make_service(LEXICAL_CACHE)
+        entity = self._make_entity(label="Confidentiality Obligation")
+        result = service._process_entity(entity)
+        assert result.action == 'linked'
+        assert result.needs_review is False
+
+    def test_llm_high_confidence_not_flagged(self):
+        """LLM match at >= 0.90 -> needs_review=False."""
+        from app.services.auto_commit_service import CONFIDENCE_AUTO_ACCEPT
+        service = _make_service({})
+        entity = self._make_entity(
+            matched_uri=OBL_URI,
+            match_confidence=CONFIDENCE_AUTO_ACCEPT,
+        )
+        result = service._process_entity(entity)
+        assert result.action == 'linked'
+        assert result.needs_review is False
+
+    def test_llm_medium_confidence_flagged(self):
+        """LLM match at 0.80 (MEDIUM band) -> needs_review=True."""
+        service = _make_service({})
+        entity = self._make_entity(
+            matched_uri=OBL_URI,
+            match_confidence=0.80,
+        )
+        result = service._process_entity(entity)
+        assert result.action == 'linked'
+        assert result.needs_review is True
+
+    def test_no_match_new_class_not_flagged(self):
+        """No match -> new_class action, needs_review=False (default)."""
+        service = _make_service({})
+        entity = self._make_entity()
+
+        from contextlib import ExitStack
+        with ExitStack() as stack:
+            es_patch = stack.enter_context(
+                patch("app.services.embedding_service.EmbeddingService")
+            )
+            engine_patch = stack.enter_context(
+                patch("app.services.auto_commit_service.create_engine")
+            )
+            es_patch.get_instance.return_value._get_local_embedding.return_value = [0.1] * 384
+            mock_conn = MagicMock()
+            mock_conn.execute.return_value.fetchone.return_value = None
+            engine_patch.return_value.connect.return_value.__enter__.return_value = mock_conn
+
+            result = service._process_entity(entity)
+
+        assert result.action == 'new_class'
+        assert result.needs_review is False
+
+    def test_review_count_in_commit_summary(self):
+        """CommitSummary.review_count counts only needs_review=True results."""
+        from app.services.auto_commit_service import CommitSummary, EntityCommitResult
+        results = [
+            EntityCommitResult(1, "A", "role", "linked", linked_uri=OBL_URI,
+                               confidence=0.92, needs_review=False),
+            EntityCommitResult(2, "B", "obligation", "linked", linked_uri=OBL_URI,
+                               confidence=0.78, needs_review=True),
+            EntityCommitResult(3, "C", "state", "new_class", needs_review=False),
+            EntityCommitResult(4, "D", "obligation", "linked", linked_uri=ROLE_URI,
+                               confidence=0.75, needs_review=True),
+        ]
+        summary = CommitSummary(
+            case_id=99,
+            total_entities=4,
+            linked_count=3,
+            new_class_count=1,
+            skipped_count=0,
+            error_count=0,
+            entity_classes={},
+            review_count=sum(1 for r in results if r.needs_review),
+            results=results,
+        )
+        assert summary.review_count == 2
+
+    def test_needs_review_default_is_false(self):
+        """EntityCommitResult.needs_review defaults to False."""
+        from app.services.auto_commit_service import EntityCommitResult
+        result = EntityCommitResult(
+            entity_id=1, entity_label="X", entity_type="role", action="new_class"
+        )
+        assert result.needs_review is False
+
+    def test_review_count_default_is_zero(self):
+        """CommitSummary.review_count defaults to zero."""
+        from app.services.auto_commit_service import CommitSummary
+        s = CommitSummary(
+            case_id=1, total_entities=0,
+            linked_count=0, new_class_count=0,
+            skipped_count=0, error_count=0,
+            entity_classes={},
+        )
+        assert s.review_count == 0
