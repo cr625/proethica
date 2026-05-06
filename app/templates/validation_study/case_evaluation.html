@@ -177,7 +177,10 @@
         padding-top: 1rem;
         border-top: 1px solid #dee2e6;
     }
-    .visited-check { font-size: 0.9em; }
+    .tab-rating-star { font-size: 0.95em; transition: color 0.15s ease; }
+    .likert-toggle { cursor: pointer; user-select: none; }
+    .likert-toggle:hover { background-color: #e9ecef; }
+    .likert-toggle .likert-toggle-icon { transition: transform 0.2s ease; }
     /* Tension rows: collapsed summary with chevron that rotates when expanded */
     .tension-row-header:hover { background: #f8f9fa; }
     .tension-row-header[aria-expanded="true"] .tension-chevron {
@@ -380,31 +383,31 @@
             <ul class="nav nav-tabs mb-3" id="viewTabs" role="tablist">
                 <li class="nav-item">
                     <button class="nav-link active" id="narrative-tab" data-bs-toggle="tab" data-bs-target="#narrative-pane" type="button">
-                        <i class="bi bi-check-circle-fill visited-check text-success me-1 d-none"></i>
+                        <i class="bi bi-star tab-rating-star text-muted me-1" data-tab-star="narrative" aria-hidden="true"></i>
                         <i class="bi bi-journal-text me-1"></i> Narrative
                     </button>
                 </li>
                 <li class="nav-item">
                     <button class="nav-link" id="timeline-tab" data-bs-toggle="tab" data-bs-target="#timeline-pane" type="button">
-                        <i class="bi bi-check-circle-fill visited-check text-success me-1 d-none"></i>
+                        <i class="bi bi-star tab-rating-star text-muted me-1" data-tab-star="timeline" aria-hidden="true"></i>
                         <i class="bi bi-clock-history me-1"></i> Timeline ({{ views.timeline.count }})
                     </button>
                 </li>
                 <li class="nav-item">
                     <button class="nav-link" id="qc-tab" data-bs-toggle="tab" data-bs-target="#qc-pane" type="button">
-                        <i class="bi bi-check-circle-fill visited-check text-success me-1 d-none"></i>
+                        <i class="bi bi-star tab-rating-star text-muted me-1" data-tab-star="qc" aria-hidden="true"></i>
                         <i class="bi bi-question-circle me-1"></i> Q&amp;C ({{ views.qc.count }})
                     </button>
                 </li>
                 <li class="nav-item">
                     <button class="nav-link" id="decisions-tab" data-bs-toggle="tab" data-bs-target="#decisions-pane" type="button">
-                        <i class="bi bi-check-circle-fill visited-check text-success me-1 d-none"></i>
+                        <i class="bi bi-star tab-rating-star text-muted me-1" data-tab-star="decisions" aria-hidden="true"></i>
                         <i class="bi bi-signpost-split me-1"></i> Decisions ({{ views.decisions.count }})
                     </button>
                 </li>
                 <li class="nav-item">
                     <button class="nav-link" id="provisions-tab" data-bs-toggle="tab" data-bs-target="#provisions-pane" type="button">
-                        <i class="bi bi-check-circle-fill visited-check text-success me-1 d-none"></i>
+                        <i class="bi bi-star tab-rating-star text-muted me-1" data-tab-star="provisions" aria-hidden="true"></i>
                         <i class="bi bi-book me-1"></i> Provisions ({{ views.provisions.count }})
                     </button>
                 </li>
@@ -1106,12 +1109,18 @@
                         ] %}
                         <li class="list-group-item d-flex justify-content-between align-items-center">
                             <button type="button" class="btn btn-link p-0 text-start" onclick="goToStep('views'); activateViewTab('{{ view }}-tab');">{{ label }}</button>
-                            <span class="rating-summary text-muted small" data-view-summary="{{ view }}">…</span>
+                            <span class="rating-summary small" data-view-summary="{{ view }}">
+                                <i class="bi bi-star text-muted me-1" data-recap-star="{{ view }}" aria-hidden="true"></i>
+                                <span class="rating-text text-muted">0 of 3 rated</span>
+                            </span>
                         </li>
                         {% endfor %}
                         <li class="list-group-item d-flex justify-content-between align-items-center">
                             <button type="button" class="btn btn-link p-0 text-start" onclick="goToStep('views'); document.getElementById('overall-panel').scrollIntoView({behavior:'smooth'});">Overall Assessment</button>
-                            <span class="rating-summary text-muted small" data-view-summary="overall">…</span>
+                            <span class="rating-summary small" data-view-summary="overall">
+                                <i class="bi bi-star text-muted me-1" data-recap-star="overall" aria-hidden="true"></i>
+                                <span class="rating-text text-muted">0 of 3 rated</span>
+                            </span>
                         </li>
                     </ul>
                     <p class="small text-muted">If any line above shows fewer than 3 of 3 rated, return to that view to complete it before continuing.</p>
@@ -1241,9 +1250,11 @@
     let stepStartTime = Date.now();
     let currentStepName = '{{ current_step }}';
 
-    // Inline-layout: each view tab carries its three Likert items inline.
-    // The visited-check icon flips green when all three radios are rated;
-    // the Continue button enables when all 18 items (5 views x 3 + 3 overall)
+    // Inline-layout: each view tab carries its three Likert items inline,
+    // collapsed by default and revealed on click. A three-state star
+    // indicator (empty / half / full) reflects rating progress on the tab
+    // strip, on the Likert card header, and on the recap step. The
+    // Continue button enables when all 18 items (5 views x 3 + 3 overall)
     // are rated.
     const VIEW_TAB_IDS = ['narrative-tab', 'timeline-tab', 'qc-tab', 'decisions-tab', 'provisions-tab'];
     const VIEW_KEYS = ['narrative', 'timeline', 'qc', 'decisions', 'provisions'];
@@ -1276,30 +1287,97 @@
         return rated;
     }
 
-    function refreshVisitedChecks() {
-        VIEW_KEYS.forEach(view => {
+    // Three-state star indicator: empty (no items rated), half (1-2 of 3),
+    // full (3 of 3). Same icon used on tab strip, Likert card header, and
+    // recap step so the rating-completion signal is consistent across the
+    // page. Tab strip iterates view keys only (Overall has no tab); Likert
+    // header and recap include Overall.
+    const STAR_STATES = {
+        empty: { icon: 'bi-star', color: 'text-muted' },
+        half:  { icon: 'bi-star-half', color: 'text-warning' },
+        full:  { icon: 'bi-star-fill', color: 'text-success' }
+    };
+    const STAR_CLASSES = ['bi-star', 'bi-star-half', 'bi-star-fill',
+                          'text-muted', 'text-warning', 'text-success'];
+
+    function starStateForCount(rated) {
+        if (rated === 0) return STAR_STATES.empty;
+        if (rated < 3) return STAR_STATES.half;
+        return STAR_STATES.full;
+    }
+
+    function applyStarState(el, state) {
+        if (!el) return;
+        el.classList.remove(...STAR_CLASSES);
+        el.classList.add(state.icon, state.color);
+    }
+
+    function refreshStarIndicators() {
+        const views = VIEW_KEYS.concat(['overall']);
+        views.forEach(view => {
             const paneId = PANE_IDS[view];
-            const tabId = `${view}-tab`;
-            const trigger = document.getElementById(tabId);
-            if (!trigger) return;
-            const check = trigger.querySelector('.visited-check');
-            if (!check) return;
             const rated = paneRatedCount(paneId);
-            const expected = 3;
-            check.classList.toggle('d-none', rated < expected);
+            const state = starStateForCount(rated);
+
+            // Tab strip star (skip 'overall' which has no tab)
+            const tabStar = document.querySelector(`[data-tab-star="${view}"]`);
+            applyStarState(tabStar, state);
+
+            // Likert card header star (one per view-likert group, including Overall)
+            const slugMap = {narrative:'narrative', timeline:'timeline', qc:'qc', decisions:'decisions', provisions:'provisions', overall:'overall'};
+            const likertStar = document.querySelector(`[data-likert-star="${slugMap[view]}"]`);
+            applyStarState(likertStar, state);
+
+            // Likert card header count text
+            const likertCount = document.querySelector(`[data-likert-count="${slugMap[view]}"]`);
+            if (likertCount) {
+                likertCount.textContent = `(${rated} of 3 rated)`;
+            }
+
+            // Recap row star + text
+            const recapStar = document.querySelector(`[data-recap-star="${view}"]`);
+            applyStarState(recapStar, state);
+            const recapRow = document.querySelector(`[data-view-summary="${view}"]`);
+            if (recapRow) {
+                const recapText = recapRow.querySelector('.rating-text');
+                if (recapText) {
+                    recapText.textContent = `${rated} of 3 rated`;
+                    recapText.classList.remove('text-muted', 'text-warning', 'text-success');
+                    recapText.classList.add(state.color);
+                }
+            }
         });
-        refreshRecapSummaries();
         updateUtilityGate();
     }
 
-    function refreshRecapSummaries() {
-        document.querySelectorAll('[data-view-summary]').forEach(el => {
-            const key = el.dataset.viewSummary;
-            const paneId = PANE_IDS[key];
-            const rated = paneRatedCount(paneId);
-            el.textContent = `${rated} of 3 rated`;
-            el.classList.toggle('text-success', rated === 3);
-            el.classList.toggle('text-warning', rated > 0 && rated < 3);
+    // Likert collapse handling. The card header is the toggle (whole row is
+    // clickable). When the participant expands a Likert, swap the toggle
+    // label and rotate the chevron. On resume, auto-expand any panel with
+    // pre-filled ratings so the participant returns to their last visible
+    // state.
+    function syncLikertToggleLabel(group, expanded) {
+        const label = group.querySelector('.likert-toggle-label');
+        const icon = group.querySelector('.likert-toggle-icon');
+        if (label) label.textContent = expanded ? 'Hide rating' : 'Begin rating';
+        if (icon) {
+            icon.classList.toggle('bi-chevron-down', !expanded);
+            icon.classList.toggle('bi-chevron-up', expanded);
+        }
+        const toggle = group.querySelector('.likert-toggle');
+        if (toggle) toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    }
+
+    function initLikertCollapses() {
+        document.querySelectorAll('.likert-group').forEach(group => {
+            const collapse = group.querySelector('.collapse');
+            if (!collapse) return;
+            // Wire show/hide events to keep label and chevron in sync.
+            collapse.addEventListener('show.bs.collapse', () => syncLikertToggleLabel(group, true));
+            collapse.addEventListener('hide.bs.collapse', () => syncLikertToggleLabel(group, false));
+            // Auto-expand if already rated (resume case).
+            if (group.querySelector('input[type="radio"]:checked') && window.bootstrap) {
+                bootstrap.Collapse.getOrCreateInstance(collapse, { toggle: false }).show();
+            }
         });
     }
 
@@ -1535,18 +1613,22 @@
             });
         });
 
-        // Inline-layout: drive visited-check icons and the Continue gate
-        // from radio completion in each tab pane. Wire change events on
-        // every Likert radio inside step-views.
+        // Inline-layout: drive star indicators and the Continue gate from
+        // radio completion in each tab pane. Wire change events on every
+        // Likert radio inside step-views; refresh star icons on tabs,
+        // Likert headers, and the recap step on each change. Initialize
+        // Likert collapses (auto-expand for resume) before the first
+        // refresh so star state is consistent with what is visible.
+        initLikertCollapses();
         const stepViews = document.getElementById('step-views');
         if (stepViews) {
             stepViews.addEventListener('change', function(e) {
                 if (e.target && e.target.matches('input[type="radio"]')) {
-                    refreshVisitedChecks();
+                    refreshStarIndicators();
                 }
             });
         }
-        refreshVisitedChecks();
+        refreshStarIndicators();
 
         // Per-view tab dwell timing. shown.bs.tab fires when a tab becomes
         // active; hidden.bs.tab fires when it deactivates. We accumulate
