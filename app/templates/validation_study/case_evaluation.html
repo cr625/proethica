@@ -1172,7 +1172,16 @@
                     <button type="button" class="btn btn-outline-secondary" onclick="goToStep('utility')">
                         <i class="bi bi-arrow-left me-1"></i> Back
                     </button>
-                    <button type="button" class="btn btn-primary" onclick="goToStep('reveal')">
+                    {# Submit-then-redirect rather than JS-only step change. The
+                       reveal endpoint is gated on existing_eval.comprehension_complete
+                       (server-side), so the comprehension answers must be persisted
+                       before the AJAX fetch in loadBoardConclusions() can succeed.
+                       formnovalidate skips the browser's required-radio check on
+                       alignment_self_rating, which the participant has not yet seen;
+                       the submit handler accepts partial state and redirects to the
+                       step named by the button's next_step value. #}
+                    <button type="submit" name="next_step" value="reveal"
+                            formnovalidate class="btn btn-primary">
                         Reveal Board Conclusions <i class="bi bi-arrow-right ms-1"></i>
                     </button>
                 </div>
