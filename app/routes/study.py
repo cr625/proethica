@@ -32,10 +32,29 @@ from app.models.view_utility_evaluation import (
 )
 from app.services.validation.synthesis_view_builder import SynthesisViewBuilder
 from app.services.validation.case_assignment_service import assign_cases
+from app.services.validation.likert_items import (
+    NARR_ITEMS, TIMELINE_ITEMS, QC_ITEMS, DECS_ITEMS, PROV_ITEMS, OVERALL_ITEMS,
+)
 
 logger = logging.getLogger(__name__)
 
 study_bp = Blueprint('study', __name__)
+
+
+@study_bp.context_processor
+def inject_validation_session():
+    """Make the active ValidationSession available to all study templates.
+
+    Used by _base_study.html to render the preview-mode banner without
+    each route having to pass val_session explicitly. Returns under the
+    name `validation_session` so it does not collide with Flask's
+    request-scoped `session` object.
+    """
+    code = session.get('participant_code')
+    if not code:
+        return {'validation_session': None}
+    val_session = ValidationSession.query.filter_by(participant_code=code).first()
+    return {'validation_session': val_session}
 
 
 @study_bp.errorhandler(CSRFError)
@@ -386,7 +405,13 @@ def evaluate_case(case_id):
                            participant_code=val_session.participant_code,
                            session=val_session,
                            existing_eval=existing_eval,
-                           current_step=step)
+                           current_step=step,
+                           NARR_ITEMS=NARR_ITEMS,
+                           TIMELINE_ITEMS=TIMELINE_ITEMS,
+                           QC_ITEMS=QC_ITEMS,
+                           DECS_ITEMS=DECS_ITEMS,
+                           PROV_ITEMS=PROV_ITEMS,
+                           OVERALL_ITEMS=OVERALL_ITEMS)
 
 
 @study_bp.route('/case/<int:case_id>/submit', methods=['POST'])
@@ -482,6 +507,13 @@ def submit_evaluation(case_id):
         evaluation.time_utility_rating = get_int('time_utility_rating')
         evaluation.time_comprehension = get_int('time_comprehension')
         evaluation.time_alignment = get_int('time_alignment')
+
+        # Per-view tab dwell time (inline-layout v8 schema)
+        evaluation.time_view_narrative = get_int('time_view_narrative')
+        evaluation.time_view_timeline = get_int('time_view_timeline')
+        evaluation.time_view_qc = get_int('time_view_qc')
+        evaluation.time_view_decisions = get_int('time_view_decisions')
+        evaluation.time_view_provisions = get_int('time_view_provisions')
 
         # Mark completion
         if evaluation.is_complete:
@@ -1010,35 +1042,53 @@ def exit_validation_mode():
 # DEMO ROUTES (for screenshots and presentation)
 # =============================================================================
 
-@study_bp.route('/demo/view/<view_type>')
-def demo_view_utility(view_type):
-    """Demo page showing a single synthesis view with Likert ratings.
+@study_bp.route('/preview/start')
+def preview_start():
+    """Bootstrap a preview session that walks the live case-evaluation flow.
 
-    For screenshots. Not a study route - no participant code required.
+    Creates a ValidationSession with recruitment_source='preview' so that any
+    submissions accumulated by reviewers exploring the interface are tagged
+    for analysis exclusion. The session is otherwise indistinguishable from
+    a real participant session, which means reviewers see the actual
+    template, the actual rating UI, and the actual data — not a slimmed
+    demo template.
+
+    No participant code, consent screen, or Prolific PID required. The
+    preview banner in _base_study.html surfaces the recruitment-source tag
+    so the participant-mode framing is unambiguous.
     """
-    if view_type not in ['provisions', 'qc', 'decisions', 'timeline', 'narrative']:
-        view_type = 'provisions'
-
     view_builder = SynthesisViewBuilder()
     evaluable_cases = view_builder.get_evaluable_cases()
-
     if not evaluable_cases:
-        flash('No cases with complete synthesis available for demo.', 'warning')
+        flash('No cases with complete synthesis available for preview.', 'warning')
         return redirect(url_for('study.index'))
 
-    # Use Case 7 (AI in Engineering) if available, otherwise first pool case
-    case_id = 7
-    case_exists = any(c['id'] == 7 for c in evaluable_cases)
-    if not case_exists:
-        case_id = evaluable_cases[0]['id']
+    # Case 7 (AI in Engineering) is the canonical demo case; fall back to
+    # the first evaluable case if it has been retired.
+    preferred_case_id = 7
+    case_exists = any(c['id'] == preferred_case_id for c in evaluable_cases)
+    case_id = preferred_case_id if case_exists else evaluable_cases[0]['id']
 
-    document = Document.query.get_or_404(case_id)
-    views = view_builder.get_all_views(case_id)
+    code = 'PREVIEW-' + ''.join(secrets.choice(CODE_ALPHABET) for _ in range(6))
+    while ValidationSession.query.filter_by(participant_code=code).first() is not None:
+        code = 'PREVIEW-' + ''.join(secrets.choice(CODE_ALPHABET) for _ in range(6))
 
-    view_data = views.get(view_type, views['provisions'])
-
-    return render_template('validation_study/view_utility_demo.html',
-                           document=document,
-                           view_type=view_type,
-                           view_name=view_type,
-                           view_data=view_data)
+    val_session = ValidationSession(
+        session_id=str(uuid.uuid4())[:8],
+        evaluator_id=code,
+        participant_code=code,
+        evaluator_domain='engineering',
+        recruitment_source='preview',
+        assigned_cases=[case_id],
+        completed_cases=[],
+        consent_acknowledged_at=datetime.utcnow(),
+        info_sheet_version='preview',
+    )
+    db.session.add(val_session)
+    db.session.commit()
+    session['participant_code'] = code
+    flash(
+        'Preview mode: this session is tagged for exclusion from study analysis.',
+        'info'
+    )
+    return redirect(url_for('study.evaluate_case', case_id=case_id, step='facts'))

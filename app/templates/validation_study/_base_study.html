@@ -52,6 +52,14 @@
     {% block styles %}{% endblock %}
 </head>
 <body>
+    {% if validation_session and validation_session.recruitment_source == 'preview' %}
+    <div class="alert alert-warning text-center mb-0 rounded-0 py-2" role="alert">
+      <strong>Preview mode</strong> — this session is tagged with
+      <code>recruitment_source='preview'</code> and will be excluded from
+      study analysis. Use this view to explore the interface, not to
+      submit study data.
+    </div>
+    {% endif %}
     <div class="container">
         <div class="study-header">
             <h1>User Study</h1>

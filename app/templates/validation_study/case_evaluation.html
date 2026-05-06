@@ -1,4 +1,5 @@
 {% extends "validation_study/_base_study.html" %}
+{% from "validation_study/_likert_block.html" import likert_block %}
 
 {% block title %}Case Evaluation - Study{% endblock %}
 
@@ -329,6 +330,11 @@
         <input type="hidden" name="time_utility_rating" id="time_utility_rating" value="0">
         <input type="hidden" name="time_comprehension" id="time_comprehension" value="0">
         <input type="hidden" name="time_alignment" id="time_alignment" value="0">
+        <input type="hidden" name="time_view_narrative" id="time_view_narrative" value="0">
+        <input type="hidden" name="time_view_timeline" id="time_view_timeline" value="0">
+        <input type="hidden" name="time_view_qc" id="time_view_qc" value="0">
+        <input type="hidden" name="time_view_decisions" id="time_view_decisions" value="0">
+        <input type="hidden" name="time_view_provisions" id="time_view_provisions" value="0">
 
         <!-- STEP 1: FACTS -->
         <div id="step-facts" class="step-content {% if current_step != 'facts' %}hidden-step{% endif %}">
@@ -552,6 +558,8 @@
                             {% endif %}
                         </div>
                     </div>
+                    {{ likert_block('Narrative', NARR_ITEMS, existing_eval) }}
+
                     <div class="view-footer-nav">
                         <button type="button" class="btn btn-outline-secondary" onclick="goToStep('facts')">
                             <i class="bi bi-arrow-left me-1"></i> Back to Facts
@@ -655,6 +663,8 @@
                             {% endif %}
                         </div>
                     </div>
+                    {{ likert_block('Timeline', TIMELINE_ITEMS, existing_eval) }}
+
                     <div class="view-footer-nav">
                         <button type="button" class="btn btn-outline-secondary" onclick="activateViewTab('narrative-tab')">
                             <i class="bi bi-arrow-left me-1"></i> Previous: Narrative
@@ -811,6 +821,8 @@
                             {% endif %}
                         </div>
                     </div>
+                    {{ likert_block('Q&C', QC_ITEMS, existing_eval) }}
+
                     <div class="view-footer-nav">
                         <button type="button" class="btn btn-outline-secondary" onclick="activateViewTab('timeline-tab')">
                             <i class="bi bi-arrow-left me-1"></i> Previous: Timeline
@@ -948,6 +960,8 @@
                             {% endfor %}
                         </div>
                     </div>
+                    {{ likert_block('Decisions', DECS_ITEMS, existing_eval) }}
+
                     <div class="view-footer-nav">
                         <button type="button" class="btn btn-outline-secondary" onclick="activateViewTab('qc-tab')">
                             <i class="bi bi-arrow-left me-1"></i> Previous: Q&amp;C
@@ -1027,340 +1041,78 @@
                             {% endfor %}
                         </div>
                     </div>
+                    {{ likert_block('Provisions', PROV_ITEMS, existing_eval) }}
+
                     <div class="view-footer-nav">
                         <button type="button" class="btn btn-outline-secondary" onclick="activateViewTab('decisions-tab')">
                             <i class="bi bi-arrow-left me-1"></i> Previous: Decisions
                         </button>
-                        <button type="button" class="btn btn-primary" id="continue-to-utility-btn" disabled title="Visit all five views to continue" onclick="goToStep('utility')">
-                            Continue to Utility Rating <i class="bi bi-arrow-right ms-1"></i>
+                        <button type="button" class="btn btn-primary" onclick="document.getElementById('overall-panel').scrollIntoView({behavior:'smooth'})">
+                            Continue to Overall Assessment <i class="bi bi-arrow-down ms-1"></i>
                         </button>
                     </div>
                 </div>
             </div>
 
+            <!-- Overall Assessment panel (cross-cutting; sibling of the five view tabs) -->
+            <div class="card mt-4" id="overall-panel">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="bi bi-clipboard-check me-2"></i>Overall Assessment</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">Three cross-cutting items about the structured presentation as a whole.</p>
+                    {{ likert_block('Overall', OVERALL_ITEMS, existing_eval) }}
+                </div>
+                <div class="card-footer">
+                    <button type="button" class="btn btn-outline-secondary" onclick="activateViewTab('provisions-tab')">
+                        <i class="bi bi-arrow-up me-1"></i> Back to Provisions
+                    </button>
+                    <button type="button" class="btn btn-primary" id="continue-to-utility-btn" disabled title="Rate all 18 items to continue" onclick="goToStep('utility')">
+                        Continue <i class="bi bi-arrow-right ms-1"></i>
+                    </button>
+                </div>
+            </div>
+
             <p class="small text-muted mt-2" id="views-gate-hint">
-                <i class="bi bi-info-circle me-1"></i> Visit each of the five views to enable the Continue button. Use the Next arrows, or click any tab directly.
+                <i class="bi bi-info-circle me-1"></i> Rate all five views and the overall assessment to enable the Continue button.
             </p>
         </div>
 
         <!-- STEP 3: UTILITY RATING -->
+        <!-- STEP 3: UTILITY RATING RECAP -->
+        <!-- Under inline-layout (v8 schema), the 18 Likert items live in
+             the per-view tab footers in step-views and the Overall panel.
+             This step is now a brief confirm-and-continue summary. -->
         <div id="step-utility" class="step-content {% if current_step != 'utility' %}hidden-step{% endif %}">
             <div class="card">
                 <div class="card-header bg-success text-white">
-                    <h5 class="mb-0"><i class="bi bi-star me-2"></i>Rate the views</h5>
+                    <h5 class="mb-0"><i class="bi bi-check-circle me-2"></i>Confirm your ratings</h5>
                 </div>
                 <div class="card-body">
-                    <p>Rate how well each synthesis view helped you understand this case. Use the scale from 1 (Strongly Disagree) to 7 (Strongly Agree).</p>
-
-                    <!-- Narrative View Utility (View 1) -->
-                    <div class="likert-group card">
-                        <div class="card-header py-2" style="background: rgba(25,135,84,0.1); border-left: 4px solid #198754;">
-                            <h6 class="mb-0"><i class="bi bi-journal-text me-2"></i>Narrative View</h6>
-                        </div>
-                        <div class="card-body pt-2 pb-0">
-
-                        <div class="likert-item">
-                            <div class="likert-label">The character profiles and ethical tensions helped me understand who was affected and why.</div>
-                            <div class="likert-scale">
-                                {% for i in range(1, 8) %}
-                                <label>
-                                    <input type="radio" name="narr_characters_tensions" value="{{ i }}" {% if existing_eval and existing_eval.narr_characters_tensions == i %}checked{% endif %} required>
-                                    <span class="scale-btn">{{ i }}</span>
-                                </label>
-                                {% endfor %}
-                            </div>
-                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
-                        </div>
-
-                        <div class="likert-item">
-                            <div class="likert-label">The relationship information clarified the professional dynamics in the case.</div>
-                            <div class="likert-scale">
-                                {% for i in range(1, 8) %}
-                                <label>
-                                    <input type="radio" name="narr_relationships_clear" value="{{ i }}" {% if existing_eval and existing_eval.narr_relationships_clear == i %}checked{% endif %} required>
-                                    <span class="scale-btn">{{ i }}</span>
-                                </label>
-                                {% endfor %}
-                            </div>
-                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
-                        </div>
-
-                        <div class="likert-item">
-                            <div class="likert-label">This view provided a useful overview of the ethical significance of the case.</div>
-                            <div class="likert-scale">
-                                {% for i in range(1, 8) %}
-                                <label>
-                                    <input type="radio" name="narr_ethical_significance" value="{{ i }}" {% if existing_eval and existing_eval.narr_ethical_significance == i %}checked{% endif %} required>
-                                    <span class="scale-btn">{{ i }}</span>
-                                </label>
-                                {% endfor %}
-                            </div>
-                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
-                        </div>
-                        </div>
-                    </div>
-
-                    <!-- Timeline View Utility (View 2) -->
-                    <div class="likert-group card">
-                        <div class="card-header py-2" style="background: rgba(32,201,151,0.1); border-left: 4px solid #20c997;">
-                            <h6 class="mb-0"><i class="bi bi-clock-history me-2"></i>Timeline View</h6>
-                        </div>
-                        <div class="card-body pt-2 pb-0">
-
-                        <div class="likert-item">
-                            <div class="likert-label">The temporal sequence of events helped me understand how the situation developed.</div>
-                            <div class="likert-scale">
-                                {% for i in range(1, 8) %}
-                                <label>
-                                    <input type="radio" name="timeline_temporal_sequence" value="{{ i }}" {% if existing_eval and existing_eval.timeline_temporal_sequence == i %}checked{% endif %} required>
-                                    <span class="scale-btn">{{ i }}</span>
-                                </label>
-                                {% endfor %}
-                            </div>
-                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
-                        </div>
-
-                        <div class="likert-item">
-                            <div class="likert-label">The causal links between events clarified why certain actions raised ethical concerns.</div>
-                            <div class="likert-scale">
-                                {% for i in range(1, 8) %}
-                                <label>
-                                    <input type="radio" name="timeline_causal_links" value="{{ i }}" {% if existing_eval and existing_eval.timeline_causal_links == i %}checked{% endif %} required>
-                                    <span class="scale-btn">{{ i }}</span>
-                                </label>
-                                {% endfor %}
-                            </div>
-                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
-                        </div>
-
-                        <div class="likert-item">
-                            <div class="likert-label">This view helped me identify when obligations were activated or violated.</div>
-                            <div class="likert-scale">
-                                {% for i in range(1, 8) %}
-                                <label>
-                                    <input type="radio" name="timeline_obligation_activation" value="{{ i }}" {% if existing_eval and existing_eval.timeline_obligation_activation == i %}checked{% endif %} required>
-                                    <span class="scale-btn">{{ i }}</span>
-                                </label>
-                                {% endfor %}
-                            </div>
-                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
-                        </div>
-                        </div>
-                    </div>
-
-                    <!-- Q&C View Utility (View 3) -->
-                    <div class="likert-group card">
-                        <div class="card-header py-2" style="background: rgba(111,66,193,0.1); border-left: 4px solid #6f42c1;">
-                            <h6 class="mb-0"><i class="bi bi-question-circle me-2"></i>Q&amp;C View</h6>
-                        </div>
-                        <div class="card-body pt-2 pb-0">
-
-                        <div class="likert-item">
-                            <div class="likert-label">The extracted questions helped me see the ethical issues at stake.</div>
-                            <div class="likert-scale">
-                                {% for i in range(1, 8) %}
-                                <label>
-                                    <input type="radio" name="qc_issues_visible" value="{{ i }}" {% if existing_eval and existing_eval.qc_issues_visible == i %}checked{% endif %} required>
-                                    <span class="scale-btn">{{ i }}</span>
-                                </label>
-                                {% endfor %}
-                            </div>
-                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
-                        </div>
-
-                        <div class="likert-item">
-                            <div class="likert-label">The connections between questions and conclusions clarified how the board reached its findings.</div>
-                            <div class="likert-scale">
-                                {% for i in range(1, 8) %}
-                                <label>
-                                    <input type="radio" name="qc_emergence_resolution" value="{{ i }}" {% if existing_eval and existing_eval.qc_emergence_resolution == i %}checked{% endif %} required>
-                                    <span class="scale-btn">{{ i }}</span>
-                                </label>
-                                {% endfor %}
-                            </div>
-                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
-                        </div>
-
-                        <div class="likert-item">
-                            <div class="likert-label">This view helped me identify what questions an ethics review would need to address.</div>
-                            <div class="likert-scale">
-                                {% for i in range(1, 8) %}
-                                <label>
-                                    <input type="radio" name="qc_deliberation_needs" value="{{ i }}" {% if existing_eval and existing_eval.qc_deliberation_needs == i %}checked{% endif %} required>
-                                    <span class="scale-btn">{{ i }}</span>
-                                </label>
-                                {% endfor %}
-                            </div>
-                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
-                        </div>
-                        </div>
-                    </div>
-
-                    <!-- Decisions View Utility (View 4) -->
-                    <div class="likert-group card">
-                        <div class="card-header py-2" style="background: rgba(253,126,20,0.1); border-left: 4px solid #fd7e14;">
-                            <h6 class="mb-0"><i class="bi bi-signpost-split me-2"></i>Decisions View</h6>
-                        </div>
-                        <div class="card-body pt-2 pb-0">
-
-                        <div class="likert-item">
-                            <div class="likert-label">The decision points helped me understand the choices the professional faced.</div>
-                            <div class="likert-scale">
-                                {% for i in range(1, 8) %}
-                                <label>
-                                    <input type="radio" name="decs_choices_understood" value="{{ i }}" {% if existing_eval and existing_eval.decs_choices_understood == i %}checked{% endif %} required>
-                                    <span class="scale-btn">{{ i }}</span>
-                                </label>
-                                {% endfor %}
-                            </div>
-                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
-                        </div>
-
-                        <div class="likert-item">
-                            <div class="likert-label">The arguments for and against each option helped me evaluate the choices that were made.</div>
-                            <div class="likert-scale">
-                                {% for i in range(1, 8) %}
-                                <label>
-                                    <input type="radio" name="decs_argumentative_structure" value="{{ i }}" {% if existing_eval and existing_eval.decs_argumentative_structure == i %}checked{% endif %} required>
-                                    <span class="scale-btn">{{ i }}</span>
-                                </label>
-                                {% endfor %}
-                            </div>
-                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
-                        </div>
-
-                        {# Attention-check item (plan §4.4). Embedded among the Decisions-view items
-                           rather than appended to the end so it cannot be trivially located by item
-                           position. Stored on view_utility_evaluations.attention_check_response. #}
-                        <div class="likert-item">
-                            <div class="likert-label"><em>To verify careful reading, please select &ldquo;Strongly Disagree&rdquo; for this item.</em></div>
-                            <div class="likert-scale">
-                                {% for i in range(1, 8) %}
-                                <label>
-                                    <input type="radio" name="attention_check_response" value="{{ i }}" {% if existing_eval and existing_eval.attention_check_response == i %}checked{% endif %} required>
-                                    <span class="scale-btn">{{ i }}</span>
-                                </label>
-                                {% endfor %}
-                            </div>
-                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
-                        </div>
-
-                        <div class="likert-item">
-                            <div class="likert-label">This view helped me trace how the professional's actions related to their obligations.</div>
-                            <div class="likert-scale">
-                                {% for i in range(1, 8) %}
-                                <label>
-                                    <input type="radio" name="decs_actions_obligations" value="{{ i }}" {% if existing_eval and existing_eval.decs_actions_obligations == i %}checked{% endif %} required>
-                                    <span class="scale-btn">{{ i }}</span>
-                                </label>
-                                {% endfor %}
-                            </div>
-                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
-                        </div>
-                        </div>
-                    </div>
-
-                    <!-- Provisions View Utility (View 5) -->
-                    <div class="likert-group card">
-                        <div class="card-header py-2" style="background: rgba(13,110,253,0.1); border-left: 4px solid #0d6efd;">
-                            <h6 class="mb-0"><i class="bi bi-book me-2"></i>Provisions View</h6>
-                        </div>
-                        <div class="card-body pt-2 pb-0">
-
-                        <div class="likert-item">
-                            <div class="likert-label">The code provision mapping helped me identify which professional standards apply to this case</div>
-                            <div class="likert-scale">
-                                {% for i in range(1, 8) %}
-                                <label>
-                                    <input type="radio" name="prov_standards_identified" value="{{ i }}" {% if existing_eval and existing_eval.prov_standards_identified == i %}checked{% endif %} required>
-                                    <span class="scale-btn">{{ i }}</span>
-                                </label>
-                                {% endfor %}
-                            </div>
-                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
-                        </div>
-
-                        <div class="likert-item">
-                            <div class="likert-label">The connections between provisions and case facts were clear</div>
-                            <div class="likert-scale">
-                                {% for i in range(1, 8) %}
-                                <label>
-                                    <input type="radio" name="prov_connections_clear" value="{{ i }}" {% if existing_eval and existing_eval.prov_connections_clear == i %}checked{% endif %} required>
-                                    <span class="scale-btn">{{ i }}</span>
-                                </label>
-                                {% endfor %}
-                            </div>
-                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
-                        </div>
-
-                        <div class="likert-item">
-                            <div class="likert-label">This view helped me understand the ethical basis for evaluating the case.</div>
-                            <div class="likert-scale">
-                                {% for i in range(1, 8) %}
-                                <label>
-                                    <input type="radio" name="prov_normative_foundation" value="{{ i }}" {% if existing_eval and existing_eval.prov_normative_foundation == i %}checked{% endif %} required>
-                                    <span class="scale-btn">{{ i }}</span>
-                                </label>
-                                {% endfor %}
-                            </div>
-                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
-                        </div>
-                        </div>
-                    </div>
-
-                    <!-- Overall Utility -->
-                    <div class="likert-group card">
-                        <div class="card-header py-2" style="background: rgba(108,117,125,0.08); border-left: 4px solid #6c757d;">
-                            <h6 class="mb-0"><i class="bi bi-check-circle me-2"></i>Overall</h6>
-                        </div>
-                        <div class="card-body pt-2 pb-0">
-
-                        <div class="likert-item">
-                            <div class="likert-label">The structured presentation helped me understand this case.</div>
-                            <div class="likert-scale">
-                                {% for i in range(1, 8) %}
-                                <label>
-                                    <input type="radio" name="overall_helped_understand" value="{{ i }}" {% if existing_eval and existing_eval.overall_helped_understand == i %}checked{% endif %} required>
-                                    <span class="scale-btn">{{ i }}</span>
-                                </label>
-                                {% endfor %}
-                            </div>
-                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
-                        </div>
-
-                        <div class="likert-item">
-                            <div class="likert-label">I could have reached the same understanding from the case facts alone.
-                                <span class="badge bg-light text-dark ms-1" title="This item is reverse-coded during analysis">reverse-coded</span>
-                            </div>
-                            <div class="likert-scale">
-                                {% for i in range(1, 8) %}
-                                <label>
-                                    <input type="radio" name="overall_surfaced_considerations" value="{{ i }}" {% if existing_eval and existing_eval.overall_surfaced_considerations == i %}checked{% endif %} required>
-                                    <span class="scale-btn">{{ i }}</span>
-                                </label>
-                                {% endfor %}
-                            </div>
-                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
-                        </div>
-
-                        <div class="likert-item">
-                            <div class="likert-label">This type of structured synthesis would be useful for professional ethics deliberation.</div>
-                            <div class="likert-scale">
-                                {% for i in range(1, 8) %}
-                                <label>
-                                    <input type="radio" name="overall_useful_deliberation" value="{{ i }}" {% if existing_eval and existing_eval.overall_useful_deliberation == i %}checked{% endif %} required>
-                                    <span class="scale-btn">{{ i }}</span>
-                                </label>
-                                {% endfor %}
-                            </div>
-                            <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
-                        </div>
-                        </div>
-                    </div>
+                    <p>You rated five views and an overall assessment. You can revisit any view to change a rating before continuing.</p>
+                    <ul class="list-group mb-3">
+                        {% for view, label in [
+                            ('narrative', 'Narrative'),
+                            ('timeline', 'Timeline'),
+                            ('qc', 'Q&C'),
+                            ('decisions', 'Decisions'),
+                            ('provisions', 'Provisions')
+                        ] %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <button type="button" class="btn btn-link p-0 text-start" onclick="goToStep('views'); activateViewTab('{{ view }}-tab');">{{ label }}</button>
+                            <span class="rating-summary text-muted small" data-view-summary="{{ view }}">…</span>
+                        </li>
+                        {% endfor %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <button type="button" class="btn btn-link p-0 text-start" onclick="goToStep('views'); document.getElementById('overall-panel').scrollIntoView({behavior:'smooth'});">Overall Assessment</button>
+                            <span class="rating-summary text-muted small" data-view-summary="overall">…</span>
+                        </li>
+                    </ul>
+                    <p class="small text-muted">If any line above shows fewer than 3 of 3 rated, return to that view to complete it before continuing.</p>
                 </div>
                 <div class="card-footer">
                     <button type="button" class="btn btn-outline-secondary" onclick="goToStep('views')">
-                        <i class="bi bi-arrow-left me-1"></i> Back
+                        <i class="bi bi-arrow-left me-1"></i> Back to views
                     </button>
                     <button type="button" class="btn btn-primary" onclick="goToStep('comprehension')">
                         Continue to Comprehension Questions <i class="bi bi-arrow-right ms-1"></i>
@@ -1483,10 +1235,20 @@
     let stepStartTime = Date.now();
     let currentStepName = '{{ current_step }}';
 
-    // Narrative-reveal: track which of the five views have been visited so
-    // we can gate the Continue-to-Utility button on seeing all five.
+    // Inline-layout: each view tab carries its three Likert items inline.
+    // The visited-check icon flips green when all three radios are rated;
+    // the Continue button enables when all 18 items (5 views x 3 + 3 overall)
+    // are rated.
     const VIEW_TAB_IDS = ['narrative-tab', 'timeline-tab', 'qc-tab', 'decisions-tab', 'provisions-tab'];
-    const viewsVisited = new Set();
+    const VIEW_KEYS = ['narrative', 'timeline', 'qc', 'decisions', 'provisions'];
+    const PANE_IDS = {
+        narrative: 'narrative-pane',
+        timeline: 'timeline-pane',
+        qc: 'qc-pane',
+        decisions: 'decisions-pane',
+        provisions: 'provisions-pane',
+        overall: 'overall-panel'
+    };
 
     function activateViewTab(tabId) {
         const trigger = document.getElementById(tabId);
@@ -1495,14 +1257,44 @@
         }
     }
 
-    function markTabVisited(tabId) {
-        viewsVisited.add(tabId);
-        const trigger = document.getElementById(tabId);
-        if (trigger) {
+    function paneRatedCount(paneId) {
+        const pane = document.getElementById(paneId);
+        if (!pane) return 0;
+        const radios = pane.querySelectorAll('input[type="radio"][name]');
+        const groups = new Set();
+        radios.forEach(r => groups.add(r.name));
+        let rated = 0;
+        groups.forEach(name => {
+            if (pane.querySelector(`input[name="${name}"]:checked`)) rated += 1;
+        });
+        return rated;
+    }
+
+    function refreshVisitedChecks() {
+        VIEW_KEYS.forEach(view => {
+            const paneId = PANE_IDS[view];
+            const tabId = `${view}-tab`;
+            const trigger = document.getElementById(tabId);
+            if (!trigger) return;
             const check = trigger.querySelector('.visited-check');
-            if (check) check.classList.remove('d-none');
-        }
+            if (!check) return;
+            const rated = paneRatedCount(paneId);
+            const expected = 3;
+            check.classList.toggle('d-none', rated < expected);
+        });
+        refreshRecapSummaries();
         updateUtilityGate();
+    }
+
+    function refreshRecapSummaries() {
+        document.querySelectorAll('[data-view-summary]').forEach(el => {
+            const key = el.dataset.viewSummary;
+            const paneId = PANE_IDS[key];
+            const rated = paneRatedCount(paneId);
+            el.textContent = `${rated} of 3 rated`;
+            el.classList.toggle('text-success', rated === 3);
+            el.classList.toggle('text-warning', rated > 0 && rated < 3);
+        });
     }
 
     function toggleUnratedTensions() {
@@ -1520,10 +1312,17 @@
         const btn = document.getElementById('continue-to-utility-btn');
         const hint = document.getElementById('views-gate-hint');
         if (!btn) return;
-        if (viewsVisited.size >= VIEW_TAB_IDS.length) {
-            btn.disabled = false;
+        const totalRated =
+            VIEW_KEYS.reduce((sum, k) => sum + paneRatedCount(PANE_IDS[k]), 0)
+            + paneRatedCount(PANE_IDS.overall);
+        const allDone = totalRated >= 18;
+        btn.disabled = !allDone;
+        if (allDone) {
             btn.removeAttribute('title');
             if (hint) hint.classList.add('d-none');
+        } else {
+            btn.title = `${totalRated} of 18 items rated; complete all to continue`;
+            if (hint) hint.classList.remove('d-none');
         }
     }
 
@@ -1730,18 +1529,66 @@
             });
         });
 
-        // Narrative-reveal: mark each view visited on first activation, and
-        // mark the initially active tab (Narrative) as visited immediately.
+        // Inline-layout: drive visited-check icons and the Continue gate
+        // from radio completion in each tab pane. Wire change events on
+        // every Likert radio inside step-views.
+        const stepViews = document.getElementById('step-views');
+        if (stepViews) {
+            stepViews.addEventListener('change', function(e) {
+                if (e.target && e.target.matches('input[type="radio"]')) {
+                    refreshVisitedChecks();
+                }
+            });
+        }
+        refreshVisitedChecks();
+
+        // Per-view tab dwell timing. shown.bs.tab fires when a tab becomes
+        // active; hidden.bs.tab fires when it deactivates. We accumulate
+        // ms per tab in the matching hidden form input. The initially
+        // active tab (Narrative) starts its timer here.
+        const TAB_TIMER_FIELDS = {
+            'narrative-tab': 'time_view_narrative',
+            'timeline-tab':  'time_view_timeline',
+            'qc-tab':        'time_view_qc',
+            'decisions-tab': 'time_view_decisions',
+            'provisions-tab':'time_view_provisions'
+        };
+        let tabStartMs = {};
+        function startTabTimer(tabId) { tabStartMs[tabId] = Date.now(); }
+        function stopTabTimer(tabId) {
+            if (!tabStartMs[tabId]) return;
+            const elapsed = Date.now() - tabStartMs[tabId];
+            const fieldName = TAB_TIMER_FIELDS[tabId];
+            if (!fieldName) return;
+            const field = document.getElementById(fieldName);
+            if (field) {
+                const current = parseInt(field.value) || 0;
+                field.value = current + elapsed;
+            }
+            delete tabStartMs[tabId];
+        }
         VIEW_TAB_IDS.forEach(function(tabId) {
             const trigger = document.getElementById(tabId);
             if (!trigger) return;
             trigger.addEventListener('shown.bs.tab', function(e) {
-                markTabVisited(e.target.id);
+                startTabTimer(e.target.id);
+            });
+            trigger.addEventListener('hidden.bs.tab', function(e) {
+                stopTabTimer(e.target.id);
             });
             if (trigger.classList.contains('active')) {
-                markTabVisited(tabId);
+                startTabTimer(tabId);
             }
         });
+        // Stop the active tab's timer when the user leaves step-views.
+        // goToStep is the only path off this step in normal flow.
+        const _origGoToStep = goToStep;
+        window.goToStep = function(stepName) {
+            if (currentStepName === 'views') {
+                Object.keys(tabStartMs).forEach(stopTabTimer);
+            }
+            return _origGoToStep(stepName);
+        };
     });
 </script>
 {% endblock %}

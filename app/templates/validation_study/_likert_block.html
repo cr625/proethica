@@ -1,0 +1,32 @@
+{# Per-view Likert footer macro for the validation-study case evaluation page.
+   Renders three 7-point items in a card. Wording comes from
+   app/services/validation/likert_items.py, which is bound to Protocol
+   2603011709 v7 Appendix A. Do not inline item text here; that would
+   break the wording-parity test. #}
+
+{% macro likert_block(view_label, items, existing_eval) %}
+<div class="likert-group card mt-3" data-view-likert="{{ view_label|lower|replace('&','')|replace(' ','-') }}">
+  <div class="card-header py-2 bg-light">
+    <h6 class="mb-0"><i class="bi bi-star me-1"></i>Rate this view</h6>
+  </div>
+  <div class="card-body pt-3">
+    <p class="text-muted small mb-3">Use the scale from 1 (Strongly Disagree) to 7 (Strongly Agree).</p>
+    {% for it in items %}
+    <div class="likert-item">
+      <div class="likert-label">{{ it.label }}</div>
+      <div class="likert-scale">
+        {% for i in range(1, 8) %}
+        <label>
+          <input type="radio" name="{{ it.name }}" value="{{ i }}"
+                 {% if existing_eval and existing_eval[it.name] == i %}checked{% endif %}
+                 required>
+          <span class="scale-btn">{{ i }}</span>
+        </label>
+        {% endfor %}
+      </div>
+      <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endmacro %}

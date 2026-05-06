@@ -60,6 +60,15 @@ class ValidationSession(db.Model):
     # channel.
     prolific_pid_hash = db.Column(db.String(64), unique=True, index=True)
 
+    # Layout cohort marker (see .claude/plans/inline-utility-ratings.md).
+    # 'inline_v1'     = post-2026-05 layout (Likert footer per view tab).
+    # 'sequential_v1' = pre-2026-05 layout (consolidated post-views block).
+    # Defaults to inline_v1 for new sessions; pre-deploy completed sessions
+    # are backfilled to sequential_v1 by migrate_study_schema_v8.sql.
+    layout_version = db.Column(
+        db.String(20), nullable=False, default='inline_v1', server_default='inline_v1'
+    )
+
     # Consent gate (HRP-506 Information Sheet acknowledgement)
     consent_acknowledged_at = db.Column(db.DateTime)
     info_sheet_version = db.Column(db.String(20))
@@ -256,6 +265,16 @@ class ViewUtilityEvaluation(db.Model):
     time_utility_rating = db.Column(db.Integer)
     time_comprehension = db.Column(db.Integer)
     time_alignment = db.Column(db.Integer)
+
+    # Per-view tab dwell time (milliseconds) under the inline-layout flow.
+    # Recorded by case_evaluation.html from Bootstrap shown.bs.tab /
+    # hidden.bs.tab events. The existing time_views_review remains the
+    # sum-of-tabs aggregate used by the low_effort_flag floor check.
+    time_view_narrative = db.Column(db.Integer)
+    time_view_timeline = db.Column(db.Integer)
+    time_view_qc = db.Column(db.Integer)
+    time_view_decisions = db.Column(db.Integer)
+    time_view_provisions = db.Column(db.Integer)
 
     # Attention check (plan §4.4): single instructed-response item embedded
     # among the utility items. 1-7 Likert; pass = 1 ("Strongly Disagree").
