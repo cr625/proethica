@@ -1085,6 +1085,36 @@ def preview_start():
         info_sheet_version='preview',
     )
     db.session.add(val_session)
+    db.session.flush()
+
+    # Optional demo prefill (`?prefill=1`). Populates the ViewUtilityEvaluation
+    # row with realistic-looking ratings and demo-flagged comprehension answers
+    # so the page renders fully filled out for screenshots and walkthroughs.
+    # The reverse-coded attention check (overall_surfaced_considerations) is
+    # set to 1 so the prefilled session passes the attention gate. Preview
+    # rows are tagged for analysis exclusion regardless.
+    if request.args.get('prefill'):
+        prefilled = ViewUtilityEvaluation(
+            session_id=val_session.id,
+            case_id=case_id,
+            evaluator_id=code,
+            started_at=datetime.utcnow(),
+            narr_characters_tensions=5, narr_relationships_clear=6, narr_ethical_significance=4,
+            timeline_temporal_sequence=6, timeline_causal_links=5, timeline_obligation_activation=5,
+            qc_issues_visible=6, qc_emergence_resolution=5, qc_deliberation_needs=6,
+            decs_choices_understood=5, decs_argumentative_structure=5, decs_actions_obligations=6,
+            prov_standards_identified=6, prov_connections_clear=5, prov_normative_foundation=5,
+            overall_helped_understand=6,
+            overall_surfaced_considerations=1,
+            overall_useful_deliberation=6,
+            attention_check_response=1,
+            comp_main_tensions='[Demo prefill] Authorship integrity vs. timeline pressure; verification duty under deadline.',
+            comp_relevant_provisions='[Demo prefill] II.2.a (competence); II.5 (honesty in services); III.3 (avoiding deceptive acts).',
+            comp_decision_points='[Demo prefill] Whether to seal AI-generated content; whether to disclose tool use to client.',
+            comp_deliberation_factors='[Demo prefill] Verification depth, client transparency, license obligations, public-safety duty.',
+        )
+        db.session.add(prefilled)
+
     db.session.commit()
     session['participant_code'] = code
     flash(
