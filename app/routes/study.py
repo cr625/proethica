@@ -1117,8 +1117,6 @@ def preview_start():
 
     db.session.commit()
     session['participant_code'] = code
-    flash(
-        'Preview mode: this session is tagged for exclusion from study analysis.',
-        'info'
-    )
+    # The persistent preview banner in _base_study.html already announces
+    # preview status; an additional transient flash here would duplicate it.
     return redirect(url_for('study.evaluate_case', case_id=case_id, step='facts'))
