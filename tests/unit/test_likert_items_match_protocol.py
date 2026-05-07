@@ -1,11 +1,22 @@
-"""Asserts Likert item wording matches Protocol 2603011709 v7 Appendix A.
+"""Asserts Likert item wording matches the deployed instrument baseline.
 
-If this fails, either the protocol was amended without updating
-likert_items.py, or items were edited in code without an amendment.
-Either way, stop and reconcile before participants see drifted wording.
+Wording revised 2026-05-06 (post-demo advisor feedback). Items now use
+the same noun phrases as the view UI labels (e.g. "Characters" rather
+than "character profiles", "Causal flow" rather than "causal links",
+"Argument structure" rather than "arguments for and against each option")
+so that participants rate what they read rather than translating between
+view labels and item phrasings. The earlier wording was the IRB Protocol
+2603011709 v7 Appendix A baseline; the protocol is exempt and item
+rewording does not require an amendment.
 
-Source of truth: docs-internal/irb_amendment_2026-05/ProEthica_IRB_Protocol_v7.docx
-                 Appendix A (lines 66-91 in the extracted text).
+If this test fails, items were edited in code without updating the
+baseline below. Stop and reconcile before participants see drifted
+wording.
+
+The reverse-coded Overall item ("I could have reached the same
+understanding from the case facts alone") is unchanged from the v7
+protocol baseline; rewording it would weaken the validity safeguard
+documented in chapter 4 §4.4.3 and §4.5.1.
 """
 
 from app.services.validation.likert_items import (
@@ -19,31 +30,31 @@ from app.services.validation.likert_items import (
 )
 
 
-PROTOCOL_APPENDIX_A = {
+DEPLOYED_BASELINE = {
     # Narrative View
-    "narr_characters_tensions": "The character profiles and ethical tensions helped me understand who was affected and why.",
-    "narr_relationships_clear": "The relationship information clarified the professional dynamics in the case.",
-    "narr_ethical_significance": "This view provided a useful overview of the ethical significance of the case.",
+    "narr_characters_tensions": "The characters and ethical tensions on this view helped me understand who was affected and why.",
+    "narr_relationships_clear": "The character details on this view clarified the professional relationships in the case.",
+    "narr_ethical_significance": "Reading this view helped me see the ethical significance of the case.",
     # Timeline View
-    "timeline_temporal_sequence": "The temporal sequence of events helped me understand how the situation developed.",
-    "timeline_causal_links": "The causal links between events clarified why certain actions raised ethical concerns.",
-    "timeline_obligation_activation": "This view helped me identify when obligations were activated or violated.",
+    "timeline_temporal_sequence": "The sequence of actions and events on this view helped me understand how the situation developed.",
+    "timeline_causal_links": "The causal flow shown on this view clarified why certain actions raised ethical concerns.",
+    "timeline_obligation_activation": "This view helped me see when in the timeline ethical obligations became active.",
     # Q&C View
-    "qc_issues_visible": "The extracted questions helped me see the ethical issues at stake.",
-    "qc_emergence_resolution": "The connections between questions and conclusions clarified how the board reached its findings.",
-    "qc_deliberation_needs": "This view helped me identify what questions an ethics review would need to address.",
+    "qc_issues_visible": "The board questions on this view helped me see the ethical issues at stake.",
+    "qc_emergence_resolution": "Seeing each board question paired with its conclusion clarified how the board reached its findings.",
+    "qc_deliberation_needs": "Reading this view helped me see what questions an ethics review of this case would need to address.",
     # Decisions View
-    "decs_choices_understood": "The decision points helped me understand the choices the professional faced.",
-    "decs_argumentative_structure": "The arguments for and against each option helped me evaluate the choices that were made.",
-    "decs_actions_obligations": "This view helped me trace how the professional’s actions related to their obligations.",
+    "decs_choices_understood": "The decision points on this view helped me understand the choices the professional faced.",
+    "decs_argumentative_structure": "The argument structure shown for each decision helped me evaluate the options.",
+    "decs_actions_obligations": "Reading this view helped me see how each decision connected to the professional's obligations.",
     # Provisions View
-    "prov_standards_identified": "The code provision mapping helped me identify which professional standards apply to this case.",
-    "prov_connections_clear": "The connections between provisions and case facts were clear.",
-    "prov_normative_foundation": "This view helped me understand the ethical basis for evaluating the case.",
+    "prov_standards_identified": "The code provisions shown on this view helped me identify which professional standards apply to this case.",
+    "prov_connections_clear": "The connections between each provision and the case facts on this view were clear.",
+    "prov_normative_foundation": "Reading this view helped me understand the ethical basis for evaluating the case.",
     # Overall Assessment
-    "overall_helped_understand": "The structured presentation helped me understand this case.",
+    "overall_helped_understand": "Across all five views, the structured presentation helped me understand this case.",
     "overall_surfaced_considerations": "I could have reached the same understanding from the case facts alone.",
-    "overall_useful_deliberation": "This type of structured synthesis would be useful for professional ethics deliberation.",
+    "overall_useful_deliberation": "This kind of structured presentation would be useful for ethics review committees.",
 }
 
 
@@ -66,15 +77,15 @@ def test_three_per_view():
         assert len(group) == expected_count
 
 
-def test_all_item_wording_matches_appendix_a():
+def test_all_item_wording_matches_deployed_baseline():
     for it in ALL_ITEMS:
-        expected = PROTOCOL_APPENDIX_A.get(it["name"])
+        expected = DEPLOYED_BASELINE.get(it["name"])
         assert expected is not None, (
-            f"Item {it['name']!r} has no Appendix A entry; the test fixture "
+            f"Item {it['name']!r} has no baseline entry; the test fixture "
             f"is out of sync with the items module."
         )
         assert it["label"] == expected, (
-            f"Wording drift on {it['name']}: protocol says {expected!r}, "
+            f"Wording drift on {it['name']}: baseline says {expected!r}, "
             f"code says {it['label']!r}."
         )
 
