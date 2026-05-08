@@ -645,8 +645,15 @@ class SynthesisViewBuilder:
             'domain': 'engineering',
             'facts': facts_content,
             'withheld_sections': list(set(withheld_sections)),
-            'withheld_notice': 'The board\'s Questions, Discussion, and Conclusions are withheld '
-                              'until after you complete the comprehension questions.'
+            'withheld_notice': (
+                'This case is one of the NSPE Board of Ethical Review\'s '
+                'published opinions. The board reviews real engineering '
+                'ethics scenarios and reaches conclusions grounded in the '
+                'NSPE Code of Ethics. You are reading the case facts now; '
+                'the board\'s Questions, Discussion, and Conclusions are '
+                'withheld until after you complete the comprehension '
+                'questions.'
+            )
         }
 
     def get_board_conclusions(self, case_id: int) -> Dict[str, Any]:
