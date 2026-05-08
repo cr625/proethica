@@ -664,6 +664,8 @@
                                 {% for char in main_chars %}
                                 {% set char_anchor = 'char-' ~ char.label.replace(' ', '-') %}
                                 {% set char_tensions = views.narrative.tensions_by_character.get(char.label, []) if views.narrative.tensions_by_character else [] %}
+                                {% set cross_count = views.narrative.tensions_cross_count_by_character.get(char.label, 0) if views.narrative.tensions_cross_count_by_character else 0 %}
+                                {% set self_only_count = char_tensions|length - cross_count %}
                                 <div class="mb-3 border rounded bg-white" id="{{ char_anchor }}">
                                     <div class="p-2 d-flex align-items-center flex-wrap gap-2 border-bottom">
                                         <strong>
@@ -690,9 +692,22 @@
                                         {% endif %}
                                         {% if char_tensions %}
                                         <h6 class="small fw-bold mt-3 mb-2"><i class="bi bi-arrow-left-right me-1"></i>Ethical tensions for this role ({{ char_tensions|length }})</h6>
+                                        {% if cross_count > 0 and self_only_count > 0 %}
+                                        <p class="section-helper" style="margin-bottom: 0.6rem;">Tensions that link to another main character appear first. Tensions that involve only this role are hidden below.</p>
+                                        {% endif %}
                                         {% for t in char_tensions %}
-                                            {{ tension_block(t, 'study-main-tension-' ~ loop.index ~ '-' ~ char_anchor) }}
+                                            {% set is_self_only = loop.index > cross_count %}
+                                            <div class="{% if is_self_only %}tension-self-only-row d-none{% endif %}" data-char-anchor="{{ char_anchor }}">
+                                                {{ tension_block(t, 'study-main-tension-' ~ loop.index ~ '-' ~ char_anchor) }}
+                                            </div>
                                         {% endfor %}
+                                        {% if self_only_count > 0 %}
+                                        <button type="button" class="btn btn-link btn-sm p-0 align-baseline tension-self-only-toggle"
+                                                data-char-anchor="{{ char_anchor }}"
+                                                data-self-count="{{ self_only_count }}">
+                                            Show {{ self_only_count }} more tension{{ '' if self_only_count == 1 else 's' }} involving only this role
+                                        </button>
+                                        {% endif %}
                                         {% endif %}
                                     </div>
                                 </div>
@@ -1799,6 +1814,27 @@
         // in the Opening Context and the Main characters list.
         document.querySelectorAll('.char-mention[data-bs-toggle="popover"]').forEach(function(el) {
             new bootstrap.Popover(el);
+        });
+
+        // Per-character "Show N more tensions" toggle on the main
+        // characters' cards. Each toggle reveals (or hides) the
+        // tension-self-only-row entries scoped to its character anchor.
+        document.querySelectorAll('.tension-self-only-toggle').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const anchor = this.dataset.charAnchor;
+                const selfOnlyRows = document.querySelectorAll(
+                    '.tension-self-only-row[data-char-anchor="' + anchor + '"]'
+                );
+                const currentlyHidden = selfOnlyRows[0] && selfOnlyRows[0].classList.contains('d-none');
+                selfOnlyRows.forEach(function(row) {
+                    row.classList.toggle('d-none');
+                });
+                const count = this.dataset.selfCount;
+                const plural = count === '1' ? '' : 's';
+                this.textContent = currentlyHidden
+                    ? 'Hide tensions involving only this role'
+                    : 'Show ' + count + ' more tension' + plural + ' involving only this role';
+            });
         });
 
         // Rotate the chevron on each timeline entry that has nested decision points.

@@ -538,7 +538,8 @@ class SynthesisViewBuilder:
         # case but secondary to the opening narrative.
         import re
         main_short_names: set = set()
-        for ch in characters:
+        main_short_name_order: Dict[str, int] = {}  # short-name -> first-occurrence index
+        for idx, ch in enumerate(characters):
             label = (ch.get('label') or '').strip()
             if not label:
                 ch['is_main'] = False
@@ -547,8 +548,61 @@ class SynthesisViewBuilder:
             if short_name and opening_context and short_name in opening_context:
                 ch['is_main'] = True
                 main_short_names.add(short_name)
+                if short_name not in main_short_name_order:
+                    main_short_name_order[short_name] = idx
             else:
                 ch['is_main'] = False
+
+        # Per-main-character tension sort: surface tensions that involve
+        # OTHER main characters first, in the order those characters
+        # appear in the character list. Tensions that only involve the
+        # character themselves (intra-role conflicts, with the same
+        # short-name on both sides) sink to the bottom, where the
+        # template hides them behind a per-character "show more" toggle.
+        #
+        # The cross-main priority is computed per (character, tension)
+        # pair without mutating the tension dict, because the same
+        # tension can appear in multiple characters' lists with a
+        # different cross-main perspective each time.
+        def _cross_main_pos(t: Dict[str, Any], own_short: str) -> 'int | None':
+            text = ' '.join([
+                (t.get('entity1_label') or ''),
+                (t.get('entity2_label') or ''),
+                ' '.join(t.get('affected_role_labels') or []),
+            ])
+            best_pos: int | None = None
+            for short, pos in main_short_name_order.items():
+                if short == own_short:
+                    continue
+                if short and short in text and (best_pos is None or pos < best_pos):
+                    best_pos = pos
+            return best_pos
+
+        # tensions_cross_count_by_character[label] = N means the first
+        # N entries of tensions_by_character[label] are cross-main and
+        # should render visible by default; the remaining are self-only
+        # and the template hides them behind a "show more" toggle.
+        tensions_cross_count_by_character: Dict[str, int] = {}
+        for char in characters:
+            if not char.get('is_main'):
+                continue
+            label = char.get('label') or ''
+            if label not in tensions_by_character:
+                continue
+            own_short = ' '.join(label.split()[:2])
+
+            def _key(t: Dict[str, Any], _own=own_short) -> tuple:
+                pos = _cross_main_pos(t, _own)
+                if pos is not None:
+                    return (0, pos, -t.get('intensity_score', 0))
+                return (1, 0, -t.get('intensity_score', 0))
+
+            tensions_by_character[label].sort(key=_key)
+            cross_count = sum(
+                1 for t in tensions_by_character[label]
+                if _cross_main_pos(t, own_short) is not None
+            )
+            tensions_cross_count_by_character[label] = cross_count
 
         # Wrap each main short-name in opening_context with a popover
         # span. The popover content is the character's professional
@@ -592,6 +646,7 @@ class SynthesisViewBuilder:
             'characters': characters,
             'tensions': tensions,
             'tensions_by_character': tensions_by_character,
+            'tensions_cross_count_by_character': tensions_cross_count_by_character,
             'unassigned_tensions': unassigned_tensions,
             'opening_context': opening_context,
             'opening_context_html': opening_context_html,
