@@ -167,6 +167,65 @@
         line-height: 1.5;
         margin-bottom: 0.75rem;
     }
+    /* Collapsible Instructions box: wraps the per-card description in
+       an alert-style container with a header button that toggles the
+       body. Default open; participants can collapse to a single-line
+       header on subsequent visits. */
+    .instruction-box {
+        border: 1px solid #cdd5dc;
+        border-radius: 6px;
+        background: #f4f6f8;
+        overflow: hidden;
+        margin-bottom: 1rem;
+    }
+    .instruction-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+        padding: 0.55rem 0.95rem;
+        background: transparent;
+        border: none;
+        color: #2d3848;
+        font-weight: 600;
+        font-size: 0.95rem;
+        cursor: pointer;
+        text-align: left;
+        transition: background 0.15s;
+    }
+    .instruction-header:hover { background: rgba(0,0,0,0.04); }
+    .instruction-header[aria-expanded="true"] { border-bottom: 1px solid #cdd5dc; }
+    .instruction-chevron { color: #6c757d; transition: transform 0.2s; }
+    .instruction-header[aria-expanded="false"] .instruction-chevron { transform: rotate(180deg); }
+    .instruction-body {
+        padding: 0.9rem 1rem;
+        color: #3d4757;
+        font-size: 1rem;
+        line-height: 1.55;
+        font-weight: 500;
+    }
+    /* Tab content frame: wraps all five view panes in a bordered box
+       so the active tab visually attaches to its content. Bootstrap
+       nav-tabs default styling makes the active tab's bottom border
+       white; the frame's top edge meets that line. */
+    #viewTabsContent {
+        border: 1px solid #dee2e6;
+        border-top: none;
+        border-radius: 0 0 8px 8px;
+        padding: 1.5rem;
+        background: #ffffff;
+        margin-top: -1px;
+    }
+    /* Active-tab star fill: when a tab is active AND its rating is
+       still empty, the star renders filled in the per-view accent
+       color so the active tab is visually unambiguous. Once any
+       rating is recorded, the rating-progress logic takes over and
+       the star reverts to standard half/full/green semantics. */
+    #narrative-tab .tab-rating-star.tab-active-empty-fill { color: #198754; }
+    #timeline-tab .tab-rating-star.tab-active-empty-fill  { color: #20c997; }
+    #qc-tab .tab-rating-star.tab-active-empty-fill        { color: #6f42c1; }
+    #decisions-tab .tab-rating-star.tab-active-empty-fill { color: #fd7e14; }
+    #provisions-tab .tab-rating-star.tab-active-empty-fill{ color: #0d6efd; }
     .narrative-step {
         display: inline-block;
         color: #198754;
@@ -473,7 +532,15 @@
                             <span class="badge bg-success">{{ views.narrative.character_count }} characters &middot; {{ views.narrative.tension_count }} tensions</span>
                         </div>
                         <div class="card-body view-content">
-                            <p class="prompt-text"><strong>Instructions:</strong>&nbsp;Characters and ethical tensions, with an opening context. The case's ethical questions arise from the responsibilities each role carries, so we start with who is involved and what is at stake.</p>
+                            <div class="instruction-box">
+                                <button class="instruction-header" type="button" data-bs-toggle="collapse" data-bs-target="#instr-narrative" aria-expanded="true" aria-controls="instr-narrative">
+                                    <span>Instructions</span>
+                                    <i class="bi bi-chevron-up instruction-chevron"></i>
+                                </button>
+                                <div class="collapse show" id="instr-narrative">
+                                    <div class="instruction-body">Characters and ethical tensions, with an opening context. The case's ethical questions arise from the responsibilities each role carries, so we start with who is involved and what is at stake.</div>
+                                </div>
+                            </div>
 
                             {% if views.narrative.has_content %}
 
@@ -631,7 +698,15 @@
                             <span class="badge" style="background: #20c997;">{{ views.timeline.count }} entries &middot; {{ views.timeline.decision_point_count }} decision points</span>
                         </div>
                         <div class="card-body view-content">
-                            <p class="prompt-text"><strong>Instructions:</strong>&nbsp;{{ views.timeline.description }}</p>
+                            <div class="instruction-box">
+                                <button class="instruction-header" type="button" data-bs-toggle="collapse" data-bs-target="#instr-timeline" aria-expanded="true" aria-controls="instr-timeline">
+                                    <span>Instructions</span>
+                                    <i class="bi bi-chevron-up instruction-chevron"></i>
+                                </button>
+                                <div class="collapse show" id="instr-timeline">
+                                    <div class="instruction-body">{{ views.timeline.description }}</div>
+                                </div>
+                            </div>
 
                             {% if views.timeline.entries %}
                             <div class="d-flex flex-wrap gap-2 mb-3 small">
@@ -894,7 +969,15 @@
                             <span class="badge" style="background: #fd7e14;">{{ views.decisions.count }} decision points</span>
                         </div>
                         <div class="card-body view-content">
-                            <p class="prompt-text"><strong>Instructions:</strong>&nbsp;{{ views.decisions.description }}</p>
+                            <div class="instruction-box">
+                                <button class="instruction-header" type="button" data-bs-toggle="collapse" data-bs-target="#instr-decisions" aria-expanded="true" aria-controls="instr-decisions">
+                                    <span>Instructions</span>
+                                    <i class="bi bi-chevron-up instruction-chevron"></i>
+                                </button>
+                                <div class="collapse show" id="instr-decisions">
+                                    <div class="instruction-body">{{ views.decisions.description }}</div>
+                                </div>
+                            </div>
                             {% for dec in views.decisions.decisions %}
                             <div class="dp-card">
                                 {# Collapsed header #}
@@ -1033,7 +1116,15 @@
                             <span class="badge bg-primary">{{ views.provisions.count }} provisions</span>
                         </div>
                         <div class="card-body view-content">
-                            <p class="prompt-text"><strong>Instructions:</strong>&nbsp;{{ views.provisions.description }}</p>
+                            <div class="instruction-box">
+                                <button class="instruction-header" type="button" data-bs-toggle="collapse" data-bs-target="#instr-provisions" aria-expanded="true" aria-controls="instr-provisions">
+                                    <span>Instructions</span>
+                                    <i class="bi bi-chevron-up instruction-chevron"></i>
+                                </button>
+                                <div class="collapse show" id="instr-provisions">
+                                    <div class="instruction-body">{{ views.provisions.description }}</div>
+                                </div>
+                            </div>
                             {% for prov in views.provisions.provisions %}
                             <div class="provision-item mb-3">
                                 <strong>{{ prov.code_section }}</strong>
@@ -1364,7 +1455,32 @@
     function applyStarState(el, state) {
         if (!el) return;
         el.classList.remove(...STAR_CLASSES);
+        // Active-tab fill flag is independent of rating progress; once
+        // any rating exists the rating-progress logic owns the icon.
+        el.classList.remove('tab-active-empty-fill');
         el.classList.add(state.icon, state.color);
+    }
+
+    // Active-tab star fill: when a tab is active and its rating is
+    // empty, render the star filled in the per-view accent color so
+    // the active tab is unambiguous. Once any rating is recorded,
+    // applyStarState above clears tab-active-empty-fill and the
+    // standard half/full color semantics take over.
+    function setTabActiveFill(tabBtn) {
+        const star = tabBtn.querySelector('.tab-rating-star');
+        if (!star) return;
+        if (star.classList.contains('bi-star') && star.classList.contains('text-muted')) {
+            star.classList.remove('bi-star', 'text-muted');
+            star.classList.add('bi-star-fill', 'tab-active-empty-fill');
+        }
+    }
+    function clearTabActiveFill(tabBtn) {
+        const star = tabBtn.querySelector('.tab-rating-star');
+        if (!star) return;
+        if (star.classList.contains('tab-active-empty-fill')) {
+            star.classList.remove('bi-star-fill', 'tab-active-empty-fill');
+            star.classList.add('bi-star', 'text-muted');
+        }
     }
 
     function refreshStarIndicators() {
@@ -1750,13 +1866,16 @@
             trigger.addEventListener('shown.bs.tab', function(e) {
                 startTabTimer(e.target.id);
                 markTabVisited(e.target.id);
+                setTabActiveFill(e.target);
             });
             trigger.addEventListener('hidden.bs.tab', function(e) {
                 stopTabTimer(e.target.id);
+                clearTabActiveFill(e.target);
             });
             if (trigger.classList.contains('active')) {
                 startTabTimer(tabId);
                 markTabVisited(tabId);
+                setTabActiveFill(trigger);
             }
         });
 
