@@ -327,6 +327,51 @@ def exit_session():
     return redirect(url_for('study.index'))
 
 
+@study_bp.route('/orientation', methods=['GET', 'POST'])
+def orientation():
+    """Post-consent orientation screen.
+
+    First-time participants land here after consent and walk through the
+    per-case workflow, the five view glossary, and the post-cases steps
+    in a single sequenced page. POST stamps `orientation_completed_at`
+    on the session and redirects to the dashboard.
+
+    Returning participants (resume-by-code) skip orientation entirely:
+    `study.index` checks `orientation_completed_at` and only redirects
+    here when the value is NULL.
+
+    See .claude/plans/participant-onboarding-redesign.md.
+    """
+    code = get_participant_code()
+    if not code:
+        flash('Please consent to the study before accessing orientation.', 'warning')
+        return redirect(url_for('study.index'))
+
+    val_session = load_session(code)
+    if not val_session:
+        flash(f'No study session found for code {code}. Please re-enter your code.', 'warning')
+        session.pop('participant_code', None)
+        return redirect(url_for('study.index'))
+
+    if request.method == 'POST':
+        if val_session.orientation_completed_at is None:
+            val_session.orientation_completed_at = datetime.utcnow()
+            db.session.commit()
+        return redirect(url_for('study.index', code=val_session.participant_code))
+
+    # Build the case-summaries metadata the template needs to display
+    # "After your N cases" with the right plural N.
+    assigned_count = len(val_session.assigned_cases or [])
+
+    return render_template(
+        'validation_study/orientation.html',
+        participant_code=val_session.participant_code,
+        total_count=assigned_count,
+        is_prolific=(val_session.recruitment_source == 'prolific_engineering_trained'),
+        session=val_session,
+    )
+
+
 @study_bp.route('/session/<session_id>/status')
 def session_status(session_id):
     """Get current session status (for AJAX)."""

@@ -73,6 +73,14 @@ class ValidationSession(db.Model):
     consent_acknowledged_at = db.Column(db.DateTime)
     info_sheet_version = db.Column(db.String(20))
 
+    # Orientation gate (post-consent onboarding screen). NULL means the
+    # participant has not yet completed orientation and should be redirected
+    # to /validation/orientation. Set to NOW() on form submission. Legacy
+    # rows are backfilled by migrate_study_schema_v10.sql so returning
+    # participants skip the new screen. See
+    # .claude/plans/participant-onboarding-redesign.md.
+    orientation_completed_at = db.Column(db.DateTime)
+
     # Post-task demographics (4-6 closed-form items captured between alignment
     # and complete). All categorical or ordinal; no free text. Lets Chapter 4
     # describe the realised sample and run Prolific-only / Drexel-only subsets.

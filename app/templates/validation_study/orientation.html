@@ -1,0 +1,224 @@
+{% extends "validation_study/_base_study.html" %}
+
+{% block title %}Study orientation{% endblock %}
+
+{% block styles %}
+<style>
+    .orient-section {
+        background: #ffffff;
+        border: 1px solid #e2e6ea;
+        border-radius: 8px;
+        padding: 1.5rem 1.75rem;
+        margin-bottom: 1.25rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .orient-section h2 {
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #2d3848;
+        margin: 0 0 0.85rem 0;
+        display: flex;
+        align-items: baseline;
+        gap: 0.6rem;
+    }
+    .orient-section h2 .orient-step-num {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.85rem;
+        height: 1.85rem;
+        border-radius: 50%;
+        background: #0d6efd;
+        color: #fff;
+        font-size: 0.95rem;
+        font-weight: 700;
+        flex-shrink: 0;
+    }
+    .orient-section ol.orient-steps,
+    .orient-section dl.orient-views {
+        margin: 0;
+        font-size: 1rem;
+        line-height: 1.55;
+        color: #2d3848;
+    }
+    .orient-section ol.orient-steps li {
+        margin-bottom: 0.6rem;
+    }
+    .orient-section ol.orient-steps li:last-child {
+        margin-bottom: 0;
+    }
+    .orient-section ol.orient-steps strong {
+        color: #1f2937;
+    }
+    .orient-section dl.orient-views {
+        display: grid;
+        grid-template-columns: 9rem 1fr;
+        gap: 0.55rem 1rem;
+    }
+    .orient-section dl.orient-views dt {
+        font-weight: 600;
+        color: #1f2937;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    .orient-section dl.orient-views dd {
+        margin: 0;
+        color: #3d4757;
+    }
+    .orient-cta {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-top: 2rem;
+        margin-bottom: 1rem;
+    }
+    .orient-cta .btn {
+        font-size: 1.05rem;
+        padding: 0.7rem 2rem;
+    }
+    .orient-cta .resume-note {
+        margin-top: 0.6rem;
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+    .orient-header {
+        text-align: center;
+        margin-bottom: 1.5rem;
+    }
+    .orient-header h1 {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: #1f2937;
+        margin: 0 0 0.4rem 0;
+    }
+    .orient-header p {
+        color: #5a6675;
+        font-size: 1rem;
+        margin: 0;
+    }
+    .orient-participant-code {
+        background: #f4f6f8;
+        border: 1px solid #cdd5dc;
+        border-radius: 6px;
+        padding: 0.85rem 1rem;
+        margin-bottom: 1.25rem;
+        font-size: 0.9rem;
+        color: #3d4757;
+    }
+    .orient-participant-code code {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #c9476f;
+        background: transparent;
+        padding: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4" style="max-width: 760px;">
+
+    <div class="orient-header">
+        <h1>Before you start</h1>
+        <p>A short walk-through of what happens in the study.</p>
+    </div>
+
+    <div class="orient-participant-code">
+        Your participant code is <code>{{ participant_code }}</code>.
+        Write it down or screenshot this page. You can pause and resume by
+        re-entering this code at any time.
+    </div>
+
+    <div class="orient-section">
+        <h2><span class="orient-step-num">1</span>What happens in each case</h2>
+        <ol class="orient-steps">
+            <li>
+                <strong>Read the case facts.</strong>
+                The board's Discussion and Conclusions are hidden at first
+                so we can compare your read against the board's later.
+            </li>
+            <li>
+                <strong>Look at five views of the case.</strong>
+                Each view organizes the same case from a different angle.
+                You don't need to read every entry. Form an impression of
+                which view's framing helped you most.
+            </li>
+            <li>
+                <strong>Rate each view on a 1&ndash;7 scale</strong>,
+                from Strongly Disagree to Strongly Agree. About 18 short
+                items per case.
+            </li>
+            <li>
+                <strong>Answer four short open-ended questions</strong>
+                about the case in your own words.
+            </li>
+            <li>
+                <strong>The board's Discussion and Conclusions are revealed</strong>
+                for you to read.
+            </li>
+            <li>
+                <strong>Rate how well your earlier answers lined up</strong>
+                with the board's reasoning.
+            </li>
+        </ol>
+    </div>
+
+    <div class="orient-section">
+        <h2><span class="orient-step-num">2</span>The five views, in tab order</h2>
+        <dl class="orient-views">
+            <dt><i class="bi bi-journal-text text-success"></i> Narrative</dt>
+            <dd>The people involved, what is at stake, and the ethical tensions their roles produce.</dd>
+
+            <dt><i class="bi bi-clock-history" style="color: #20c997;"></i> Timeline</dt>
+            <dd>The sequence of actions and events, with the points where ethical obligations became active.</dd>
+
+            <dt><i class="bi bi-question-circle" style="color: #6f42c1;"></i> Q&amp;C</dt>
+            <dd>Questions the board asked about the case, paired with how each was answered.</dd>
+
+            <dt><i class="bi bi-signpost-split" style="color: #fd7e14;"></i> Decisions</dt>
+            <dd>The choices the professional faced, with the arguments for and against each option.</dd>
+
+            <dt><i class="bi bi-book text-primary"></i> Provisions</dt>
+            <dd>Which sections of the NSPE Code of Ethics apply to the case, and how they connect to specific facts.</dd>
+        </dl>
+    </div>
+
+    <div class="orient-section">
+        <h2><span class="orient-step-num">3</span>{% if total_count == 1 %}After your case{% else %}After your {{ total_count }} cases{% endif %}</h2>
+        <ol class="orient-steps">
+            <li>
+                <strong>Rank the five views</strong> from most to least
+                useful for understanding cases overall.
+            </li>
+            <li>
+                <strong>Brief demographics.</strong>
+                Five multiple-choice items about your background. You can
+                skip any.
+            </li>
+            <li>
+                {% if is_prolific %}
+                <strong>Completion code is shown.</strong>
+                Paste it into Prolific to receive your $18.00 payment
+                (within 14 days).
+                {% else %}
+                <strong>Thank-you screen.</strong>
+                Confirms your participation has been recorded.
+                {% endif %}
+            </li>
+        </ol>
+    </div>
+
+    <form action="{{ url_for('study.orientation') }}" method="post" class="orient-cta">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-primary btn-lg">
+            <i class="bi bi-play-fill me-1"></i> Start your first case
+        </button>
+        <p class="resume-note">
+            Total time approximately 1 hour across all cases. You can pause
+            and resume anytime by re-entering your participant code.
+        </p>
+    </form>
+
+</div>
+{% endblock %}
