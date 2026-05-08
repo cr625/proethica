@@ -161,6 +161,26 @@
     .hidden-step {
         display: none;
     }
+    /* Character mention link: applied to short-name occurrences in the
+       opening_context narrative AND to the corresponding character's
+       label in the Main characters list. The shared underline+popover
+       treatment lets the participant recognize the same character
+       across both surfaces. Bootstrap popovers are initialized at
+       DOMContentLoaded. */
+    .char-mention {
+        text-decoration: underline;
+        text-decoration-style: dotted;
+        text-decoration-color: #198754;
+        text-underline-offset: 2px;
+        cursor: help;
+        color: inherit;
+    }
+    .char-mention:hover,
+    .char-mention:focus {
+        color: #198754;
+        text-decoration-style: solid;
+        outline: none;
+    }
     /* Two-tier instructional voice hierarchy within each view.
        Segue card is the loud global voice (top stripe, bold lead).
        Below it sits the prompt-text (per-card "about this view")
@@ -577,8 +597,9 @@
 
                             {% if views.narrative.opening_context %}
                             <h6>Opening Context</h6>
+                            <p class="section-helper">Written in second person from the engineer's point of view, so you read the case as the professional experienced it. Underlined names link to the character's profile below.</p>
                             <div class="mb-4 p-3 bg-light rounded border-start border-4 border-success">
-                                <p class="mb-0" style="white-space: pre-wrap;">{{ views.narrative.opening_context }}</p>
+                                <p class="mb-0" style="white-space: pre-wrap;">{{ views.narrative.opening_context_html|safe }}</p>
                             </div>
                             {% endif %}
 
@@ -632,48 +653,83 @@
                             </div>
                             {% endmacro %}
 
-                            {# ── Characters with their ethical tensions ── #}
-                            {% if views.narrative.characters %}
-                            <h6><i class="bi bi-people me-1"></i>Characters and the tensions their roles produce ({{ views.narrative.character_count }})</h6>
-                            <p class="section-helper">Each character holds a professional role with specific responsibilities. The ethical tensions listed under each character are the conflicts their role implicates them in. A tension that implicates more than one character appears under each. Click a character to see their full profile and the specific obligations in conflict.</p>
+                            {# ── Characters split into main (named in opening) and additional ── #}
+                            {% set main_chars = views.narrative.characters | selectattr('is_main') | list %}
+                            {% set other_chars = views.narrative.characters | rejectattr('is_main') | list %}
+
+                            {% if main_chars %}
+                            <h6><i class="bi bi-people me-1"></i>Main characters ({{ main_chars|length }})</h6>
+                            <p class="section-helper">These characters are named in the Opening Context above. The same underline marks the name in both places, so you can connect a name in the narrative to the role profile below. Each card lists the ethical tensions that implicate that role.</p>
                             <div class="mb-4">
-                                {% for char in views.narrative.characters %}
-                                {% set char_id = 'study-char-' ~ loop.index %}
+                                {% for char in main_chars %}
+                                {% set char_anchor = 'char-' ~ char.label.replace(' ', '-') %}
                                 {% set char_tensions = views.narrative.tensions_by_character.get(char.label, []) if views.narrative.tensions_by_character else [] %}
-                                <div class="mb-2 border rounded bg-white">
-                                    <div class="d-flex align-items-center p-2" style="cursor: pointer;"
-                                         data-bs-toggle="collapse" data-bs-target="#{{ char_id }}"
-                                         role="button" aria-expanded="false">
-                                        <i class="bi bi-chevron-right small text-muted tension-chevron me-2"></i>
-                                        <strong class="small">{{ char.label or char.role }}</strong>
-                                        {% if char.role_type %}
-                                        <span class="badge ms-2 {% if char.role_type == 'protagonist' %}bg-success{% else %}bg-secondary{% endif %}" style="font-size: 0.65rem;">{{ char.role_type }}</span>
-                                        {% endif %}
+                                <div class="mb-3 border rounded bg-white" id="{{ char_anchor }}">
+                                    <div class="p-2 d-flex align-items-center flex-wrap gap-2 border-bottom">
+                                        <strong>
+                                            <a class="char-mention" tabindex="0"
+                                               data-bs-toggle="popover" data-bs-trigger="focus hover"
+                                               data-bs-content="{{ char.professional_position|escape if char.professional_position else char.label|escape }}">{{ char.label }}</a>
+                                        </strong>
                                         {% if char.professional_position %}
-                                        <span class="text-muted small ms-2 d-none d-md-inline">{{ char.professional_position|truncate(50) }}</span>
+                                        <span class="text-muted small d-none d-md-inline">{{ char.professional_position|truncate(80) }}</span>
                                         {% endif %}
                                         <span class="ms-auto small text-muted">
                                             {% if char_tensions %}{{ char_tensions|length }} tension{{ '' if char_tensions|length == 1 else 's' }}{% else %}no tensions identified{% endif %}
                                         </span>
                                     </div>
+                                    <div class="p-3 small">
+                                        {% if char.ethical_stance %}
+                                        <p class="mb-2">{{ char.ethical_stance }}</p>
+                                        {% endif %}
+                                        {% if char.motivations %}
+                                        <em>Motivations:</em>
+                                        <ul class="mb-0">
+                                            {% for m in char.motivations[:3] %}<li>{{ m }}</li>{% endfor %}
+                                        </ul>
+                                        {% endif %}
+                                        {% if char_tensions %}
+                                        <h6 class="small fw-bold mt-3 mb-2"><i class="bi bi-arrow-left-right me-1"></i>Ethical tensions for this role ({{ char_tensions|length }})</h6>
+                                        {% for t in char_tensions %}
+                                            {{ tension_block(t, 'study-main-tension-' ~ loop.index ~ '-' ~ char_anchor) }}
+                                        {% endfor %}
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+
+                            {% if other_chars %}
+                            <h6 class="mt-4"><i class="bi bi-people me-1"></i>Additional characters ({{ other_chars|length }})</h6>
+                            <p class="section-helper">Other people involved in the case but not central to the opening narrative.</p>
+                            <div class="mb-4">
+                                {% for char in other_chars %}
+                                {% set char_id = 'other-char-' ~ loop.index %}
+                                {% set char_tensions = views.narrative.tensions_by_character.get(char.label, []) if views.narrative.tensions_by_character else [] %}
+                                <div class="mb-1 border rounded bg-light p-2 small">
+                                    <div class="d-flex align-items-center flex-wrap gap-2" style="cursor: pointer;"
+                                         data-bs-toggle="collapse" data-bs-target="#{{ char_id }}"
+                                         role="button" aria-expanded="false">
+                                        <i class="bi bi-chevron-right small text-muted tension-chevron"></i>
+                                        <strong>{{ char.label }}</strong>
+                                        {% if char.professional_position %}
+                                        <span class="text-muted d-none d-md-inline">{{ char.professional_position|truncate(80) }}</span>
+                                        {% endif %}
+                                        {% if char_tensions %}
+                                        <span class="ms-auto text-muted">{{ char_tensions|length }} tension{{ '' if char_tensions|length == 1 else 's' }}</span>
+                                        {% endif %}
+                                    </div>
                                     <div class="collapse" id="{{ char_id }}">
-                                        <div class="p-2 pt-0 ps-4 small border-top">
-                                            {% if char.professional_position %}
-                                            <p class="mb-1 text-muted">{{ char.professional_position }}</p>
-                                            {% endif %}
-                                            {% if char.ethical_stance %}
-                                            <p class="mb-1">{{ char.ethical_stance }}</p>
-                                            {% endif %}
+                                        <div class="pt-2 ps-4 small">
+                                            {% if char.ethical_stance %}<p class="mb-1">{{ char.ethical_stance }}</p>{% endif %}
                                             {% if char.motivations %}
                                             <em>Motivations:</em>
-                                            <ul class="mb-0">
-                                                {% for m in char.motivations[:3] %}<li>{{ m }}</li>{% endfor %}
-                                            </ul>
+                                            <ul class="mb-0">{% for m in char.motivations[:3] %}<li>{{ m }}</li>{% endfor %}</ul>
                                             {% endif %}
                                             {% if char_tensions %}
-                                            <h6 class="small fw-bold mt-3 mb-2"><i class="bi bi-arrow-left-right me-1"></i>Ethical tensions for this role ({{ char_tensions|length }})</h6>
                                             {% for t in char_tensions %}
-                                                {{ tension_block(t, 'study-char-tension-' ~ loop.index ~ '-' ~ char_id) }}
+                                                {{ tension_block(t, 'study-other-tension-' ~ loop.index ~ '-' ~ char_id) }}
                                             {% endfor %}
                                             {% endif %}
                                         </div>
@@ -1738,6 +1794,12 @@
 
         // Set up facts chunking for readability
         setupFactsChunking();
+
+        // Initialize Bootstrap popovers for character-mention links
+        // in the Opening Context and the Main characters list.
+        document.querySelectorAll('.char-mention[data-bs-toggle="popover"]').forEach(function(el) {
+            new bootstrap.Popover(el);
+        });
 
         // Rotate the chevron on each timeline entry that has nested decision points.
         document.querySelectorAll('#study-timeline .tl-has-dps').forEach(function(node) {

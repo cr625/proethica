@@ -530,6 +530,60 @@ class SynthesisViewBuilder:
                 key=lambda t: t['intensity_score'], reverse=True
             )
 
+        # Identify "main" characters: those whose short-name appears in
+        # the opening_context text. The opening context is a 2nd-person
+        # narration of the case from the protagonist's point of view; the
+        # characters it names are central to the case's ethical structure.
+        # Characters not named there are "additional" — present in the
+        # case but secondary to the opening narrative.
+        import re
+        main_short_names: set = set()
+        for ch in characters:
+            label = (ch.get('label') or '').strip()
+            if not label:
+                ch['is_main'] = False
+                continue
+            short_name = ' '.join(label.split()[:2])
+            if short_name and opening_context and short_name in opening_context:
+                ch['is_main'] = True
+                main_short_names.add(short_name)
+            else:
+                ch['is_main'] = False
+
+        # Wrap each main short-name in opening_context with a popover
+        # span. The popover content is the character's professional
+        # position. When the same short-name maps to multiple character
+        # variants (e.g. "Engineer A" -> four role variants), the popover
+        # links to the first match; the alternative role cards remain
+        # visible in the main-characters section below.
+        opening_context_html = opening_context or ''
+        if opening_context_html and main_short_names:
+            short_to_char = {}
+            for ch in characters:
+                if not ch.get('is_main'):
+                    continue
+                label = (ch.get('label') or '').strip()
+                short = ' '.join(label.split()[:2])
+                short_to_char.setdefault(short, ch)
+
+            sorted_shorts = sorted(short_to_char.keys(), key=len, reverse=True)
+            pattern = re.compile(
+                r'\b(' + '|'.join(re.escape(n) for n in sorted_shorts) + r')\b'
+            )
+
+            def _wrap(match: 're.Match') -> str:
+                name = match.group(1)
+                ch = short_to_char[name]
+                pos = (ch.get('professional_position') or '').replace('"', '&quot;')[:200]
+                anchor = ch.get('label', '').replace(' ', '-')
+                return (
+                    f'<a class="char-mention" href="#char-{anchor}" '
+                    f'data-bs-toggle="popover" data-bs-trigger="focus hover" '
+                    f'data-bs-content="{pos}" tabindex="0">{name}</a>'
+                )
+
+            opening_context_html = pattern.sub(_wrap, opening_context_html)
+
         has_content = bool(characters or tensions or opening_context)
 
         return {
@@ -540,6 +594,7 @@ class SynthesisViewBuilder:
             'tensions_by_character': tensions_by_character,
             'unassigned_tensions': unassigned_tensions,
             'opening_context': opening_context,
+            'opening_context_html': opening_context_html,
             'protagonist_label': protagonist_label,
             'character_count': len(characters),
             'tension_count': len(tensions),
