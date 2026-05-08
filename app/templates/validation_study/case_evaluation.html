@@ -145,6 +145,16 @@
     .hidden-step {
         display: none;
     }
+    /* Prompt text: instructional voice within each view (descriptions,
+       section helpers). Distinguished from content text by a warm
+       sepia color and slightly smaller size, so participants can tell
+       at a glance what is "the system talking about the data" vs.
+       "the data itself". */
+    .prompt-text {
+        color: #7d4a40;
+        font-size: 0.9rem;
+        line-height: 1.5;
+    }
     /* Segue cards: framing paragraph above each view pane.
        Editorial pull-quote treatment: white surface, top accent
        stripe in the per-view color, leading dot in the caption.
@@ -444,7 +454,7 @@
                             <span class="badge bg-success">{{ views.narrative.character_count }} characters &middot; {{ views.narrative.tension_count }} tensions</span>
                         </div>
                         <div class="card-body view-content">
-                            <p class="text-muted small">{{ views.narrative.description }}</p>
+                            <p class="prompt-text">Characters and ethical tensions, with an opening context. The case's ethical questions arise from the responsibilities each role carries, so we start with who is involved and what is at stake.</p>
 
                             {% if views.narrative.has_content %}
 
@@ -458,7 +468,7 @@
                             {# ── Characters: grouped by role type, collapsed cards ── #}
                             {% if views.narrative.characters %}
                             <h6><i class="bi bi-people me-1"></i>Characters ({{ views.narrative.character_count }})</h6>
-                            <p class="text-muted small mb-2">Each character holds a professional role with specific responsibilities. Click any character to see their position, ethical stance, and motivations.</p>
+                            <p class="prompt-text mb-2">Each character holds a professional role with specific responsibilities. Click any character to see their position, ethical stance, and motivations.</p>
                             <div class="mb-4">
                                 {% for char in views.narrative.characters %}
                                 {% set char_id = 'study-char-' ~ loop.index %}
@@ -502,7 +512,7 @@
                             {% set total = views.narrative.tension_count or 0 %}
                             <hr class="my-3">
                             <h6><i class="bi bi-arrow-left-right me-1"></i>Ethical Tensions {% if rated > 5 %}(top 5 of {{ rated }}){% else %}({{ rated }}){% endif %}</h6>
-                            <p class="text-muted small mb-2">
+                            <p class="prompt-text mb-2">
                                 Each character's professional role brings obligations grounded in the NSPE Code of Ethics. When characters in different roles hold obligations that pull in opposing directions, the situation produces an ethical tension. The pairs below are ranked by moral intensity, a measure of how much an action ethically matters. The M and P badges on each row show magnitude of consequences and probability of effect. Consider which tensions are most consequential as you move to the next views.
                             </p>
                             <div class="mb-3" id="tensionList">
@@ -602,7 +612,7 @@
                             <span class="badge" style="background: #20c997;">{{ views.timeline.count }} entries &middot; {{ views.timeline.decision_point_count }} decision points</span>
                         </div>
                         <div class="card-body view-content">
-                            <p class="text-muted small">{{ views.timeline.description }}</p>
+                            <p class="prompt-text">{{ views.timeline.description }}</p>
 
                             {% if views.timeline.entries %}
                             <div class="d-flex flex-wrap gap-2 mb-3 small">
@@ -865,7 +875,7 @@
                             <span class="badge" style="background: #fd7e14;">{{ views.decisions.count }} decision points</span>
                         </div>
                         <div class="card-body view-content">
-                            <p class="text-muted small">{{ views.decisions.description }}</p>
+                            <p class="prompt-text">{{ views.decisions.description }}</p>
                             {% for dec in views.decisions.decisions %}
                             <div class="dp-card">
                                 {# Collapsed header #}
@@ -1004,7 +1014,7 @@
                             <span class="badge bg-primary">{{ views.provisions.count }} provisions</span>
                         </div>
                         <div class="card-body view-content">
-                            <p class="text-muted small">{{ views.provisions.description }}</p>
+                            <p class="prompt-text">{{ views.provisions.description }}</p>
                             {% for prov in views.provisions.provisions %}
                             <div class="provision-item mb-3">
                                 <strong>{{ prov.code_section }}</strong>
