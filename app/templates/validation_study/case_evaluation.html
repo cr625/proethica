@@ -145,15 +145,34 @@
     .hidden-step {
         display: none;
     }
-    /* Prompt text: instructional voice within each view (descriptions,
-       section helpers). Distinguished from content text by a warm
-       sepia color and slightly smaller size, so participants can tell
-       at a glance what is "the system talking about the data" vs.
-       "the data itself". */
+    /* Two-tier instructional voice hierarchy within each view.
+       Segue card is the loud global voice (top stripe, bold lead).
+       Below it sits the prompt-text (per-card "about this view")
+       and section-helper (per-section "what to do here"), both
+       slate-colored to read as "the system talking about the data"
+       without warning-color connotations. */
     .prompt-text {
-        color: #7d4a40;
-        font-size: 0.9rem;
+        color: #3d4757;
+        font-size: 1rem;
+        line-height: 1.55;
+        font-weight: 500;
+        padding: 0.35rem 0 0.35rem 0.85rem;
+        border-left: 3px solid #adb5bd;
+        margin-bottom: 1rem;
+    }
+    .section-helper {
+        color: #5a6675;
+        font-size: 0.875rem;
+        font-style: italic;
         line-height: 1.5;
+        margin-bottom: 0.75rem;
+    }
+    .narrative-step {
+        display: inline-block;
+        color: #198754;
+        font-weight: 700;
+        margin-right: 0.4rem;
+        min-width: 1.1rem;
     }
     /* Segue cards: framing paragraph above each view pane.
        Editorial pull-quote treatment: white surface, top accent
@@ -467,8 +486,8 @@
 
                             {# ── Characters: grouped by role type, collapsed cards ── #}
                             {% if views.narrative.characters %}
-                            <h6><i class="bi bi-people me-1"></i>Characters ({{ views.narrative.character_count }})</h6>
-                            <p class="prompt-text mb-2">Each character holds a professional role with specific responsibilities. Click any character to see their position, ethical stance, and motivations.</p>
+                            <h6><span class="narrative-step">1.</span><i class="bi bi-people me-1"></i>Characters ({{ views.narrative.character_count }})</h6>
+                            <p class="section-helper">Each character holds a professional role with specific responsibilities. Click any character to see their position, ethical stance, and motivations.</p>
                             <div class="mb-4">
                                 {% for char in views.narrative.characters %}
                                 {% set char_id = 'study-char-' ~ loop.index %}
@@ -511,8 +530,8 @@
                             {% set rated = views.narrative.rated_tension_count or 0 %}
                             {% set total = views.narrative.tension_count or 0 %}
                             <hr class="my-3">
-                            <h6><i class="bi bi-arrow-left-right me-1"></i>Ethical Tensions {% if rated > 5 %}(top 5 of {{ rated }}){% else %}({{ rated }}){% endif %}</h6>
-                            <p class="prompt-text mb-2">
+                            <h6><span class="narrative-step">2.</span><i class="bi bi-arrow-left-right me-1"></i>Ethical Tensions {% if rated > 5 %}(top 5 of {{ rated }}){% else %}({{ rated }}){% endif %}</h6>
+                            <p class="section-helper">
                                 Each character's professional role brings obligations grounded in the NSPE Code of Ethics. When characters in different roles hold obligations that pull in opposing directions, the situation produces an ethical tension. The pairs below are ranked by moral intensity, a measure of how much an action ethically matters. The M and P badges on each row show magnitude of consequences and probability of effect. Consider which tensions are most consequential as you move to the next views.
                             </p>
                             <div class="mb-3" id="tensionList">
