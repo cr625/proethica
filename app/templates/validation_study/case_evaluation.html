@@ -146,35 +146,46 @@
         display: none;
     }
     /* Segue cards: framing paragraph above each view pane.
-       Styled to draw the eye as the first thing the participant
-       reads on each view; participants who skim the body still
-       see the framing. */
+       Editorial pull-quote treatment: white surface, top accent
+       stripe in the per-view color, leading dot in the caption.
+       Unambiguously the first focal point of the view. */
     .segue-card {
-        background: #fdfcf3;
-        border-left: 5px solid #999;
+        background: #ffffff;
+        border-top: 4px solid #999;
         border-radius: 6px;
-        padding: 1rem 1.25rem;
-        margin-bottom: 1.25rem;
-        font-style: italic;
-        color: #2d2d2d;
-        line-height: 1.55;
-        font-size: 1rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        padding: 1.25rem 1.5rem;
+        margin-bottom: 1.5rem;
+        color: #1f2937;
+        line-height: 1.6;
+        font-size: 1.0625rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+        position: relative;
     }
     .segue-card .segue-caption {
-        font-style: normal;
-        font-size: 0.8rem;
+        font-size: 0.78rem;
         text-transform: uppercase;
-        letter-spacing: 0.06em;
-        color: #495057;
-        font-weight: 600;
-        margin-bottom: 0.5rem;
+        letter-spacing: 0.08em;
+        color: #1f2937;
+        font-weight: 700;
+        margin-bottom: 0.65rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
     }
-    .segue-card.segue-narrative  { border-left-color: #198754; }
-    .segue-card.segue-timeline   { border-left-color: #20c997; }
-    .segue-card.segue-qc         { border-left-color: #6f42c1; }
-    .segue-card.segue-decisions  { border-left-color: #fd7e14; }
-    .segue-card.segue-provisions { border-left-color: #0d6efd; }
+    .segue-card .segue-caption::before {
+        content: "";
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--segue-accent, #999);
+        flex-shrink: 0;
+    }
+    .segue-card.segue-narrative   { border-top-color: #198754; --segue-accent: #198754; }
+    .segue-card.segue-timeline    { border-top-color: #20c997; --segue-accent: #20c997; }
+    .segue-card.segue-qc          { border-top-color: #6f42c1; --segue-accent: #6f42c1; }
+    .segue-card.segue-decisions   { border-top-color: #fd7e14; --segue-accent: #fd7e14; }
+    .segue-card.segue-provisions  { border-top-color: #0d6efd; --segue-accent: #0d6efd; }
     /* Between-view navigation footer */
     .view-footer-nav {
         display: flex;
@@ -425,7 +436,7 @@
                 <div class="tab-pane fade show active" id="narrative-pane">
                     <div class="segue-card segue-narrative">
                         <div class="segue-caption">View 1 of 5: Narrative</div>
-                        Start with the people. This view shows who is involved in the case, the professional role each one holds, and the ethical tensions their roles produce. An ethical tension is a pair of competing obligations, both grounded in the NSPE Code of Ethics, that cannot both be fully honored at once. Read the characters first, then the tensions.
+                        <strong>Start with the people.</strong> This view shows who is involved in the case, the professional role each one holds, and the ethical tensions their roles produce. An ethical tension is a pair of competing obligations, both grounded in the NSPE Code of Ethics, that cannot both be fully honored at once. Read the characters first, then the tensions.
                     </div>
                     <div class="view-card card">
                         <div class="card-header">
@@ -492,7 +503,7 @@
                             <hr class="my-3">
                             <h6><i class="bi bi-arrow-left-right me-1"></i>Ethical Tensions {% if rated > 5 %}(top 5 of {{ rated }}){% else %}({{ rated }}){% endif %}</h6>
                             <p class="text-muted small mb-2">
-                                Each character's professional role brings obligations grounded in the NSPE Code of Ethics. When characters in different roles hold obligations that pull in opposing directions, the situation produces an ethical tension. The pairs below show those tensions, ranked by moral intensity. Consider which tensions are most consequential as you move to the next views.
+                                Each character's professional role brings obligations grounded in the NSPE Code of Ethics. When characters in different roles hold obligations that pull in opposing directions, the situation produces an ethical tension. The pairs below are ranked by moral intensity, a measure of how much an action ethically matters. The M and P badges on each row show magnitude of consequences and probability of effect. Consider which tensions are most consequential as you move to the next views.
                             </p>
                             <div class="mb-3" id="tensionList">
                                 {% for t in views.narrative.tensions %}
@@ -583,7 +594,7 @@
                 <div class="tab-pane fade" id="timeline-pane">
                     <div class="segue-card segue-timeline">
                         <div class="segue-caption">View 2 of 5: Timeline</div>
-                        Now place the story on a timeline. Each entry is an Action taken by a participant or an Event outside their control, in sequence. Decision points nest beneath the moments at which the professional faced a choice. Watch for actions whose consequences only become ethically loaded once a later event has occurred.
+                        <strong>Now place the story on a timeline.</strong> Each entry is an Action taken by a participant or an Event outside their control, in sequence. Decision points nest beneath the moments at which the professional faced a choice. Watch for actions whose consequences only become ethically loaded once a later event has occurred.
                     </div>
                     <div class="view-card card">
                         <div class="card-header">
@@ -688,7 +699,7 @@
                 <div class="tab-pane fade" id="qc-pane">
                     <div class="segue-card segue-qc">
                         <div class="segue-caption">View 3 of 5: Questions and Conclusions</div>
-                        The sequence raises ethical questions. This view pairs each question the Board addressed with the conclusion it reached. Board questions form the spine; analytical sub-questions elaborate on each. This is where the case transitions from narrative to formal deliberation.
+                        <strong>The sequence raises ethical questions.</strong> This view pairs each question the Board addressed with the conclusion it reached. Board questions form the spine; analytical sub-questions elaborate on each. This is where the case transitions from narrative to formal deliberation.
                     </div>
                     <div class="view-card card">
                         <div class="card-header">
@@ -846,7 +857,7 @@
                 <div class="tab-pane fade" id="decisions-pane">
                     <div class="segue-card segue-decisions">
                         <div class="segue-caption">View 4 of 5: Decisions</div>
-                        At each decision point the professional could have chosen differently. This view lays out the options the Board considered, the argument structure for and against each one (warrants, rebuttals, grounds), and the Board's choice. Disagreement between your intuition and the Board's reasoning often shows up here first.
+                        <strong>At each decision point the professional could have chosen differently.</strong> This view lays out the options the Board considered, the argument structure for and against each one (warrants, rebuttals, grounds), and the Board's choice. Disagreement between your intuition and the Board's reasoning often shows up here first.
                     </div>
                     <div class="view-card card">
                         <div class="card-header">
@@ -985,7 +996,7 @@
                 <div class="tab-pane fade" id="provisions-pane">
                     <div class="segue-card segue-provisions">
                         <div class="segue-caption">View 5 of 5: Provisions</div>
-                        Finally, anchor the analysis in the NSPE Code of Ethics. This view groups provisions by Code section and shows which extracted Obligations, Principles, and Constraints trace back to each. Use it as a check: do the code citations match the ethical tensions you identified in the Narrative and Decisions views?
+                        <strong>Finally, anchor the analysis in the NSPE Code of Ethics.</strong> This view groups provisions by Code section and shows which extracted Obligations, Principles, and Constraints trace back to each. Use it as a check: do the code citations match the ethical tensions you identified in the Narrative and Decisions views?
                     </div>
                     <div class="view-card card">
                         <div class="card-header">
