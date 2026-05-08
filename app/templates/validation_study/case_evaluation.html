@@ -26,17 +26,21 @@
         filter: brightness(0.95);
         text-decoration: none;
     }
-    .step.active {
-        background: #0d6efd;
-        color: white;
-    }
-    .step.active:hover {
-        color: white;
-    }
+    /* Reached pills (current and previously-visited) share the same green;
+       a halo distinguishes the currently-active one. The earlier blue/green
+       split signaled "active vs done" which is correct in stepper convention
+       but read as confusing in this 5-pill linear flow. The participant
+       knows which step they are on from page content; the pill color just
+       tracks "what is reached" vs "what is ahead". */
+    .step.active,
     .step.completed {
         background: #198754;
         color: white;
     }
+    .step.active {
+        box-shadow: 0 0 0 3px rgba(25, 135, 84, 0.28);
+    }
+    .step.active:hover,
     .step.completed:hover {
         color: white;
     }
@@ -1444,27 +1448,12 @@
         el.classList.add(state.icon, state.color);
     }
 
-    // Active-tab star fill: when a tab is active and its rating is
-    // empty, render the star filled in the per-view accent color so
-    // the active tab is unambiguous. Once any rating is recorded,
-    // applyStarState above clears tab-active-empty-fill and the
-    // standard half/full color semantics take over.
-    function setTabActiveFill(tabBtn) {
-        const star = tabBtn.querySelector('.tab-rating-star');
-        if (!star) return;
-        if (star.classList.contains('bi-star') && star.classList.contains('text-muted')) {
-            star.classList.remove('bi-star', 'text-muted');
-            star.classList.add('bi-star-fill', 'tab-active-empty-fill');
-        }
-    }
-    function clearTabActiveFill(tabBtn) {
-        const star = tabBtn.querySelector('.tab-rating-star');
-        if (!star) return;
-        if (star.classList.contains('tab-active-empty-fill')) {
-            star.classList.remove('bi-star-fill', 'tab-active-empty-fill');
-            star.classList.add('bi-star', 'text-muted');
-        }
-    }
+    // (Active-tab star fill removed 2026-05-08. View tab stars are now
+    // pure rating-progress indicators: outline when 0/3 rated, filled
+    // when 3/3 rated. The active tab is signaled by the colored pill
+    // background and border, not by overloading the rating star.)
+    function setTabActiveFill(tabBtn) { /* no-op; kept for hook compatibility */ }
+    function clearTabActiveFill(tabBtn) { /* no-op; kept for hook compatibility */ }
 
     function refreshStarIndicators() {
         const views = VIEW_KEYS.concat(['overall']);
