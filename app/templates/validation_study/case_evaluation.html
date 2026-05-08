@@ -145,24 +145,30 @@
     .hidden-step {
         display: none;
     }
-    /* Segue cards: framing paragraph above each view pane */
+    /* Segue cards: framing paragraph above each view pane.
+       Styled to draw the eye as the first thing the participant
+       reads on each view; participants who skim the body still
+       see the framing. */
     .segue-card {
-        background: #f8f9fa;
-        border-left: 4px solid #999;
-        border-radius: 4px;
-        padding: 0.75rem 1rem;
-        margin-bottom: 1rem;
+        background: #fdfcf3;
+        border-left: 5px solid #999;
+        border-radius: 6px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1.25rem;
         font-style: italic;
-        color: #444;
-        line-height: 1.5;
+        color: #2d2d2d;
+        line-height: 1.55;
+        font-size: 1rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
     }
     .segue-card .segue-caption {
         font-style: normal;
-        font-size: 0.75rem;
+        font-size: 0.8rem;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: #6c757d;
-        margin-bottom: 0.35rem;
+        letter-spacing: 0.06em;
+        color: #495057;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
     }
     .segue-card.segue-narrative  { border-left-color: #198754; }
     .segue-card.segue-timeline   { border-left-color: #20c997; }
@@ -419,7 +425,7 @@
                 <div class="tab-pane fade show active" id="narrative-pane">
                     <div class="segue-card segue-narrative">
                         <div class="segue-caption">View 1 of 5: Narrative</div>
-                        Start with the people. This view reconstructs the case as a character-driven account: who the professional is, who else has a stake in the outcome, and what competing obligations they carry into the situation. Read it as the opening of a story. The analytical scaffolding follows.
+                        Start with the people. This view shows who is involved in the case, the professional role each one holds, and the ethical tensions their roles produce. An ethical tension is a pair of competing obligations, both grounded in the NSPE Code of Ethics, that cannot both be fully honored at once. Read the characters first, then the tensions.
                     </div>
                     <div class="view-card card">
                         <div class="card-header">
@@ -484,7 +490,7 @@
                             {% set rated = views.narrative.rated_tension_count or 0 %}
                             {% set total = views.narrative.tension_count or 0 %}
                             <hr class="my-3">
-                            <h6><i class="bi bi-arrow-left-right me-1"></i>Ethical Tensions ({{ total }})</h6>
+                            <h6><i class="bi bi-arrow-left-right me-1"></i>Ethical Tensions {% if rated > 5 %}(top 5 of {{ rated }}){% else %}({{ rated }}){% endif %}</h6>
                             <p class="text-muted small mb-2">
                                 Each character's professional role brings obligations grounded in the NSPE Code of Ethics. When characters in different roles hold obligations that pull in opposing directions, the situation produces an ethical tension. The pairs below show those tensions, ranked by moral intensity. Consider which tensions are most consequential as you move to the next views.
                             </p>
