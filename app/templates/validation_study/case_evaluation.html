@@ -19,13 +19,25 @@
         font-size: 0.875rem;
         background: #f8f9fa;
         color: #6c757d;
+        text-decoration: none;
+        transition: filter 0.15s, transform 0.15s;
+    }
+    .step:hover {
+        filter: brightness(0.95);
+        text-decoration: none;
     }
     .step.active {
         background: #0d6efd;
         color: white;
     }
+    .step.active:hover {
+        color: white;
+    }
     .step.completed {
         background: #198754;
+        color: white;
+    }
+    .step.completed:hover {
         color: white;
     }
     .step-number {
@@ -418,26 +430,30 @@
         </div>
     </div>
 
-    <!-- Step Indicator -->
+    <!-- Step Indicator. Pills are anchor links so participants can jump
+         between steps. Reveal and Alignment are gated server-side on
+         comprehension_complete; clicking those before comprehension is
+         submitted redirects back to the comprehension step with a flash
+         message (see study.evaluate_case route). -->
     <div class="step-indicator">
-        <div class="step {% if current_step == 'facts' %}active{% elif current_step in ['views', 'utility', 'comprehension', 'reveal', 'alignment'] %}completed{% endif %}" data-step="facts">
+        <a class="step {% if current_step == 'facts' %}active{% elif current_step in ['views', 'utility', 'comprehension', 'reveal', 'alignment'] %}completed{% endif %}" href="{{ url_for('study.evaluate_case', case_id=document.id, step='facts') }}" data-step="facts">
             <span class="step-number">1</span> Facts
-        </div>
-        <div class="step {% if current_step == 'views' %}active{% elif current_step in ['utility', 'comprehension', 'reveal', 'alignment'] %}completed{% endif %}" data-step="views">
+        </a>
+        <a class="step {% if current_step == 'views' %}active{% elif current_step in ['utility', 'comprehension', 'reveal', 'alignment'] %}completed{% endif %}" href="{{ url_for('study.evaluate_case', case_id=document.id, step='views') }}" data-step="views">
             <span class="step-number">2</span> Views
-        </div>
-        <div class="step {% if current_step == 'utility' %}active{% elif current_step in ['comprehension', 'reveal', 'alignment'] %}completed{% endif %}" data-step="utility">
+        </a>
+        <a class="step {% if current_step == 'utility' %}active{% elif current_step in ['comprehension', 'reveal', 'alignment'] %}completed{% endif %}" href="{{ url_for('study.evaluate_case', case_id=document.id, step='utility') }}" data-step="utility">
             <span class="step-number">3</span> Utility
-        </div>
-        <div class="step {% if current_step == 'comprehension' %}active{% elif current_step in ['reveal', 'alignment'] %}completed{% endif %}" data-step="comprehension">
+        </a>
+        <a class="step {% if current_step == 'comprehension' %}active{% elif current_step in ['reveal', 'alignment'] %}completed{% endif %}" href="{{ url_for('study.evaluate_case', case_id=document.id, step='comprehension') }}" data-step="comprehension">
             <span class="step-number">4</span> Questions
-        </div>
-        <div class="step {% if current_step == 'reveal' %}active{% elif current_step == 'alignment' %}completed{% endif %}" data-step="reveal">
+        </a>
+        <a class="step {% if current_step == 'reveal' %}active{% elif current_step == 'alignment' %}completed{% endif %}" href="{{ url_for('study.evaluate_case', case_id=document.id, step='reveal') }}" data-step="reveal">
             <span class="step-number">5</span> Reveal
-        </div>
-        <div class="step {% if current_step == 'alignment' %}active{% endif %}" data-step="alignment">
+        </a>
+        <a class="step {% if current_step == 'alignment' %}active{% endif %}" href="{{ url_for('study.evaluate_case', case_id=document.id, step='alignment') }}" data-step="alignment">
             <span class="step-number">6</span> Alignment
-        </div>
+        </a>
     </div>
 
     <form id="evaluationForm" method="POST" action="{{ url_for('study.submit_evaluation', case_id=document.id) }}">
@@ -463,7 +479,7 @@
                     <i class="bi bi-chevron-up instruction-chevron"></i>
                 </button>
                 <div class="collapse show" id="instr-overview">
-                    <div class="instruction-body"><strong>You'll rate each view after reading it.</strong> Walk through the five synthesis views in order. Each view offers a different analytical lens on the same case. The guided sequence moves from the case as a human story to the formal code provisions that ground it. You don't need to read every entry. Form an impression of how each view organizes the case. You can return to any view at any time.</div>
+                    <div class="instruction-body"><strong>You'll rate each view after reading it.</strong> Walk through the five views in order. Each view shows the same case from a different angle, surfacing different aspects of what happened. The sequence moves from the case as a human story to the formal code provisions that ground it. You don't need to read every entry. Form an impression of how each view organizes the case. You can return to any view at any time.</div>
                 </div>
             </div>
             <div class="card">
@@ -490,7 +506,7 @@
                 </div>
                 <div class="card-footer">
                     <button type="button" class="btn btn-primary" onclick="goToStep('views')">
-                        Continue to Synthesis Views <i class="bi bi-arrow-right ms-1"></i>
+                        Continue to the five views <i class="bi bi-arrow-right ms-1"></i>
                     </button>
                 </div>
             </div>
@@ -1293,7 +1309,7 @@
                 <div class="card-body">
                     <div class="withheld-notice mb-4">
                         <i class="bi bi-exclamation-triangle me-2"></i>
-                        <strong>Important:</strong> Answer these questions based on your understanding from the case facts and synthesis views. The board's actual conclusions will be revealed after you submit your answers.
+                        <strong>Important:</strong> Answer these questions based on your understanding from the case facts and the five views. The board's actual conclusions will be revealed after you submit your answers.
                     </div>
 
                     <div class="comprehension-question">
