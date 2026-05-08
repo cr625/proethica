@@ -465,7 +465,7 @@
                 <div class="tab-pane fade show active" id="narrative-pane">
                     <div class="segue-card segue-narrative">
                         <div class="segue-caption">View 1 of 5: Narrative</div>
-                        <strong>Start with the people.</strong> This view shows who is involved in the case, the professional role each one holds, and the ethical tensions their roles produce. An ethical tension is a pair of competing obligations, both grounded in the NSPE Code of Ethics, that cannot both be fully honored at once. Read the characters first, then the tensions.
+                        <strong>Roles, and the obligations they carry, create the tensions.</strong> Each person on this view holds a professional role. The obligations attached to those roles are grounded in the NSPE Code of Ethics, and where the obligations of different roles pull against each other, an ethical tension arises. Read the characters first, then the tensions they produce.
                     </div>
                     <div class="view-card card">
                         <div class="card-header">
@@ -473,7 +473,7 @@
                             <span class="badge bg-success">{{ views.narrative.character_count }} characters &middot; {{ views.narrative.tension_count }} tensions</span>
                         </div>
                         <div class="card-body view-content">
-                            <p class="prompt-text">Characters and ethical tensions, with an opening context. The case's ethical questions arise from the responsibilities each role carries, so we start with who is involved and what is at stake.</p>
+                            <p class="prompt-text"><strong>Instructions:</strong>&nbsp;Characters and ethical tensions, with an opening context. The case's ethical questions arise from the responsibilities each role carries, so we start with who is involved and what is at stake.</p>
 
                             {% if views.narrative.has_content %}
 
@@ -631,7 +631,7 @@
                             <span class="badge" style="background: #20c997;">{{ views.timeline.count }} entries &middot; {{ views.timeline.decision_point_count }} decision points</span>
                         </div>
                         <div class="card-body view-content">
-                            <p class="prompt-text">{{ views.timeline.description }}</p>
+                            <p class="prompt-text"><strong>Instructions:</strong>&nbsp;{{ views.timeline.description }}</p>
 
                             {% if views.timeline.entries %}
                             <div class="d-flex flex-wrap gap-2 mb-3 small">
@@ -894,7 +894,7 @@
                             <span class="badge" style="background: #fd7e14;">{{ views.decisions.count }} decision points</span>
                         </div>
                         <div class="card-body view-content">
-                            <p class="prompt-text">{{ views.decisions.description }}</p>
+                            <p class="prompt-text"><strong>Instructions:</strong>&nbsp;{{ views.decisions.description }}</p>
                             {% for dec in views.decisions.decisions %}
                             <div class="dp-card">
                                 {# Collapsed header #}
@@ -1033,7 +1033,7 @@
                             <span class="badge bg-primary">{{ views.provisions.count }} provisions</span>
                         </div>
                         <div class="card-body view-content">
-                            <p class="prompt-text">{{ views.provisions.description }}</p>
+                            <p class="prompt-text"><strong>Instructions:</strong>&nbsp;{{ views.provisions.description }}</p>
                             {% for prov in views.provisions.provisions %}
                             <div class="provision-item mb-3">
                                 <strong>{{ prov.code_section }}</strong>
