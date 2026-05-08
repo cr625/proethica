@@ -236,6 +236,14 @@ def index():
                                is_prolific=is_prolific,
                                invalid_code=code)
 
+    # Orientation gate. New sessions (post-2026-05-08) start with
+    # orientation_completed_at NULL and are redirected here on first
+    # arrival at the dashboard. Legacy sessions backfilled by
+    # migrate_study_schema_v10.sql have a non-NULL value and proceed
+    # straight to the dashboard.
+    if val_session.orientation_completed_at is None:
+        return redirect(url_for('study.orientation'))
+
     view_builder = SynthesisViewBuilder()
     assigned_ids = val_session.assigned_cases or []
     completed = set(val_session.completed_cases or [])
@@ -316,7 +324,10 @@ def enroll():
         f'to your session. If you lose it, you cannot resume and would need to restart.',
         'info'
     )
-    return redirect(url_for('study.index', code=val_session.participant_code))
+    # New sessions land on the orientation page first. The participant code is
+    # also surfaced there. The dashboard renders only after orientation submit
+    # (or for returning participants whose orientation_completed_at is set).
+    return redirect(url_for('study.orientation'))
 
 
 @study_bp.route('/exit')
@@ -1127,6 +1138,10 @@ def preview_start():
         assigned_cases=[case_id],
         completed_cases=[],
         consent_acknowledged_at=datetime.utcnow(),
+        # Preview sessions bypass orientation; the route is for first-time
+        # real participants. Reviewers exploring the interface jump straight
+        # to the case-evaluation flow.
+        orientation_completed_at=datetime.utcnow(),
         info_sheet_version='preview',
     )
     db.session.add(val_session)
