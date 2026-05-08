@@ -603,8 +603,13 @@
                             </div>
                             {% endif %}
 
-                            {# Tension display macro: shared between character-grouped and unassigned sections. #}
-                            {% macro tension_block(t, tension_id) %}
+                            {# Tension display macro: shared between character-grouped and unassigned sections.
+                               linked_main_shorts (optional, only passed in the Main characters context):
+                               a list of OTHER main characters' short-names that this same tension also
+                               implicates. Rendered as small "also: X, Y" chips so the participant
+                               understands that the same tension appearing under multiple characters
+                               is intentional cross-referencing, not duplication. #}
+                            {% macro tension_block(t, tension_id, linked_main_shorts=None) %}
                             <div class="tension-row mb-1 border rounded bg-white">
                                 <div class="d-flex align-items-center flex-wrap gap-2 p-2 tension-row-header"
                                      data-bs-toggle="collapse" data-bs-target="#{{ tension_id }}"
@@ -621,6 +626,12 @@
                                     </span>
                                     {% endif %}
                                 </div>
+                                {% if linked_main_shorts %}
+                                <div class="px-2 pb-2 small text-muted" style="font-size: 0.78rem;">
+                                    <span class="me-1">Also implicates:</span>
+                                    {% for s in linked_main_shorts %}<span class="badge bg-info-subtle text-info-emphasis border me-1">{{ s }}</span>{% endfor %}
+                                </div>
+                                {% endif %}
                                 <div class="collapse" id="{{ tension_id }}">
                                     <div class="p-2 pt-0 ps-4 small">
                                         {% if t.description %}
@@ -695,10 +706,12 @@
                                         {% if cross_count > 0 and self_only_count > 0 %}
                                         <p class="section-helper" style="margin-bottom: 0.6rem;">Tensions that link to another main character appear first. Tensions that involve only this role are hidden below.</p>
                                         {% endif %}
+                                        {% set linked_lists = views.narrative.tensions_linked_by_character.get(char.label, []) if views.narrative.tensions_linked_by_character else [] %}
                                         {% for t in char_tensions %}
                                             {% set is_self_only = loop.index > cross_count %}
+                                            {% set linked_shorts = linked_lists[loop.index0] if loop.index0 < linked_lists|length else [] %}
                                             <div class="{% if is_self_only %}tension-self-only-row d-none{% endif %}" data-char-anchor="{{ char_anchor }}">
-                                                {{ tension_block(t, 'study-main-tension-' ~ loop.index ~ '-' ~ char_anchor) }}
+                                                {{ tension_block(t, 'study-main-tension-' ~ loop.index ~ '-' ~ char_anchor, linked_shorts) }}
                                             </div>
                                         {% endfor %}
                                         {% if self_only_count > 0 %}

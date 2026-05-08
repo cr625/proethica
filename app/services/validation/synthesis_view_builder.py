@@ -578,11 +578,32 @@ class SynthesisViewBuilder:
                     best_pos = pos
             return best_pos
 
+        def _linked_main_shorts(t: Dict[str, Any], own_short: str) -> List[str]:
+            """List of OTHER main short-names implicated by this tension,
+            in character-list order."""
+            text = ' '.join([
+                (t.get('entity1_label') or ''),
+                (t.get('entity2_label') or ''),
+                ' '.join(t.get('affected_role_labels') or []),
+            ])
+            shorts_with_pos: List[tuple] = []
+            for short, pos in main_short_name_order.items():
+                if short == own_short:
+                    continue
+                if short and short in text:
+                    shorts_with_pos.append((pos, short))
+            shorts_with_pos.sort()
+            return [short for _, short in shorts_with_pos]
+
         # tensions_cross_count_by_character[label] = N means the first
         # N entries of tensions_by_character[label] are cross-main and
         # should render visible by default; the remaining are self-only
         # and the template hides them behind a "show more" toggle.
+        # tensions_linked_by_character[label] is a parallel list-of-lists
+        # giving the OTHER main short-names implicated by each tension
+        # under that character (same order as tensions_by_character[label]).
         tensions_cross_count_by_character: Dict[str, int] = {}
+        tensions_linked_by_character: Dict[str, List[List[str]]] = {}
         for char in characters:
             if not char.get('is_main'):
                 continue
@@ -603,6 +624,10 @@ class SynthesisViewBuilder:
                 if _cross_main_pos(t, own_short) is not None
             )
             tensions_cross_count_by_character[label] = cross_count
+            tensions_linked_by_character[label] = [
+                _linked_main_shorts(t, own_short)
+                for t in tensions_by_character[label]
+            ]
 
         # Wrap each main short-name in opening_context with a popover
         # span. The popover content is the character's professional
@@ -647,6 +672,7 @@ class SynthesisViewBuilder:
             'tensions': tensions,
             'tensions_by_character': tensions_by_character,
             'tensions_cross_count_by_character': tensions_cross_count_by_character,
+            'tensions_linked_by_character': tensions_linked_by_character,
             'unassigned_tensions': unassigned_tensions,
             'opening_context': opening_context,
             'opening_context_html': opening_context_html,
