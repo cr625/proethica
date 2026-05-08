@@ -436,23 +436,20 @@
          submitted redirects back to the comprehension step with a flash
          message (see study.evaluate_case route). -->
     <div class="step-indicator">
-        <a class="step {% if current_step == 'facts' %}active{% elif current_step in ['views', 'utility', 'comprehension', 'reveal', 'alignment'] %}completed{% endif %}" href="{{ url_for('study.evaluate_case', case_id=document.id, step='facts') }}" data-step="facts">
+        <a class="step {% if current_step == 'facts' %}active{% elif current_step in ['views', 'comprehension', 'reveal', 'alignment'] %}completed{% endif %}" href="{{ url_for('study.evaluate_case', case_id=document.id, step='facts') }}" data-step="facts">
             <span class="step-number">1</span> Facts
         </a>
-        <a class="step {% if current_step == 'views' %}active{% elif current_step in ['utility', 'comprehension', 'reveal', 'alignment'] %}completed{% endif %}" href="{{ url_for('study.evaluate_case', case_id=document.id, step='views') }}" data-step="views">
+        <a class="step {% if current_step == 'views' %}active{% elif current_step in ['comprehension', 'reveal', 'alignment'] %}completed{% endif %}" href="{{ url_for('study.evaluate_case', case_id=document.id, step='views') }}" data-step="views">
             <span class="step-number">2</span> Views
         </a>
-        <a class="step {% if current_step == 'utility' %}active{% elif current_step in ['comprehension', 'reveal', 'alignment'] %}completed{% endif %}" href="{{ url_for('study.evaluate_case', case_id=document.id, step='utility') }}" data-step="utility">
-            <span class="step-number">3</span> Utility
-        </a>
         <a class="step {% if current_step == 'comprehension' %}active{% elif current_step in ['reveal', 'alignment'] %}completed{% endif %}" href="{{ url_for('study.evaluate_case', case_id=document.id, step='comprehension') }}" data-step="comprehension">
-            <span class="step-number">4</span> Questions
+            <span class="step-number">3</span> Questions
         </a>
         <a class="step {% if current_step == 'reveal' %}active{% elif current_step == 'alignment' %}completed{% endif %}" href="{{ url_for('study.evaluate_case', case_id=document.id, step='reveal') }}" data-step="reveal">
-            <span class="step-number">5</span> Reveal
+            <span class="step-number">4</span> Reveal
         </a>
         <a class="step {% if current_step == 'alignment' %}active{% endif %}" href="{{ url_for('study.evaluate_case', case_id=document.id, step='alignment') }}" data-step="alignment">
-            <span class="step-number">6</span> Alignment
+            <span class="step-number">5</span> Alignment
         </a>
     </div>
 
@@ -479,7 +476,7 @@
                     <i class="bi bi-chevron-up instruction-chevron"></i>
                 </button>
                 <div class="collapse show" id="instr-overview">
-                    <div class="instruction-body"><strong>You're at step 1 of 6: Case Facts.</strong> Read the case below to understand what happened. From here you'll move through five views of the same case, four short questions about the case, the board's published reasoning, and a final alignment check. The pills above let you return to any step at any time.</div>
+                    <div class="instruction-body"><strong>You're at step 1 of 5: Case Facts.</strong> Read the case below to understand what happened. From here you'll move through five views of the same case, four short questions about the case, the board's published reasoning, and a final alignment check. The pills above let you return to any step at any time.</div>
                 </div>
             </div>
             <div class="card">
@@ -1240,8 +1237,8 @@
                     <button type="button" class="btn btn-outline-secondary" onclick="activateViewTab('provisions-tab')">
                         <i class="bi bi-arrow-up me-1"></i> Back to Provisions
                     </button>
-                    <button type="button" class="btn btn-primary" id="continue-to-utility-btn" disabled title="Rate all 18 items to continue" onclick="goToStep('utility')">
-                        Continue <i class="bi bi-arrow-right ms-1"></i>
+                    <button type="button" class="btn btn-primary" id="continue-to-comprehension-btn" disabled title="Rate all 18 items to continue" onclick="goToStep('comprehension')">
+                        Continue to Comprehension <i class="bi bi-arrow-right ms-1"></i>
                     </button>
                 </div>
             </div>
@@ -1251,56 +1248,13 @@
             </p>
         </div>
 
-        <!-- STEP 3: UTILITY RATING -->
-        <!-- STEP 3: UTILITY RATING RECAP -->
-        <!-- Under inline-layout (v8 schema), the 18 Likert items live in
-             the per-view tab footers in step-views and the Overall panel.
-             This step is now a brief confirm-and-continue summary. -->
-        <div id="step-utility" class="step-content {% if current_step != 'utility' %}hidden-step{% endif %}">
-            <div class="card">
-                <div class="card-header bg-success text-white">
-                    <h5 class="mb-0"><i class="bi bi-check-circle me-2"></i>Confirm your ratings</h5>
-                </div>
-                <div class="card-body">
-                    <p>You rated five views and an overall assessment. You can revisit any view to change a rating before continuing.</p>
-                    <ul class="list-group mb-3">
-                        {% for view, label in [
-                            ('narrative', 'Narrative'),
-                            ('timeline', 'Timeline'),
-                            ('qc', 'Q&C'),
-                            ('decisions', 'Decisions'),
-                            ('provisions', 'Provisions')
-                        ] %}
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <button type="button" class="btn btn-link p-0 text-start" onclick="goToStep('views'); activateViewTab('{{ view }}-tab');">{{ label }}</button>
-                            <span class="rating-summary small" data-view-summary="{{ view }}">
-                                <i class="bi bi-star text-muted me-1" data-recap-star="{{ view }}" aria-hidden="true"></i>
-                                <span class="rating-text text-muted">0 of 3 rated</span>
-                            </span>
-                        </li>
-                        {% endfor %}
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <button type="button" class="btn btn-link p-0 text-start" onclick="goToStep('views'); document.getElementById('overall-panel').scrollIntoView({behavior:'smooth'});">Overall Assessment</button>
-                            <span class="rating-summary small" data-view-summary="overall">
-                                <i class="bi bi-star text-muted me-1" data-recap-star="overall" aria-hidden="true"></i>
-                                <span class="rating-text text-muted">0 of 3 rated</span>
-                            </span>
-                        </li>
-                    </ul>
-                    <p class="small text-muted">If any line above shows fewer than 3 of 3 rated, return to that view to complete it before continuing.</p>
-                </div>
-                <div class="card-footer">
-                    <button type="button" class="btn btn-outline-secondary" onclick="goToStep('views')">
-                        <i class="bi bi-arrow-left me-1"></i> Back to views
-                    </button>
-                    <button type="button" class="btn btn-primary" onclick="goToStep('comprehension')">
-                        Continue to Comprehension Questions <i class="bi bi-arrow-right ms-1"></i>
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- STEP 4: COMPREHENSION QUESTIONS -->
+        <!-- STEP 3: COMPREHENSION QUESTIONS -->
+        <!-- The previous Step 3 ("Utility recap") was removed once the Likert
+             items moved inline into the per-view footers in step-views and
+             the Overall panel. The recap was a transitional artifact whose
+             confirm-and-continue role is now subsumed by the Overall panel's
+             gated Continue button (continue-to-comprehension-btn, enabled
+             only when all 18 items are rated). -->
         <div id="step-comprehension" class="step-content {% if current_step != 'comprehension' %}hidden-step{% endif %}">
             <div class="card">
                 <div class="card-header bg-info text-white">
@@ -1333,7 +1287,7 @@
                     </div>
                 </div>
                 <div class="card-footer">
-                    <button type="button" class="btn btn-outline-secondary" onclick="goToStep('utility')">
+                    <button type="button" class="btn btn-outline-secondary" onclick="goToStep('views')">
                         <i class="bi bi-arrow-left me-1"></i> Back
                     </button>
                     {# Submit-then-redirect rather than JS-only step change. The
@@ -1467,16 +1421,18 @@
     // header and recap include Overall.
     const STAR_STATES = {
         empty: { icon: 'bi-star', color: 'text-muted' },
-        half:  { icon: 'bi-star-half', color: 'text-warning' },
         full:  { icon: 'bi-star-fill', color: 'text-success' }
     };
     const STAR_CLASSES = ['bi-star', 'bi-star-half', 'bi-star-fill',
                           'text-muted', 'text-warning', 'text-success'];
 
+    // Binary star state: empty until all 3 utility items for a view are
+    // rated, then full. The earlier three-state (empty / half / full)
+    // showed in-progress rating but added visual ambiguity; the binary
+    // signal "this view is done" or "not done" is what participants
+    // actually need.
     function starStateForCount(rated) {
-        if (rated === 0) return STAR_STATES.empty;
-        if (rated < 3) return STAR_STATES.half;
-        return STAR_STATES.full;
+        return rated >= 3 ? STAR_STATES.full : STAR_STATES.empty;
     }
 
     function applyStarState(el, state) {
@@ -1591,7 +1547,7 @@
     }
 
     function updateUtilityGate() {
-        const btn = document.getElementById('continue-to-utility-btn');
+        const btn = document.getElementById('continue-to-comprehension-btn');
         const hint = document.getElementById('views-gate-hint');
         if (!btn) return;
         const totalRated =
@@ -1638,7 +1594,7 @@
         document.getElementById('step-' + stepName).classList.remove('hidden-step');
 
         // Update step indicators
-        const steps = ['facts', 'views', 'utility', 'comprehension', 'reveal', 'alignment'];
+        const steps = ['facts', 'views', 'comprehension', 'reveal', 'alignment'];
         const targetIndex = steps.indexOf(stepName);
 
         document.querySelectorAll('.step-indicator .step').forEach((el, idx) => {

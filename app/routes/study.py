@@ -444,7 +444,11 @@ def evaluate_case(case_id):
     ).first()
 
     step = request.args.get('step', 'facts')
-    valid_steps = ['facts', 'views', 'utility', 'comprehension', 'reveal', 'alignment']
+    # 'utility' kept as an alias to preserve any existing bookmarks from
+    # before the recap step was removed; redirects to comprehension.
+    valid_steps = ['facts', 'views', 'comprehension', 'reveal', 'alignment']
+    if step == 'utility':
+        return redirect(url_for('study.evaluate_case', case_id=case_id, step='comprehension'))
     if step not in valid_steps:
         step = 'facts'
 
@@ -600,7 +604,7 @@ def submit_evaluation(case_id):
             return redirect(url_for('study.index'))
         else:
             flash('Progress saved. Continue where you left off.', 'info')
-            next_step = request.form.get('next_step') or 'utility'
+            next_step = request.form.get('next_step') or 'comprehension'
             return redirect(url_for('study.evaluate_case', case_id=case_id, step=next_step))
 
     except Exception as e:
