@@ -446,6 +446,15 @@
 
         <!-- STEP 1: FACTS -->
         <div id="step-facts" class="step-content {% if current_step != 'facts' %}hidden-step{% endif %}">
+            <div class="instruction-box mb-3">
+                <button class="instruction-header" type="button" data-bs-toggle="collapse" data-bs-target="#instr-overview" aria-expanded="true" aria-controls="instr-overview">
+                    <span>Instructions</span>
+                    <i class="bi bi-chevron-up instruction-chevron"></i>
+                </button>
+                <div class="collapse show" id="instr-overview">
+                    <div class="instruction-body"><strong>You'll rate each view after reading it.</strong> Walk through the five synthesis views in order. Each view offers a different analytical lens on the same case; the guided sequence moves from the case as a human story to the formal code provisions that ground it. You don't need to read every entry. Form an impression of how each view organizes the case. You can click any tab to revisit.</div>
+                </div>
+            </div>
             <div class="card">
                 <div class="card-header bg-primary text-white">
                     <h5 class="mb-0"><i class="bi bi-file-text me-2"></i>Case Facts</h5>
@@ -478,12 +487,6 @@
 
         <!-- STEP 2: VIEWS -->
         <div id="step-views" class="step-content {% if current_step != 'views' %}hidden-step{% endif %}">
-            <div class="row">
-                <div class="col-12 mb-3">
-                    <p class="lead"><strong>You'll rate each view after reading it.</strong> Walk through the five synthesis views in order. Each view offers a different analytical lens on the same case; the guided sequence moves from the case as a human story to the formal code provisions that ground it. You don't need to read every entry. Form an impression of how each view organizes the case. You can click any tab to revisit.</p>
-                </div>
-            </div>
-
             <!-- View Tabs: narrative-first progressive reveal (see .claude/plans/study-narrative-reveal-design.md) -->
             <ul class="nav nav-tabs mb-3" id="viewTabs" role="tablist">
                 <li class="nav-item">
