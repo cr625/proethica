@@ -226,6 +226,17 @@
     #qc-tab .tab-rating-star.tab-active-empty-fill        { color: #6f42c1; }
     #decisions-tab .tab-rating-star.tab-active-empty-fill { color: #fd7e14; }
     #provisions-tab .tab-rating-star.tab-active-empty-fill{ color: #0d6efd; }
+    /* Active-tab pill color: independent of rating state, so the
+       active tab is visually unambiguous even when all five tabs
+       are fully rated (and would otherwise carry identical green
+       full-star indicators). Light per-view accent tint on the
+       background + accent border + accent text on the tab text. */
+    #viewTabs .nav-link.active { font-weight: 600; }
+    #narrative-tab.active  { background-color: rgba(25, 135, 84, 0.08);  border-color: #198754 #198754 transparent; color: #198754; }
+    #timeline-tab.active   { background-color: rgba(32, 201, 151, 0.10); border-color: #20c997 #20c997 transparent; color: #0c8268; }
+    #qc-tab.active         { background-color: rgba(111, 66, 193, 0.08); border-color: #6f42c1 #6f42c1 transparent; color: #6f42c1; }
+    #decisions-tab.active  { background-color: rgba(253, 126, 20, 0.10); border-color: #fd7e14 #fd7e14 transparent; color: #c25e0a; }
+    #provisions-tab.active { background-color: rgba(13, 110, 253, 0.08); border-color: #0d6efd #0d6efd transparent; color: #0d6efd; }
     .narrative-step {
         display: inline-block;
         color: #198754;
@@ -452,7 +463,7 @@
                     <i class="bi bi-chevron-up instruction-chevron"></i>
                 </button>
                 <div class="collapse show" id="instr-overview">
-                    <div class="instruction-body"><strong>You'll rate each view after reading it.</strong> Walk through the five synthesis views in order. Each view offers a different analytical lens on the same case; the guided sequence moves from the case as a human story to the formal code provisions that ground it. You don't need to read every entry. Form an impression of how each view organizes the case. You can return to any view at any time.</div>
+                    <div class="instruction-body"><strong>You'll rate each view after reading it.</strong> Walk through the five synthesis views in order. Each view offers a different analytical lens on the same case. The guided sequence moves from the case as a human story to the formal code provisions that ground it. You don't need to read every entry. Form an impression of how each view organizes the case. You can return to any view at any time.</div>
                 </div>
             </div>
             <div class="card">
@@ -554,14 +565,65 @@
                             </div>
                             {% endif %}
 
-                            {# ── Characters: grouped by role type, collapsed cards ── #}
+                            {# Tension display macro: shared between character-grouped and unassigned sections. #}
+                            {% macro tension_block(t, tension_id) %}
+                            <div class="tension-row mb-1 border rounded bg-white">
+                                <div class="d-flex align-items-center flex-wrap gap-2 p-2 tension-row-header"
+                                     data-bs-toggle="collapse" data-bs-target="#{{ tension_id }}"
+                                     role="button" aria-expanded="false" aria-controls="{{ tension_id }}"
+                                     style="cursor: pointer;">
+                                    <i class="bi bi-chevron-right small text-muted tension-chevron"></i>
+                                    <span class="entity-badge badge bg-warning text-dark" title="{{ t.entity1_type }}">{{ t.entity1_label|truncate(60) }}</span>
+                                    <span class="text-muted small">vs.</span>
+                                    <span class="entity-badge badge bg-warning text-dark" title="{{ t.entity2_type }}">{{ t.entity2_label|truncate(60) }}</span>
+                                    {% if t.magnitude_of_consequences or t.probability_of_effect %}
+                                    <span class="badge bg-light text-dark border ms-auto" style="font-size: 0.7rem;" title="Moral intensity. M: magnitude of consequences, P: probability of effect">
+                                        {% if t.magnitude_of_consequences %}M:{{ t.magnitude_of_consequences[:1]|upper }}{% endif %}
+                                        {% if t.probability_of_effect %} P:{{ t.probability_of_effect[:1]|upper }}{% endif %}
+                                    </span>
+                                    {% endif %}
+                                </div>
+                                <div class="collapse" id="{{ tension_id }}">
+                                    <div class="p-2 pt-0 ps-4 small">
+                                        {% if t.description %}
+                                        <p class="mb-2">{{ t.description }}</p>
+                                        {% endif %}
+                                        {% if t.conflict_type %}
+                                        <div class="mb-1">
+                                            <span class="text-muted">Type:</span>
+                                            <span class="badge bg-light text-dark">{{ t.conflict_type|replace('_', ' ') }}</span>
+                                        </div>
+                                        {% endif %}
+                                        {% if t.affected_role_labels %}
+                                        <div class="mb-1">
+                                            <span class="text-muted">Affects:</span>
+                                            {% for r in t.affected_role_labels %}<span class="badge bg-info-subtle text-info-emphasis">{{ r }}</span>{% endfor %}
+                                        </div>
+                                        {% endif %}
+                                        {% if t.magnitude_of_consequences or t.probability_of_effect or t.temporal_immediacy or t.proximity or t.concentration_of_effect %}
+                                        <div class="mb-1">
+                                            <span class="text-muted">Moral intensity:</span>
+                                            {% if t.magnitude_of_consequences %}<span class="badge {{ 'bg-danger' if t.magnitude_of_consequences == 'high' else ('bg-warning text-dark' if t.magnitude_of_consequences == 'medium' else 'bg-secondary') }}">Magnitude: {{ t.magnitude_of_consequences }}</span>{% endif %}
+                                            {% if t.probability_of_effect %}<span class="badge {{ 'bg-danger' if t.probability_of_effect == 'high' else ('bg-warning text-dark' if t.probability_of_effect == 'medium' else 'bg-secondary') }}">Probability: {{ t.probability_of_effect }}</span>{% endif %}
+                                            {% if t.temporal_immediacy %}<span class="badge {{ 'bg-danger' if t.temporal_immediacy == 'immediate' else ('bg-warning text-dark' if t.temporal_immediacy == 'near-term' else 'bg-secondary') }}">{{ t.temporal_immediacy }}</span>{% endif %}
+                                            {% if t.proximity %}<span class="badge bg-info">{{ t.proximity }}</span>{% endif %}
+                                            {% if t.concentration_of_effect %}<span class="badge bg-secondary">{{ t.concentration_of_effect }}</span>{% endif %}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endmacro %}
+
+                            {# ── Characters with their ethical tensions ── #}
                             {% if views.narrative.characters %}
-                            <h6><span class="narrative-step">1.</span><i class="bi bi-people me-1"></i>Characters ({{ views.narrative.character_count }})</h6>
-                            <p class="section-helper">Each character holds a professional role with specific responsibilities. Click any character to see their position, ethical stance, and motivations.</p>
+                            <h6><i class="bi bi-people me-1"></i>Characters and the tensions their roles produce ({{ views.narrative.character_count }})</h6>
+                            <p class="section-helper">Each character holds a professional role with specific responsibilities. The ethical tensions listed under each character are the conflicts their role implicates them in. A tension that implicates more than one character appears under each. Click a character to see their full profile and the specific obligations in conflict.</p>
                             <div class="mb-4">
                                 {% for char in views.narrative.characters %}
                                 {% set char_id = 'study-char-' ~ loop.index %}
-                                <div class="mb-1 border rounded bg-white">
+                                {% set char_tensions = views.narrative.tensions_by_character.get(char.label, []) if views.narrative.tensions_by_character else [] %}
+                                <div class="mb-2 border rounded bg-white">
                                     <div class="d-flex align-items-center p-2" style="cursor: pointer;"
                                          data-bs-toggle="collapse" data-bs-target="#{{ char_id }}"
                                          role="button" aria-expanded="false">
@@ -573,6 +635,9 @@
                                         {% if char.professional_position %}
                                         <span class="text-muted small ms-2 d-none d-md-inline">{{ char.professional_position|truncate(50) }}</span>
                                         {% endif %}
+                                        <span class="ms-auto small text-muted">
+                                            {% if char_tensions %}{{ char_tensions|length }} tension{{ '' if char_tensions|length == 1 else 's' }}{% else %}no tensions identified{% endif %}
+                                        </span>
                                     </div>
                                     <div class="collapse" id="{{ char_id }}">
                                         <div class="p-2 pt-0 ps-4 small border-top">
@@ -588,6 +653,12 @@
                                                 {% for m in char.motivations[:3] %}<li>{{ m }}</li>{% endfor %}
                                             </ul>
                                             {% endif %}
+                                            {% if char_tensions %}
+                                            <h6 class="small fw-bold mt-3 mb-2"><i class="bi bi-arrow-left-right me-1"></i>Ethical tensions for this role ({{ char_tensions|length }})</h6>
+                                            {% for t in char_tensions %}
+                                                {{ tension_block(t, 'study-char-tension-' ~ loop.index ~ '-' ~ char_id) }}
+                                            {% endfor %}
+                                            {% endif %}
                                         </div>
                                     </div>
                                 </div>
@@ -595,81 +666,18 @@
                             </div>
                             {% endif %}
 
-                            {# ── Section break before tensions ── #}
-                            {% if views.narrative.tensions %}
-                            {% set rated = views.narrative.rated_tension_count or 0 %}
-                            {% set total = views.narrative.tension_count or 0 %}
+                            {# ── Unassigned tensions: any extracted tensions whose affected roles
+                                 did not match a character. Surfaced separately so the participant
+                                 doesn't lose them; usually empty in a well-extracted case. ── #}
+                            {% if views.narrative.unassigned_tensions %}
                             <hr class="my-3">
-                            <h6><span class="narrative-step">2.</span><i class="bi bi-arrow-left-right me-1"></i>Ethical Tensions {% if rated > 5 %}(top 5 of {{ rated }}){% else %}({{ rated }}){% endif %}</h6>
-                            <p class="section-helper">
-                                Each character's professional role brings obligations grounded in the NSPE Code of Ethics. When characters in different roles hold obligations that pull in opposing directions, the situation produces an ethical tension. The pairs below are ranked by moral intensity, a measure of how much an action ethically matters. The M and P badges on each row show magnitude of consequences and probability of effect. Consider which tensions are most consequential as you move to the next views.
-                            </p>
-                            <div class="mb-3" id="tensionList">
-                                {% for t in views.narrative.tensions %}
-                                {% set tension_id = 'study-tension-' ~ loop.index %}
-                                {# Show top 5 rated tensions by default; collapse the rest #}
-                                <div class="tension-row mb-1 border rounded bg-white{% if t.intensity_score == 0 %} d-none tension-unrated{% elif loop.index > 5 %} d-none tension-overflow{% endif %}">
-                                    <div class="d-flex align-items-center flex-wrap gap-2 p-2 tension-row-header"
-                                         data-bs-toggle="collapse" data-bs-target="#{{ tension_id }}"
-                                         role="button" aria-expanded="false" aria-controls="{{ tension_id }}"
-                                         style="cursor: pointer;">
-                                        <i class="bi bi-chevron-right small text-muted tension-chevron"></i>
-                                        <span class="entity-badge badge bg-warning text-dark" title="{{ t.entity1_type }}">{{ t.entity1_label|truncate(60) }}</span>
-                                        <span class="text-muted small">vs.</span>
-                                        <span class="entity-badge badge bg-warning text-dark" title="{{ t.entity2_type }}">{{ t.entity2_label|truncate(60) }}</span>
-                                        {% if t.magnitude_of_consequences or t.probability_of_effect %}
-                                        <span class="badge bg-light text-dark border ms-auto" style="font-size: 0.7rem;" title="Moral intensity. M: magnitude of consequences, P: probability of effect">
-                                            {% if t.magnitude_of_consequences %}M:{{ t.magnitude_of_consequences[:1]|upper }}{% endif %}
-                                            {% if t.probability_of_effect %} P:{{ t.probability_of_effect[:1]|upper }}{% endif %}
-                                        </span>
-                                        {% endif %}
-                                    </div>
-                                    <div class="collapse" id="{{ tension_id }}">
-                                        <div class="p-2 pt-0 ps-4 small">
-                                            {% if t.description %}
-                                            <p class="mb-2">{{ t.description }}</p>
-                                            {% endif %}
-                                            {% if t.conflict_type %}
-                                            <div class="mb-1">
-                                                <span class="text-muted">Type:</span>
-                                                <span class="badge bg-light text-dark">{{ t.conflict_type|replace('_', ' ') }}</span>
-                                            </div>
-                                            {% endif %}
-                                            {% if t.affected_role_labels %}
-                                            <div class="mb-1">
-                                                <span class="text-muted">Affects:</span>
-                                                {% for r in t.affected_role_labels %}<span class="badge bg-info-subtle text-info-emphasis">{{ r }}</span>{% endfor %}
-                                            </div>
-                                            {% endif %}
-                                            {% if t.magnitude_of_consequences or t.probability_of_effect or t.temporal_immediacy or t.proximity or t.concentration_of_effect %}
-                                            <div class="mb-1">
-                                                <span class="text-muted">Moral intensity:</span>
-                                                {% if t.magnitude_of_consequences %}<span class="badge {{ 'bg-danger' if t.magnitude_of_consequences == 'high' else ('bg-warning text-dark' if t.magnitude_of_consequences == 'medium' else 'bg-secondary') }}">Magnitude: {{ t.magnitude_of_consequences }}</span>{% endif %}
-                                                {% if t.probability_of_effect %}<span class="badge {{ 'bg-danger' if t.probability_of_effect == 'high' else ('bg-warning text-dark' if t.probability_of_effect == 'medium' else 'bg-secondary') }}">Probability: {{ t.probability_of_effect }}</span>{% endif %}
-                                                {% if t.temporal_immediacy %}<span class="badge {{ 'bg-danger' if t.temporal_immediacy == 'immediate' else ('bg-warning text-dark' if t.temporal_immediacy == 'near-term' else 'bg-secondary') }}">{{ t.temporal_immediacy }}</span>{% endif %}
-                                                {% if t.proximity %}<span class="badge bg-info">{{ t.proximity }}</span>{% endif %}
-                                                {% if t.concentration_of_effect %}<span class="badge bg-secondary">{{ t.concentration_of_effect }}</span>{% endif %}
-                                            </div>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                </div>
+                            <h6><i class="bi bi-arrow-left-right me-1"></i>Other tensions ({{ views.narrative.unassigned_tensions|length }})</h6>
+                            <p class="section-helper">These tensions did not map cleanly to a single character. Read them here for additional context on the case.</p>
+                            <div class="mb-3">
+                                {% for t in views.narrative.unassigned_tensions %}
+                                    {{ tension_block(t, 'study-unassigned-tension-' ~ loop.index) }}
                                 {% endfor %}
                             </div>
-                            {% if rated > 5 %}
-                            <p class="small text-muted mb-2">
-                                <button type="button" class="btn btn-link btn-sm p-0 align-baseline" onclick="document.querySelectorAll('.tension-overflow').forEach(function(el){el.classList.toggle('d-none')});this.textContent=this.textContent.indexOf('Show')===0?'Hide additional tensions':'Show {{ rated - 5 }} more tensions'">
-                                    Show {{ rated - 5 }} more tensions
-                                </button>
-                            </p>
-                            {% endif %}
-                            {% if rated < total %}
-                            <p class="small text-muted mb-2">
-                                <button type="button" class="btn btn-link btn-sm p-0 align-baseline" id="toggleUnratedTensionsBtn" onclick="toggleUnratedTensions()">
-                                    Show {{ total - rated }} additional tensions without moral-intensity ratings
-                                </button>
-                            </p>
-                            {% endif %}
                             {% endif %}
 
                             {% else %}
@@ -806,7 +814,7 @@
                 <div class="tab-pane fade" id="qc-pane">
                     <div class="segue-card segue-qc">
                         <div class="segue-caption">View 3 of 5: Questions and Conclusions</div>
-                        <strong>The sequence raises ethical questions.</strong> This view pairs each question the Board addressed with the conclusion it reached. Board questions form the spine; analytical sub-questions elaborate on each. This is where the case transitions from narrative to formal deliberation.
+                        <strong>The sequence raises ethical questions.</strong> This view pairs each question the Board addressed with the conclusion it reached. Board questions form the spine, and analytical sub-questions elaborate on each. This is where the case transitions from narrative to formal deliberation.
                     </div>
                     <div class="view-card card">
                         <div class="card-header">
@@ -964,7 +972,7 @@
                 <div class="tab-pane fade" id="decisions-pane">
                     <div class="segue-card segue-decisions">
                         <div class="segue-caption">View 4 of 5: Decisions</div>
-                        <strong>At each decision point the professional could have chosen differently.</strong> This view lays out the options the Board considered, the argument structure for and against each one (warrants, rebuttals, grounds), and the Board's choice. Disagreement between your intuition and the Board's reasoning often shows up here first.
+                        <strong>At each decision point the professional could have chosen differently.</strong> This view lays out the options the Board considered, the argument structure for and against each one, and the Board's choice. Disagreement between your intuition and the Board's reasoning often shows up here first.
                     </div>
                     <div class="view-card card">
                         <div class="card-header">
@@ -1111,7 +1119,7 @@
                 <div class="tab-pane fade" id="provisions-pane">
                     <div class="segue-card segue-provisions">
                         <div class="segue-caption">View 5 of 5: Provisions</div>
-                        <strong>Finally, anchor the analysis in the NSPE Code of Ethics.</strong> This view groups provisions by Code section and shows which extracted Obligations, Principles, and Constraints trace back to each. Use it as a check: do the code citations match the ethical tensions you identified in the Narrative and Decisions views?
+                        <strong>Finally, anchor the analysis in the NSPE Code of Ethics.</strong> This view groups provisions by Code section and shows which extracted Obligations, Principles, and Constraints trace back to each. Use it as a check on whether the code citations match the ethical tensions you identified in the Narrative and Decisions views.
                     </div>
                     <div class="view-card card">
                         <div class="card-header">

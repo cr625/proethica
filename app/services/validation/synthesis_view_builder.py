@@ -444,6 +444,92 @@ class SynthesisViewBuilder:
         tensions.sort(key=lambda t: t['intensity_score'], reverse=True)
         rated_tension_count = sum(1 for t in tensions if t['intensity_score'] > 0)
 
+        # Group tensions by the characters they affect. Each tension carries an
+        # affected_role_labels list; a tension that implicates multiple roles
+        # appears under each (no dedup) because the data signals "these
+        # characters are co-implicated" and hiding that would lose the chain.
+        # Match priority:
+        #   1. Exact match of role-label against character.label or character.role.
+        #   2. Case-insensitive substring match between role-label and character labels.
+        #   3. Fallback: scan the tension's entity1_label/entity2_label for the
+        #      character's short-name (first two words of label, e.g.,
+        #      "Engineer A" extracted from "Engineer A Environmental Engineering
+        #      Consultant"). The case-7 extraction often leaves
+        #      affected_role_labels empty even when the tension's entity labels
+        #      clearly name a character; the fallback rescues those.
+        # If after all three passes nothing matches, the tension goes to
+        # unassigned_tensions, rendered as an "Other tensions" section so the
+        # participant doesn't lose them.
+        char_lookup = {}
+        for ch in characters:
+            for key in (ch.get('label'), ch.get('role')):
+                if key:
+                    char_lookup.setdefault(key.strip().lower(), ch.get('label') or key)
+
+        # Map each character's short-name (first 2 words of label) to the
+        # full label, for the entity-label scan fallback. Characters whose
+        # short-name is shared (e.g., four characters all starting "Engineer A")
+        # all collect tensions that mention "Engineer A" in entity labels;
+        # we accept that co-attribution because the extractor did not
+        # disambiguate the role variant.
+        short_name_lookup: Dict[str, List[str]] = {}
+        for ch in characters:
+            label = (ch.get('label') or '').strip()
+            if not label:
+                continue
+            words = label.split()
+            short = ' '.join(words[:2]).lower() if len(words) >= 2 else label.lower()
+            short_name_lookup.setdefault(short, []).append(label)
+
+        tensions_by_character: Dict[str, List[Dict[str, Any]]] = {
+            ch['label']: [] for ch in characters if ch.get('label')
+        }
+        unassigned_tensions: List[Dict[str, Any]] = []
+
+        for t in tensions:
+            role_labels = t.get('affected_role_labels') or []
+            matched_char_labels = set()
+            for role_label in role_labels:
+                if not role_label:
+                    continue
+                key = role_label.strip().lower()
+                # Pass 1: exact match on label or role.
+                if key in char_lookup:
+                    matched_char_labels.add(char_lookup[key])
+                    continue
+                # Pass 2: substring match against full character labels.
+                for ch in characters:
+                    ch_label = (ch.get('label') or '').strip().lower()
+                    if ch_label and (key in ch_label or ch_label in key):
+                        matched_char_labels.add(ch.get('label'))
+
+            # Pass 3: entity-label scan fallback (only if passes 1+2 produced
+            # no match). Look at the tension's entity1_label and entity2_label
+            # for any character's short-name.
+            if not matched_char_labels:
+                text_to_scan = (
+                    (t.get('entity1_label') or '') + ' '
+                    + (t.get('entity2_label') or '')
+                ).lower()
+                for short, full_labels in short_name_lookup.items():
+                    if short and short in text_to_scan:
+                        for full_label in full_labels:
+                            matched_char_labels.add(full_label)
+
+            if matched_char_labels:
+                for label in matched_char_labels:
+                    tensions_by_character.setdefault(label, []).append(t)
+            else:
+                unassigned_tensions.append(t)
+
+        # Sort each character's tensions by intensity desc. (Already
+        # globally sorted, but per-character sort guards against
+        # ordering surprises when fallback matching reshuffles rows.)
+        for label in tensions_by_character:
+            tensions_by_character[label].sort(
+                key=lambda t: t['intensity_score'], reverse=True
+            )
+
         has_content = bool(characters or tensions or opening_context)
 
         return {
@@ -451,13 +537,16 @@ class SynthesisViewBuilder:
             'has_content': has_content,
             'characters': characters,
             'tensions': tensions,
+            'tensions_by_character': tensions_by_character,
+            'unassigned_tensions': unassigned_tensions,
             'opening_context': opening_context,
             'protagonist_label': protagonist_label,
             'character_count': len(characters),
             'tension_count': len(tensions),
             'rated_tension_count': rated_tension_count,
-            'description': ('Characters with ethical tensions and an opening-context '
-                            'account. Answers: who was involved and what was at stake?'),
+            'description': ('Characters with the ethical tensions their roles produce, '
+                            'plus an opening-context account. Each character card lists '
+                            'the tensions that implicate that role.'),
         }
 
     def get_all_views(self, case_id: int) -> Dict[str, Any]:
