@@ -1,26 +1,34 @@
 """
 Study case pool for the HT'26 user study (IRB Protocol 2603011709).
 
-The pool consists of the 23 NSPE Board of Ethical Review opinions processed
-through the pipeline with the full-text-entity-definitions-in-prompt
-extraction strategy (before the later label-reference-plus-lookup refinement
-was adopted). This shared extraction methodology is why the pool is locked
-at these specific cases.
+The pool consists of 19 NSPE Board of Ethical Review opinions selected from
+the 23-case extraction batch on two criteria:
 
-Selection criterion (equivalent SQL):
+  1. Processed through the pipeline with the full-text-entity-definitions-
+     in-prompt extraction strategy (before the later label-reference-plus-
+     lookup refinement was adopted).
+  2. Character-tension attribution rate >=75% in the narrative view's
+     character-grouped tension display (i.e., at least three-quarters of
+     extracted ethical tensions map cleanly to a specific character so the
+     role-tension chain reads as designed; see
+     synthesis_view_builder.get_narrative_view).
 
-    SELECT id FROM documents
-    WHERE document_type IN ('case','case_study')
-      AND (doc_metadata->>'extraction_mode' IS NULL
-           OR doc_metadata->>'extraction_mode' != 'label_only')
-      AND (doc_metadata->>'year')::int >= 2021;
+Cases removed by criterion 2 (low character-tension attribution): 18 (38%),
+56 (70%), 57 (62%), 59 (70%). These cases would have presented participants
+with a heavy "Other tensions" section that visually contradicts the chapter's
+claim that structured presentation reveals who is implicated by which
+obligation conflicts. Power-wise, the cut is well-cushioned: at the chapter's
+expected n=42 completers x 3.5 cases/completer = 147 rating slots,
+19 cases yield 7.7 raters/case avg vs the chapter's 5-rater floor.
 
 Publication years in the pool: 2021, 2022, 2023, 2025
 (case-number years 21-9 through 24-05).
 
 IRB Protocol §2 describes this pool as "23 NSPE Board of Ethical Review
-cases, recent opinions 2017–2024." The "2017–2024" range is wider than the
-actual pool; reconcile on the next protocol revision if one opens.
+cases, recent opinions 2017-2024." The chapter's §4.4.4 "Case Selection
+Strategy" needs a small revision to reflect the data-quality cut to 19
+cases. The range "2017-2024" is wider than the actual pool; reconcile on
+the next protocol revision if one opens.
 
 Do not expand this list without an IRB amendment.
 """
@@ -42,22 +50,22 @@ STUDY_CASE_POOL_IDS: list[int] = [
     15,   # 22-8  (2022) Independence of Peer Reviewer
     16,   # 22-7  (2022) Impaired Engineering
     17,   # 22-6  (2022) Siting a Truck Stop
-    18,   # 22-5  (2022) Professional Responsibility if Appropriate Authority Fails to Act
+    # 18 removed 2026-05-08: 38% character-tension attribution (5 of 8 tensions unassigned)
     19,   # 22-4  (2022) Duty to Report Misconduct
     20,   # 22-3  (2022) Review of Other Engineer's Work
     22,   # 22-2  (2022) Sharing As-Built Drawings
-    56,   # 22-1  (2022) Unlicensed Practice by Nonengineers
-    57,   # 21-12 (2021) Duty to Report - Material Information
+    # 56 removed 2026-05-08: 70% character-tension attribution
+    # 57 removed 2026-05-08: 62% character-tension attribution
     58,   # 21-11 (2021) Public Welfare at What Cost?
-    59,   # 21-10 (2021) Protecting Public Health, Safety, and Welfare
+    # 59 removed 2026-05-08: 70% character-tension attribution
     60,   # 21-9  (2021) Misrepresentation of Qualifications
 ]
 
 STUDY_CASE_POOL_SIZE: int = len(STUDY_CASE_POOL_IDS)
 
-assert STUDY_CASE_POOL_SIZE == 23, (
-    f"Study pool must contain exactly 23 cases per IRB Protocol 2603011709; "
-    f"got {STUDY_CASE_POOL_SIZE}"
+assert STUDY_CASE_POOL_SIZE == 19, (
+    f"Study pool must contain exactly 19 cases (cut from 23 by data-quality "
+    f"threshold; see module docstring); got {STUDY_CASE_POOL_SIZE}"
 )
 
 

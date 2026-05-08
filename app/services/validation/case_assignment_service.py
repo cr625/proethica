@@ -1,12 +1,14 @@
 """
 Case assignment for the between-subjects study design.
 
-Each participant reviews 3-4 cases drawn from the 23-case IRB-approved pool.
-Assignments balance coverage: every case in the pool is reviewed by at least
-two participants before any case is reviewed a third time.
+Each participant reviews 3-4 cases drawn from the 19-case study pool
+(see app/config/study_case_pool.py for the data-quality cut from the
+original 23-case extraction batch). Assignments balance coverage: every
+case in the pool is reviewed by at least two participants before any
+case is reviewed a third time.
 
-Assignments are deterministic per participant_code so reloading the dashboard
-returns the same set.
+Assignments are deterministic per participant_code so reloading the
+dashboard returns the same set.
 """
 
 from __future__ import annotations
