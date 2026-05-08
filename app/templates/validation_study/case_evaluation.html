@@ -489,7 +489,7 @@
                 <div class="card-body">
                     <div class="withheld-notice">
                         <i class="bi bi-info-circle me-2"></i>
-                        <strong>Note:</strong> {{ case_facts.withheld_notice }}
+                        <strong>Note:</strong> {{ case_facts.withheld_notice|safe }}
                     </div>
 
                     {% for section in case_facts.facts %}

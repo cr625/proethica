@@ -647,12 +647,12 @@ class SynthesisViewBuilder:
             'withheld_sections': list(set(withheld_sections)),
             'withheld_notice': (
                 'This case is one of the NSPE Board of Ethical Review\'s '
-                'published opinions. The board reviews real engineering '
-                'ethics scenarios and reaches conclusions grounded in the '
-                'NSPE Code of Ethics. You are reading the case facts now; '
-                'the board\'s Questions, Discussion, and Conclusions are '
-                'withheld until after you complete the comprehension '
-                'questions.'
+                'published opinions. Each opinion has four elements: '
+                '<em>Facts</em>, <em>Questions</em>, <em>Discussion</em>, '
+                'and <em>Conclusions</em>. You are reading the <em>Facts</em> '
+                'now. The <em>Questions</em>, <em>Discussion</em>, and '
+                '<em>Conclusions</em> are withheld until after you complete '
+                'the comprehension questions.'
             )
         }
 
