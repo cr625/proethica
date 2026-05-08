@@ -618,39 +618,17 @@
                                     <span class="entity-badge badge bg-warning text-dark" title="{{ t.entity1_type }}">{{ t.entity1_label|truncate(60) }}</span>
                                     <span class="text-muted small">vs.</span>
                                     <span class="entity-badge badge bg-warning text-dark" title="{{ t.entity2_type }}">{{ t.entity2_label|truncate(60) }}</span>
+                                    {% if linked_main_shorts %}
+                                    <span class="ms-auto small text-muted" style="font-size: 0.78rem;">
+                                        <span class="me-1">Also:</span>
+                                        {% for s in linked_main_shorts %}<span class="badge bg-info-subtle text-info-emphasis border me-1">{{ s }}</span>{% endfor %}
+                                    </span>
+                                    {% endif %}
                                 </div>
-                                {% if linked_main_shorts %}
-                                <div class="px-2 pb-2 small text-muted" style="font-size: 0.78rem;">
-                                    <span class="me-1">Also implicates:</span>
-                                    {% for s in linked_main_shorts %}<span class="badge bg-info-subtle text-info-emphasis border me-1">{{ s }}</span>{% endfor %}
-                                </div>
-                                {% endif %}
                                 <div class="collapse" id="{{ tension_id }}">
                                     <div class="p-2 pt-0 ps-4 small">
                                         {% if t.description %}
-                                        <p class="mb-2">{{ t.description }}</p>
-                                        {% endif %}
-                                        {% if t.conflict_type %}
-                                        <div class="mb-1">
-                                            <span class="text-muted">Type:</span>
-                                            <span class="badge bg-light text-dark">{{ t.conflict_type|replace('_', ' ') }}</span>
-                                        </div>
-                                        {% endif %}
-                                        {% if t.affected_role_labels %}
-                                        <div class="mb-1">
-                                            <span class="text-muted">Affects:</span>
-                                            {% for r in t.affected_role_labels %}<span class="badge bg-info-subtle text-info-emphasis">{{ r }}</span>{% endfor %}
-                                        </div>
-                                        {% endif %}
-                                        {% if t.magnitude_of_consequences or t.probability_of_effect or t.temporal_immediacy or t.proximity or t.concentration_of_effect %}
-                                        <div class="mb-1">
-                                            <span class="text-muted">Moral intensity:</span>
-                                            {% if t.magnitude_of_consequences %}<span class="badge {{ 'bg-danger' if t.magnitude_of_consequences == 'high' else ('bg-warning text-dark' if t.magnitude_of_consequences == 'medium' else 'bg-secondary') }}">Magnitude: {{ t.magnitude_of_consequences }}</span>{% endif %}
-                                            {% if t.probability_of_effect %}<span class="badge {{ 'bg-danger' if t.probability_of_effect == 'high' else ('bg-warning text-dark' if t.probability_of_effect == 'medium' else 'bg-secondary') }}">Probability: {{ t.probability_of_effect }}</span>{% endif %}
-                                            {% if t.temporal_immediacy %}<span class="badge {{ 'bg-danger' if t.temporal_immediacy == 'immediate' else ('bg-warning text-dark' if t.temporal_immediacy == 'near-term' else 'bg-secondary') }}">{{ t.temporal_immediacy }}</span>{% endif %}
-                                            {% if t.proximity %}<span class="badge bg-info">{{ t.proximity }}</span>{% endif %}
-                                            {% if t.concentration_of_effect %}<span class="badge bg-secondary">{{ t.concentration_of_effect }}</span>{% endif %}
-                                        </div>
+                                        <p class="mb-0">{{ t.description }}</p>
                                         {% endif %}
                                     </div>
                                 </div>
@@ -671,15 +649,15 @@
                                 {% set cross_count = views.narrative.tensions_cross_count_by_character.get(char.label, 0) if views.narrative.tensions_cross_count_by_character else 0 %}
                                 {% set self_only_count = char_tensions|length - cross_count %}
                                 <div class="mb-3 border rounded bg-white" id="{{ char_anchor }}">
+                                    {% set _label_parts = char.label.split() %}
+                                    {% set _short_name = _label_parts[:2]|join(' ') %}
+                                    {% set _role_suffix = _label_parts[2:]|join(' ') %}
                                     <div class="p-2 d-flex align-items-center flex-wrap gap-2 border-bottom">
                                         <strong>
                                             <a class="char-mention" tabindex="0"
                                                data-bs-toggle="popover" data-bs-trigger="focus hover"
-                                               data-bs-content="{{ char.professional_position|escape if char.professional_position else char.label|escape }}">{{ char.label }}</a>
+                                               data-bs-content="{{ char.professional_position|escape if char.professional_position else char.label|escape }}">{{ _short_name }}</a>{% if _role_suffix %} <span>{{ _role_suffix }}</span>{% endif %}
                                         </strong>
-                                        {% if char.professional_position %}
-                                        <span class="text-muted small d-none d-md-inline">{{ char.professional_position|truncate(80) }}</span>
-                                        {% endif %}
                                         <span class="ms-auto small text-muted">
                                             {% if char_tensions %}{{ char_tensions|length }} tension{{ '' if char_tensions|length == 1 else 's' }}{% else %}no tensions identified{% endif %}
                                         </span>
@@ -695,7 +673,7 @@
                                         </ul>
                                         {% endif %}
                                         {% if char_tensions %}
-                                        <h6 class="small fw-bold mt-3 mb-2"><i class="bi bi-arrow-left-right me-1"></i>Ethical tensions for this role ({{ char_tensions|length }})</h6>
+                                        <h6 class="small fw-bold mt-3 mb-2"><i class="bi bi-arrow-left-right me-1"></i>Ethical tensions for this role</h6>
                                         {% if cross_count > 0 and self_only_count > 0 %}
                                         <p class="section-helper" style="margin-bottom: 0.6rem;">Tensions that link to another main character appear first. Tensions that involve only this role are hidden below.</p>
                                         {% endif %}
