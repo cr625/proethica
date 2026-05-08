@@ -92,10 +92,10 @@
         <div>
           {% if is_first_visit %}
           <h1 class="h2 mb-0"><i class="bi bi-stars text-primary me-2"></i>Welcome. Your study is set up</h1>
-          <p class="text-muted mb-0">The cards below preview each step. Start your first case when ready.</p>
+          <p class="text-muted mb-0">Your assigned cases are ready. Start your first case below when you are.</p>
           {% else %}
           <h1 class="h2 mb-0"><i class="bi bi-clipboard-check text-primary me-2"></i>Your Study Dashboard</h1>
-          <p class="text-muted mb-0">Pick up where you left off, or review the steps below.</p>
+          <p class="text-muted mb-0">Pick up where you left off.</p>
           {% endif %}
         </div>
         <div class="text-end">
@@ -156,74 +156,6 @@
     </div>
 
     <div class="col-md-6">
-      <div class="card">
-        <div class="card-header"><h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>What happens in each case</h5></div>
-        <div class="card-body">
-          <ol class="small mb-0">
-            <li>
-              <strong>Read the case facts.</strong>
-              The board's Discussion and Conclusions are hidden at first so we can compare your
-              read against the board's later.
-            </li>
-            <li>
-              <strong>Look at five views of the case.</strong>
-              Each view organizes the same case from a different angle.
-              You don't need to read every detail. Form an impression of which view's
-              framing helped you most. Each view supports skimming, with expandable
-              sections so you can go deeper only where you want to.
-              See "The five views" below for what each one shows.
-            </li>
-            <li>
-              <strong>Rate each view on a 1&ndash;7 scale</strong>,
-              from Strongly Disagree to Strongly Agree. About 18 short items per case.
-            </li>
-            <li>
-              <strong>Answer four short open-ended questions</strong>
-              about the case in your own words.
-            </li>
-            <li>
-              <strong>The board's Discussion and Conclusions are revealed</strong>
-              for you to read.
-            </li>
-            <li>
-              <strong>Rate how well your earlier answers lined up</strong>
-              with the board's reasoning.
-            </li>
-          </ol>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  {# View glossary + "after your cases" preview #}
-  <div class="row mb-4">
-    <div class="col-md-7">
-      <div class="card h-100">
-        <div class="card-header">
-          <h5 class="mb-0"><i class="bi bi-grid-3x3-gap me-2"></i>The five views, in tab order</h5>
-        </div>
-        <div class="card-body">
-          <dl class="row mb-0 small">
-            <dt class="col-sm-3"><i class="bi bi-journal-text text-success me-1"></i>Narrative</dt>
-            <dd class="col-sm-9">The people involved, what was at stake, and the ethical tensions in the situation.</dd>
-
-            <dt class="col-sm-3"><i class="bi bi-clock-history me-1" style="color: #6c757d;"></i>Timeline</dt>
-            <dd class="col-sm-9">The order of events, with the points where ethical obligations were activated.</dd>
-
-            <dt class="col-sm-3"><i class="bi bi-question-circle me-1" style="color: #6f42c1;"></i>Q&amp;C</dt>
-            <dd class="col-sm-9">Questions the board asked about the case, with how each was answered.</dd>
-
-            <dt class="col-sm-3"><i class="bi bi-signpost-split me-1" style="color: #fd7e14;"></i>Decisions</dt>
-            <dd class="col-sm-9">The choices the professional faced, with the arguments for each option.</dd>
-
-            <dt class="col-sm-3 mb-0"><i class="bi bi-book text-primary me-1"></i>Provisions</dt>
-            <dd class="col-sm-9 mb-0">Which sections of the professional code of ethics apply to the case.</dd>
-          </dl>
-        </div>
-      </div>
-    </div>
-
-    <div class="col-md-5">
       <div class="card h-100">
         <div class="card-header">
           <h5 class="mb-0"><i class="bi bi-flag me-2"></i>{% if total_count == 1 %}After your case{% else %}After your {{ total_count }} cases{% endif %}</h5>
