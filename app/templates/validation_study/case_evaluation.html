@@ -580,7 +580,6 @@
                     <div class="view-card card">
                         <div class="card-header">
                             <span>Narrative View</span>
-                            <span class="badge bg-success">{{ views.narrative.character_count }} characters &middot; {{ views.narrative.tension_count }} tensions</span>
                         </div>
                         <div class="card-body view-content">
                             <div class="instruction-box">
@@ -619,12 +618,6 @@
                                     <span class="entity-badge badge bg-warning text-dark" title="{{ t.entity1_type }}">{{ t.entity1_label|truncate(60) }}</span>
                                     <span class="text-muted small">vs.</span>
                                     <span class="entity-badge badge bg-warning text-dark" title="{{ t.entity2_type }}">{{ t.entity2_label|truncate(60) }}</span>
-                                    {% if t.magnitude_of_consequences or t.probability_of_effect %}
-                                    <span class="badge bg-light text-dark border ms-auto" style="font-size: 0.7rem;" title="Moral intensity. M: magnitude of consequences, P: probability of effect">
-                                        {% if t.magnitude_of_consequences %}M:{{ t.magnitude_of_consequences[:1]|upper }}{% endif %}
-                                        {% if t.probability_of_effect %} P:{{ t.probability_of_effect[:1]|upper }}{% endif %}
-                                    </span>
-                                    {% endif %}
                                 </div>
                                 {% if linked_main_shorts %}
                                 <div class="px-2 pb-2 small text-muted" style="font-size: 0.78rem;">
