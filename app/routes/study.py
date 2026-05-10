@@ -1144,6 +1144,13 @@ def preview_start():
     while ValidationSession.query.filter_by(participant_code=code).first() is not None:
         code = 'PREVIEW-' + ''.join(secrets.choice(CODE_ALPHABET) for _ in range(6))
 
+    # `?show=orientation` lands the preview on the Before-you-start screen
+    # (leaves orientation_completed_at NULL so the gate fires). `?show=dashboard`
+    # stamps orientation as already done and lands on the dashboard. Default
+    # behavior (no `show`) jumps straight to the case-evaluation flow.
+    show = request.args.get('show')
+    skip_orientation_stamp = (show == 'orientation')
+
     val_session = ValidationSession(
         session_id=str(uuid.uuid4())[:8],
         evaluator_id=code,
@@ -1153,10 +1160,7 @@ def preview_start():
         assigned_cases=[case_id],
         completed_cases=[],
         consent_acknowledged_at=datetime.utcnow(),
-        # Preview sessions bypass orientation; the route is for first-time
-        # real participants. Reviewers exploring the interface jump straight
-        # to the case-evaluation flow.
-        orientation_completed_at=datetime.utcnow(),
+        orientation_completed_at=(None if skip_orientation_stamp else datetime.utcnow()),
         info_sheet_version='preview',
     )
     db.session.add(val_session)
@@ -1194,4 +1198,8 @@ def preview_start():
     session['participant_code'] = code
     # The persistent preview banner in _base_study.html already announces
     # preview status; an additional transient flash here would duplicate it.
+    if show == 'orientation':
+        return redirect(url_for('study.orientation'))
+    if show == 'dashboard':
+        return redirect(url_for('study.index'))
     return redirect(url_for('study.evaluate_case', case_id=case_id, step='facts'))
