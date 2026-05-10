@@ -554,26 +554,23 @@
         </div>
     </div>
 
-    <!-- Step Indicator. Pills are anchor links so participants can jump
-         between steps. Reveal and Alignment are gated server-side on
-         comprehension_complete; clicking those before comprehension is
-         submitted redirects back to the comprehension step with a flash
-         message (see study.evaluate_case route). -->
+    <!-- Step Indicator. Four pills as of 2026-05-10: the legacy Comprehension
+         step is now Reflection (open-ended, optional); the legacy Reveal step
+         absorbed Alignment and is now Wrap-up (BER conclusions + one final
+         optional reflection + Submit). URL paths stay (`comprehension`,
+         `reveal`) for back-compat. -->
     <div class="step-indicator">
-        <a class="step {% if current_step == 'facts' %}active{% elif current_step in ['views', 'comprehension', 'reveal', 'alignment'] %}completed{% endif %}" href="{{ url_for('study.evaluate_case', case_id=document.id, step='facts') }}" data-step="facts">
+        <a class="step {% if current_step == 'facts' %}active{% elif current_step in ['views', 'comprehension', 'reveal'] %}completed{% endif %}" href="{{ url_for('study.evaluate_case', case_id=document.id, step='facts') }}" data-step="facts">
             <span class="step-number">1</span> Facts
         </a>
-        <a class="step {% if current_step == 'views' %}active{% elif current_step in ['comprehension', 'reveal', 'alignment'] %}completed{% endif %}" href="{{ url_for('study.evaluate_case', case_id=document.id, step='views') }}" data-step="views">
+        <a class="step {% if current_step == 'views' %}active{% elif current_step in ['comprehension', 'reveal'] %}completed{% endif %}" href="{{ url_for('study.evaluate_case', case_id=document.id, step='views') }}" data-step="views">
             <span class="step-number">2</span> Views
         </a>
-        <a class="step {% if current_step == 'comprehension' %}active{% elif current_step in ['reveal', 'alignment'] %}completed{% endif %}" href="{{ url_for('study.evaluate_case', case_id=document.id, step='comprehension') }}" data-step="comprehension">
-            <span class="step-number">3</span> Questions
+        <a class="step {% if current_step == 'comprehension' %}active{% elif current_step == 'reveal' %}completed{% endif %}" href="{{ url_for('study.evaluate_case', case_id=document.id, step='comprehension') }}" data-step="comprehension">
+            <span class="step-number">3</span> Reflection
         </a>
-        <a class="step {% if current_step == 'reveal' %}active{% elif current_step == 'alignment' %}completed{% endif %}" href="{{ url_for('study.evaluate_case', case_id=document.id, step='reveal') }}" data-step="reveal">
-            <span class="step-number">4</span> Reveal
-        </a>
-        <a class="step {% if current_step == 'alignment' %}active{% endif %}" href="{{ url_for('study.evaluate_case', case_id=document.id, step='alignment') }}" data-step="alignment">
-            <span class="step-number">5</span> Alignment
+        <a class="step {% if current_step == 'reveal' %}active{% endif %}" href="{{ url_for('study.evaluate_case', case_id=document.id, step='reveal') }}" data-step="reveal">
+            <span class="step-number">4</span> Wrap-up
         </a>
     </div>
 
@@ -600,7 +597,7 @@
                     <i class="bi bi-chevron-up instruction-chevron"></i>
                 </button>
                 <div class="collapse show" id="instr-overview">
-                    <div class="instruction-body"><strong>You're at step 1 of 5: Case Facts.</strong> Read the case below to get the gist of what happened. From here you'll move through five views of the same case, four short questions about the case, the board's published reasoning, and a final alignment check. The pills above let you return to any step at any time. <em>Your job is to rate how useful each kind of view would be for helping a reader understand a case like this. You do not need to absorb every detail.</em></div>
+                    <div class="instruction-body"><strong>Step 1 of 4: Case Facts.</strong> Read the case below. The remaining steps present five views of the same case, a brief reflection, and the Board&rsquo;s published discussion and conclusions. Use the pills above to navigate between steps. <em>This study evaluates the usefulness of each kind of view for understanding cases of this type. Detailed recall of the case is not required.</em></div>
                 </div>
             </div>
             <div class="withheld-notice mb-3">
@@ -652,6 +649,7 @@
 
         <!-- STEP 2: VIEWS -->
         <div id="step-views" class="step-content {% if current_step != 'views' %}hidden-step{% endif %}">
+            <p class="step-banner small text-muted mb-2"><strong>Step 2 of 4: Views.</strong> Five views of the case appear in the tabs below. Each view organizes the same case from a different angle.</p>
             {% if case_facts.question %}
             <div class="case-question-card case-question-card-compact">
                 <div class="case-question-label"><i class="bi bi-question-circle me-1"></i>Questions before the Board</div>
@@ -685,7 +683,7 @@
                 <li class="nav-item">
                     <button class="nav-link" id="qc-tab" data-bs-toggle="tab" data-bs-target="#qc-pane" type="button">
                         <i class="bi bi-star tab-rating-star text-muted me-1" data-tab-star="qc" aria-hidden="true"></i>
-                        <i class="bi bi-question-circle me-1"></i> Q&amp;C ({{ views.qc.count }})
+                        <i class="bi bi-question-circle me-1"></i> Conclusions ({{ views.qc.board_questions|length }})
                     </button>
                 </li>
                 <li class="nav-item">
@@ -721,7 +719,7 @@
                                     <i class="bi bi-chevron-up instruction-chevron"></i>
                                 </button>
                                 <div class="collapse show" id="instr-narrative">
-                                    <div class="instruction-body">Characters and ethical tensions, with an opening context. The case's ethical questions arise from the responsibilities each role carries, so we start with who is involved and what is at stake. <em>Rate how well this kind of view would support a reader's understanding of the case, not whether you have absorbed every detail.</em></div>
+                                    <div class="instruction-body">Characters and ethical tensions, presented with an opening context. The case&rsquo;s ethical questions arise from the responsibilities each role carries; this view begins with the people involved and what is at stake. <em>Rate how well this kind of view would support a reader&rsquo;s understanding of the case, not whether every detail has been absorbed.</em></div>
                                 </div>
                             </div>
 
@@ -929,7 +927,7 @@
                                     <i class="bi bi-chevron-up instruction-chevron"></i>
                                 </button>
                                 <div class="collapse show" id="instr-timeline">
-                                    <div class="instruction-body">An <strong style="color: #0dcaf0;">Action</strong> is something a person in the case did by choice (e.g., &ldquo;submitted the report&rdquo;). An <strong style="color: #dc3545;">Event</strong> is something that happened to them (e.g., &ldquo;regulator updated guidance&rdquo;). Each Action can put an ethical obligation <strong>at stake</strong>&nbsp;<i class="bi bi-exclamation-triangle-fill" style="color: #d6a405;" aria-hidden="true"></i>, and a later Action can then <strong>fulfill</strong>&nbsp;<i class="bi bi-check-circle-fill" style="color: #198754;" aria-hidden="true"></i> or <strong>violate</strong>&nbsp;<i class="bi bi-x-circle-fill" style="color: #dc3545;" aria-hidden="true"></i> it. The timeline shows when in the sequence each obligation was put at stake, fulfilled, or violated. <em>Rate how well this kind of view would support a reader's understanding of the case, not whether you have absorbed every detail.</em></div>
+                                    <div class="instruction-body">An <strong style="color: #0dcaf0;">Action</strong> is a deliberate act by a person in the case (e.g., &ldquo;submitted the report&rdquo;). An <strong style="color: #dc3545;">Event</strong> is an occurrence that no person in the case chose to bring about (e.g., &ldquo;regulator updated guidance&rdquo;). Each Action can place an ethical obligation <strong>at stake</strong>&nbsp;<i class="bi bi-exclamation-triangle-fill" style="color: #d6a405;" aria-hidden="true"></i>; a later Action can then <strong>fulfill</strong>&nbsp;<i class="bi bi-check-circle-fill" style="color: #198754;" aria-hidden="true"></i> or <strong>violate</strong>&nbsp;<i class="bi bi-x-circle-fill" style="color: #dc3545;" aria-hidden="true"></i> it. The timeline shows when each obligation was placed at stake, fulfilled, or violated. (The rating below refers to an obligation placed at stake as having &ldquo;become active.&rdquo;) <em>Rate how well this kind of view would support a reader&rsquo;s understanding of the case, not whether every detail has been absorbed.</em></div>
                                 </div>
                             </div>
 
@@ -1044,7 +1042,7 @@
                             <i class="bi bi-arrow-left me-1"></i> Previous: Narrative
                         </button>
                         <button type="button" class="btn btn-primary" onclick="activateViewTab('qc-tab')">
-                            Next: Q&amp;C <i class="bi bi-arrow-right ms-1"></i>
+                            Next: Conclusions <i class="bi bi-arrow-right ms-1"></i>
                         </button>
                     </div>
                 </div>
@@ -1052,7 +1050,7 @@
                 <!-- 3. Q&C View -->
                 <div class="tab-pane fade" id="qc-pane">
                     <div class="segue-card segue-qc">
-                        <div class="segue-caption">View 3 of 5: Questions and Conclusions</div>
+                        <div class="segue-caption">View 3 of 5: Conclusions</div>
                         <strong>The sequence raises ethical questions.</strong> This view pairs each board question with its conclusion. A group of analytical questions under each one raises additional angles the BER did not directly answer.
                     </div>
                     {% set ns_qc = namespace(total_analytical=(views.qc.cross_cutting|length)) %}
@@ -1061,7 +1059,7 @@
                     {% endfor %}
                     <div class="view-card card">
                         <div class="card-header">
-                            <span>Q&amp;C View (Questions and Conclusions)</span>
+                            <span>Conclusions</span>
                             <span class="badge bg-purple" style="background: #6f42c1;">{{ views.qc.board_questions|length }} board &middot; {{ ns_qc.total_analytical }} analytical</span>
                         </div>
                         <div class="card-body view-content">
@@ -1071,7 +1069,7 @@
                                     <i class="bi bi-chevron-up instruction-chevron"></i>
                                 </button>
                                 <div class="collapse show" id="instr-qc">
-                                    <div class="instruction-body">A <strong>board question</strong> is one the BER explicitly addressed. Each one has a <strong>conclusion</strong> showing how the BER ruled. <strong>Analytical questions</strong> raise additional angles the case implies but the BER did not directly answer. You do not need to read all of the analytical questions. <em>Rate how well this kind of view would support a reader's understanding of the case, not whether you have absorbed every detail.</em></div>
+                                    <div class="instruction-body">A <strong>board question</strong> is one the BER explicitly addressed; each is paired with a <strong>conclusion</strong> stating the BER&rsquo;s ruling. <strong>Analytical questions</strong> raise additional angles the case implies but the BER did not directly answer. Reading every analytical question is not required. <em>Rate how well this kind of view would support a reader&rsquo;s understanding of the case, not whether every detail has been absorbed.</em></div>
                                 </div>
                             </div>
 
@@ -1095,15 +1093,15 @@
                                         <p class="mb-2">{{ bq.question_text }}</p>
 
                                         {# Board's conclusion(s) — paired prominently with the question.
-                                           Filter to board-typed conclusions only; analytical conclusions
-                                           (additional commentary on the same question) are pushed into
-                                           the collapsible "More analysis" toggle below so the BER's
-                                           ruling stays the focal point. Fall back to all conclusions
-                                           if no board conclusion exists for the question. #}
+                                           Filter strictly to conclusion_type='board'. Earlier fallback
+                                           rendered analytical commentaries when no board conclusion was
+                                           extracted, which let LLM-authored text appear under the
+                                           "Board conclusion" badge. If no board conclusion exists, show
+                                           a small note instead; the actual reasoning is in the
+                                           Discussion section revealed at Wrap-up. #}
                                         {% set board_conclusions = bq.linked_conclusions | selectattr('conclusion_type', 'equalto', 'board') | list %}
-                                        {% set analytical_conclusions = bq.linked_conclusions | rejectattr('conclusion_type', 'equalto', 'board') | list %}
-                                        {% set displayed_conclusions = board_conclusions if board_conclusions else bq.linked_conclusions %}
-                                        {% for c in displayed_conclusions %}
+                                        {% if board_conclusions %}
+                                        {% for c in board_conclusions %}
                                         <div class="qc-conclusion">
                                             <div class="d-flex align-items-start">
                                                 <span class="qc-conclusion-arrow"><i class="bi bi-arrow-return-right"></i></span>
@@ -1121,35 +1119,12 @@
                                             </div>
                                         </div>
                                         {% endfor %}
-
-                                        {% if board_conclusions and analytical_conclusions %}
-                                        <a class="qc-sub-toggle text-decoration-none mt-2" data-bs-toggle="collapse"
-                                           href="#qc-extra-{{ bq_num }}" role="button" aria-expanded="false">
-                                            <i class="bi bi-chevron-right me-1 qc-sub-chevron"></i>
-                                            Show {{ analytical_conclusions|length }} additional analytical commentar{{ 'ies' if analytical_conclusions|length != 1 else 'y' }}
-                                        </a>
-                                        <div class="collapse" id="qc-extra-{{ bq_num }}">
-                                            {% for c in analytical_conclusions %}
-                                            <div class="qc-conclusion qc-conclusion-analytical mt-2">
-                                                <div class="d-flex align-items-start">
-                                                    <span class="qc-conclusion-arrow"><i class="bi bi-arrow-return-right"></i></span>
-                                                    <div>
-                                                        <span class="badge bg-secondary me-1" style="font-size: 0.65rem;">Analytical commentary</span>
-                                                        <span class="small">{{ c.text }}</span>
-                                                        {% if c.cited_provisions %}
-                                                        <div class="mt-1">
-                                                            {% for prov in c.cited_provisions %}<span class="badge bg-primary" style="font-size: 0.6rem;">{{ prov }}</span>{% endfor %}
-                                                        </div>
-                                                        {% endif %}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            {% endfor %}
-                                        </div>
+                                        {% else %}
+                                        <p class="small text-muted fst-italic mb-2">The Board did not provide a conclusion specific to this question. The Discussion section in the Wrap-up step covers the Board&rsquo;s reasoning across all questions.</p>
                                         {% endif %}
 
-                                        {# Single combined collapse for all analytical sub-questions,
-                                           grouped by subtype inside #}
+                                        {# Analytical sub-questions, each paired with its own
+                                           linked analytical conclusion (when present). One toggle. #}
                                         {% if all_subs %}
                                         <div class="mt-3">
                                             <a class="qc-sub-toggle text-decoration-none" data-bs-toggle="collapse"
@@ -1166,6 +1141,17 @@
                                                     {% for sq in typed_subs %}
                                                     <div class="qc-sub-question">
                                                         <p class="small mb-1">{{ sq.question_text }}</p>
+                                                        {% for c in sq.linked_conclusions %}
+                                                        <div class="qc-conclusion qc-conclusion-analytical">
+                                                            <div class="d-flex align-items-start">
+                                                                <span class="qc-conclusion-arrow"><i class="bi bi-arrow-return-right"></i></span>
+                                                                <div>
+                                                                    <span class="badge bg-secondary me-1" style="font-size: 0.6rem;">Analytical</span>
+                                                                    <span class="small">{{ c.text }}</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        {% endfor %}
                                                     </div>
                                                     {% endfor %}
                                                     {% endif %}
@@ -1197,6 +1183,17 @@
                                         {% for sq in typed_subs %}
                                         <div class="qc-sub-question">
                                             <p class="small mb-1">{{ sq.question_text }}</p>
+                                            {% for c in sq.linked_conclusions %}
+                                            <div class="qc-conclusion qc-conclusion-analytical">
+                                                <div class="d-flex align-items-start">
+                                                    <span class="qc-conclusion-arrow"><i class="bi bi-arrow-return-right"></i></span>
+                                                    <div>
+                                                        <span class="badge bg-secondary me-1" style="font-size: 0.6rem;">Analytical</span>
+                                                        <span class="small">{{ c.text }}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {% endfor %}
                                         </div>
                                         {% endfor %}
                                         {% endif %}
@@ -1240,7 +1237,7 @@
                                     <i class="bi bi-chevron-up instruction-chevron"></i>
                                 </button>
                                 <div class="collapse show" id="instr-decisions">
-                                    <div class="instruction-body">A <strong>decision point</strong> is a moment where the professional could have chosen otherwise. Click any decision to read the full question, see the <strong>options</strong> considered (the Board's choice marked with <i class="bi bi-check-circle-fill" style="color: #198754;" aria-hidden="true"></i>), and review the <strong>argument structure</strong> for and against the choice — <strong>warrants</strong>&nbsp;<i class="bi bi-check-circle" style="color: #198754;" aria-hidden="true"></i> that support it, <strong>rebuttals</strong>&nbsp;<i class="bi bi-x-circle" style="color: #dc3545;" aria-hidden="true"></i> that challenge it, and <strong>grounds</strong>&nbsp;<i class="bi bi-file-earmark-text" style="color: #0d6efd;" aria-hidden="true"></i> drawn from the case facts. <em>Rate how well this kind of view would support a reader's understanding of the case, not whether you have absorbed every detail.</em></div>
+                                    <div class="instruction-body">A <strong>decision point</strong> is a moment at which the professional could have chosen otherwise. Each decision card shows the full question, the <strong>options</strong> considered (the Board&rsquo;s choice marked with <i class="bi bi-check-circle-fill" style="color: #198754;" aria-hidden="true"></i>), and the <strong>argument structure</strong> for and against the choice. The argument structure includes <strong>warrants</strong>&nbsp;<i class="bi bi-check-circle" style="color: #198754;" aria-hidden="true"></i> that support the choice, <strong>rebuttals</strong>&nbsp;<i class="bi bi-x-circle" style="color: #dc3545;" aria-hidden="true"></i> that challenge it, and <strong>grounds</strong>&nbsp;<i class="bi bi-file-earmark-text" style="color: #0d6efd;" aria-hidden="true"></i> drawn from the case facts. <em>Rate how well this kind of view would support a reader&rsquo;s understanding of the case, not whether every detail has been absorbed.</em></div>
                                 </div>
                             </div>
                             {% for dec in views.decisions.decisions %}
@@ -1361,7 +1358,7 @@
 
                     <div class="view-footer-nav">
                         <button type="button" class="btn btn-outline-secondary" onclick="activateViewTab('qc-tab')">
-                            <i class="bi bi-arrow-left me-1"></i> Previous: Q&amp;C
+                            <i class="bi bi-arrow-left me-1"></i> Previous: Conclusions
                         </button>
                         <button type="button" class="btn btn-primary" onclick="activateViewTab('provisions-tab')">
                             Next: Provisions <i class="bi bi-arrow-right ms-1"></i>
@@ -1387,7 +1384,7 @@
                                     <i class="bi bi-chevron-up instruction-chevron"></i>
                                 </button>
                                 <div class="collapse show" id="instr-provisions">
-                                    <div class="instruction-body">Each <strong>provision</strong> below is a section of the NSPE Code of Ethics that applies to this case (e.g., I.1, II.2.a). Under each, you see how the provision connects to specific case elements &mdash; an <strong>obligation</strong> it raises, an <strong>action</strong> it touches, or a <strong>state</strong> that brings it into play. Click <em>Show all mappings</em> to see the complete list. <em>Rate how well this kind of view would support a reader's understanding of the case, not whether you have absorbed every detail.</em></div>
+                                    <div class="instruction-body">Each <strong>provision</strong> below is a section of the NSPE Code of Ethics that applies to this case (e.g., I.1, II.2.a). Beneath each provision are three case elements that illustrate the connection. These elements show an <strong>obligation</strong> the provision raises, an <strong>action</strong> it touches, or a <strong>state</strong> that brings it into play. Click <em>Show all mappings</em> for the complete list. <em>Rate how well this kind of view would support a reader&rsquo;s understanding of the case, not whether every detail has been absorbed.</em></div>
                                 </div>
                             </div>
                             {% for prov in views.provisions.provisions %}
@@ -1471,39 +1468,38 @@
                             <i class="bi bi-arrow-left me-1"></i> Previous: Decisions
                         </button>
                         <button type="button" class="btn btn-primary" id="goto-overall-btn"
-                                disabled
-                                title="Visit all five views to unlock the Overall Assessment"
                                 onclick="document.getElementById('overall-panel').scrollIntoView({behavior:'smooth'})">
-                            <span class="goto-overall-label">Visit remaining views to unlock Overall Assessment</span>
+                            <span class="goto-overall-label">Continue to overall view rating</span>
                             <i class="bi bi-arrow-down ms-1"></i>
                         </button>
                     </div>
                 </div>
             </div>
 
-            <!-- Overall Assessment panel (cross-cutting; revealed only after all five view tabs
-                 have been visited, so participants cannot rate the panel before exposure to the
+            <!-- Overall view rating panel (cross-cutting items rating the five views
+                 collectively; revealed only after all five view tabs have been
+                 visited, so participants cannot rate the panel before exposure to the
                  stimulus the items summarize). -->
             <div class="card mt-4 d-none" id="overall-panel">
                 <div class="card-header bg-secondary text-white">
-                    <h5 class="mb-0"><i class="bi bi-clipboard-check me-2"></i>Overall Assessment</h5>
+                    <h5 class="mb-0"><i class="bi bi-clipboard-check me-2"></i>Overall view rating</h5>
                 </div>
                 <div class="card-body">
-                    <p class="text-muted small mb-3">Three cross-cutting items about the structured presentation as a whole.</p>
-                    {{ likert_block('Overall', OVERALL_ITEMS, existing_eval, 'Rate the structured presentation overall.') }}
+                    <p class="text-muted small mb-3">Three rating items about the five views as a whole.</p>
+                    {{ likert_block('Overall', OVERALL_ITEMS, existing_eval, 'Rate the five views as a whole.') }}
                 </div>
                 <div class="card-footer">
                     <button type="button" class="btn btn-outline-secondary" onclick="activateViewTab('provisions-tab')">
                         <i class="bi bi-arrow-up me-1"></i> Back to Provisions
                     </button>
                     <button type="button" class="btn btn-primary" id="continue-to-comprehension-btn" disabled title="Rate all 18 items to continue" onclick="goToStep('comprehension')">
-                        Continue to Comprehension <i class="bi bi-arrow-right ms-1"></i>
+                        Continue to Reflection <i class="bi bi-arrow-right ms-1"></i>
                     </button>
                 </div>
             </div>
 
             <p class="small text-muted mt-2" id="views-gate-hint">
-                <i class="bi bi-info-circle me-1"></i> Rate all five views and the overall assessment to enable the Continue button.
+                <i class="bi bi-info-circle me-1"></i> Rate all five views and the overall view rating to enable the Continue button.
             </p>
         </div>
 
@@ -1514,113 +1510,62 @@
              confirm-and-continue role is now subsumed by the Overall panel's
              gated Continue button (continue-to-comprehension-btn, enabled
              only when all 18 items are rated). -->
+        <!-- STEP 3: REFLECTION (open-ended, optional) -->
         <div id="step-comprehension" class="step-content {% if current_step != 'comprehension' %}hidden-step{% endif %}">
             <div class="card">
                 <div class="card-header bg-info text-white">
-                    <h5 class="mb-0"><i class="bi bi-chat-text me-2"></i>Comprehension Questions</h5>
+                    <h5 class="mb-0"><i class="bi bi-chat-text me-2"></i>Reflection</h5>
                 </div>
                 <div class="card-body">
-                    <div class="withheld-notice mb-4">
-                        <i class="bi bi-exclamation-triangle me-2"></i>
-                        <strong>Important:</strong> Answer these questions based on your understanding from the case facts and the five views. The board's actual conclusions will be revealed after you submit your answers.
+                    <p class="text-muted"><strong>Step 3 of 4: Reflection.</strong> Two open-ended prompts about the views just rated. Both are optional; either or both may be left blank.</p>
+
+                    <div class="mb-3">
+                        <label for="refl_most_useful_view" class="form-label fw-bold">Which view did you find most useful for understanding the case, and why?</label>
+                        <textarea class="form-control" id="refl_most_useful_view" name="refl_most_useful_view" rows="3" placeholder="Optional">{{ existing_eval.refl_most_useful_view if existing_eval and existing_eval.refl_most_useful_view else '' }}</textarea>
                     </div>
 
-                    <div class="comprehension-question">
-                        <label for="comp_main_tensions">What were the main ethical tensions in this case?</label>
-                        <textarea class="form-control" id="comp_main_tensions" name="comp_main_tensions" rows="3" required>{{ existing_eval.comp_main_tensions if existing_eval else '' }}</textarea>
-                    </div>
-
-                    <div class="comprehension-question">
-                        <label for="comp_relevant_provisions">Which code provisions are most relevant to this case?</label>
-                        <textarea class="form-control" id="comp_relevant_provisions" name="comp_relevant_provisions" rows="3" required>{{ existing_eval.comp_relevant_provisions if existing_eval else '' }}</textarea>
-                    </div>
-
-                    <div class="comprehension-question">
-                        <label for="comp_decision_points">What decision points did the professional face?</label>
-                        <textarea class="form-control" id="comp_decision_points" name="comp_decision_points" rows="3" required>{{ existing_eval.comp_decision_points if existing_eval else '' }}</textarea>
-                    </div>
-
-                    <div class="comprehension-question">
-                        <label for="comp_deliberation_factors">What considerations would be most important for an ethics committee deliberating this case?</label>
-                        <textarea class="form-control" id="comp_deliberation_factors" name="comp_deliberation_factors" rows="3" required>{{ existing_eval.comp_deliberation_factors if existing_eval else '' }}</textarea>
+                    <div class="mb-3">
+                        <label for="refl_changes" class="form-label fw-bold">What would you change about any of the views to make them more useful?</label>
+                        <textarea class="form-control" id="refl_changes" name="refl_changes" rows="3" placeholder="Optional">{{ existing_eval.refl_changes if existing_eval and existing_eval.refl_changes else '' }}</textarea>
                     </div>
                 </div>
                 <div class="card-footer">
                     <button type="button" class="btn btn-outline-secondary" onclick="goToStep('views')">
                         <i class="bi bi-arrow-left me-1"></i> Back
                     </button>
-                    {# Submit-then-redirect rather than JS-only step change. The
-                       reveal endpoint is gated on existing_eval.comprehension_complete
-                       (server-side), so the comprehension answers must be persisted
-                       before the AJAX fetch in loadBoardConclusions() can succeed.
-                       formnovalidate skips the browser's required-radio check on
-                       alignment_self_rating, which the participant has not yet seen;
-                       the submit handler accepts partial state and redirects to the
-                       step named by the button's next_step value. #}
                     <button type="submit" name="next_step" value="reveal"
                             formnovalidate class="btn btn-primary">
-                        Reveal Board Conclusions <i class="bi bi-arrow-right ms-1"></i>
+                        Continue to Wrap-up <i class="bi bi-arrow-right ms-1"></i>
                     </button>
                 </div>
             </div>
         </div>
 
-        <!-- STEP 5: REVEAL -->
+        <!-- STEP 4: WRAP-UP (BER conclusions + final reflection + Submit) -->
         <div id="step-reveal" class="step-content {% if current_step != 'reveal' %}hidden-step{% endif %}">
             <div class="card">
                 <div class="card-header bg-success text-white">
-                    <h5 class="mb-0"><i class="bi bi-eye me-2"></i>Board Conclusions Revealed</h5>
+                    <h5 class="mb-0"><i class="bi bi-eye me-2"></i>Wrap-up: Board Conclusions</h5>
                 </div>
                 <div class="card-body">
+                    <p class="text-muted"><strong>Step 4 of 4: Wrap-up.</strong> The NSPE Board of Ethical Review&rsquo;s published Discussion and Conclusions for this case are presented below.</p>
+
                     <div class="reveal-section mb-4" id="board-conclusions-container">
-                        <p class="text-muted">Loading board conclusions...</p>
+                        <p class="text-muted">Loading board conclusions&hellip;</p>
                     </div>
 
-                    <p class="lead">Compare your comprehension answers with the board's actual reasoning. How well did your understanding align?</p>
+                    <hr class="my-4">
+
+                    <div class="mb-3">
+                        <label for="refl_final" class="form-label fw-bold">After reading the Board&rsquo;s discussion and conclusions, are there aspects of the case the views did not adequately capture?</label>
+                        <textarea class="form-control" id="refl_final" name="refl_final" rows="4" placeholder="Optional">{{ existing_eval.refl_final if existing_eval and existing_eval.refl_final else '' }}</textarea>
+                    </div>
                 </div>
                 <div class="card-footer">
                     <button type="button" class="btn btn-outline-secondary" onclick="goToStep('comprehension')">
                         <i class="bi bi-arrow-left me-1"></i> Back
                     </button>
-                    <button type="button" class="btn btn-primary" onclick="goToStep('alignment')">
-                        Continue to Alignment Assessment <i class="bi bi-arrow-right ms-1"></i>
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- STEP 6: ALIGNMENT -->
-        <div id="step-alignment" class="step-content {% if current_step != 'alignment' %}hidden-step{% endif %}">
-            <div class="card">
-                <div class="card-header bg-warning">
-                    <h5 class="mb-0"><i class="bi bi-bullseye me-2"></i>Alignment Self-Assessment</h5>
-                </div>
-                <div class="card-body">
-                    <p>After reviewing the board's conclusions, rate how well your comprehension aligned with their reasoning.</p>
-
-                    <div class="likert-item mb-4">
-                        <div class="likert-label fw-bold">How well did your answers align with the board's reasoning?</div>
-                        <div class="likert-scale">
-                            {% for i in range(1, 8) %}
-                            <label>
-                                <input type="radio" name="alignment_self_rating" value="{{ i }}" {% if existing_eval and existing_eval.alignment_self_rating == i %}checked{% endif %} required>
-                                <span class="scale-btn">{{ i }}</span>
-                            </label>
-                            {% endfor %}
-                        </div>
-                        <div class="scale-endpoints"><span>Not at all aligned</span><span>Fully aligned</span></div>
-                    </div>
-
-                    <div class="mb-4">
-                        <label for="alignment_reflection" class="form-label fw-bold">Reflect on any differences between your understanding and the board's conclusions:</label>
-                        <textarea class="form-control" id="alignment_reflection" name="alignment_reflection" rows="4">{{ existing_eval.alignment_reflection if existing_eval else '' }}</textarea>
-                    </div>
-                </div>
-                <div class="card-footer">
-                    <button type="button" class="btn btn-outline-secondary" onclick="goToStep('reveal')">
-                        <i class="bi bi-arrow-left me-1"></i> Back
-                    </button>
-                    <button type="submit" class="btn btn-success">
+                    <button type="submit" formnovalidate class="btn btn-success">
                         <i class="bi bi-check-lg me-1"></i> Submit Evaluation
                     </button>
                 </div>
@@ -1814,8 +1759,8 @@
             'facts': 'time_facts_review',
             'views': 'time_views_review',
             'utility': 'time_utility_rating',
-            'comprehension': 'time_comprehension',
-            'alignment': 'time_alignment'
+            'comprehension': 'time_comprehension',  // now the Reflection step
+            'reveal': 'time_alignment'              // wrap-up; reuses time_alignment column
         };
         const field = document.getElementById(fieldMap[fromStep]);
         if (field) {
@@ -1838,7 +1783,7 @@
         document.getElementById('step-' + stepName).classList.remove('hidden-step');
 
         // Update step indicators
-        const steps = ['facts', 'views', 'comprehension', 'reveal', 'alignment'];
+        const steps = ['facts', 'views', 'comprehension', 'reveal'];
         const targetIndex = steps.indexOf(stepName);
 
         document.querySelectorAll('.step-indicator .step').forEach((el, idx) => {
@@ -2110,32 +2055,19 @@
             updateOverallReveal();
         }
         function updateOverallReveal() {
-            const panel = document.getElementById('overall-panel');
-            const btn = document.getElementById('goto-overall-btn');
-            const allVisited = tabsVisited.size >= VIEW_TAB_IDS.length;
             // Overall panel renders below the active tab content. Show it
-            // only when Provisions (the last tab in sequence) is active so
-            // the rating sequence reads as "finish all five views first,
-            // then rate overall." Earlier code revealed it under every tab
-            // once all five were visited, which made it look like a Likert
-            // attached to whichever view was on screen.
+            // whenever Provisions (the last tab in sequence) is the active
+            // tab. The earlier "all five visited" precondition was removed
+            // 2026-05-10: the step pills already let participants navigate
+            // freely between steps, so gating the bottom button was both
+            // bypassable and confusing. The real completion gate (rating
+            // all 18 items) lives later on the Continue-to-Reflection
+            // button inside the Overall panel itself.
+            const panel = document.getElementById('overall-panel');
             const provisionsTab = document.getElementById('provisions-tab');
             const provisionsActive = provisionsTab ? provisionsTab.classList.contains('active') : false;
-            const showPanel = allVisited && provisionsActive;
             if (panel) {
-                panel.classList.toggle('d-none', !showPanel);
-            }
-            if (btn) {
-                btn.disabled = !allVisited;
-                const label = btn.querySelector('.goto-overall-label');
-                if (label) {
-                    label.textContent = allVisited
-                        ? 'Continue to Overall Assessment'
-                        : 'Visit remaining views to unlock Overall Assessment';
-                }
-                if (allVisited) {
-                    btn.removeAttribute('title');
-                }
+                panel.classList.toggle('d-none', !provisionsActive);
             }
         }
 

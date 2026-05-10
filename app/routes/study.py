@@ -444,19 +444,21 @@ def evaluate_case(case_id):
     ).first()
 
     step = request.args.get('step', 'facts')
-    # 'utility' kept as an alias to preserve any existing bookmarks from
-    # before the recap step was removed; redirects to comprehension.
-    valid_steps = ['facts', 'views', 'comprehension', 'reveal', 'alignment']
+    # URL aliases preserved across the 2026-05-10 step reorg:
+    #   - 'utility'    → 'comprehension' (now the Reflection step)
+    #   - 'alignment'  → 'reveal'        (alignment merged into the Wrap-up step)
+    valid_steps = ['facts', 'views', 'comprehension', 'reveal']
     if step == 'utility':
         return redirect(url_for('study.evaluate_case', case_id=case_id, step='comprehension'))
+    if step == 'alignment':
+        return redirect(url_for('study.evaluate_case', case_id=case_id, step='reveal'))
     if step not in valid_steps:
         step = 'facts'
 
-    # A10: reveal step is gated on comprehension completeness.
-    if step in ('reveal', 'alignment'):
-        if not existing_eval or not existing_eval.comprehension_complete:
-            flash('Please complete the comprehension questions before revealing the board conclusions.', 'warning')
-            return redirect(url_for('study.evaluate_case', case_id=case_id, step='comprehension'))
+    # 2026-05-10: removed the comprehension_complete gate on the reveal
+    # step. Under the design-utility framing the post-views reflection is
+    # optional, so there is nothing to "complete" before showing the
+    # BER's conclusions on the Wrap-up step.
 
     return render_template('validation_study/case_evaluation.html',
                            document=document,
@@ -545,20 +547,22 @@ def submit_evaluation(case_id):
         # Disagree"). Stored raw; pass/fail derived at analysis time.
         evaluation.attention_check_response = get_int('attention_check_response')
 
-        # Part 2A: Comprehension
-        evaluation.comp_main_tensions = request.form.get('comp_main_tensions', '').strip()
-        evaluation.comp_relevant_provisions = request.form.get('comp_relevant_provisions', '').strip()
-        evaluation.comp_decision_points = request.form.get('comp_decision_points', '').strip()
-        evaluation.comp_deliberation_factors = request.form.get('comp_deliberation_factors', '').strip()
+        # Part 2': Reflection (2026-05-10 reorg, design-utility framing).
+        # All three fields are optional. Legacy comprehension and alignment
+        # fields are still accepted by the form parser so any partially
+        # completed pre-reorg sessions don't lose data; new sessions will
+        # leave them NULL.
+        evaluation.refl_most_useful_view = request.form.get('refl_most_useful_view', '').strip() or None
+        evaluation.refl_changes = request.form.get('refl_changes', '').strip() or None
+        evaluation.refl_final = request.form.get('refl_final', '').strip() or None
 
-        # Part 2B: Alignment
-        alignment_submitted = bool(request.form.get('alignment_self_rating'))
-        if alignment_submitted and not evaluation.comprehension_complete:
-            flash('Please complete the comprehension questions before the alignment step.', 'warning')
-            return redirect(url_for('study.evaluate_case', case_id=case_id, step='comprehension'))
-
-        evaluation.alignment_self_rating = get_int('alignment_self_rating')
-        evaluation.alignment_reflection = request.form.get('alignment_reflection', '').strip()
+        # Legacy fields — accepted but not required.
+        evaluation.comp_main_tensions = request.form.get('comp_main_tensions', '').strip() or evaluation.comp_main_tensions
+        evaluation.comp_relevant_provisions = request.form.get('comp_relevant_provisions', '').strip() or evaluation.comp_relevant_provisions
+        evaluation.comp_decision_points = request.form.get('comp_decision_points', '').strip() or evaluation.comp_decision_points
+        evaluation.comp_deliberation_factors = request.form.get('comp_deliberation_factors', '').strip() or evaluation.comp_deliberation_factors
+        evaluation.alignment_self_rating = get_int('alignment_self_rating') or evaluation.alignment_self_rating
+        evaluation.alignment_reflection = request.form.get('alignment_reflection', '').strip() or evaluation.alignment_reflection
 
         # Timing
         evaluation.time_facts_review = get_int('time_facts_review')
@@ -616,18 +620,15 @@ def submit_evaluation(case_id):
 
 @study_bp.route('/case/<int:case_id>/reveal')
 def reveal_conclusions(case_id):
-    """Reveal board conclusions. Gated on comprehension completeness."""
+    """Return the BER's discussion + conclusions for the Wrap-up step.
+
+    2026-05-10: gating relaxed. The participant needs an active session
+    but the comprehension_complete pre-condition (legacy) is no longer
+    enforced.
+    """
     val_session, redirect_resp = _require_session()
     if redirect_resp:
         return jsonify({'error': 'no_session'}), 403
-
-    existing = ViewUtilityEvaluation.query.filter_by(
-        session_id=val_session.id,
-        case_id=case_id
-    ).first()
-    if not existing or not existing.comprehension_complete:
-        return jsonify({'error': 'comprehension_required',
-                        'message': 'Complete the comprehension questions before revealing.'}), 400
 
     view_builder = SynthesisViewBuilder()
     return jsonify(view_builder.get_board_conclusions(case_id))

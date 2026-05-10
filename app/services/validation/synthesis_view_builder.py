@@ -123,27 +123,39 @@ class SynthesisViewBuilder:
             TemporaryRDFStorage.is_published == True
         ).all()
 
-        # Build conclusion lookup by question.
-        # answersQuestions stores integer question numbers (e.g., 1, 101, 201).
-        # Questions use entity_label strings like "Question_1", "Question_101".
-        # Normalize keys to entity_label format so the lookup matches.
+        # Build conclusion lookup by question. Each conclusion is added to
+        # the FIRST question listed in its answersQuestions array — its
+        # primary target. Earlier code added a conclusion to every question
+        # in the array, which produced the case-5 bug where an LLM
+        # commentary primarily answering sub-question Q103 (with Q1 as a
+        # secondary linkage) appeared under Q1, where the reader had no
+        # context for the embedded "In response to Q103:" reference.
+        # answersQuestions stores integer question numbers (e.g., 1, 101,
+        # 201). Questions use entity_label strings like "Question_1",
+        # "Question_101". Normalize keys to entity_label format so the
+        # lookup matches.
         conclusion_map: Dict[str, list] = {}
         for conc in conclusions:
             rdf_data = conc.rdf_json_ld or {}
-            answers = rdf_data.get('answersQuestions', [])
+            answers = rdf_data.get('answersQuestions', []) or []
+            if not answers:
+                continue
             conc_label = conc.entity_label or ''
-            is_board = conc_label.startswith('Conclusion_') and conc_label.replace('Conclusion_', '').isdigit() and len(conc_label.replace('Conclusion_', '')) <= 2
-            for q_ref in answers:
-                key = f"Question_{q_ref}" if isinstance(q_ref, int) else str(q_ref)
-                if key not in conclusion_map:
-                    conclusion_map[key] = []
-                conclusion_map[key].append({
-                    'id': conc.id,
-                    'label': conc.entity_label,
-                    'text': conc.entity_definition,
-                    'conclusion_type': 'board' if is_board else 'analytical',
-                    'cited_provisions': rdf_data.get('citedProvisions', [])
-                })
+            is_board = (
+                conc_label.startswith('Conclusion_')
+                and conc_label.replace('Conclusion_', '').isdigit()
+                and len(conc_label.replace('Conclusion_', '')) <= 2
+            )
+            primary_q = answers[0]
+            key = f"Question_{primary_q}" if isinstance(primary_q, int) else str(primary_q)
+            conclusion_map.setdefault(key, []).append({
+                'id': conc.id,
+                'label': conc.entity_label,
+                'text': conc.entity_definition,
+                'conclusion_type': 'board' if is_board else 'analytical',
+                'cited_provisions': rdf_data.get('citedProvisions', []),
+                'also_answers': [a for a in answers[1:] if a != primary_q],
+            })
 
         def _parent_question(label: str) -> Optional[str]:
             """Derive parent board question from numbering convention.
@@ -841,18 +853,37 @@ class SynthesisViewBuilder:
                 'is_html': False
             })
 
-        # NSPE question sections in the corpus are stored as multiple
-        # interrogatives concatenated without paragraph breaks (verified
-        # 2026-05-10 across the study pool). Split on `?` so the template
-        # can render them as numbered items rather than a single
-        # run-together blob.
-        import re as _re
-        _stripped = _re.sub(r'<[^>]+>', ' ', question_content) if question_is_html else question_content
-        _stripped = _re.sub(r'\s+', ' ', _stripped or '').strip()
+        # Question list shown on Step 1 (Facts) and Step 2 (Views) — pulled
+        # from the extracted board_explicit questions in
+        # temporary_rdf_storage rather than naive `?`-split on the raw
+        # text. The split heuristic produced two failure modes (verified
+        # 2026-05-10 across the study pool):
+        #   - Case 5: 4 raw questions, extractor captured 3 — the split
+        #     showed 4 but the Q&C view showed only 3 (visible mismatch).
+        #   - Case 19: a compound "...in State Q? In State Z?" question
+        #     splits into an orphan "In State Z?" fragment.
+        # Using the extractor's question list as the source of truth fixes
+        # both: each entry is a self-contained question, and the count
+        # matches the Q&C view exactly. When the extractor missed a
+        # question, that is documented as an extraction-quality issue
+        # (see current-application-roadmap.md).
+        board_questions = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            extraction_type='ethical_question',
+            is_published=True,
+        ).all()
         question_list: List[str] = []
-        if _stripped:
-            parts = [p.strip() for p in _stripped.split('?') if p.strip()]
-            question_list = [p + '?' for p in parts]
+        for q in sorted(
+            (q for q in board_questions
+             if (q.rdf_json_ld or {}).get('questionType') == 'board_explicit'),
+            key=lambda q: q.entity_label or '',
+        ):
+            text = (q.entity_definition or '').strip()
+            if not text:
+                continue
+            if not text.endswith('?'):
+                text = text + '?'
+            question_list.append(text)
 
         return {
             'case_id': case_id,
@@ -865,13 +896,13 @@ class SynthesisViewBuilder:
             'question_list': question_list,
             'withheld_sections': list(set(withheld_sections)),
             'withheld_notice': (
-                'This case is one of the NSPE Board of Ethical Review\'s '
-                'published opinions. Each opinion has four elements: '
+                'This case is drawn from the NSPE Board of Ethical Review\'s '
+                'published opinions. Each opinion contains four sections: '
                 '<em>Facts</em>, <em>Questions</em>, <em>Discussion</em>, '
-                'and <em>Conclusions</em>. You are reading the <em>Facts</em> '
-                'and <em>Questions</em> now. The <em>Discussion</em> and '
-                '<em>Conclusions</em> are withheld until after you complete '
-                'the comprehension questions.'
+                'and <em>Conclusions</em>. The <em>Facts</em> and '
+                '<em>Questions</em> are presented on this page. The '
+                '<em>Discussion</em> and <em>Conclusions</em> are withheld '
+                'until the Wrap-up step.'
             )
         }
 

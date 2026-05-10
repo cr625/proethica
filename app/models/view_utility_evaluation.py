@@ -250,6 +250,14 @@ class ViewUtilityEvaluation(db.Model):
     # =========================================================================
     # PART 2: ALIGNMENT SELF-ASSESSMENT (after revealing conclusions)
     # =========================================================================
+    # NOTE (2026-05-10): Steps 3-5 reorganized. Comprehension questions
+    # (the four comp_* columns above) and the alignment_* fields are
+    # retained for back-compat with sessions started before the reorg
+    # but are no longer collected from new participants. The current
+    # post-views flow uses the refl_* columns below: an open Reflection
+    # step (Step 3) and a Wrap-up step (Step 4) that shows the BER
+    # conclusions and one final reflection prompt. is_complete no longer
+    # requires comprehension or alignment.
 
     # Self-rating: How well did your comprehension answers align with the board's reasoning?
     # 1-7 Likert: 1 = Not at all aligned, 7 = Fully aligned
@@ -257,6 +265,18 @@ class ViewUtilityEvaluation(db.Model):
 
     # Open reflection on alignment
     alignment_reflection = db.Column(db.Text)
+
+    # =========================================================================
+    # PART 2': REFLECTION (replaces comprehension+alignment under the
+    # design-utility framing introduced 2026-05-10). All optional.
+    # =========================================================================
+
+    # Step 3 — Reflection
+    refl_most_useful_view = db.Column(db.Text)   # which view was most useful, why
+    refl_changes = db.Column(db.Text)            # what would you change about any view
+
+    # Step 4 — Wrap-up (after BER conclusions are shown)
+    refl_final = db.Column(db.Text)              # any final thoughts after seeing the actual ruling
 
     # =========================================================================
     # METADATA
@@ -394,10 +414,17 @@ class ViewUtilityEvaluation(db.Model):
 
     @property
     def is_complete(self):
-        """Check if evaluation is fully complete including alignment."""
-        return (self.all_utility_items_complete and
-                self.comprehension_complete and
-                self.alignment_self_rating is not None)
+        """Check if evaluation is fully complete.
+
+        2026-05-10 reorg: completion now requires only the 18 utility
+        items. The Reflection (Step 3) and Wrap-up (Step 4) prompts are
+        all optional under the design-utility framing — the participant
+        is rating view structure, not demonstrating case mastery, so
+        empty reflection text is not a failure mode. The legacy
+        comprehension_complete and alignment_self_rating gates are no
+        longer enforced (the columns remain on the model for back-compat).
+        """
+        return self.all_utility_items_complete
 
     def __repr__(self):
         return f"<ViewUtilityEvaluation {self.id}: case {self.case_id} by {self.evaluator_id}>"

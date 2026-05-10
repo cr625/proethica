@@ -1296,3 +1296,52 @@ class ObligationEngagementResult(BaseModel):
         None,
         description="Brief free-text summary; not consumed by the pipeline.",
     )
+
+
+# ---------------------------------------------------------------------------
+# Board-conclusion extraction
+#
+# Some BER opinions roll multiple board-question rulings into one combined
+# Discussion paragraph. The original extraction pipeline often captured
+# only the last per-question conclusion (or one combined block), leaving
+# other board questions without an extracted Board ruling. This pass
+# generates one Conclusion per missing board Question, grounded in the
+# Discussion text. Output is constrained to the question numbers requested.
+# ---------------------------------------------------------------------------
+
+class BoardConclusionForQuestion(BaseModel):
+    """One board conclusion paired to one board question."""
+    model_config = ConfigDict(populate_by_name=True)
+
+    question_number: int = Field(
+        ...,
+        description="Integer question number (e.g., 1 for Question_1).",
+    )
+    conclusion_text: str = Field(
+        ...,
+        description=(
+            "The Board's ruling on this question, paraphrased from the "
+            "Discussion section. One to three sentences. State only the "
+            "Board's position, not analytical commentary."
+        ),
+    )
+    cited_provisions: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Code provisions the Board cites in support of this ruling "
+            "(e.g., 'I.1', 'II.2.b'). Empty list when none are explicit."
+        ),
+    )
+
+
+class BoardConclusionExtractionResult(BaseModel):
+    """LLM output for a per-case board-conclusion gap-fill pass."""
+    model_config = ConfigDict(populate_by_name=True)
+
+    conclusions: List[BoardConclusionForQuestion] = Field(
+        ...,
+        description=(
+            "One conclusion per requested question number. Length must "
+            "equal the input gap list."
+        ),
+    )
