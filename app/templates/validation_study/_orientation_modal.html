@@ -1,0 +1,82 @@
+{# In-flow modal version of the orientation content. Triggered by the
+   Instructions button on the case page and the Review-Instructions
+   link on the dashboard so participants can reference the per-case
+   flow, the five-view glossary, and the post-case steps without
+   navigating away mid-study. The full /orientation route renders
+   the same content as a dedicated first-visit page (its sections
+   1-3); when participant-facing copy changes, keep the two surfaces
+   in sync. #}
+<div class="modal fade" id="orientationModal" tabindex="-1"
+     aria-labelledby="orientationModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="orientationModalLabel">
+          <i class="bi bi-info-circle me-2 text-primary"></i>Study reference
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+
+        <h6 class="fw-bold mb-2">What happens in each case</h6>
+        <p class="small text-muted mb-2">
+          Each case proceeds through four steps. The pills at the top of
+          the case page mark the current position.
+        </p>
+        <ol class="small mb-4 ps-3">
+          <li class="mb-1">
+            <strong>Facts.</strong>
+            Read the case below the &ldquo;Questions before the Board&rdquo;
+            summary. The Board&rsquo;s Discussion and Conclusions are
+            withheld until the Wrap-up step.
+          </li>
+          <li class="mb-1">
+            <strong>Views.</strong>
+            Examine the five views and rate each on a 1&ndash;7 scale
+            (about 15 items per case, three per view).
+          </li>
+          <li class="mb-1">
+            <strong>Reflection.</strong>
+            Three short rating items about the views as a whole, followed
+            by two optional open-ended prompts. The ratings are required;
+            the open prompts may be left blank.
+          </li>
+          <li class="mb-0">
+            <strong>Wrap-up.</strong>
+            The Board&rsquo;s Discussion and Conclusions are revealed for
+            context, followed by one optional final reflection.
+          </li>
+        </ol>
+
+        <h6 class="fw-bold mb-2">The five views</h6>
+        <dl class="row small mb-4">
+          <dt class="col-sm-3"><i class="bi bi-journal-text text-success me-1"></i>Narrative</dt>
+          <dd class="col-sm-9">The people involved, what is at stake, and the ethical tensions their roles produce.</dd>
+
+          <dt class="col-sm-3"><i class="bi bi-clock-history me-1" style="color: #20c997;"></i>Timeline</dt>
+          <dd class="col-sm-9">The sequence of actions and events, with the points where ethical obligations became active.</dd>
+
+          <dt class="col-sm-3"><i class="bi bi-question-circle me-1" style="color: #6f42c1;"></i>Conclusions</dt>
+          <dd class="col-sm-9">The Board&rsquo;s rulings on each question it addressed, with related analytical questions surfaced for additional perspective.</dd>
+
+          <dt class="col-sm-3"><i class="bi bi-signpost-split me-1" style="color: #fd7e14;"></i>Decisions</dt>
+          <dd class="col-sm-9">The choices the professional faced, with the arguments for and against each option.</dd>
+
+          <dt class="col-sm-3 mb-0"><i class="bi bi-book text-primary me-1"></i>Provisions</dt>
+          <dd class="col-sm-9 mb-0">Which sections of the NSPE Code of Ethics apply to the case, and how they connect to specific facts.</dd>
+        </dl>
+
+        <h6 class="fw-bold mb-2">After your cases</h6>
+        <p class="small mb-0">
+          Two short steps remain after the final case: rank the five views
+          from most to least useful, then complete a brief demographic
+          questionnaire. The completion code is shown on the final page.
+        </p>
+
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Got it</button>
+      </div>
+    </div>
+  </div>
+</div>

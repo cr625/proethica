@@ -112,8 +112,9 @@
             You can pause anytime and return by re-entering this code.
           </div>
           <div class="small mt-1">
-            <a href="{{ url_for('study.orientation') }}" class="text-decoration-none">
-              <i class="bi bi-info-circle me-1"></i>Review "Before you start" instructions
+            <a href="#" class="text-decoration-none"
+               data-bs-toggle="modal" data-bs-target="#orientationModal">
+              <i class="bi bi-info-circle me-1"></i>Study reference
             </a>
           </div>
         </div>
@@ -251,4 +252,8 @@
 {% endif %}
 
 </div>
+
+{% if phase == 'dashboard' %}
+{% include "validation_study/_orientation_modal.html" %}
+{% endif %}
 {% endblock %}
