@@ -1,21 +1,12 @@
-{# Per-view Likert footer macro for the validation-study case evaluation page.
-   Renders three 7-point items in a collapsed card. Wording comes from
-   app/services/validation/likert_items.py, which is bound to Protocol
-   2603011709 v7 Appendix A. Do not inline item text here; that would
-   break the wording-parity test.
+{# Likert macro for the validation-study case evaluation page.
 
-   The Likert items are hidden by default and revealed by clicking the
-   header (or the explicit Begin rating button). This separates reading
-   the view from rating it, so the rating UI does not anchor the reader's
-   attention while they are still engaging with the view content. The
-   star indicator in the header reflects rating progress: empty when no
-   item is rated, half when 1-2 items are rated, full when 3 of 3 are
-   rated. The same indicator appears on the tab in the tab strip and on
-   the recap step, providing a consistent rating-completion signal across
-   the case-evaluation page.
+   Item wording comes from app/services/validation/likert_items.py, which
+   is bound to Protocol 2603011709 v7 Appendix A. Do not inline item text
+   here; that would break the wording-parity test.
 
-   On resume (existing_eval populated), the panel is auto-expanded by JS
-   so the participant returns to the visible state they last saw. #}
+   The header star indicator is empty / half / full based on how many
+   items in the block are rated. The same indicator appears on the tab
+   strip and the recap step, so progress is visible across the page. #}
 
 {% macro likert_block(view_label, items, existing_eval, prompt_override=None) %}
 {% set view_slug = view_label|lower|replace('&','')|replace(' ','-') %}
