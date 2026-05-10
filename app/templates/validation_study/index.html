@@ -169,28 +169,28 @@
         </div>
         <div class="card-body">
           <p class="small text-muted mb-2">
-            Three short steps remain after the last case:
+            Two short steps remain after the last case:
           </p>
-          <ol class="small mb-0">
-            <li>
+          <ol class="small mb-2">
+            <li class="mb-1">
               <strong>Rank the five views</strong> from most to least useful
               for understanding cases overall.
             </li>
             <li>
               <strong>Brief demographics.</strong>
-              Five multiple-choice items about your background. You can skip any.
-            </li>
-            <li>
-              {% if is_prolific_participant %}
-              <strong>Completion code is shown.</strong>
-              Paste it into Prolific to receive your $18.00 payment
-              within 14 days.
-              {% else %}
-              <strong>Thank-you screen.</strong>
-              Confirms your participation has been recorded.
-              {% endif %}
+              Five multiple-choice items about your background. Any item may
+              be skipped.
             </li>
           </ol>
+          <p class="small text-muted mb-0">
+            {% if is_prolific_participant %}
+            A completion code is then shown on the final page. Paste it
+            into Prolific to receive your $18.00 payment within 14 days.
+            {% else %}
+            A thank-you screen then confirms your participation has been
+            recorded.
+            {% endif %}
+          </p>
         </div>
       </div>
     </div>

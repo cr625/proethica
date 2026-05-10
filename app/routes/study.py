@@ -589,8 +589,15 @@ def submit_evaluation(case_id):
         evaluation.time_view_decisions = get_int('time_view_decisions')
         evaluation.time_view_provisions = get_int('time_view_provisions')
 
-        # Mark completion
-        if evaluation.is_complete:
+        # Submit semantics depend on which button sent the form. The Wrap-up
+        # "Submit Evaluation" button has no `name`, so its submission carries
+        # no `next_step` value -- that is the finalize signal. Intermediate
+        # "Continue to <step>" buttons carry the target step as `next_step`
+        # and only persist progress, even if all 18 utility items are filled.
+        next_step = (request.form.get('next_step') or '').strip()
+        finalize = (next_step == '') and evaluation.is_complete
+
+        if finalize:
             evaluation.completed_at = datetime.utcnow()
             completed = set(val_session.completed_cases or [])
             completed.add(case_id)
@@ -611,15 +618,14 @@ def submit_evaluation(case_id):
 
         db.session.commit()
 
-        if evaluation.is_complete:
+        if finalize:
             flash('Evaluation submitted successfully.', 'success')
             if val_session.is_complete:
                 return redirect(url_for('study.retrospective'))
             return redirect(url_for('study.index'))
-        else:
-            flash('Progress saved. Continue where you left off.', 'info')
-            next_step = request.form.get('next_step') or 'comprehension'
-            return redirect(url_for('study.evaluate_case', case_id=case_id, step=next_step))
+
+        flash('Progress saved.', 'info')
+        return redirect(url_for('study.evaluate_case', case_id=case_id, step=next_step or 'comprehension'))
 
     except Exception as e:
         logger.exception(f"Error submitting evaluation for case {case_id}: {str(e)}")
