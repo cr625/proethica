@@ -555,6 +555,10 @@
                 </div>
                 <div>
                     <span class="badge bg-secondary me-2">{{ participant_id }}</span>
+                    <a href="{{ url_for('study.orientation') }}" class="btn btn-outline-secondary btn-sm me-1"
+                       title='Review the "Before you start" instructions'>
+                        <i class="bi bi-info-circle me-1"></i> Instructions
+                    </a>
                     <a href="{{ url_for('study.index') }}" class="btn btn-outline-secondary btn-sm">
                         <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
                     </a>
