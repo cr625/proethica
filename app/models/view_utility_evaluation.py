@@ -413,6 +413,24 @@ class ViewUtilityEvaluation(db.Model):
         return all(q is not None and len(q.strip()) > 0 for q in questions if q)
 
     @property
+    def view_ratings_complete(self):
+        """The 15 per-view utility items (excludes the 3 Overall items).
+
+        Used as the gate for advancing past Step 2 (Views) into Step 3
+        (Reflection). The Overall items live on Step 3 under the
+        post-2026-05-10 reorg, so the Step 3 entry condition is "all
+        five views rated"; the all-18 condition gates Step 4 (Wrap-up).
+        """
+        items = [
+            self.prov_standards_identified, self.prov_connections_clear, self.prov_normative_foundation,
+            self.qc_issues_visible, self.qc_emergence_resolution, self.qc_deliberation_needs,
+            self.decs_choices_understood, self.decs_argumentative_structure, self.decs_actions_obligations,
+            self.timeline_temporal_sequence, self.timeline_causal_links, self.timeline_obligation_activation,
+            self.narr_characters_tensions, self.narr_relationships_clear, self.narr_ethical_significance,
+        ]
+        return all(item is not None for item in items)
+
+    @property
     def is_complete(self):
         """Check if evaluation is fully complete.
 

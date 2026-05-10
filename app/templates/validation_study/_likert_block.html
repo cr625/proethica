@@ -19,54 +19,36 @@
 
 {% macro likert_block(view_label, items, existing_eval, prompt_override=None) %}
 {% set view_slug = view_label|lower|replace('&','')|replace(' ','-') %}
-{% set collapse_id = 'likert-collapse-' ~ view_slug %}
 {% set prompt_text = prompt_override if prompt_override else 'Rate this view: how well did it help you understand the case?' %}
 <div class="likert-group card mt-3" data-view-likert="{{ view_slug }}">
-  <div class="card-header py-2 bg-light likert-toggle"
-       role="button"
-       tabindex="0"
-       data-bs-toggle="collapse"
-       data-bs-target="#{{ collapse_id }}"
-       aria-expanded="false"
-       aria-controls="{{ collapse_id }}">
-    <div class="d-flex justify-content-between align-items-center">
-      <h6 class="mb-0">
-        <i class="bi bi-star likert-star text-muted me-1"
-           data-likert-star="{{ view_slug }}"
-           aria-hidden="true"></i>
-        {{ prompt_text }}
-        <span class="likert-count text-muted small ms-2"
-              data-likert-count="{{ view_slug }}">(0 of 3 rated)</span>
-      </h6>
-      <button type="button"
-              class="btn btn-sm btn-outline-primary"
-              tabindex="-1"
-              aria-hidden="true">
-        <span class="likert-toggle-label">Begin rating</span>
-        <i class="bi bi-chevron-down ms-1 likert-toggle-icon"></i>
-      </button>
-    </div>
+  <div class="card-header py-2 bg-light">
+    <h6 class="mb-0">
+      <i class="bi bi-star likert-star text-muted me-1"
+         data-likert-star="{{ view_slug }}"
+         aria-hidden="true"></i>
+      {{ prompt_text }}
+      <span class="likert-count text-muted small ms-2"
+            data-likert-count="{{ view_slug }}">(0 of {{ items|length }} rated)</span>
+    </h6>
   </div>
-  <div class="collapse" id="{{ collapse_id }}">
-    <div class="card-body pt-3">
-      <p class="text-muted small mb-3">Three items, 7-point scale (Strongly Disagree to Strongly Agree).</p>
-      {% for it in items %}
-      <div class="likert-item">
-        <div class="likert-label">{{ it.label }}</div>
-        <div class="likert-scale">
-          {% for i in range(1, 8) %}
-          <label>
-            <input type="radio" name="{{ it.name }}" value="{{ i }}"
-                   {% if existing_eval and existing_eval[it.name] == i %}checked{% endif %}
-                   required>
-            <span class="scale-btn">{{ i }}</span>
-          </label>
-          {% endfor %}
-        </div>
-        <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
+  <div class="card-body pt-3">
+    <p class="text-muted small mb-3">{{ items|length }} item{{ '' if items|length == 1 else 's' }}, 7-point scale (Strongly Disagree to Strongly Agree).</p>
+    {% for it in items %}
+    <div class="likert-item">
+      <div class="likert-label">{{ it.label }}</div>
+      <div class="likert-scale">
+        {% for i in range(1, 8) %}
+        <label>
+          <input type="radio" name="{{ it.name }}" value="{{ i }}"
+                 {% if existing_eval and existing_eval[it.name] == i %}checked{% endif %}
+                 required>
+          <span class="scale-btn">{{ i }}</span>
+        </label>
+        {% endfor %}
       </div>
-      {% endfor %}
+      <div class="scale-endpoints"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
     </div>
+    {% endfor %}
   </div>
 </div>
 {% endmacro %}

@@ -1476,38 +1476,14 @@
                         <button type="button" class="btn btn-outline-secondary" onclick="activateViewTab('decisions-tab')">
                             <i class="bi bi-arrow-left me-1"></i> Previous: Decisions
                         </button>
-                        <button type="button" class="btn btn-primary" id="goto-overall-btn"
-                                onclick="document.getElementById('overall-panel').scrollIntoView({behavior:'smooth'})">
-                            <span class="goto-overall-label">Continue to overall view rating</span>
-                            <i class="bi bi-arrow-down ms-1"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Overall view rating panel (cross-cutting items rating the five views
-                 collectively; revealed only after all five view tabs have been
-                 visited, so participants cannot rate the panel before exposure to the
-                 stimulus the items summarize). -->
-            <div class="card mt-4 d-none" id="overall-panel">
-                <div class="card-header bg-secondary text-white">
-                    <h5 class="mb-0"><i class="bi bi-clipboard-check me-2"></i>Overall view rating</h5>
-                </div>
-                <div class="card-body">
-                    <p class="text-muted small mb-3">Three rating items about the five views as a whole.</p>
-                    {{ likert_block('Overall', OVERALL_ITEMS, existing_eval, 'Rate the five views as a whole.') }}
-                </div>
-                <div class="card-footer d-flex justify-content-between align-items-center">
-                    <button type="button" class="btn btn-outline-secondary" onclick="activateViewTab('provisions-tab')">
-                        <i class="bi bi-arrow-up me-1"></i> Back to Provisions
-                    </button>
-                    <div class="d-flex align-items-center gap-3">
-                        <span class="small text-muted" id="views-gate-hint">
-                            <i class="bi bi-info-circle me-1"></i> Rate all 18 items to enable Continue.
-                        </span>
-                        <button type="button" class="btn btn-primary" id="continue-to-comprehension-btn" disabled title="Rate all 18 items to continue" onclick="goToStep('comprehension')">
-                            Continue to Reflection <i class="bi bi-arrow-right ms-1"></i>
-                        </button>
+                        <div class="d-flex align-items-center gap-3">
+                            <span class="small text-muted" id="views-gate-hint">
+                                <i class="bi bi-info-circle me-1"></i> Rate all five views to continue.
+                            </span>
+                            <button type="button" class="btn btn-primary" id="continue-to-comprehension-btn" disabled title="Rate all five views to continue" onclick="goToStep('comprehension')">
+                                Continue to Reflection <i class="bi bi-arrow-right ms-1"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1520,14 +1496,28 @@
              confirm-and-continue role is now subsumed by the Overall panel's
              gated Continue button (continue-to-comprehension-btn, enabled
              only when all 18 items are rated). -->
-        <!-- STEP 3: REFLECTION (open-ended, optional) -->
+        <!-- STEP 3: REFLECTION (Overall view rating + 2 optional open prompts) -->
         <div id="step-comprehension" class="step-content {% if current_step != 'comprehension' %}hidden-step{% endif %}">
-            <div class="card">
-                <div class="card-header bg-info text-white">
-                    <h5 class="mb-0"><i class="bi bi-chat-text me-2"></i>Reflection</h5>
+            <p class="text-muted mb-2"><strong>Step 3 of 4: Reflection.</strong> Three rating items about the five views as a whole, followed by two optional open prompts.</p>
+
+            <!-- Overall view rating (3 required Likert items) -->
+            <div class="card mb-3" id="overall-panel">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="bi bi-clipboard-check me-2"></i>Overall view rating</h5>
                 </div>
                 <div class="card-body">
-                    <p class="text-muted"><strong>Step 3 of 4: Reflection.</strong> Two open-ended prompts about the views just rated. Both are optional; either or both may be left blank.</p>
+                    <p class="text-muted small mb-3">Three rating items about the five views as a whole.</p>
+                    {{ likert_block('Overall', OVERALL_ITEMS, existing_eval, 'Rate the five views as a whole.') }}
+                </div>
+            </div>
+
+            <!-- Open reflection prompts (optional) -->
+            <div class="card mb-3">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="bi bi-chat-text me-2"></i>Open reflections (optional)</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">Two open-ended prompts about the views just rated. Both are optional; either or both may be left blank.</p>
 
                     <div class="mb-3">
                         <label for="refl_most_useful_view" class="form-label fw-bold">Which view did you find most useful for understanding the case, and why?</label>
@@ -1539,12 +1529,21 @@
                         <textarea class="form-control" id="refl_changes" name="refl_changes" rows="3" placeholder="Optional">{{ existing_eval.refl_changes if existing_eval and existing_eval.refl_changes else '' }}</textarea>
                     </div>
                 </div>
-                <div class="card-footer">
-                    <button type="button" class="btn btn-outline-secondary" onclick="goToStep('views')">
-                        <i class="bi bi-arrow-left me-1"></i> Back to Views
-                    </button>
+            </div>
+
+            <!-- Step 3 footer: gates on the 3 Overall items -->
+            <div class="d-flex justify-content-between align-items-center">
+                <button type="button" class="btn btn-outline-secondary" onclick="goToStep('views')">
+                    <i class="bi bi-arrow-left me-1"></i> Back to Views
+                </button>
+                <div class="d-flex align-items-center gap-3">
+                    <span class="small text-muted" id="reflection-gate-hint">
+                        <i class="bi bi-info-circle me-1"></i> Rate the three Overall items to continue.
+                    </span>
                     <button type="submit" name="next_step" value="reveal"
-                            formnovalidate class="btn btn-primary">
+                            id="continue-to-wrapup-btn"
+                            formnovalidate class="btn btn-primary" disabled
+                            title="Rate the three Overall items to continue">
                         Continue to Wrap-up <i class="bi bi-arrow-right ms-1"></i>
                     </button>
                 </div>
@@ -1746,39 +1745,71 @@
     }
 
     function updateUtilityGate() {
-        const btn = document.getElementById('continue-to-comprehension-btn');
-        const hint = document.getElementById('views-gate-hint');
-        const totalRated =
-            VIEW_KEYS.reduce((sum, k) => sum + paneRatedCount(PANE_IDS[k]), 0)
-            + paneRatedCount(PANE_IDS.overall);
-        const allDone = totalRated >= 18;
+        // Two gates:
+        //   - viewsDone (15 of 15): unlocks pill 3 (Reflection) and the
+        //     Continue-to-Reflection button on the Provisions footer.
+        //   - allDone (18 of 18): unlocks pill 4 (Wrap-up) and the
+        //     Continue-to-Wrap-up button on the Reflection footer.
+        // Server-side gates in study.py mirror these so URL navigation
+        // cannot bypass the rating sequence.
+        const viewsRated = VIEW_KEYS.reduce((sum, k) => sum + paneRatedCount(PANE_IDS[k]), 0);
+        const overallRated = paneRatedCount(PANE_IDS.overall);
+        const viewsDone = viewsRated >= 15;
+        const allDone = viewsDone && overallRated >= 3;
 
-        if (btn) {
-            btn.disabled = !allDone;
-            if (allDone) {
-                btn.removeAttribute('title');
-                if (hint) hint.classList.add('d-none');
+        // Provisions footer: Continue-to-Reflection
+        const reflBtn = document.getElementById('continue-to-comprehension-btn');
+        const viewsHint = document.getElementById('views-gate-hint');
+        if (reflBtn) {
+            reflBtn.disabled = !viewsDone;
+            if (viewsDone) {
+                reflBtn.removeAttribute('title');
+                if (viewsHint) viewsHint.classList.add('d-none');
             } else {
-                btn.title = `${totalRated} of 18 items rated; complete all to advance past Views`;
-                if (hint) hint.classList.remove('d-none');
+                reflBtn.title = `${viewsRated} of 15 view ratings; complete all five views to continue`;
+                if (viewsHint) viewsHint.classList.remove('d-none');
             }
         }
 
-        // Lock pills 3 (Reflection) and 4 (Wrap-up) in lockstep with the
-        // Continue button so the pill bar and the bottom button enforce
-        // the same gate. Earlier the pills bypassed the gate, producing
-        // two contradicting enforcement points; locking both gives a
-        // single source of truth (rate all 18 to advance past Views).
-        document.querySelectorAll('.step-indicator .step[data-step="comprehension"], .step-indicator .step[data-step="reveal"]').forEach(pill => {
-            pill.classList.toggle('step-locked', !allDone);
+        // Reflection footer: Continue-to-Wrap-up
+        const wrapBtn = document.getElementById('continue-to-wrapup-btn');
+        const reflHint = document.getElementById('reflection-gate-hint');
+        if (wrapBtn) {
+            wrapBtn.disabled = !allDone;
             if (allDone) {
-                pill.removeAttribute('aria-disabled');
-                pill.removeAttribute('title');
+                wrapBtn.removeAttribute('title');
+                if (reflHint) reflHint.classList.add('d-none');
             } else {
-                pill.setAttribute('aria-disabled', 'true');
-                pill.setAttribute('title', `${totalRated} of 18 items rated; complete all to advance past Views`);
+                wrapBtn.title = `${overallRated} of 3 Overall items rated; complete all three to continue`;
+                if (reflHint) reflHint.classList.remove('d-none');
             }
-        });
+        }
+
+        // Pill 3 (Reflection): locked until all five views rated.
+        const pill3 = document.querySelector('.step-indicator .step[data-step="comprehension"]');
+        if (pill3) {
+            pill3.classList.toggle('step-locked', !viewsDone);
+            if (viewsDone) {
+                pill3.removeAttribute('aria-disabled');
+                pill3.removeAttribute('title');
+            } else {
+                pill3.setAttribute('aria-disabled', 'true');
+                pill3.setAttribute('title', `${viewsRated} of 15 view ratings; complete all five views to advance`);
+            }
+        }
+
+        // Pill 4 (Wrap-up): locked until all 18 items rated.
+        const pill4 = document.querySelector('.step-indicator .step[data-step="reveal"]');
+        if (pill4) {
+            pill4.classList.toggle('step-locked', !allDone);
+            if (allDone) {
+                pill4.removeAttribute('aria-disabled');
+                pill4.removeAttribute('title');
+            } else {
+                pill4.setAttribute('aria-disabled', 'true');
+                pill4.setAttribute('title', `Complete the per-view ratings and the Overall view rating to advance`);
+            }
+        }
     }
 
     // Block clicks on locked pills (CSS pointer-events handles mouse,
@@ -2047,14 +2078,18 @@
         // Likert collapses (auto-expand for resume) before the first
         // refresh so star state is consistent with what is visible.
         initLikertCollapses();
-        const stepViews = document.getElementById('step-views');
-        if (stepViews) {
-            stepViews.addEventListener('change', function(e) {
-                if (e.target && e.target.matches('input[type="radio"]')) {
-                    refreshStarIndicators();
-                }
-            });
-        }
+        // Listen for rating changes on Step 2 (per-view Likerts) and
+        // Step 3 (Overall view rating, since 2026-05-10 reorg).
+        ['step-views', 'step-comprehension'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('change', function(e) {
+                    if (e.target && e.target.matches('input[type="radio"]')) {
+                        refreshStarIndicators();
+                    }
+                });
+            }
+        });
         refreshStarIndicators();
 
         // Per-view tab dwell timing. shown.bs.tab fires when a tab becomes
@@ -2082,42 +2117,17 @@
             }
             delete tabStartMs[tabId];
         }
-        // Tab-visit tracking, separate from rating-completion. Drives the
-        // Overall-panel reveal: the panel measures a summary judgment over
-        // all five views, so it is hidden until the participant has seen
-        // all five at least once. Visiting (clicking the tab) is sufficient;
-        // rating commitment is not required, which preserves the
-        // reader-controlled depth principle (Pirolli & Card 1999;
-        // Shneiderman 1996) while preventing premature summary rating
-        // (Bruun & Ahm 2015; Alaybek et al. 2022 peak-end meta-analysis).
-        const tabsVisited = new Set();
-        function markTabVisited(tabId) {
-            tabsVisited.add(tabId);
-            updateOverallReveal();
-        }
-        function updateOverallReveal() {
-            // Overall panel renders below the active tab content. Show it
-            // whenever Provisions (the last tab in sequence) is the active
-            // tab. The earlier "all five visited" precondition was removed
-            // 2026-05-10: the step pills already let participants navigate
-            // freely between steps, so gating the bottom button was both
-            // bypassable and confusing. The real completion gate (rating
-            // all 18 items) lives later on the Continue-to-Reflection
-            // button inside the Overall panel itself.
-            const panel = document.getElementById('overall-panel');
-            const provisionsTab = document.getElementById('provisions-tab');
-            const provisionsActive = provisionsTab ? provisionsTab.classList.contains('active') : false;
-            if (panel) {
-                panel.classList.toggle('d-none', !provisionsActive);
-            }
-        }
-
+        // Tab dwell-timing only. The Overall-panel reveal logic that lived
+        // here previously (gating the panel on "all five tabs visited" and
+        // on "Provisions tab active") was removed when the Overall view
+        // rating moved off Step 2 onto Step 3 (Reflection) on 2026-05-10.
+        // The panel is now always-visible inside Step 3 and gated by the
+        // server-side `view_ratings_complete` check on the route.
         VIEW_TAB_IDS.forEach(function(tabId) {
             const trigger = document.getElementById(tabId);
             if (!trigger) return;
             trigger.addEventListener('shown.bs.tab', function(e) {
                 startTabTimer(e.target.id);
-                markTabVisited(e.target.id);
                 setTabActiveFill(e.target);
             });
             trigger.addEventListener('hidden.bs.tab', function(e) {
@@ -2126,27 +2136,10 @@
             });
             if (trigger.classList.contains('active')) {
                 startTabTimer(tabId);
-                markTabVisited(tabId);
                 setTabActiveFill(trigger);
             }
         });
 
-        // Resume case: a returning participant whose previous session already
-        // produced ratings should not have to re-visit tabs to unlock Overall.
-        // Treat any pane with ≥1 checked radio as visited. If the Overall
-        // panel itself has any rating, the participant must have previously
-        // reached the all-five-visited state, so reveal it unconditionally.
-        VIEW_KEYS.forEach(function(view) {
-            const paneId = PANE_IDS[view];
-            const pane = document.getElementById(paneId);
-            if (pane && pane.querySelector('input[type="radio"]:checked')) {
-                markTabVisited(`${view}-tab`);
-            }
-        });
-        const overallPanel = document.getElementById('overall-panel');
-        if (overallPanel && overallPanel.querySelector('input[type="radio"]:checked')) {
-            VIEW_TAB_IDS.forEach(markTabVisited);
-        }
         // Stop the active tab's timer when the user leaves step-views.
         // goToStep is the only path off this step in normal flow.
         const _origGoToStep = goToStep;

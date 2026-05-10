@@ -455,10 +455,20 @@ def evaluate_case(case_id):
     if step not in valid_steps:
         step = 'facts'
 
-    # 2026-05-10: removed the comprehension_complete gate on the reveal
-    # step. Under the design-utility framing the post-views reflection is
-    # optional, so there is nothing to "complete" before showing the
-    # BER's conclusions on the Wrap-up step.
+    # Server-side rating gates (mirror the JS pill-lock so the gate cannot
+    # be bypassed by URL navigation):
+    #   - Step 3 (Reflection, URL `comprehension`) requires all 15
+    #     per-view utility items rated.
+    #   - Step 4 (Wrap-up, URL `reveal`) requires all 18 items rated
+    #     (the 15 per-view + 3 Overall items now living on Step 3).
+    if step == 'comprehension':
+        if not existing_eval or not existing_eval.view_ratings_complete:
+            flash('Please complete the per-view ratings before continuing.', 'warning')
+            return redirect(url_for('study.evaluate_case', case_id=case_id, step='views'))
+    if step == 'reveal':
+        if not existing_eval or not existing_eval.all_utility_items_complete:
+            flash('Please complete the Overall view rating before continuing.', 'warning')
+            return redirect(url_for('study.evaluate_case', case_id=case_id, step='comprehension'))
 
     return render_template('validation_study/case_evaluation.html',
                            document=document,
