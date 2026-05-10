@@ -44,15 +44,48 @@ class SynthesisViewBuilder:
             TemporaryRDFStorage.entity_label
         ).all()
 
+        # Pick a small set of "most concrete" mappings per provision. The
+        # full applies_to list runs 8-37 entries spanning all nine entity
+        # types -- showing all of them inline makes the view read like a
+        # type-count puzzle. Instead we surface up to three diverse
+        # examples (one per high-priority type) and leave the rest behind a
+        # "Show all" toggle. Priority order favors Obligation, Action,
+        # State, and Constraint because those read most naturally as
+        # "code applies here in the case" connections; abstract types
+        # (Principle, Capability) and situational types (Role, Resource,
+        # Event) follow.
+        TOP_PRIORITY = ['obligation', 'action', 'state', 'constraint',
+                        'principle', 'role', 'event', 'resource', 'capability']
+        TYPE_DISPLAY_ORDER = TOP_PRIORITY  # used by the "Show all" group rendering
+
+        def _top_mappings(applies_to: list, max_n: int = 3) -> list:
+            """Return up to N entries, one per priority type when possible."""
+            picked: list = []
+            seen_types: set = set()
+            for ptype in TOP_PRIORITY:
+                if len(picked) >= max_n:
+                    break
+                for entity in applies_to:
+                    if not isinstance(entity, dict):
+                        continue
+                    et = (entity.get('entity_type') or '').lower()
+                    if et == ptype and et not in seen_types:
+                        picked.append(entity)
+                        seen_types.add(et)
+                        break
+            return picked
+
         formatted = []
         for prov in provisions:
             rdf_data = prov.rdf_json_ld or {}
+            applies_to = rdf_data.get('appliesTo', []) or []
             formatted.append({
                 'id': prov.id,
                 'code_section': prov.entity_label,
                 'provision_text': prov.entity_definition,
                 'iao_label': prov.iao_document_label,
-                'applies_to': rdf_data.get('appliesTo', []),
+                'applies_to': applies_to,
+                'top_mappings': _top_mappings(applies_to, max_n=3),
                 'case_excerpt': rdf_data.get('relevantExcerpt', ''),
                 'confidence': prov.match_confidence or 0.0
             })
@@ -148,11 +181,21 @@ class SynthesisViewBuilder:
         # split into analytical (implicit, principle_tension) and theory
         # (theoretical, counterfactual) groups for progressive disclosure.
         board_questions = [q for q in formatted if q['question_type'] == 'board_explicit']
+        board_numbers = {q['number'] for q in board_questions}
         analytical_by_parent: Dict[str, list] = {}
         theory_by_parent: Dict[str, list] = {}
+        cross_cutting: list = []
         for q in formatted:
+            if q['question_type'] == 'board_explicit':
+                continue
             parent = q.get('parent_question')
-            if not parent:
+            # When the sub-question's parent number does not match any
+            # extracted board question (e.g. a Question_401 counterfactual
+            # whose parent would be Question_4 but the case only has board
+            # Q1-Q3), surface it as a cross-cutting question rather than
+            # silently dropping it.
+            if not parent or parent not in board_numbers:
+                cross_cutting.append(q)
                 continue
             if q['question_type'] in ('implicit', 'principle_tension'):
                 analytical_by_parent.setdefault(parent, []).append(q)
@@ -166,6 +209,7 @@ class SynthesisViewBuilder:
             'board_questions': board_questions,
             'analytical_by_parent': analytical_by_parent,
             'theory_by_parent': theory_by_parent,
+            'cross_cutting': cross_cutting,
             'description': 'Ethical questions linked to their conclusions with emergence and '
                           'resolution overlays, showing how the board reached its findings.'
         }
@@ -250,12 +294,27 @@ class SynthesisViewBuilder:
         `proeth:temporalMarker`, `proeth-scenario:isDecisionPoint`,
         `proeth-scenario:alternativeActions`, and obligation links.
         """
+        # Load all temporal rows; chronological ordering uses
+        # `proeth:temporalSequence` (1-based int) when present and falls back
+        # to `id` for cases the temporal-sequence backfill has not visited.
+        # See docs-internal/scripts/backfill_temporal_sequence.py and the
+        # roadmap entry "Timeline Chronological Ordering".
         temporal_entries = TemporaryRDFStorage.query.filter_by(
             case_id=case_id,
             extraction_type='temporal_dynamics_enhanced'
-        ).order_by(
-            TemporaryRDFStorage.id  # Preserves extraction order (no reliable temporal sort key)
-        ).all()
+        ).order_by(TemporaryRDFStorage.id).all()
+
+        def _temporal_sort_key(row):
+            seq = (row.rdf_json_ld or {}).get('proeth:temporalSequence')
+            try:
+                seq_int = int(seq) if seq is not None else None
+            except (TypeError, ValueError):
+                seq_int = None
+            # Rows with a sequence sort before rows without one; among the
+            # latter, fall back to id (extraction order) as a stable tiebreak.
+            return (0, seq_int) if seq_int is not None else (1, row.id)
+
+        temporal_entries = sorted(temporal_entries, key=_temporal_sort_key)
 
         entries = []
         causal_flow = []
@@ -285,6 +344,7 @@ class SynthesisViewBuilder:
 
             fulfills = rdf.get('proeth:fulfillsObligation', []) or []
             violates = rdf.get('proeth:violatesObligation', []) or []
+            raises = rdf.get('proeth:raisesObligation', []) or []
 
             entry_iri = rdf.get('@id', '')
             entry = {
@@ -300,6 +360,7 @@ class SynthesisViewBuilder:
                 'alternative_count': len(alternatives) if isinstance(alternatives, list) else 0,
                 'fulfills_obligations': fulfills if isinstance(fulfills, list) else [],
                 'violates_obligations': violates if isinstance(violates, list) else [],
+                'raises_obligations': raises if isinstance(raises, list) else [],
                 'decision_points': [],  # filled below by fragment match
             }
             entries.append(entry)
@@ -710,13 +771,16 @@ class SynthesisViewBuilder:
             return {'error': 'Case not found'}
 
         facts_content = []
+        question_content = ''
+        question_is_html = False
         withheld_sections = []
 
         # Prefer sections_dual HTML format from doc_metadata (properly formatted)
         if document.doc_metadata and isinstance(document.doc_metadata, dict):
             sections_dual = document.doc_metadata.get('sections_dual', {})
             if sections_dual:
-                # Facts section only - other sections are withheld for validation
+                # Facts and Question are both shown; Discussion and Conclusion
+                # remain withheld until step 4 (Reveal).
                 if 'facts' in sections_dual and sections_dual['facts'].get('html'):
                     facts_content.append({
                         'type': 'facts',
@@ -725,9 +789,10 @@ class SynthesisViewBuilder:
                         'is_html': True
                     })
 
-                # Track withheld sections (question, references, discussion, conclusion)
-                if 'question' in sections_dual:
-                    withheld_sections.append('question')
+                if 'question' in sections_dual and sections_dual['question'].get('html'):
+                    question_content = sections_dual['question']['html']
+                    question_is_html = True
+
                 if 'references' in sections_dual:
                     withheld_sections.append('references')
                 if 'discussion' in sections_dual:
@@ -743,19 +808,21 @@ class SynthesisViewBuilder:
                 DocumentSection.position
             ).all()
 
-            # Only include facts section - all others are withheld
-            withheld_types = ['question', 'references', 'discussion', 'conclusion', 'conclusions']
+            withheld_types = ['references', 'discussion', 'conclusion', 'conclusions']
 
             for section in sections:
                 section_type = (section.section_type or '').lower()
                 if section_type == 'facts' or section_type == '':
-                    # Include facts and unlabeled sections
                     facts_content.append({
                         'type': 'facts',
                         'content': section.content,
                         'position': section.position,
                         'is_html': False
                     })
+                elif section_type == 'question':
+                    if not question_content:
+                        question_content = section.content
+                        question_is_html = False
                 elif section_type in withheld_types:
                     withheld_sections.append(section_type)
 
@@ -774,19 +841,35 @@ class SynthesisViewBuilder:
                 'is_html': False
             })
 
+        # NSPE question sections in the corpus are stored as multiple
+        # interrogatives concatenated without paragraph breaks (verified
+        # 2026-05-10 across the study pool). Split on `?` so the template
+        # can render them as numbered items rather than a single
+        # run-together blob.
+        import re as _re
+        _stripped = _re.sub(r'<[^>]+>', ' ', question_content) if question_is_html else question_content
+        _stripped = _re.sub(r'\s+', ' ', _stripped or '').strip()
+        question_list: List[str] = []
+        if _stripped:
+            parts = [p.strip() for p in _stripped.split('?') if p.strip()]
+            question_list = [p + '?' for p in parts]
+
         return {
             'case_id': case_id,
             'title': document.title,
             'case_number': self._extract_case_number(document),
             'domain': 'engineering',
             'facts': facts_content,
+            'question': question_content,
+            'question_is_html': question_is_html,
+            'question_list': question_list,
             'withheld_sections': list(set(withheld_sections)),
             'withheld_notice': (
                 'This case is one of the NSPE Board of Ethical Review\'s '
                 'published opinions. Each opinion has four elements: '
                 '<em>Facts</em>, <em>Questions</em>, <em>Discussion</em>, '
                 'and <em>Conclusions</em>. You are reading the <em>Facts</em> '
-                'now. The <em>Questions</em>, <em>Discussion</em>, and '
+                'and <em>Questions</em> now. The <em>Discussion</em> and '
                 '<em>Conclusions</em> are withheld until after you complete '
                 'the comprehension questions.'
             )

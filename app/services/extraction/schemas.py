@@ -1194,3 +1194,105 @@ CONCEPT_EXTRACTION_TYPES: Dict[str, str] = {
     'capabilities': 'capabilities',
     'constraints': 'constraints',
 }
+
+
+# ---------------------------------------------------------------------------
+# Temporal sequencing
+#
+# Step-3 emits Action and Event individuals in extractor-pass order (all
+# Actions, then all Events) which is non-chronological. This schema lets a
+# follow-on LLM pass return a chronological permutation of the case's
+# Action/Event IRIs; the pipeline writes the permutation index back to each
+# row's rdf_json_ld as `proeth:temporalSequence`. The view layer sorts on
+# that field. Returning a list (rather than per-IRI integers) makes
+# validation trivial (set-equality with the input IRI list) and prevents
+# the LLM from emitting non-permutations.
+# ---------------------------------------------------------------------------
+
+class TemporalSequenceResult(BaseModel):
+    """LLM output for a single case's chronological ordering pass.
+
+    `ordered_iris` must be a permutation of the case's Action+Event IRIs.
+    The pipeline rejects responses that miss or duplicate IRIs.
+    """
+    model_config = ConfigDict(populate_by_name=True)
+
+    ordered_iris: List[str] = Field(
+        ...,
+        description=(
+            "Action and Event IRIs in chronological order, earliest first. "
+            "Must include every IRI from the input list exactly once."
+        ),
+    )
+    rationale: Optional[str] = Field(
+        None,
+        description=(
+            "Brief free-text explanation of the chosen ordering. Optional; "
+            "kept for audit but not consumed by the pipeline."
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Obligation engagement classification
+#
+# Step-3 emits two obligation lists per Action: fulfillsObligation and
+# violatesObligation. In practice the LLM often double-attributes the same
+# obligation: at the upstream choice (the moment of choice raises the
+# concern) AND at the downstream resolution (the review/submission
+# fulfills or violates it). Rendering both as fulfills/violates produces
+# contradictory pairs (same obligation green on one row, red on the next).
+#
+# This pass reclassifies the existing pool of fulfills+violates into three
+# buckets per Action: fulfills, violates, raises. The union must equal the
+# input pool exactly (no obligations invented or dropped). The pipeline
+# writes back proeth:raisesObligation alongside the existing fulfills and
+# violates fields, with the upstream-only obligations migrated out of
+# fulfills/violates and into raises.
+# ---------------------------------------------------------------------------
+
+class PerActionEngagement(BaseModel):
+    """Reclassified obligation lists for a single Action."""
+    model_config = ConfigDict(populate_by_name=True)
+
+    action_iri: str = Field(..., description="IRI of the Action being reclassified")
+    fulfills: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Obligations that this action directly satisfies. Must be a "
+            "subset of the action's input fulfills+violates pool."
+        ),
+    )
+    violates: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Obligations that this action directly breaches. Must be a "
+            "subset of the action's input fulfills+violates pool."
+        ),
+    )
+    raises: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Obligations that this action puts in play but does not itself "
+            "resolve; resolution happens at a downstream action. Must be "
+            "a subset of the action's input fulfills+violates pool."
+        ),
+    )
+
+
+class ObligationEngagementResult(BaseModel):
+    """LLM output for a single case's obligation-engagement pass."""
+    model_config = ConfigDict(populate_by_name=True)
+
+    actions: List[PerActionEngagement] = Field(
+        ...,
+        description=(
+            "One entry per Action in the case (Events are skipped — they "
+            "do not carry fulfills/violates). The action_iri must be "
+            "present in the input list exactly once."
+        ),
+    )
+    rationale: Optional[str] = Field(
+        None,
+        description="Brief free-text summary; not consumed by the pipeline.",
+    )

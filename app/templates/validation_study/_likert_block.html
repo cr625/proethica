@@ -17,9 +17,10 @@
    On resume (existing_eval populated), the panel is auto-expanded by JS
    so the participant returns to the visible state they last saw. #}
 
-{% macro likert_block(view_label, items, existing_eval) %}
+{% macro likert_block(view_label, items, existing_eval, prompt_override=None) %}
 {% set view_slug = view_label|lower|replace('&','')|replace(' ','-') %}
 {% set collapse_id = 'likert-collapse-' ~ view_slug %}
+{% set prompt_text = prompt_override if prompt_override else 'Rate this view: how well did it help you understand the case?' %}
 <div class="likert-group card mt-3" data-view-likert="{{ view_slug }}">
   <div class="card-header py-2 bg-light likert-toggle"
        role="button"
@@ -33,7 +34,7 @@
         <i class="bi bi-star likert-star text-muted me-1"
            data-likert-star="{{ view_slug }}"
            aria-hidden="true"></i>
-        Rate this view: how well did it help you understand the case?
+        {{ prompt_text }}
         <span class="likert-count text-muted small ms-2"
               data-likert-count="{{ view_slug }}">(0 of 3 rated)</span>
       </h6>
