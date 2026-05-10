@@ -44,6 +44,15 @@
     .step.completed:hover {
         color: white;
     }
+    /* Pills 3 (Reflection) and 4 (Wrap-up) lock when not all 18 utility
+       items have been rated. Visual treatment matches a disabled control;
+       pointer-events block mouse activation; keyboard activation is
+       blocked by the click capture handler below. */
+    .step.step-locked {
+        opacity: 0.5;
+        pointer-events: none;
+        cursor: not-allowed;
+    }
     .step-number {
         width: 24px;
         height: 24px;
@@ -597,7 +606,7 @@
                     <i class="bi bi-chevron-up instruction-chevron"></i>
                 </button>
                 <div class="collapse show" id="instr-overview">
-                    <div class="instruction-body"><strong>Step 1 of 4: Case Facts.</strong> Read the case below. The remaining steps present five views of the same case, a brief reflection, and the Board&rsquo;s published discussion and conclusions. Use the pills above to navigate between steps. <em>This study evaluates the usefulness of each kind of view for understanding cases of this type. Detailed recall of the case is not required.</em></div>
+                    <div class="instruction-body"><strong>Step 1 of 4: Facts.</strong> Read the case below. The remaining steps present five views of the same case, a brief reflection, and the Board&rsquo;s published discussion and conclusions. Use the pills above to navigate between steps. <em>This study evaluates the usefulness of each kind of view for understanding cases of this type. Detailed recall of the case is not required.</em></div>
                 </div>
             </div>
             <div class="withheld-notice mb-3">
@@ -671,7 +680,7 @@
                 <li class="nav-item">
                     <button class="nav-link active" id="narrative-tab" data-bs-toggle="tab" data-bs-target="#narrative-pane" type="button">
                         <i class="bi bi-star tab-rating-star text-muted me-1" data-tab-star="narrative" aria-hidden="true"></i>
-                        <i class="bi bi-journal-text me-1"></i> Narrative
+                        <i class="bi bi-journal-text me-1"></i> Narrative ({{ (views.narrative.characters | selectattr('is_main') | list | length) if views.narrative.characters else 0 }})
                     </button>
                 </li>
                 <li class="nav-item">
@@ -1051,7 +1060,7 @@
                 <div class="tab-pane fade" id="qc-pane">
                     <div class="segue-card segue-qc">
                         <div class="segue-caption">View 3 of 5: Conclusions</div>
-                        <strong>The sequence raises ethical questions.</strong> This view pairs each board question with its conclusion. A group of analytical questions under each one raises additional angles the BER did not directly answer.
+                        <strong>The sequence raises ethical questions.</strong> This view pairs each board question with its conclusion. A group of analytical questions under each one raises additional angles the Board did not directly answer.
                     </div>
                     {% set ns_qc = namespace(total_analytical=(views.qc.cross_cutting|length)) %}
                     {% for bq in views.qc.board_questions %}
@@ -1069,7 +1078,7 @@
                                     <i class="bi bi-chevron-up instruction-chevron"></i>
                                 </button>
                                 <div class="collapse show" id="instr-qc">
-                                    <div class="instruction-body">A <strong>board question</strong> is one the BER explicitly addressed; each is paired with a <strong>conclusion</strong> stating the BER&rsquo;s ruling. <strong>Analytical questions</strong> raise additional angles the case implies but the BER did not directly answer. Reading every analytical question is not required. <em>Rate how well this kind of view would support a reader&rsquo;s understanding of the case, not whether every detail has been absorbed.</em></div>
+                                    <div class="instruction-body">A <strong>board question</strong> is one the Board of Ethical Review (BER) explicitly addressed; each is paired with a <strong>conclusion</strong> stating the Board&rsquo;s ruling. <strong>Analytical questions</strong> raise additional angles the case implies but the Board did not directly answer. Reading every analytical question is not required. <em>Rate how well this kind of view would support a reader&rsquo;s understanding of the case, not whether every detail has been absorbed.</em></div>
                                 </div>
                             </div>
 
@@ -1384,7 +1393,7 @@
                                     <i class="bi bi-chevron-up instruction-chevron"></i>
                                 </button>
                                 <div class="collapse show" id="instr-provisions">
-                                    <div class="instruction-body">Each <strong>provision</strong> below is a section of the NSPE Code of Ethics that applies to this case (e.g., I.1, II.2.a). Beneath each provision are three case elements that illustrate the connection. These elements show an <strong>obligation</strong> the provision raises, an <strong>action</strong> it touches, or a <strong>state</strong> that brings it into play. Click <em>Show all mappings</em> for the complete list. <em>Rate how well this kind of view would support a reader&rsquo;s understanding of the case, not whether every detail has been absorbed.</em></div>
+                                    <div class="instruction-body">Each <strong>provision</strong> below is a section of the NSPE Code of Ethics that applies to this case (e.g., I.1, II.2.a). Beneath each provision are three case elements that illustrate the connection. Each element appears as a color-coded type chip (Obligation, Action, State, Principle, Role, Resource, Capability, Event, or Constraint) alongside the element label and a short reasoning sentence. Click <em>Show all mappings</em> for the complete list. <em>Rate how well this kind of view would support a reader&rsquo;s understanding of the case, not whether every detail has been absorbed.</em></div>
                                 </div>
                             </div>
                             {% for prov in views.provisions.provisions %}
@@ -1488,19 +1497,20 @@
                     <p class="text-muted small mb-3">Three rating items about the five views as a whole.</p>
                     {{ likert_block('Overall', OVERALL_ITEMS, existing_eval, 'Rate the five views as a whole.') }}
                 </div>
-                <div class="card-footer">
+                <div class="card-footer d-flex justify-content-between align-items-center">
                     <button type="button" class="btn btn-outline-secondary" onclick="activateViewTab('provisions-tab')">
                         <i class="bi bi-arrow-up me-1"></i> Back to Provisions
                     </button>
-                    <button type="button" class="btn btn-primary" id="continue-to-comprehension-btn" disabled title="Rate all 18 items to continue" onclick="goToStep('comprehension')">
-                        Continue to Reflection <i class="bi bi-arrow-right ms-1"></i>
-                    </button>
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="small text-muted" id="views-gate-hint">
+                            <i class="bi bi-info-circle me-1"></i> Rate all 18 items to enable Continue.
+                        </span>
+                        <button type="button" class="btn btn-primary" id="continue-to-comprehension-btn" disabled title="Rate all 18 items to continue" onclick="goToStep('comprehension')">
+                            Continue to Reflection <i class="bi bi-arrow-right ms-1"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
-
-            <p class="small text-muted mt-2" id="views-gate-hint">
-                <i class="bi bi-info-circle me-1"></i> Rate all five views and the overall view rating to enable the Continue button.
-            </p>
         </div>
 
         <!-- STEP 3: COMPREHENSION QUESTIONS -->
@@ -1531,7 +1541,7 @@
                 </div>
                 <div class="card-footer">
                     <button type="button" class="btn btn-outline-secondary" onclick="goToStep('views')">
-                        <i class="bi bi-arrow-left me-1"></i> Back
+                        <i class="bi bi-arrow-left me-1"></i> Back to Views
                     </button>
                     <button type="submit" name="next_step" value="reveal"
                             formnovalidate class="btn btn-primary">
@@ -1563,7 +1573,7 @@
                 </div>
                 <div class="card-footer">
                     <button type="button" class="btn btn-outline-secondary" onclick="goToStep('comprehension')">
-                        <i class="bi bi-arrow-left me-1"></i> Back
+                        <i class="bi bi-arrow-left me-1"></i> Back to Reflection
                     </button>
                     <button type="submit" formnovalidate class="btn btn-success">
                         <i class="bi bi-check-lg me-1"></i> Submit Evaluation
@@ -1738,20 +1748,48 @@
     function updateUtilityGate() {
         const btn = document.getElementById('continue-to-comprehension-btn');
         const hint = document.getElementById('views-gate-hint');
-        if (!btn) return;
         const totalRated =
             VIEW_KEYS.reduce((sum, k) => sum + paneRatedCount(PANE_IDS[k]), 0)
             + paneRatedCount(PANE_IDS.overall);
         const allDone = totalRated >= 18;
-        btn.disabled = !allDone;
-        if (allDone) {
-            btn.removeAttribute('title');
-            if (hint) hint.classList.add('d-none');
-        } else {
-            btn.title = `${totalRated} of 18 items rated; complete all to continue`;
-            if (hint) hint.classList.remove('d-none');
+
+        if (btn) {
+            btn.disabled = !allDone;
+            if (allDone) {
+                btn.removeAttribute('title');
+                if (hint) hint.classList.add('d-none');
+            } else {
+                btn.title = `${totalRated} of 18 items rated; complete all to advance past Views`;
+                if (hint) hint.classList.remove('d-none');
+            }
         }
+
+        // Lock pills 3 (Reflection) and 4 (Wrap-up) in lockstep with the
+        // Continue button so the pill bar and the bottom button enforce
+        // the same gate. Earlier the pills bypassed the gate, producing
+        // two contradicting enforcement points; locking both gives a
+        // single source of truth (rate all 18 to advance past Views).
+        document.querySelectorAll('.step-indicator .step[data-step="comprehension"], .step-indicator .step[data-step="reveal"]').forEach(pill => {
+            pill.classList.toggle('step-locked', !allDone);
+            if (allDone) {
+                pill.removeAttribute('aria-disabled');
+                pill.removeAttribute('title');
+            } else {
+                pill.setAttribute('aria-disabled', 'true');
+                pill.setAttribute('title', `${totalRated} of 18 items rated; complete all to advance past Views`);
+            }
+        });
     }
+
+    // Block clicks on locked pills (CSS pointer-events handles mouse,
+    // but anchors can still be activated via keyboard Enter).
+    document.addEventListener('click', function(e) {
+        const pill = e.target.closest('.step-indicator .step.step-locked');
+        if (pill) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+    }, true);
 
     function updateTimeTracking(fromStep) {
         const elapsed = Date.now() - stepStartTime;
@@ -1827,10 +1865,13 @@
 
                 if (data.cited_provisions && data.cited_provisions.length > 0) {
                     html += '<h6>Cited Provisions</h6>';
+                    // Earlier code truncated each provision text at 100 chars,
+                    // producing visible mismatches with the Provisions tab where
+                    // the same provisions render in full. Provision text is
+                    // short enough to render in full here.
                     html += '<ul class="mb-0">';
                     data.cited_provisions.forEach(p => {
-                        const truncatedText = p.text.length > 100 ? p.text.substring(0, 100) + '...' : p.text;
-                        html += '<li><strong>' + p.code_section + '</strong>: ' + truncatedText + '</li>';
+                        html += '<li><strong>' + p.code_section + '</strong>: ' + p.text + '</li>';
                     });
                     html += '</ul>';
                 }
