@@ -1144,12 +1144,16 @@ def preview_start():
     while ValidationSession.query.filter_by(participant_code=code).first() is not None:
         code = 'PREVIEW-' + ''.join(secrets.choice(CODE_ALPHABET) for _ in range(6))
 
-    # `?show=orientation` lands the preview on the Before-you-start screen
-    # (leaves orientation_completed_at NULL so the gate fires). `?show=dashboard`
-    # stamps orientation as already done and lands on the dashboard. Default
-    # behavior (no `show`) jumps straight to the case-evaluation flow.
+    # `?show=...` lands the preview on a specific screen. Supported values:
+    #   orientation   — Before-you-start (skips orientation_completed_at stamp)
+    #   dashboard     — study dashboard
+    #   (default)     — case-evaluation flow (Facts step)
+    #   retrospective — post-cases view-ranking page (pre-stamps case as complete)
+    #   demographics  — demographic questionnaire (also pre-stamps ranking row)
+    #   complete      — final completion page (also pre-stamps demographics + code)
     show = request.args.get('show')
     skip_orientation_stamp = (show == 'orientation')
+    post_case_show = show in ('retrospective', 'demographics', 'complete')
 
     val_session = ValidationSession(
         session_id=str(uuid.uuid4())[:8],
@@ -1158,7 +1162,7 @@ def preview_start():
         evaluator_domain='engineering',
         recruitment_source='preview',
         assigned_cases=[case_id],
-        completed_cases=[],
+        completed_cases=([case_id] if post_case_show else []),
         consent_acknowledged_at=datetime.utcnow(),
         orientation_completed_at=(None if skip_orientation_stamp else datetime.utcnow()),
         info_sheet_version='preview',
@@ -1194,6 +1198,36 @@ def preview_start():
         )
         db.session.add(prefilled)
 
+    # Pre-stamp post-case state when previewing later screens, so each page
+    # renders with realistic-looking data instead of empty fields.
+    if show in ('demographics', 'complete'):
+        retro = RetrospectiveReflection(
+            session_id=val_session.id,
+            evaluator_id=code,
+            evaluator_domain='engineering',
+            rank_narrative_view=1,
+            rank_timeline_view=2,
+            rank_qc_view=3,
+            rank_decisions_view=4,
+            rank_provisions_view=5,
+            surfaced_missed_considerations=True,
+            surfaced_considerations_text='[Demo prefill] The Decisions view raised a tradeoff I had not considered.',
+            general_comments='[Demo prefill] The structured views made it easier to track competing obligations.',
+        )
+        db.session.add(retro)
+    if show == 'complete':
+        val_session.highest_engineering_degree = 'master'
+        val_session.years_engineering_experience = '6_10'
+        val_session.role_category = 'practicing_engineer'
+        val_session.nspe_pe_familiarity = 4
+        val_session.prior_ethics_course = True
+        val_session.demographics_completed_at = datetime.utcnow()
+        completion_code = generate_completion_code()
+        while ValidationSession.query.filter_by(completion_code=completion_code).first() is not None:
+            completion_code = generate_completion_code()
+        val_session.completion_code = completion_code
+        val_session.completed_at = datetime.utcnow()
+
     db.session.commit()
     session['participant_code'] = code
     # The persistent preview banner in _base_study.html already announces
@@ -1202,4 +1236,10 @@ def preview_start():
         return redirect(url_for('study.orientation'))
     if show == 'dashboard':
         return redirect(url_for('study.index'))
+    if show == 'retrospective':
+        return redirect(url_for('study.retrospective'))
+    if show == 'demographics':
+        return redirect(url_for('study.demographics'))
+    if show == 'complete':
+        return redirect(url_for('study.complete'))
     return redirect(url_for('study.evaluate_case', case_id=case_id, step='facts'))
