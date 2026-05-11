@@ -710,7 +710,12 @@ def _submit_retrospective(val_session):
             return redirect(url_for('study.retrospective'))
 
         surfaced = request.form.get('surfaced_missed_considerations')
-        reflection.surfaced_missed_considerations = (surfaced == 'yes')
+        if surfaced == 'yes':
+            reflection.surfaced_missed_considerations = True
+        elif surfaced == 'no':
+            reflection.surfaced_missed_considerations = False
+        else:
+            reflection.surfaced_missed_considerations = None
         reflection.surfaced_considerations_text = request.form.get('surfaced_considerations_text', '').strip()
 
         reflection.missing_elements = request.form.get('missing_elements', '').strip()
@@ -777,14 +782,14 @@ def _submit_demographics(val_session):
         familiarity_raw = request.form.get('nspe_pe_familiarity', '').strip()
         prior_ethics_raw = request.form.get('prior_ethics_course', '').strip()
 
-        if degree not in _DEGREE_VALUES:
-            flash('Select an option for highest engineering-related degree.', 'warning')
+        if degree and degree not in _DEGREE_VALUES:
+            flash('Highest engineering-related degree: invalid option submitted.', 'warning')
             return redirect(url_for('study.demographics'))
-        if experience not in _EXPERIENCE_VALUES:
-            flash('Select an option for engineering experience.', 'warning')
+        if experience and experience not in _EXPERIENCE_VALUES:
+            flash('Engineering experience: invalid option submitted.', 'warning')
             return redirect(url_for('study.demographics'))
-        if role not in _ROLE_VALUES:
-            flash('Select an option for current role.', 'warning')
+        if role and role not in _ROLE_VALUES:
+            flash('Current role: invalid option submitted.', 'warning')
             return redirect(url_for('study.demographics'))
 
         familiarity = None
@@ -800,9 +805,9 @@ def _submit_demographics(val_session):
         elif prior_ethics_raw == 'no':
             prior_ethics = False
 
-        val_session.highest_engineering_degree = degree
-        val_session.years_engineering_experience = experience
-        val_session.role_category = role
+        val_session.highest_engineering_degree = degree or None
+        val_session.years_engineering_experience = experience or None
+        val_session.role_category = role or None
         val_session.nspe_pe_familiarity = familiarity
         val_session.prior_ethics_course = prior_ethics
         val_session.demographics_completed_at = datetime.utcnow()
