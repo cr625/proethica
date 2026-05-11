@@ -332,6 +332,87 @@ class TestPreviewConsentMode:
         )
 
 
+class TestRetrospectiveRankingControls:
+    """Up/Down buttons reorder rows deterministically and update the hidden
+    inputs the server reads on submit.
+
+    The drag-and-drop interaction has known HTML5 D&D fragility on real
+    human inputs (fast sweeps, drops in the container padding area);
+    the per-row buttons exist as a reliable alternative AND an
+    accessibility path for keyboard / touch users who cannot use D&D.
+    """
+
+    def test_rank_up_button_swaps_with_previous_row(self, page, base_url):
+        page.goto(f"{base_url}/validation/preview/start?show=retrospective")
+        page.wait_for_load_state("networkidle")
+
+        before = page.evaluate("""() => Array.from(
+            document.querySelectorAll('#rankContainer .rank-item')
+        ).map(i => i.dataset.view)""")
+        assert len(before) == 5
+
+        # Click the rank-up button on the last row.
+        page.locator("#rankContainer .rank-item").last.locator(".rank-up").click()
+        page.wait_for_timeout(100)
+
+        after = page.evaluate("""() => Array.from(
+            document.querySelectorAll('#rankContainer .rank-item')
+        ).map(i => i.dataset.view)""")
+
+        # The previously-last view should now be at index 3 (second-to-last);
+        # the previously second-to-last view should be at index 4 (last).
+        assert after[3] == before[4], (
+            f"Expected {before[4]} to move up to index 3, but list is {after}"
+        )
+        assert after[4] == before[3], (
+            f"Expected {before[3]} to move down to index 4, but list is {after}"
+        )
+
+    def test_hidden_inputs_track_button_reorder(self, page, base_url):
+        """After button-driven reorder, hidden input value matches DOM position."""
+        page.goto(f"{base_url}/validation/preview/start?show=retrospective")
+        page.wait_for_load_state("networkidle")
+
+        # Move the last row up twice.
+        page.locator("#rankContainer .rank-item").last.locator(".rank-up").click()
+        page.wait_for_timeout(50)
+        # The originally-last row is now at index 3; click its up again.
+        page.locator("#rankContainer .rank-item").nth(3).locator(".rank-up").click()
+        page.wait_for_timeout(50)
+
+        state = page.evaluate("""() => Array.from(
+            document.querySelectorAll('#rankContainer .rank-item')
+        ).map((i, idx) => ({
+            view: i.dataset.view,
+            rank_label: i.querySelector('.rank-number').textContent.trim(),
+            hidden_value: i.querySelector('input[type=\"hidden\"]').value,
+            expected_rank: String(idx + 1)
+        }))""")
+
+        for row in state:
+            assert row["rank_label"] == row["expected_rank"], (
+                f"Rank label mismatch on {row['view']}: "
+                f"label={row['rank_label']!r} expected={row['expected_rank']!r}"
+            )
+            assert row["hidden_value"] == row["expected_rank"], (
+                f"Hidden value mismatch on {row['view']}: "
+                f"value={row['hidden_value']!r} expected={row['expected_rank']!r} "
+                f"(this is the bug that caused rankings not to stick on submit)"
+            )
+
+    def test_up_button_disabled_on_first_row(self, page, base_url):
+        page.goto(f"{base_url}/validation/preview/start?show=retrospective")
+        page.wait_for_load_state("networkidle")
+        first_up = page.locator("#rankContainer .rank-item").first.locator(".rank-up")
+        assert first_up.is_disabled(), "Up button on the first row should be disabled"
+
+    def test_down_button_disabled_on_last_row(self, page, base_url):
+        page.goto(f"{base_url}/validation/preview/start?show=retrospective")
+        page.wait_for_load_state("networkidle")
+        last_down = page.locator("#rankContainer .rank-item").last.locator(".rank-down")
+        assert last_down.is_disabled(), "Down button on the last row should be disabled"
+
+
 class TestZeroConsoleErrorsAcrossFlow:
     """Every participant-facing screen renders without console errors or warnings."""
 
