@@ -923,7 +923,7 @@
                             {% endif %}
                         </div>
                     </div>
-                    {{ likert_block('Narrative', NARR_ITEMS, existing_eval, 'Rate how well this kind of view would help a reader understand a case like this.') }}
+                    {{ likert_block('Narrative', NARR_ITEMS, existing_eval, 'Rate how well this kind of view helped you understand the case.') }}
 
                     <div class="view-footer-nav">
                         <button type="button" class="btn btn-outline-secondary" onclick="goToStep('facts')">
@@ -1061,7 +1061,7 @@
                             {% endif %}
                         </div>
                     </div>
-                    {{ likert_block('Timeline', TIMELINE_ITEMS, existing_eval, 'Rate how well this kind of view would help a reader understand a case like this.') }}
+                    {{ likert_block('Timeline', TIMELINE_ITEMS, existing_eval, 'Rate how well this kind of view helped you understand the case.') }}
 
                     <div class="view-footer-nav">
                         <button type="button" class="btn btn-outline-secondary" onclick="activateViewTab('narrative-tab')">
@@ -1233,7 +1233,7 @@
                             {% endif %}
                         </div>
                     </div>
-                    {{ likert_block('Q&C', QC_ITEMS, existing_eval, 'Rate how well this kind of view would help a reader understand a case like this.') }}
+                    {{ likert_block('Q&C', QC_ITEMS, existing_eval, 'Rate how well this kind of view helped you understand the case.') }}
 
                     <div class="view-footer-nav">
                         <button type="button" class="btn btn-outline-secondary" onclick="activateViewTab('timeline-tab')">
@@ -1380,7 +1380,7 @@
                             {% endfor %}
                         </div>
                     </div>
-                    {{ likert_block('Decisions', DECS_ITEMS, existing_eval, 'Rate how well this kind of view would help a reader understand a case like this.') }}
+                    {{ likert_block('Decisions', DECS_ITEMS, existing_eval, 'Rate how well this kind of view helped you understand the case.') }}
 
                     <div class="view-footer-nav">
                         <button type="button" class="btn btn-outline-secondary" onclick="activateViewTab('qc-tab')">
@@ -1487,7 +1487,7 @@
                             {% endfor %}
                         </div>
                     </div>
-                    {{ likert_block('Provisions', PROV_ITEMS, existing_eval, 'Rate how well this kind of view would help a reader understand a case like this.') }}
+                    {{ likert_block('Provisions', PROV_ITEMS, existing_eval, 'Rate how well this kind of view helped you understand the case.') }}
 
                     <div class="view-footer-nav">
                         <button type="button" class="btn btn-outline-secondary" onclick="activateViewTab('decisions-tab')">
