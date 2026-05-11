@@ -900,9 +900,12 @@ class SynthesisViewBuilder:
                 'published opinions. Each opinion contains four sections: '
                 '<em>Facts</em>, <em>Questions</em>, <em>Discussion</em>, '
                 'and <em>Conclusions</em>. The <em>Facts</em> and '
-                '<em>Questions</em> are presented on this page. The '
-                '<em>Discussion</em> and <em>Conclusions</em> are withheld '
-                'until the Wrap-up step.'
+                '<em>Questions</em> are presented on this page. The Board\'s '
+                'full <em>Discussion</em> is presented at the Wrap-up step. '
+                'The Conclusions view in step 2 pairs each Board question '
+                'with its bottom-line ruling; the underlying reasoning, '
+                'cited code provisions, and historical BER case references '
+                'are reserved for the Wrap-up.'
             )
         }
 
