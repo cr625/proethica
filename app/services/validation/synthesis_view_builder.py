@@ -937,6 +937,30 @@ class SynthesisViewBuilder:
             'narrative': self.get_narrative_view(case_id)
         }
 
+    @staticmethod
+    def _repair_paragraphs(text: str) -> str:
+        """Restore paragraph structure to run-together NSPE case text.
+
+        Some sections_dual entries arrive without `<p>` tags or whitespace
+        at paragraph boundaries — e.g., "...same site.Engineer A is known...".
+        This heuristic detects sentence-end + immediate uppercase preceded
+        by at least four lowercase letters and inserts a paragraph break.
+        The four-letter floor keeps short abbreviations (U.S., I.S.O.,
+        Dr.Smith) from being split.
+
+        If the text already contains <p>, <br>, or newline boundaries the
+        input is returned unchanged.
+        """
+        if not text:
+            return text
+        if '<p' in text or '<br' in text or '\n' in text:
+            return text
+        import re
+        repaired = re.sub(r'(?<=[a-z]{4})\.(?=[A-Z][a-z])', '.</p><p>', text)
+        if repaired == text:
+            return text
+        return '<p>' + repaired + '</p>'
+
     def get_case_facts(self, case_id: int) -> Dict[str, Any]:
         """Get case facts section only (Discussion/Conclusions withheld).
 
@@ -965,7 +989,7 @@ class SynthesisViewBuilder:
                 if 'facts' in sections_dual and sections_dual['facts'].get('html'):
                     facts_content.append({
                         'type': 'facts',
-                        'content': sections_dual['facts']['html'],
+                        'content': self._repair_paragraphs(sections_dual['facts']['html']),
                         'position': 0,
                         'is_html': True
                     })
@@ -1099,10 +1123,10 @@ class SynthesisViewBuilder:
             sections_dual = document.doc_metadata.get('sections_dual', {})
             if sections_dual:
                 if 'discussion' in sections_dual and sections_dual['discussion'].get('html'):
-                    discussion_text = sections_dual['discussion']['html']
+                    discussion_text = self._repair_paragraphs(sections_dual['discussion']['html'])
                     is_html = True
                 if 'conclusion' in sections_dual and sections_dual['conclusion'].get('html'):
-                    conclusion_text = sections_dual['conclusion']['html']
+                    conclusion_text = self._repair_paragraphs(sections_dual['conclusion']['html'])
                     is_html = True
 
         # Fallback to DocumentSection content
