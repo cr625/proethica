@@ -1539,14 +1539,26 @@
         <div id="step-comprehension" class="step-content {% if current_step != 'comprehension' %}hidden-step{% endif %}">
             <p class="text-muted mb-2"><strong>Step 3 of 4: Reflection.</strong> Three rating items about the five views as a whole, followed by two optional open prompts.</p>
 
-            <!-- Overall view rating (3 required Likert items) -->
+            {# Overall view rating: two first-person items about the participant's
+               own comprehension, plus a third item rendered under a separate
+               "Perceived professional utility" heading. The third item lives in
+               likert_items.OVERALL_ITEMS[2]; rendering it in its own block keeps
+               the scale's internal consistency (items 1-2 are self-anchored)
+               while still collecting the third measure. Both sub-cards stay
+               inside #overall-panel so the gate logic (paneRatedCount, which
+               requires 3 of 3) and the form column mapping are unchanged. #}
             <div class="card mb-3" id="overall-panel">
                 <div class="card-header bg-secondary text-white">
                     <h5 class="mb-0"><i class="bi bi-clipboard-check me-2"></i>Overall view rating</h5>
                 </div>
                 <div class="card-body">
-                    <p class="text-muted small mb-3">Three rating items about the five views as a whole.</p>
-                    {{ likert_block('Overall', OVERALL_ITEMS, existing_eval, 'Rate the five views as a whole.') }}
+                    <p class="text-muted small mb-3">Three short rating items: two about your own comprehension, one about professional utility.</p>
+                    {{ likert_block('Overall', OVERALL_ITEMS[:2], existing_eval, 'Rate the five views as a whole.') }}
+
+                    <hr class="my-4">
+                    <h6 class="fw-bold mt-3"><i class="bi bi-building me-2"></i>Perceived professional utility</h6>
+                    <p class="text-muted small mb-2">One short item about whether this kind of structured presentation would be useful beyond the participant&rsquo;s own reading of the case.</p>
+                    {{ likert_block('Overall-Utility', [OVERALL_ITEMS[2]], existing_eval, 'Rate the professional utility of this kind of structured presentation.') }}
                 </div>
             </div>
 
