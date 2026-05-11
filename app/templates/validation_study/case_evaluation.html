@@ -946,11 +946,18 @@
                             </div>
 
                             {% if views.timeline.entries %}
-                            <div class="d-flex flex-wrap gap-2 mb-3 small">
+                            <div class="d-flex flex-wrap gap-2 mb-2 small">
                                 <span class="badge bg-light text-dark border"><i class="bi bi-list-ol me-1"></i>{{ views.timeline.count }} sequenced</span>
                                 <span class="badge bg-light text-dark border"><i class="bi bi-person-walking me-1" style="color: #0dcaf0;"></i>{{ views.timeline.action_count }} actions</span>
                                 <span class="badge bg-light text-dark border"><i class="bi bi-lightning me-1" style="color: #dc3545;"></i>{{ views.timeline.event_count }} events</span>
                             </div>
+                            <p class="section-helper mb-3" style="font-size: 0.82rem;">
+                                Numbers on each entry show how many obligations the action placed
+                                <span class="badge bg-warning text-dark"><i class="bi bi-exclamation-triangle-fill me-1"></i>at stake</span>,
+                                <span class="badge bg-success"><i class="bi bi-check-circle-fill me-1"></i>fulfilled</span>, or
+                                <span class="badge bg-danger"><i class="bi bi-x-circle-fill me-1"></i>violated</span>
+                                at that moment.
+                            </p>
 
                             <div id="study-timeline" class="tl-compact">
                                 {% for entry in views.timeline.entries %}
