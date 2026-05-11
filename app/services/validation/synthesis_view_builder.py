@@ -727,14 +727,92 @@ class SynthesisViewBuilder:
                 name = match.group(1)
                 ch = short_to_char[name]
                 pos = (ch.get('professional_position') or '').replace('"', '&quot;')[:200]
-                anchor = ch.get('label', '').replace(' ', '-')
+                anchor = 'char-' + name.replace(' ', '-').lower()
                 return (
-                    f'<a class="char-mention" href="#char-{anchor}" '
+                    f'<a class="char-mention" href="#{anchor}" '
                     f'data-bs-toggle="popover" data-bs-trigger="focus hover" '
                     f'data-bs-content="{pos}" tabindex="0">{name}</a>'
                 )
 
             opening_context_html = pattern.sub(_wrap, opening_context_html)
+
+        # Collapse role-instance character cards under each named individual.
+        # The extractor emits one character per role-instance (e.g., "Engineer A
+        # Environmental Engineering Consultant" and "Engineer A Groundwater
+        # Infrastructure Design Engineer" are two separate cards for the same
+        # person). For the participant-facing view we group these under one
+        # person card whose tensions are the union of the underlying role
+        # instances' tensions. Each tension carries a chip naming which role
+        # within the person it attaches to.
+        from collections import OrderedDict
+        grouped_chars: 'OrderedDict[str, Dict[str, Any]]' = OrderedDict()
+        for ch in characters:
+            label = (ch.get('label') or '').strip()
+            if not label:
+                continue
+            parts = label.split()
+            short_name = ' '.join(parts[:2]) if len(parts) >= 2 else label
+            role_suffix = ' '.join(parts[2:]) if len(parts) > 2 else ''
+            if short_name not in grouped_chars:
+                grouped_chars[short_name] = {
+                    'short_name': short_name,
+                    'anchor': 'char-' + short_name.replace(' ', '-').lower(),
+                    'role_suffixes': [],
+                    '_positions': [],
+                    '_stances': [],
+                    'motivations': [],
+                    'tensions': [],
+                    '_tension_keys': set(),
+                    'is_main': False,
+                }
+            g = grouped_chars[short_name]
+            if role_suffix and role_suffix not in g['role_suffixes']:
+                g['role_suffixes'].append(role_suffix)
+            if ch.get('is_main'):
+                g['is_main'] = True
+            pos = (ch.get('professional_position') or '').strip()
+            if pos and pos not in g['_positions']:
+                g['_positions'].append(pos)
+            stance = (ch.get('ethical_stance') or '').strip()
+            if stance and stance not in g['_stances']:
+                g['_stances'].append(stance)
+            for m in (ch.get('motivations') or []):
+                if m and m not in g['motivations']:
+                    g['motivations'].append(m)
+            char_tensions = tensions_by_character.get(label, [])
+            char_linked = tensions_linked_by_character.get(label, [])
+            for idx, t in enumerate(char_tensions):
+                tkey = (
+                    t.get('entity1_label'),
+                    t.get('entity2_label'),
+                    t.get('description'),
+                )
+                if tkey in g['_tension_keys']:
+                    continue
+                g['_tension_keys'].add(tkey)
+                linked = char_linked[idx] if idx < len(char_linked) else []
+                g['tensions'].append({
+                    'tension': t,
+                    'role_suffix': role_suffix,
+                    'linked_main_shorts': linked,
+                })
+
+        for g in grouped_chars.values():
+            g['tensions'].sort(
+                key=lambda x: x['tension'].get('intensity_score', 0),
+                reverse=True,
+            )
+            g['professional_position'] = (
+                max(g['_positions'], key=len) if g['_positions'] else ''
+            )
+            g['ethical_stance'] = ' '.join(g['_stances'])
+            g['tension_count'] = len(g['tensions'])
+            del g['_tension_keys']
+            del g['_positions']
+            del g['_stances']
+
+        grouped_main_characters = [g for g in grouped_chars.values() if g['is_main']]
+        grouped_other_characters = [g for g in grouped_chars.values() if not g['is_main']]
 
         has_content = bool(characters or tensions or opening_context)
 
@@ -751,6 +829,9 @@ class SynthesisViewBuilder:
             'opening_context_html': opening_context_html,
             'protagonist_label': protagonist_label,
             'character_count': len(characters),
+            'grouped_main_characters': grouped_main_characters,
+            'grouped_other_characters': grouped_other_characters,
+            'grouped_main_character_count': len(grouped_main_characters),
             'tension_count': len(tensions),
             'rated_tension_count': rated_tension_count,
             'description': ('Characters with the ethical tensions their roles produce, '

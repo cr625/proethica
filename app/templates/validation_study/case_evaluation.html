@@ -685,7 +685,7 @@
                 <li class="nav-item">
                     <button class="nav-link active" id="narrative-tab" data-bs-toggle="tab" data-bs-target="#narrative-pane" type="button">
                         <i class="bi bi-star tab-rating-star text-muted me-1" data-tab-star="narrative" aria-hidden="true"></i>
-                        <i class="bi bi-journal-text me-1"></i> Narrative ({{ (views.narrative.characters | selectattr('is_main') | list | length) if views.narrative.characters else 0 }})
+                        <i class="bi bi-journal-text me-1"></i> Narrative ({{ views.narrative.grouped_main_character_count or 0 }})
                     </button>
                 </li>
                 <li class="nav-item">
@@ -780,54 +780,69 @@
                             </div>
                             {% endmacro %}
 
-                            {# ── Characters split into main (named in opening) and additional ── #}
-                            {% set main_chars = views.narrative.characters | selectattr('is_main') | list %}
-                            {% set other_chars = views.narrative.characters | rejectattr('is_main') | list %}
+                            {# ── Characters grouped under each named individual.
+                                 The builder collapses role-instance cards (e.g.
+                                 "Engineer A Environmental Engineering Consultant"
+                                 and "Engineer A Groundwater Infrastructure Design
+                                 Engineer") under a single person card whose
+                                 tensions are the union across roles. Each tension
+                                 carries a chip naming which role within the
+                                 person the tension attaches to. ── #}
+                            {% set main_chars = views.narrative.grouped_main_characters or [] %}
+                            {% set other_chars = views.narrative.grouped_other_characters or [] %}
 
                             {% if main_chars %}
                             <h6><i class="bi bi-people me-1"></i>Main characters ({{ main_chars|length }})</h6>
-                            <p class="section-helper">Named in the Opening Context above. Each card shows a couple of representative tensions; click <em>Show all tensions</em> to see the full list and the character's motivations.</p>
+                            <p class="section-helper">Named in the Opening Context above. Each card lists the roles the person holds in the case and the tensions those roles produce; click <em>Show all tensions</em> for the full list.</p>
                             <div class="mb-4">
                                 {% set TOP_N = 2 %}
                                 {% for char in main_chars %}
-                                {% set char_anchor = 'char-' ~ char.label.replace(' ', '-') %}
-                                {% set char_tensions = views.narrative.tensions_by_character.get(char.label, []) if views.narrative.tensions_by_character else [] %}
-                                {% set linked_lists = views.narrative.tensions_linked_by_character.get(char.label, []) if views.narrative.tensions_linked_by_character else [] %}
-                                {% set inline_tensions = char_tensions[:TOP_N] %}
-                                {% set rest_tensions = char_tensions[TOP_N:] %}
-                                <div class="mb-3 border rounded bg-white" id="{{ char_anchor }}">
-                                    {% set _label_parts = char.label.split() %}
-                                    {% set _short_name = _label_parts[:2]|join(' ') %}
-                                    {% set _role_suffix = _label_parts[2:]|join(' ') %}
+                                {% set inline_tensions = char.tensions[:TOP_N] %}
+                                {% set rest_tensions = char.tensions[TOP_N:] %}
+                                <div class="mb-3 border rounded bg-white" id="{{ char.anchor }}">
                                     <div class="p-2 d-flex align-items-center flex-wrap gap-2 border-bottom">
                                         <strong>
                                             <a class="char-mention" tabindex="0"
                                                data-bs-toggle="popover" data-bs-trigger="focus hover"
-                                               data-bs-content="{{ char.professional_position|escape if char.professional_position else char.label|escape }}">{{ _short_name }}</a>{% if _role_suffix %} <span>{{ _role_suffix }}</span>{% endif %}
+                                               data-bs-content="{{ char.professional_position|escape if char.professional_position else char.short_name|escape }}">{{ char.short_name }}</a>
                                         </strong>
+                                        {% if char.role_suffixes %}
+                                        <span class="small text-muted">
+                                            Roles in this case:
+                                            {% for r in char.role_suffixes %}<span class="badge bg-light text-secondary border me-1">{{ r }}</span>{% endfor %}
+                                        </span>
+                                        {% endif %}
                                         <span class="ms-auto small text-muted">
-                                            {% if char_tensions %}{{ char_tensions|length }} tension{{ '' if char_tensions|length == 1 else 's' }}{% else %}no tensions identified{% endif %}
+                                            {% if char.tensions %}{{ char.tensions|length }} tension{{ '' if char.tensions|length == 1 else 's' }}{% else %}no tensions identified{% endif %}
                                         </span>
                                     </div>
                                     <div class="p-3 small">
                                         {% if char.ethical_stance %}
                                         <p class="mb-2">{{ char.ethical_stance }}</p>
                                         {% endif %}
-                                        {% for t in inline_tensions %}
-                                            {% set linked_shorts = linked_lists[loop.index0] if loop.index0 < linked_lists|length else [] %}
-                                            {{ tension_block(t, 'study-main-tension-' ~ loop.index ~ '-' ~ char_anchor, linked_shorts) }}
+                                        {% for entry in inline_tensions %}
+                                            {{ tension_block(entry.tension, 'study-main-tension-' ~ loop.index ~ '-' ~ char.anchor, entry.linked_main_shorts) }}
+                                            {% if entry.role_suffix and char.role_suffixes|length > 1 %}
+                                            <div class="mb-1 small text-muted" style="margin-top: -0.25rem; margin-left: 1.5rem;">
+                                                <em>Attaches to role:</em> {{ entry.role_suffix }}
+                                            </div>
+                                            {% endif %}
                                         {% endfor %}
                                         {% if rest_tensions or char.motivations %}
                                         <a class="char-show-all-toggle text-decoration-none small text-muted d-inline-flex align-items-center mt-2"
                                            data-bs-toggle="collapse"
-                                           href="#{{ char_anchor }}-rest" role="button" aria-expanded="false">
+                                           href="#{{ char.anchor }}-rest" role="button" aria-expanded="false">
                                             <i class="bi bi-chevron-right me-1 char-show-chevron"></i>
-                                            {% if rest_tensions %}Show all {{ char_tensions|length }} tensions{% if char.motivations %} and motivations{% endif %}{% else %}Show motivations{% endif %}
+                                            {% if rest_tensions %}Show all {{ char.tensions|length }} tensions{% if char.motivations %} and motivations{% endif %}{% else %}Show motivations{% endif %}
                                         </a>
-                                        <div class="collapse mt-2" id="{{ char_anchor }}-rest">
-                                            {% for t in rest_tensions %}
-                                                {% set linked_shorts = linked_lists[(inline_tensions|length) + loop.index0] if (inline_tensions|length) + loop.index0 < linked_lists|length else [] %}
-                                                {{ tension_block(t, 'study-main-tension-rest-' ~ loop.index ~ '-' ~ char_anchor, linked_shorts) }}
+                                        <div class="collapse mt-2" id="{{ char.anchor }}-rest">
+                                            {% for entry in rest_tensions %}
+                                                {{ tension_block(entry.tension, 'study-main-tension-rest-' ~ loop.index ~ '-' ~ char.anchor, entry.linked_main_shorts) }}
+                                                {% if entry.role_suffix and char.role_suffixes|length > 1 %}
+                                                <div class="mb-1 small text-muted" style="margin-top: -0.25rem; margin-left: 1.5rem;">
+                                                    <em>Attaches to role:</em> {{ entry.role_suffix }}
+                                                </div>
+                                                {% endif %}
                                             {% endfor %}
                                             {% if char.motivations %}
                                             <div class="mt-2 small text-muted">
@@ -855,18 +870,17 @@
                             <div class="collapse mb-4" id="other-chars-section">
                                 {% for char in other_chars %}
                                 {% set char_id = 'other-char-' ~ loop.index %}
-                                {% set char_tensions = views.narrative.tensions_by_character.get(char.label, []) if views.narrative.tensions_by_character else [] %}
                                 <div class="mb-1 border rounded bg-light p-2 small">
                                     <div class="d-flex align-items-center flex-wrap gap-2" style="cursor: pointer;"
                                          data-bs-toggle="collapse" data-bs-target="#{{ char_id }}"
                                          role="button" aria-expanded="false">
                                         <i class="bi bi-chevron-right small text-muted tension-chevron"></i>
-                                        <strong>{{ char.label }}</strong>
-                                        {% if char.professional_position %}
-                                        <span class="text-muted d-none d-md-inline">{{ char.professional_position|truncate(80) }}</span>
+                                        <strong>{{ char.short_name }}</strong>
+                                        {% if char.role_suffixes %}
+                                        <span class="text-muted d-none d-md-inline">{{ char.role_suffixes|join(', ')|truncate(80) }}</span>
                                         {% endif %}
-                                        {% if char_tensions %}
-                                        <span class="ms-auto text-muted">{{ char_tensions|length }} tension{{ '' if char_tensions|length == 1 else 's' }}</span>
+                                        {% if char.tensions %}
+                                        <span class="ms-auto text-muted">{{ char.tensions|length }} tension{{ '' if char.tensions|length == 1 else 's' }}</span>
                                         {% endif %}
                                     </div>
                                     <div class="collapse" id="{{ char_id }}">
@@ -876,11 +890,9 @@
                                             <em>Motivations:</em>
                                             <ul class="mb-0">{% for m in char.motivations[:3] %}<li>{{ m }}</li>{% endfor %}</ul>
                                             {% endif %}
-                                            {% if char_tensions %}
-                                            {% for t in char_tensions %}
-                                                {{ tension_block(t, 'study-other-tension-' ~ loop.index ~ '-' ~ char_id) }}
+                                            {% for entry in char.tensions %}
+                                                {{ tension_block(entry.tension, 'study-other-tension-' ~ loop.index ~ '-' ~ char_id) }}
                                             {% endfor %}
-                                            {% endif %}
                                         </div>
                                     </div>
                                 </div>
