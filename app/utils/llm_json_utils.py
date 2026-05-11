@@ -87,7 +87,13 @@ def parse_json_response(response_text: str, context: str = "unknown",
     if repaired:
         try:
             result = json.loads(repaired)
-            logger.info(f"Recovered {context} JSON via truncation repair")
+            # DEBUG level: the repair succeeded, so this is informational
+            # rather than actionable. Stored ExtractionPrompt rows whose
+            # raw_response was truncated at generation time fire this log
+            # on every page load that re-parses them, which is noisy in
+            # routine operation. Surface at INFO only if the underlying
+            # generation site needs tuning (raise max_tokens there).
+            logger.debug(f"Recovered {context} JSON via truncation repair")
             return result
         except json.JSONDecodeError:
             pass
@@ -122,7 +128,7 @@ def parse_json_object(response_text: str, context: str = "unknown") -> Optional[
     if trunc_match and '```' not in trunc_match.group(1):
         parsed = _try_parse_object(trunc_match.group(1).rstrip())
         if parsed is not None:
-            logger.info(f"Recovered {context} JSON from truncated code block")
+            logger.debug(f"Recovered {context} JSON from truncated code block")
             return parsed
 
     # Strategy 3: raw JSON object
