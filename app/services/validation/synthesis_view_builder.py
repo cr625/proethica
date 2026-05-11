@@ -283,6 +283,8 @@ class SynthesisViewBuilder:
                 dp.setdefault('decision_question', rdf_data.get('decision_question', ''))
                 decisions.append(dp)
 
+        decisions = self._dedupe_decision_points(decisions)
+
         return {
             'view_type': 'decisions',
             'count': len(decisions),
@@ -290,6 +292,92 @@ class SynthesisViewBuilder:
             'description': 'Decision points where the professional faced choices, along with '
                           'alternatives considered and actions taken.'
         }
+
+    # Stopwords stripped before Jaccard-similarity comparison. The list is
+    # intentionally narrow: question-framing tokens ("should", "what", "when")
+    # would otherwise inflate similarity between unrelated decisions.
+    _DEDUP_STOPWORDS = frozenset({
+        'a', 'an', 'the', 'to', 'of', 'in', 'on', 'for', 'and', 'or', 'but',
+        'that', 'which', 'should', 'must', 'do', 'does', 'did', 'is', 'are',
+        'was', 'were', 'be', 'been', 'being', 'this', 'these', 'those', 'it',
+        'its', 'as', 'at', 'by', 'with', 'from', 'have', 'has', 'had', 'can',
+        'could', 'would', 'may', 'might', 'when', 'where', 'why', 'how',
+        'what', 'who', 'whom', 'whose',
+    })
+
+    @classmethod
+    def _dedupe_decision_points(cls, decisions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Drop near-duplicate decision points produced by Step 4 Phase 3.
+
+        Three signals flag a duplicate, any of which is sufficient:
+
+        1. Normalized prefix equality on the first 40 chars of the question
+           (lowercased, non-alphanumeric stripped, whitespace collapsed).
+        2. Content-word token Jaccard >= 0.55 against any kept DP's tokens.
+        3. First 6 content tokens of each question share >= 5 tokens (catches
+           rephrasings that score below the Jaccard threshold because the
+           question body diverges in trailing detail).
+
+        Earliest-by-ordinal wins; later duplicates are silently dropped.
+        Options/grounds are not merged across duplicates: the participant
+        is rating the quality of a view, not enumerating exhaustively, so
+        culling is sufficient to remove the "unfinished analysis" signal.
+        """
+        if not decisions:
+            return decisions
+        import re
+
+        def _normalized_prefix(text: str, n: int = 40) -> str:
+            s = re.sub(r'[^a-z0-9 ]+', ' ', (text or '').lower())
+            s = re.sub(r'\s+', ' ', s).strip()
+            return s[:n]
+
+        def _content_tokens(text: str) -> 'set[str]':
+            return {
+                t for t in re.findall(r'[a-z]+', (text or '').lower())
+                if len(t) > 2 and t not in cls._DEDUP_STOPWORDS
+            }
+
+        def _first_content_tokens(text: str, n: int = 6) -> 'list[str]':
+            out: 'list[str]' = []
+            for t in re.findall(r'[a-z]+', (text or '').lower()):
+                if len(t) > 2 and t not in cls._DEDUP_STOPWORDS:
+                    out.append(t)
+                if len(out) >= n:
+                    break
+            return out
+
+        def _jaccard(a: 'set[str]', b: 'set[str]') -> float:
+            if not a or not b:
+                return 0.0
+            return len(a & b) / len(a | b)
+
+        kept: List[Dict[str, Any]] = []
+        kept_prefixes: List[str] = []
+        kept_tokens: List['set[str]'] = []
+        kept_firsts: List['set[str]'] = []
+        for d in decisions:
+            question = d.get('decision_question') or d.get('description') or ''
+            prefix = _normalized_prefix(question)
+            tokens = _content_tokens(question)
+            firsts = set(_first_content_tokens(question))
+            is_dup = False
+            for kp, kt, kf in zip(kept_prefixes, kept_tokens, kept_firsts):
+                if prefix and prefix == kp:
+                    is_dup = True
+                    break
+                if _jaccard(tokens, kt) >= 0.55:
+                    is_dup = True
+                    break
+                if len(firsts & kf) >= 5:
+                    is_dup = True
+                    break
+            if not is_dup:
+                kept.append(d)
+                kept_prefixes.append(prefix)
+                kept_tokens.append(tokens)
+                kept_firsts.append(firsts)
+        return kept
 
     def get_timeline_view(self, case_id: int) -> Dict[str, Any]:
         """Get Timeline view from Step 3 temporal extraction.
