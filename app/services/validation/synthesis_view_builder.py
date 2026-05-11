@@ -948,17 +948,24 @@ class SynthesisViewBuilder:
         The four-letter floor keeps short abbreviations (U.S., I.S.O.,
         Dr.Smith) from being split.
 
+        Also strips trailing whitespace and collapses trailing duplicate
+        periods (e.g., ". ." or "..") to a single sentence terminator;
+        these occasionally appear when the source document was scraped
+        from a PDF.
+
         If the text already contains <p>, <br>, or newline boundaries the
-        input is returned unchanged.
+        paragraph-repair step is skipped but the trailing-punctuation
+        cleanup still runs.
         """
         if not text:
             return text
-        if '<p' in text or '<br' in text or '\n' in text:
-            return text
         import re
-        repaired = re.sub(r'(?<=[a-z]{4})\.(?=[A-Z][a-z])', '.</p><p>', text)
-        if repaired == text:
-            return text
+        cleaned = re.sub(r'(?:\s*\.\s*){2,}$', '.', text.rstrip())
+        if '<p' in cleaned or '<br' in cleaned or '\n' in cleaned:
+            return cleaned
+        repaired = re.sub(r'(?<=[a-z]{4})\.(?=[A-Z][a-z])', '.</p><p>', cleaned)
+        if repaired == cleaned:
+            return cleaned
         return '<p>' + repaired + '</p>'
 
     def get_case_facts(self, case_id: int) -> Dict[str, Any]:
