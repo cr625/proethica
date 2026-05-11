@@ -910,9 +910,13 @@ For each decision point, provide:
 3. A decision_question (what choice must be made?)
 4. The primary role/agent facing the decision
 5. The relevant obligation or constraint
-6. 2-3 options available to the decision-maker
+6. 2-3 options available to the decision-maker, with one marked as the Board's choice
 7. Which question(s) this addresses (reference Q numbers)
 8. How the board resolved it (reference C numbers)
+9. Toulmin argument structure: data_summary (triggering facts), warrants_summary (competing obligations or duties at stake), rebuttals_summary (sources of uncertainty or counter-considerations)
+10. NSPE Code provisions cited as backing (provision_labels, e.g. ["II.1.f", "I.1"])
+11. intensity_score (float 0.0-1.0): moral intensity of this decision (urgency, magnitude of consequences, proximity)
+12. qc_alignment_score (float 0.0-1.0): strength of alignment between this decision and the Questions/Conclusions
 
 CRITICAL FORMATTING:
 - Do NOT use em dash characters anywhere in your output. Use commas or periods instead.
@@ -925,6 +929,7 @@ CRITICAL FORMATTING:
 - Good labels: "Disclose AI Tool Usage", "Verify Code with Expert", "Withdraw from Project"
 - Bad labels: "Option A", "Option B", "Alternative Approach"
 - Descriptions expand on the label with case-specific detail.
+- Exactly one option per decision point must have is_board_choice=true; the rest is_board_choice=false.
 
 Return as JSON array:
 ```json
@@ -936,11 +941,17 @@ Return as JSON array:
     "role_label": "...",
     "obligation_label": "...",
     "options": [
-      {{"label": "Disclose X to Stakeholders", "description": "Formally notify all affected stakeholders of X through written communication"}},
-      {{"label": "Withhold Disclosure of X", "description": "Continue without disclosure, relying on existing contractual scope limitations"}}
+      {{"option_id": "O1", "label": "Disclose X to Stakeholders", "description": "Formally notify all affected stakeholders of X through written communication", "is_board_choice": true}},
+      {{"option_id": "O2", "label": "Withhold Disclosure of X", "description": "Continue without disclosure, relying on existing contractual scope limitations", "is_board_choice": false}}
     ],
     "addresses_questions": ["Q1", "Q2"],
-    "board_resolution": "The board concluded that... (C1)"
+    "board_resolution": "The board concluded that... (C1)",
+    "toulmin_data": "Summary of triggering facts (1-2 sentences)",
+    "toulmin_warrants": "Summary of the obligations or duties that justify the Board's chosen option (1-2 sentences, cite Code provisions inline)",
+    "toulmin_rebuttals": "Summary of what creates uncertainty or supports an alternative (1-2 sentences)",
+    "provision_labels": ["II.1.f", "I.1"],
+    "intensity_score": 0.78,
+    "qc_alignment_score": 0.82
   }}
 ]
 ```
@@ -1021,6 +1032,42 @@ Return as JSON array:
             obl_label = dp_data.get('obligation_label')
             obl_uri = entity_uri_lookup.get(obl_label.lower(), '') if obl_label else None
 
+            # Build Toulmin structure from LLM-emitted fields. The fallback
+            # prompts (causal-link and qc-direct) request these alongside
+            # the high-level fields; older outputs that predate the prompt
+            # update will simply produce empty strings, which render as
+            # missing Toulmin in the view.
+            provision_labels = dp_data.get('provision_labels', []) or []
+            toulmin = ToulminStructure(
+                data_summary=dp_data.get('toulmin_data', ''),
+                warrants_summary=dp_data.get('toulmin_warrants', ''),
+                rebuttals_summary=dp_data.get('toulmin_rebuttals', ''),
+                backing_provisions=provision_labels,
+            )
+
+            # Score fields from the LLM. Fall back to 0.0 (not the previous
+            # 0.5 / 0.7 sentinels) so that flat-constant rows in the view
+            # are immediately diagnosable as parse failures rather than
+            # masquerading as real scores.
+            try:
+                intensity_score = float(dp_data.get('intensity_score', 0.0))
+            except (TypeError, ValueError):
+                intensity_score = 0.0
+            try:
+                qc_alignment_score = float(dp_data.get('qc_alignment_score', 0.0))
+            except (TypeError, ValueError):
+                qc_alignment_score = 0.0
+
+            # Pass through options including option_id and is_board_choice.
+            options_out = []
+            for j, opt in enumerate(dp_data.get('options', [])):
+                options_out.append({
+                    'option_id': opt.get('option_id', f'O{j+1}'),
+                    'label': opt.get('label', f'Option {j+1}'),
+                    'description': opt.get('description', ''),
+                    'is_board_choice': bool(opt.get('is_board_choice', False)),
+                })
+
             # Create canonical decision point
             dp = CanonicalDecisionPoint(
                 focus_id=dp_data.get('focus_id', f'DP{i+1}'),
@@ -1031,16 +1078,16 @@ Return as JSON array:
                 role_label=role_label,
                 obligation_uri=obl_uri,
                 obligation_label=obl_label,
+                provision_labels=provision_labels,
+                toulmin=toulmin,
                 aligned_question_uri=aligned_q_uri,
                 aligned_question_text=aligned_q_text,
                 board_resolution=dp_data.get('board_resolution', ''),
                 addresses_questions=[q_uri_map.get(q, q) for q in (addresses if isinstance(addresses, list) else [addresses])],
-                options=[
-                    {'label': opt.get('label', f'Option {j+1}'), 'description': opt.get('description', '')}
-                    for j, opt in enumerate(dp_data.get('options', []))
-                ],
-                intensity_score=0.5,  # Default score for LLM-generated
-                qc_alignment_score=0.7  # Higher since LLM explicitly aligned
+                options=options_out,
+                intensity_score=intensity_score,
+                qc_alignment_score=qc_alignment_score,
+                synthesis_method='llm_fallback',
             )
             self._clean_text_formatting(dp)
             canonical_points.append(dp)
@@ -1144,9 +1191,13 @@ For each decision point, provide:
 3. A decision_question -- an actionable choice framed as "Should [role] do X or Y?"
 4. The primary role/agent facing the decision (use exact role labels from above)
 5. The relevant obligation (use exact obligation labels from above)
-6. 2-3 options that DIRECTLY ANSWER the decision_question
+6. 2-3 options that DIRECTLY ANSWER the decision_question, with one marked as the Board's choice
 7. Which question(s) this addresses (reference Q numbers)
 8. How the board resolved it (reference C numbers)
+9. Toulmin argument structure: data_summary (triggering facts), warrants_summary (competing obligations or duties at stake), rebuttals_summary (sources of uncertainty or counter-considerations)
+10. NSPE Code provisions cited as backing (provision_labels, e.g. ["II.1.f", "I.1"])
+11. intensity_score (float 0.0-1.0): moral intensity of this decision (urgency, magnitude of consequences, proximity)
+12. qc_alignment_score (float 0.0-1.0): strength of alignment between this decision and the Questions/Conclusions
 
 CRITICAL FORMATTING:
 - Do NOT use em dash characters anywhere in your output. Use commas or periods instead.
@@ -1166,6 +1217,7 @@ CRITICAL OPTION FORMAT:
 - Good labels: "Disclose Conflict to Client", "Recuse from Project", "Seek Independent Review"
 - Descriptions expand on the label with 1-2 sentences of case-specific detail.
 - Options must represent genuinely defensible positions, not straw-man alternatives.
+- Exactly one option per decision point must have is_board_choice=true; the rest is_board_choice=false.
 
 Return as JSON array:
 ```json
@@ -1177,11 +1229,17 @@ Return as JSON array:
     "role_label": "...",
     "obligation_label": "...",
     "options": [
-      {{"label": "Disclose Conflict to Client", "description": "Formally notify the client of the conflict of interest and recommend independent oversight"}},
-      {{"label": "Recuse from Project", "description": "Withdraw from the project entirely to avoid any appearance of compromised judgment"}}
+      {{"option_id": "O1", "label": "Disclose Conflict to Client", "description": "Formally notify the client of the conflict of interest and recommend independent oversight", "is_board_choice": true}},
+      {{"option_id": "O2", "label": "Recuse from Project", "description": "Withdraw from the project entirely to avoid any appearance of compromised judgment", "is_board_choice": false}}
     ],
     "addresses_questions": ["Q1", "Q2"],
-    "board_resolution": "The board concluded that... (C1)"
+    "board_resolution": "The board concluded that... (C1)",
+    "toulmin_data": "Summary of triggering facts (1-2 sentences)",
+    "toulmin_warrants": "Summary of the obligations or duties that justify the Board's chosen option (1-2 sentences, cite Code provisions inline)",
+    "toulmin_rebuttals": "Summary of what creates uncertainty or supports an alternative (1-2 sentences)",
+    "provision_labels": ["II.1.f", "I.1"],
+    "intensity_score": 0.78,
+    "qc_alignment_score": 0.82
   }}
 ]
 ```
