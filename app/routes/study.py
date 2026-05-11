@@ -20,6 +20,7 @@ NOT require login; authentication is by possession of the random code only.
 import hashlib
 import logging
 import os
+import random
 import secrets
 import uuid
 from datetime import datetime
@@ -654,6 +655,54 @@ def reveal_conclusions(case_id):
 # RETROSPECTIVE REFLECTION ROUTES
 # =============================================================================
 
+# Source-of-truth metadata for the five views shown on the Retrospective
+# ranking step. Order is intentionally NOT tab-order on the case page: the
+# route below shuffles this list before render so a participant who skips
+# the drag step does not implicitly endorse tab order as their ranking.
+_RANKING_VIEWS = [
+    {
+        'slug': 'narrative',
+        'name': 'Narrative View',
+        'icon_class': 'bi bi-journal-text',
+        'icon_color_class': 'text-success',
+        'icon_style': '',
+        'description': 'Characters with ethical tensions and opening states',
+    },
+    {
+        'slug': 'timeline',
+        'name': 'Timeline View',
+        'icon_class': 'bi bi-clock-history',
+        'icon_color_class': '',
+        'icon_style': 'color: #20c997;',
+        'description': 'Actions and events in temporal sequence with nested decision points',
+    },
+    {
+        'slug': 'qc',
+        'name': 'Conclusions View',
+        'icon_class': 'bi bi-question-circle',
+        'icon_color_class': '',
+        'icon_style': 'color: #6f42c1;',
+        'description': "Each board question paired with the Board’s ruling, plus analytical questions for additional perspective.",
+    },
+    {
+        'slug': 'decisions',
+        'name': 'Decisions View',
+        'icon_class': 'bi bi-signpost-split',
+        'icon_color_class': '',
+        'icon_style': 'color: #fd7e14;',
+        'description': 'Decision points with arguments for and against each option',
+    },
+    {
+        'slug': 'provisions',
+        'name': 'Provisions View',
+        'icon_class': 'bi bi-book',
+        'icon_color_class': 'text-primary',
+        'icon_style': '',
+        'description': 'Code provisions mapped to case elements',
+    },
+]
+
+
 @study_bp.route('/retrospective', methods=['GET', 'POST'])
 def retrospective():
     """Post-study retrospective reflection (5-view ranking + open feedback)."""
@@ -668,10 +717,17 @@ def retrospective():
         session_id=val_session.id
     ).first()
 
+    # Shuffle the five-view list so the initial rank-list does not match
+    # case-page tab order. Hidden-input names are per-view, so submissions
+    # map back to the correct view regardless of rendered position.
+    ranking_views = list(_RANKING_VIEWS)
+    random.shuffle(ranking_views)
+
     return render_template('validation_study/retrospective.html',
                            participant_code=val_session.participant_code,
                            session=val_session,
-                           existing=existing)
+                           existing=existing,
+                           ranking_views=ranking_views)
 
 
 def _submit_retrospective(val_session):
