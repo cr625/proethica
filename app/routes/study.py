@@ -1105,11 +1105,17 @@ def admin_dashboard():
     total_evals = ViewUtilityEvaluation.query.filter(
         ViewUtilityEvaluation.completed_at.isnot(None)
     ).count()
+    # The attention-check item is the reverse-coded Overall item
+    # `overall_surfaced_considerations` (pass = response of 1). The dedicated
+    # `attention_check_response` column is unpopulated for real sessions
+    # because the rendered form field name is the item name, not
+    # `attention_check_response`; derive the count from the column that
+    # actually carries the participant's response.
     attn_answered = ViewUtilityEvaluation.query.filter(
-        ViewUtilityEvaluation.attention_check_response.isnot(None)
+        ViewUtilityEvaluation.overall_surfaced_considerations.isnot(None)
     ).count()
     attn_passed = ViewUtilityEvaluation.query.filter(
-        ViewUtilityEvaluation.attention_check_response == 1
+        ViewUtilityEvaluation.overall_surfaced_considerations == 1
     ).count()
     low_effort_flagged = ViewUtilityEvaluation.query.filter(
         ViewUtilityEvaluation.low_effort_flag.is_(True)

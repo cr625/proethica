@@ -410,7 +410,7 @@ class ViewUtilityEvaluation(db.Model):
             self.comp_main_tensions, self.comp_relevant_provisions,
             self.comp_decision_points, self.comp_deliberation_factors
         ]
-        return all(q is not None and len(q.strip()) > 0 for q in questions if q)
+        return all(q is not None and len(q.strip()) > 0 for q in questions)
 
     @property
     def view_ratings_complete(self):

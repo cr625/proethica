@@ -478,10 +478,14 @@ class ValidationExportService:
                 'alignment_self_rating': e.alignment_self_rating,
                 'alignment_reflection': e.alignment_reflection,
                 # Attention / effort flags (validation pivot, plan §4.4 / §4.5)
-                'attention_check_response': e.attention_check_response,
+                # Derive attention-check pass/fail from the reverse-coded
+                # Overall item; the dedicated `attention_check_response`
+                # column is not populated for real sessions (see study.py
+                # admin dashboard comment for the form-naming background).
+                'attention_check_response': e.overall_surfaced_considerations,
                 'attention_check_passed': (
-                    None if e.attention_check_response is None
-                    else (e.attention_check_response == 1)
+                    None if e.overall_surfaced_considerations is None
+                    else (e.overall_surfaced_considerations == 1)
                 ),
                 'low_effort_flag': e.low_effort_flag,
                 # Per-evaluation timestamps
