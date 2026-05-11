@@ -1254,14 +1254,18 @@
                                     <div class="instruction-body">A <strong>decision point</strong> is a moment at which the professional could have chosen otherwise. Each decision card shows the full question, the <strong>options</strong> considered (the Board&rsquo;s choice marked with <i class="bi bi-check-circle-fill" style="color: #198754;" aria-hidden="true"></i>), and the <strong>argument structure</strong> for and against the choice. The argument structure includes <strong>warrants</strong>&nbsp;<i class="bi bi-check-circle" style="color: #198754;" aria-hidden="true"></i> that support the choice, <strong>rebuttals</strong>&nbsp;<i class="bi bi-x-circle" style="color: #dc3545;" aria-hidden="true"></i> that challenge it, and <strong>grounds</strong>&nbsp;<i class="bi bi-file-earmark-text" style="color: #0d6efd;" aria-hidden="true"></i> drawn from the case facts. <em>Rate how well this kind of view would support a reader&rsquo;s understanding of the case, not whether every detail has been absorbed.</em></div>
                                 </div>
                             </div>
-                            {% for dec in views.decisions.decisions %}
+                            {# Decision card macro: same body used by the top-5 default
+                               loop and the "Show all" expander. The dp_id namespaces
+                               the collapse target so top-5 and rest cards do not
+                               share IDs. #}
+                            {% macro decision_card(dec, dp_id, ordinal) %}
                             <div class="dp-card">
                                 {# Collapsed header #}
                                 <div class="dp-header" data-bs-toggle="collapse"
-                                     data-bs-target="#dp-body-{{ loop.index }}" role="button"
-                                     aria-expanded="false" aria-controls="dp-body-{{ loop.index }}">
+                                     data-bs-target="#dp-body-{{ dp_id }}" role="button"
+                                     aria-expanded="false" aria-controls="dp-body-{{ dp_id }}">
                                     <i class="bi bi-chevron-right dp-chevron"></i>
-                                    <span class="badge bg-primary" style="font-size: 0.7rem;">{{ dec.focus_id or 'DP' ~ loop.index }}</span>
+                                    <span class="badge bg-primary" style="font-size: 0.7rem;">{{ dec.focus_id or 'DP' ~ ordinal }}</span>
                                     <span class="small flex-grow-1" style="min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                                         {{ (dec.description or dec.decision_question)|truncate(80) }}
                                     </span>
@@ -1276,7 +1280,7 @@
                                 </div>
 
                                 {# Expanded body #}
-                                <div class="collapse" id="dp-body-{{ loop.index }}">
+                                <div class="collapse" id="dp-body-{{ dp_id }}">
                                     <div class="dp-body border border-top-0 rounded-bottom">
                                         {# Full decision question #}
                                         <p class="small mb-2">{{ dec.decision_question or dec.description }}</p>
@@ -1363,9 +1367,32 @@
                                     </div>
                                 </div>
                             </div>
+                            {% endmacro %}
+
+                            {% set TOP_N = 5 %}
+                            {% set top_decs = views.decisions.decisions[:TOP_N] %}
+                            {% set rest_decs = views.decisions.decisions[TOP_N:] %}
+
+                            {% for dec in top_decs %}
+                                {{ decision_card(dec, 'top-' ~ loop.index, loop.index) }}
                             {% else %}
                             <p class="text-muted">No decision points extracted for this case.</p>
                             {% endfor %}
+
+                            {% if rest_decs %}
+                            <a class="narrative-section-toggle text-decoration-none mt-2 mb-2 d-inline-flex align-items-center"
+                               data-bs-toggle="collapse" href="#decisions-rest-section"
+                               role="button" aria-expanded="false">
+                                <i class="bi bi-chevron-right me-1 narrative-section-chevron"></i>
+                                <strong>Show all {{ views.decisions.decisions|length }} decision points</strong>
+                            </a>
+                            <p class="section-helper" style="margin-top: 0.25rem;">Reading every decision is not required. The rating below evaluates the quality of this kind of view, not exhaustive recall.</p>
+                            <div class="collapse" id="decisions-rest-section">
+                                {% for dec in rest_decs %}
+                                    {{ decision_card(dec, 'rest-' ~ loop.index, TOP_N + loop.index) }}
+                                {% endfor %}
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
                     {{ likert_block('Decisions', DECS_ITEMS, existing_eval, 'Rate how well this kind of view helped you understand the case.') }}
