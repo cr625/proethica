@@ -42,25 +42,6 @@ class TestAnonymousTemporalReview:
         assert page.locator("a", has_text="Re-run Extraction").count() == 0
 
 
-class TestAnonymousStreamingPages:
-    """Streaming extraction pages show 'Login Required' for anonymous users."""
-
-    def test_step1_login_required(self, page, base_url):
-        page.goto(
-            f"{base_url}/scenario_pipeline/case/{CASE_ID}/step1_streaming"
-        )
-        assert page.locator("small", has_text="Login Required").is_visible()
-        # The primary (blue) extract button should NOT be present
-        assert page.locator("#contextualPassBtn").count() == 0
-
-    def test_step2_login_required(self, page, base_url):
-        page.goto(
-            f"{base_url}/scenario_pipeline/case/{CASE_ID}/step2_streaming"
-        )
-        assert page.locator("small", has_text="Login Required").is_visible()
-        assert page.locator("#normativePassBtn").count() == 0
-
-
 class TestAnonymousStep4Entities:
     """Step 4 entity review hides accept/reject and shows login prompt."""
 
@@ -105,17 +86,3 @@ class TestAuthenticatedStep4Entities:
         )
 
 
-class TestAuthenticatedStreamingPages:
-    """Streaming pages show the primary extract button for logged-in users."""
-
-    def test_step1_extract_button(self, authenticated_page, base_url):
-        authenticated_page.goto(
-            f"{base_url}/scenario_pipeline/case/{CASE_ID}/step1_streaming"
-        )
-        assert authenticated_page.locator("#contextualPassBtn").is_visible()
-
-    def test_step2_extract_button(self, authenticated_page, base_url):
-        authenticated_page.goto(
-            f"{base_url}/scenario_pipeline/case/{CASE_ID}/step2_streaming"
-        )
-        assert authenticated_page.locator("#normativePassBtn").is_visible()

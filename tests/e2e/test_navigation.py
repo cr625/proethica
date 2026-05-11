@@ -13,8 +13,7 @@ class TestCaseNavigationChain:
 
     def test_cases_to_detail(self, page, base_url):
         page.goto(f"{base_url}/cases/")
-        # Click the first "View Details" link
-        page.locator("a", has_text="View Details").first.click()
+        page.locator("a.case-title-link").first.click()
         page.wait_for_load_state("networkidle")
         assert page.url != f"{base_url}/cases/"
         assert page.locator("h1").first.is_visible()

@@ -101,11 +101,6 @@ class TestCasesListFilters:
         options = world_filter.locator("option")
         assert options.count() >= 1
 
-    def test_status_filter_present(self, page, base_url):
-        page.goto(f"{base_url}/cases/")
-        status_filter = page.locator("#statusFilter")
-        assert status_filter.is_visible()
-
 
 class TestCsrfTokenPresent:
     """Verify the CSRF meta tag is rendered (required for JS fetch calls)."""

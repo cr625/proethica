@@ -29,9 +29,9 @@ class TestCasesList:
         assert resp.status == 200
         assert page.locator("h1", has_text="Case Repository").is_visible()
 
-    def test_cases_list_has_view_details_links(self, page, base_url):
+    def test_cases_list_has_case_links(self, page, base_url):
         page.goto(f"{base_url}/cases/")
-        links = page.locator("a", has_text="View Details")
+        links = page.locator("a.case-title-link")
         assert links.count() > 0
 
 
