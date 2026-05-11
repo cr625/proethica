@@ -265,6 +265,11 @@ def index():
         if next_case is None and cid not in completed:
             next_case = summary
 
+    retrospective_complete = bool(
+        val_session.retrospective and val_session.retrospective.is_complete
+    )
+    demographics_complete = val_session.demographics_completed_at is not None
+
     return render_template('validation_study/index.html',
                            phase='dashboard',
                            participant_code=code,
@@ -272,7 +277,9 @@ def index():
                            case_summaries=case_summaries,
                            next_case=next_case,
                            completed_count=len(completed),
-                           total_count=len(assigned_ids))
+                           total_count=len(assigned_ids),
+                           retrospective_complete=retrospective_complete,
+                           demographics_complete=demographics_complete)
 
 
 @study_bp.route('/enroll', methods=['POST'])

@@ -522,9 +522,17 @@ class RetrospectiveReflection(db.Model):
 
     @property
     def is_complete(self):
-        """Check if retrospective is fully complete."""
-        return (self.rankings_valid and
-                self.surfaced_missed_considerations is not None)
+        """Check if retrospective is fully complete.
+
+        Completion is defined by a valid 1-5 ranking permutation only.
+        Predecessor commit 1da9d93 made surfaced_missed_considerations
+        truly optional at submit time (matching the consent language
+        "you may select Prefer not to say on any item"); requiring it
+        here would mark legitimate optional-skip submissions incomplete
+        and re-surface the "Continue to view ranking" dashboard CTA
+        after the participant had already finished the page.
+        """
+        return self.rankings_valid
 
     def __repr__(self):
         return f"<RetrospectiveReflection {self.id}: {self.evaluator_id}>"

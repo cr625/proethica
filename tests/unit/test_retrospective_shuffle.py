@@ -78,6 +78,51 @@ def test_ranking_views_shuffle_does_not_match_default_every_time():
     )
 
 
+def test_is_complete_does_not_require_surfaced_considerations():
+    """Optional surfaced_missed_considerations must not gate is_complete.
+
+    Predecessor commit 1da9d93 made the field truly optional at submit
+    time. If is_complete still required it, a participant who chose to
+    skip the question (per the consent language "you may select Prefer
+    not to say on any item") would see the "Continue to view ranking"
+    CTA reappear on the dashboard after submitting the retrospective.
+    """
+    from app.models.view_utility_evaluation import RetrospectiveReflection
+    r = RetrospectiveReflection(
+        evaluator_id='TEST-CODE',
+        evaluator_domain='engineering',
+        rank_narrative_view=1,
+        rank_timeline_view=2,
+        rank_qc_view=3,
+        rank_decisions_view=4,
+        rank_provisions_view=5,
+        surfaced_missed_considerations=None,
+    )
+    assert r.rankings_valid is True
+    assert r.is_complete is True, (
+        'Retrospective with valid ranks but no surfaced_considerations '
+        'must be considered complete; the field is optional at submit.'
+    )
+
+
+def test_is_complete_requires_valid_rankings():
+    """Incomplete ranking permutation marks retrospective incomplete."""
+    from app.models.view_utility_evaluation import RetrospectiveReflection
+    # All five views must be ranked; missing one fails rankings_valid.
+    r = RetrospectiveReflection(
+        evaluator_id='TEST-CODE',
+        evaluator_domain='engineering',
+        rank_narrative_view=1,
+        rank_timeline_view=2,
+        rank_qc_view=3,
+        rank_decisions_view=4,
+        rank_provisions_view=None,
+        surfaced_missed_considerations=True,
+    )
+    assert r.rankings_valid is False
+    assert r.is_complete is False
+
+
 def test_default_ranking_order_matches_documented_intent():
     """Default order is intentionally not tab order on the case page.
 

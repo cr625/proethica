@@ -141,12 +141,28 @@
           </div>
 
           {% if session.is_complete %}
-          <a href="{{ url_for('study.retrospective') }}" class="btn btn-warning btn-lg w-100">
-            <i class="bi bi-journal-text me-1"></i> Continue to view ranking
-          </a>
-          <p class="small text-muted mb-0 mt-2">
-            All your cases are complete. Two short steps remain (see "After your cases" below).
-          </p>
+            {% if not retrospective_complete %}
+            <a href="{{ url_for('study.retrospective') }}" class="btn btn-warning btn-lg w-100">
+              <i class="bi bi-journal-text me-1"></i> Continue to view ranking
+            </a>
+            <p class="small text-muted mb-0 mt-2">
+              All your cases are complete. Two short steps remain (see "After your cases" below).
+            </p>
+            {% elif not demographics_complete %}
+            <a href="{{ url_for('study.demographics') }}" class="btn btn-warning btn-lg w-100">
+              <i class="bi bi-person-lines-fill me-1"></i> Continue to demographics
+            </a>
+            <p class="small text-muted mb-0 mt-2">
+              View ranking saved. One short step remains: a brief demographic questionnaire.
+            </p>
+            {% else %}
+            <a href="{{ url_for('study.complete') }}" class="btn btn-success btn-lg w-100">
+              <i class="bi bi-check-circle me-1"></i> View completion screen
+            </a>
+            <p class="small text-muted mb-0 mt-2">
+              All steps complete. Your participation has been recorded.
+            </p>
+            {% endif %}
           {% elif next_case %}
           <a href="{{ url_for('study.evaluate_case', case_id=next_case.id) }}" class="btn btn-primary btn-lg w-100">
             <i class="bi bi-play-fill me-2"></i>
