@@ -1194,6 +1194,20 @@ def preview_start():
     No participant code, consent screen, or Prolific PID required. The
     preview banner in _base_study.html surfaces the recruitment-source tag
     so the participant-mode framing is unambiguous.
+
+    Threat model. The URL is shareable; anyone who navigates to
+    `/preview/start` mints a session that bypasses consent (the route
+    stamps `consent_acknowledged_at=datetime.utcnow()` and
+    `info_sheet_version='preview'`). This is acceptable because every
+    such session is tagged `recruitment_source='preview'` and excluded
+    from study analysis at the query layer. Investigators distributing
+    the URL should treat it as a public link rather than a credentialed
+    channel; sharing it with a non-participant audience does not
+    contaminate the dataset and does not violate the IRB protocol
+    because the bypass cannot produce a record that enters analysis.
+    The completion screen's reference to "the information sheet you
+    acknowledged at enrollment" is dangling for any preview session,
+    which is an accepted cost of keeping the route open.
     """
     view_builder = SynthesisViewBuilder()
     evaluable_cases = view_builder.get_evaluable_cases()
