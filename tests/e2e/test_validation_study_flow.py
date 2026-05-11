@@ -259,10 +259,84 @@ class TestCompletionScreenCodeDistinction:
         assert page.locator("text=For your records only").count() >= 1
 
 
+class TestPreviewConsentMode:
+    """`/preview/start?show=consent` walks the full Prolific consent flow.
+
+    Designed for advisor sharing: each visit mints a fresh single-case
+    preview session tagged recruitment_source='preview', so 3+ advisors
+    can share one URL without picking up each other's state. Unlike the
+    plain `/preview/start` (which skips consent), this mode lands on
+    the Prolific v3 information sheet and proceeds through the same
+    /enroll path real Prolific participants use.
+    """
+
+    def test_consent_screen_renders(self, page, base_url):
+        page.goto(f"{base_url}/validation/preview/start?show=consent")
+        page.wait_for_load_state("networkidle")
+        assert page.locator("text=Information Sheet").count() >= 1
+        # Prolific v3 info sheet uses "Study at a Glance" card; Drexel uses
+        # different wording.
+        assert page.locator("text=Study at a Glance").count() >= 1
+
+    def test_consent_submission_lands_on_orientation(self, page, base_url):
+        page.goto(f"{base_url}/validation/preview/start?show=consent")
+        page.wait_for_load_state("networkidle")
+        # Tick the consent checkbox and submit.
+        consent_box = page.locator("input[name='consent']")
+        if consent_box.count() == 0:
+            pytest.skip("Consent input not found; template may have changed")
+        consent_box.first.check()
+        page.locator("button[type='submit']").first.click()
+        page.wait_for_load_state("networkidle")
+        assert "/orientation" in page.url, (
+            f"Expected /orientation after consent submit, got {page.url}"
+        )
+        assert page.locator("text=Before you start").count() >= 1
+
+    def test_two_distinct_browser_contexts_get_distinct_sessions(self, browser, base_url):
+        """Simulate two advisors hitting the URL: confirm separate participant codes.
+
+        Uses two browser contexts (independent cookie jars) so neither shares
+        state with the other; mirrors what happens when two reviewers click
+        the same link from different machines.
+        """
+        codes = []
+        for _ in range(2):
+            ctx = browser.new_context()
+            pg = ctx.new_page()
+            pg.set_default_timeout(15_000)
+            pg.goto(f"{base_url}/validation/preview/start?show=consent")
+            pg.wait_for_load_state("networkidle")
+            pg.locator("input[name='consent']").first.check()
+            pg.locator("button[type='submit']").first.click()
+            pg.wait_for_load_state("networkidle")
+            # Orientation surfaces the participant code as one of several
+            # <code> elements (the preview banner also wraps recruitment_source
+            # in <code>). The participant code matches the CODE_ALPHABET
+            # pattern: 8 chars from [ABCDEFGHJKLMNPQRSTUVWXYZ23456789].
+            code_text = pg.evaluate("""() => {
+                const els = Array.from(document.querySelectorAll('code'));
+                const found = els.find(
+                    c => /^[A-HJ-NP-Z2-9]{8}$/.test(c.textContent.trim())
+                );
+                return found ? found.textContent.trim() : null;
+            }""")
+            codes.append(code_text)
+            pg.close()
+            ctx.close()
+        assert codes[0] is not None and codes[1] is not None, (
+            f"Failed to capture participant code from one or both contexts: {codes}"
+        )
+        assert codes[0] != codes[1], (
+            f"Two preview-consent visits produced the same participant code: {codes[0]}"
+        )
+
+
 class TestZeroConsoleErrorsAcrossFlow:
     """Every participant-facing screen renders without console errors or warnings."""
 
     SCREENS = [
+        ("/validation/preview/start?show=consent", "consent"),
         ("/validation/preview/start?show=orientation", "orientation"),
         ("/validation/preview/start?show=dashboard", "dashboard"),
         ("/validation/preview/start", "case-facts"),

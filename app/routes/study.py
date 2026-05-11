@@ -197,6 +197,54 @@ def create_session(
     return new_session
 
 
+def create_preview_consent_session(
+    domain: str = 'engineering',
+    prolific_pid_hash: str | None = None,
+) -> ValidationSession:
+    """Create a session for an advisor walking consent -> case -> completion.
+
+    Companion to create_session for the /preview/start?show=consent path.
+    Each call produces a fresh session tagged recruitment_source='preview'
+    (excluded from study analysis) with exactly one case assigned (case 7
+    by default), so multiple advisors can share the same URL without
+    picking up each other's state. The Prolific PID stashed upstream by
+    the consent-mode preview route is unique per visit, so no two preview
+    enrollments collide on prolific_pid_hash even though the duplicate-
+    enrollment check is skipped here.
+    """
+    code = generate_participant_code()
+    while ValidationSession.query.filter_by(participant_code=code).first() is not None:
+        code = generate_participant_code()
+
+    from app.services.validation.synthesis_view_builder import SynthesisViewBuilder
+    view_builder = SynthesisViewBuilder()
+    evaluable_cases = view_builder.get_evaluable_cases()
+    preferred_case_id = 7
+    if any(c['id'] == preferred_case_id for c in evaluable_cases):
+        case_id = preferred_case_id
+    elif evaluable_cases:
+        case_id = evaluable_cases[0]['id']
+    else:
+        case_id = preferred_case_id  # last-resort fallback
+
+    new_session = ValidationSession(
+        session_id=str(uuid.uuid4())[:8],
+        evaluator_id=code,
+        participant_code=code,
+        evaluator_domain=domain,
+        recruitment_source='preview',
+        prolific_pid_hash=prolific_pid_hash,
+        assigned_cases=[case_id],
+        completed_cases=[],
+        consent_acknowledged_at=datetime.utcnow(),
+        info_sheet_version=INFO_SHEET_VERSION_PROLIFIC,
+    )
+    db.session.add(new_session)
+    db.session.commit()
+    session['participant_code'] = code
+    return new_session
+
+
 # =============================================================================
 # SESSION MANAGEMENT ROUTES
 # =============================================================================
@@ -302,27 +350,39 @@ def enroll():
         return redirect(url_for('study.index'))
 
     prolific = get_stashed_prolific()
+    # Preview-mode enrollment (set by /preview/start?show=consent). Skips the
+    # duplicate-enrollment check, tags recruitment_source='preview' for
+    # analysis exclusion, and assigns exactly one case. Each consent-mode
+    # visit synthesizes a unique Prolific PID upstream, so no two preview
+    # visits collide on prolific_pid_hash.
+    preview_mode = session.pop('preview_mode', False)
     if prolific:
         pid_hash = hash_prolific_pid(prolific['prolific_pid'])
-        existing = ValidationSession.query.filter_by(prolific_pid_hash=pid_hash).first()
-        if existing is not None:
-            # Same Prolific account already enrolled. Resume rather than
-            # double-enroll. Discard the stashed PID so the resumed session
-            # is treated as a normal returning participant.
-            session.pop('prolific', None)
-            flash(
-                'A study session already exists for this Prolific account. '
-                f'Resuming your session: code {existing.participant_code}.',
-                'info'
+        if preview_mode:
+            val_session = create_preview_consent_session(
+                domain='engineering',
+                prolific_pid_hash=pid_hash,
             )
-            return redirect(url_for('study.index', code=existing.participant_code))
+        else:
+            existing = ValidationSession.query.filter_by(prolific_pid_hash=pid_hash).first()
+            if existing is not None:
+                # Same Prolific account already enrolled. Resume rather than
+                # double-enroll. Discard the stashed PID so the resumed session
+                # is treated as a normal returning participant.
+                session.pop('prolific', None)
+                flash(
+                    'A study session already exists for this Prolific account. '
+                    f'Resuming your session: code {existing.participant_code}.',
+                    'info'
+                )
+                return redirect(url_for('study.index', code=existing.participant_code))
 
-        val_session = create_session(
-            domain='engineering',
-            recruitment_source='prolific_engineering_trained',
-            prolific_pid_hash=pid_hash,
-            info_sheet_version=INFO_SHEET_VERSION_PROLIFIC,
-        )
+            val_session = create_session(
+                domain='engineering',
+                recruitment_source='prolific_engineering_trained',
+                prolific_pid_hash=pid_hash,
+                info_sheet_version=INFO_SHEET_VERSION_PROLIFIC,
+            )
     else:
         val_session = create_session(domain='engineering')
 
@@ -1216,6 +1276,32 @@ def preview_start():
     acknowledged at enrollment" is dangling for any preview session,
     which is an accepted cost of keeping the route open.
     """
+    # ?show=consent renders the consent screen using the Prolific v3
+    # information sheet so an advisor can walk the full participant flow
+    # (consent -> orientation -> 1 case -> retrospective -> demographics ->
+    # completion). Each visit gets a fresh synthetic Prolific PID, so two
+    # advisors sharing the URL will not pick up each other's session. The
+    # preview_mode flag is honored downstream by /enroll, which creates
+    # the session via create_preview_consent_session (tagged
+    # recruitment_source='preview', one case assigned).
+    show = request.args.get('show')
+    if show == 'consent':
+        session.clear()
+        pid = 'PREVIEW-' + ''.join(secrets.choice(CODE_ALPHABET) for _ in range(8))
+        session['prolific'] = {
+            'prolific_pid': pid,
+            'study_id': 'PREVIEW',
+            'session_id': str(uuid.uuid4())[:8],
+            'arrived_at': datetime.utcnow().isoformat(),
+        }
+        session['preview_mode'] = True
+        return render_template(
+            'validation_study/index.html',
+            phase='consent',
+            info_sheet_version=INFO_SHEET_VERSION_PROLIFIC,
+            is_prolific=True,
+        )
+
     view_builder = SynthesisViewBuilder()
     evaluable_cases = view_builder.get_evaluable_cases()
     if not evaluable_cases:
@@ -1233,13 +1319,14 @@ def preview_start():
         code = 'PREVIEW-' + ''.join(secrets.choice(CODE_ALPHABET) for _ in range(6))
 
     # `?show=...` lands the preview on a specific screen. Supported values:
+    #   consent       — Prolific consent screen (handled above, returns early)
     #   orientation   — Before-you-start (skips orientation_completed_at stamp)
     #   dashboard     — study dashboard
     #   (default)     — case-evaluation flow (Facts step)
     #   retrospective — post-cases view-ranking page (pre-stamps case as complete)
     #   demographics  — demographic questionnaire (also pre-stamps ranking row)
     #   complete      — final completion page (also pre-stamps demographics + code)
-    show = request.args.get('show')
+    # `show` was read at the top of the function for the consent branch.
     skip_orientation_stamp = (show == 'orientation')
     post_case_show = show in ('retrospective', 'demographics', 'complete')
 
