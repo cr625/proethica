@@ -760,9 +760,9 @@
                                      role="button" aria-expanded="false" aria-controls="{{ tension_id }}"
                                      style="cursor: pointer;">
                                     <i class="bi bi-chevron-right small text-muted tension-chevron"></i>
-                                    <span class="entity-badge badge bg-warning text-dark" title="{{ t.entity1_type }}">{{ t.entity1_label|truncate(60) }}</span>
+                                    <span class="entity-badge badge bg-warning text-dark" title="{{ t.entity1_label }} ({{ t.entity1_type }})">{{ t.entity1_label|truncate(60) }}</span>
                                     <span class="text-muted small">vs.</span>
-                                    <span class="entity-badge badge bg-warning text-dark" title="{{ t.entity2_type }}">{{ t.entity2_label|truncate(60) }}</span>
+                                    <span class="entity-badge badge bg-warning text-dark" title="{{ t.entity2_label }} ({{ t.entity2_type }})">{{ t.entity2_label|truncate(60) }}</span>
                                     {% if linked_main_shorts %}
                                     <span class="ms-auto small text-muted" style="font-size: 0.78rem;">
                                         <span class="me-1">Also:</span>
@@ -1918,6 +1918,17 @@
         });
 
         currentStepName = stepName;
+
+        // Sync URL ?step= so a participant who copies the URL to resume
+        // later lands back at the step they were on, not at step=facts.
+        // Uses replaceState to avoid polluting browser history with one
+        // entry per intra-case step (Back should still cross page
+        // boundaries, not walk every tab click).
+        if (window.history && typeof window.history.replaceState === 'function') {
+            const url = new URL(window.location.href);
+            url.searchParams.set('step', stepName);
+            window.history.replaceState({}, '', url.toString());
+        }
 
         // Load board conclusions when reaching reveal step
         if (stepName === 'reveal') {
