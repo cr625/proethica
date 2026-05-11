@@ -94,21 +94,27 @@
                   {% endif %}
 
                 {% elif completion_code %}
-                {# Drexel channel: per-session code as confirmation reference #}
+                {# Drexel channel: per-session code as confirmation reference.
+                   Distinct from a Prolific completion code; the Drexel
+                   channel does not redirect anywhere. The code is shown
+                   so participants who later contact the research team
+                   can quote it. #}
                 <div class="alert alert-light text-start border">
-                    <p class="mb-2"><strong>Completion code:</strong> <code>{{ completion_code }}</code></p>
+                    <p class="mb-2"><strong>Confirmation reference:</strong> <code>{{ completion_code }}</code></p>
                     <p class="small text-muted mb-0">
-                        Your participation has been recorded. No further action is required.
+                        Your participation has been recorded. No further action is
+                        required. Quote this reference if you contact the research
+                        team about this session.
                     </p>
                 </div>
                 {% endif %}
 
                 {% if participant_code %}
                 <div class="mb-4">
-                    <p class="small mb-1"><strong>Your participant code:</strong> <code>{{ participant_code }}</code></p>
-                    <p class="text-muted small mb-0">
-                        Your responses are recorded under this code and are not linked
-                        to your name or email.
+                    <p class="small text-muted mb-0">
+                        Participant code: <code class="text-muted">{{ participant_code }}</code>.
+                        For your records only; not used in submission or
+                        analysis lookup.
                     </p>
                 </div>
                 {% endif %}
@@ -130,4 +136,13 @@
         </div>
     </div>
 </div>
+{# Replace the back-stack so browser Back from completion does not
+   re-enter a mid-case state. Without this, pressing Back after the
+   thank-you screen lands the participant on /validation/case/<id>?step=facts
+   (the most recent push in history), inviting accidental edits. #}
+<script>
+  if (window.history && typeof window.history.replaceState === 'function') {
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+</script>
 {% endblock %}
