@@ -105,8 +105,8 @@ def generate_completion_code() -> str:
 
     Crowdsourcing platforms reject a study that prints the participant code
     as the completion proof. The completion code is generated only at the
-    moment the participant finishes (post-demographics) and is what they
-    paste into Prolific.
+    moment the participant finishes (on retrospective submission) and is
+    what they paste into Prolific.
     """
     return ''.join(secrets.choice(CODE_ALPHABET) for _ in range(CODE_LENGTH))
 
@@ -316,7 +316,6 @@ def index():
     retrospective_complete = bool(
         val_session.retrospective and val_session.retrospective.is_complete
     )
-    demographics_complete = val_session.demographics_completed_at is not None
 
     return render_template('validation_study/index.html',
                            phase='dashboard',
@@ -326,8 +325,7 @@ def index():
                            next_case=next_case,
                            completed_count=len(completed),
                            total_count=len(assigned_ids),
-                           retrospective_complete=retrospective_complete,
-                           demographics_complete=demographics_complete)
+                           retrospective_complete=retrospective_complete)
 
 
 @study_bp.route('/enroll', methods=['POST'])
@@ -845,98 +843,12 @@ def _submit_retrospective(val_session):
         reflection.improvement_suggestions = request.form.get('improvement_suggestions', '').strip()
         reflection.general_comments = request.form.get('general_comments', '').strip()
 
-        # Note: completed_at is NOT set here (post-pivot). The study now ends
-        # after the demographics page, where completed_at and completion_code
-        # are set together. Retrospective submission only persists the rankings
-        # and open feedback.
-        db.session.commit()
-
-        return redirect(url_for('study.demographics'))
-
-    except Exception as e:
-        logger.exception(f"Error submitting retrospective: {str(e)}")
-        db.session.rollback()
-        flash(f'Error saving reflection: {str(e)}', 'error')
-        return redirect(url_for('study.retrospective'))
-
-
-# Allowed demographic values, narrow enough to keep analysis categorical.
-# Free-text not accepted.
-_DEGREE_VALUES = {
-    'high_school', 'some_college', 'associate',
-    'bachelor', 'master', 'doctorate', 'other', 'prefer_not'
-}
-_EXPERIENCE_VALUES = {
-    'student', 'lt_2', '2_5', '6_10', '11_20', 'gt_20', 'prefer_not'
-}
-_ROLE_VALUES = {
-    'student', 'practicing_engineer', 'engineering_manager',
-    'engineering_educator', 'former_engineer', 'other', 'prefer_not'
-}
-
-
-@study_bp.route('/demographics', methods=['GET', 'POST'])
-def demographics():
-    """Post-task demographic capture (plan §4.3).
-
-    Single page between retrospective and complete. 4-6 closed-form items.
-    Submitting this page generates the completion_code and finalizes the
-    session (completed_at).
-    """
-    val_session, redirect_resp = _require_session()
-    if redirect_resp:
-        return redirect_resp
-
-    if request.method == 'POST':
-        return _submit_demographics(val_session)
-
-    return render_template('validation_study/demographics.html',
-                           participant_code=val_session.participant_code,
-                           session=val_session,
-                           is_prolific=(val_session.recruitment_source == 'prolific_engineering_trained'))
-
-
-def _submit_demographics(val_session):
-    """Persist demographics, generate completion code, finalize the session."""
-    try:
-        degree = request.form.get('highest_engineering_degree', '').strip()
-        experience = request.form.get('years_engineering_experience', '').strip()
-        role = request.form.get('role_category', '').strip()
-        familiarity_raw = request.form.get('nspe_pe_familiarity', '').strip()
-        prior_ethics_raw = request.form.get('prior_ethics_course', '').strip()
-
-        if degree and degree not in _DEGREE_VALUES:
-            flash('Highest engineering-related degree: invalid option submitted.', 'warning')
-            return redirect(url_for('study.demographics'))
-        if experience and experience not in _EXPERIENCE_VALUES:
-            flash('Engineering experience: invalid option submitted.', 'warning')
-            return redirect(url_for('study.demographics'))
-        if role and role not in _ROLE_VALUES:
-            flash('Current role: invalid option submitted.', 'warning')
-            return redirect(url_for('study.demographics'))
-
-        familiarity = None
-        if familiarity_raw:
-            familiarity = int(familiarity_raw)
-            if familiarity < 1 or familiarity > 5:
-                flash('NSPE/PE familiarity rating must be between 1 and 5.', 'warning')
-                return redirect(url_for('study.demographics'))
-
-        prior_ethics = None
-        if prior_ethics_raw == 'yes':
-            prior_ethics = True
-        elif prior_ethics_raw == 'no':
-            prior_ethics = False
-
-        val_session.highest_engineering_degree = degree or None
-        val_session.years_engineering_experience = experience or None
-        val_session.role_category = role or None
-        val_session.nspe_pe_familiarity = familiarity
-        val_session.prior_ethics_course = prior_ethics
-        val_session.demographics_completed_at = datetime.utcnow()
-
-        # Finalize: generate completion_code and stamp completed_at. The
-        # completion_code is what the participant pastes into Prolific.
+        # Finalize: generate completion_code and stamp completed_at.
+        # Retrospective submission is the final participant action since
+        # the legacy demographics page was removed on 2026-05-11 (IRB
+        # Protocol v8 reconciliation: the protocol does not enumerate
+        # demographic items, so deployed collection has been retired in
+        # favor of the Prolific platform's own prescreen capture).
         if not val_session.completion_code:
             code = generate_completion_code()
             while ValidationSession.query.filter_by(completion_code=code).first() is not None:
@@ -947,14 +859,45 @@ def _submit_demographics(val_session):
 
         db.session.commit()
 
-        flash('Thank you for completing the study.', 'success')
         return redirect(url_for('study.complete'))
 
     except Exception as e:
-        logger.exception(f"Error submitting demographics: {str(e)}")
+        logger.exception(f"Error submitting retrospective: {str(e)}")
         db.session.rollback()
-        flash(f'Error saving demographics: {str(e)}', 'error')
-        return redirect(url_for('study.demographics'))
+        flash(f'Error saving reflection: {str(e)}', 'error')
+        return redirect(url_for('study.retrospective'))
+
+
+# Demographics route retired 2026-05-11 (IRB Protocol v8 reconciliation).
+# The protocol references "a brief demographic questionnaire" but does not
+# enumerate items, and the Prolific platform captures occupation, industry,
+# and degree subject through its own prescreen filters. The legacy
+# ValidationSession columns (highest_engineering_degree, years_engineering_experience,
+# role_category, nspe_pe_familiarity, prior_ethics_course, demographics_completed_at)
+# are retained on the model for back-compat with pre-retirement rows but are
+# not populated for new sessions. Completion-code generation moved to
+# _submit_retrospective; see above.
+#
+# Thin GET redirect for any cached links (advisor share URLs, in-flight
+# preview tabs that loaded the old form). Anyone landing here lands on the
+# completion page; if the session somehow lacks a completion_code (e.g. a
+# pre-retirement session whose retrospective submit happened on legacy code
+# but whose demographics submit never ran), mint the code now so the
+# completion page renders correctly.
+@study_bp.route('/demographics')
+def demographics():
+    val_session, redirect_resp = _require_session()
+    if redirect_resp:
+        return redirect_resp
+    if not val_session.completion_code:
+        code = generate_completion_code()
+        while ValidationSession.query.filter_by(completion_code=code).first() is not None:
+            code = generate_completion_code()
+        val_session.completion_code = code
+    if not val_session.completed_at:
+        val_session.completed_at = datetime.utcnow()
+    db.session.commit()
+    return redirect(url_for('study.complete'))
 
 
 @study_bp.route('/complete')
@@ -965,10 +908,18 @@ def complete():
     a small confirmation reference.
 
     For Prolific-channel participants: shows a "Return to Prolific" button
-    (auto-redirect to Prolific's submissions/complete URL with the fixed
-    completion code from PROLIFIC_COMPLETION_CODE_SUCCESS env var) plus the
-    fixed code as a paste fallback. The per-session completion_code is shown
-    as a small "Reference" line for our internal audit.
+    (auto-redirect to Prolific's submissions/complete URL with the per-session
+    completion_code as the cc parameter) plus the same code as a paste
+    fallback. Prolific records the code under "Completion code entered" in its
+    demographic export; the analyst uses that column as the merge key to link
+    Prolific platform-level demographics to ProEthica session responses (IRB
+    Protocol v8 §7 revision pending; per-session codes replace the prior
+    single-fixed-code design 2026-05-11).
+
+    The PROLIFIC_COMPLETION_CODE_SUCCESS env var is retained as the
+    "Prolific is configured for this deployment" sentinel; its *value* is
+    no longer used as the cc. Presence (set to anything) means the Prolific
+    study record exists and the redirect button should be shown.
 
     If the env var is unset (e.g., before the Prolific account exists), the
     page degrades to manual paste of the per-session code only, with a
@@ -983,17 +934,16 @@ def complete():
         and val_session.recruitment_source == 'prolific_engineering_trained'
     )
 
-    fixed_prolific_cc = os.environ.get('PROLIFIC_COMPLETION_CODE_SUCCESS', '').strip() or None
+    prolific_configured = bool(os.environ.get('PROLIFIC_COMPLETION_CODE_SUCCESS', '').strip())
     prolific_return_url = (
-        f"{PROLIFIC_COMPLETION_URL_BASE}?cc={fixed_prolific_cc}"
-        if fixed_prolific_cc else None
+        f"{PROLIFIC_COMPLETION_URL_BASE}?cc={completion_code}"
+        if prolific_configured and completion_code else None
     )
 
     return render_template('validation_study/complete.html',
                            participant_code=code,
                            completion_code=completion_code,
                            is_prolific=is_prolific,
-                           fixed_prolific_cc=fixed_prolific_cc,
                            prolific_return_url=prolific_return_url)
 
 
@@ -1045,7 +995,7 @@ def admin_dashboard():
     `proethica/.claude/plans/validation-study.md`). Surfaces the operational metrics
     needed to monitor enrollment, completion, per-case coverage (against
     the 23-case pool with n>=5 threshold), and data-quality flags
-    (attention-check pass rate, demographics completion).
+    (attention-check pass rate, low-effort flags).
 
     The legacy comparative-prediction system (ExperimentRun / Prediction /
     double-blind evaluation) is intentionally NOT surfaced here during the
@@ -1120,9 +1070,6 @@ def admin_dashboard():
     low_effort_flagged = ViewUtilityEvaluation.query.filter(
         ViewUtilityEvaluation.low_effort_flag.is_(True)
     ).count()
-    demographics_completed = ValidationSession.query.filter(
-        ValidationSession.demographics_completed_at.isnot(None)
-    ).count()
 
     # Recent sessions for the operations table (last 10).
     recent_sessions = ValidationSession.query.order_by(
@@ -1144,11 +1091,6 @@ def admin_dashboard():
             round(100.0 * attn_passed / attn_answered, 1) if attn_answered else None
         ),
         'low_effort_flagged': low_effort_flagged,
-        'demographics_completed': demographics_completed,
-        'demographics_completion_rate': (
-            round(100.0 * demographics_completed / total_completed, 1)
-            if total_completed else None
-        ),
         'by_source': by_source,
     }
 
@@ -1284,8 +1226,8 @@ def preview_start():
     """
     # ?show=consent renders the consent screen using the Prolific v3
     # information sheet so an advisor can walk the full participant flow
-    # (consent -> orientation -> 1 case -> retrospective -> demographics ->
-    # completion). Each visit gets a fresh synthetic Prolific PID, so two
+    # (consent -> orientation -> 1 case -> retrospective -> completion).
+    # Each visit gets a fresh synthetic Prolific PID, so two
     # advisors sharing the URL will not pick up each other's session. The
     # preview_mode flag is honored downstream by /enroll, which creates
     # the session via create_preview_consent_session (tagged
@@ -1330,11 +1272,12 @@ def preview_start():
     #   dashboard     — study dashboard
     #   (default)     — case-evaluation flow (Facts step)
     #   retrospective — post-cases view-ranking page (pre-stamps case as complete)
-    #   demographics  — demographic questionnaire (also pre-stamps ranking row)
-    #   complete      — final completion page (also pre-stamps demographics + code)
+    #   complete      — final completion page (also pre-stamps ranking + code)
+    # The legacy `demographics` value was retired on 2026-05-11 along with
+    # the deployed demographic questionnaire (IRB Protocol v8 reconciliation).
     # `show` was read at the top of the function for the consent branch.
     skip_orientation_stamp = (show == 'orientation')
-    post_case_show = show in ('retrospective', 'demographics', 'complete')
+    post_case_show = show in ('retrospective', 'complete')
 
     val_session = ValidationSession(
         session_id=str(uuid.uuid4())[:8],
@@ -1381,7 +1324,7 @@ def preview_start():
 
     # Pre-stamp post-case state when previewing later screens, so each page
     # renders with realistic-looking data instead of empty fields.
-    if show in ('demographics', 'complete'):
+    if show == 'complete':
         retro = RetrospectiveReflection(
             session_id=val_session.id,
             evaluator_id=code,
@@ -1396,13 +1339,6 @@ def preview_start():
             general_comments='[Demo prefill] The structured views made it easier to track competing obligations.',
         )
         db.session.add(retro)
-    if show == 'complete':
-        val_session.highest_engineering_degree = 'master'
-        val_session.years_engineering_experience = '6_10'
-        val_session.role_category = 'practicing_engineer'
-        val_session.nspe_pe_familiarity = 4
-        val_session.prior_ethics_course = True
-        val_session.demographics_completed_at = datetime.utcnow()
         completion_code = generate_completion_code()
         while ValidationSession.query.filter_by(completion_code=completion_code).first() is not None:
             completion_code = generate_completion_code()
@@ -1419,8 +1355,6 @@ def preview_start():
         return redirect(url_for('study.index'))
     if show == 'retrospective':
         return redirect(url_for('study.retrospective'))
-    if show == 'demographics':
-        return redirect(url_for('study.demographics'))
     if show == 'complete':
         return redirect(url_for('study.complete'))
     return redirect(url_for('study.evaluate_case', case_id=case_id, step='facts'))

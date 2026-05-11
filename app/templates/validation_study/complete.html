@@ -35,9 +35,9 @@
                     <details class="small">
                       <summary class="text-muted">Button not working? Paste this code into Prolific instead.</summary>
                       <div class="mt-2 d-flex align-items-center gap-2">
-                        <code class="fs-5 px-3 py-2 bg-white border rounded">{{ fixed_prolific_cc }}</code>
+                        <code class="fs-5 px-3 py-2 bg-white border rounded">{{ completion_code }}</code>
                         <button type="button" class="btn btn-sm btn-outline-primary"
-                                onclick="navigator.clipboard.writeText('{{ fixed_prolific_cc }}'); this.innerHTML='<i class=&quot;bi bi-check2&quot;></i> Copied';">
+                                onclick="navigator.clipboard.writeText('{{ completion_code }}'); this.innerHTML='<i class=&quot;bi bi-check2&quot;></i> Copied';">
                           <i class="bi bi-clipboard me-1"></i>Copy code
                         </button>
                       </div>
@@ -85,13 +85,10 @@
                   {% endif %}
                   {% endif %}
 
-                  {# Internal audit reference, shown only on the happy path
-                     (configuration-issue path already shows the code prominently). #}
-                  {% if prolific_return_url and completion_code %}
-                  <p class="text-muted small mb-3">
-                    Reference: <code>{{ completion_code }}</code>
-                  </p>
-                  {% endif %}
+                  {# The per-session completion_code is the same code shown in
+                     the redirect button URL and the paste fallback above; no
+                     separate "Reference:" line needed since the code is no
+                     longer distinct from the Prolific cc value. #}
 
                 {% elif completion_code %}
                 {# Drexel channel: per-session code as confirmation reference.

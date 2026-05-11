@@ -422,8 +422,10 @@ class ValidationExportService:
         """
         from app.models.view_utility_evaluation import ViewUtilityEvaluation, ValidationSession
 
-        # Always join the session to surface recruitment_source, demographics,
-        # and completion metadata on each row (validation pivot, plan §4.6).
+        # Always join the session to surface recruitment_source, the legacy
+        # demographic columns (NULL for sessions started after the 2026-05-11
+        # demographics retirement; populated for earlier rows), and completion
+        # metadata on each row (validation pivot, plan §4.6).
         query = ViewUtilityEvaluation.query.join(
             ValidationSession, ViewUtilityEvaluation.session_id == ValidationSession.id
         ).add_entity(ValidationSession)

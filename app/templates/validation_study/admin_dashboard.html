@@ -51,7 +51,7 @@
                         <i class="bi bi-check2-circle me-1"></i> Completed
                     </h6>
                     <h3 class="mb-0">{{ stats.total_completed }}</h3>
-                    <small class="text-muted">finished demographics + retrospective</small>
+                    <small class="text-muted">finished retrospective</small>
                 </div>
             </div>
         </div>
@@ -205,16 +205,6 @@
                                 {{ stats.low_effort_flagged }}
                             {% endif %}
                         </dd>
-
-                        <dt class="col-sm-7">Demographics completion rate</dt>
-                        <dd class="col-sm-5 text-end">
-                            {% if stats.demographics_completion_rate is not none %}
-                                {{ stats.demographics_completion_rate }}%
-                                <span class="text-muted">({{ stats.demographics_completed }}/{{ stats.total_completed }})</span>
-                            {% else %}
-                                <span class="text-muted">no completions yet</span>
-                            {% endif %}
-                        </dd>
                     </dl>
                 </div>
             </div>
@@ -229,8 +219,10 @@
                 </div>
                 <div class="card-body">
                     <p class="small text-muted mb-3">
-                        Long-format exports include recruitment_source, demographics,
-                        attention-check pass/fail, and low-effort flags per row.
+                        Long-format exports include recruitment_source, the
+                        legacy demographic columns (NULL for sessions started
+                        after 2026-05-11), attention-check pass/fail, and
+                        low-effort flags per row.
                     </p>
                     <div class="d-grid gap-2">
                         <a class="btn btn-outline-primary" href="{{ url_for('study.admin_export', format='csv', level='means') }}">

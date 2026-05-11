@@ -81,9 +81,12 @@ class ValidationSession(db.Model):
     # .claude/plans/participant-onboarding-redesign.md.
     orientation_completed_at = db.Column(db.DateTime)
 
-    # Post-task demographics (4-6 closed-form items captured between alignment
-    # and complete). All categorical or ordinal; no free text. Lets Chapter 4
-    # describe the realised sample and run Prolific-only / Drexel-only subsets.
+    # Legacy demographics columns. Retired 2026-05-11 (IRB Protocol v8
+    # reconciliation: the protocol references a demographic questionnaire
+    # but does not enumerate items, and Prolific captures occupation /
+    # subject / industry through its own prescreen). Retained on the model
+    # so pre-retirement rows continue to read cleanly; NULL for sessions
+    # started after 2026-05-11.
     highest_engineering_degree = db.Column(db.String(50))
     years_engineering_experience = db.Column(db.String(20))
     role_category = db.Column(db.String(50))

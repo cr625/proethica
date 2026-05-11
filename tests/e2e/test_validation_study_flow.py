@@ -50,11 +50,6 @@ class TestParticipantScreensRender:
         # Retrospective page has the View Ranking heading
         assert page.locator("text=View Ranking").count() >= 1
 
-    def test_demographics_renders(self, page, base_url):
-        page.goto(f"{base_url}/validation/preview/start?show=demographics")
-        page.wait_for_load_state("networkidle")
-        assert page.locator("text=Brief Demographics").count() >= 1
-
     def test_completion_renders(self, page, base_url):
         page.goto(f"{base_url}/validation/preview/start?show=complete")
         page.wait_for_load_state("networkidle")
@@ -217,22 +212,6 @@ class TestCaseStepURLSync:
         # replaceState updates location synchronously
         assert "step=views" in page.url, (
             f"Expected step=views in URL after goToStep('views'), got {page.url}"
-        )
-
-
-class TestDemographicsStem:
-    """Item 1 stem reads 'level reached' (not 'completed') so 'Some college, no degree yet' is consistent."""
-
-    def test_item_1_stem_says_level_reached(self, page, base_url):
-        page.goto(f"{base_url}/validation/preview/start?show=demographics")
-        page.wait_for_load_state("networkidle")
-        labels = page.locator("label.form-label.fw-semibold")
-        first_label_text = labels.first.inner_text().strip()
-        assert "level reached" in first_label_text.lower(), (
-            f"Demographics item 1 should say 'level reached', got: {first_label_text!r}"
-        )
-        assert "completed" not in first_label_text.lower(), (
-            "Demographics item 1 should not contain 'completed' (Section 6.1)"
         )
 
 
@@ -493,7 +472,6 @@ class TestZeroConsoleErrorsAcrossFlow:
         ("/validation/preview/start?show=dashboard", "dashboard"),
         ("/validation/preview/start", "case-facts"),
         ("/validation/preview/start?show=retrospective", "retrospective"),
-        ("/validation/preview/start?show=demographics", "demographics"),
         ("/validation/preview/start?show=complete", "complete"),
     ]
 
