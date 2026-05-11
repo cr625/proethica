@@ -560,6 +560,33 @@ class SynthesisViewBuilder:
         raw_tensions = narrative_elements.get('conflicts') or []
         opening_context = scenario_seeds.get('opening_context') or ''
 
+        # Filter spurious characters surfaced by the second-pass content
+        # review (cases 11, 19, 60). The extractor sometimes promotes
+        # citations to prior BER cases or non-person entities (states,
+        # jurisdictions, cities) into the character set. These should
+        # never reach a participant-facing Narrative card.
+        #
+        # Citation pattern: labels starting with 'Case NN-NN' (the BER
+        # numbering scheme) are references to other opinions, not present-
+        # case people. Place / jurisdiction patterns: labels beginning
+        # with 'State ', 'City of ', 'Jurisdiction', 'Country' identify
+        # a place rather than a person.
+        import re as _re
+        _CITATION_RE = _re.compile(r'^\s*Case\s+\d{2}-\d{2}\b', _re.IGNORECASE)
+        _PLACE_PREFIXES = ('state ', 'city of ', 'jurisdiction', 'country ')
+
+        def _is_spurious_character(ch: Dict[str, Any]) -> bool:
+            label = (ch.get('label') or '').strip()
+            if not label:
+                return False
+            if _CITATION_RE.match(label):
+                return True
+            if label.lower().startswith(_PLACE_PREFIXES):
+                return True
+            return False
+
+        characters = [c for c in characters if not _is_spurious_character(c)]
+
         protagonist_label = scenario_seeds.get('protagonist_label') or ''
 
         # Flatten tensions + attach a composite moral-intensity score (Jones 1991)
@@ -839,8 +866,23 @@ class SynthesisViewBuilder:
             if not label:
                 continue
             parts = label.split()
-            short_name = ' '.join(parts[:2]) if len(parts) >= 2 else label
-            role_suffix = ' '.join(parts[2:]) if len(parts) > 2 else ''
+            # Preserve single-letter disambiguators (NSPE naming convention:
+            # "Engineer A", "Principal Engineer R", "City Engineer J"). When
+            # parts[2] is a single uppercase letter, it identifies the
+            # individual rather than a role suffix; include it in short_name.
+            if (
+                len(parts) >= 3
+                and len(parts[2]) == 1
+                and parts[2].isupper()
+            ):
+                short_name = ' '.join(parts[:3])
+                role_suffix = ' '.join(parts[3:])
+            elif len(parts) >= 2:
+                short_name = ' '.join(parts[:2])
+                role_suffix = ' '.join(parts[2:])
+            else:
+                short_name = label
+                role_suffix = ''
             if short_name not in grouped_chars:
                 grouped_chars[short_name] = {
                     'short_name': short_name,
@@ -870,10 +912,20 @@ class SynthesisViewBuilder:
             char_tensions = tensions_by_character.get(label, [])
             char_linked = tensions_linked_by_character.get(label, [])
             for idx, t in enumerate(char_tensions):
+                # Dedup key uses the truncated label form (matching the
+                # template's |truncate(60)) plus sorted affected roles, so
+                # tensions that display identically to the participant merge
+                # even when their full extracted labels differ in extraction-
+                # artifact suffixes ("Breached By..." vs "Violated By...")
+                # past the visible-truncation point. The post-pilot extractor
+                # pass will clean the underlying labels; this dedup prevents
+                # visually-identical tensions from reaching the pilot.
+                e1 = (t.get('entity1_label') or '').strip()
+                e2 = (t.get('entity2_label') or '').strip()
                 tkey = (
-                    t.get('entity1_label'),
-                    t.get('entity2_label'),
-                    t.get('description'),
+                    e1[:60].lower(),
+                    e2[:60].lower(),
+                    tuple(sorted(t.get('affected_role_labels') or [])),
                 )
                 if tkey in g['_tension_keys']:
                     continue
