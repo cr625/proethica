@@ -197,27 +197,31 @@
 
     <div class="orient-section">
         <h2><span class="orient-step-num">3</span>After your cases</h2>
+        <p>After your final case, two short pages remain.</p>
         <ol class="orient-steps">
             <li>
                 <strong>Rank the five views</strong> from most to least
-                useful for understanding cases overall.
+                useful for understanding cases overall, answer one
+                yes/no question about whether the views surfaced
+                anything you would have missed in the facts alone, and
+                add any open comments. The open comments are optional.
             </li>
             <li>
                 <strong>Brief demographics.</strong>
                 Five short items about your background. You can
                 skip any.
             </li>
-            <li>
-                {% if is_prolific %}
-                <strong>Completion code is shown.</strong>
-                Paste it into Prolific to receive your $18.00 payment
-                within 14 days.
-                {% else %}
-                <strong>Thank-you screen.</strong>
-                Confirms your participation has been recorded.
-                {% endif %}
-            </li>
         </ol>
+        <p>
+            {% if is_prolific %}
+            A thank-you screen confirms your submission and shows your
+            Prolific completion code; paste it into Prolific to receive
+            your $18.00 payment within 14 days.
+            {% else %}
+            A thank-you screen confirms your participation has been
+            recorded.
+            {% endif %}
+        </p>
     </div>
 
     <form action="{{ url_for('study.orientation') }}" method="post" class="orient-cta">
