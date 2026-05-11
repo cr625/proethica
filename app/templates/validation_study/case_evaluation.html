@@ -387,7 +387,7 @@
         transition: transform 0.15s ease;
     }
     .tension-chevron { transition: transform 0.15s ease; display: inline-block; }
-    /* Narrative per-character "Show all tensions and motivations" toggle. */
+    /* Narrative per-character "Show all tensions" toggle. */
     .char-show-all-toggle .char-show-chevron { transition: transform 0.15s ease; display: inline-block; }
     .char-show-all-toggle[aria-expanded="true"] .char-show-chevron { transform: rotate(90deg); }
     .char-show-all-toggle:hover { color: #198754 !important; }
@@ -828,12 +828,12 @@
                                             </div>
                                             {% endif %}
                                         {% endfor %}
-                                        {% if rest_tensions or char.motivations %}
+                                        {% if rest_tensions %}
                                         <a class="char-show-all-toggle text-decoration-none small text-muted d-inline-flex align-items-center mt-2"
                                            data-bs-toggle="collapse"
                                            href="#{{ char.anchor }}-rest" role="button" aria-expanded="false">
                                             <i class="bi bi-chevron-right me-1 char-show-chevron"></i>
-                                            {% if rest_tensions %}Show all {{ char.tensions|length }} tensions{% if char.motivations %} and motivations{% endif %}{% else %}Show motivations{% endif %}
+                                            Show all {{ char.tensions|length }} tensions
                                         </a>
                                         <div class="collapse mt-2" id="{{ char.anchor }}-rest">
                                             {% for entry in rest_tensions %}
@@ -844,14 +844,6 @@
                                                 </div>
                                                 {% endif %}
                                             {% endfor %}
-                                            {% if char.motivations %}
-                                            <div class="mt-2 small text-muted">
-                                                <em>Motivations:</em>
-                                                <ul class="mb-0">
-                                                    {% for m in char.motivations[:3] %}<li>{{ m }}</li>{% endfor %}
-                                                </ul>
-                                            </div>
-                                            {% endif %}
                                         </div>
                                         {% endif %}
                                     </div>
@@ -886,10 +878,6 @@
                                     <div class="collapse" id="{{ char_id }}">
                                         <div class="pt-2 ps-4 small">
                                             {% if char.ethical_stance %}<p class="mb-1">{{ char.ethical_stance }}</p>{% endif %}
-                                            {% if char.motivations %}
-                                            <em>Motivations:</em>
-                                            <ul class="mb-0">{% for m in char.motivations[:3] %}<li>{{ m }}</li>{% endfor %}</ul>
-                                            {% endif %}
                                             {% for entry in char.tensions %}
                                                 {{ tension_block(entry.tension, 'study-other-tension-' ~ loop.index ~ '-' ~ char_id) }}
                                             {% endfor %}
