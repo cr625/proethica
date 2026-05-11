@@ -372,10 +372,26 @@
     .view-footer-nav {
         display: flex;
         justify-content: space-between;
+        align-items: center;
         margin-top: 1rem;
         padding-top: 1rem;
         border-top: 1px solid #dee2e6;
+        flex-wrap: wrap;
+        gap: 0.5rem;
     }
+    /* Soft engagement nudge: visible rating-count reminder injected next to
+       the per-view Next button. Shows when fewer than 3 items are rated;
+       does not block the click. */
+    .view-footer-reminder {
+        font-size: 0.875rem;
+        color: #b45309;  /* amber-700 */
+        background: #fef3c7;  /* amber-100 */
+        border: 1px solid #fcd34d;  /* amber-300 */
+        padding: 0.25rem 0.6rem;
+        border-radius: 4px;
+        margin: 0 auto;
+    }
+    .view-footer-reminder[hidden] { display: none; }
     .tab-rating-star { font-size: 0.95em; transition: color 0.15s ease; }
     .likert-toggle { cursor: pointer; user-select: none; }
     .likert-toggle:hover { background-color: #e9ecef; }
@@ -1665,6 +1681,13 @@
         if (trigger && window.bootstrap) {
             bootstrap.Tab.getOrCreateInstance(trigger).show();
         }
+        // Scroll to the top of the page so the new view's segue caption
+        // ("View N of 5: ...") is visible and the participant must scroll
+        // down through the view content to reach the rating panel + Next
+        // button. Without this the participant lands at the bottom of the
+        // new view (where the Next button is) and is tempted to click
+        // through without reading.
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     function paneRatedCount(paneId) {
@@ -1717,12 +1740,52 @@
     function setTabActiveFill(tabBtn) { /* no-op; kept for hook compatibility */ }
     function clearTabActiveFill(tabBtn) { /* no-op; kept for hook compatibility */ }
 
+    function installViewFooterReminders() {
+        // Inject a soft "X of 3 rated for this view" reminder next to each
+        // per-view Next button. Idempotent: re-running is harmless.
+        VIEW_KEYS.forEach(view => {
+            const paneId = PANE_IDS[view];
+            const pane = document.getElementById(paneId);
+            if (!pane) return;
+            const footer = pane.querySelector('.view-footer-nav');
+            if (!footer || footer.querySelector('.view-footer-reminder')) return;
+            const span = document.createElement('span');
+            span.className = 'view-footer-reminder';
+            span.setAttribute('data-view-reminder', view);
+            span.hidden = true;
+            // Insert before the last child (the Next button) so it appears
+            // between the Back and Next buttons.
+            const lastChild = footer.lastElementChild;
+            if (lastChild) {
+                footer.insertBefore(span, lastChild);
+            } else {
+                footer.appendChild(span);
+            }
+        });
+    }
+
     function refreshStarIndicators() {
         const views = VIEW_KEYS.concat(['overall']);
         views.forEach(view => {
             const paneId = PANE_IDS[view];
             const rated = paneRatedCount(paneId);
             const state = starStateForCount(rated);
+            // Update the per-view footer reminder (skip 'overall', no view tab).
+            if (view !== 'overall') {
+                const reminder = document.querySelector(
+                    `[data-view-reminder="${view}"]`
+                );
+                if (reminder) {
+                    if (rated >= 3) {
+                        reminder.hidden = true;
+                    } else {
+                        reminder.hidden = false;
+                        reminder.textContent =
+                            `You have rated ${rated} of 3 items for this view. ` +
+                            'Scroll up to rate before moving on if you have not yet.';
+                    }
+                }
+            }
 
             // Tab strip star (skip 'overall' which has no tab)
             const tabStar = document.querySelector(`[data-tab-star="${view}"]`);
@@ -2154,6 +2217,7 @@
                 });
             }
         });
+        installViewFooterReminders();
         refreshStarIndicators();
 
         // Per-view tab dwell timing. shown.bs.tab fires when a tab becomes
