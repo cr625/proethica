@@ -51,7 +51,7 @@
                         <i class="bi bi-check2-circle me-1"></i> Completed
                     </h6>
                     <h3 class="mb-0">{{ stats.total_completed }}</h3>
-                    <small class="text-muted">finished demographics + retrospective</small>
+                    <small class="text-muted">finished retrospective</small>
                 </div>
             </div>
         </div>
@@ -206,15 +206,6 @@
                             {% endif %}
                         </dd>
 
-                        <dt class="col-sm-7">Demographics completion rate</dt>
-                        <dd class="col-sm-5 text-end">
-                            {% if stats.demographics_completion_rate is not none %}
-                                {{ stats.demographics_completion_rate }}%
-                                <span class="text-muted">({{ stats.demographics_completed }}/{{ stats.total_completed }})</span>
-                            {% else %}
-                                <span class="text-muted">no completions yet</span>
-                            {% endif %}
-                        </dd>
                     </dl>
                 </div>
             </div>
@@ -229,7 +220,7 @@
                 </div>
                 <div class="card-body">
                     <p class="small text-muted mb-3">
-                        Long-format exports include recruitment_source, demographics,
+                        Long-format exports include recruitment_source,
                         attention-check pass/fail, and low-effort flags per row.
                     </p>
                     <div class="d-grid gap-2">

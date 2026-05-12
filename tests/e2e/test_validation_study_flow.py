@@ -50,11 +50,6 @@ class TestParticipantScreensRender:
         # Retrospective page has the View Ranking heading
         assert page.locator("text=View Ranking").count() >= 1
 
-    def test_demographics_renders(self, page, base_url):
-        page.goto(f"{base_url}/validation/preview/start?show=demographics")
-        page.wait_for_load_state("networkidle")
-        assert page.locator("text=Brief Demographics").count() >= 1
-
     def test_completion_renders(self, page, base_url):
         page.goto(f"{base_url}/validation/preview/start?show=complete")
         page.wait_for_load_state("networkidle")
@@ -62,39 +57,39 @@ class TestParticipantScreensRender:
 
 
 class TestOrientationSection3:
-    """Section 3 of orientation pre-discloses retrospective workload as a 2-item list + prose."""
+    """Section 3 of orientation describes the single remaining step (retrospective only).
+
+    Demographics was removed 2026-05-12 (moved to Prolific prescreening); the
+    section is now prose, not a list, because it has one step.
+    """
 
     def test_after_your_cases_section_present(self, page, base_url):
         page.goto(f"{base_url}/validation/preview/start?show=orientation")
         assert page.locator("h2", has_text="After your cases").count() >= 1
 
-    def test_after_your_cases_list_has_exactly_two_items(self, page, base_url):
-        """Predecessor commit landed a 3-item list with 'Thank-you screen' as a passive third
-        item (style-guide three-item-list trap). The Section 4.1 rewrite collapsed to 2 items
-        plus a prose tail naming the thank-you screen and Prolific completion code together.
-        """
+    def test_section_3_has_no_demographics_mention(self, page, base_url):
+        """Demographics is collected via Prolific, not in-app; orientation must not advertise it."""
         page.goto(f"{base_url}/validation/preview/start?show=orientation")
         section = page.locator("div.orient-section").filter(
             has=page.locator("h2", has_text="After your cases")
         )
-        list_items = section.locator("ol.orient-steps > li")
-        assert list_items.count() == 2, (
-            f"Expected 2 items in Section 3 list, got {list_items.count()}"
+        text = section.inner_text().lower()
+        assert "demograph" not in text, (
+            "Section 3 must not mention demographics (removed 2026-05-12)"
         )
 
     def test_section_3_prediscloses_retrospective_yes_no_and_open_comments(self, page, base_url):
-        """The first list item in Section 3 must mention the yes/no item and open comments
-        (the Pass 2 [5] fix that pre-discloses retrospective workload)."""
+        """Section 3 must still pre-disclose the retrospective yes/no item and open comments."""
         page.goto(f"{base_url}/validation/preview/start?show=orientation")
         section = page.locator("div.orient-section").filter(
             has=page.locator("h2", has_text="After your cases")
         )
-        first_item_text = section.locator("ol.orient-steps > li").first.inner_text()
-        assert "yes/no" in first_item_text.lower(), (
-            "Section 3 first item should mention the yes/no Surfaced Considerations item"
+        text = section.inner_text().lower()
+        assert "yes/no" in text, (
+            "Section 3 should mention the yes/no Surfaced Considerations item"
         )
-        assert "comment" in first_item_text.lower(), (
-            "Section 3 first item should mention open comments"
+        assert "comment" in text, (
+            "Section 3 should mention open comments"
         )
 
 
@@ -217,22 +212,6 @@ class TestCaseStepURLSync:
         # replaceState updates location synchronously
         assert "step=views" in page.url, (
             f"Expected step=views in URL after goToStep('views'), got {page.url}"
-        )
-
-
-class TestDemographicsStem:
-    """Item 1 stem reads 'level reached' (not 'completed') so 'Some college, no degree yet' is consistent."""
-
-    def test_item_1_stem_says_level_reached(self, page, base_url):
-        page.goto(f"{base_url}/validation/preview/start?show=demographics")
-        page.wait_for_load_state("networkidle")
-        labels = page.locator("label.form-label.fw-semibold")
-        first_label_text = labels.first.inner_text().strip()
-        assert "level reached" in first_label_text.lower(), (
-            f"Demographics item 1 should say 'level reached', got: {first_label_text!r}"
-        )
-        assert "completed" not in first_label_text.lower(), (
-            "Demographics item 1 should not contain 'completed' (Section 6.1)"
         )
 
 
@@ -493,7 +472,6 @@ class TestZeroConsoleErrorsAcrossFlow:
         ("/validation/preview/start?show=dashboard", "dashboard"),
         ("/validation/preview/start", "case-facts"),
         ("/validation/preview/start?show=retrospective", "retrospective"),
-        ("/validation/preview/start?show=demographics", "demographics"),
         ("/validation/preview/start?show=complete", "complete"),
     ]
 
