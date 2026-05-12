@@ -124,6 +124,59 @@ class SynthesisViewBuilder:
             TemporaryRDFStorage.is_published == True
         ).all()
 
+        # Provision text lookup, keyed by code section (e.g., "II.2.a"), so
+        # the cited-provision badges below can carry hover popovers with
+        # the actual NSPE provision text. Conclusions store citedProvisions
+        # as bare code strings; without this lookup the badges read as
+        # opaque labels. Two sources are merged, in priority order:
+        #   1. Per-case code_provision_reference extractions, which carry
+        #      case-specific provision wording when present.
+        #   2. The canonical GuidelineSection table (the static NSPE Code),
+        #      which fills in any cited provision the per-case extraction
+        #      did not surface. Audit on 2026-05-12 showed 27 of 99 cited
+        #      provisions across the corpus lacked a per-case extraction
+        #      row; the canonical fallback resolves all of them except the
+        #      occasional 'Preamble' citation, which is not in the table.
+        from app.models.guideline_section import GuidelineSection
+        provisions_rows = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            extraction_type='code_provision_reference'
+        ).filter(
+            TemporaryRDFStorage.is_published == True
+        ).all()
+        provision_text_lookup: Dict[str, str] = {}
+        # Canonical NSPE Code sections (leaf rows only; e.g., III.6.a but
+        # not III.6 itself).
+        canonical_rows = GuidelineSection.query.all()
+        for section in canonical_rows:
+            code = (section.section_code or '').strip()
+            text = (section.section_text or '').strip()
+            if code and text:
+                provision_text_lookup[code] = text
+        # Parent-section synthesis. Conclusions sometimes cite a parent
+        # section (e.g., III.6) where the table only stores the leaves
+        # (III.6.a, III.6.b, III.6.c). For each parent code referenced,
+        # concatenate the children's texts so the popover still resolves.
+        children_by_parent: Dict[str, List[str]] = {}
+        for section in canonical_rows:
+            code = (section.section_code or '').strip()
+            if '.' in code:
+                parent = code.rsplit('.', 1)[0]
+                if parent and parent != code:
+                    children_by_parent.setdefault(parent, []).append(
+                        f"{code}: {(section.section_text or '').strip()}"
+                    )
+        for parent, lines in children_by_parent.items():
+            if parent not in provision_text_lookup and lines:
+                provision_text_lookup[parent] = ' '.join(lines)
+        # Per-case extractions take precedence over canonical text when
+        # the case carries case-specific wording.
+        for p in provisions_rows:
+            code = (p.entity_label or '').strip()
+            text = (p.entity_definition or '').strip()
+            if code and text:
+                provision_text_lookup[code] = text
+
         # Build conclusion lookup by question. Each conclusion is added to
         # the FIRST question listed in its answersQuestions array — its
         # primary target. Earlier code added a conclusion to every question
@@ -223,6 +276,7 @@ class SynthesisViewBuilder:
             'analytical_by_parent': analytical_by_parent,
             'theory_by_parent': theory_by_parent,
             'cross_cutting': cross_cutting,
+            'provision_text_lookup': provision_text_lookup,
             'description': 'Ethical questions linked to their conclusions with emergence and '
                           'resolution overlays, showing how the board reached its findings.'
         }

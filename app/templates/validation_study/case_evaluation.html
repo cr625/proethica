@@ -190,6 +190,15 @@
         text-decoration-style: solid;
         outline: none;
     }
+    /* Provision-code badges in the Conclusions view: hoverable, popover
+       carries the NSPE provision text. Cursor signals the affordance. */
+    .provision-badge {
+        cursor: help;
+    }
+    .provision-badge:focus {
+        outline: 2px solid #93c5fd;
+        outline-offset: 1px;
+    }
     /* Popover title row: slim, label-style header that reads as a
        category tag rather than a prominent heading. The data-bs-title
        value identifies the kind of resolution (Role in the case vs.
@@ -412,11 +421,11 @@
     #study-timeline .tl-compact-node:hover { background: #f1f5f9; border-color: #e2e8f0; }
     #study-timeline .tl-compact-icon { position: absolute; left: -24px; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; background: #fff; border-radius: 50%; z-index: 1; color: #858796; }
     #study-timeline .tl-compact-node::after { content: ''; position: absolute; left: -12px; top: 50%; transform: translateY(-50%); width: 12px; height: 1px; background: #e2e8f0; }
-    #study-timeline .tl-compact-node.tl-action .tl-compact-icon { color: #0dcaf0; }
-    #study-timeline .tl-compact-node.tl-event .tl-compact-icon { color: #dc3545; }
+    #study-timeline .tl-compact-node.tl-action .tl-compact-icon { color: #0d6efd; }
+    #study-timeline .tl-compact-node.tl-event .tl-compact-icon { color: #6f42c1; }
     #study-timeline .tl-compact-seq { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; background: #0d6efd; color: #fff; font-size: 0.6rem; font-weight: 600; flex-shrink: 0; }
-    #study-timeline .tl-compact-node.tl-action .tl-compact-seq { background: #0dcaf0; }
-    #study-timeline .tl-compact-node.tl-event .tl-compact-seq { background: #dc3545; }
+    #study-timeline .tl-compact-node.tl-action .tl-compact-seq { background: #0d6efd; }
+    #study-timeline .tl-compact-node.tl-event .tl-compact-seq { background: #6f42c1; }
     #study-timeline .tl-compact-node { flex-wrap: wrap; row-gap: 2px; }
     #study-timeline .tl-compact-label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     #study-timeline .tl-compact-label strong { font-size: 0.82rem; }
@@ -934,7 +943,7 @@
                 <div class="tab-pane fade" id="timeline-pane">
                     <div class="segue-card segue-timeline">
                         <div class="segue-caption">View 2 of 5: Timeline</div>
-                        <strong>Now place the story on a timeline.</strong> The case unfolds as a sequence of <span style="color: #0dcaf0; font-weight: 600;">Actions</span> chosen by people in the case and <span style="color: #dc3545; font-weight: 600;">Events</span> that happened to them. Click any entry to read what happened and which obligations it puts at stake, fulfills, or violates.
+                        <strong>Now place the story on a timeline.</strong> The case unfolds as a sequence of <span style="color: #0d6efd; font-weight: 600;">Actions</span> chosen by people in the case and <span style="color: #6f42c1; font-weight: 600;">Events</span> that happened to them. Click any entry to read what happened and which obligations it puts at stake, fulfills, or violates.
                     </div>
                     <div class="view-card card">
                         <div class="card-header">
@@ -948,15 +957,15 @@
                                     <i class="bi bi-chevron-up instruction-chevron"></i>
                                 </button>
                                 <div class="collapse show" id="instr-timeline">
-                                    <div class="instruction-body">An <strong style="color: #0dcaf0;">Action</strong> is a deliberate act by a person in the case (e.g., &ldquo;submitted the report&rdquo;). An <strong style="color: #dc3545;">Event</strong> is an occurrence that no person in the case chose to bring about (e.g., &ldquo;regulator updated guidance&rdquo;). Each Action can place an ethical obligation <strong>at stake</strong>&nbsp;<i class="bi bi-exclamation-triangle-fill" style="color: #d6a405;" aria-hidden="true"></i>; a later Action can then <strong>fulfill</strong>&nbsp;<i class="bi bi-check-circle-fill" style="color: #198754;" aria-hidden="true"></i> or <strong>violate</strong>&nbsp;<i class="bi bi-x-circle-fill" style="color: #dc3545;" aria-hidden="true"></i> it. The timeline shows when each obligation was placed at stake, fulfilled, or violated. (The rating below refers to an obligation placed at stake as having &ldquo;become active.&rdquo;) <em>Rate how well this kind of view would support a reader&rsquo;s understanding of the case, not whether every detail has been absorbed.</em></div>
+                                    <div class="instruction-body">An <strong style="color: #0d6efd;">Action</strong> is a deliberate act by a person in the case (e.g., &ldquo;submitted the report&rdquo;). An <strong style="color: #6f42c1;">Event</strong> is an occurrence that no person in the case chose to bring about (e.g., &ldquo;regulator updated guidance&rdquo;). Each Action can place an ethical obligation <strong>at stake</strong>&nbsp;<i class="bi bi-exclamation-triangle-fill" style="color: #d6a405;" aria-hidden="true"></i>; a later Action can then <strong>fulfill</strong>&nbsp;<i class="bi bi-check-circle-fill" style="color: #198754;" aria-hidden="true"></i> or <strong>violate</strong>&nbsp;<i class="bi bi-x-circle-fill" style="color: #dc3545;" aria-hidden="true"></i> it. The timeline shows when each obligation was placed at stake, fulfilled, or violated. (The rating below refers to an obligation placed at stake as having &ldquo;become active.&rdquo;) <em>Rate how well this kind of view would support a reader&rsquo;s understanding of the case, not whether every detail has been absorbed.</em></div>
                                 </div>
                             </div>
 
                             {% if views.timeline.entries %}
                             <div class="d-flex flex-wrap gap-2 mb-2 small">
                                 <span class="badge bg-light text-dark border"><i class="bi bi-list-ol me-1"></i>{{ views.timeline.count }} sequenced</span>
-                                <span class="badge bg-light text-dark border"><i class="bi bi-person-walking me-1" style="color: #0dcaf0;"></i>{{ views.timeline.action_count }} actions</span>
-                                <span class="badge bg-light text-dark border"><i class="bi bi-lightning me-1" style="color: #dc3545;"></i>{{ views.timeline.event_count }} events</span>
+                                <span class="badge bg-light text-dark border"><i class="bi bi-person-walking me-1" style="color: #0d6efd;"></i>{{ views.timeline.action_count }} actions</span>
+                                <span class="badge bg-light text-dark border"><i class="bi bi-lightning me-1" style="color: #6f42c1;"></i>{{ views.timeline.event_count }} events</span>
                             </div>
 
                             <h5 class="mt-4 mb-3 pb-2 border-bottom d-flex align-items-center" style="color: #334155; font-weight: 600;">
@@ -1122,7 +1131,14 @@
                                                     {% if c.cited_provisions %}
                                                     <div class="mt-1">
                                                         {% for prov in c.cited_provisions %}
-                                                        <span class="badge bg-primary" style="font-size: 0.6rem;">{{ prov }}</span>
+                                                        {% set prov_text = views.qc.provision_text_lookup.get(prov, '') %}
+                                                        <span class="badge bg-primary provision-badge"
+                                                              style="font-size: 0.6rem;"
+                                                              tabindex="0"
+                                                              data-bs-toggle="popover"
+                                                              data-bs-trigger="focus hover"
+                                                              data-bs-title="NSPE Code {{ prov }}"
+                                                              data-bs-content="{{ prov_text|escape if prov_text else 'Provision text not available for this case.' }}">{{ prov }}</span>
                                                         {% endfor %}
                                                     </div>
                                                     {% endif %}
@@ -2078,6 +2094,11 @@
         // collapse-toggle row (Timeline Action entries) doesn't also
         // toggle the row.
         document.querySelectorAll('.char-mention[data-bs-toggle="popover"]').forEach(function(el) {
+            new bootstrap.Popover(el);
+        });
+        // Provision-code badges in the Conclusions view: hover reveals the
+        // NSPE provision text via popover (provision_text_lookup in qc view).
+        document.querySelectorAll('.provision-badge[data-bs-toggle="popover"]').forEach(function(el) {
             new bootstrap.Popover(el);
         });
         // When a popover-anchored link is nested inside a collapse-toggle row
