@@ -11,6 +11,7 @@ Builds the five synthesis views evaluated in the IRB-approved study
 """
 
 import json
+import re
 from typing import Dict, List, Optional, Any
 from app.models import db, Document, TemporaryRDFStorage
 from app.models.extraction_prompt import ExtractionPrompt
@@ -284,6 +285,7 @@ class SynthesisViewBuilder:
                 decisions.append(dp)
 
         decisions = self._dedupe_decision_points(decisions)
+        decisions = self._reorder_evaluative_decisions(decisions)
 
         return {
             'view_type': 'decisions',
@@ -378,6 +380,42 @@ class SynthesisViewBuilder:
                 kept_tokens.append(tokens)
                 kept_firsts.append(firsts)
         return kept
+
+    # Stable partition that demotes retrospective-evaluative decision questions
+    # so the visible top-five default opens with a forward-looking decision.
+    # Matches "Was <subject> ethical[ly]..." openers: the baseline audit's
+    # narrow EVAL opener ("Was it ethical for X to...") plus the equivalent
+    # active-voice form ("Was Engineer A ethically obligated to..."). The
+    # 1-to-4-word subject bound keeps the match anchored to the question
+    # opener and avoids false positives like "...whether the design was
+    # ethical" later in a sentence. Across the 19-case study pool this
+    # affects 5 DPs in 3 cases (6: 2, 8: 1, 13: 2); the remaining 16 cases
+    # are unchanged.
+    _EVALUATIVE_OPENER = re.compile(
+        r'^\s*was\s+(?:\w+\s+){1,4}ethical(?:ly)?\b',
+        re.IGNORECASE,
+    )
+
+    @classmethod
+    def _reorder_evaluative_decisions(cls, decisions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Stable partition: forward-looking DPs first, evaluative DPs last.
+
+        Preserves relative order within each group, so the only observable
+        change is that a "Was it ethical for X to..." card cannot occupy the
+        top of the visible top-N slice. No DP text is rewritten; presentation
+        change only.
+        """
+        if not decisions:
+            return decisions
+        forward: List[Dict[str, Any]] = []
+        evaluative: List[Dict[str, Any]] = []
+        for d in decisions:
+            question = d.get('decision_question') or d.get('description') or ''
+            if cls._EVALUATIVE_OPENER.match(question):
+                evaluative.append(d)
+            else:
+                forward.append(d)
+        return forward + evaluative
 
     def get_timeline_view(self, case_id: int) -> Dict[str, Any]:
         """Get Timeline view from Step 3 temporal extraction.
