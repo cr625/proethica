@@ -933,7 +933,13 @@ class SynthesisViewBuilder:
             def _wrap(match: 're.Match') -> str:
                 name = match.group(1)
                 ch = short_to_char[name]
-                pos = (ch.get('professional_position') or '').replace('"', '&quot;')[:200]
+                pos_raw = (ch.get('professional_position') or '').strip()
+                if len(pos_raw) > 200:
+                    cut = pos_raw.rfind(' ', 0, 200)
+                    if cut <= 0:
+                        cut = 200
+                    pos_raw = pos_raw[:cut].rstrip(' ,;:.') + '…'
+                pos = pos_raw.replace('"', '&quot;')
                 anchor = 'char-' + name.replace(' ', '-').lower()
                 return (
                     f'<a class="char-mention" href="#{anchor}" '

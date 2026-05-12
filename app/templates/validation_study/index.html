@@ -71,7 +71,7 @@
 {% elif phase == 'dashboard' %}
 
   {% set is_first_visit = (completed_count == 0) %}
-  {% set is_prolific_participant = (session and session.recruitment_source == 'prolific_engineering_trained') %}
+  {% set is_prolific_participant = (session and session.recruitment_source in ('prolific_engineering_trained', 'preview')) %}
 
   <div class="row mb-4">
     <div class="col-12">

@@ -445,7 +445,7 @@ def orientation():
         'validation_study/orientation.html',
         participant_code=val_session.participant_code,
         total_count=assigned_count,
-        is_prolific=(val_session.recruitment_source == 'prolific_engineering_trained'),
+        is_prolific=(val_session.recruitment_source in ('prolific_engineering_trained', 'preview')),
         session=val_session,
     )
 
@@ -887,7 +887,7 @@ def complete():
     completion_code = val_session.completion_code if val_session else None
     is_prolific = (
         val_session is not None
-        and val_session.recruitment_source == 'prolific_engineering_trained'
+        and val_session.recruitment_source in ('prolific_engineering_trained', 'preview')
     )
 
     fixed_prolific_cc = os.environ.get('PROLIFIC_COMPLETION_CODE_SUCCESS', '').strip() or None

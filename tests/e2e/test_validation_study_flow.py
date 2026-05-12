@@ -312,15 +312,14 @@ class TestPreviewConsentMode:
 
 
 class TestViewEngagementNudges:
-    """Two nudges to discourage rapid click-through of the per-view panels:
+    """activateViewTab scrolls back to top of page so the new view's segue
+    caption is the first thing visible (the participant has to scroll
+    through the content to reach the Next button at the bottom).
 
-    1. activateViewTab scrolls back to top of page so the new view's segue
-       caption is the first thing visible (the participant has to scroll
-       through the content to reach the Next button at the bottom).
-    2. A soft amber-colored reminder ("You have rated X of 3 items for
-       this view...") appears next to each Next button when fewer than 3
-       items on that view are rated. The reminder does NOT block the
-       click; it's purely visual.
+    The companion soft amber "X of 3 rated" reminder banner added alongside
+    scroll-to-top was removed in fc143934 (2026-05-12). The global "Continue
+    to Reflection" gate (disabled until all five views have 3/3 ratings)
+    remains the enforcement layer.
     """
 
     def _go_to_views(self, page, base_url):
@@ -331,7 +330,6 @@ class TestViewEngagementNudges:
 
     def test_activate_view_tab_scrolls_to_top(self, page, base_url):
         self._go_to_views(page, base_url)
-        # Scroll all the way down first
         page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
         page.wait_for_timeout(200)
         before_y = page.evaluate("window.scrollY")
@@ -339,46 +337,10 @@ class TestViewEngagementNudges:
             f"Should have scrolled before activating tab; got {before_y}"
         )
         page.evaluate("activateViewTab('timeline-tab')")
-        # Smooth-scroll: wait for it to settle
         page.wait_for_timeout(600)
         after_y = page.evaluate("window.scrollY")
         assert after_y < 50, (
             f"After tab activate, scrollY should be near top (0); got {after_y}"
-        )
-
-    def test_reminder_visible_when_unrated(self, page, base_url):
-        self._go_to_views(page, base_url)
-        # Narrative tab is active by default; with 0/3 rated, reminder shows.
-        reminder = page.locator('[data-view-reminder="narrative"]')
-        assert reminder.count() == 1, (
-            f"Expected exactly one narrative footer reminder, got {reminder.count()}"
-        )
-        assert reminder.is_visible(), (
-            "Reminder should be visible when 0/3 rated"
-        )
-        text = reminder.inner_text()
-        assert "0 of 3" in text, f"Reminder text should mention '0 of 3', got: {text!r}"
-
-    def test_reminder_hides_when_all_three_rated(self, page, base_url):
-        self._go_to_views(page, base_url)
-        # Click a rating value (4) on each of the 3 narrative items via JS.
-        page.evaluate("""() => {
-            const pane = document.getElementById('narrative-pane');
-            const radios = pane.querySelectorAll('input[type="radio"][name]');
-            const groups = new Set();
-            radios.forEach(r => groups.add(r.name));
-            groups.forEach(name => {
-                const target = pane.querySelector(`input[name="${name}"][value="4"]`);
-                if (target) {
-                    target.checked = true;
-                    target.dispatchEvent(new Event('change', { bubbles: true }));
-                }
-            });
-        }""")
-        page.wait_for_timeout(200)
-        reminder = page.locator('[data-view-reminder="narrative"]')
-        assert reminder.is_hidden(), (
-            "Reminder should hide once all 3 items on the view are rated"
         )
 
 
