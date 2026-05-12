@@ -884,6 +884,7 @@ class SynthesisViewBuilder:
                 return (
                     f'<a class="char-mention" href="#{anchor}" '
                     f'data-bs-toggle="popover" data-bs-trigger="focus hover" '
+                    f'data-bs-title="Role in the case" '
                     f'data-bs-content="{pos}" tabindex="0">{name}</a>'
                 )
 

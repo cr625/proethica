@@ -112,3 +112,17 @@ The Similarity Network uses colors to indicate case outcomes.
 | Current Case | <span style="display:inline-block;width:80px;height:24px;background:#0d6efd;border-radius:4px;vertical-align:middle;color:white;text-align:center;line-height:24px;font-size:12px;">Blue</span> |
 
 Edge thickness indicates similarity strength between cases.
+
+## View-Context Overrides
+
+The entity-type palette above is the default mapping for ontology graph and pipeline visualizations. A specific view may locally override an entity-type color when the canonical hue collides with a load-bearing semantic palette inside that view.
+
+Precedence rule: when an entity-type color and a load-bearing semantic color (success and failure, fulfilled and violated, accept and reject, and similar pairings) compete in the same view, the semantic color is retained and the entity-type color is locally overridden. Each override is registered below with the file location of the affected markup and a short statement of the collision. A registered override is the difference between a principled deviation and an unflagged regression; contributors who notice a divergence from the entity-type tables above should consult this section before "correcting" the local CSS.
+
+### Validation Study Timeline View
+
+File: `app/templates/validation_study/case_evaluation.html`, tab pane `#timeline-pane`.
+
+The Timeline view renders obligation-state activation pills in `#198754` green (fulfill), `#dc3545` red (violate), and `#d6a405` amber (raise at stake). These three colors disambiguate the Likert items, which ask participants to rate how well the view conveys obligations being placed at stake, fulfilled, or violated. The fulfill, violate, and raise palette is therefore load-bearing for the rating instrument and is preserved.
+
+The canonical Action green (`#198754`) collides with the fulfill pill, the canonical Event yellow (`#ffc107`) sits adjacent to the raise pill, and the previously deployed Event red (`#dc3545`) collides with the violate pill. Action and Event in the Timeline view are therefore rendered in alternate hues outside the obligation-state palette, with the icon glyphs (`bi-person-walking` for Action, `bi-lightning` for Event) carrying the primary type-discrimination load. The specific replacement hex values are recorded in the CSS scoped to `#study-timeline` in the same template; this section records the rationale for the deviation rather than the hex codes themselves, which may be retuned without further amendment to this document so long as the obligation-state palette and the Action/Event hues remain disjoint.

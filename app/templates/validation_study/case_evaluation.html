@@ -179,23 +179,30 @@
     .char-mention {
         text-decoration: underline;
         text-decoration-style: dotted;
-        text-decoration-color: #198754;
+        text-decoration-color: #64748b;
         text-underline-offset: 2px;
         cursor: help;
         color: inherit;
     }
     .char-mention:hover,
     .char-mention:focus {
-        color: #198754;
+        color: #475569;
         text-decoration-style: solid;
         outline: none;
     }
-    /* Per-view accent override: char-mention inherits the active view's
-       color so the underline matches the surrounding accent. Applied by
-       parent pane id; the base rules above stay green for Narrative. */
-    #timeline-pane .char-mention { text-decoration-color: #20c997; }
-    #timeline-pane .char-mention:hover,
-    #timeline-pane .char-mention:focus { color: #0c8268; }
+    /* Popover title row: slim, label-style header that reads as a
+       category tag rather than a prominent heading. The data-bs-title
+       value identifies the kind of resolution (Role in the case vs.
+       Role in this event). */
+    .popover-header {
+        font-size: 0.7rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        padding: 0.3rem 0.75rem;
+        background-color: #f1f5f9;
+        color: #64748b;
+    }
     /* Two-tier instructional voice hierarchy within each view.
        Segue card is the loud global voice (top stripe, bold lead).
        Below it sits the prompt-text (per-card "about this view")
@@ -379,19 +386,6 @@
         flex-wrap: wrap;
         gap: 0.5rem;
     }
-    /* Soft engagement nudge: visible rating-count reminder injected next to
-       the per-view Next button. Shows when fewer than 3 items are rated;
-       does not block the click. */
-    .view-footer-reminder {
-        font-size: 0.875rem;
-        color: #b45309;  /* amber-700 */
-        background: #fef3c7;  /* amber-100 */
-        border: 1px solid #fcd34d;  /* amber-300 */
-        padding: 0.25rem 0.6rem;
-        border-radius: 4px;
-        margin: 0 auto;
-    }
-    .view-footer-reminder[hidden] { display: none; }
     .tab-rating-star { font-size: 0.95em; transition: color 0.15s ease; }
     .likert-toggle { cursor: pointer; user-select: none; }
     .likert-toggle:hover { background-color: #e9ecef; }
@@ -429,10 +423,6 @@
     #study-timeline .tl-compact-marker { flex-basis: 100%; margin-left: 28px; font-size: 0.7rem; line-height: 1.35; color: #6c757d; white-space: normal; }
     #study-timeline .tl-has-expand { cursor: pointer; }
     #study-timeline .tl-compact-agent { flex-shrink: 0; font-size: 0.72rem; }
-    #study-timeline .tl-compact-activation { flex-shrink: 0; display: inline-flex; align-items: center; gap: 2px; font-size: 0.72rem; font-weight: 600; padding: 1px 6px; border-radius: 10px; border: 1px solid; white-space: nowrap; }
-    #study-timeline .tl-compact-activation.tl-fulfills { color: #146c43; background: #f0f9f4; border-color: #a3d9b8; }
-    #study-timeline .tl-compact-activation.tl-violates { color: #b02a37; background: #fdf3f4; border-color: #f1a9b0; }
-    #study-timeline .tl-compact-activation.tl-raises   { color: #8a6100; background: #fff8e1; border-color: #f0d97a; }
     #study-timeline .tl-compact-expanded { background: #fffdf5; border-color: #f0e6c8; }
     #study-timeline .tl-dp-collapse { margin-left: 30px; margin-bottom: 4px; }
     #study-timeline .tl-obl-nest { padding: 6px 10px 6px 12px; margin-bottom: 4px; border-radius: 4px; border-left: 3px solid; font-size: 0.78rem; }
@@ -820,6 +810,7 @@
                                         <strong>
                                             <a class="char-mention" tabindex="0"
                                                data-bs-toggle="popover" data-bs-trigger="focus hover"
+                                               data-bs-title="Role in the case"
                                                data-bs-content="{{ char.professional_position|escape if char.professional_position else char.short_name|escape }}">{{ char.short_name }}</a>
                                         </strong>
                                         {% if char.role_suffixes %}
@@ -967,14 +958,11 @@
                                 <span class="badge bg-light text-dark border"><i class="bi bi-person-walking me-1" style="color: #0dcaf0;"></i>{{ views.timeline.action_count }} actions</span>
                                 <span class="badge bg-light text-dark border"><i class="bi bi-lightning me-1" style="color: #dc3545;"></i>{{ views.timeline.event_count }} events</span>
                             </div>
-                            <p class="section-helper mb-3" style="font-size: 0.82rem;">
-                                Numbers on each entry show how many obligations the action placed
-                                <span class="badge bg-warning text-dark"><i class="bi bi-exclamation-triangle-fill me-1"></i>at stake</span>,
-                                <span class="badge bg-success"><i class="bi bi-check-circle-fill me-1"></i>fulfilled</span>, or
-                                <span class="badge bg-danger"><i class="bi bi-x-circle-fill me-1"></i>violated</span>
-                                at that moment.
-                            </p>
 
+                            <h5 class="mt-4 mb-3 pb-2 border-bottom d-flex align-items-center" style="color: #334155; font-weight: 600;">
+                                <i class="bi bi-clock-history me-2" style="font-size: 1.1rem;"></i>
+                                Case timeline
+                            </h5>
                             <div id="study-timeline" class="tl-compact">
                                 {% for entry in views.timeline.entries %}
                                 {% set is_action = (entry.kind == 'action') %}
@@ -996,26 +984,12 @@
                                             {% if _agent_role %}
                                             <a class="char-mention" tabindex="0"
                                                data-bs-toggle="popover" data-bs-trigger="focus hover"
+                                               data-bs-title="Role in this event"
                                                data-bs-content="{{ _agent_role|escape }}">{{ _agent_short }}</a>
                                             {% else %}
                                             <span>{{ _agent_short }}</span>
                                             {% endif %}
                                         </span>
-                                    {% endif %}
-                                    {% if entry.fulfills_obligations %}
-                                    <span class="tl-compact-activation tl-fulfills">
-                                        <i class="bi bi-check-circle-fill"></i>{{ entry.fulfills_obligations|length }}
-                                    </span>
-                                    {% endif %}
-                                    {% if entry.violates_obligations %}
-                                    <span class="tl-compact-activation tl-violates">
-                                        <i class="bi bi-x-circle-fill"></i>{{ entry.violates_obligations|length }}
-                                    </span>
-                                    {% endif %}
-                                    {% if entry.raises_obligations %}
-                                    <span class="tl-compact-activation tl-raises">
-                                        <i class="bi bi-exclamation-triangle-fill"></i>{{ entry.raises_obligations|length }}
-                                    </span>
                                     {% endif %}
                                     {% if has_expand %}
                                     <i class="bi bi-chevron-right tl-entry-chevron" style="font-size: 0.7rem;"></i>
@@ -1581,19 +1555,19 @@
             <!-- Open reflection prompts (optional) -->
             <div class="card mb-3">
                 <div class="card-header bg-info text-white">
-                    <h5 class="mb-0"><i class="bi bi-chat-text me-2"></i>Open reflections (optional)</h5>
+                    <h5 class="mb-0"><i class="bi bi-chat-text me-2"></i>Open reflections</h5>
                 </div>
                 <div class="card-body">
                     <p class="text-muted small mb-3">Two open-ended prompts about the views just rated. Both are optional; either or both may be left blank.</p>
 
                     <div class="mb-3">
                         <label for="refl_most_useful_view" class="form-label fw-bold">Which view did you find most useful for understanding the case, and why?</label>
-                        <textarea class="form-control" id="refl_most_useful_view" name="refl_most_useful_view" rows="3" placeholder="Optional">{{ existing_eval.refl_most_useful_view if existing_eval and existing_eval.refl_most_useful_view else '' }}</textarea>
+                        <textarea class="form-control" id="refl_most_useful_view" name="refl_most_useful_view" rows="3">{{ existing_eval.refl_most_useful_view if existing_eval and existing_eval.refl_most_useful_view else '' }}</textarea>
                     </div>
 
                     <div class="mb-3">
                         <label for="refl_changes" class="form-label fw-bold">What would you change about any of the views to make them more useful?</label>
-                        <textarea class="form-control" id="refl_changes" name="refl_changes" rows="3" placeholder="Optional">{{ existing_eval.refl_changes if existing_eval and existing_eval.refl_changes else '' }}</textarea>
+                        <textarea class="form-control" id="refl_changes" name="refl_changes" rows="3">{{ existing_eval.refl_changes if existing_eval and existing_eval.refl_changes else '' }}</textarea>
                     </div>
                 </div>
             </div>
@@ -1634,7 +1608,7 @@
 
                     <div class="mb-3">
                         <label for="refl_final" class="form-label fw-bold">After reading the Board&rsquo;s discussion and conclusions, are there aspects of the case the views did not adequately capture?</label>
-                        <textarea class="form-control" id="refl_final" name="refl_final" rows="4" placeholder="Optional">{{ existing_eval.refl_final if existing_eval and existing_eval.refl_final else '' }}</textarea>
+                        <textarea class="form-control" id="refl_final" name="refl_final" rows="4">{{ existing_eval.refl_final if existing_eval and existing_eval.refl_final else '' }}</textarea>
                     </div>
                 </div>
                 <div class="card-footer">
@@ -1740,52 +1714,12 @@
     function setTabActiveFill(tabBtn) { /* no-op; kept for hook compatibility */ }
     function clearTabActiveFill(tabBtn) { /* no-op; kept for hook compatibility */ }
 
-    function installViewFooterReminders() {
-        // Inject a soft "X of 3 rated for this view" reminder next to each
-        // per-view Next button. Idempotent: re-running is harmless.
-        VIEW_KEYS.forEach(view => {
-            const paneId = PANE_IDS[view];
-            const pane = document.getElementById(paneId);
-            if (!pane) return;
-            const footer = pane.querySelector('.view-footer-nav');
-            if (!footer || footer.querySelector('.view-footer-reminder')) return;
-            const span = document.createElement('span');
-            span.className = 'view-footer-reminder';
-            span.setAttribute('data-view-reminder', view);
-            span.hidden = true;
-            // Insert before the last child (the Next button) so it appears
-            // between the Back and Next buttons.
-            const lastChild = footer.lastElementChild;
-            if (lastChild) {
-                footer.insertBefore(span, lastChild);
-            } else {
-                footer.appendChild(span);
-            }
-        });
-    }
-
     function refreshStarIndicators() {
         const views = VIEW_KEYS.concat(['overall']);
         views.forEach(view => {
             const paneId = PANE_IDS[view];
             const rated = paneRatedCount(paneId);
             const state = starStateForCount(rated);
-            // Update the per-view footer reminder (skip 'overall', no view tab).
-            if (view !== 'overall') {
-                const reminder = document.querySelector(
-                    `[data-view-reminder="${view}"]`
-                );
-                if (reminder) {
-                    if (rated >= 3) {
-                        reminder.hidden = true;
-                    } else {
-                        reminder.hidden = false;
-                        reminder.textContent =
-                            `You have rated ${rated} of 3 items for this view. ` +
-                            'Scroll up to rate before moving on if you have not yet.';
-                    }
-                }
-            }
 
             // Tab strip star (skip 'overall' which has no tab)
             const tabStar = document.querySelector(`[data-tab-star="${view}"]`);
@@ -2217,7 +2151,6 @@
                 });
             }
         });
-        installViewFooterReminders();
         refreshStarIndicators();
 
         // Per-view tab dwell timing. shown.bs.tab fires when a tab becomes
