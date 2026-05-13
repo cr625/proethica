@@ -771,10 +771,24 @@ _RANKING_VIEWS = [
 
 @study_bp.route('/retrospective', methods=['GET', 'POST'])
 def retrospective():
-    """Post-study retrospective reflection (5-view ranking + open feedback)."""
+    """Post-study retrospective reflection (5-view ranking + open feedback).
+
+    Submission is one-shot. Once the participant has submitted successfully
+    (signalled by `completed_at` being stamped on the ValidationSession),
+    further GETs and POSTs are bounced to /complete. This prevents both
+    accidental form re-entry (browser back) and deliberate edits to the
+    ranking or open-text fields after the participant has been shown their
+    completion code.
+    """
     val_session, redirect_resp = _require_session()
     if redirect_resp:
         return redirect_resp
+
+    if val_session.completed_at:
+        if request.method == 'POST':
+            flash('Your retrospective has already been recorded. '
+                  'Further changes are not accepted.', 'info')
+        return redirect(url_for('study.complete'))
 
     if request.method == 'POST':
         return _submit_retrospective(val_session)
