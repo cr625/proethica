@@ -91,10 +91,22 @@ class SynthesisViewBuilder:
                 'confidence': prov.match_confidence or 0.0
             })
 
+        # Fetch abstract class definitions for the 9 entity-type chips that
+        # appear next to each mapping (Obligation, Action, ...). Keyed by
+        # exact label match against proeth-core class entries in OntServe.
+        # Labels without a non-empty rdfs:comment are omitted; the template
+        # renders those chips without a popover. The order here matches the
+        # title-case form rendered by `{{ etype|title }}` in the template.
+        type_chip_labels = ['Obligation', 'Action', 'State', 'Principle',
+                            'Role', 'Resource', 'Capability', 'Event',
+                            'Constraint']
+        type_definitions = self._fetch_class_definitions(type_chip_labels)
+
         return {
             'view_type': 'provisions',
             'count': len(formatted),
             'provisions': formatted,
+            'type_definitions': type_definitions,
             'description': 'Code provisions mapped to case elements, showing which sections '
                           'of the professional code apply and how they connect to specific facts.'
         }
@@ -987,6 +999,7 @@ class SynthesisViewBuilder:
                     'short_name': short_name,
                     'anchor': 'char-' + short_name.replace(' ', '-').lower(),
                     'role_suffixes': [],
+                    'role_suffix_details': {},
                     '_positions': [],
                     '_stances': [],
                     'motivations': [],
@@ -1050,6 +1063,22 @@ class SynthesisViewBuilder:
             del g['_positions']
             del g['_stances']
 
+        # Populate role_suffix_details with abstract role-class definitions
+        # (rdfs:comment) from OntServe. Keyed by exact label match against
+        # ontology_entities.label where entity_type='class'. Role suffixes
+        # without a matching class entry (or with empty comment) are simply
+        # omitted; the template renders those badges without a popover.
+        all_role_suffixes = sorted({
+            r for g in grouped_chars.values() for r in g['role_suffixes']
+        })
+        role_definitions = self._fetch_class_definitions(all_role_suffixes)
+        for g in grouped_chars.values():
+            g['role_suffix_details'] = {
+                r: role_definitions[r]
+                for r in g['role_suffixes']
+                if r in role_definitions
+            }
+
         grouped_main_characters = [g for g in grouped_chars.values() if g['is_main']]
         grouped_other_characters = [g for g in grouped_chars.values() if not g['is_main']]
 
@@ -1087,6 +1116,49 @@ class SynthesisViewBuilder:
             'timeline': self.get_timeline_view(case_id),
             'narrative': self.get_narrative_view(case_id)
         }
+
+    def _fetch_class_definitions(self, labels: List[str]) -> Dict[str, str]:
+        """Look up abstract class definitions from OntServe by label.
+
+        Returns {label: rdfs:comment} for each label that matches a class
+        entry in the OntServe `ontology_entities` table with a non-empty
+        comment. Labels without a matching class (or with empty comment)
+        are omitted; callers should treat absence as "no definition
+        available, render the badge without a popover."
+
+        Used by:
+          - get_narrative_view: role-suffix labels (e.g. "Engineer in
+            Responsible Charge") to pull proeth-core role-class definitions
+            for the role-badge popovers.
+          - get_provisions_view: 9-type chip labels (Obligation, Action,
+            State, Principle, Role, Resource, Capability, Event,
+            Constraint) to pull the proeth-core class definitions for the
+            type-chip popovers.
+
+        Single connection, single query per call. Per-instance caching is
+        intentionally omitted because each view-builder method is typically
+        invoked once per request; if that changes, add a dict cache keyed
+        by frozenset(labels).
+        """
+        if not labels:
+            return {}
+        import psycopg2
+        from app.services.ontserve_config import get_ontserve_db_config
+        conn = psycopg2.connect(**get_ontserve_db_config())
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """SELECT label, comment
+                       FROM ontology_entities
+                       WHERE entity_type = 'class'
+                         AND comment IS NOT NULL
+                         AND comment <> ''
+                         AND label = ANY(%s)""",
+                    (list(labels),),
+                )
+                return {row[0]: row[1] for row in cur.fetchall()}
+        finally:
+            conn.close()
 
     @staticmethod
     def _repair_paragraphs(text: str) -> str:
