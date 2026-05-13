@@ -35,14 +35,14 @@
                     <details class="small">
                       <summary class="text-muted">Button not working? Paste this code into Prolific instead.</summary>
                       <div class="mt-2 d-flex align-items-center gap-2">
-                        <code class="fs-5 px-3 py-2 bg-white border rounded">{{ completion_code }}</code>
+                        <code class="fs-5 px-3 py-2 bg-white border rounded">{{ prolific_completion_code }}</code>
                         <button type="button" class="btn btn-sm btn-outline-primary"
-                                onclick="navigator.clipboard.writeText('{{ completion_code }}'); this.innerHTML='<i class=&quot;bi bi-check2&quot;></i> Copied';">
+                                onclick="navigator.clipboard.writeText('{{ prolific_completion_code }}'); this.innerHTML='<i class=&quot;bi bi-check2&quot;></i> Copied';">
                           <i class="bi bi-clipboard me-1"></i>Copy code
                         </button>
                       </div>
                       <p class="text-muted small mb-0 mt-2">
-                        Paste this code into Prolific within 14 days for payment to be processed.
+                        Paste this code into Prolific to receive payment.
                       </p>
                     </details>
                   </div>
@@ -85,10 +85,10 @@
                   {% endif %}
                   {% endif %}
 
-                  {# The per-session completion_code is the same code shown in
-                     the redirect button URL and the paste fallback above; no
-                     separate "Reference:" line needed since the code is no
-                     longer distinct from the Prolific cc value. #}
+                  {# Per-session completion_code is retained as an audit
+                     reference on validation_sessions and surfaced below
+                     under "Participant code"; it is not the Prolific cc
+                     and is not the code participants paste into Prolific. #}
 
                 {% elif completion_code %}
                 {# Drexel channel: per-session code as confirmation reference.

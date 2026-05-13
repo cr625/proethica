@@ -933,26 +933,23 @@ def demographics():
 def complete():
     """Study completion page.
 
-    For Drexel-channel participants: shows the per-session completion_code as
-    a small confirmation reference.
+    For Drexel-channel participants: shows the per-session completion_code
+    as a small confirmation reference.
 
     For Prolific-channel participants: shows a "Return to Prolific" button
-    (auto-redirect to Prolific's submissions/complete URL with the per-session
-    completion_code as the cc parameter) plus the same code as a paste
-    fallback. Prolific records the code under "Completion code entered" in its
-    demographic export; the analyst uses that column as the merge key to link
-    Prolific platform-level demographics to ProEthica session responses (IRB
-    Protocol v8 §7 revision pending; per-session codes replace the prior
-    single-fixed-code design 2026-05-11).
+    that redirects to Prolific's submissions/complete URL with the value
+    of PROLIFIC_COMPLETION_CODE_SUCCESS as the cc parameter. Prolific
+    verifies cc against the single completion-path code configured in the
+    study; sending anything else fails verification and the participant is
+    not credited. The same value also appears in the manual-paste fallback
+    so the participant has a recovery path if the redirect button fails.
 
-    The PROLIFIC_COMPLETION_CODE_SUCCESS env var is retained as the
-    "Prolific is configured for this deployment" sentinel; its *value* is
-    no longer used as the cc. Presence (set to anything) means the Prolific
-    study record exists and the redirect button should be shown.
+    The per-session completion_code remains on validation_sessions as an
+    audit reference and is shown to Drexel-channel participants and in the
+    configuration-issue notice; it is not sent to Prolific.
 
-    If the env var is unset (e.g., before the Prolific account exists), the
-    page degrades to manual paste of the per-session code only, with a
-    dev-only banner noting the missing configuration.
+    If the env var is unset, the page degrades to a configuration-issue
+    notice instructing the participant to contact the research team.
     """
     code = get_participant_code()
     val_session = load_session(code) if code else None
@@ -963,16 +960,17 @@ def complete():
         and val_session.recruitment_source in ('prolific_engineering_trained', 'preview')
     )
 
-    prolific_configured = bool(os.environ.get('PROLIFIC_COMPLETION_CODE_SUCCESS', '').strip())
+    prolific_completion_code = os.environ.get('PROLIFIC_COMPLETION_CODE_SUCCESS', '').strip()
     prolific_return_url = (
-        f"{PROLIFIC_COMPLETION_URL_BASE}?cc={completion_code}"
-        if prolific_configured and completion_code else None
+        f"{PROLIFIC_COMPLETION_URL_BASE}?cc={prolific_completion_code}"
+        if prolific_completion_code and completion_code else None
     )
 
     return render_template('validation_study/complete.html',
                            participant_code=code,
                            completion_code=completion_code,
                            is_prolific=is_prolific,
+                           prolific_completion_code=prolific_completion_code,
                            prolific_return_url=prolific_return_url)
 
 
