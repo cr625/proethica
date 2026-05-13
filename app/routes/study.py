@@ -266,6 +266,22 @@ def index():
     """
     capture_prolific_params()
 
+    # Stale-cookie guard. If a Prolific entry URL just arrived but the
+    # cookied participant_code points at a session that does not belong
+    # to this Prolific identity (a prior preview session, a different
+    # participant on a shared browser, or any unrelated leftover), clear
+    # the cookied code so the consent screen renders for the new
+    # arrival. Same-PID resume is handled separately in enroll() via the
+    # prolific_pid_hash duplicate-detection branch.
+    stashed = get_stashed_prolific()
+    if stashed:
+        cookied_code = session.get('participant_code')
+        if cookied_code:
+            cookied_session = load_session(cookied_code)
+            arriving_hash = hash_prolific_pid(stashed['prolific_pid'])
+            if cookied_session is None or cookied_session.prolific_pid_hash != arriving_hash:
+                session.pop('participant_code', None)
+
     code = get_participant_code()
 
     is_prolific = get_stashed_prolific() is not None
