@@ -179,23 +179,39 @@
     .char-mention {
         text-decoration: underline;
         text-decoration-style: dotted;
-        text-decoration-color: #198754;
+        text-decoration-color: #64748b;
         text-underline-offset: 2px;
         cursor: help;
         color: inherit;
     }
     .char-mention:hover,
     .char-mention:focus {
-        color: #198754;
+        color: #475569;
         text-decoration-style: solid;
         outline: none;
     }
-    /* Per-view accent override: char-mention inherits the active view's
-       color so the underline matches the surrounding accent. Applied by
-       parent pane id; the base rules above stay green for Narrative. */
-    #timeline-pane .char-mention { text-decoration-color: #20c997; }
-    #timeline-pane .char-mention:hover,
-    #timeline-pane .char-mention:focus { color: #0c8268; }
+    /* Provision-code badges in the Conclusions view: hoverable, popover
+       carries the NSPE provision text. Cursor signals the affordance. */
+    .provision-badge {
+        cursor: help;
+    }
+    .provision-badge:focus {
+        outline: 2px solid #93c5fd;
+        outline-offset: 1px;
+    }
+    /* Popover title row: slim, label-style header that reads as a
+       category tag rather than a prominent heading. The data-bs-title
+       value identifies the kind of resolution (Role in the case vs.
+       Role in this event). */
+    .popover-header {
+        font-size: 0.7rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        padding: 0.3rem 0.75rem;
+        background-color: #f1f5f9;
+        color: #64748b;
+    }
     /* Two-tier instructional voice hierarchy within each view.
        Segue card is the loud global voice (top stripe, bold lead).
        Below it sits the prompt-text (per-card "about this view")
@@ -379,19 +395,6 @@
         flex-wrap: wrap;
         gap: 0.5rem;
     }
-    /* Soft engagement nudge: visible rating-count reminder injected next to
-       the per-view Next button. Shows when fewer than 3 items are rated;
-       does not block the click. */
-    .view-footer-reminder {
-        font-size: 0.875rem;
-        color: #b45309;  /* amber-700 */
-        background: #fef3c7;  /* amber-100 */
-        border: 1px solid #fcd34d;  /* amber-300 */
-        padding: 0.25rem 0.6rem;
-        border-radius: 4px;
-        margin: 0 auto;
-    }
-    .view-footer-reminder[hidden] { display: none; }
     .tab-rating-star { font-size: 0.95em; transition: color 0.15s ease; }
     .likert-toggle { cursor: pointer; user-select: none; }
     .likert-toggle:hover { background-color: #e9ecef; }
@@ -418,21 +421,17 @@
     #study-timeline .tl-compact-node:hover { background: #f1f5f9; border-color: #e2e8f0; }
     #study-timeline .tl-compact-icon { position: absolute; left: -24px; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; background: #fff; border-radius: 50%; z-index: 1; color: #858796; }
     #study-timeline .tl-compact-node::after { content: ''; position: absolute; left: -12px; top: 50%; transform: translateY(-50%); width: 12px; height: 1px; background: #e2e8f0; }
-    #study-timeline .tl-compact-node.tl-action .tl-compact-icon { color: #0dcaf0; }
-    #study-timeline .tl-compact-node.tl-event .tl-compact-icon { color: #dc3545; }
+    #study-timeline .tl-compact-node.tl-action .tl-compact-icon { color: #0d6efd; }
+    #study-timeline .tl-compact-node.tl-event .tl-compact-icon { color: #6f42c1; }
     #study-timeline .tl-compact-seq { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; background: #0d6efd; color: #fff; font-size: 0.6rem; font-weight: 600; flex-shrink: 0; }
-    #study-timeline .tl-compact-node.tl-action .tl-compact-seq { background: #0dcaf0; }
-    #study-timeline .tl-compact-node.tl-event .tl-compact-seq { background: #dc3545; }
+    #study-timeline .tl-compact-node.tl-action .tl-compact-seq { background: #0d6efd; }
+    #study-timeline .tl-compact-node.tl-event .tl-compact-seq { background: #6f42c1; }
     #study-timeline .tl-compact-node { flex-wrap: wrap; row-gap: 2px; }
     #study-timeline .tl-compact-label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     #study-timeline .tl-compact-label strong { font-size: 0.82rem; }
     #study-timeline .tl-compact-marker { flex-basis: 100%; margin-left: 28px; font-size: 0.7rem; line-height: 1.35; color: #6c757d; white-space: normal; }
     #study-timeline .tl-has-expand { cursor: pointer; }
     #study-timeline .tl-compact-agent { flex-shrink: 0; font-size: 0.72rem; }
-    #study-timeline .tl-compact-activation { flex-shrink: 0; display: inline-flex; align-items: center; gap: 2px; font-size: 0.72rem; font-weight: 600; padding: 1px 6px; border-radius: 10px; border: 1px solid; white-space: nowrap; }
-    #study-timeline .tl-compact-activation.tl-fulfills { color: #146c43; background: #f0f9f4; border-color: #a3d9b8; }
-    #study-timeline .tl-compact-activation.tl-violates { color: #b02a37; background: #fdf3f4; border-color: #f1a9b0; }
-    #study-timeline .tl-compact-activation.tl-raises   { color: #8a6100; background: #fff8e1; border-color: #f0d97a; }
     #study-timeline .tl-compact-expanded { background: #fffdf5; border-color: #f0e6c8; }
     #study-timeline .tl-dp-collapse { margin-left: 30px; margin-bottom: 4px; }
     #study-timeline .tl-obl-nest { padding: 6px 10px 6px 12px; margin-bottom: 4px; border-radius: 4px; border-left: 3px solid; font-size: 0.78rem; }
@@ -513,7 +512,7 @@
     .qc-sub-type-chip.qc-type-counterfactual    { background: #fff3cd; color: #664d03; }
     /* Decisions progressive disclosure */
     .dp-card { margin-bottom: 0.5rem; }
-    .dp-header { cursor: pointer; padding: 0.5rem 0.75rem; border-radius: 4px; border: 1px solid #dee2e6; transition: background-color 0.15s ease; display: flex; align-items: center; gap: 0.5rem; }
+    .dp-header { cursor: pointer; padding: 0.5rem 0.75rem; border-radius: 4px; border: 1px solid #dee2e6; transition: background-color 0.15s ease; display: flex; align-items: flex-start; gap: 0.5rem; }
     .dp-header:hover { background-color: #f8f9fa; border-color: #ced4da; }
     .dp-chevron { transition: transform 0.2s ease; font-size: 0.8rem; }
     .dp-header[aria-expanded="true"] .dp-chevron { transform: rotate(90deg); }
@@ -749,7 +748,7 @@
                                     <i class="bi bi-chevron-up instruction-chevron"></i>
                                 </button>
                                 <div class="collapse show" id="instr-narrative">
-                                    <div class="instruction-body">Characters and ethical tensions, presented with an opening context. The case&rsquo;s ethical questions arise from the responsibilities each role carries; this view begins with the people involved and what is at stake. <em>Rate how well this kind of view would support a reader&rsquo;s understanding of the case, not whether every detail has been absorbed.</em></div>
+                                    <div class="instruction-body">Characters and ethical tensions, presented with an opening context. The case&rsquo;s ethical questions arise from the responsibilities each role carries. An <strong>ethical tension</strong> appears when two obligations both have a legitimate claim on the professional, and honoring one would mean falling short on the other. This view begins with the people involved and what is at stake.</div>
                                 </div>
                             </div>
 
@@ -781,7 +780,7 @@
                                     <span class="entity-badge badge bg-warning text-dark" title="{{ t.entity2_label }} ({{ t.entity2_type }})">{{ t.entity2_label|truncate(60) }}</span>
                                     {% if linked_main_shorts %}
                                     <span class="ms-auto small text-muted" style="font-size: 0.78rem;">
-                                        <span class="me-1">Also:</span>
+                                        <span class="me-1">Also involves:</span>
                                         {% for s in linked_main_shorts %}<span class="badge bg-info-subtle text-info-emphasis border me-1">{{ s }}</span>{% endfor %}
                                     </span>
                                     {% endif %}
@@ -809,7 +808,7 @@
 
                             {% if main_chars %}
                             <h6><i class="bi bi-people me-1"></i>Main characters ({{ main_chars|length }})</h6>
-                            <p class="section-helper">Named in the Opening Context above. Each card lists the roles the person holds in the case and the tensions those roles produce; click <em>Show all tensions</em> for the full list.</p>
+                            <p class="section-helper">Named in the Opening Context above. Each card shows the roles a person holds and the tensions those roles raise for them. A single person may carry several roles in the case, and a tension between obligations can implicate more than one person at once. Click <em>Show all tensions</em> for the full list.</p>
                             <div class="mb-4">
                                 {% set TOP_N = 2 %}
                                 {% for char in main_chars %}
@@ -820,17 +819,21 @@
                                         <strong>
                                             <a class="char-mention" tabindex="0"
                                                data-bs-toggle="popover" data-bs-trigger="focus hover"
+                                               data-bs-title="Role in the case"
                                                data-bs-content="{{ char.professional_position|escape if char.professional_position else char.short_name|escape }}">{{ char.short_name }}</a>
                                         </strong>
                                         {% if char.role_suffixes %}
                                         <span class="small text-muted">
-                                            Roles in this case:
-                                            {% for r in char.role_suffixes %}<span class="badge bg-light text-secondary border me-1">{{ r }}</span>{% endfor %}
+                                            Roles in this case:{% if char.role_suffix_details %} <span class="fst-italic" style="font-size: 0.75rem;">hover for definitions</span>{% endif %}
+                                            {% for r in char.role_suffixes %}{% set _def = (char.role_suffix_details or {}).get(r) %}{% if _def %}<span class="role-badge badge bg-light text-secondary border me-1"
+                                                  data-bs-toggle="popover" data-bs-trigger="focus hover"
+                                                  data-bs-title="Role definition"
+                                                  data-bs-content="{{ _def|e }}"
+                                                  tabindex="0"
+                                                  role="button"
+                                                  style="cursor: help;">{{ r }}</span>{% else %}<span class="badge bg-light text-secondary border me-1">{{ r }}</span>{% endif %}{% endfor %}
                                         </span>
                                         {% endif %}
-                                        <span class="ms-auto small text-muted">
-                                            {% if char.tensions %}{{ char.tensions|length }} tension{{ '' if char.tensions|length == 1 else 's' }}{% else %}no tensions identified{% endif %}
-                                        </span>
                                     </div>
                                     <div class="p-3 small">
                                         {% if char.ethical_stance %}
@@ -887,9 +890,6 @@
                                         {% if char.role_suffixes %}
                                         <span class="text-muted d-none d-md-inline">{{ char.role_suffixes|join(', ')|truncate(80) }}</span>
                                         {% endif %}
-                                        {% if char.tensions %}
-                                        <span class="ms-auto text-muted">{{ char.tensions|length }} tension{{ '' if char.tensions|length == 1 else 's' }}</span>
-                                        {% endif %}
                                     </div>
                                     <div class="collapse" id="{{ char_id }}">
                                         <div class="pt-2 ps-4 small">
@@ -943,12 +943,11 @@
                 <div class="tab-pane fade" id="timeline-pane">
                     <div class="segue-card segue-timeline">
                         <div class="segue-caption">View 2 of 5: Timeline</div>
-                        <strong>Now place the story on a timeline.</strong> The case unfolds as a sequence of <span style="color: #0dcaf0; font-weight: 600;">Actions</span> chosen by people in the case and <span style="color: #dc3545; font-weight: 600;">Events</span> that happened to them. Click any entry to read what happened and which obligations it puts at stake, fulfills, or violates.
+                        <strong>Now place the story on a timeline.</strong> The case unfolds as a sequence of <span style="color: #0d6efd; font-weight: 600;">Actions</span> chosen by people in the case and <span style="color: #6f42c1; font-weight: 600;">Events</span> that happened to them. Click any entry to read what happened and which obligations it puts at stake, fulfills, or violates.
                     </div>
                     <div class="view-card card">
                         <div class="card-header">
                             <span>Timeline View</span>
-                            <span class="badge" style="background: #20c997;">{{ views.timeline.count }} entries</span>
                         </div>
                         <div class="card-body view-content">
                             <div class="instruction-box">
@@ -957,24 +956,21 @@
                                     <i class="bi bi-chevron-up instruction-chevron"></i>
                                 </button>
                                 <div class="collapse show" id="instr-timeline">
-                                    <div class="instruction-body">An <strong style="color: #0dcaf0;">Action</strong> is a deliberate act by a person in the case (e.g., &ldquo;submitted the report&rdquo;). An <strong style="color: #dc3545;">Event</strong> is an occurrence that no person in the case chose to bring about (e.g., &ldquo;regulator updated guidance&rdquo;). Each Action can place an ethical obligation <strong>at stake</strong>&nbsp;<i class="bi bi-exclamation-triangle-fill" style="color: #d6a405;" aria-hidden="true"></i>; a later Action can then <strong>fulfill</strong>&nbsp;<i class="bi bi-check-circle-fill" style="color: #198754;" aria-hidden="true"></i> or <strong>violate</strong>&nbsp;<i class="bi bi-x-circle-fill" style="color: #dc3545;" aria-hidden="true"></i> it. The timeline shows when each obligation was placed at stake, fulfilled, or violated. (The rating below refers to an obligation placed at stake as having &ldquo;become active.&rdquo;) <em>Rate how well this kind of view would support a reader&rsquo;s understanding of the case, not whether every detail has been absorbed.</em></div>
+                                    <div class="instruction-body">Each entry is either an <strong style="color: #0d6efd;">Action</strong> (a deliberate act by a person in the case, e.g., &ldquo;submitted the report&rdquo;) or an <strong style="color: #6f42c1;">Event</strong> (something that happened that no person chose to bring about, e.g., &ldquo;regulator updated guidance&rdquo;). An Action can place an ethical obligation <strong>at stake</strong>. A later Action can then <strong>fulfill</strong> or <strong>violate</strong> that obligation.</div>
                                 </div>
                             </div>
 
                             {% if views.timeline.entries %}
                             <div class="d-flex flex-wrap gap-2 mb-2 small">
                                 <span class="badge bg-light text-dark border"><i class="bi bi-list-ol me-1"></i>{{ views.timeline.count }} sequenced</span>
-                                <span class="badge bg-light text-dark border"><i class="bi bi-person-walking me-1" style="color: #0dcaf0;"></i>{{ views.timeline.action_count }} actions</span>
-                                <span class="badge bg-light text-dark border"><i class="bi bi-lightning me-1" style="color: #dc3545;"></i>{{ views.timeline.event_count }} events</span>
+                                <span class="badge bg-light text-dark border"><i class="bi bi-person-walking me-1" style="color: #0d6efd;"></i>{{ views.timeline.action_count }} actions</span>
+                                <span class="badge bg-light text-dark border"><i class="bi bi-lightning me-1" style="color: #6f42c1;"></i>{{ views.timeline.event_count }} events</span>
                             </div>
-                            <p class="section-helper mb-3" style="font-size: 0.82rem;">
-                                Numbers on each entry show how many obligations the action placed
-                                <span class="badge bg-warning text-dark"><i class="bi bi-exclamation-triangle-fill me-1"></i>at stake</span>,
-                                <span class="badge bg-success"><i class="bi bi-check-circle-fill me-1"></i>fulfilled</span>, or
-                                <span class="badge bg-danger"><i class="bi bi-x-circle-fill me-1"></i>violated</span>
-                                at that moment.
-                            </p>
 
+                            <h5 class="mt-4 mb-3 pb-2 border-bottom d-flex align-items-center" style="color: #334155; font-weight: 600;">
+                                <i class="bi bi-clock-history me-2" style="font-size: 1.1rem;"></i>
+                                Case timeline
+                            </h5>
                             <div id="study-timeline" class="tl-compact">
                                 {% for entry in views.timeline.entries %}
                                 {% set is_action = (entry.kind == 'action') %}
@@ -996,26 +992,12 @@
                                             {% if _agent_role %}
                                             <a class="char-mention" tabindex="0"
                                                data-bs-toggle="popover" data-bs-trigger="focus hover"
+                                               data-bs-title="Role in this event"
                                                data-bs-content="{{ _agent_role|escape }}">{{ _agent_short }}</a>
                                             {% else %}
                                             <span>{{ _agent_short }}</span>
                                             {% endif %}
                                         </span>
-                                    {% endif %}
-                                    {% if entry.fulfills_obligations %}
-                                    <span class="tl-compact-activation tl-fulfills">
-                                        <i class="bi bi-check-circle-fill"></i>{{ entry.fulfills_obligations|length }}
-                                    </span>
-                                    {% endif %}
-                                    {% if entry.violates_obligations %}
-                                    <span class="tl-compact-activation tl-violates">
-                                        <i class="bi bi-x-circle-fill"></i>{{ entry.violates_obligations|length }}
-                                    </span>
-                                    {% endif %}
-                                    {% if entry.raises_obligations %}
-                                    <span class="tl-compact-activation tl-raises">
-                                        <i class="bi bi-exclamation-triangle-fill"></i>{{ entry.raises_obligations|length }}
-                                    </span>
                                     {% endif %}
                                     {% if has_expand %}
                                     <i class="bi bi-chevron-right tl-entry-chevron" style="font-size: 0.7rem;"></i>
@@ -1090,14 +1072,9 @@
                         <div class="segue-caption">View 3 of 5: Conclusions</div>
                         <strong>The sequence raises ethical questions.</strong> This view pairs each board question with its conclusion. A group of analytical questions under each one raises additional angles the Board did not directly answer.
                     </div>
-                    {% set ns_qc = namespace(total_analytical=(views.qc.cross_cutting|length)) %}
-                    {% for bq in views.qc.board_questions %}
-                        {% set ns_qc.total_analytical = ns_qc.total_analytical + (views.qc.analytical_by_parent.get(bq.number, [])|length) + (views.qc.theory_by_parent.get(bq.number, [])|length) %}
-                    {% endfor %}
                     <div class="view-card card">
                         <div class="card-header">
                             <span>Conclusions</span>
-                            <span class="badge bg-purple" style="background: #6f42c1;">{{ views.qc.board_questions|length }} board &middot; {{ ns_qc.total_analytical }} analytical</span>
                         </div>
                         <div class="card-body view-content">
                             <div class="instruction-box">
@@ -1106,7 +1083,7 @@
                                     <i class="bi bi-chevron-up instruction-chevron"></i>
                                 </button>
                                 <div class="collapse show" id="instr-qc">
-                                    <div class="instruction-body">A <strong>board question</strong> is one the Board of Ethical Review (BER) explicitly addressed; each is paired with a <strong>conclusion</strong> stating the Board&rsquo;s ruling. <strong>Analytical questions</strong> raise additional angles the case implies but the Board did not directly answer. Reading every analytical question is not required. <em>Rate how well this kind of view would support a reader&rsquo;s understanding of the case, not whether every detail has been absorbed.</em></div>
+                                    <div class="instruction-body">A <strong>board question</strong> is one the Board of Ethical Review (BER) explicitly addressed. Each is paired with a <strong>conclusion</strong> stating the Board&rsquo;s ruling. <strong>Analytical questions</strong> raise additional angles the case implies but the Board did not directly answer. They give a future case reviewer other angles to consider when applying this case as precedent.</div>
                                 </div>
                             </div>
 
@@ -1122,9 +1099,6 @@
                                     <div class="card-header d-flex align-items-center py-2">
                                         <span class="badge bg-primary me-2">Board</span>
                                         <strong class="flex-grow-1">Board question {{ bq_num }}</strong>
-                                        {% if all_subs %}
-                                        <span class="badge bg-secondary ms-1">{{ all_subs|length }} analytical</span>
-                                        {% endif %}
                                     </div>
                                     <div class="card-body py-2">
                                         <p class="mb-2">{{ bq.question_text }}</p>
@@ -1148,7 +1122,14 @@
                                                     {% if c.cited_provisions %}
                                                     <div class="mt-1">
                                                         {% for prov in c.cited_provisions %}
-                                                        <span class="badge bg-primary" style="font-size: 0.6rem;">{{ prov }}</span>
+                                                        {% set prov_text = views.qc.provision_text_lookup.get(prov, '') %}
+                                                        <span class="badge bg-primary provision-badge"
+                                                              style="font-size: 0.6rem;"
+                                                              tabindex="0"
+                                                              data-bs-toggle="popover"
+                                                              data-bs-trigger="focus hover"
+                                                              data-bs-title="NSPE Code {{ prov }}"
+                                                              data-bs-content="{{ prov_text|escape if prov_text else 'Provision text not available for this case.' }}">{{ prov }}</span>
                                                         {% endfor %}
                                                     </div>
                                                     {% endif %}
@@ -1265,7 +1246,6 @@
                     <div class="view-card card">
                         <div class="card-header">
                             <span>Decisions View</span>
-                            <span class="badge" style="background: #fd7e14;">{{ views.decisions.count }} decision points</span>
                         </div>
                         <div class="card-body view-content">
                             <div class="instruction-box">
@@ -1274,7 +1254,7 @@
                                     <i class="bi bi-chevron-up instruction-chevron"></i>
                                 </button>
                                 <div class="collapse show" id="instr-decisions">
-                                    <div class="instruction-body">A <strong>decision point</strong> is a moment at which the professional could have chosen otherwise. Each decision card shows the full question, the <strong>options</strong> considered (the Board&rsquo;s choice is marked with a green check <i class="bi bi-check-circle-fill" style="color: #198754;" aria-hidden="true"></i> and a <span class="badge bg-success" style="font-size: 0.7rem;">Board&rsquo;s choice</span> label), and the <strong>argument structure</strong> for and against the choice. The argument structure includes <strong>warrants</strong> <i class="bi bi-check-circle" style="color: #198754;" aria-hidden="true"></i> that support the choice, <strong>rebuttals</strong> <i class="bi bi-x-circle" style="color: #dc3545;" aria-hidden="true"></i> that challenge it, and <strong>grounds</strong> <i class="bi bi-file-earmark-text" style="color: #0d6efd;" aria-hidden="true"></i> drawn from the case facts. <em>Rate how well this kind of view would support a reader&rsquo;s understanding of the case, not whether every detail has been absorbed.</em></div>
+                                    <div class="instruction-body">A <strong>decision point</strong> is a moment at which the professional could have chosen otherwise. Each decision card shows the full question, the <strong>options</strong> considered (with the Board&rsquo;s choice marked), and the <strong>argument structure</strong> for and against the choice. The argument structure includes <strong>warrants</strong> that support the choice, <strong>rebuttals</strong> that challenge it, and <strong>grounds</strong> drawn from the case facts. Together these give a future case reviewer alternatives to weigh and reasoning to test when applying this case as precedent.</div>
                                 </div>
                             </div>
                             {# Decision card macro: same body used by the top-5 default
@@ -1284,22 +1264,15 @@
                             {% macro decision_card(dec, dp_id, ordinal) %}
                             <div class="dp-card">
                                 {# Collapsed header #}
+                                {% set opts = dec.options or dec.alternatives or [] %}
                                 <div class="dp-header" data-bs-toggle="collapse"
                                      data-bs-target="#dp-body-{{ dp_id }}" role="button"
                                      aria-expanded="false" aria-controls="dp-body-{{ dp_id }}">
                                     <i class="bi bi-chevron-right dp-chevron"></i>
                                     <span class="badge bg-primary" style="font-size: 0.7rem;">{{ dec.focus_id or 'DP' ~ ordinal }}</span>
-                                    <span class="small flex-grow-1" style="min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                        {{ (dec.description or dec.decision_question)|truncate(80) }}
+                                    <span class="small flex-grow-1" style="min-width: 0;">
+                                        {{ dec.description or dec.decision_question }}
                                     </span>
-                                    {% set opts = dec.options or dec.alternatives or [] %}
-                                    {% if opts %}
-                                    <span class="badge bg-secondary" style="font-size: 0.65rem;">{{ opts|length }} option{{ 's' if opts|length != 1 }}</span>
-                                    {% endif %}
-                                    {% set has_board_choice = opts|selectattr('is_board_choice', 'defined')|selectattr('is_board_choice')|list|length > 0 if opts else false %}
-                                    {% if has_board_choice %}
-                                    <i class="bi bi-check-circle-fill text-success" title="Board choice indicated"></i>
-                                    {% endif %}
                                 </div>
 
                                 {# Expanded body #}
@@ -1409,7 +1382,6 @@
                                 <i class="bi bi-chevron-right me-1 narrative-section-chevron"></i>
                                 <strong>Show all {{ views.decisions.decisions|length }} decision points</strong>
                             </a>
-                            <p class="section-helper" style="margin-top: 0.25rem;">Reading every decision is not required. The rating below evaluates the quality of this kind of view, not exhaustive recall.</p>
                             <div class="collapse" id="decisions-rest-section">
                                 {% for dec in rest_decs %}
                                     {{ decision_card(dec, 'rest-' ~ loop.index, TOP_N + loop.index) }}
@@ -1434,7 +1406,7 @@
                 <div class="tab-pane fade" id="provisions-pane">
                     <div class="segue-card segue-provisions">
                         <div class="segue-caption">View 5 of 5: Provisions</div>
-                        <strong>Finally, anchor the analysis in the NSPE Code of Ethics.</strong> This view shows the code sections that apply to the case and the case elements each section touches.
+                        <strong>Finally, anchor the analysis in the NSPE Code of Ethics.</strong> This view shows the <strong>provisions</strong> (the code sections) that apply to the case and the case elements each provision touches.
                     </div>
                     <div class="view-card card">
                         <div class="card-header">
@@ -1448,7 +1420,7 @@
                                     <i class="bi bi-chevron-up instruction-chevron"></i>
                                 </button>
                                 <div class="collapse show" id="instr-provisions">
-                                    <div class="instruction-body">Each <strong>provision</strong> below is a section of the NSPE Code of Ethics that applies to this case (e.g., I.1, II.2.a). Beneath each provision are three case elements that illustrate the connection. Each element appears as a color-coded type chip (Obligation, Action, State, Principle, Role, Resource, Capability, Event, or Constraint) alongside the element label and a short reasoning sentence. Click <em>Show all mappings</em> for the complete list. <em>Rate how well this kind of view would support a reader&rsquo;s understanding of the case, not whether every detail has been absorbed.</em></div>
+                                    <div class="instruction-body">Each <strong>provision</strong> below is a section of the NSPE Code of Ethics that applies to this case (e.g., I.1, II.2.a). Beneath each provision are three case elements that illustrate the connection. Each element appears alongside a color-coded <strong>type chip</strong> identifying what kind of case element it is. Hover a type chip for its definition. Click <em>Show all mappings</em> for the complete list.</div>
                                 </div>
                             </div>
                             {% for prov in views.provisions.provisions %}
@@ -1466,8 +1438,18 @@
                                     <div class="provision-mappings-label">How this applies in the case{% if prov.applies_to|length > prov.top_mappings|length %} <span class="text-muted">(showing {{ prov.top_mappings|length }} of {{ prov.applies_to|length }})</span>{% endif %}</div>
                                     {% for entity in prov.top_mappings %}
                                     {% set etype = (entity.entity_type or 'entity')|lower %}
+                                    {% set _type_def = (views.provisions.type_definitions or {}).get(etype|title) %}
                                     <div class="provision-mapping-row">
+                                        {% if _type_def %}
+                                        <span class="badge onto-type-{{ etype }} provision-mapping-type provision-type-chip"
+                                              data-bs-toggle="popover" data-bs-trigger="focus hover"
+                                              data-bs-title="{{ etype|title }}"
+                                              data-bs-content="{{ _type_def|e }}"
+                                              tabindex="0" role="button"
+                                              style="cursor: help;">{{ etype|title }}</span>
+                                        {% else %}
                                         <span class="badge onto-type-{{ etype }} provision-mapping-type">{{ etype|title }}</span>
+                                        {% endif %}
                                         <div class="provision-mapping-content">
                                             <div class="provision-mapping-label">{{ entity.entity_label }}</div>
                                             {% if entity.reasoning %}
@@ -1497,9 +1479,19 @@
                                         {% for etype in type_order %}
                                         {% if etype in type_groups.data %}
                                         {% set entities = type_groups.data[etype] %}
+                                        {% set _type_def_g = (views.provisions.type_definitions or {}).get(etype|title) %}
                                         <div class="provision-all-group">
                                             <div class="provision-all-group-header">
+                                                {% if _type_def_g %}
+                                                <span class="badge onto-type-{{ etype }} provision-type-chip"
+                                                      data-bs-toggle="popover" data-bs-trigger="focus hover"
+                                                      data-bs-title="{{ etype|title }}"
+                                                      data-bs-content="{{ _type_def_g|e }}"
+                                                      tabindex="0" role="button"
+                                                      style="cursor: help;">{{ etype|title }}</span>
+                                                {% else %}
                                                 <span class="badge onto-type-{{ etype }}">{{ etype|title }}</span>
+                                                {% endif %}
                                                 <span class="text-muted small ms-1">({{ entities|length }})</span>
                                             </div>
                                             <ul class="provision-all-list">
@@ -1581,19 +1573,19 @@
             <!-- Open reflection prompts (optional) -->
             <div class="card mb-3">
                 <div class="card-header bg-info text-white">
-                    <h5 class="mb-0"><i class="bi bi-chat-text me-2"></i>Open reflections (optional)</h5>
+                    <h5 class="mb-0"><i class="bi bi-chat-text me-2"></i>Open reflections</h5>
                 </div>
                 <div class="card-body">
-                    <p class="text-muted small mb-3">Two open-ended prompts about the views just rated. Both are optional; either or both may be left blank.</p>
+                    <p class="text-muted small mb-3">Two open-ended prompts about the views just rated.</p>
 
                     <div class="mb-3">
-                        <label for="refl_most_useful_view" class="form-label fw-bold">Which view did you find most useful for understanding the case, and why?</label>
-                        <textarea class="form-control" id="refl_most_useful_view" name="refl_most_useful_view" rows="3" placeholder="Optional">{{ existing_eval.refl_most_useful_view if existing_eval and existing_eval.refl_most_useful_view else '' }}</textarea>
+                        <label for="refl_most_useful_view" class="form-label fw-bold">Which view did you find most useful for understanding the case, and why? <span class="fw-normal text-muted ms-1">[Optional]</span></label>
+                        <textarea class="form-control" id="refl_most_useful_view" name="refl_most_useful_view" rows="3">{{ existing_eval.refl_most_useful_view if existing_eval and existing_eval.refl_most_useful_view else '' }}</textarea>
                     </div>
 
                     <div class="mb-3">
-                        <label for="refl_changes" class="form-label fw-bold">What would you change about any of the views to make them more useful?</label>
-                        <textarea class="form-control" id="refl_changes" name="refl_changes" rows="3" placeholder="Optional">{{ existing_eval.refl_changes if existing_eval and existing_eval.refl_changes else '' }}</textarea>
+                        <label for="refl_changes" class="form-label fw-bold">What would you change about any of the views to make them more useful? <span class="fw-normal text-muted ms-1">[Optional]</span></label>
+                        <textarea class="form-control" id="refl_changes" name="refl_changes" rows="3">{{ existing_eval.refl_changes if existing_eval and existing_eval.refl_changes else '' }}</textarea>
                     </div>
                 </div>
             </div>
@@ -1633,8 +1625,8 @@
                     <hr class="my-4">
 
                     <div class="mb-3">
-                        <label for="refl_final" class="form-label fw-bold">After reading the Board&rsquo;s discussion and conclusions, are there aspects of the case the views did not adequately capture?</label>
-                        <textarea class="form-control" id="refl_final" name="refl_final" rows="4" placeholder="Optional">{{ existing_eval.refl_final if existing_eval and existing_eval.refl_final else '' }}</textarea>
+                        <label for="refl_final" class="form-label fw-bold">After reading the Board&rsquo;s discussion and conclusions, are there aspects of the case the views did not adequately capture? <span class="fw-normal text-muted ms-1">[Optional]</span></label>
+                        <textarea class="form-control" id="refl_final" name="refl_final" rows="4">{{ existing_eval.refl_final if existing_eval and existing_eval.refl_final else '' }}</textarea>
                     </div>
                 </div>
                 <div class="card-footer">
@@ -1740,52 +1732,12 @@
     function setTabActiveFill(tabBtn) { /* no-op; kept for hook compatibility */ }
     function clearTabActiveFill(tabBtn) { /* no-op; kept for hook compatibility */ }
 
-    function installViewFooterReminders() {
-        // Inject a soft "X of 3 rated for this view" reminder next to each
-        // per-view Next button. Idempotent: re-running is harmless.
-        VIEW_KEYS.forEach(view => {
-            const paneId = PANE_IDS[view];
-            const pane = document.getElementById(paneId);
-            if (!pane) return;
-            const footer = pane.querySelector('.view-footer-nav');
-            if (!footer || footer.querySelector('.view-footer-reminder')) return;
-            const span = document.createElement('span');
-            span.className = 'view-footer-reminder';
-            span.setAttribute('data-view-reminder', view);
-            span.hidden = true;
-            // Insert before the last child (the Next button) so it appears
-            // between the Back and Next buttons.
-            const lastChild = footer.lastElementChild;
-            if (lastChild) {
-                footer.insertBefore(span, lastChild);
-            } else {
-                footer.appendChild(span);
-            }
-        });
-    }
-
     function refreshStarIndicators() {
         const views = VIEW_KEYS.concat(['overall']);
         views.forEach(view => {
             const paneId = PANE_IDS[view];
             const rated = paneRatedCount(paneId);
             const state = starStateForCount(rated);
-            // Update the per-view footer reminder (skip 'overall', no view tab).
-            if (view !== 'overall') {
-                const reminder = document.querySelector(
-                    `[data-view-reminder="${view}"]`
-                );
-                if (reminder) {
-                    if (rated >= 3) {
-                        reminder.hidden = true;
-                    } else {
-                        reminder.hidden = false;
-                        reminder.textContent =
-                            `You have rated ${rated} of 3 items for this view. ` +
-                            'Scroll up to rate before moving on if you have not yet.';
-                    }
-                }
-            }
 
             // Tab strip star (skip 'overall' which has no tab)
             const tabStar = document.querySelector(`[data-tab-star="${view}"]`);
@@ -2146,6 +2098,23 @@
         document.querySelectorAll('.char-mention[data-bs-toggle="popover"]').forEach(function(el) {
             new bootstrap.Popover(el);
         });
+        // Provision-code badges in the Conclusions view: hover reveals the
+        // NSPE provision text via popover (provision_text_lookup in qc view).
+        document.querySelectorAll('.provision-badge[data-bs-toggle="popover"]').forEach(function(el) {
+            new bootstrap.Popover(el);
+        });
+        // Role badges in the Main characters cards: hover reveals the
+        // per-role professional position (role_suffix_details in narrative).
+        document.querySelectorAll('.role-badge[data-bs-toggle="popover"]').forEach(function(el) {
+            new bootstrap.Popover(el);
+        });
+        // Type chips on the Provisions view (Obligation, Action, etc.):
+        // hover reveals the proeth-core class definition. Both the
+        // per-mapping-row chip and the "Show all mappings" group-header
+        // chip share the .provision-type-chip class.
+        document.querySelectorAll('.provision-type-chip[data-bs-toggle="popover"]').forEach(function(el) {
+            new bootstrap.Popover(el);
+        });
         // When a popover-anchored link is nested inside a collapse-toggle row
         // (Timeline Action entries), a click on the link must not also fire
         // Bootstrap's collapse handler on the parent. Bootstrap binds the
@@ -2217,7 +2186,6 @@
                 });
             }
         });
-        installViewFooterReminders();
         refreshStarIndicators();
 
         // Per-view tab dwell timing. shown.bs.tab fires when a tab becomes

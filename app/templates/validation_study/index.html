@@ -65,27 +65,13 @@
         </div>
       </div>
 
-      <div class="card mt-3">
-        <div class="card-header"><h6 class="mb-0"><i class="bi bi-info-circle me-2"></i>What to expect</h6></div>
-        <div class="card-body small">
-          <p class="mb-2">After you start, 3&ndash;4 ethics cases are assigned. Each case proceeds through four steps (~15 minutes per case):</p>
-          <ul class="small mb-2 ps-3">
-            <li><strong>Facts.</strong> Read the case.</li>
-            <li><strong>Views.</strong> Examine the five analytical views and rate each on a short 1&ndash;7 questionnaire.</li>
-            <li><strong>Reflection.</strong> Three short rating items about the views as a whole, plus two optional open-ended prompts.</li>
-            <li><strong>Wrap-up.</strong> Read the Board&rsquo;s published Discussion and Conclusions.</li>
-          </ul>
-          <p class="mb-0">Two short steps remain after the last case: rank the five views and complete a brief demographic questionnaire.
-          Total time approximately 45 minutes. Sessions may be paused and resumed using the participant code.</p>
-        </div>
-      </div>
     </div>
   </div>
 
 {% elif phase == 'dashboard' %}
 
   {% set is_first_visit = (completed_count == 0) %}
-  {% set is_prolific_participant = (session and session.recruitment_source == 'prolific_engineering_trained') %}
+  {% set is_prolific_participant = (session and session.recruitment_source in ('prolific_engineering_trained', 'preview')) %}
 
   <div class="row mb-4">
     <div class="col-12">
@@ -177,20 +163,17 @@
           <h5 class="mb-0"><i class="bi bi-flag me-2"></i>After your cases</h5>
         </div>
         <div class="card-body">
-          <p class="small text-muted mb-2">
-            One short step remains after the last case:
+          <p class="small mb-2">
+            One short step remains after the last case: rank the five
+            views from most to least useful for understanding cases
+            overall, answer one yes/no question about whether the views
+            surfaced anything you would have missed, and add any open
+            comments.
           </p>
-          <ol class="small mb-2">
-            <li>
-              <strong>Rank the five views</strong> from most to least useful
-              for understanding cases overall, plus a brief yes/no probe and
-              optional open comments.
-            </li>
-          </ol>
           <p class="small text-muted mb-0">
             {% if is_prolific_participant %}
             A completion code is then shown on the final page. Paste it
-            into Prolific to receive your $18.00 payment within 14 days.
+            into Prolific to receive your payment within 14 days.
             {% else %}
             A thank-you screen then confirms your participation has been
             recorded.

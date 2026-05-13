@@ -11,6 +11,7 @@ Builds the five synthesis views evaluated in the IRB-approved study
 """
 
 import json
+import re
 from typing import Dict, List, Optional, Any
 from app.models import db, Document, TemporaryRDFStorage
 from app.models.extraction_prompt import ExtractionPrompt
@@ -90,10 +91,22 @@ class SynthesisViewBuilder:
                 'confidence': prov.match_confidence or 0.0
             })
 
+        # Fetch abstract class definitions for the 9 entity-type chips that
+        # appear next to each mapping (Obligation, Action, ...). Keyed by
+        # exact label match against proeth-core class entries in OntServe.
+        # Labels without a non-empty rdfs:comment are omitted; the template
+        # renders those chips without a popover. The order here matches the
+        # title-case form rendered by `{{ etype|title }}` in the template.
+        type_chip_labels = ['Obligation', 'Action', 'State', 'Principle',
+                            'Role', 'Resource', 'Capability', 'Event',
+                            'Constraint']
+        type_definitions = self._fetch_class_definitions(type_chip_labels)
+
         return {
             'view_type': 'provisions',
             'count': len(formatted),
             'provisions': formatted,
+            'type_definitions': type_definitions,
             'description': 'Code provisions mapped to case elements, showing which sections '
                           'of the professional code apply and how they connect to specific facts.'
         }
@@ -122,6 +135,59 @@ class SynthesisViewBuilder:
         ).filter(
             TemporaryRDFStorage.is_published == True
         ).all()
+
+        # Provision text lookup, keyed by code section (e.g., "II.2.a"), so
+        # the cited-provision badges below can carry hover popovers with
+        # the actual NSPE provision text. Conclusions store citedProvisions
+        # as bare code strings; without this lookup the badges read as
+        # opaque labels. Two sources are merged, in priority order:
+        #   1. Per-case code_provision_reference extractions, which carry
+        #      case-specific provision wording when present.
+        #   2. The canonical GuidelineSection table (the static NSPE Code),
+        #      which fills in any cited provision the per-case extraction
+        #      did not surface. Audit on 2026-05-12 showed 27 of 99 cited
+        #      provisions across the corpus lacked a per-case extraction
+        #      row; the canonical fallback resolves all of them except the
+        #      occasional 'Preamble' citation, which is not in the table.
+        from app.models.guideline_section import GuidelineSection
+        provisions_rows = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            extraction_type='code_provision_reference'
+        ).filter(
+            TemporaryRDFStorage.is_published == True
+        ).all()
+        provision_text_lookup: Dict[str, str] = {}
+        # Canonical NSPE Code sections (leaf rows only; e.g., III.6.a but
+        # not III.6 itself).
+        canonical_rows = GuidelineSection.query.all()
+        for section in canonical_rows:
+            code = (section.section_code or '').strip()
+            text = (section.section_text or '').strip()
+            if code and text:
+                provision_text_lookup[code] = text
+        # Parent-section synthesis. Conclusions sometimes cite a parent
+        # section (e.g., III.6) where the table only stores the leaves
+        # (III.6.a, III.6.b, III.6.c). For each parent code referenced,
+        # concatenate the children's texts so the popover still resolves.
+        children_by_parent: Dict[str, List[str]] = {}
+        for section in canonical_rows:
+            code = (section.section_code or '').strip()
+            if '.' in code:
+                parent = code.rsplit('.', 1)[0]
+                if parent and parent != code:
+                    children_by_parent.setdefault(parent, []).append(
+                        f"{code}: {(section.section_text or '').strip()}"
+                    )
+        for parent, lines in children_by_parent.items():
+            if parent not in provision_text_lookup and lines:
+                provision_text_lookup[parent] = ' '.join(lines)
+        # Per-case extractions take precedence over canonical text when
+        # the case carries case-specific wording.
+        for p in provisions_rows:
+            code = (p.entity_label or '').strip()
+            text = (p.entity_definition or '').strip()
+            if code and text:
+                provision_text_lookup[code] = text
 
         # Build conclusion lookup by question. Each conclusion is added to
         # the FIRST question listed in its answersQuestions array — its
@@ -222,6 +288,7 @@ class SynthesisViewBuilder:
             'analytical_by_parent': analytical_by_parent,
             'theory_by_parent': theory_by_parent,
             'cross_cutting': cross_cutting,
+            'provision_text_lookup': provision_text_lookup,
             'description': 'Ethical questions linked to their conclusions with emergence and '
                           'resolution overlays, showing how the board reached its findings.'
         }
@@ -284,6 +351,7 @@ class SynthesisViewBuilder:
                 decisions.append(dp)
 
         decisions = self._dedupe_decision_points(decisions)
+        decisions = self._reorder_evaluative_decisions(decisions)
 
         return {
             'view_type': 'decisions',
@@ -378,6 +446,42 @@ class SynthesisViewBuilder:
                 kept_tokens.append(tokens)
                 kept_firsts.append(firsts)
         return kept
+
+    # Stable partition that demotes retrospective-evaluative decision questions
+    # so the visible top-five default opens with a forward-looking decision.
+    # Matches "Was <subject> ethical[ly]..." openers: the baseline audit's
+    # narrow EVAL opener ("Was it ethical for X to...") plus the equivalent
+    # active-voice form ("Was Engineer A ethically obligated to..."). The
+    # 1-to-4-word subject bound keeps the match anchored to the question
+    # opener and avoids false positives like "...whether the design was
+    # ethical" later in a sentence. Across the 19-case study pool this
+    # affects 5 DPs in 3 cases (6: 2, 8: 1, 13: 2); the remaining 16 cases
+    # are unchanged.
+    _EVALUATIVE_OPENER = re.compile(
+        r'^\s*was\s+(?:\w+\s+){1,4}ethical(?:ly)?\b',
+        re.IGNORECASE,
+    )
+
+    @classmethod
+    def _reorder_evaluative_decisions(cls, decisions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Stable partition: forward-looking DPs first, evaluative DPs last.
+
+        Preserves relative order within each group, so the only observable
+        change is that a "Was it ethical for X to..." card cannot occupy the
+        top of the visible top-N slice. No DP text is rewritten; presentation
+        change only.
+        """
+        if not decisions:
+            return decisions
+        forward: List[Dict[str, Any]] = []
+        evaluative: List[Dict[str, Any]] = []
+        for d in decisions:
+            question = d.get('decision_question') or d.get('description') or ''
+            if cls._EVALUATIVE_OPENER.match(question):
+                evaluative.append(d)
+            else:
+                forward.append(d)
+        return forward + evaluative
 
     def get_timeline_view(self, case_id: int) -> Dict[str, Any]:
         """Get Timeline view from Step 3 temporal extraction.
@@ -841,11 +945,18 @@ class SynthesisViewBuilder:
             def _wrap(match: 're.Match') -> str:
                 name = match.group(1)
                 ch = short_to_char[name]
-                pos = (ch.get('professional_position') or '').replace('"', '&quot;')[:200]
+                pos_raw = (ch.get('professional_position') or '').strip()
+                if len(pos_raw) > 200:
+                    cut = pos_raw.rfind(' ', 0, 200)
+                    if cut <= 0:
+                        cut = 200
+                    pos_raw = pos_raw[:cut].rstrip(' ,;:.') + '…'
+                pos = pos_raw.replace('"', '&quot;')
                 anchor = 'char-' + name.replace(' ', '-').lower()
                 return (
                     f'<a class="char-mention" href="#{anchor}" '
                     f'data-bs-toggle="popover" data-bs-trigger="focus hover" '
+                    f'data-bs-title="Role in the case" '
                     f'data-bs-content="{pos}" tabindex="0">{name}</a>'
                 )
 
@@ -888,6 +999,7 @@ class SynthesisViewBuilder:
                     'short_name': short_name,
                     'anchor': 'char-' + short_name.replace(' ', '-').lower(),
                     'role_suffixes': [],
+                    'role_suffix_details': {},
                     '_positions': [],
                     '_stances': [],
                     'motivations': [],
@@ -951,6 +1063,22 @@ class SynthesisViewBuilder:
             del g['_positions']
             del g['_stances']
 
+        # Populate role_suffix_details with abstract role-class definitions
+        # (rdfs:comment) from OntServe. Keyed by exact label match against
+        # ontology_entities.label where entity_type='class'. Role suffixes
+        # without a matching class entry (or with empty comment) are simply
+        # omitted; the template renders those badges without a popover.
+        all_role_suffixes = sorted({
+            r for g in grouped_chars.values() for r in g['role_suffixes']
+        })
+        role_definitions = self._fetch_class_definitions(all_role_suffixes)
+        for g in grouped_chars.values():
+            g['role_suffix_details'] = {
+                r: role_definitions[r]
+                for r in g['role_suffixes']
+                if r in role_definitions
+            }
+
         grouped_main_characters = [g for g in grouped_chars.values() if g['is_main']]
         grouped_other_characters = [g for g in grouped_chars.values() if not g['is_main']]
 
@@ -988,6 +1116,49 @@ class SynthesisViewBuilder:
             'timeline': self.get_timeline_view(case_id),
             'narrative': self.get_narrative_view(case_id)
         }
+
+    def _fetch_class_definitions(self, labels: List[str]) -> Dict[str, str]:
+        """Look up abstract class definitions from OntServe by label.
+
+        Returns {label: rdfs:comment} for each label that matches a class
+        entry in the OntServe `ontology_entities` table with a non-empty
+        comment. Labels without a matching class (or with empty comment)
+        are omitted; callers should treat absence as "no definition
+        available, render the badge without a popover."
+
+        Used by:
+          - get_narrative_view: role-suffix labels (e.g. "Engineer in
+            Responsible Charge") to pull proeth-core role-class definitions
+            for the role-badge popovers.
+          - get_provisions_view: 9-type chip labels (Obligation, Action,
+            State, Principle, Role, Resource, Capability, Event,
+            Constraint) to pull the proeth-core class definitions for the
+            type-chip popovers.
+
+        Single connection, single query per call. Per-instance caching is
+        intentionally omitted because each view-builder method is typically
+        invoked once per request; if that changes, add a dict cache keyed
+        by frozenset(labels).
+        """
+        if not labels:
+            return {}
+        import psycopg2
+        from app.services.ontserve_config import get_ontserve_db_config
+        conn = psycopg2.connect(**get_ontserve_db_config())
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """SELECT label, comment
+                       FROM ontology_entities
+                       WHERE entity_type = 'class'
+                         AND comment IS NOT NULL
+                         AND comment <> ''
+                         AND label = ANY(%s)""",
+                    (list(labels),),
+                )
+                return {row[0]: row[1] for row in cur.fetchall()}
+        finally:
+            conn.close()
 
     @staticmethod
     def _repair_paragraphs(text: str) -> str:

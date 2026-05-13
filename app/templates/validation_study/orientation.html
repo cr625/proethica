@@ -125,9 +125,14 @@
     </div>
 
     <div class="orient-participant-code">
-        Your participant code is <code>{{ participant_code }}</code>.
-        Write it down or screenshot this page. You can pause and resume by
-        re-entering this code at any time.
+        Your participant code is <code>{{ participant_code }}</code>
+        <button type="button" class="btn btn-sm btn-outline-secondary ms-1 align-baseline"
+                onclick="navigator.clipboard.writeText('{{ participant_code }}')"
+                title="Copy participant code to clipboard"
+                aria-label="Copy participant code">
+            <i class="bi bi-clipboard"></i>
+        </button>.
+        You can pause and resume by re-entering this code at any time.
     </div>
 
     <div class="orient-section">
@@ -139,32 +144,31 @@
         <ol class="orient-steps">
             <li>
                 <strong>Facts.</strong>
-                Read the case Facts; the &ldquo;Questions before the Board&rdquo;
-                card below summarizes what the Board was asked to decide.
-                The Board&rsquo;s full Discussion is presented at the Wrap-up
-                step (step 4). The Conclusions view in step 2 pairs each
-                Board question with its bottom-line ruling; the underlying
-                reasoning, cited code provisions, and historical BER case
-                references are reserved for the Wrap-up.
+                Read the case Facts. On the Facts screen, a
+                &ldquo;Questions before the Board&rdquo; card summarizes what
+                the Board was asked to decide. The Board&rsquo;s full Discussion
+                is presented at the Wrap-up step (step 4). The Conclusions
+                view in step 2 pairs each Board question with its bottom-line
+                ruling. The underlying reasoning, cited code provisions, and
+                historical BER case references are reserved for the Wrap-up.
             </li>
             <li>
                 <strong>Views.</strong>
                 Examine the five views described in section 2 below and rate
                 each on a 1&ndash;7 scale (about 15 items per case, three per
-                view). Detailed recall of every entry is not required; the
+                view). Detailed recall of every entry is not required. The
                 rating evaluates how well each view supports a reader&rsquo;s
                 understanding.
             </li>
             <li>
                 <strong>Reflection.</strong>
                 Three short rating items about the five views as a whole,
-                followed by two optional open-ended prompts. The ratings are
-                required; the open prompts may be left blank.
+                followed by two open-ended prompts. The ratings are required.
             </li>
             <li>
                 <strong>Wrap-up.</strong>
                 The Board&rsquo;s Discussion and Conclusions for the case are
-                revealed for context, followed by one optional final reflection.
+                revealed for context, followed by one final reflection.
             </li>
         </ol>
     </div>
@@ -197,21 +201,18 @@
 
     <div class="orient-section">
         <h2><span class="orient-step-num">3</span>After your cases</h2>
-        <p>After your final case, one short page remains.</p>
-        <ol class="orient-steps">
-            <li>
-                <strong>Rank the five views</strong> from most to least
-                useful for understanding cases overall, answer one
-                yes/no question about whether the views surfaced
-                anything you would have missed in the facts alone, and
-                add any open comments. The open comments are optional.
-            </li>
-        </ol>
+        <p>
+            After your final case, one short page remains. You rank the
+            five views from most to least useful for understanding cases
+            overall, answer one yes/no question about whether the views
+            surfaced anything you would have missed in the facts alone,
+            and add any open comments.
+        </p>
         <p>
             {% if is_prolific %}
             A thank-you screen confirms your submission and shows your
-            Prolific completion code; paste it into Prolific to receive
-            your $18.00 payment within 14 days.
+            Prolific completion code. Paste it into Prolific to receive
+            your payment within 14 days.
             {% else %}
             A thank-you screen confirms your participation has been
             recorded.

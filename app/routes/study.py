@@ -72,7 +72,8 @@ def handle_csrf_error(e):
 
 # Information Sheet versions. Bump these when the .docx (or template) changes
 # and update the corresponding template together.
-# v2.1 (2026-04-30): added mention of post-task demographics questionnaire.
+# v2.1 (2026-04-30): added mention of post-task demographics questionnaire
+#   (later removed 2026-05-12; demographics moved to Prolific prescreening).
 # v2.2 (2026-04-30 later): generalized "senior design" language to cover
 #   any Drexel student arrival; clarified that comprehension questions are
 #   required while other items are skippable (resolves UX walkthrough P1-1
@@ -444,7 +445,7 @@ def orientation():
         'validation_study/orientation.html',
         participant_code=val_session.participant_code,
         total_count=assigned_count,
-        is_prolific=(val_session.recruitment_source == 'prolific_engineering_trained'),
+        is_prolific=(val_session.recruitment_source in ('prolific_engineering_trained', 'preview')),
         session=val_session,
     )
 
@@ -770,10 +771,24 @@ _RANKING_VIEWS = [
 
 @study_bp.route('/retrospective', methods=['GET', 'POST'])
 def retrospective():
-    """Post-study retrospective reflection (5-view ranking + open feedback)."""
+    """Post-study retrospective reflection (5-view ranking + open feedback).
+
+    Submission is one-shot. Once the participant has submitted successfully
+    (signalled by `completed_at` being stamped on the ValidationSession),
+    further GETs and POSTs are bounced to /complete. This prevents both
+    accidental form re-entry (browser back) and deliberate edits to the
+    ranking or open-text fields after the participant has been shown their
+    completion code.
+    """
     val_session, redirect_resp = _require_session()
     if redirect_resp:
         return redirect_resp
+
+    if val_session.completed_at:
+        if request.method == 'POST':
+            flash('Your retrospective has already been recorded. '
+                  'Further changes are not accepted.', 'info')
+        return redirect(url_for('study.complete'))
 
     if request.method == 'POST':
         return _submit_retrospective(val_session)
@@ -866,8 +881,6 @@ def _submit_retrospective(val_session):
         db.session.rollback()
         flash(f'Error saving reflection: {str(e)}', 'error')
         return redirect(url_for('study.retrospective'))
-
-
 # Demographics route retired 2026-05-11 (IRB Protocol v8 reconciliation).
 # The protocol references "a brief demographic questionnaire" but does not
 # enumerate items, and the Prolific platform captures occupation, industry,
@@ -931,7 +944,7 @@ def complete():
     completion_code = val_session.completion_code if val_session else None
     is_prolific = (
         val_session is not None
-        and val_session.recruitment_source == 'prolific_engineering_trained'
+        and val_session.recruitment_source in ('prolific_engineering_trained', 'preview')
     )
 
     prolific_configured = bool(os.environ.get('PROLIFIC_COMPLETION_CODE_SUCCESS', '').strip())

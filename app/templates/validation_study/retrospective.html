@@ -143,6 +143,7 @@
                         <div class="mb-0" id="surfacedTextContainer" style="display: none;">
                             <label for="surfaced_considerations_text" class="form-label">
                                 If yes, what considerations did the presentation help you identify?
+                                <span class="text-muted ms-1">[Optional]</span>
                             </label>
                             <textarea class="form-control" id="surfaced_considerations_text" name="surfaced_considerations_text"
                                       rows="3">{{ existing.surfaced_considerations_text if existing else '' }}</textarea>
@@ -159,6 +160,7 @@
                         <div class="mb-3">
                             <label for="missing_elements" class="form-label fw-bold">
                                 What information or structure was missing that would have helped your analysis?
+                                <span class="fw-normal text-muted ms-1">[Optional]</span>
                             </label>
                             <textarea class="form-control" id="missing_elements" name="missing_elements"
                                       rows="3">{{ existing.missing_elements if existing else '' }}</textarea>
@@ -167,6 +169,7 @@
                         <div class="mb-3">
                             <label for="improvement_suggestions" class="form-label fw-bold">
                                 What changes would make this type of synthesis more useful?
+                                <span class="fw-normal text-muted ms-1">[Optional]</span>
                             </label>
                             <textarea class="form-control" id="improvement_suggestions" name="improvement_suggestions"
                                       rows="3">{{ existing.improvement_suggestions if existing else '' }}</textarea>
@@ -175,6 +178,7 @@
                         <div class="mb-0">
                             <label for="general_comments" class="form-label fw-bold">
                                 Any other comments or observations?
+                                <span class="fw-normal text-muted ms-1">[Optional]</span>
                             </label>
                             <textarea class="form-control" id="general_comments" name="general_comments"
                                       rows="3">{{ existing.general_comments if existing else '' }}</textarea>

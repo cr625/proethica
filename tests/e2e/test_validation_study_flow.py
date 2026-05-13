@@ -57,39 +57,39 @@ class TestParticipantScreensRender:
 
 
 class TestOrientationSection3:
-    """Section 3 of orientation pre-discloses retrospective workload as a 2-item list + prose."""
+    """Section 3 of orientation describes the single remaining step (retrospective only).
+
+    Demographics was removed 2026-05-12 (moved to Prolific prescreening); the
+    section is now prose, not a list, because it has one step.
+    """
 
     def test_after_your_cases_section_present(self, page, base_url):
         page.goto(f"{base_url}/validation/preview/start?show=orientation")
         assert page.locator("h2", has_text="After your cases").count() >= 1
 
-    def test_after_your_cases_list_has_exactly_two_items(self, page, base_url):
-        """Predecessor commit landed a 3-item list with 'Thank-you screen' as a passive third
-        item (style-guide three-item-list trap). The Section 4.1 rewrite collapsed to 2 items
-        plus a prose tail naming the thank-you screen and Prolific completion code together.
-        """
+    def test_section_3_has_no_demographics_mention(self, page, base_url):
+        """Demographics is collected via Prolific, not in-app; orientation must not advertise it."""
         page.goto(f"{base_url}/validation/preview/start?show=orientation")
         section = page.locator("div.orient-section").filter(
             has=page.locator("h2", has_text="After your cases")
         )
-        list_items = section.locator("ol.orient-steps > li")
-        assert list_items.count() == 2, (
-            f"Expected 2 items in Section 3 list, got {list_items.count()}"
+        text = section.inner_text().lower()
+        assert "demograph" not in text, (
+            "Section 3 must not mention demographics (removed 2026-05-12)"
         )
 
     def test_section_3_prediscloses_retrospective_yes_no_and_open_comments(self, page, base_url):
-        """The first list item in Section 3 must mention the yes/no item and open comments
-        (the Pass 2 [5] fix that pre-discloses retrospective workload)."""
+        """Section 3 must still pre-disclose the retrospective yes/no item and open comments."""
         page.goto(f"{base_url}/validation/preview/start?show=orientation")
         section = page.locator("div.orient-section").filter(
             has=page.locator("h2", has_text="After your cases")
         )
-        first_item_text = section.locator("ol.orient-steps > li").first.inner_text()
-        assert "yes/no" in first_item_text.lower(), (
-            "Section 3 first item should mention the yes/no Surfaced Considerations item"
+        text = section.inner_text().lower()
+        assert "yes/no" in text, (
+            "Section 3 should mention the yes/no Surfaced Considerations item"
         )
-        assert "comment" in first_item_text.lower(), (
-            "Section 3 first item should mention open comments"
+        assert "comment" in text, (
+            "Section 3 should mention open comments"
         )
 
 
@@ -312,15 +312,14 @@ class TestPreviewConsentMode:
 
 
 class TestViewEngagementNudges:
-    """Two nudges to discourage rapid click-through of the per-view panels:
+    """activateViewTab scrolls back to top of page so the new view's segue
+    caption is the first thing visible (the participant has to scroll
+    through the content to reach the Next button at the bottom).
 
-    1. activateViewTab scrolls back to top of page so the new view's segue
-       caption is the first thing visible (the participant has to scroll
-       through the content to reach the Next button at the bottom).
-    2. A soft amber-colored reminder ("You have rated X of 3 items for
-       this view...") appears next to each Next button when fewer than 3
-       items on that view are rated. The reminder does NOT block the
-       click; it's purely visual.
+    The companion soft amber "X of 3 rated" reminder banner added alongside
+    scroll-to-top was removed in fc143934 (2026-05-12). The global "Continue
+    to Reflection" gate (disabled until all five views have 3/3 ratings)
+    remains the enforcement layer.
     """
 
     def _go_to_views(self, page, base_url):
@@ -331,7 +330,6 @@ class TestViewEngagementNudges:
 
     def test_activate_view_tab_scrolls_to_top(self, page, base_url):
         self._go_to_views(page, base_url)
-        # Scroll all the way down first
         page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
         page.wait_for_timeout(200)
         before_y = page.evaluate("window.scrollY")
@@ -339,46 +337,10 @@ class TestViewEngagementNudges:
             f"Should have scrolled before activating tab; got {before_y}"
         )
         page.evaluate("activateViewTab('timeline-tab')")
-        # Smooth-scroll: wait for it to settle
         page.wait_for_timeout(600)
         after_y = page.evaluate("window.scrollY")
         assert after_y < 50, (
             f"After tab activate, scrollY should be near top (0); got {after_y}"
-        )
-
-    def test_reminder_visible_when_unrated(self, page, base_url):
-        self._go_to_views(page, base_url)
-        # Narrative tab is active by default; with 0/3 rated, reminder shows.
-        reminder = page.locator('[data-view-reminder="narrative"]')
-        assert reminder.count() == 1, (
-            f"Expected exactly one narrative footer reminder, got {reminder.count()}"
-        )
-        assert reminder.is_visible(), (
-            "Reminder should be visible when 0/3 rated"
-        )
-        text = reminder.inner_text()
-        assert "0 of 3" in text, f"Reminder text should mention '0 of 3', got: {text!r}"
-
-    def test_reminder_hides_when_all_three_rated(self, page, base_url):
-        self._go_to_views(page, base_url)
-        # Click a rating value (4) on each of the 3 narrative items via JS.
-        page.evaluate("""() => {
-            const pane = document.getElementById('narrative-pane');
-            const radios = pane.querySelectorAll('input[type="radio"][name]');
-            const groups = new Set();
-            radios.forEach(r => groups.add(r.name));
-            groups.forEach(name => {
-                const target = pane.querySelector(`input[name="${name}"][value="4"]`);
-                if (target) {
-                    target.checked = true;
-                    target.dispatchEvent(new Event('change', { bubbles: true }));
-                }
-            });
-        }""")
-        page.wait_for_timeout(200)
-        reminder = page.locator('[data-view-reminder="narrative"]')
-        assert reminder.is_hidden(), (
-            "Reminder should hide once all 3 items on the view are rated"
         )
 
 

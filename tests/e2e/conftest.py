@@ -16,18 +16,8 @@ from playwright.sync_api import sync_playwright
 # ---------------------------------------------------------------------------
 
 def pytest_addoption(parser):
-    parser.addoption(
-        "--base-url",
-        action="store",
-        default="http://localhost:5000",
-        help="Base URL for the ProEthica instance under test",
-    )
-    parser.addoption(
-        "--headed",
-        action="store_true",
-        default=False,
-        help="Run browser in headed mode for debugging",
-    )
+    # --base-url and --headed are provided by pytest-base-url / pytest-playwright;
+    # only register options the plugins do not already define.
     parser.addoption(
         "--e2e-username",
         action="store",
