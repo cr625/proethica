@@ -216,16 +216,32 @@ class TestCaseStepURLSync:
 
 
 class TestCompletionScreenCodeDistinction:
-    """Completion screen distinguishes confirmation reference from participant code."""
+    """Completion screen routes preview sessions to the Prolific path and visually
+    demotes the participant code line."""
 
-    def test_drexel_path_uses_confirmation_reference_label(self, page, base_url):
-        """Section 5.1: the previous 'Completion code:' label collided with Prolific's
-        own terminology. Renamed to 'Confirmation reference' on the Drexel/preview path."""
+    def test_preview_takes_prolific_completion_path(self, page, base_url):
+        """Preview sessions are tagged recruitment_source='preview'; the is_prolific
+        predicate in app/routes/study.py now accepts that value, so preview sessions
+        render the Prolific completion path (either the 'Return to Prolific' button
+        when PROLIFIC_COMPLETION_CODE_SUCCESS is set, or the 'Configuration issue'
+        fallback when it is not). The legacy Drexel 'Confirmation reference' label
+        is dead for preview sessions and must not appear."""
         page.goto(f"{base_url}/validation/preview/start?show=complete")
         page.wait_for_load_state("networkidle")
-        # Preview sessions take the Drexel path (is_prolific=False)
-        assert page.locator("text=Confirmation reference").count() >= 1, (
-            "Completion screen should label the per-session code as 'Confirmation reference'"
+
+        # Negative assertion: the dead Drexel branch must not render. A regression
+        # here means is_prolific stopped recognizing recruitment_source='preview'.
+        assert page.locator("text=Confirmation reference").count() == 0, (
+            "Preview sessions should no longer render the Drexel 'Confirmation "
+            "reference' label; they take the Prolific completion path."
+        )
+
+        # Positive assertion: the page mentions Prolific somewhere. Both Prolific
+        # sub-branches (happy path button + configuration-issue fallback) carry
+        # 'Prolific' in their copy, so this is robust across dev and production.
+        assert "Prolific" in page.content(), (
+            "Preview completion screen should mention Prolific (return-button "
+            "heading or configuration-issue copy); got neither."
         )
 
     def test_participant_code_is_visually_demoted(self, page, base_url):
