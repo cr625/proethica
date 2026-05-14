@@ -15,8 +15,9 @@
                         Validation Study Admin
                     </h1>
                     <p class="text-muted mb-0">
-                        IRB Protocol 2603011709 &middot; dual-channel recruitment
-                        (Drexel students + Prolific engineering-trained adults)
+                        IRB Protocol 2603011709 &middot; Prolific engineering-trained
+                        recruitment (preview and dormant-channel sessions excluded
+                        from this dashboard)
                     </p>
                 </div>
                 <div>
@@ -93,20 +94,6 @@
                         <div class="col-md-6">
                             <div class="d-flex justify-content-between align-items-center border rounded px-3 py-2 mb-2">
                                 <div>
-                                    <strong>Drexel students</strong>
-                                    <div class="small text-muted">
-                                        Original protocol channel. Senior-design HRP-506 info sheet.
-                                    </div>
-                                </div>
-                                <div class="text-end">
-                                    <div class="h4 mb-0">{{ stats.by_source.drexel_student.completed }}/{{ stats.by_source.drexel_student.enrolled }}</div>
-                                    <small class="text-muted">completed/enrolled</small>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="d-flex justify-content-between align-items-center border rounded px-3 py-2 mb-2">
-                                <div>
                                     <strong>Prolific (engineering-trained)</strong>
                                     <div class="small text-muted">
                                         Paid panel, pre-screened. HRP-506b adult-population info sheet.
@@ -171,6 +158,65 @@
                             </tbody>
                         </table>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ---------- Results visualization ---------- #}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-graph-up me-2"></i> Results
+                    </h5>
+                    <span class="small text-muted">
+                        Based on {{ results.n_completed_evals }} completed case-evaluation(s)
+                        and {{ results.n_retrospectives }} retrospective ranking(s)
+                    </span>
+                </div>
+                <div class="card-body">
+                    {% if results.n_completed_evals == 0 %}
+                    <div class="alert alert-info mb-0 small">
+                        <i class="bi bi-info-circle me-1"></i>
+                        No completed evaluations from real recruitment channels yet.
+                        Charts will populate once Prolific participants submit case ratings.
+                    </div>
+                    {% else %}
+                    <div class="row">
+                        <div class="col-lg-6 mb-3">
+                            <h6 class="text-muted">Mean utility by view (1-7 Likert)</h6>
+                            <div style="position: relative; height: 280px;">
+                                <canvas id="chart-view-means"></canvas>
+                            </div>
+                            <div class="small text-muted mt-2">
+                                Error bars show &plusmn;1 sample standard deviation.
+                                Overall row applies reverse-code to item 17.
+                            </div>
+                        </div>
+                        <div class="col-lg-6 mb-3">
+                            <h6 class="text-muted">Retrospective rankings (1 = most valuable)</h6>
+                            <div style="position: relative; height: 280px;">
+                                <canvas id="chart-rankings"></canvas>
+                            </div>
+                            <div class="small text-muted mt-2">
+                                Stacked counts of rank-1 through rank-5 placements per view
+                                across {{ results.n_retrospectives }} participant(s).
+                            </div>
+                        </div>
+                    </div>
+                    {% if results.per_case_means %}
+                    <div class="row">
+                        <div class="col-12">
+                            <h6 class="text-muted mt-2">Mean overall utility by case</h6>
+                            <div style="position: relative; height: {{ (results.per_case_means|length * 28 + 60) }}px;">
+                                <canvas id="chart-per-case"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -267,11 +313,7 @@
                                 <tr>
                                     <td><code>{{ s.participant_code or 'n/a' }}</code></td>
                                     <td>
-                                        {% if s.recruitment_source == 'prolific_engineering_trained' %}
                                         <span class="badge bg-primary">Prolific</span>
-                                        {% else %}
-                                        <span class="badge bg-secondary">Drexel</span>
-                                        {% endif %}
                                     </td>
                                     <td><small>{{ s.started_at.strftime('%Y-%m-%d %H:%M') if s.started_at else 'n/a' }}</small></td>
                                     <td>{{ s.completed_cases|length if s.completed_cases else 0 }}/{{ s.assigned_cases|length if s.assigned_cases else 0 }}</td>
@@ -298,6 +340,9 @@
             </div>
         </div>
     </div>
+
+    {# ---------- JSON payload for charts (read by block scripts) ---------- #}
+    <script id="results-data" type="application/json">{{ results | tojson | safe }}</script>
 
     {# ---------- Legacy / future expansion ---------- #}
     <div class="row mb-4">
@@ -339,4 +384,161 @@
     </div>
 
 </div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+(function() {
+    const dataEl = document.getElementById('results-data');
+    if (!dataEl) return;
+    const results = JSON.parse(dataEl.textContent);
+    if (!results || !results.n_completed_evals) return;
+
+    // -------- Chart 1: Mean utility by view (bar with SD whiskers) --------
+    const meansCanvas = document.getElementById('chart-view-means');
+    if (meansCanvas) {
+        const labels = results.view_means.map(r => r.label);
+        const means = results.view_means.map(r => r.mean);
+        const sds = results.view_means.map(r => r.sd || 0);
+        const ns = results.view_means.map(r => r.n);
+
+        // Custom plugin draws +/- 1 SD whiskers on top of each bar.
+        const errorBarsPlugin = {
+            id: 'errorBars',
+            afterDatasetDraw(chart) {
+                const { ctx, scales: { y } } = chart;
+                const meta = chart.getDatasetMeta(0);
+                ctx.save();
+                ctx.strokeStyle = '#495057';
+                ctx.lineWidth = 1.5;
+                meta.data.forEach((bar, i) => {
+                    const sd = sds[i];
+                    if (!sd || means[i] == null) return;
+                    const x = bar.x;
+                    const yTop = y.getPixelForValue(means[i] + sd);
+                    const yBot = y.getPixelForValue(Math.max(1, means[i] - sd));
+                    ctx.beginPath();
+                    ctx.moveTo(x, yTop);
+                    ctx.lineTo(x, yBot);
+                    ctx.moveTo(x - 6, yTop);
+                    ctx.lineTo(x + 6, yTop);
+                    ctx.moveTo(x - 6, yBot);
+                    ctx.lineTo(x + 6, yBot);
+                    ctx.stroke();
+                });
+                ctx.restore();
+            }
+        };
+
+        new Chart(meansCanvas, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Mean Likert score',
+                    data: means,
+                    backgroundColor: ['#0d6efd', '#6610f2', '#d63384', '#fd7e14', '#198754', '#6c757d'],
+                    borderWidth: 0,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { min: 1, max: 7, ticks: { stepSize: 1 }, title: { display: true, text: 'Mean (1-7)' } }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            afterLabel: (ctx) => {
+                                const i = ctx.dataIndex;
+                                const parts = [`n = ${ns[i]}`];
+                                if (sds[i]) parts.push(`SD = ${sds[i]}`);
+                                return parts.join(' · ');
+                            }
+                        }
+                    }
+                }
+            },
+            plugins: [errorBarsPlugin]
+        });
+    }
+
+    // -------- Chart 2: Retrospective rankings (stacked horizontal bar) --------
+    const ranksCanvas = document.getElementById('chart-rankings');
+    if (ranksCanvas) {
+        const labels = results.ranking_counts.map(r => r.label);
+        // Rank colors: rank 1 dark/positive -> rank 5 light/negative.
+        const rankPalette = ['#198754', '#5cb85c', '#ffc107', '#fd7e14', '#dc3545'];
+        const datasets = [0, 1, 2, 3, 4].map(rankIdx => ({
+            label: `Rank ${rankIdx + 1}`,
+            data: results.ranking_counts.map(r => r.counts[rankIdx]),
+            backgroundColor: rankPalette[rankIdx],
+            borderWidth: 0,
+        }));
+
+        new Chart(ranksCanvas, {
+            type: 'bar',
+            data: { labels: labels, datasets: datasets },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { stacked: true, ticks: { stepSize: 1 }, title: { display: true, text: 'Participants' } },
+                    y: { stacked: true }
+                },
+                plugins: {
+                    legend: { position: 'bottom', labels: { boxWidth: 14 } },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.x}`
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // -------- Chart 3: Per-case mean overall utility (horizontal bar) --------
+    const perCaseCanvas = document.getElementById('chart-per-case');
+    if (perCaseCanvas && results.per_case_means && results.per_case_means.length) {
+        const labels = results.per_case_means.map(r => `${r.case_id}: ${r.title.length > 60 ? r.title.slice(0, 57) + '…' : r.title}`);
+        const means = results.per_case_means.map(r => r.mean);
+        const ns = results.per_case_means.map(r => r.n);
+
+        new Chart(perCaseCanvas, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Mean overall utility',
+                    data: means,
+                    backgroundColor: '#0d6efd',
+                    borderWidth: 0,
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { min: 1, max: 7, ticks: { stepSize: 1 }, title: { display: true, text: 'Mean overall utility (1-7)' } }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            afterLabel: (ctx) => `n = ${ns[ctx.dataIndex]} rater(s)`
+                        }
+                    }
+                }
+            }
+        });
+    }
+})();
+</script>
 {% endblock %}
