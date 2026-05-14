@@ -899,6 +899,37 @@ def _submit_retrospective(val_session):
         reflection.improvement_suggestions = request.form.get('improvement_suggestions', '').strip()
         reflection.general_comments = request.form.get('general_comments', '').strip()
 
+        # Soft attention check: require minimal engagement with the case-page
+        # open-text fields before allowing retrospective submission to finalize.
+        # Threshold of 100 chars summed across the 28 free-text cells (4 case
+        # evaluations x 7 free-text columns) is calibrated against the pilot
+        # baseline (substantive participants produced 90+ chars per case) and
+        # the 2026-05-14 soft-launch wave's click-through pattern (zero or
+        # near-zero chars across all 28 cells). Sessions below the floor are
+        # routed back to the dashboard with a soft prompt; partial reflection
+        # state is persisted so rankings and retrospective text are not lost.
+        OPEN_TEXT_FLOOR = 100
+        total_open_text_chars = db.session.query(
+            func.coalesce(func.sum(
+                func.coalesce(func.length(ViewUtilityEvaluation.comp_main_tensions), 0)
+                + func.coalesce(func.length(ViewUtilityEvaluation.comp_relevant_provisions), 0)
+                + func.coalesce(func.length(ViewUtilityEvaluation.comp_decision_points), 0)
+                + func.coalesce(func.length(ViewUtilityEvaluation.comp_deliberation_factors), 0)
+                + func.coalesce(func.length(ViewUtilityEvaluation.refl_most_useful_view), 0)
+                + func.coalesce(func.length(ViewUtilityEvaluation.refl_changes), 0)
+                + func.coalesce(func.length(ViewUtilityEvaluation.refl_final), 0)
+            ), 0)
+        ).filter(ViewUtilityEvaluation.session_id == val_session.id).scalar()
+
+        if (total_open_text_chars or 0) < OPEN_TEXT_FLOOR:
+            db.session.commit()
+            flash('Before submitting your final reflection, please open any '
+                  'of your cases from the dashboard and add a brief note in '
+                  'one of the open-text fields (for example, what stood out, '
+                  'what was unclear, or how you thought about the decision). '
+                  'Then return here to submit your retrospective.', 'warning')
+            return redirect(url_for('study.index'))
+
         # Finalize: generate completion_code and stamp completed_at.
         # Retrospective submission is the final participant action since
         # the legacy demographics page was removed on 2026-05-11 (IRB
