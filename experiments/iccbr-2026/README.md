@@ -10,10 +10,10 @@ All three embedding methods share the same scoring formula:
 
 ```text
 score = 0.40 * embedding + 0.25 * provision_overlap + 0.15 * outcome_alignment
-        + 0.10 * tag_overlap + 0.10 * principle_overlap
+        + 0.10 * tag_overlap
 ```
 
-Only the 0.40 embedding component differs across methods. The 0.60 set-based component is identical, so retrieval differences are attributable solely to the embedding strategy.
+Only the 0.40 embedding component differs across methods. The 0.50 set-based component is identical, so retrieval differences are attributable solely to the embedding strategy. Composite scores are bounded by 0.90; weights are not required to sum to unity.
 
 The three embedding strategies form a progression of structural awareness:
 
@@ -55,7 +55,7 @@ Isolates the embedding contribution by scoring with embeddings only (set feature
 | Recall@10 | 0.387 | 0.523 | 0.568 | 0.387 |
 | Recall@20 | 0.539 | 0.712 | 0.730 | 0.505 |
 
-Per-component embedding alone (0.568 R@10) exceeds the full-formula best (0.463 Combined). The 0.60 set-feature weight dilutes the D-tuple embedding signal.
+Per-component embedding alone (0.568 R@10) exceeds the full-formula best (0.463 Combined). The 0.50 set-feature weight dilutes the D-tuple embedding signal.
 
 **Files:** `embedding_ablation_results.md`, `embedding_ablation_per_edge.csv`
 
