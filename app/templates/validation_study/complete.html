@@ -60,19 +60,21 @@
                     <p class="mb-2 small">
                       Your participation has been fully recorded, but the automatic
                       Prolific return is not configured at this time. To receive your
-                      payment, please contact the research team and quote the
-                      reference number below. Payment will be processed manually
-                      within 1&ndash;3 business days.
+                      payment, please contact the research team
+                      {% if completion_code %}and quote the reference number below{% else %}and include your Prolific ID{% endif %}.
+                      Payment will be processed manually within 1&ndash;3 business days.
                     </p>
+                    {% if completion_code %}
                     <p class="mb-2 small">
                       <strong>Reference number:</strong>
                       <code class="px-2 py-1 bg-white border rounded">{{ completion_code }}</code>
                     </p>
+                    {% endif %}
                     <p class="mb-0 small">
                       <strong>Contact:</strong>
                       Christopher Rauch (cr625@drexel.edu) or Rosina Weber (rw37@drexel.edu).
-                      Do not paste the reference number into Prolific; it is for the
-                      research team only.
+                      {% if completion_code %}Do not paste the reference number into Prolific; it is for the
+                      research team only.{% endif %}
                     </p>
                   </div>
                   {% if config.get('ENVIRONMENT') == 'development' %}
