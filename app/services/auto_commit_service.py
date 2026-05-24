@@ -404,15 +404,26 @@ class AutoCommitService:
         # Normalize label for comparison
         normalized_label = label.lower().strip()
 
-        # First try exact label match
+        # Category guard: an entity may only reuse a class of its own D-tuple
+        # category. Without this, a Constraint/Principle entity can match an
+        # Obligation-named class by label, producing one class IRI with
+        # conflicting conceptCategory values and an OWL-DL disjointness clash
+        # (proeth-core AllDisjointClasses). See KI2026 corpus-consistency repair.
+        type_markers = _semantic_type_markers(entity_type)
+
+        def _category_ok(uri: str) -> bool:
+            return not type_markers or any(m in uri for m in type_markers)
+
+        # First try exact label match (category-guarded)
         for uri, class_info in self._ontserve_classes_cache.items():
             if class_info.get('label', '').lower().strip() == normalized_label:
+                if not _category_ok(uri):
+                    continue
                 logger.info(f"Found exact label match for '{label}': {uri}")
                 return uri, 1.0
 
         # Try partial match (label contains or is contained), gated by the
         # same URI-substring type filter the embedding path uses.
-        type_markers = _semantic_type_markers(entity_type)
         for uri, class_info in self._ontserve_classes_cache.items():
             class_label = class_info.get('label', '').lower().strip()
             if normalized_label in class_label or class_label in normalized_label:

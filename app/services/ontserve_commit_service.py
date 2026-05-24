@@ -436,6 +436,12 @@ class OntServeCommitService:
         try:
             case_file = self.ontologies_dir / f"proethica-case-{case_id}.ttl"
 
+            # Tracks the core category each invented class was first declared
+            # subClassOf in this commit, so a class shared (incorrectly) across
+            # disjoint categories does not accumulate two subClassOf-core edges
+            # (which would make the case ontology OWL-DL inconsistent).
+            class_core_category: Dict[str, str] = {}
+
             # Load existing graph or create new one
             g = Graph()
             if case_file.exists():
@@ -504,6 +510,9 @@ class OntServeCommitService:
                 if full_description:
                     g.add((individual_uri, RDFS.comment, Literal(full_description)))
 
+                # Base concept category for this entity (from its extraction pass).
+                concept_cat = self._get_concept_category(entity)
+
                 # Add type based on the class from rdf_json_ld
                 if rdf_data and rdf_data.get('types'):
                     for type_uri in rdf_data['types']:
@@ -515,9 +524,30 @@ class OntServeCommitService:
                         safe_class = class_name.replace(" ", "").replace("(", "").replace(")", "")
                         class_uri = PROETHICA[safe_class]
                         g.add((individual_uri, RDF.type, class_uri))
+                        # Emit the subClassOf chain to the core category so the
+                        # persisted TTL is reasoner-ready (proeth-core disjointness
+                        # is checkable without the pellet_validate in-memory patch).
+                        # The commit matcher's category guard ensures a class IRI
+                        # does not span categories, so this is single-valued.
+                        if concept_cat:
+                            g.add((class_uri, RDF.type, OWL.Class))
+                            prior = class_core_category.get(safe_class)
+                            if prior is None:
+                                class_core_category[safe_class] = concept_cat
+                                g.add((class_uri, RDFS.subClassOf, PROETHICA_CORE[concept_cat]))
+                            elif prior != concept_cat:
+                                # Same class IRI proposed under a second, disjoint
+                                # category in this commit (LLM naming collision the
+                                # matcher guard cannot catch for fresh classes).
+                                # Keep the first category; do not emit a conflicting
+                                # subClassOf. Flagged for the canonicalization pass.
+                                logger.warning(
+                                    "Class %s proposed under categories %s and %s in one "
+                                    "commit; keeping %s, skipping conflicting subClassOf.",
+                                    safe_class, prior, concept_cat, prior,
+                                )
 
                 # Tag with base concept category for display grouping
-                concept_cat = self._get_concept_category(entity)
                 if concept_cat:
                     g.add((individual_uri, PROETHICA['conceptCategory'], Literal(concept_cat)))
 
