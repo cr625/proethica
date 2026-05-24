@@ -1,14 +1,22 @@
 """
-Unit tests for DefeasibilityEdgeExtractor against the Case 72 gold fixture.
+Unit tests for DefeasibilityEdgeExtractor against a hand-annotated gold fixture.
 
-The gold fixture is the hand-annotated KI2026 Fig. 1 worked example at
-the end of OntServe/ontologies/proethica-case-72.ttl. These tests reproduce
-the four expected triples (one symmetric competesWith pair, one prevailsOver,
-one defeasibleUnder) using a mock LLM client so the suite runs without API
-access.
+The gold fixture is NSPE BER Case 76-4 (internal "case 72"), the original
+hand-annotated defeasibility worked example: one symmetric competesWith pair,
+one prevailsOver, one defeasibleUnder. These tests reproduce those triples with
+a mock LLM client so the suite runs without API access. The case is a stable
+gold input for exercising the extractor and is independent of which case the
+paper draws.
 
-A separate integration test (marked llm) exercises the real Anthropic
-client against the same fixture. Skip when no API key is configured.
+Note: the KI2026 paper's Figure 1 worked example was moved to the current-Code
+NSPE BER Case 04-8 (internal "case 86") -- see
+OntServe/tests/integration/test_case_86_figure1.py. This extractor test was not
+repointed, because Case 76-4's edges are hand-curated whereas Case 86's were
+machine-extracted by the backfill, so Case 76-4 remains the better gold set for
+testing the extractor itself.
+
+A separate integration test (marked llm) exercises the real Anthropic client
+against the same fixture. Skip when no API key is configured.
 """
 
 from __future__ import annotations
@@ -30,7 +38,7 @@ from app.services.extraction.schemas import DefeasibilityEdge
 
 
 # ---------------------------------------------------------------------------
-# Gold fixture: Case 72 KI2026 Fig. 1 worked example
+# Gold fixture: hand-annotated Case 76-4 (internal "case 72") defeasibility example
 # ---------------------------------------------------------------------------
 
 CASE72_NS = "http://proethica.org/ontology/case/72#"
