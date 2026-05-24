@@ -104,6 +104,32 @@
       </div>
     </div>
   </div>
+
+  {% if 'NSPE' in guideline.title %}
+  <!-- NSPE reproduction notice (template-only; not part of the stored guideline record) -->
+  <div class="card mb-4 border-secondary-subtle" id="nspe-reproduction-notice">
+    <div class="card-body small text-muted">
+      <p class="mb-3">
+        Reproduced from the <em>NSPE Code of Ethics for Engineers</em>, Publication
+        #1102 (as revised July 2019). &copy; National Society of Professional
+        Engineers. All rights reserved. The Code is reproduced here for educational
+        and scholarly reference.
+      </p>
+      <hr class="my-3">
+      <p class="mb-0 fst-italic">
+        By order of the United States District Court for the District of Columbia,
+        former Section 11(c) of the NSPE Code of Ethics prohibiting competitive
+        bidding, and all policy statements, opinions, rulings or other guidelines
+        interpreting its scope, have been rescinded as unlawfully interfering with
+        the legal right of engineers, protected under the antitrust laws, to provide
+        price information to prospective clients; accordingly, nothing contained in
+        the NSPE Code of Ethics, policy statements, opinions, rulings or other
+        guidelines prohibits the submission of price quotations or competitive bids
+        for engineering services at any time or in any amount.
+      </p>
+    </div>
+  </div>
+  {% endif %}
 </div>
 
 <!-- Delete Guideline Modal -->
