@@ -785,6 +785,20 @@ class CapabilityExtractionResult(BaseModel):
 #   InviolableConstraint (mapped via flexibility field)
 # Literature: Ganascia (defeasible logic), Dennis et al. (hierarchical
 #   management), Arkin (behavioral constraints)
+#
+# STATUS (verified 2026-05-24): `flexibility` is EXTRACTED and STORED but
+# NOT a live reasoning input. Class rows in temporary_rdf_storage carry
+# varied values (~584 hard / 373 soft / 1 negotiable), and the
+# hard->InviolableConstraint, soft/negotiable->DefeasibleConstraint mapping
+# exists in CATEGORY_TO_ONTOLOGY_IRI and is wired into the commit config
+# (ontserve_commit_service.py _CONCEPT_CATEGORY_CONFIG). However, zero
+# committed proethica-case-*.ttl files actually carry Inviolable/
+# DefeasibleConstraint, and no retrieval, scoring, precedent, or
+# defeasibility-reasoning code reads the value or branches on it. Live
+# defeasibility reasoning is carried at the OBLIGATION layer instead
+# (proethica-core competesWith / prevailsOver / defeasibleUnder edges).
+# Do not treat constraint flexibility as a reasoning signal without first
+# closing the commit-emission gap and re-validating the corpus with Pellet.
 # ---------------------------------------------------------------------------
 
 class ConstraintType(str, Enum):
