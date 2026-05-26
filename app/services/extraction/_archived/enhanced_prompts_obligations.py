@@ -12,7 +12,7 @@ import logging
 import json
 from datetime import datetime
 
-from .base import ConceptCandidate
+from app.services.extraction.base import ConceptCandidate
 
 from app.models.provenance import ProvenanceActivity
 from app.services.provenance_service import get_provenance_service

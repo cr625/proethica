@@ -12,7 +12,7 @@ import logging
 import json
 from datetime import datetime
 
-from .base import ConceptCandidate
+from app.services.extraction.base import ConceptCandidate
 
 # Optional provenance tracking - create stubs if not available
 try:

@@ -3,6 +3,18 @@ Dual Extractor Template Seeder
 
 Seeds extraction prompt templates from the dual_*_extractor.py files,
 converting Python f-strings to Jinja2 templates.
+
+STALE WARNING (2026-05-26): the hardcoded ``template_text`` blocks below no
+longer match the live ``extraction_prompt_templates`` DB rows. The rows were
+seeded from this file originally (metadata still matches), but their text has
+since been curated extensively via the ``/tools/prompts`` editor and has fully
+diverged. Calling ``seed_dual_extractor_templates(replace_existing=True)`` would
+CLOBBER the curated live prompts (including the 2026-05-26 Section-B drift fixes
+to obligations/constraints/capabilities). The source of truth is the DB row +
+``docs-internal/reextraction/prompt-inventory.md``. Use ``replace_existing=True``
+only for a deliberate reset, never as a routine re-seed. The ``dual_*_extractor.py``
+files referenced below were archived/removed; the live renderer is
+``unified_dual_extractor.py``.
 """
 
 import logging
