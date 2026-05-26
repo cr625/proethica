@@ -634,6 +634,37 @@ class SynthesisViewBuilder:
                           'enables links between actions and events.'
         }
 
+    def _timeline_agent_action_counts(self, case_id: int) -> Dict[str, int]:
+        """Count timeline Actions per agent short-name (study-corrections A9).
+
+        Returns {lowercased 2-word short-name -> number of Actions whose
+        `proeth:hasAgent` resolves to that short-name}. Composite/conjunctive
+        agents (still carrying a parenthetical role, "and"/"/" joiners after
+        the A7/B4 split) are skipped: they name multiple actors and cannot be
+        attributed to a single character. Events are excluded (no agent).
+        """
+        from collections import Counter
+        rows = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id, extraction_type='temporal_dynamics_enhanced'
+        ).all()
+        counts: Counter = Counter()
+        for r in rows:
+            rdf = r.rdf_json_ld or {}
+            if 'Action' not in (rdf.get('@type', '') or ''):
+                continue
+            agent = (rdf.get('proeth:hasAgent') or '').strip()
+            if not agent or agent.lower() == 'unknown':
+                continue
+            low = agent.lower()
+            # Skip composites: a clean agent has no parenthetical role left
+            # (A7/B4 split it into eventRoleContext) and no conjunctive joiner.
+            if '(' in agent or ' and ' in low or ' and/or ' in low or '/' in agent:
+                continue
+            words = agent.split()
+            short = ' '.join(words[:2]).lower() if len(words) >= 2 else low
+            counts[short] += 1
+        return dict(counts)
+
     def get_narrative_view(self, case_id: int) -> Dict[str, Any]:
         """Get Narrative view content per paper \u00a73.2 (integrative view).
 
@@ -833,7 +864,16 @@ class SynthesisViewBuilder:
         # characters it names are central to the case's ethical structure.
         # Characters not named there are "additional" — present in the
         # case but secondary to the opening narrative.
+        # Study-corrections A9: a character is also "main" if it is the agent
+        # of >=2 timeline actions, even when the opening_context narration does
+        # not name it (e.g. case 15's "Owner", who acts three times but is
+        # absent from the second-person opening). This promotes only characters
+        # the extractor already surfaced (the `characters` list is already
+        # spurious-filtered above); it never invents a character. Composite/
+        # institutional one-offs are excluded by the agent-count helper and the
+        # >=2 threshold.
         import re
+        agent_action_counts = self._timeline_agent_action_counts(case_id)
         main_short_names: set = set()
         main_short_name_order: Dict[str, int] = {}  # short-name -> first-occurrence index
         for idx, ch in enumerate(characters):
@@ -842,11 +882,18 @@ class SynthesisViewBuilder:
                 ch['is_main'] = False
                 continue
             short_name = ' '.join(label.split()[:2])
-            if short_name and opening_context and short_name in opening_context:
+            in_opening = bool(short_name and opening_context and short_name in opening_context)
+            acts_twice = agent_action_counts.get(short_name.lower(), 0) >= 2
+            if in_opening or acts_twice:
                 ch['is_main'] = True
                 main_short_names.add(short_name)
                 if short_name not in main_short_name_order:
                     main_short_name_order[short_name] = idx
+                # Provenance: mark characters promoted solely by the timeline
+                # rule so the template / analysis can distinguish them from
+                # opening-context-named mains.
+                if acts_twice and not in_opening:
+                    ch['promoted_by'] = 'timeline_actions'
             else:
                 ch['is_main'] = False
 
