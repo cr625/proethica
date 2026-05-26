@@ -274,6 +274,10 @@ class DecisionPointSynthesizer:
     ):
         self._llm_client = llm_client
         self.domain = domain_config or get_domain_config('engineering')
+        # HO-005: compact obligation-compliance / capability-proficiency block,
+        # populated per-case at the start of synthesize() and appended to each
+        # synthesis prompt. None until built.
+        self._normative_status_context: Optional[str] = None
 
     @property
     def llm_client(self):
@@ -296,6 +300,59 @@ class DecisionPointSynthesizer:
                 if e.entity_label and e.entity_uri:
                     lookup[e.entity_label.lower()] = e.entity_uri
         return lookup
+
+    def _build_normative_status_context(self, case_id: int) -> str:
+        """Build a compact normative-status block for Phase-3 synthesis (HO-005).
+
+        Surfaces obligation ``compliance_status`` and capability
+        ``proficiency_level`` from the persisted Step-2 individuals. Both fields
+        are extracted, normalized, and stored in ``rdf_json_ld['properties']``
+        (as ``complianceStatus`` / ``proficiencyLevel``) but were not previously
+        passed to synthesis. Deduplicated by label; capped. Returns '' when
+        neither field is present so callers can skip the block.
+        """
+        def _first(v):
+            if isinstance(v, list):
+                return v[0] if v else None
+            return v
+
+        obl_map = {}
+        for o in TemporaryRDFStorage.query.filter_by(
+            case_id=case_id, extraction_type='obligations', storage_type='individual'
+        ).all():
+            props = (o.rdf_json_ld or {}).get('properties', {})
+            status = _first(props.get('complianceStatus'))
+            if o.entity_label and status:
+                obl_map[o.entity_label] = status
+
+        cap_map = {}
+        for c in TemporaryRDFStorage.query.filter_by(
+            case_id=case_id, extraction_type='capabilities', storage_type='individual'
+        ).all():
+            props = (c.rdf_json_ld or {}).get('properties', {})
+            level = _first(props.get('proficiencyLevel'))
+            if c.entity_label and level:
+                cap_map[c.entity_label] = level
+
+        if not obl_map and not cap_map:
+            return ''
+
+        sections = [
+            "NORMATIVE STATUS (from Step 2 extraction; use to weigh whether duties "
+            "were met and whether actors had adequate competence):"
+        ]
+        if obl_map:
+            lines = [f"- {lbl}: compliance={st}" for lbl, st in list(obl_map.items())[:20]]
+            sections.append("Obligation compliance:\n" + "\n".join(lines))
+        if cap_map:
+            lines = [f"- {lbl}: proficiency={lv}" for lbl, lv in list(cap_map.items())[:20]]
+            sections.append("Capability proficiency:\n" + "\n".join(lines))
+        return "\n\n".join(sections)
+
+    def _append_normative_status(self, prompt: str) -> str:
+        """Append the cached normative-status block to a synthesis prompt (HO-005)."""
+        block = getattr(self, '_normative_status_context', None)
+        return prompt + "\n\n" + block if block else prompt
 
     @staticmethod
     def _clean_text_formatting(dp: 'CanonicalDecisionPoint') -> None:
@@ -368,6 +425,10 @@ class DecisionPointSynthesizer:
         """
         logger.info(f"Phase 3: Starting decision point synthesis for case {case_id}")
         session_id = f"phase3_{case_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
+        # HO-005: surface obligation compliance_status / capability proficiency_level
+        # (extracted in Step 2, previously dropped) into the synthesis prompts below.
+        self._normative_status_context = self._build_normative_status_context(case_id)
 
         result = Phase3SynthesisResult(
             case_id=case_id,
@@ -957,6 +1018,9 @@ Return as JSON array:
 ```
 """
 
+        # HO-005: surface obligation compliance / capability proficiency
+        prompt = self._append_normative_status(prompt)
+
         # Enrich prompt with entity definitions from OntServe MCP
         enrichment_result = None
         try:
@@ -1245,6 +1309,9 @@ Return as JSON array:
 ```
 """
 
+        # HO-005: surface obligation compliance / capability proficiency
+        prompt = self._append_normative_status(prompt)
+
         enrichment_result = None
         try:
             enrichment_result = enrich_prompt_with_metadata(prompt, mode="glossary")
@@ -1332,7 +1399,7 @@ C{i}: {c.get('text', c.get('label', ''))}
   - Resolution: {rp.get('resolution_narrative', '')[:200] if rp.get('resolution_narrative') else 'Not analyzed'}
 """)
 
-        return f"""You are synthesizing decision points for NSPE ethics case {case_id}.
+        _refinement_prompt = f"""You are synthesizing decision points for NSPE ethics case {case_id}.
 
 ## TOP ALGORITHMIC CANDIDATES (Scored by Q&C Alignment)
 
@@ -1455,6 +1522,8 @@ CRITICAL OPTION REQUIREMENTS:
 
 Produce exactly {target_count} decision points capturing the key ethical issues. Do NOT produce more than the requested count.
 """
+        # HO-005: surface obligation compliance / capability proficiency
+        return self._append_normative_status(_refinement_prompt)
 
     def _parse_refinement_response(
         self,
