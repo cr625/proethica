@@ -989,9 +989,11 @@
                                     <span class="tl-compact-seq">{{ loop.index }}</span>
                                     <span class="tl-compact-label"><strong>{{ entry.label }}</strong></span>
                                     {% if is_action and entry.agent %}
+                                        {# Prefer the split-out per-event role (study-corrections A7/B4);
+                                           fall back to splitting the legacy "Name (role)" agent string inline. #}
                                         {% set _agent_split = entry.agent.split('(', 1) %}
                                         {% set _agent_short = _agent_split[0]|trim %}
-                                        {% set _agent_role = (_agent_split[1]|replace(')', ''))|trim if _agent_split|length > 1 else '' %}
+                                        {% set _agent_role = entry.event_role_context if entry.event_role_context else ((_agent_split[1]|replace(')', ''))|trim if _agent_split|length > 1 else '') %}
                                         <span class="tl-compact-agent text-muted">by
                                             {% if _agent_role %}
                                             <a class="char-mention" tabindex="0"

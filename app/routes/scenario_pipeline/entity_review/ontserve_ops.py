@@ -580,6 +580,8 @@ def register_ontserve_ops_routes(bp):
         """
         try:
             from app.models.temporary_rdf_storage import TemporaryRDFStorage
+            from app.models.entity_match_confirmation import EntityMatchConfirmation
+            from flask_login import current_user
 
             data = request.get_json() or {}
             matched_uri = data.get('matched_uri')
@@ -595,6 +597,23 @@ def register_ontserve_ops_routes(bp):
                     'success': False,
                     'error': 'Entity not found'
                 }), 404
+
+            # Capture the pre-update match state for the audit trail before mutating.
+            confirmation = EntityMatchConfirmation(
+                case_id=case_id,
+                entity_id=entity_id,
+                entity_label=entity.entity_label,
+                entity_type=entity.entity_type,
+                original_match_uri=entity.matched_ontology_uri,
+                original_match_label=entity.matched_ontology_label,
+                original_confidence=entity.match_confidence,
+                original_method=entity.match_method,
+                action='changed',
+                new_match_uri=matched_uri,
+                new_match_label=matched_label,
+                user_id=current_user.id if current_user and hasattr(current_user, 'id') else None
+            )
+            db.session.add(confirmation)
 
             # Update match fields
             entity.matched_ontology_uri = matched_uri
@@ -634,6 +653,8 @@ def register_ontserve_ops_routes(bp):
         """
         try:
             from app.models.temporary_rdf_storage import TemporaryRDFStorage
+            from app.models.entity_match_confirmation import EntityMatchConfirmation
+            from flask_login import current_user
 
             # Find the entity
             entity = TemporaryRDFStorage.query.filter_by(id=entity_id, case_id=case_id).first()
@@ -642,6 +663,24 @@ def register_ontserve_ops_routes(bp):
                     'success': False,
                     'error': 'Entity not found'
                 }), 404
+
+            # Log the mark-new action with the match state being discarded, so the
+            # audit trail captures every rejected auto-match (a canonicalization signal).
+            confirmation = EntityMatchConfirmation(
+                case_id=case_id,
+                entity_id=entity_id,
+                entity_label=entity.entity_label,
+                entity_type=entity.entity_type,
+                original_match_uri=entity.matched_ontology_uri,
+                original_match_label=entity.matched_ontology_label,
+                original_confidence=entity.match_confidence,
+                original_method=entity.match_method,
+                action='marked_new',
+                new_match_uri=None,
+                new_match_label=None,
+                user_id=current_user.id if current_user and hasattr(current_user, 'id') else None
+            )
+            db.session.add(confirmation)
 
             # Clear match fields
             entity.matched_ontology_uri = None

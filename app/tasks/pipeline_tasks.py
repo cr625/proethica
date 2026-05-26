@@ -493,6 +493,35 @@ def run_step3_task(self, run_id: int):
                             if allen_match:
                                 results['allen_relations'] = int(allen_match.group(1))
 
+        # Chronological temporal sequencing (study-corrections A1): the
+        # 7-stage graph stores Action/Event rows in extractor-pass order, not
+        # chronology. Populate proeth:temporalSequence so the timeline view
+        # renders in narrative time. Best-effort: never fail the step (the
+        # view falls back to row id, and the backfill driver is the safety net).
+        try:
+            from app.services.extraction.temporal_sequence_apply import apply_temporal_sequence
+            seq_result = apply_temporal_sequence(run.case_id)
+            results['temporal_sequence'] = seq_result.get('status')
+            logger.info(f"[Task {self.request.id}] Temporal sequencing: {seq_result}")
+        except Exception as seq_err:
+            logger.exception(f"[Task {self.request.id}] Temporal sequencing hook failed: {seq_err}")
+            results['temporal_sequence'] = 'error'
+
+        # Obligation engagement reclassification (study-corrections A3): split
+        # each Action's obligations into fulfills / violates / raises. Runs
+        # HERE (end of Step 3), not end of Step 2 as the original plan stated:
+        # it consumes the temporal_dynamics_enhanced Action rows and their
+        # proeth:temporalSequence, both produced by Step 3 (sequence set just
+        # above by A1). Best-effort; never fails the step.
+        try:
+            from app.services.extraction.obligation_engagement_apply import apply_obligation_engagement
+            eng_result = apply_obligation_engagement(run.case_id)
+            results['obligation_engagement'] = eng_result.get('status')
+            logger.info(f"[Task {self.request.id}] Obligation engagement: {eng_result}")
+        except Exception as eng_err:
+            logger.exception(f"[Task {self.request.id}] Obligation engagement hook failed: {eng_err}")
+            results['obligation_engagement'] = 'error'
+
         # Reset current_step to canonical name (was set to stage progress)
         run.current_step = step_name
         run.mark_step_complete(step_name, results)
@@ -967,6 +996,46 @@ def run_step4_task(self, run_id: int):
             'duration_seconds': result.duration_seconds,
             'stages_completed': result.stages_completed
         }
+
+        # Board-conclusion gap backfill (study-corrections A2): synthesize a
+        # primary conclusion for any board-explicit question Step-4 synthesis
+        # left unanswered. Runs after conclusions are stored; deduplicates
+        # against existing conclusion labels. Best-effort; never fails the step.
+        try:
+            from app.services.extraction.board_conclusions_apply import apply_board_conclusions
+            bc_result = apply_board_conclusions(run.case_id)
+            results['board_conclusions'] = bc_result.get('status')
+            logger.info(f"[Task {self.request.id}] Board-conclusion backfill: {bc_result}")
+        except Exception as bc_err:
+            logger.exception(f"[Task {self.request.id}] Board-conclusion hook failed: {bc_err}")
+            results['board_conclusions'] = 'error'
+
+        # Cited-provision auto-generation (study-corrections A8): for every code
+        # cited in a conclusion (including the board conclusions just added by
+        # A2) with no code_provision_reference row, insert one with canonical
+        # guideline_sections text. NO LLM; codes with no canonical leaf are
+        # skipped. Runs after A2 so new conclusions' citations are covered.
+        try:
+            from app.services.extraction.cited_provisions_apply import apply_cited_provisions
+            cp_result = apply_cited_provisions(run.case_id)
+            results['cited_provisions'] = cp_result.get('status')
+            logger.info(f"[Task {self.request.id}] Cited-provision auto-gen: {cp_result}")
+        except Exception as cp_err:
+            logger.exception(f"[Task {self.request.id}] Cited-provision hook failed: {cp_err}")
+            results['cited_provisions'] = 'error'
+
+        # Moral-intensity per-tension rating (study-corrections A5): rate every
+        # algorithmic tension in the phase4_narrative JSON on the five Jones
+        # (1991) dimensions, not just the 2-5 the narrative prompt surfaces.
+        # Runs after Phase-4 narrative is stored; idempotent. Best-effort.
+        try:
+            from app.services.extraction.moral_intensity_apply import apply_moral_intensity
+            mi_result = apply_moral_intensity(run.case_id)
+            results['moral_intensity'] = mi_result
+            logger.info(f"[Task {self.request.id}] Moral-intensity rating: {mi_result}")
+        except Exception as mi_err:
+            logger.exception(f"[Task {self.request.id}] Moral-intensity hook failed: {mi_err}")
+            results['moral_intensity'] = 'error'
 
         # Reset current_step to canonical name (was set to phase progress)
         run.current_step = step_name

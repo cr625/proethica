@@ -5,11 +5,41 @@ Converts actions, events, causal chains, and timeline to RDF format.
 Stores in database with proper entity_type separation.
 """
 
-from typing import Dict, List
+from typing import Dict, List, Optional, Tuple
 import logging
+import re
 import uuid
 
 logger = logging.getLogger(__name__)
+
+# A "clean" agent string is a single name followed by exactly one trailing
+# parenthetical role group and nothing else, e.g.
+#   "Engineer A (Professional Engineer, Structural)"
+# Strings with zero or multiple parenthetical groups (e.g.
+#   "Engineer A (Original Engineer) and Engineer B (Reviewing Engineer)")
+# are conjunctive/composite agents that cannot be split into a single role
+# context; they are left intact for the bucket-C corrective pass.
+_CLEAN_AGENT_RE = re.compile(r'^([^()]+?)\s*\(([^()]+)\)\s*$')
+
+
+def split_agent_role(agent: str) -> Tuple[str, Optional[str]]:
+    """Split a "Name (role)" agent string into (name, role_context).
+
+    Returns ``(clean_name, role_context)`` when the string is a clean single
+    "Name (role)" form, otherwise ``(agent_unchanged, None)``. Shared by the
+    live converter (study-corrections A7) and the corpus backfill
+    (study-corrections B4) so both apply identical normalization.
+    """
+    if not agent:
+        return agent, None
+    m = _CLEAN_AGENT_RE.match(agent.strip())
+    if not m:
+        return agent, None
+    name = m.group(1).strip()
+    role = m.group(2).strip()
+    if not name or not role:
+        return agent, None
+    return name, role
 
 
 def convert_action_to_rdf(action: Dict, case_id: int) -> Dict:
@@ -41,6 +71,14 @@ def convert_action_to_rdf(action: Dict, case_id: int) -> Dict:
         'proeth:hasAgent': action.get('agent', 'Unknown'),
         'proeth:temporalMarker': action.get('temporal_marker', 'Unknown time')
     }
+
+    # Split a clean "Name (role)" agent into name + per-event role context
+    # (study-corrections A7). Composite agents are left intact (role_context
+    # None) for the bucket-C pass.
+    _agent_name, _role_ctx = split_agent_role(rdf_entity['proeth:hasAgent'])
+    if _role_ctx is not None:
+        rdf_entity['proeth:hasAgent'] = _agent_name
+        rdf_entity['proeth:eventRoleContext'] = _role_ctx
 
     # Add intention if present
     intention = action.get('intention', {})

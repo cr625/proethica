@@ -666,7 +666,7 @@ class AutoCommitService:
             g.serialize(destination=case_file, format='turtle')
             logger.info(f"Generated case TTL: {individuals_added} new, {individuals_merged} merged: {case_file}")
 
-            self._maybe_apply_defeasibility_edges(case_id, case_file)
+            self._apply_defeasibility_edges(case_id, case_file)
 
             return str(case_file)
 
@@ -674,7 +674,7 @@ class AutoCommitService:
             logger.error(f"Error generating case TTL for case {case_id}: {e}")
             return None
 
-    def _maybe_apply_defeasibility_edges(self, case_id: int, case_file) -> None:
+    def _apply_defeasibility_edges(self, case_id: int, case_file) -> None:
         """Run the defeasibility edge extractor over the just-written TTL.
 
         This is the live-pipeline counterpart to the corpus backfill
@@ -683,17 +683,15 @@ class AutoCommitService:
         defeasibleUnder edges between the obligations and states, and
         re-serialize with those edges added.
 
-        Gated by the env var `DEFEASIBILITY_AUTOEXTRACT`. Default is
-        off so commits don't make implicit LLM calls; flip it on in the
-        live extraction service or downstream pipelines that want this
-        behaviour. The corpus backfill script is unaffected by this
-        gate -- it always runs the pipeline helper.
+        Runs unconditionally (study-corrections A4, 2026-05-25). The
+        former `DEFEASIBILITY_AUTOEXTRACT` env gate is removed: the
+        corpus is now uniformly expected to carry defeasibility edges,
+        so every commit materializes them rather than depending on an
+        opt-in flag. Failures are swallowed below so the hook can never
+        fail a commit; the backfill script remains the corpus-level
+        safety net.
         """
-        import os
         from pathlib import Path
-
-        if os.getenv("DEFEASIBILITY_AUTOEXTRACT", "").lower() != "true":
-            return
 
         try:
             from app.services.extraction.defeasibility_pipeline import (

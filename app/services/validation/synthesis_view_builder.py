@@ -559,6 +559,11 @@ class SynthesisViewBuilder:
                 'fragment': _uri_fragment(entry_iri),
                 'temporal_marker': rdf.get('proeth:temporalMarker', ''),
                 'agent': rdf.get('proeth:hasAgent', ''),
+                # Per-event role context (study-corrections A7/B4). Present on
+                # backfilled and newly-extracted rows; legacy rows leave it ''
+                # and the template falls back to splitting the "(role)" suffix
+                # out of `agent` inline.
+                'event_role_context': rdf.get('proeth:eventRoleContext', ''),
                 'narrative_role': rdf.get('proeth-scenario:narrativeRole', ''),
                 'description': rdf.get('proeth:description', ''),
                 'alternative_count': len(alternatives) if isinstance(alternatives, list) else 0,
