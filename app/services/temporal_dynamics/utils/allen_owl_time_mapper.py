@@ -14,8 +14,12 @@ logger = logging.getLogger(__name__)
 # Allen's Interval Algebra - Complete mapping to OWL-Time properties
 ALLEN_TO_OWL_TIME = {
     # Basic relations
-    'precedes': 'time:before',
-    'before': 'time:before',
+    # precedes/before map to the Allen INTERVAL relation time:intervalBefore (not the
+    # general time:before ordering), for consistency with the other interval-specific
+    # properties below and with the dissertation's "Allen's 13 interval relations"
+    # framing. time:intervalBefore rdfs:subPropertyOf time:before (Cox & Little 2017).
+    'precedes': 'time:intervalBefore',
+    'before': 'time:intervalBefore',
 
     'meets': 'time:intervalMeets',
 
@@ -33,8 +37,10 @@ ALLEN_TO_OWL_TIME = {
     'equals': 'time:intervalEquals',
 
     # Inverse relations
-    'preceded_by': 'time:after',
-    'after': 'time:after',
+    # after/preceded_by map to the Allen INTERVAL relation time:intervalAfter (not the
+    # general time:after); time:intervalAfter rdfs:subPropertyOf time:after.
+    'preceded_by': 'time:intervalAfter',
+    'after': 'time:intervalAfter',
 
     'met_by': 'time:intervalMetBy',
 
@@ -48,6 +54,9 @@ ALLEN_TO_OWL_TIME = {
 
 # OWL-Time property URIs (full URIs for RDF)
 OWL_TIME_URIS = {
+    'time:intervalBefore': 'http://www.w3.org/2006/time#intervalBefore',
+    'time:intervalAfter': 'http://www.w3.org/2006/time#intervalAfter',
+    # general ordering forms retained so legacy/un-backfilled values still resolve
     'time:before': 'http://www.w3.org/2006/time#before',
     'time:after': 'http://www.w3.org/2006/time#after',
     'time:intervalMeets': 'http://www.w3.org/2006/time#intervalMeets',
