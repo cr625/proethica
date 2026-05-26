@@ -1024,6 +1024,21 @@ def run_step4_task(self, run_id: int):
             logger.exception(f"[Task {self.request.id}] Cited-provision hook failed: {cp_err}")
             results['cited_provisions'] = 'error'
 
+        # Citation provenance (study-corrections Phase 4): the complement of A8 --
+        # for every cited provision that does NOT resolve to a guideline_sections
+        # leaf (pre-2007 NSPE vocabulary, BER precedents, external laws, synthesized
+        # labels, modern section-level codes with only sub-leaves), annotate a
+        # proeth:citationProvenance field classifying why it is unmapped. NO LLM;
+        # no crosswalk, no drop. Runs after A8 (which handles the resolvable ones).
+        try:
+            from app.services.extraction.citation_provenance_apply import apply_citation_provenance
+            cpr_result = apply_citation_provenance(run.case_id)
+            results['citation_provenance'] = cpr_result.get('status')
+            logger.info(f"[Task {self.request.id}] Citation-provenance annotation: {cpr_result}")
+        except Exception as cpr_err:
+            logger.exception(f"[Task {self.request.id}] Citation-provenance hook failed: {cpr_err}")
+            results['citation_provenance'] = 'error'
+
         # Moral-intensity per-tension rating (study-corrections A5): rate every
         # algorithmic tension in the phase4_narrative JSON on the five Jones
         # (1991) dimensions, not just the 2-5 the narrative prompt surfaces.
