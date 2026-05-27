@@ -138,6 +138,32 @@ def test_apply_rpo_edges_missing_ttl(tmp_path):
     assert result["status"] == "missing_ttl"
 
 
+def test_established_core_category_resolves_corrected_classes():
+    """Regression guard for direction A (type-chain authoritative) + the 6
+    re-parented discovered classes. Reads the live intermediate ontologies, so it
+    fails if either the resolver breaks or a correction is reverted."""
+    from app.services.ontserve_commit_service import OntServeCommitService
+    svc = OntServeCommitService()
+
+    # The 6 drifted classes corrected on 2026-05-27 (were Principle/Resource).
+    expected = {
+        "ClientRefusalEscalationObligation": "Obligation",
+        "RiskDisclosureTimingObligation": "Obligation",
+        "ExpertWitnessDisclosureObligation": "Obligation",
+        "PublicSafetyDisclosureObligation": "Obligation",
+        "Single-ClientDual-RoleSelf-ReviewHeightenedCautionObligation": "Obligation",
+        "Part-TimeMunicipalEngineerCompetitiveDisadvantageAcknowledgmentandEthicalConstraint": "Constraint",
+    }
+    for cls, cat in expected.items():
+        assert svc._established_core_category(cls) == cat, cls
+
+    # A class whose established chain is genuinely Capability stays Capability
+    # (the literal must not override the ontology).
+    assert svc._established_core_category("ProfessionalCompetence") == "Capability"
+    # Unknown classes resolve to None (fresh classes fall back to the extraction category).
+    assert svc._established_core_category("DefinitelyNotARealClass12345") is None
+
+
 def test_materialize_is_best_effort(monkeypatch, tmp_path):
     """A raising applier is recorded as an error, never propagated."""
     ttl_file = tmp_path / "proethica-case-9999.ttl"
