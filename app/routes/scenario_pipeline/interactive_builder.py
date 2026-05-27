@@ -51,21 +51,14 @@ def debug_overview_route(case_id):
 @interactive_scenario_bp.route('/case/<int:case_id>/step2')
 @interactive_scenario_bp.route('/case/<int:case_id>/step2b')
 @interactive_scenario_bp.route('/case/<int:case_id>/step3')
+@interactive_scenario_bp.route('/case/<int:case_id>/complete')
 @auth_optional
 def legacy_step_redirect(case_id):
-    """Redirect removed step1-3 extraction pages to the pipeline dashboard."""
+    """Redirect removed step1-3 / complete-analysis pages to the pipeline dashboard.
+
+    The ``/complete`` ("complete modular analysis") route formerly ran the
+    legacy ``CaseExtractionPipeline``; that handler is archived under
+    ``_archived/complete_analysis.py`` (dead, superseded by the per-step
+    ``cases.case_pipeline`` dashboard). Bookmarks now redirect here.
+    """
     return redirect(url_for('cases.case_pipeline', case_id=case_id))
-
-
-@interactive_scenario_bp.route('/case/<int:case_id>/complete')
-def complete_analysis(case_id):
-    """Route handler for Complete Analysis: Modular Pipeline for All Case Elements"""
-    from .complete_analysis import complete_analysis as complete_handler
-    return complete_handler(case_id)
-
-
-@interactive_scenario_bp.route('/case/<int:case_id>/complete_analysis_execute', methods=['POST'])
-def execute_complete_analysis(case_id):
-    """API endpoint to execute complete modular analysis"""
-    from .complete_analysis import execute_complete_analysis as execute_handler
-    return execute_handler(case_id)

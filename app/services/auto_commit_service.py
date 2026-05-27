@@ -667,6 +667,7 @@ class AutoCommitService:
             logger.info(f"Generated case TTL: {individuals_added} new, {individuals_merged} merged: {case_file}")
 
             self._apply_defeasibility_edges(case_id, case_file)
+            self._apply_cites_provision_edges(case_file)
 
             return str(case_file)
 
@@ -719,6 +720,39 @@ class AutoCommitService:
             logger.exception(
                 "Defeasibility hook for case %s raised: %s", case_id, e
             )
+
+    def _apply_cites_provision_edges(self, case_file) -> None:
+        """Resolve board-conclusion citedProvisionN dotted-code literals in the
+        just-written TTL to nspe: CodeProvision IRIs and add
+        proeth-core:citesProvision edges. Deterministic (no LLM); the corpus
+        counterpart is docs-internal/scripts/backfill_cites_provision_edges.py.
+        Failures are swallowed so the hook can never fail a commit.
+        """
+        try:
+            from rdflib import Graph as _Graph
+            from sqlalchemy import text
+            from app.models import db
+            from app.services.extraction.provision_citation_resolver import (
+                ProvisionCitationResolver, apply_cites_provision_edges,
+                valid_fragments_from_codes,
+            )
+
+            codes = [r[0] for r in db.session.execute(
+                text("SELECT section_code FROM guideline_sections WHERE guideline_id = 1")
+            ).fetchall()]
+            if not codes:
+                logger.warning("citesProvision hook: no NSPE guideline sections; skipping")
+                return
+            resolver = ProvisionCitationResolver(valid_fragments_from_codes(codes))
+
+            g = _Graph()
+            g.parse(case_file, format="turtle")
+            added = apply_cites_provision_edges(g, resolver)
+            if added:
+                g.serialize(destination=case_file, format="turtle")
+            logger.info("citesProvision hook %s: +%d edges", case_file, added)
+        except Exception as e:
+            logger.exception("citesProvision hook raised: %s", e)
 
     def _merge_entity_properties(
         self,

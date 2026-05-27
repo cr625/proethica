@@ -1,5 +1,14 @@
 """
-Core Case Extraction Pipeline
+Core Case Extraction Pipeline (ARCHIVED 2026-05-26 -- DEAD CODE).
+
+Superseded by the per-step live pipeline (unified_dual_extractor.py rendering
+extraction_prompt_templates DB rows, driven by pipeline_tasks.py behind the
+cases.case_pipeline dashboard). PassOrchestrator.__init__ imports
+enhanced_prompts_actions / enhanced_prompts_events, which no longer exist, so
+CaseExtractionPipeline() raises ImportError on construction. Retained for
+reference only; not imported by any live code. See package __init__ and
+docs-internal/reextraction/prompt-inventory.md.
+
 Modular infrastructure for analyzing all case sections across the 3-pass system
 """
 

@@ -435,14 +435,22 @@ CONCEPT_COLORS = {
     'decision_synthesis': '#64748b'  # Slate (Step 4 color)
 }
 
+# Originating seed file per concept. NOTE: the LIVE prompt for case extraction
+# is the editable ``extraction_prompt_templates`` DB row (template_text),
+# rendered by ``app/services/extraction/unified_dual_extractor.py``. These
+# paths point at where each prompt's literature-grounded text originated. The
+# states/capabilities/principles/obligations/constraints seed modules were
+# archived 2026-05-26 (see ``_archived/``); roles/resources remain live via the
+# guideline analyzer. Actions/events never had a seed module (the prior
+# enhanced_prompts_actions/events paths were dead).
 CONCEPT_SOURCE_FILES = {
     'roles': 'app/services/extraction/enhanced_prompts_roles_resources.py',
     'resources': 'app/services/extraction/enhanced_prompts_roles_resources.py',
-    'states': 'app/services/extraction/enhanced_prompts_states_capabilities.py',
-    'capabilities': 'app/services/extraction/enhanced_prompts_states_capabilities.py',
-    'principles': 'app/services/extraction/enhanced_prompts_principles.py',
-    'obligations': 'app/services/extraction/enhanced_prompts_obligations.py',
-    'constraints': 'app/services/extraction/enhanced_prompts_constraints.py',
-    'actions': 'app/services/extraction/enhanced_prompts_actions.py',
-    'events': 'app/services/extraction/enhanced_prompts_events.py'
+    'states': 'app/services/extraction/_archived/enhanced_prompts_states_capabilities.py',
+    'capabilities': 'app/services/extraction/_archived/enhanced_prompts_states_capabilities.py',
+    'principles': 'app/services/extraction/_archived/enhanced_prompts_principles.py',
+    'obligations': 'app/services/extraction/_archived/enhanced_prompts_obligations.py',
+    'constraints': 'app/services/extraction/_archived/enhanced_prompts_constraints.py',
+    'actions': 'app/services/extraction/unified_dual_extractor.py',
+    'events': 'app/services/extraction/unified_dual_extractor.py'
 }
