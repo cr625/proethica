@@ -365,12 +365,21 @@ def _add_missing_subclass_declarations(g: Graph) -> int:
 
 
 def _build_merged_graph(case_graph: Graph, core_ttl, intermediate_ttl) -> Graph:
-    """core + intermediate + case, owl:imports stripped, missing subclass chains
-    filled from conceptCategory -- the same surface Pellet sees."""
+    """core + intermediate + intermediate-extended + case, owl:imports stripped,
+    missing subclass chains filled from conceptCategory.
+
+    intermediate-extended carries the "discovered" classes (their established
+    subClassOf-core chains) that committed cases type individuals to; loading it
+    here means the guard resolves an endpoint's core category the same way the
+    persisted case does, instead of falling back to the conceptCategory literal."""
+    from pathlib import Path
     from rdflib import OWL
     g = Graph()
     g.parse(str(core_ttl), format="turtle")
     g.parse(str(intermediate_ttl), format="turtle")
+    extended = Path(intermediate_ttl).with_name("proethica-intermediate-extended.ttl")
+    if extended.exists():
+        g.parse(str(extended), format="turtle")
     for t in case_graph:
         g.add(t)
     for t in list(g.triples((None, OWL.imports, None))):

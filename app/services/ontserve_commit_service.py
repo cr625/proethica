@@ -570,6 +570,12 @@ class OntServeCommitService:
 
                 # Base concept category for this entity (from its extraction pass).
                 concept_cat = self._get_concept_category(entity)
+                # Authoritative category = the reasoner-visible type chain. Starts as
+                # the extraction-pass category and is overridden below to an
+                # established class's core category when the individual is typed to
+                # one, so the conceptCategory literal we write cannot disagree with
+                # the chain (the case-8 re-extraction inconsistency).
+                resolved_cat = concept_cat
 
                 # Add type based on the class from rdf_json_ld
                 if rdf_data and rdf_data.get('types'):
@@ -605,6 +611,10 @@ class OntServeCommitService:
                                         safe_class, established, concept_cat,
                                     )
                                 class_core_category[safe_class] = established
+                                # Chain is authoritative: the individual's category
+                                # is the established class's category, not the
+                                # extraction-pass literal.
+                                resolved_cat = established
                             else:
                                 prior = class_core_category.get(safe_class)
                                 if prior is None:
@@ -621,9 +631,11 @@ class OntServeCommitService:
                                         safe_class, prior, concept_cat, prior,
                                     )
 
-                # Tag with base concept category for display grouping
-                if concept_cat:
-                    g.add((individual_uri, PROETHICA['conceptCategory'], Literal(concept_cat)))
+                # Tag with the resolved (chain-authoritative) concept category for
+                # display grouping. Derived from the type chain so it cannot drift
+                # from what the reasoner sees.
+                if resolved_cat:
+                    g.add((individual_uri, PROETHICA['conceptCategory'], Literal(resolved_cat)))
 
                 # Check if this is an argument entity (Toulmin structure)
                 extraction_type = entity.extraction_type or ''
