@@ -226,7 +226,13 @@
         {% endfor %}
 
         {% else %}
+            {% if provisions_empty_note %}
+            <div class="alert alert-secondary small mb-0" role="status">
+                <i class="bi bi-info-circle"></i> {{ provisions_empty_note }}
+            </div>
+            {% else %}
             <p class="text-muted">No code provisions extracted yet.</p>
+            {% endif %}
         {% endif %}
     </div>
 </div>
