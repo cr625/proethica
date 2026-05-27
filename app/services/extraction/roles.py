@@ -1,6 +1,10 @@
 """
 Roles Extractor - Focused extraction of professional and stakeholder roles from guidelines.
 
+GUIDELINE-analysis stack (dormant; gated by GUIDELINE_EXTRACTION_ENABLED, default off).
+This is NOT the case-extraction pipeline -- cases are extracted by UnifiedDualExtractor
+(app.services.extraction.concept_extraction_service). See guideline_analysis_service.
+
 This implements the first pass of the two-pass extraction approach outlined in 
 ROLE_EXTRACTION_AND_MATCHING_INTEGRATED_PLAN.md.
 """
