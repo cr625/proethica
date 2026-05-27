@@ -34,29 +34,29 @@ CITATION_SHORT = "Marchais-Roubelat & Roubelat (2015)"
 # The transformation types describe how stakeholders move between these sets.
 
 SOURCE_CONTEXT = """
-From the paper's theoretical framework (pp. 547-549):
+Marchais-Roubelat & Roubelat's scenario-transformation framework (paraphrased,
+with verbatim phrases quoted):
 
-"Scenario design must account for how stakeholders navigate between different
-configurations of rules and obligations. A scenario set represents a stable
-configuration where specific rules apply. Transformation occurs when stakeholders
-move from one scenario set to another, either voluntarily or through circumstance."
+A scenario set is a configuration of rules under which stakeholders act; the
+paper analyzes how a scenario is transformed via what it calls the "steering
+rule". It distinguishes four transformation patterns:
+- Transfer: the paper analyzes "Shifts from a scenario set to a new one" (verbatim).
+- Stalemate: stakeholders cannot quit the scenario and "seem to be trapped in the
+  set of rules" (verbatim).
+- Oscillation: stakeholders "go to and fro between different set of rules" (verbatim).
+- Phase lag: a temporal gap in which stakeholders effectively run parallel
+  scenarios (paraphrase).
 
-Table II (p. 550) presents the "Steering Rule" - how stakeholders navigate:
-- Transfer: "Shifts from a scenario set to a new one"
-- Stalemate: "Stakeholders trapped in set of rules"
-- Oscillation: "Stakeholders go to and fro between different sets of rules"
-- Phase lag: "Some stakeholders perform parallel scenarios"
-
-The authors note that these patterns emerge from the interaction between
-stakeholder agency and systemic constraints. Understanding which pattern
-applies helps predict scenario evolution and identify intervention points.
+These patterns emerge from the interaction of stakeholder agency and systemic
+constraints; identifying which applies helps anticipate how a scenario evolves.
 """
 
 TRANSFORMATION_TYPES: Dict[str, Dict] = {
     'transfer': {
         'definition': "Resolution transfers obligation/responsibility to another party",
         'source_page': "Table II, p. 550",
-        'source_text': """From Table II (p. 550): "Transfer - Shifts from a scenario set to a new one."
+        'source_text': """Marchais-Roubelat & Roubelat (2015): "Shifts from a scenario set to a
+new one are analysed by transfers" (verbatim).
 
 In professional ethics context: The ethical obligation or responsibility moves from
 one stakeholder to another. The original party is relieved of the duty, which now
@@ -89,7 +89,8 @@ Entity links:
     'stalemate': {
         'definition': "Competing obligations remain in tension without clear resolution",
         'source_page': "Table II, p. 550",
-        'source_text': """From Table II (p. 550): "Stalemate - Stakeholders trapped in set of rules."
+        'source_text': """Marchais-Roubelat & Roubelat (2015): in a stalemate, stakeholders
+"cannot quit the scenario, as they seem to be trapped in the set of rules" (verbatim).
 
 In professional ethics context: Multiple valid but incompatible obligations exist
 simultaneously. The ethical situation does not resolve cleanly because competing
@@ -122,8 +123,8 @@ Entity links:
     'oscillation': {
         'definition': "Duties shift back and forth between parties over time",
         'source_page': "Table II, p. 550",
-        'source_text': """From Table II (p. 550): "Oscillation - Stakeholders go to and fro
-between different sets of rules."
+        'source_text': """Marchais-Roubelat & Roubelat (2015): in oscillations, stakeholders
+"go to and fro between different set of rules" (verbatim).
 
 In professional ethics context: Responsibility cycles between parties as circumstances
 change. Unlike transfer (one-time shift), oscillation involves recurring movement
@@ -156,8 +157,8 @@ Entity links:
     'phase_lag': {
         'definition': "Delayed consequences reveal obligations not initially apparent",
         'source_page': "Table II, p. 550",
-        'source_text': """From Table II (p. 550): "Phase lag - Some stakeholders perform
-parallel scenarios."
+        'source_text': """Marchais-Roubelat & Roubelat (2015) describe phase lag as a temporal
+gap in which stakeholders effectively run parallel scenarios (paraphrase).
 
 In professional ethics context: A temporal gap exists between action and revelation
 of consequences. Obligations emerge or become clear only after time has passed.
