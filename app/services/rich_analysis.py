@@ -20,6 +20,7 @@ from app.models import TemporaryRDFStorage
 from app.utils.llm_utils import get_llm_client, streaming_completion
 from app.utils.llm_json_utils import parse_json_response
 from app.utils.entity_prompt_utils import format_entities_compact, resolve_labels_flat
+from app.services.prompt_style import STYLE_FORMATTING_LINE
 from model_config import ModelConfig
 
 from app.services.case_synthesis_models import (
@@ -155,7 +156,9 @@ Use exact entity labels from the entity list. Output as JSON array:
 ]
 ```
 
-Include all {len(batch_actions)} actions even if they have empty relationships."""
+Include all {len(batch_actions)} actions even if they have empty relationships.
+
+{STYLE_FORMATTING_LINE}"""
 
         max_retries = 3
         last_error = None
@@ -313,7 +316,9 @@ For EACH question, use exact entity labels from the list above. Output JSON:
 ]
 ```
 
-Include all questions in this batch."""
+Include all questions in this batch.
+
+{STYLE_FORMATTING_LINE}"""
 
         max_retries = 3
         last_error = None
@@ -507,7 +512,9 @@ Output as JSON array:
 ]
 ```
 
-Include all {len(batch_conclusions)} conclusions in this batch."""
+Include all {len(batch_conclusions)} conclusions in this batch.
+
+{STYLE_FORMATTING_LINE}"""
 
         max_retries = 3
         last_error = None

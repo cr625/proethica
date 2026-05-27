@@ -13,6 +13,7 @@ import logging
 import os
 
 from model_config import ModelConfig
+from app.services.prompt_style import STYLE_FORMATTING_LINE
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -334,6 +335,8 @@ Return JSON:
 
 Only extract volitional decisions, not occurrences/events. Be specific with obligations and principles.
 
+{STYLE_FORMATTING_LINE}
+
 JSON:"""
 
 
@@ -362,6 +365,8 @@ For each action (by number), provide scenario_metadata:
 - is_decision_point: true/false - Could the story branch here?
 - alternative_actions: 2-3 other realistic choices
 - consequences_if_alternative: What would have happened for each alternative
+
+{STYLE_FORMATTING_LINE}
 
 Return JSON:
 ```json

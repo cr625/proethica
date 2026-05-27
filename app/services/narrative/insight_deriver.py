@@ -11,6 +11,7 @@ from typing import List, Dict, Optional, Any, Tuple
 from dataclasses import dataclass, field, asdict
 
 from app.utils.llm_utils import get_llm_client
+from app.services.prompt_style import STYLE_FORMATTING_LINE
 from model_config import ModelConfig
 
 logger = logging.getLogger(__name__)
@@ -361,6 +362,8 @@ Provide:
 1. 3 key takeaways (1 sentence each)
 2. 1-2 novel aspects of this case (if any)
 3. 1-2 limitations in the board's reasoning (if any)
+
+{STYLE_FORMATTING_LINE}
 
 Output as JSON:
 ```json

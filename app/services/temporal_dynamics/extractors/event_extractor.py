@@ -13,6 +13,7 @@ import logging
 from datetime import datetime
 
 from model_config import ModelConfig
+from app.services.prompt_style import STYLE_FORMATTING_LINE
 
 import os
 
@@ -192,6 +193,8 @@ For each event, identify:
    - Learning moment: What should students learn from this event?
    - Discussion prompts: List 2-3 questions for classroom discussion
    - Ethical implications: What ethical issues does this event reveal?
+
+{STYLE_FORMATTING_LINE}
 
 Return your analysis as a JSON array:
 
