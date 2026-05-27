@@ -710,20 +710,44 @@ class NarrativeElementExtractor:
             for o in foundation.obligations[:5]
         ])
 
+        # Load the Facts section so the LLM can rescan for present-case actors
+        # that the role-extraction pass omitted (e.g. case 60's "Engineer B").
+        facts_text = self._load_case_facts(case_id)
+        facts_block = facts_text if facts_text else "(Facts section unavailable)"
+
         prompt = f"""Analyze these roles from an NSPE ethics case and provide brief character insights.
 
-ROLES:
+CASE FACTS:
+{facts_block}
+
+ROLES ALREADY EXTRACTED:
 {character_list}
 
 OBLIGATIONS IN THE CASE:
 {obligations_list}
 
-For each role, provide a 1-sentence professional description and likely motivation.
-Output as JSON array:
+Two tasks:
+
+1. For each role in ROLES ALREADY EXTRACTED, provide a 1-sentence professional
+   description and likely motivation.
+
+2. MISSING-CHARACTER RESCAN. Read CASE FACTS and identify any present-case actor
+   (a person, named party, or distinctly individuated role such as "Engineer B",
+   "the Client", "the Contractor") who participates in the facts but is NOT already
+   covered by ROLES ALREADY EXTRACTED. Do NOT invent actors, and do NOT include the
+   Board of Ethical Review or generic ontology categories. Return each genuinely
+   omitted actor in "missing_characters". Leave the array empty if none are missing.
+
+Output as JSON object:
 ```json
-[
-  {{"role": "Role label", "description": "...", "motivation": "..."}}
-]
+{{
+  "enhancements": [
+    {{"role": "Role label", "description": "...", "motivation": "..."}}
+  ],
+  "missing_characters": [
+    {{"label": "Engineer B", "role_type": "stakeholder", "description": "...", "motivation": "..."}}
+  ]
+}}
 ```"""
 
         llm_trace = None
@@ -734,7 +758,7 @@ Output as JSON array:
             response_text = streaming_completion(
                 self.llm_client,
                 model=ModelConfig.get_claude_model("default"),
-                max_tokens=500,
+                max_tokens=1500,
                 prompt=prompt,
                 temperature=0.3
             )
@@ -742,13 +766,22 @@ Output as JSON array:
             # Capture LLM trace
             llm_trace = {
                 'stage': 'CHARACTER_ENHANCEMENT',
-                'description': 'Enhance character descriptions with professional context',
+                'description': 'Enhance character descriptions and rescan facts for omitted present-case actors',
                 'prompt': prompt,
                 'response': response_text,
                 'model': ModelConfig.get_claude_model("default")
             }
 
-            enhancements = parse_json_response(response_text, context="character_enhancement")
+            parsed = parse_json_response(response_text, context="character_enhancement")
+
+            # Output is now an object {enhancements, missing_characters}; tolerate
+            # the legacy bare-array shape so older traces still parse.
+            if isinstance(parsed, dict):
+                enhancements = parsed.get('enhancements', [])
+                missing_characters = parsed.get('missing_characters', [])
+            else:
+                enhancements = parsed or []
+                missing_characters = []
 
             enhanced_count = 0
             if enhancements:
@@ -778,12 +811,55 @@ Output as JSON array:
                         best_char.llm_enhanced = True
                         enhanced_count += 1
 
-            logger.info(f"Enhanced {enhanced_count} characters with LLM")
+            # Append present-case actors recovered by the missing-character rescan.
+            recovered_count = 0
+            existing_labels = {c.label.lower().strip() for c in characters}
+            base_uri = characters[0].uri.split('#')[0] if characters and '#' in characters[0].uri else f"urn:proethica:case-{case_id}"
+            for mc in missing_characters:
+                label = (mc.get('label') or '').strip()
+                if not label:
+                    continue
+                ml = label.lower()
+                # Skip duplicates and anything that fuzzily matches an existing actor.
+                if ml in existing_labels or any(ml in el or el in ml for el in existing_labels):
+                    continue
+                if self._is_meta_authority(label):
+                    continue
+                slug = ''.join(w.capitalize() for w in label.split() if w.isalnum() or w.isalpha())
+                characters.append(NarrativeCharacter(
+                    uri=f"{base_uri}#{slug or 'RescannedCharacter'}_{recovered_count + 1}",
+                    label=label,
+                    role_type=mc.get('role_type') or 'stakeholder',
+                    professional_position=mc.get('description', ''),
+                    motivations=[mc['motivation']] if mc.get('motivation') else [],
+                    llm_enhanced=True
+                ))
+                existing_labels.add(ml)
+                recovered_count += 1
+
+            logger.info(
+                f"Enhanced {enhanced_count} characters with LLM; "
+                f"recovered {recovered_count} omitted present-case actor(s) via rescan"
+            )
 
         except Exception as e:
             logger.warning(f"LLM character enhancement failed: {e}")
 
         return characters, llm_trace
+
+    def _load_case_facts(self, case_id: int) -> str:
+        """Load the Facts section for a case from document_sections (rescan input)."""
+        try:
+            from sqlalchemy import text as sql_text
+            result = db.session.execute(
+                sql_text("SELECT content FROM document_sections WHERE document_id = :cid AND section_type = 'facts'"),
+                {'cid': case_id}
+            ).fetchone()
+            if result and result[0]:
+                return result[0][:2000]
+        except Exception as e:
+            logger.debug(f"Could not load case facts for case {case_id}: {e}")
+        return ""
 
     def _enhance_tensions_with_llm(
         self,

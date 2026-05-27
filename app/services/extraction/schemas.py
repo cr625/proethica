@@ -531,7 +531,13 @@ class ActionCategory(str, Enum):
 
 
 class CandidateActionClass(BaseCandidate):
-    """A new action class discovered in case text."""
+    """A new action class discovered in case text.
+
+    NOTE (HO-006): Step-3 temporal dynamics commits no action *class* rows
+    (``storage_type='class'``) - only individuals via the LangGraph path. This
+    candidate-class model is retained for API symmetry with Steps 1-2 but is not
+    populated by the live temporal pass.
+    """
     action_category: Optional[ActionCategory] = None
     volitional_nature: Optional[str] = Field(
         None,
@@ -552,40 +558,69 @@ class CandidateActionClass(BaseCandidate):
     )
 
 
-class ActionIndividual(BaseIndividual):
-    """A specific action instance in the case."""
-    action_class: str = Field("", description="Action class label or URI", alias="instance_of")
-    performed_by: Optional[str] = Field(
-        None, description="Who performed the action"
+class ActionIndividual(BaseModel):
+    """A specific action instance in the case.
+
+    CONFORMED to the emitted vocabulary (HO-006, 2026-05-26). Step-3 temporal
+    dynamics does NOT validate through this model: actions are produced by the
+    LangGraph temporal pass and serialised directly to ``proeth:`` / ``proeth-scenario:``
+    JSON-LD by ``app/services/temporal_dynamics/utils/rdf_converter.build_action_rdf``.
+    The committed JSON-LD (``temporary_rdf_storage.rdf_json_ld`` for
+    ``extraction_type='temporal_dynamics_enhanced'``, ``entity_type='actions'``) is the
+    canonical ground truth; this model mirrors those keys via aliases so it can
+    round-trip committed output. The earlier snake_case fields (``performed_by``,
+    ``temporal_interval``, ``sequence_order``, ``obligations_fulfilled`` ...) never
+    matched what was emitted and were removed. See memory
+    ``feedback_schema-vs-emitted-vocabulary``.
+    """
+    model_config = ConfigDict(populate_by_name=True, extra='allow')
+
+    # JSON-LD framing
+    id: Optional[str] = Field(None, alias="@id")
+    type: str = Field("proeth:Action", alias="@type")
+    label: Optional[str] = Field(None, alias="rdfs:label")
+
+    # Core descriptive fields (always emitted)
+    description: Optional[str] = Field(None, alias="proeth:description")
+    has_agent: Optional[str] = Field(None, alias="proeth:hasAgent")
+    event_role_context: Optional[str] = Field(None, alias="proeth:eventRoleContext")
+    temporal_marker: Optional[str] = Field(None, alias="proeth:temporalMarker")
+
+    # Intention block
+    has_mental_state: Optional[str] = Field(None, alias="proeth:hasMentalState")
+    intended_outcome: Optional[str] = Field(None, alias="proeth:intendedOutcome")
+    foreseen_unintended_effects: List[str] = Field(
+        default_factory=list, alias="proeth:foreseenUnintendedEffects"
     )
-    performed_on: Optional[str] = Field(
-        None, description="What/who the action was performed on"
+
+    # Ethical context
+    fulfills_obligation: List[str] = Field(default_factory=list, alias="proeth:fulfillsObligation")
+    violates_obligation: List[str] = Field(default_factory=list, alias="proeth:violatesObligation")
+    guided_by_principle: List[str] = Field(default_factory=list, alias="proeth:guidedByPrinciple")
+    has_competing_priorities: Optional[Dict[str, Any]] = Field(
+        None, alias="proeth:hasCompetingPriorities",
+        description="Nested proeth:CompetingPriorities object (priorityConflict + resolutionReasoning)"
     )
-    temporal_interval: Optional[str] = Field(
-        None, description="Allen interval algebra interval"
+
+    # Professional context
+    within_competence: Optional[bool] = Field(None, alias="proeth:withinCompetence")
+    requires_capability: List[str] = Field(default_factory=list, alias="proeth:requiresCapability")
+
+    # Scenario / narrative metadata (proeth-scenario:)
+    character_motivation: Optional[str] = Field(None, alias="proeth-scenario:characterMotivation")
+    ethical_tension: Optional[str] = Field(None, alias="proeth-scenario:ethicalTension")
+    decision_significance: Optional[str] = Field(None, alias="proeth-scenario:decisionSignificance")
+    narrative_role: Optional[str] = Field(None, alias="proeth-scenario:narrativeRole")
+    stakes: Optional[str] = Field(None, alias="proeth-scenario:stakes")
+    is_decision_point: Optional[bool] = Field(None, alias="proeth-scenario:isDecisionPoint")
+    alternative_actions: List[str] = Field(default_factory=list, alias="proeth-scenario:alternativeActions")
+    consequences_if_alternative: List[str] = Field(
+        default_factory=list, alias="proeth-scenario:consequencesIfAlternative"
     )
-    sequence_order: Optional[int] = None
-    causal_triggers: List[str] = Field(
-        default_factory=list,
-        description="Events/actions that triggered this action"
-    )
-    causal_results: List[str] = Field(
-        default_factory=list,
-        description="Events/states resulting from this action"
-    )
-    obligations_fulfilled: List[str] = Field(
-        default_factory=list,
-        description="Specific obligations fulfilled (A->O linkage)"
-    )
-    constraints_respected: List[str] = Field(
-        default_factory=list,
-        description="Constraints this action respects (A->Cs linkage)"
-    )
-    capabilities_required: List[str] = Field(
-        default_factory=list,
-        description="Capabilities needed for this action (A->Ca linkage)"
-    )
-    case_context: Optional[str] = None
+
+    # Added by the wired temporal_sequence / obligation apply-hooks at commit time
+    raises_obligation: List[str] = Field(default_factory=list, alias="proeth:raisesObligation")
+    temporal_sequence: Optional[int] = Field(None, alias="proeth:temporalSequence")
 
 
 class ActionExtractionResult(BaseModel):
@@ -629,7 +664,12 @@ class CausalPosition(str, Enum):
 
 
 class CandidateEventClass(BaseCandidate):
-    """A new event class discovered in case text."""
+    """A new event class discovered in case text.
+
+    NOTE (HO-006): As with :class:`CandidateActionClass`, Step-3 commits no event
+    *class* rows; the LangGraph temporal pass emits individuals only. Retained for
+    symmetry, not populated by the live pass.
+    """
     event_category: Optional[EventCategory] = None
     automatic_nature: Optional[str] = Field(
         None,
@@ -652,38 +692,54 @@ class CandidateEventClass(BaseCandidate):
     )
 
 
-class EventIndividual(BaseIndividual):
-    """A specific event instance in the case."""
-    event_class: str = Field("", description="Event class label or URI", alias="instance_of")
-    occurred_to: Optional[str] = Field(
-        None, description="Who/what the event happened to"
+class EventIndividual(BaseModel):
+    """A specific event instance in the case.
+
+    CONFORMED to the emitted vocabulary (HO-006, 2026-05-26). Like
+    :class:`ActionIndividual`, Step-3 events are serialised directly to JSON-LD by
+    ``rdf_converter.build_event_rdf``, NOT validated through this model. The committed
+    JSON-LD (``temporary_rdf_storage`` ``temporal_dynamics_enhanced`` /
+    ``entity_type='events'``) is canonical; this model mirrors those keys via aliases.
+    The earlier snake_case fields (``occurred_to``, ``temporal_interval``,
+    ``obligations_triggered`` ...) never matched the emitted output and were removed.
+    See memory ``feedback_schema-vs-emitted-vocabulary``.
+    """
+    model_config = ConfigDict(populate_by_name=True, extra='allow')
+
+    # JSON-LD framing
+    id: Optional[str] = Field(None, alias="@id")
+    type: str = Field("proeth:Event", alias="@type")
+    label: Optional[str] = Field(None, alias="rdfs:label")
+
+    # Core descriptive fields
+    description: Optional[str] = Field(None, alias="proeth:description")
+    temporal_marker: Optional[str] = Field(None, alias="proeth:temporalMarker")
+
+    # Classification
+    event_type: Optional[str] = Field(None, alias="proeth:eventType")
+    emergency_status: Optional[str] = Field(None, alias="proeth:emergencyStatus")
+
+    # Urgency / normative dynamics
+    urgency_level: Optional[str] = Field(None, alias="proeth:urgencyLevel")
+    activates_constraint: List[str] = Field(default_factory=list, alias="proeth:activatesConstraint")
+    creates_obligation: List[str] = Field(default_factory=list, alias="proeth:createsObligation")
+    causes_state_change: Optional[str] = Field(None, alias="proeth:causesStateChange")
+    caused_by_action: Optional[str] = Field(None, alias="proeth:causedByAction")
+
+    # Scenario / narrative metadata (proeth-scenario:)
+    emotional_impact: Optional[str] = Field(None, alias="proeth-scenario:emotionalImpact")
+    stakeholder_consequences: Optional[Dict[str, Any]] = Field(
+        None, alias="proeth-scenario:stakeholderConsequences"
     )
-    discovered_by: Optional[str] = None
-    temporal_interval: Optional[str] = Field(
-        None, description="Allen interval algebra interval"
-    )
-    sequence_order: Optional[int] = None
-    causal_triggers: List[str] = Field(
-        default_factory=list,
-        description="Events/actions that caused this event"
-    )
-    causal_results: List[str] = Field(
-        default_factory=list,
-        description="Events/states resulting from this event"
-    )
-    constraints_activated: List[str] = Field(
-        default_factory=list,
-        description="Constraints activated by this event (E->Cs)"
-    )
-    obligations_triggered: List[str] = Field(
-        default_factory=list,
-        description="Obligations triggered by this event (E->O)"
-    )
-    states_changed: List[str] = Field(
-        default_factory=list,
-        description="States changed by this event (E->S)"
-    )
-    case_context: Optional[str] = None
+    dramatic_tension: Optional[str] = Field(None, alias="proeth-scenario:dramaticTension")
+    narrative_pacing: Optional[str] = Field(None, alias="proeth-scenario:narrativePacing")
+    crisis_identification: Optional[bool] = Field(None, alias="proeth-scenario:crisisIdentification")
+    learning_moment: Optional[str] = Field(None, alias="proeth-scenario:learningMoment")
+    discussion_prompts: List[str] = Field(default_factory=list, alias="proeth-scenario:discussionPrompts")
+    ethical_implications: Optional[str] = Field(None, alias="proeth-scenario:ethicalImplications")
+
+    # Added by the wired temporal_sequence apply-hook at commit time
+    temporal_sequence: Optional[int] = Field(None, alias="proeth:temporalSequence")
 
 
 class EventExtractionResult(BaseModel):

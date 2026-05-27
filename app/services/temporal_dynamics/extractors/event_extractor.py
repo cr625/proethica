@@ -150,8 +150,12 @@ Extract all EVENTS (occurrences, outcomes, automatic triggers - NOT volitional d
 For each event, identify:
 
 1. BASIC INFO:
-   - Event label (concise name, 3-5 words)
-   - Event description (1-2 sentences)
+   - Event label: a SHORT, GENERAL name of AT MOST 4 words naming the KIND of event,
+     NOT the case scenario: write "Structural Failure", NOT "Single-Client Conflict
+     Mitigation Recognized"; write "Permit Denial", NOT "City Council Permit Denial
+     After Accelerated Review". The label becomes the event's entity URI, so keep it
+     terse and reusable; put all case-specific detail in the description.
+   - Event description (1-2 sentences; put the case-specific detail HERE)
    - Temporal marker (when it occurred)
 
 2. EVENT CLASSIFICATION:
