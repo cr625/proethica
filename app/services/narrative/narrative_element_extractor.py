@@ -30,11 +30,10 @@ logger = logging.getLogger(__name__)
 
 # Role labels that reference a prior BER opinion ("BER Case 19-3", "Case 20-1")
 # name actors from cited precedent cases, not the present case. They must not
-# become narrative characters. Matched anywhere in the label (prefix, suffix,
-# mid-label); the "BER" token is optional. Mirrors the view-layer filter in
-# synthesis_view_builder so cited-case actors are kept out at both the
-# extraction layer (here, effective on re-extraction) and at display time.
-_CITATION_ROLE_RE = re.compile(r'\b(?:BER\s+)?Case\s+\d{2}-\d{1,2}\b', re.IGNORECASE)
+# become narrative characters. Detection is centralized in precedent_filter so the
+# same rule applies at Step-1 role extraction, here (Step-4 narrative), and at the
+# synthesis_view_builder display layer.
+from app.services.extraction.precedent_filter import is_precedent_reference
 
 
 # =============================================================================
@@ -352,7 +351,7 @@ class NarrativeElementExtractor:
 
             # Filter out actors pulled from cited precedent opinions (BER Case
             # NN-N): they belong to the cited case, not the present one.
-            if _CITATION_ROLE_RE.search(role.label or ''):
+            if is_precedent_reference(role.label):
                 logger.debug(f"Skipping cited-case actor: {role.label}")
                 continue
 

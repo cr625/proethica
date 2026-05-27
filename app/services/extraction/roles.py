@@ -78,7 +78,15 @@ class RolesExtractor(Extractor, AtomicExtractionMixin):
             
             # Post-process to ensure all are roles
             candidates = self._ensure_roles_only(candidates)
-            
+
+            # Drop phantom actors pulled from cited precedent cases (e.g.
+            # "Defendant Attorney BER Case 19-3"): they belong to the precedent,
+            # not the case under analysis. Same rule as the Step-4 narrative pass.
+            from app.services.extraction.precedent_filter import drop_precedent_entities
+            candidates, dropped = drop_precedent_entities(candidates, lambda c: c.label)
+            if dropped:
+                logger.info(f"Dropped {len(dropped)} precedent-derived role(s): {dropped}")
+
             logger.info(f"Extracted {len(candidates)} role candidates")
             
             # Enhanced splitting now handled at unified level in guideline_analysis_service.py
