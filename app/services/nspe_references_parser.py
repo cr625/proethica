@@ -199,7 +199,60 @@ class NSPEReferencesParser:
             })
             logger.info(f"Plain-text parsed provision: {raw_code}")
 
+        # Historical fallback: cases adjudicated before the current three-part
+        # I/II/III Code structure (adopted January 1981) cite the numbered
+        # "Canons of Ethics" and "Rules of Professional Conduct" instead, e.g.
+        # 'Canon 15- "He will not accept compensation..."'. The modern pattern
+        # above matches none of these, so only run the historical pass when it
+        # found nothing, keeping modern cases untouched.
+        if not provisions:
+            provisions = self._parse_historical_provisions(text)
+
         logger.info(f"Plain-text fallback found {len(provisions)} provisions")
+        return provisions
+
+    def _parse_historical_provisions(self, text: str) -> List[Dict]:
+        """Parse pre-1981 numbered Canon / Rule citations from references text.
+
+        Matches 'Canon 15', 'Canon 27', 'Rule 13' and captures the verbatim
+        quoted provision text that follows, up to the next Canon/Rule or the end
+        of the references. The normalized code ("Canon 15", "Rule 13") is kept
+        distinct from the modern Roman-numeral codes so the two never collide.
+        """
+        historical_pattern = re.compile(
+            r'\b(Canon|Rule)\s+(\d+)\b\s*[-‐-―:.]*\s*'
+            r'(.+?)'
+            r'(?=\b(?:Canon|Rule)\s+\d+\b|$)',
+            re.DOTALL | re.IGNORECASE,
+        )
+        # Quote characters to strip from the captured provision text:
+        # straight, curly double, and curly single quotes.
+        quote_chars = '"“”‘’\''
+
+        provisions: List[Dict] = []
+        seen_codes = set()
+        for match in historical_pattern.finditer(text):
+            kind = match.group(1).strip().capitalize()  # 'Canon' or 'Rule'
+            number = match.group(2).strip()
+            code = f"{kind} {number}"
+            provision_text = match.group(3).strip().strip(quote_chars).strip()
+            provision_text = provision_text.strip('-‐‑‒–—―').strip()
+            provision_text = provision_text.strip(quote_chars).strip()
+            if not provision_text:
+                continue
+            if code in seen_codes:
+                continue
+            seen_codes.add(code)
+            provisions.append({
+                'code_provision': code,
+                'provision_text': provision_text,
+                'subject_references': [],
+                'historical': True,
+            })
+            logger.info(f"Historical provision parsed: {code}")
+
+        if provisions:
+            logger.info(f"Historical (pre-1981) parse found {len(provisions)} provisions")
         return provisions
 
     def _is_valid_code_provision(self, text: str) -> bool:

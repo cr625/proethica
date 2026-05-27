@@ -563,9 +563,14 @@ class CaseSynthesizer:
 
         # Convert provisions to stored format (preserving linked entities)
         for p in provisions:
+            # Normalize the code into a URI/label fragment. Modern codes have no
+            # spaces (no-op); historical codes ("Canon 15", "Rule 13") carry a
+            # space that must become an underscore so the fragment stays a valid
+            # identifier (Provision_Canon_15).
+            code_frag = p.get('code_provision', '').replace('.', '_').replace(' ', '_')
             provision_dicts.append({
-                'uri': f"case-{case_id}#Provision_{p.get('code_provision', '').replace('.', '_')}",
-                'label': f"NSPE_{p.get('code_provision', '').replace('.', '_')}",
+                'uri': f"case-{case_id}#Provision_{code_frag}",
+                'label': f"NSPE_{code_frag}",
                 'definition': p.get('provision_text', ''),
                 'code': p.get('code_provision', ''),
                 'relevant_excerpts': p.get('relevant_excerpts', []),
