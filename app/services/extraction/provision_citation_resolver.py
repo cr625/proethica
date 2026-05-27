@@ -97,3 +97,33 @@ def apply_cites_provision_edges(g, resolver: ProvisionCitationResolver) -> int:
     for e in new_edges:
         g.add(e)
     return len(new_edges)
+
+
+def apply_cites_provision_on_ttl(ttl_path) -> int:
+    """Resolve citedProvisionN literals to nspe: IRIs on one case TTL and add
+    proeth-core:citesProvision edges, writing back when any are added.
+
+    Deterministic (no LLM). Loads valid NSPE fragments from the live
+    ai_ethical_dm guideline_sections via the active SQLAlchemy session. Returns
+    the number of edges added. Raises on DB/parse errors -- callers that must
+    not fail a commit should wrap this.
+    """
+    from pathlib import Path
+    from rdflib import Graph
+    from sqlalchemy import text
+    from app.models import db
+
+    codes = [r[0] for r in db.session.execute(
+        text("SELECT section_code FROM guideline_sections WHERE guideline_id = 1")
+    ).fetchall()]
+    if not codes:
+        return 0
+    resolver = ProvisionCitationResolver(valid_fragments_from_codes(codes))
+
+    ttl_path = Path(ttl_path)
+    g = Graph()
+    g.parse(str(ttl_path), format="turtle")
+    added = apply_cites_provision_edges(g, resolver)
+    if added:
+        g.serialize(destination=str(ttl_path), format="turtle")
+    return added

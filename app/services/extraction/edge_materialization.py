@@ -1,0 +1,94 @@
+"""Shared edge-materialization helper for committed case TTLs.
+
+A committed case TTL carries individuals + their subClassOf-core chains but no
+relational layer. This module adds, in one place, the three edge families the
+KI2026 corpus relies on:
+
+  - Defeasibility (competesWith / prevailsOver / defeasibleUnder), LLM-derived.
+  - R->P->O dependency (hasObligation / adheresToPrinciple / derivedFromPrinciple),
+    LLM-derived, with a domain/range guard that keeps the case Pellet-consistent.
+  - cites-provision (citesProvision nspe:<frag>), deterministic, DB-driven.
+
+Before this helper existed the edges were produced only by one-off corpus
+backfill scripts and the entity-review-UI commit path (auto_commit_service),
+so the pipeline commit (run_commit_task -> OntServeCommitService) emitted none
+and re-extraction silently stripped them. Routing every commit path through
+materialize_edges_on_ttl is what keeps the two paths from drifting again.
+
+Each applier is best-effort: a failure in one is logged and recorded in the
+result dict but never raised, so edge materialization can never fail a commit.
+The backfill scripts remain the corpus-level safety net.
+"""
+from __future__ import annotations
+
+import logging
+from pathlib import Path
+from typing import Any, Dict
+
+logger = logging.getLogger(__name__)
+
+
+def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
+    """Run all three edge appliers over a just-written case TTL (in place).
+
+    Args:
+        case_id: numeric case id (used for PROV IRI minting).
+        ttl_path: path to the committed proethica-case-<id>.ttl on disk.
+
+    Returns:
+        dict mapping each applier name to its result (or {"error": ...}).
+    """
+    ttl_path = Path(ttl_path)
+    results: Dict[str, Any] = {}
+
+    # 1. Defeasibility edges (LLM).
+    try:
+        from app.services.extraction.defeasibility_pipeline import apply_defeasibility_edges
+        results["defeasibility"] = apply_defeasibility_edges(
+            case_id=case_id, ttl_path=ttl_path, write_back=True,
+        )
+    except Exception as e:
+        logger.exception("materialize: defeasibility applier failed for case %s", case_id)
+        results["defeasibility"] = {"error": str(e)}
+
+    # 2. R->P->O dependency edges (LLM) with the domain/range Pellet guard.
+    try:
+        from app.services.extraction.rpo_edges import apply_rpo_edges
+        results["rpo"] = apply_rpo_edges(
+            case_id=case_id, ttl_path=ttl_path, write_back=True,
+        )
+    except Exception as e:
+        logger.exception("materialize: R->P->O applier failed for case %s", case_id)
+        results["rpo"] = {"error": str(e)}
+
+    # 3. cites-provision edges (deterministic, DB-driven).
+    try:
+        from app.services.extraction.provision_citation_resolver import apply_cites_provision_on_ttl
+        results["cites_provision"] = {"edges_added": apply_cites_provision_on_ttl(ttl_path)}
+    except Exception as e:
+        logger.exception("materialize: cites-provision applier failed for case %s", case_id)
+        results["cites_provision"] = {"error": str(e)}
+
+    # 4. Unified Pellet-safety guard over ALL edge families on the final TTL.
+    # apply_rpo_edges guards its own edges, but a defeasibility edge can still
+    # pull an endpoint into a disjoint core class by domain/range inference
+    # (e.g. a Principle-typed individual used as a competesWith endpoint, range
+    # Obligation). Running the guard once here, after every applier, drops any
+    # such cross-family violation so the persisted case stays OWL-DL consistent.
+    try:
+        from rdflib import Graph
+        from app.services.extraction.rpo_edges import (
+            drop_domain_range_violations, ALL_EDGE_RANGE,
+        )
+        g = Graph()
+        g.parse(str(ttl_path), format="turtle")
+        dropped = drop_domain_range_violations(g, case_id, edge_range=ALL_EDGE_RANGE)
+        if dropped:
+            g.serialize(destination=str(ttl_path), format="turtle")
+        results["unified_guard"] = {"triples_dropped": dropped}
+    except Exception as e:
+        logger.exception("materialize: unified domain/range guard failed for case %s", case_id)
+        results["unified_guard"] = {"error": str(e)}
+
+    logger.info("Edge materialization for case %s: %s", case_id, results)
+    return results
