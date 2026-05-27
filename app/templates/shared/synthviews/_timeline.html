@@ -1,0 +1,69 @@
+{# Shared Timeline view body, fed by SynthesisViewBuilder.get_timeline_view.
+   Consumed by validation_study/case_evaluation.html and
+   scenario_pipeline/_review_tab_timeline.html. Parent provides `view` = the
+   timeline view object. Styling: synthesis_views.css (.synthview scope);
+   behaviors: synthesis_views.js. #}
+<div class="synthview">
+{% if view and view.entries %}
+  <div class="d-flex flex-wrap gap-2 mb-2 small">
+    <span class="badge bg-light text-dark border"><i class="bi bi-list-ol me-1"></i>{{ view.count }} sequenced</span>
+    <span class="badge bg-light text-dark border"><i class="bi bi-person-walking me-1" style="color: #0d6efd;"></i>{{ view.action_count }} actions</span>
+    <span class="badge bg-light text-dark border"><i class="bi bi-lightning me-1" style="color: #6f42c1;"></i>{{ view.event_count }} events</span>
+  </div>
+
+  <h5 class="mt-4 mb-3 pb-2 border-bottom d-flex align-items-center" style="color: #334155; font-weight: 600;">
+    <i class="bi bi-clock-history me-2" style="font-size: 1.1rem;"></i> Case timeline
+  </h5>
+  <div class="tl-compact">
+    {% for entry in view.entries %}
+    {% set is_action = (entry.kind == 'action') %}
+    {% set has_obligations = entry.fulfills_obligations or entry.violates_obligations or entry.raises_obligations %}
+    {% set has_expand = entry.description or has_obligations %}
+    <div class="tl-compact-node {{ 'tl-action' if is_action else 'tl-event' }} {{ 'tl-has-expand' if has_expand else '' }}"
+         {% if has_expand %}data-bs-toggle="collapse" data-bs-target="#synth-tl-entry-{{ loop.index }}" role="button" aria-expanded="false"{% endif %}>
+      <span class="tl-compact-icon">{% if is_action %}<i class="bi bi-person-walking"></i>{% else %}<i class="bi bi-lightning"></i>{% endif %}</span>
+      <span class="tl-compact-seq">{{ loop.index }}</span>
+      <span class="tl-compact-label"><strong>{{ entry.label }}</strong></span>
+      {% if is_action and entry.agent %}
+        {% set _agent_split = entry.agent.split('(', 1) %}
+        {% set _agent_short = _agent_split[0]|trim %}
+        {% set _agent_role = entry.event_role_context if entry.event_role_context else ((_agent_split[1]|replace(')', ''))|trim if _agent_split|length > 1 else '') %}
+        <span class="tl-compact-agent text-muted">by
+          {% if _agent_role %}
+          <a class="char-mention" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus hover"
+             data-bs-title="Role in this event" data-bs-content="{{ _agent_role|escape }}">{{ _agent_short }}</a>
+          {% else %}<span>{{ _agent_short }}</span>{% endif %}
+        </span>
+      {% endif %}
+      {% if has_expand %}<i class="bi bi-chevron-right tl-entry-chevron" style="font-size: 0.7rem;"></i>{% endif %}
+      {% if entry.temporal_marker %}<span class="tl-compact-marker">{{ entry.temporal_marker }}</span>{% endif %}
+    </div>
+    {% if has_expand %}
+    <div class="collapse tl-dp-collapse" id="synth-tl-entry-{{ loop.index }}">
+      {% if entry.description %}<div class="tl-description">{{ entry.description }}</div>{% endif %}
+      {% if entry.raises_obligations %}
+      <div class="tl-obl-nest tl-raises">
+        <div class="tl-obl-header"><i class="bi bi-exclamation-triangle-fill"></i><span>At stake ({{ entry.raises_obligations|length }})</span></div>
+        <ul class="tl-obl-list">{% for o in entry.raises_obligations %}<li>{{ o }}</li>{% endfor %}</ul>
+      </div>
+      {% endif %}
+      {% if entry.fulfills_obligations %}
+      <div class="tl-obl-nest tl-fulfills">
+        <div class="tl-obl-header"><i class="bi bi-check-circle-fill"></i><span>Fulfills ({{ entry.fulfills_obligations|length }})</span></div>
+        <ul class="tl-obl-list">{% for o in entry.fulfills_obligations %}<li>{{ o }}</li>{% endfor %}</ul>
+      </div>
+      {% endif %}
+      {% if entry.violates_obligations %}
+      <div class="tl-obl-nest tl-violates">
+        <div class="tl-obl-header"><i class="bi bi-x-circle-fill"></i><span>Violates ({{ entry.violates_obligations|length }})</span></div>
+        <ul class="tl-obl-list">{% for o in entry.violates_obligations %}<li>{{ o }}</li>{% endfor %}</ul>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+{% else %}
+  <p class="text-muted mb-0">No temporal extraction available for this case.</p>
+{% endif %}
+</div>

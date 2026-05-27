@@ -1,0 +1,90 @@
+{# Shared Decisions view body, fed by SynthesisViewBuilder.get_decisions_view.
+   Parent provides `view` = the decisions view object. Styling:
+   synthesis_views.css; behaviors: synthesis_views.js (dp chevrons). #}
+<div class="synthview">
+{% macro decision_card(dec, dp_id, ordinal) %}
+<div class="dp-card">
+  {% set opts = dec.options or dec.alternatives or [] %}
+  <div class="dp-header" data-bs-toggle="collapse" data-bs-target="#synth-dp-body-{{ dp_id }}" role="button" aria-expanded="false" aria-controls="synth-dp-body-{{ dp_id }}">
+    <i class="bi bi-chevron-right dp-chevron"></i>
+    <span class="badge bg-primary" style="font-size: 0.7rem;">{{ dec.focus_id or 'DP' ~ ordinal }}</span>
+    <span class="small flex-grow-1" style="min-width: 0;">{{ dec.description or dec.decision_question }}</span>
+  </div>
+  <div class="collapse" id="synth-dp-body-{{ dp_id }}">
+    <div class="dp-body border border-top-0 rounded-bottom">
+      <p class="small mb-2">{{ dec.decision_question or dec.description }}</p>
+      {% if opts %}
+      <div class="mb-2">
+        <small class="fw-semibold text-muted d-block mb-1">Options considered:</small>
+        {% for opt in opts %}
+        {% set is_chosen = opt.is_board_choice if opt.is_board_choice is defined else false %}
+        <div class="dp-option {{ 'dp-option-chosen' if is_chosen }}">
+          <div class="d-flex align-items-start">
+            {% if is_chosen %}<i class="bi bi-check-circle-fill text-success me-2 mt-1" style="flex-shrink: 0;"></i>
+            {% else %}<i class="bi bi-circle text-muted me-2 mt-1" style="flex-shrink: 0;"></i>{% endif %}
+            <div>
+              {% if opt.option_id %}<span class="badge bg-secondary me-1" style="font-size: 0.6rem;">{{ opt.option_id }}</span>{% endif %}
+              <span>{{ opt.description if opt.description is defined else opt }}</span>
+              {% if is_chosen %}<span class="badge bg-success ms-1" style="font-size: 0.6rem;">Board's choice</span>{% endif %}
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% set tw = dec.toulmin_warrants or (dec.toulmin.warrants_summary if dec.toulmin is mapping else '') %}
+      {% set tr = dec.toulmin_rebuttals or (dec.toulmin.rebuttals_summary if dec.toulmin is mapping else '') %}
+      {% set td = dec.toulmin_data or (dec.toulmin.data_summary if dec.toulmin is mapping else '') %}
+      {% if tw or tr or td %}
+      <div class="mt-2">
+        <small class="fw-semibold text-muted d-block mb-1">Argument structure:</small>
+        {% if tw %}
+        <div class="dp-toulmin-card dp-toulmin-warrants">
+          <div class="d-flex align-items-start"><i class="bi bi-check-circle text-success me-2 mt-1" style="flex-shrink: 0;"></i>
+            <div><strong class="small">Warrants</strong><p class="mb-0 small text-muted mt-1">{{ tw }}</p></div></div>
+        </div>
+        {% endif %}
+        {% if tr %}
+        <div class="dp-toulmin-card dp-toulmin-rebuttals">
+          <div class="d-flex align-items-start"><i class="bi bi-x-circle text-danger me-2 mt-1" style="flex-shrink: 0;"></i>
+            <div><strong class="small">Rebuttals</strong><p class="mb-0 small text-muted mt-1">{{ tr }}</p></div></div>
+        </div>
+        {% endif %}
+        {% if td %}
+        <div class="dp-toulmin-card dp-toulmin-grounds">
+          <div class="d-flex align-items-start"><i class="bi bi-file-earmark-text text-primary me-2 mt-1" style="flex-shrink: 0;"></i>
+            <div><strong class="small">Grounds</strong><p class="mb-0 small text-muted mt-1">{{ td }}</p></div></div>
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+      {% if dec.obligation_label or dec.constraint_label %}
+      <div class="mt-2">
+        {% if dec.obligation_label %}<span class="entity-badge badge onto-type-obligation">{{ dec.obligation_label }}</span>{% endif %}
+        {% if dec.constraint_label %}<span class="entity-badge badge onto-type-constraint">{{ dec.constraint_label }}</span>{% endif %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endmacro %}
+
+{% set TOP_N = 5 %}
+{% set top_decs = view.decisions[:TOP_N] %}
+{% set rest_decs = view.decisions[TOP_N:] %}
+{% for dec in top_decs %}
+  {{ decision_card(dec, 'top-' ~ loop.index, loop.index) }}
+{% else %}
+<p class="text-muted mb-0">No decision points extracted for this case.</p>
+{% endfor %}
+{% if rest_decs %}
+<a class="narrative-section-toggle text-decoration-none mt-2 mb-2 d-inline-flex align-items-center"
+   data-bs-toggle="collapse" href="#synth-decisions-rest-section" role="button" aria-expanded="false">
+  <i class="bi bi-chevron-right me-1 narrative-section-chevron"></i>
+  <strong>Show all {{ view.decisions|length }} decision points</strong>
+</a>
+<div class="collapse" id="synth-decisions-rest-section">
+  {% for dec in rest_decs %}{{ decision_card(dec, 'rest-' ~ loop.index, TOP_N + loop.index) }}{% endfor %}
+</div>
+{% endif %}
+</div>

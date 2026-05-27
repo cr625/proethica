@@ -1,218 +1,30 @@
-{# Step 4 Review -- Narrative tab (characters, tensions, setting, takeaways).
-   Parent provides: case, narrative_data, entity_lookup, entity_lookup_by_label,
-                    ontology_label macro, info_link, info_link_inline macros
-   Event Timeline and Causal Links moved to Timeline tab.
-   Decision Moments removed (redundant with Decisions tab).
+{# Step 4 Review -- Narrative tab.
+   Parent provides: case, synth_views (SynthesisViewBuilder.get_all_views),
+                    narrative_data (for the step4-only States + Takeaways extras),
+                    entity_lookup, ontology_label macro.
+   The characters, ethical tensions, and opening context are rendered by the
+   shared partial templates/shared/synthviews/_narrative.html so this tab and the
+   validation-study interface present identical PROCESSED narrative data
+   (citation-filtered characters, V15 main-character promotion, role-instance
+   collapse, moral-intensity-sorted tensions, popovers). The shared CSS/JS
+   (synthesis_views.css / synthesis_views.js) is loaded by step4_review.html.
+   Event Timeline and Causal Links live on the Timeline tab; Decision Moments on
+   the Decisions tab.
 #}
-{% if narrative_data and narrative_data.has_data %}
+{% if synth_views and synth_views.narrative and synth_views.narrative.has_content %}
 
-<!-- Opening Context -->
-{% if narrative_data.opening_context %}
 <div class="card mb-3">
     <div class="card-header bg-light d-flex justify-content-between align-items-center">
-        <h6 class="mb-0"><i class="bi bi-quote"></i> Opening Context</h6>
+        <h6 class="mb-0"><i class="bi bi-journal-text"></i> Narrative
+            ({{ synth_views.narrative.grouped_main_character_count or 0 }} main characters)</h6>
         <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}#phase4-card" class="btn btn-sm btn-outline-secondary">
             <i class="bi bi-arrow-left"></i> View Extraction
         </a>
     </div>
     <div class="card-body">
-        <blockquote class="blockquote mb-0">
-            <p class="fst-italic">{{ narrative_data.opening_context }}</p>
-            {% if narrative_data.protagonist %}
-            <footer class="blockquote-footer mt-2">From the perspective of <cite>{{ narrative_data.protagonist }}</cite></footer>
-            {% endif %}
-        </blockquote>
+        {% set view = synth_views.narrative %}
+        {% include 'shared/synthviews/_narrative.html' with context %}
     </div>
-</div>
-{% endif %}
-
-<!-- Characters (full-width, card grid that wraps) -->
-<div class="card mb-3">
-    <div class="card-header bg-primary text-white">
-        <h6 class="mb-0"><i class="bi bi-people"></i> Characters ({{ narrative_data.characters|length if narrative_data.characters else 0 }})</h6>
-    </div>
-    <div class="card-body">
-        {% if narrative_data.characters %}
-        <div class="d-flex flex-wrap gap-2">
-            {% for char in narrative_data.characters %}
-            {% set char_id = 'char-' ~ loop.index %}
-            {% set role_type = char.role_type if char.role_type else (char.role if char.role else '') %}
-            <div class="character-card border rounded p-2" style="min-width: 180px; max-width: 260px; flex: 1 1 200px;">
-                <div class="d-flex align-items-center mb-1 character-toggle"
-                     data-bs-toggle="collapse" data-bs-target="#{{ char_id }}" role="button"
-                     aria-expanded="false">
-                    <i class="bi bi-chevron-right narrative-chevron me-1" style="font-size: 0.65rem;"></i>
-                    <strong class="small">
-                        {%- if char.uri -%}
-                        {{ ontology_label(char.uri, entity_lookup) }}
-                        {%- else -%}
-                        {{ char.label if char.label else (char.name if char.name else char) }}
-                        {%- endif -%}
-                    </strong>
-                </div>
-                {% if role_type %}
-                <span class="badge {% if role_type == 'protagonist' %}bg-success{% elif role_type == 'decision-maker' %}bg-primary{% elif role_type == 'stakeholder' %}bg-info{% elif role_type == 'authority' %}bg-warning text-dark{% else %}bg-secondary{% endif %}" style="font-size: 0.6rem;">{{ role_type }}</span>
-                {% endif %}
-                <div class="collapse" id="{{ char_id }}">
-                    <div class="pt-2 small">
-                        {% set position = char.professional_position if char.professional_position else (char.description if char.description else '') %}
-                        {% if position %}
-                        <p class="mb-1 text-muted fst-italic">{{ position }}</p>
-                        {% endif %}
-                        {% if char.ethical_stance %}
-                        <div class="mb-1">
-                            <span class="text-primary fw-bold">Ethical Stance:</span>
-                            <span>{{ char.ethical_stance }}</span>
-                        </div>
-                        {% endif %}
-                        {% set motivations = char.motivations if char.motivations else [] %}
-                        {% if motivations %}
-                        <div>
-                            <span class="fw-bold">Motivations:</span>
-                            {% if motivations is iterable and motivations is not string %}
-                            <ul class="mb-0 ps-3 mt-1">
-                                {% for m in motivations %}
-                                <li class="text-muted">{{ m }}</li>
-                                {% endfor %}
-                            </ul>
-                            {% else %}
-                            <span class="text-muted">{{ motivations }}</span>
-                            {% endif %}
-                        </div>
-                        {% endif %}
-                        {% if char.relationships %}
-                        <div class="mt-1">
-                            <span class="fw-bold">Relationships:</span>
-                            <div class="d-flex flex-wrap gap-1 mt-1">
-                                {% for rel in char.relationships %}
-                                <span class="badge bg-light text-dark border">
-                                    {{ rel[0] if rel is iterable else rel }}:
-                                    {%- if rel is iterable and rel|length > 1 -%}
-                                        {%- set target = rel[1] -%}
-                                        {%- if target is string and ('#' in target or 'http' in target) -%}
-                                        {{ ontology_label(target, entity_lookup) }}
-                                        {%- else -%}
-                                        {{ target }}
-                                        {%- endif -%}
-                                    {%- endif -%}
-                                </span>
-                                {% endfor %}
-                            </div>
-                        </div>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-        {% else %}
-        <p class="text-muted mb-0">No characters extracted</p>
-        {% endif %}
-    </div>
-</div>
-
-<!-- Ethical Tensions (full-width) -->
-<div class="card mb-3">
-    <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
-        <h6 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Ethical Tensions ({{ narrative_data.conflicts|length if narrative_data.conflicts else 0 }})</h6>
-        {{ info_link('ethical-tensions', 'Conflict Classification + Moral Intensity', 'text-dark') }}
-    </div>
-    <div class="card-body">
-                {% if narrative_data.conflicts %}
-                {% for tension in narrative_data.conflicts %}
-                {% set tension_id = 'tension-' ~ loop.index %}
-                <div class="narrative-item mb-2">
-                    <div class="narrative-header d-flex align-items-start p-2 rounded"
-                         data-bs-toggle="collapse" data-bs-target="#{{ tension_id }}" role="button"
-                         aria-expanded="false" aria-controls="{{ tension_id }}">
-                        <i class="bi bi-chevron-right narrative-chevron me-2 mt-1" style="font-size: 0.7rem;"></i>
-                        <div class="flex-grow-1">
-                            <div class="d-flex align-items-center gap-1 small flex-wrap">
-                                <span class="badge bg-primary" style="font-size: 0.65rem;">
-                                    {%- if tension.entity1_uri -%}{{ ontology_label(tension.entity1_uri, entity_lookup) }}{%- else -%}{{ tension.entity1_label if tension.entity1_label else '?' }}{%- endif -%}
-                                </span>
-                                <i class="bi bi-arrow-left-right text-warning"></i>
-                                <span class="badge bg-danger" style="font-size: 0.65rem;">
-                                    {%- if tension.entity2_uri -%}{{ ontology_label(tension.entity2_uri, entity_lookup) }}{%- else -%}{{ tension.entity2_label if tension.entity2_label else '?' }}{%- endif -%}
-                                </span>
-                            </div>
-                        </div>
-                        {% if tension.magnitude_of_consequences or tension.probability_of_effect %}
-                        <span class="badge bg-light text-dark border ms-1" style="font-size: 0.6rem;" title="Moral intensity">
-                            {% if tension.magnitude_of_consequences %}M:{{ tension.magnitude_of_consequences[:1]|upper }}{% endif %}
-                            {% if tension.probability_of_effect %}P:{{ tension.probability_of_effect[:1]|upper }}{% endif %}
-                        </span>
-                        {% endif %}
-                    </div>
-                    <div class="collapse" id="{{ tension_id }}">
-                        <div class="ps-4 pe-2 pb-2 pt-1 small">
-                            {% if tension.description %}
-                            <p class="mb-2">{{ tension.description }}</p>
-                            {% endif %}
-                            {% set ttype = tension.conflict_type if tension.conflict_type else '' %}
-                            {% if ttype %}
-                            <div class="mb-1 text-muted">
-                                <i class="bi bi-tag"></i>
-                                {{ ttype.replace('_', ' ').title() }}
-                            </div>
-                            {% endif %}
-                            {% set role_uris = tension.affected_role_uris if tension.affected_role_uris else [] %}
-                            {% set role_labels = tension.affected_role_labels if tension.affected_role_labels else [] %}
-                            {% if role_uris or role_labels %}
-                            <div class="mb-1">
-                                <span class="text-muted">Affects:</span>
-                                {% if role_uris %}
-                                    {% for uri in role_uris %}
-                                    <span class="badge bg-light text-dark border">{{ ontology_label(uri, entity_lookup) }}</span>
-                                    {% endfor %}
-                                {% else %}
-                                    {% for role in role_labels %}
-                                    {% set role_entity = entity_lookup_by_label.get(role|lower) if entity_lookup_by_label else none %}
-                                    {% if role_entity and role_entity.uri %}
-                                    <span class="badge bg-light text-dark border">{{ ontology_label(role_entity.uri, entity_lookup) }}</span>
-                                    {% else %}
-                                    <span class="badge bg-light text-dark border">{{ role }}</span>
-                                    {% endif %}
-                                    {% endfor %}
-                                {% endif %}
-                            </div>
-                            {% endif %}
-                            {% if tension.magnitude_of_consequences or tension.probability_of_effect or tension.temporal_immediacy %}
-                            <div class="mt-2 p-2 bg-light rounded">
-                                <div class="text-muted mb-1" style="font-size: 0.75em;">Moral Intensity (Jones 1991):</div>
-                                <div class="d-flex flex-wrap gap-1">
-                                    {% if tension.magnitude_of_consequences %}
-                                    <span class="badge {{ 'bg-danger' if tension.magnitude_of_consequences == 'high' else ('bg-warning text-dark' if tension.magnitude_of_consequences == 'medium' else 'bg-secondary') }}">
-                                        Magnitude: {{ tension.magnitude_of_consequences }}
-                                    </span>
-                                    {% endif %}
-                                    {% if tension.probability_of_effect %}
-                                    <span class="badge {{ 'bg-danger' if tension.probability_of_effect == 'high' else ('bg-warning text-dark' if tension.probability_of_effect == 'medium' else 'bg-secondary') }}">
-                                        Probability: {{ tension.probability_of_effect }}
-                                    </span>
-                                    {% endif %}
-                                    {% if tension.temporal_immediacy %}
-                                    <span class="badge {{ 'bg-danger' if tension.temporal_immediacy == 'immediate' else ('bg-warning text-dark' if tension.temporal_immediacy == 'near-term' else 'bg-secondary') }}">
-                                        {{ tension.temporal_immediacy }}
-                                    </span>
-                                    {% endif %}
-                                    {% if tension.proximity %}
-                                    <span class="badge bg-info">{{ tension.proximity }}</span>
-                                    {% endif %}
-                                    {% if tension.concentration_of_effect %}
-                                    <span class="badge bg-secondary">{{ tension.concentration_of_effect }}</span>
-                                    {% endif %}
-                                </div>
-                            </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-                {% endfor %}
-                {% else %}
-                <p class="text-muted mb-0">No ethical tensions extracted.</p>
-                {% endif %}
-            </div>
 </div>
 
 <!-- States (opening conditions) -->

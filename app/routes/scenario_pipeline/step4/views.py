@@ -533,6 +533,15 @@ def register_view_routes(bp):
 
             decision_points_data = _load_decision_points_for_review(case_id)
 
+            # Processed SynthesisViewBuilder views (the same objects the
+            # validation-study interface renders). The Step-4 review tabs share
+            # the study's view-body partials (templates/shared/synthviews/) so the
+            # two surfaces present identical processed data: citation-filtered
+            # characters, V15 main-character promotion, role-instance collapse,
+            # moral-intensity-sorted tensions, resolved provisions/decisions.
+            from app.services.validation.synthesis_view_builder import SynthesisViewBuilder
+            synth_views = SynthesisViewBuilder().get_all_views(case_id)
+
             # Provisions empty-state note: distinguish a historical-code case (whose
             # citations cannot map to the current NSPE Code) from a modern case that simply
             # cited no provisions. The current Code structure (I/II/III, six Fundamental
@@ -600,6 +609,7 @@ def register_view_routes(bp):
                 'next_step_name': None,
                 'rich_analysis': rich_analysis,
                 'decision_points': decision_points_data,
+                'synth_views': synth_views,
                 'narrative_data': _load_narrative_for_review(case_id),
                 'temporal_timeline': _load_temporal_timeline(case_id, decision_points_data),
                 'entity_lookup': entity_lookup,
