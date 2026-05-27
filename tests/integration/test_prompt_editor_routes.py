@@ -368,6 +368,64 @@ class TestUpdateTemplateAPI:
 
 
 # =============================================================================
+# End-to-end round-trip: web editor PUT -> extractor loader reads the edit
+# =============================================================================
+
+class TestPromptEditorExtractorRoundTrip:
+    """The /tools/prompts web editor and the extractor share one row.
+
+    The editor writes `extraction_prompt_templates` via PUT
+    /api/prompts/template/<id>; the extractor reads the same row via
+    `ExtractionPromptTemplate.get_active_template(step, concept)` inside
+    `UnifiedDualExtractor._load_template`. This confirms the two halves are not
+    pointed at different stores: an edit saved in the UI is the exact text the
+    next extraction run loads.
+    """
+
+    def test_editor_put_is_what_extractor_loads(self, auth_client, create_test_template):
+        from app.models.extraction_prompt_template import ExtractionPromptTemplate
+        from app.services.extraction.unified_dual_extractor import UnifiedDualExtractor
+
+        # A dedicated concept so the lookup resolves to exactly this row, with no
+        # collision against any seeded template in the test database.
+        template = create_test_template(
+            step_number=1,
+            concept_type='roundtrip_concept',
+            name='Round-trip Template',
+            template_text='ORIGINAL prompt {{ case_text }}',
+            version=1,
+        )
+        new_text = 'EDITED prompt with grounding {{ case_text }}'
+
+        response = auth_client.put(
+            f'/api/prompts/template/{template.id}',
+            json={'template_text': new_text, 'change_description': 'round-trip'},
+            content_type='application/json',
+        )
+        assert response.status_code == 200
+        assert json.loads(response.data)['success'] is True
+
+        # The loader call the extractor makes returns the edited text + bumped version.
+        loaded = ExtractionPromptTemplate.get_active_template(
+            step_number=1, concept_type='roundtrip_concept'
+        )
+        assert loaded is not None
+        assert loaded.template_text == new_text
+        assert loaded.version == 2
+
+        # Exercise the extractor's own loader code path (bypassing the heavy
+        # __init__, which builds MCP / LLM clients) to prove it reads the row
+        # the editor just wrote.
+        ext = UnifiedDualExtractor.__new__(UnifiedDualExtractor)
+        ext.concept_type = 'roundtrip_concept'
+        ext.config = {'step': 1}
+        loaded_by_extractor = ext._load_template()
+        assert loaded_by_extractor is not None
+        assert loaded_by_extractor.id == template.id
+        assert loaded_by_extractor.template_text == new_text
+
+
+# =============================================================================
 # API Route Tests - Get Templates
 # =============================================================================
 
