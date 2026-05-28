@@ -45,6 +45,7 @@ logger = logging.getLogger(__name__)
 PROETHICA = Namespace("http://proethica.org/ontology/intermediate#")
 PROETHICA_CORE = Namespace("http://proethica.org/ontology/core#")
 PROETHICA_CASES = Namespace("http://proethica.org/ontology/cases#")
+TIME = Namespace("http://www.w3.org/2006/time#")
 BFO = Namespace("http://purl.obolibrary.org/obo/BFO_")
 IAO = Namespace("http://purl.obolibrary.org/obo/IAO_")
 PROV = Namespace("http://www.w3.org/ns/prov#")
@@ -1670,10 +1671,51 @@ class OntServeCommitService:
         objprops = self._object_property_locals()
         jtype = rdf_data.get('@type', '')
         local_type = jtype.split(':')[-1] if jtype else ''
+        # Type the individual against its 9-component class or its temporal-RDF
+        # role class. Actions/Events get the core class (Pellet-visible 9-way
+        # disjointness); Allen relations, causal chains, and timelines are
+        # intermediate/OWL-Time classes that are not part of the 9-way axiom.
         if local_type in ('Action', 'Event'):
             g.add((uri, RDF.type, PROETHICA_CORE[local_type]))
+        elif local_type in ('TemporalRelation', 'CausalChain'):
+            g.add((uri, RDF.type, PROETHICA[local_type]))
+        elif jtype == 'time:TemporalEntity':
+            g.add((uri, RDF.type, TIME['TemporalEntity']))
+
+        # The Allen converter emits OWL-Time triples whose object IRI uses the
+        # legacy http://proethica.org/cases/{id}#Action_X scheme, but committed
+        # individuals live at http://proethica.org/ontology/case/{id}#<safe_label>.
+        # Without a remap the time:* triples would dangle. Derive the case-ns
+        # base from the subject URI (Allen relations sit in the same case_ns).
+        uri_str = str(uri)
+        case_ns_base = uri_str.split('#')[0] + '#' if '#' in uri_str else None
+
+        def _remap_legacy_iri(v):
+            if not (isinstance(v, str) and v.startswith('http://proethica.org/cases/')):
+                return v
+            frag = v.split('#')[-1] if '#' in v else v
+            # convert_action_to_rdf / convert_event_to_rdf prefix the fragment
+            # with Action_ / Event_; strip that to recover the bare label-safe-id
+            # which matches commit_case_versioned's safe_label for typical labels.
+            if frag.startswith(('Action_', 'Event_')):
+                frag = frag.split('_', 1)[1]
+            return case_ns_base + frag if case_ns_base else v
 
         for key, value in rdf_data.items():
+            if key.startswith('time:'):
+                # OWL-Time predicate (proeth:owlTimeProperty named one of 15
+                # intervalBefore/intervalAfter/.../intervalEquals/before/after).
+                local = key.split(':', 1)[1]
+                for v in (value if isinstance(value, list) else [value]):
+                    if v is None or v == '' or isinstance(v, dict):
+                        continue
+                    if isinstance(v, str) and v.startswith(('http://', 'https://')):
+                        g.add((uri, TIME[local], URIRef(_remap_legacy_iri(v))))
+                    elif isinstance(v, bool):
+                        g.add((uri, TIME[local], Literal(v)))
+                    else:
+                        g.add((uri, TIME[local], Literal(v if isinstance(v, (int, float)) else str(v))))
+                continue
             if not key.startswith('proeth:'):
                 continue  # skip @context/@id/@type/rdfs:label and proeth-scenario:*
             local = key.split(':', 1)[1]
