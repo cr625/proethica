@@ -546,6 +546,16 @@ class AutoCommitService:
             logger.warning(f"Could not load OntServe classes: {e}")
             self._ontserve_classes_cache = {}
 
+    def _case_title(self, case_id: int) -> Optional[str]:
+        """Human case title for the case id, or None if the document is absent.
+        Emitted as dcterms:title in the TTL header so OntServe can read it into
+        display_name on sync (see OntServeCommitService._case_title)."""
+        from app.models.document import Document
+        from app.models import db
+        doc = db.session.get(Document, case_id)
+        title = (doc.title or '').strip() if doc else ''
+        return title or None
+
     def _generate_case_ttl(
         self,
         case_id: int,
@@ -586,6 +596,9 @@ class AutoCommitService:
                 case_ontology_uri = URIRef(f"http://proethica.org/ontology/case/{case_id}")
                 g.add((case_ontology_uri, RDF.type, OWL.Ontology))
                 g.add((case_ontology_uri, RDFS.label, Literal(f"ProEthica Case {case_id} Ontology")))
+                _title = self._case_title(case_id)
+                if _title:
+                    g.add((case_ontology_uri, DCTERMS.title, Literal(_title)))
                 g.add((case_ontology_uri, OWL.imports, URIRef("http://proethica.org/ontology/intermediate")))
                 g.add((case_ontology_uri, DCTERMS.created, Literal(datetime.utcnow())))
 
@@ -1151,6 +1164,9 @@ class AutoCommitService:
                 case_ontology_uri = URIRef(f"http://proethica.org/ontology/case/{case_id}")
                 g.add((case_ontology_uri, RDF.type, OWL.Ontology))
                 g.add((case_ontology_uri, RDFS.label, Literal(f"ProEthica Case {case_id} Ontology")))
+                _title = self._case_title(case_id)
+                if _title:
+                    g.add((case_ontology_uri, DCTERMS.title, Literal(_title)))
                 g.add((case_ontology_uri, OWL.imports, URIRef("http://proethica.org/ontology/intermediate")))
                 g.add((case_ontology_uri, DCTERMS.created, Literal(datetime.utcnow())))
 

@@ -68,6 +68,17 @@ class OntServeCommitService:
         # category (resolved via subClassOf* in proethica-intermediate[-extended]).
         self._intermediate_core_parents: Optional[Dict[str, str]] = None
 
+    def _case_title(self, case_id: int) -> Optional[str]:
+        """Return the human case title for a case id, or None if the document is
+        absent. Emitted as dcterms:title in the case TTL header so the title
+        travels with the artifact (OntServe reads it into display_name on sync,
+        rather than coupling to the ProEthica database)."""
+        from app.models.document import Document
+        from app.models import db
+        doc = db.session.get(Document, case_id)
+        title = (doc.title or '').strip() if doc else ''
+        return title or None
+
     def _established_core_category(self, class_local_name: str) -> Optional[str]:
         """Return the core category an EXISTING intermediate class already chains
         to (via rdfs:subClassOf*), or None if the class is unknown / has no core
@@ -509,6 +520,9 @@ class OntServeCommitService:
                 case_ontology_uri = URIRef(f"http://proethica.org/ontology/case/{case_id}")
                 g.add((case_ontology_uri, RDF.type, OWL.Ontology))
                 g.add((case_ontology_uri, RDFS.label, Literal(f"ProEthica Case {case_id} Ontology")))
+                _title = self._case_title(case_id)
+                if _title:
+                    g.add((case_ontology_uri, DCTERMS.title, Literal(_title)))
                 g.add((case_ontology_uri, OWL.imports, URIRef("http://proethica.org/ontology/cases")))
                 g.add((case_ontology_uri, OWL.imports, URIRef("http://proethica.org/ontology/intermediate")))
                 g.add((case_ontology_uri, DCTERMS.created, Literal(datetime.utcnow())))
@@ -1473,6 +1487,9 @@ class OntServeCommitService:
             case_ontology_uri = URIRef(f"http://proethica.org/ontology/case/{case_id}")
             g.add((case_ontology_uri, RDF.type, OWL.Ontology))
             g.add((case_ontology_uri, RDFS.label, Literal(f"ProEthica Case {case_id} Ontology")))
+            _title = self._case_title(case_id)
+            if _title:
+                g.add((case_ontology_uri, DCTERMS.title, Literal(_title)))
             g.add((case_ontology_uri, OWL.imports, URIRef("http://proethica.org/ontology/cases")))
             g.add((case_ontology_uri, OWL.imports, URIRef("http://proethica.org/ontology/intermediate")))
             g.add((case_ontology_uri, DCTERMS.created, Literal(datetime.now(timezone.utc))))
