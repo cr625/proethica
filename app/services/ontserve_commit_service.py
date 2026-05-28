@@ -651,6 +651,11 @@ class OntServeCommitService:
                 if resolved_cat:
                     g.add((individual_uri, PROETHICA['conceptCategory'], Literal(resolved_cat)))
 
+                # Step-3 temporal dynamics (Actions/Events): emit the JSON-LD
+                # descriptive fields (same helper as the versioned path).
+                if 'temporal_dynamics' in (entity.extraction_type or '') and rdf_data:
+                    self._add_temporal_fields(g, individual_uri, rdf_data)
+
                 # Check if this is an argument entity (Toulmin structure)
                 extraction_type = entity.extraction_type or ''
                 if extraction_type == 'argument_generated' and rdf_data:
@@ -1599,6 +1604,13 @@ class OntServeCommitService:
             if rdf_data.get('questionType'):
                 g.add((uri, PROETHICA['questionType'], Literal(rdf_data['questionType'])))
 
+        # Step-3 temporal dynamics (Actions / Events). These arrive as a
+        # JSON-LD record (@type + proeth:* predicates) from the LangGraph
+        # converter, a different shape from the unified Pydantic rdf_data above,
+        # which is why they previously fell through to a bare stub.
+        elif 'temporal_dynamics' in extraction_type and rdf_data:
+            self._add_temporal_fields(g, uri, rdf_data)
+
         # Generic properties fallback
         elif rdf_data and rdf_data.get('properties'):
             for prop_name, prop_values in rdf_data['properties'].items():
@@ -1609,6 +1621,79 @@ class OntServeCommitService:
                 for value in prop_values:
                     if value:
                         g.add((uri, prop_uri, Literal(value)))
+
+    def _object_property_locals(self) -> set:
+        """Local names of every owl:ObjectProperty declared in core / intermediate.
+        Cached per instance. Used so the temporal serializer never emits a literal
+        on an object property (which would make the case OWL-DL inconsistent)."""
+        if getattr(self, '_objprop_cache', None) is not None:
+            return self._objprop_cache
+        names = set()
+        base = getattr(self, 'ontologies_dir', None)
+        if not base:
+            self._objprop_cache = names
+            return names
+        for fn in ('proethica-core.ttl', 'proethica-intermediate.ttl',
+                   'proethica-intermediate-extended.ttl'):
+            p = base / fn
+            if not p.exists():
+                continue
+            try:
+                gg = Graph()
+                gg.parse(p, format='turtle')
+            except Exception as e:
+                logger.warning(f"Could not parse {fn} for object-property detection: {e}")
+                continue
+            for s in gg.subjects(RDF.type, OWL.ObjectProperty):
+                names.add(str(s).split('#')[-1].split('/')[-1])
+        self._objprop_cache = names
+        return names
+
+    def _add_temporal_fields(self, g: Graph, uri: URIRef, rdf_data: Dict):
+        """Emit the descriptive triples for a temporal (Action/Event) individual
+        from its JSON-LD record.
+
+        Types the individual as the core Action/Event class (reasoner-visible,
+        links to a real class), maps proeth:description to rdfs:comment, and
+        copies the remaining proeth: scalar/list fields as literals. Deliberately
+        skips: IRI-valued fields (e.g. proeth:causedByAction -- an ObjectProperty
+        whose converter URI scheme differs from the committed individual URIs, so
+        it would dangle), nested dicts, and the proeth-scenario:* teaching
+        metadata.
+
+        The temporal extractor sometimes carries a literal *description* of an
+        obligation/capability under a predicate that is declared as an
+        owl:ObjectProperty (e.g. proeth:fulfillsObligation, proeth:requiresCapability).
+        Emitting a literal on an object property makes the case OWL-DL inconsistent,
+        so such fields are redirected to a datatype sibling predicate (<local>Text)
+        which preserves the text without the punning."""
+        objprops = self._object_property_locals()
+        jtype = rdf_data.get('@type', '')
+        local_type = jtype.split(':')[-1] if jtype else ''
+        if local_type in ('Action', 'Event'):
+            g.add((uri, RDF.type, PROETHICA_CORE[local_type]))
+
+        for key, value in rdf_data.items():
+            if not key.startswith('proeth:'):
+                continue  # skip @context/@id/@type/rdfs:label and proeth-scenario:*
+            local = key.split(':', 1)[1]
+            values = value if isinstance(value, list) else [value]
+            for v in values:
+                if v is None or v == '' or isinstance(v, dict):
+                    continue
+                if isinstance(v, str) and v.startswith(('http://', 'https://')):
+                    continue  # IRI object refs use a different URI scheme; skip
+                if local == 'description':
+                    g.add((uri, RDFS.comment, Literal(v if isinstance(v, str) else str(v))))
+                    continue
+                # Redirect literal values on object properties to a datatype sibling
+                # so a textual description never sits on an owl:ObjectProperty.
+                pred_local = f"{local}Text" if local in objprops else local
+                # Preserve native bool/int/float so declared datatype ranges are
+                # satisfied (e.g. proeth:temporalSequence has range xsd:nonNegativeInteger;
+                # a stringified "6" would violate it and make the case inconsistent).
+                lit = Literal(v) if isinstance(v, (bool, int, float)) else Literal(str(v))
+                g.add((uri, PROETHICA[pred_local], lit))
 
     def get_case_version_history(self, case_id: int) -> Dict[str, Any]:
         """
