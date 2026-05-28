@@ -12,6 +12,7 @@ from typing import List, Dict, Optional, Any, Tuple
 from dataclasses import dataclass, field, asdict
 
 from app.utils.llm_utils import get_llm_client
+from app.services.prompt_style import STYLE_FORMATTING_LINE
 from model_config import ModelConfig
 from app.academic_references.frameworks.transformation_classification import (
     TRANSFORMATION_TYPES,
@@ -367,6 +368,8 @@ Generate:
 The label should describe what the person would DO, not just "Option 1".
 For example: "Report concerns to regulatory authority" or "Maintain confidentiality with employer"
 
+{STYLE_FORMATTING_LINE}
+
 Output format (exactly two lines):
 LABEL: [your label]
 DESCRIPTION: [your description]"""
@@ -455,6 +458,8 @@ RELEVANT OBLIGATIONS: {obligations_text or 'Professional engineering ethics'}
 Generate exactly 2 options that represent meaningful choices.
 Option 1 should typically align with professional duty (mark as board choice).
 Option 2 should represent an alternative approach.
+
+{STYLE_FORMATTING_LINE}
 
 Output format:
 OPTION1_LABEL: [action-oriented label, 5-10 words]
@@ -635,7 +640,7 @@ OPTION2_DESC: [1 sentence description]"""
 1. Begin with "You are {primary_maker}" and write in second person.
 2. Set up the factual situation BEFORE the decisions. Do not narrate what the protagonist chose or what happened as a result.
 3. Include specific parties, projects, and technical details from the case facts. Do not be abstract or vague.
-4. Do not use em dash characters. Use commas, periods, or restructure sentences instead.
+4. {STYLE_FORMATTING_LINE}
 5. Do not editorialize, flatter ("seasoned professional"), or use dramatic framing ("now sits at the center of").
 6. Do not reveal the board's conclusions or how the case was resolved.
 7. End with a forward-looking sentence about the decisions ahead, without naming specific choices.

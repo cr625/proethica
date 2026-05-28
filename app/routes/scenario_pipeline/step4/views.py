@@ -533,8 +533,50 @@ def register_view_routes(bp):
 
             decision_points_data = _load_decision_points_for_review(case_id)
 
+            # Processed SynthesisViewBuilder views (the same objects the
+            # validation-study interface renders). The Step-4 review tabs share
+            # the study's view-body partials (templates/shared/synthviews/) so the
+            # two surfaces present identical processed data: citation-filtered
+            # characters, V15 main-character promotion, role-instance collapse,
+            # moral-intensity-sorted tensions, resolved provisions/decisions.
+            from app.services.validation.synthesis_view_builder import SynthesisViewBuilder
+            synth_views = SynthesisViewBuilder().get_all_views(case_id)
+
+            # Provisions empty-state note: distinguish a historical-code case (whose
+            # citations cannot map to the current NSPE Code) from a modern case that simply
+            # cited no provisions. The current Code structure (I/II/III, six Fundamental
+            # Canons) was adopted January 1981; the prior NSPE Code dates to 1964, and before
+            # that the numbered "Canons of Ethics" (1946-1964, up to ~28 canons) -- which is
+            # what older BER cases cite (e.g. case 103 = BER 63-5: "Canon 15", "Canon 27").
+            # Detect the historical code by a citation to a Canon numbered >= 7 (the current
+            # Code has only six Fundamental Canons) or a pre-1981 case year. (Corpus check:
+            # modern section-format citations first appear in 1982.)
+            provisions_empty_note = None
+            if not provisions:
+                from app.models.document_section import DocumentSection
+                meta = case.doc_metadata or {}
+                yr_raw = meta.get('year')
+                yr = int(yr_raw) if (isinstance(yr_raw, int) or (isinstance(yr_raw, str) and yr_raw.isdigit())) else None
+                disc = DocumentSection.query.filter_by(document_id=case_id, section_type='discussion').first()
+                disc_text = disc.content if (disc and disc.content) else ''
+                old_canon = bool(re.search(r'\bCanon\s+(?:[1-9][0-9]|[7-9])\b', disc_text, re.IGNORECASE))
+                if old_canon or (yr is not None and yr < 1981):
+                    provisions_empty_note = (
+                        f"This is a {yr or 'pre-1981'} BER case (BER {meta.get('case_number', '?')}). "
+                        "It predates the current NSPE Code of Ethics structure (the three-part "
+                        "I/II/III format was adopted in January 1981) and cites the historical "
+                        "numbered-Canon code (e.g. Canon 15, Canon 27), which does not map to the "
+                        "current Code provisions. An empty list here is expected, not an extraction gap."
+                    )
+                else:
+                    provisions_empty_note = (
+                        "No NSPE Code provisions were extracted. The discussion may cite the Code only "
+                        "descriptively, or this could be an extraction gap worth checking."
+                    )
+
             context = {
                 'case': case,
+                'provisions_empty_note': provisions_empty_note,
                 'saved_synthesis': saved_synthesis,
                 'provisions': provisions_objs,
                 'provisions_json': provisions,
@@ -567,6 +609,7 @@ def register_view_routes(bp):
                 'next_step_name': None,
                 'rich_analysis': rich_analysis,
                 'decision_points': decision_points_data,
+                'synth_views': synth_views,
                 'narrative_data': _load_narrative_for_review(case_id),
                 'temporal_timeline': _load_temporal_timeline(case_id, decision_points_data),
                 'entity_lookup': entity_lookup,

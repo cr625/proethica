@@ -64,6 +64,78 @@ class OntServeCommitService:
         # Ensure directories exist
         self.ontologies_dir.mkdir(parents=True, exist_ok=True)
 
+        # Lazily-built map: intermediate class local-name -> its established core
+        # category (resolved via subClassOf* in proethica-intermediate[-extended]).
+        self._intermediate_core_parents: Optional[Dict[str, str]] = None
+
+    def _case_title(self, case_id: int) -> Optional[str]:
+        """Return the human case title for a case id, or None if the document is
+        absent. Emitted as dcterms:title in the case TTL header so the title
+        travels with the artifact (OntServe reads it into display_name on sync,
+        rather than coupling to the ProEthica database)."""
+        from app.models.document import Document
+        from app.models import db
+        doc = db.session.get(Document, case_id)
+        title = (doc.title or '').strip() if doc else ''
+        return title or None
+
+    def _established_core_category(self, class_local_name: str) -> Optional[str]:
+        """Return the core category an EXISTING intermediate class already chains
+        to (via rdfs:subClassOf*), or None if the class is unknown / has no core
+        ancestor.
+
+        Used to avoid re-declaring a conceptCategory-derived parent for a class
+        the ontology already defines: e.g. proeth:ProfessionalCompetence is
+        subClassOf proeth-core:Capability in proethica-intermediate, so a commit
+        must NOT add proeth-core:Principle just because an instance's
+        conceptCategory literal says "Principle" -- that second disjoint parent
+        makes the case OWL-DL inconsistent. The ontology definition wins over the
+        (lie-prone) literal. Mirrors pellet_validate's skip-if-parent-exists rule
+        at commit time rather than as an after-the-fact in-memory patch.
+        """
+        if self._intermediate_core_parents is None:
+            self._intermediate_core_parents = self._load_intermediate_core_parents()
+        return self._intermediate_core_parents.get(class_local_name)
+
+    def _load_intermediate_core_parents(self) -> Dict[str, str]:
+        core_names = {
+            "Role", "Principle", "Obligation", "State", "Resource",
+            "Action", "Event", "Capability", "Constraint",
+        }
+        g = Graph()
+        for fname in ("proethica-core.ttl", "proethica-intermediate.ttl",
+                      "proethica-intermediate-extended.ttl"):
+            p = self.ontologies_dir / fname
+            if p.exists():
+                try:
+                    g.parse(str(p), format="turtle")
+                except Exception as e:
+                    logger.warning("Could not parse %s for core-parent map: %s", fname, e)
+
+        def reach_core(cls) -> Optional[str]:
+            seen, stack = set(), [cls]
+            while stack:
+                c = stack.pop()
+                if c in seen:
+                    continue
+                seen.add(c)
+                local = str(c).rsplit("#", 1)[-1]
+                if str(c).startswith(str(PROETHICA_CORE)) and local in core_names:
+                    return local
+                for sup in g.objects(c, RDFS.subClassOf):
+                    stack.append(sup)
+            return None
+
+        out: Dict[str, str] = {}
+        for cls in set(g.subjects(RDFS.subClassOf, None)):
+            local = str(cls).rsplit("#", 1)[-1]
+            if str(cls).startswith(str(PROETHICA)):
+                core = reach_core(cls)
+                if core:
+                    out[local] = core
+        logger.info("Loaded %d intermediate class -> core-category mappings", len(out))
+        return out
+
     def commit_selected_entities(self, case_id: int, entity_ids: List[int]) -> Dict[str, Any]:
         """
         Commit selected entities from temporary storage to permanent OntServe storage.
@@ -141,18 +213,15 @@ class OntServeCommitService:
 
             db.session.commit()
 
-            # Sync with OntServe database (register case ontology + refresh entities)
+            # Sync the edge-bearing disk TTL -> OntServe DB. One call creates the
+            # ontology record if new, writes a new current ontology_versions row,
+            # and re-extracts entities (register + refresh are now one operation).
             if individuals_to_commit:
-                # Register the case ontology if new, then refresh entities
-                register_result = self._register_case_ontology(case_id)
-                if register_result.get('success'):
-                    refresh_result = self._refresh_case_ontology(case_id)
-                    if not refresh_result.get('success'):
-                        results['errors'].append(f"OntServe refresh warning: {refresh_result.get('error', 'Unknown')}")
-                    else:
-                        results['ontserve_synced'] = True
+                sync_result = self._sync_ontology_to_db(f"proethica-case-{case_id}")
+                if sync_result.get('success'):
+                    results['ontserve_synced'] = True
                 else:
-                    results['errors'].append(f"OntServe register warning: {register_result.get('error', 'Unknown')}")
+                    results['errors'].append(f"OntServe sync warning: {sync_result.get('error', 'Unknown')}")
 
             if classes_to_commit:
                 sync_result = self._synchronize_with_ontserve()
@@ -451,6 +520,9 @@ class OntServeCommitService:
                 case_ontology_uri = URIRef(f"http://proethica.org/ontology/case/{case_id}")
                 g.add((case_ontology_uri, RDF.type, OWL.Ontology))
                 g.add((case_ontology_uri, RDFS.label, Literal(f"ProEthica Case {case_id} Ontology")))
+                _title = self._case_title(case_id)
+                if _title:
+                    g.add((case_ontology_uri, DCTERMS.title, Literal(_title)))
                 g.add((case_ontology_uri, OWL.imports, URIRef("http://proethica.org/ontology/cases")))
                 g.add((case_ontology_uri, OWL.imports, URIRef("http://proethica.org/ontology/intermediate")))
                 g.add((case_ontology_uri, DCTERMS.created, Literal(datetime.utcnow())))
@@ -512,6 +584,12 @@ class OntServeCommitService:
 
                 # Base concept category for this entity (from its extraction pass).
                 concept_cat = self._get_concept_category(entity)
+                # Authoritative category = the reasoner-visible type chain. Starts as
+                # the extraction-pass category and is overridden below to an
+                # established class's core category when the individual is typed to
+                # one, so the conceptCategory literal we write cannot disagree with
+                # the chain (the case-8 re-extraction inconsistency).
+                resolved_cat = concept_cat
 
                 # Add type based on the class from rdf_json_ld
                 if rdf_data and rdf_data.get('types'):
@@ -531,25 +609,52 @@ class OntServeCommitService:
                         # does not span categories, so this is single-valued.
                         if concept_cat:
                             g.add((class_uri, RDF.type, OWL.Class))
-                            prior = class_core_category.get(safe_class)
-                            if prior is None:
-                                class_core_category[safe_class] = concept_cat
-                                g.add((class_uri, RDFS.subClassOf, PROETHICA_CORE[concept_cat]))
-                            elif prior != concept_cat:
-                                # Same class IRI proposed under a second, disjoint
-                                # category in this commit (LLM naming collision the
-                                # matcher guard cannot catch for fresh classes).
-                                # Keep the first category; do not emit a conflicting
-                                # subClassOf. Flagged for the canonicalization pass.
-                                logger.warning(
-                                    "Class %s proposed under categories %s and %s in one "
-                                    "commit; keeping %s, skipping conflicting subClassOf.",
-                                    safe_class, prior, concept_cat, prior,
-                                )
+                            established = self._established_core_category(safe_class)
+                            if established is not None:
+                                # The class already chains to a core category in the
+                                # intermediate ontology. Trust that over the instance's
+                                # conceptCategory literal; emitting a second disjoint
+                                # parent here is what makes the case inconsistent. Do
+                                # NOT add a subClassOf (the ontology already has one).
+                                if established != concept_cat:
+                                    logger.warning(
+                                        "Class %s is established as %s in the ontology but an "
+                                        "instance carries conceptCategory %s; keeping the "
+                                        "ontology parent, skipping conceptCategory subClassOf. "
+                                        "Flagged for canonicalization.",
+                                        safe_class, established, concept_cat,
+                                    )
+                                class_core_category[safe_class] = established
+                                # Chain is authoritative: the individual's category
+                                # is the established class's category, not the
+                                # extraction-pass literal.
+                                resolved_cat = established
+                            else:
+                                prior = class_core_category.get(safe_class)
+                                if prior is None:
+                                    class_core_category[safe_class] = concept_cat
+                                    g.add((class_uri, RDFS.subClassOf, PROETHICA_CORE[concept_cat]))
+                                elif prior != concept_cat:
+                                    # Same fresh class IRI proposed under a second,
+                                    # disjoint category in this commit (LLM naming
+                                    # collision the matcher guard cannot catch).
+                                    # Keep the first; flag for canonicalization.
+                                    logger.warning(
+                                        "Class %s proposed under categories %s and %s in one "
+                                        "commit; keeping %s, skipping conflicting subClassOf.",
+                                        safe_class, prior, concept_cat, prior,
+                                    )
 
-                # Tag with base concept category for display grouping
-                if concept_cat:
-                    g.add((individual_uri, PROETHICA['conceptCategory'], Literal(concept_cat)))
+                # Tag with the resolved (chain-authoritative) concept category for
+                # display grouping. Derived from the type chain so it cannot drift
+                # from what the reasoner sees.
+                if resolved_cat:
+                    g.add((individual_uri, PROETHICA['conceptCategory'], Literal(resolved_cat)))
+
+                # Step-3 temporal dynamics (Actions/Events): emit the JSON-LD
+                # descriptive fields (same helper as the versioned path).
+                if 'temporal_dynamics' in (entity.extraction_type or '') and rdf_data:
+                    self._add_temporal_fields(g, individual_uri, rdf_data)
 
                 # Check if this is an argument entity (Toulmin structure)
                 extraction_type = entity.extraction_type or ''
@@ -750,9 +855,21 @@ class OntServeCommitService:
             g.serialize(destination=case_file, format='turtle')
             logger.info(f"Committed {count} individuals to {case_file}")
 
-            # Register the case ontology if it's new
-            if not case_file.exists() or count > 0:
-                self._register_case_ontology(case_id)
+            # Materialize the relational edge layer (defeasibility + R->P->O +
+            # cites-provision) on the just-written TTL. The pipeline commit
+            # previously emitted no edges (only the entity-review path did), so
+            # re-extraction stripped them; routing through the shared helper
+            # keeps both paths in lockstep. Best-effort: never fails the commit.
+            try:
+                from app.services.extraction.edge_materialization import materialize_edges_on_ttl
+                edge_result = materialize_edges_on_ttl(case_id, case_file)
+                logger.info(f"Edge materialization for case {case_id}: {edge_result}")
+            except Exception as e:
+                logger.exception(f"Edge materialization failed for case {case_id}: {e}")
+
+            # The disk TTL -> OntServe DB sync is driven by the orchestrator
+            # (commit_selected_entities), which runs after this returns so the
+            # edge-bearing TTL is on disk before the version import.
 
             return {'count': count, 'file': str(case_file)}
 
@@ -796,135 +913,65 @@ class OntServeCommitService:
         except Exception as e:
             logger.error(f"Error ensuring import statement: {e}")
 
-    def _synchronize_with_ontserve(self) -> Dict[str, Any]:
-        """
-        Synchronize TTL files with OntServe database.
+    def _sync_ontology_to_db(self, ontology_name: str) -> Dict[str, Any]:
+        """Sync one disk TTL into the OntServe DB via tools/sync_ontology_to_db.py.
 
-        Runs the refresh_entity_extraction.py script to update the database.
+        That CLI wraps OntologySyncService._sync_single_ontology (the importer
+        the web app runs on startup): it creates the Ontology record if missing,
+        writes a new current ontology_versions row from the edge-bearing disk
+        TTL, and re-extracts ontology_entities. --force is used so a committed
+        TTL is imported even in the rare case its hash matched a prior version.
+
+        Replaces the former subprocess refs to scripts/register_case_ontologies.py
+        (never existed) and scripts/refresh_entity_extraction.py (relocated to
+        tools/, and refreshed only the entity table, never the version content).
         """
         try:
-            # Run refresh script for proethica-intermediate-extended (where new classes are stored)
-            refresh_script = self.ontserve_path / "scripts" / "refresh_entity_extraction.py"
+            sync_script = self.ontserve_path / "tools" / "sync_ontology_to_db.py"
+            if not sync_script.exists():
+                return {'success': False, 'error': f'Sync script not found: {sync_script}'}
 
-            if not refresh_script.exists():
-                return {
-                    'success': False,
-                    'error': 'Refresh script not found'
-                }
-
-            # Refresh the extracted ontology (scripts handle their own path setup)
             result = subprocess.run(
-                [self.ontserve_python, str(refresh_script), "proethica-intermediate-extended"],
+                [self.ontserve_python, str(sync_script), ontology_name, "--force"],
                 capture_output=True,
                 text=True,
                 cwd=str(self.ontserve_path),
-                timeout=60
+                timeout=120,
             )
+            if result.returncode != 0:
+                logger.error(f"Sync of {ontology_name} failed: {result.stderr}")
+                return {'success': False, 'error': result.stderr}
 
-            if result.returncode == 0:
-                logger.info("Successfully synchronized with OntServe database")
-
-                # Also notify MCP server to refresh its cache
-                try:
-                    response = requests.post(f"{self.mcp_url}/refresh_cache")
-                    if response.status_code == 200:
-                        logger.info("MCP server cache refreshed")
-                except Exception:
-                    logger.debug("MCP server cache refresh failed (optional)", exc_info=True)
-
-                return {
-                    'success': True,
-                    'output': result.stdout
-                }
-            else:
-                logger.error(f"Refresh script failed: {result.stderr}")
-                return {
-                    'success': False,
-                    'error': result.stderr
-                }
+            logger.info(f"Synced {ontology_name} to OntServe DB: {result.stdout.strip()}")
+            # Notify the MCP server to refresh its cache (optional).
+            try:
+                response = requests.post(f"{self.mcp_url}/refresh_cache")
+                if response.status_code == 200:
+                    logger.info("MCP server cache refreshed")
+            except Exception:
+                logger.debug("MCP server cache refresh failed (optional)", exc_info=True)
+            return {'success': True, 'output': result.stdout}
 
         except subprocess.TimeoutExpired:
-            logger.error("Sync script timed out")
-            return {
-                'success': False,
-                'error': 'Sync timed out'
-            }
-
+            logger.error(f"Sync of {ontology_name} timed out")
+            return {'success': False, 'error': 'Sync timed out'}
         except Exception as e:
-            logger.error(f"Error synchronizing with OntServe: {e}")
-            return {
-                'success': False,
-                'error': str(e)
-            }
+            logger.error(f"Error syncing {ontology_name} to OntServe DB: {e}")
+            return {'success': False, 'error': str(e)}
+
+    def _synchronize_with_ontserve(self) -> Dict[str, Any]:
+        """Sync proethica-intermediate-extended.ttl (new classes) into the DB."""
+        return self._sync_ontology_to_db("proethica-intermediate-extended")
 
     def _register_case_ontology(self, case_id: int) -> Dict[str, Any]:
-        """
-        Register a new case ontology in the OntServe database.
-
-        This ensures the case ontology appears in the web interface and can be queried.
-        """
-        try:
-            register_script = self.ontserve_path / "scripts" / "register_case_ontologies.py"
-
-            if not register_script.exists():
-                logger.warning("Registration script not found, trying to register via refresh")
-                return self._refresh_case_ontology(case_id)
-
-            # Run the registration script (scripts handle their own path setup)
-            result = subprocess.run(
-                [self.ontserve_python, str(register_script)],
-                capture_output=True,
-                text=True,
-                cwd=str(self.ontserve_path),
-                timeout=60
-            )
-
-            if result.returncode == 0:
-                logger.info(f"Successfully registered case-{case_id} ontology")
-                return {'success': True}
-            else:
-                logger.error(f"Failed to register case ontology: {result.stderr}")
-                return {'success': False, 'error': result.stderr}
-
-        except subprocess.TimeoutExpired:
-            logger.error("Registration script timed out")
-            return {'success': False, 'error': 'Registration timed out'}
-        except Exception as e:
-            logger.error(f"Error registering case ontology: {e}")
-            return {'success': False, 'error': str(e)}
+        """Register + import a case ontology into the OntServe DB. The sync CLI
+        auto-creates the ontology record, so registration and refresh are one
+        operation."""
+        return self._sync_ontology_to_db(f"proethica-case-{case_id}")
 
     def _refresh_case_ontology(self, case_id: int) -> Dict[str, Any]:
-        """
-        Refresh entity extraction for a case-specific ontology.
-
-        This updates the database to include individuals.
-        """
-        try:
-            refresh_script = self.ontserve_path / "scripts" / "refresh_entity_extraction.py"
-            case_ontology_name = f"proethica-case-{case_id}"
-
-            # Run refresh script (scripts handle their own path setup)
-            result = subprocess.run(
-                [self.ontserve_python, str(refresh_script), case_ontology_name],
-                capture_output=True,
-                text=True,
-                cwd=str(self.ontserve_path),
-                timeout=60
-            )
-
-            if result.returncode == 0:
-                logger.info(f"Successfully refreshed case ontology {case_ontology_name}")
-                return {'success': True}
-            else:
-                logger.error(f"Failed to refresh case ontology: {result.stderr}")
-                return {'success': False, 'error': result.stderr}
-
-        except subprocess.TimeoutExpired:
-            logger.error(f"Refresh script timed out for {case_ontology_name}")
-            return {'success': False, 'error': 'Refresh timed out'}
-        except Exception as e:
-            logger.error(f"Error refreshing case ontology: {e}")
-            return {'success': False, 'error': str(e)}
+        """Re-import a case ontology's disk TTL into the OntServe DB."""
+        return self._sync_ontology_to_db(f"proethica-case-{case_id}")
 
     # Maps extraction_type (or entity_type for temporal_dynamics) to:
     #   (category_field_name, CATEGORY_TO_ONTOLOGY_IRI key, fallback core class URI)
@@ -1198,6 +1245,17 @@ class OntServeCommitService:
                     results['errors'].append(ttl_result['error'])
                 results['ttl_file'] = ttl_result.get('file')
 
+                # Materialize the relational edge layer on the FINAL TTL (this is
+                # the persisted writer for the versioned path). Shared helper, so
+                # it stays in lockstep with the pipeline commit. Best-effort.
+                if ttl_result.get('file'):
+                    try:
+                        from app.services.extraction.edge_materialization import materialize_edges_on_ttl
+                        edge_result = materialize_edges_on_ttl(case_id, ttl_result['file'])
+                        logger.info(f"Edge materialization for case {case_id}: {edge_result}")
+                    except Exception as e:
+                        logger.exception(f"Edge materialization failed for case {case_id}: {e}")
+
             if classes_to_commit:
                 # For classes, we still append to intermediate-extended.ttl
                 # but with version metadata
@@ -1212,17 +1270,14 @@ class OntServeCommitService:
             from app import db
             db.session.commit()
 
-            # Sync with OntServe (register + refresh)
+            # Sync the edge-bearing disk TTL -> OntServe DB (single call:
+            # create-if-new + new version + entity re-extract).
             if individuals_to_commit:
-                register_result = self._register_case_ontology(case_id)
-                if register_result.get('success'):
-                    refresh_result = self._refresh_case_ontology(case_id)
-                    if refresh_result.get('success'):
-                        results['ontserve_synced'] = True
-                    else:
-                        results['errors'].append(f"Refresh warning: {refresh_result.get('error')}")
+                sync_result = self._sync_ontology_to_db(f"proethica-case-{case_id}")
+                if sync_result.get('success'):
+                    results['ontserve_synced'] = True
                 else:
-                    results['errors'].append(f"Register warning: {register_result.get('error')}")
+                    results['errors'].append(f"OntServe sync warning: {sync_result.get('error')}")
 
             logger.info(f"Versioned commit for case {case_id}: v{new_version}, "
                        f"{results['individuals_committed']} individuals, "
@@ -1437,6 +1492,9 @@ class OntServeCommitService:
             case_ontology_uri = URIRef(f"http://proethica.org/ontology/case/{case_id}")
             g.add((case_ontology_uri, RDF.type, OWL.Ontology))
             g.add((case_ontology_uri, RDFS.label, Literal(f"ProEthica Case {case_id} Ontology")))
+            _title = self._case_title(case_id)
+            if _title:
+                g.add((case_ontology_uri, DCTERMS.title, Literal(_title)))
             g.add((case_ontology_uri, OWL.imports, URIRef("http://proethica.org/ontology/cases")))
             g.add((case_ontology_uri, OWL.imports, URIRef("http://proethica.org/ontology/intermediate")))
             g.add((case_ontology_uri, DCTERMS.created, Literal(datetime.now(timezone.utc))))
@@ -1546,6 +1604,13 @@ class OntServeCommitService:
             if rdf_data.get('questionType'):
                 g.add((uri, PROETHICA['questionType'], Literal(rdf_data['questionType'])))
 
+        # Step-3 temporal dynamics (Actions / Events). These arrive as a
+        # JSON-LD record (@type + proeth:* predicates) from the LangGraph
+        # converter, a different shape from the unified Pydantic rdf_data above,
+        # which is why they previously fell through to a bare stub.
+        elif 'temporal_dynamics' in extraction_type and rdf_data:
+            self._add_temporal_fields(g, uri, rdf_data)
+
         # Generic properties fallback
         elif rdf_data and rdf_data.get('properties'):
             for prop_name, prop_values in rdf_data['properties'].items():
@@ -1556,6 +1621,79 @@ class OntServeCommitService:
                 for value in prop_values:
                     if value:
                         g.add((uri, prop_uri, Literal(value)))
+
+    def _object_property_locals(self) -> set:
+        """Local names of every owl:ObjectProperty declared in core / intermediate.
+        Cached per instance. Used so the temporal serializer never emits a literal
+        on an object property (which would make the case OWL-DL inconsistent)."""
+        if getattr(self, '_objprop_cache', None) is not None:
+            return self._objprop_cache
+        names = set()
+        base = getattr(self, 'ontologies_dir', None)
+        if not base:
+            self._objprop_cache = names
+            return names
+        for fn in ('proethica-core.ttl', 'proethica-intermediate.ttl',
+                   'proethica-intermediate-extended.ttl'):
+            p = base / fn
+            if not p.exists():
+                continue
+            try:
+                gg = Graph()
+                gg.parse(p, format='turtle')
+            except Exception as e:
+                logger.warning(f"Could not parse {fn} for object-property detection: {e}")
+                continue
+            for s in gg.subjects(RDF.type, OWL.ObjectProperty):
+                names.add(str(s).split('#')[-1].split('/')[-1])
+        self._objprop_cache = names
+        return names
+
+    def _add_temporal_fields(self, g: Graph, uri: URIRef, rdf_data: Dict):
+        """Emit the descriptive triples for a temporal (Action/Event) individual
+        from its JSON-LD record.
+
+        Types the individual as the core Action/Event class (reasoner-visible,
+        links to a real class), maps proeth:description to rdfs:comment, and
+        copies the remaining proeth: scalar/list fields as literals. Deliberately
+        skips: IRI-valued fields (e.g. proeth:causedByAction -- an ObjectProperty
+        whose converter URI scheme differs from the committed individual URIs, so
+        it would dangle), nested dicts, and the proeth-scenario:* teaching
+        metadata.
+
+        The temporal extractor sometimes carries a literal *description* of an
+        obligation/capability under a predicate that is declared as an
+        owl:ObjectProperty (e.g. proeth:fulfillsObligation, proeth:requiresCapability).
+        Emitting a literal on an object property makes the case OWL-DL inconsistent,
+        so such fields are redirected to a datatype sibling predicate (<local>Text)
+        which preserves the text without the punning."""
+        objprops = self._object_property_locals()
+        jtype = rdf_data.get('@type', '')
+        local_type = jtype.split(':')[-1] if jtype else ''
+        if local_type in ('Action', 'Event'):
+            g.add((uri, RDF.type, PROETHICA_CORE[local_type]))
+
+        for key, value in rdf_data.items():
+            if not key.startswith('proeth:'):
+                continue  # skip @context/@id/@type/rdfs:label and proeth-scenario:*
+            local = key.split(':', 1)[1]
+            values = value if isinstance(value, list) else [value]
+            for v in values:
+                if v is None or v == '' or isinstance(v, dict):
+                    continue
+                if isinstance(v, str) and v.startswith(('http://', 'https://')):
+                    continue  # IRI object refs use a different URI scheme; skip
+                if local == 'description':
+                    g.add((uri, RDFS.comment, Literal(v if isinstance(v, str) else str(v))))
+                    continue
+                # Redirect literal values on object properties to a datatype sibling
+                # so a textual description never sits on an owl:ObjectProperty.
+                pred_local = f"{local}Text" if local in objprops else local
+                # Preserve native bool/int/float so declared datatype ranges are
+                # satisfied (e.g. proeth:temporalSequence has range xsd:nonNegativeInteger;
+                # a stringified "6" would violate it and make the case inconsistent).
+                lit = Literal(v) if isinstance(v, (bool, int, float)) else Literal(str(v))
+                g.add((uri, PROETHICA[pred_local], lit))
 
     def get_case_version_history(self, case_id: int) -> Dict[str, Any]:
         """

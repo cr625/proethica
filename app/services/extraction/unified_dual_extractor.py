@@ -650,6 +650,24 @@ class UnifiedDualExtractor:
         # 3. Parse + validate
         classes, individuals = self._parse_and_validate(raw_json, case_id)
 
+        # 3a. Drop phantom entities pulled from cited precedent cases (e.g. an
+        # individual "Defendant Attorney BER Case 19-3" or a class "BER Case 04-11
+        # Situation 1 Engineer"): they belong to the precedent, not the case under
+        # analysis. This is the LIVE extraction path (extract_concept ->
+        # UnifiedDualExtractor), so the guard applies to every Step 1-2 concept type
+        # (roles, states, resources, principles, obligations, constraints,
+        # capabilities). Same rule as the Step-4 narrative pass (precedent_filter).
+        from app.services.extraction.precedent_filter import drop_precedent_entities
+        classes, dropped_c = drop_precedent_entities(
+            classes, lambda c: getattr(c, 'label', None))
+        individuals, dropped_i = drop_precedent_entities(
+            individuals, lambda i: getattr(i, 'identifier', None) or getattr(i, 'label', None))
+        if dropped_c or dropped_i:
+            logger.info(
+                f"Precedent filter ({self.concept_type}): dropped "
+                f"{len(dropped_c)} class(es) + {len(dropped_i)} individual(s): "
+                f"{dropped_c + dropped_i}")
+
         # 4. Match against existing ontology classes
         self._check_existing_matches(classes)
 

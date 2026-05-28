@@ -1,0 +1,79 @@
+{# Shared Provisions view body, fed by SynthesisViewBuilder.get_provisions_view.
+   Parent provides `view` = the provisions view object. Styling:
+   synthesis_views.css; behaviors: synthesis_views.js (type-chip popovers). #}
+<div class="synthview">
+{% for prov in view.provisions %}
+<div class="provision-card mb-3">
+  <div class="provision-header">
+    <span class="provision-code">{{ prov.code_section }}</span>
+    <span class="provision-text">{{ prov.provision_text }}</span>
+  </div>
+  {% if prov.case_excerpt %}<div class="provision-excerpt">&ldquo;{{ prov.case_excerpt|truncate(200) }}&rdquo;</div>{% endif %}
+  {% if prov.top_mappings %}
+  {% set prov_id = 'synth-prov-applies-' ~ loop.index %}
+  <div class="provision-mappings">
+    <div class="provision-mappings-label">How this applies in the case{% if prov.applies_to|length > prov.top_mappings|length %} <span class="text-muted">(showing {{ prov.top_mappings|length }} of {{ prov.applies_to|length }})</span>{% endif %}</div>
+    {% for entity in prov.top_mappings %}
+    {% set etype = (entity.entity_type or 'entity')|lower %}
+    {% set _type_def = (view.type_definitions or {}).get(etype|title) %}
+    <div class="provision-mapping-row">
+      {% if _type_def %}
+      <span class="badge onto-type-{{ etype }} provision-mapping-type provision-type-chip"
+            data-bs-toggle="popover" data-bs-trigger="focus hover" data-bs-title="{{ etype|title }}"
+            data-bs-content="{{ _type_def|e }}" tabindex="0" role="button" style="cursor: help;">{{ etype|title }}</span>
+      {% else %}
+      <span class="badge onto-type-{{ etype }} provision-mapping-type">{{ etype|title }}</span>
+      {% endif %}
+      <div class="provision-mapping-content">
+        <div class="provision-mapping-label">{{ entity.entity_label }}</div>
+        {% if entity.reasoning %}<div class="provision-mapping-reasoning">{{ entity.reasoning }}</div>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% if prov.applies_to|length > prov.top_mappings|length %}
+  <a class="provision-show-all" data-bs-toggle="collapse" href="#{{ prov_id }}-all" role="button" aria-expanded="false">
+    <i class="bi bi-chevron-right me-1 provision-chevron"></i> Show all {{ prov.applies_to|length }} mappings
+  </a>
+  <div class="collapse" id="{{ prov_id }}-all">
+    <div class="provision-all-mappings">
+      {% set type_groups = namespace(data={}) %}
+      {% for entity in prov.applies_to %}
+        {% set etype = (entity.entity_type if entity is mapping else 'entity')|lower %}
+        {% if etype not in type_groups.data %}{% set _ = type_groups.data.update({etype: []}) %}{% endif %}
+        {% set _ = type_groups.data[etype].append(entity) %}
+      {% endfor %}
+      {% set type_order = ['obligation', 'action', 'state', 'constraint', 'principle', 'role', 'event', 'resource', 'capability', 'entity'] %}
+      {% for etype in type_order %}
+      {% if etype in type_groups.data %}
+      {% set entities = type_groups.data[etype] %}
+      {% set _type_def_g = (view.type_definitions or {}).get(etype|title) %}
+      <div class="provision-all-group">
+        <div class="provision-all-group-header">
+          {% if _type_def_g %}
+          <span class="badge onto-type-{{ etype }} provision-type-chip"
+                data-bs-toggle="popover" data-bs-trigger="focus hover" data-bs-title="{{ etype|title }}"
+                data-bs-content="{{ _type_def_g|e }}" tabindex="0" role="button" style="cursor: help;">{{ etype|title }}</span>
+          {% else %}<span class="badge onto-type-{{ etype }}">{{ etype|title }}</span>{% endif %}
+          <span class="text-muted small ms-1">({{ entities|length }})</span>
+        </div>
+        <ul class="provision-all-list">
+          {% for entity in entities %}
+          <li>
+            <span class="provision-all-label">{{ entity.entity_label|default(entity, true) }}</span>
+            {% if entity is mapping and entity.reasoning %}<div class="provision-all-reasoning">{{ entity.reasoning }}</div>{% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  {% endif %}
+</div>
+{% else %}
+<p class="text-muted mb-0">No provisions extracted for this case.</p>
+{% endfor %}
+</div>

@@ -1,6 +1,10 @@
 """
 States Extractor - Extraction of states, conditions, and circumstances from guidelines.
 
+GUIDELINE-analysis stack (dormant; gated by GUIDELINE_EXTRACTION_ENABLED, default off).
+This is NOT the case-extraction pipeline -- cases are extracted by UnifiedDualExtractor
+(app.services.extraction.concept_extraction_service). See guideline_analysis_service.
+
 This implements Checkpoint 2 of the 9-component extraction plan:
 States (S) - Relevant states and conditions that affect ethical decisions.
 """

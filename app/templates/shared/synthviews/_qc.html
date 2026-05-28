@@ -1,0 +1,118 @@
+{# Shared Q&C (Conclusions) view body, fed by SynthesisViewBuilder.get_qc_view.
+   Parent provides `view` = the qc view object. Styling: synthesis_views.css;
+   behaviors: synthesis_views.js (provision-badge popovers, qc-sub chevrons). #}
+<div class="synthview">
+{% if view and view.board_questions %}
+  {% for bq in view.board_questions %}
+  {% set bq_num = bq.number|replace('Question_', '') %}
+  {% set analytical_subs = view.analytical_by_parent.get(bq.number, []) %}
+  {% set theory_subs = view.theory_by_parent.get(bq.number, []) %}
+  {% set all_subs = analytical_subs + theory_subs %}
+  <div class="qc-board-question">
+    <div class="card">
+      <div class="card-header d-flex align-items-center py-2">
+        <span class="badge bg-primary me-2">Board</span>
+        <strong class="flex-grow-1">Board question {{ bq_num }}</strong>
+      </div>
+      <div class="card-body py-2">
+        <p class="mb-2">{{ bq.question_text }}</p>
+        {% set board_conclusions = bq.linked_conclusions | selectattr('conclusion_type', 'equalto', 'board') | list %}
+        {% if board_conclusions %}
+        {% for c in board_conclusions %}
+        <div class="qc-conclusion">
+          <div class="d-flex align-items-start">
+            <span class="qc-conclusion-arrow"><i class="bi bi-arrow-return-right"></i></span>
+            <div>
+              <span class="badge bg-success me-1" style="font-size: 0.65rem;">Board conclusion</span>
+              <span class="small">{{ c.text }}</span>
+              {% if c.cited_provisions %}
+              <div class="mt-1">
+                {% for prov in c.cited_provisions %}
+                {% set prov_text = view.provision_text_lookup.get(prov, '') %}
+                <span class="badge bg-primary provision-badge" style="font-size: 0.6rem;" tabindex="0"
+                      data-bs-toggle="popover" data-bs-trigger="focus hover"
+                      data-bs-title="NSPE Code {{ prov }}"
+                      data-bs-content="{{ prov_text|escape if prov_text else 'Provision text not available for this case.' }}">{{ prov }}</span>
+                {% endfor %}
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p class="small text-muted fst-italic mb-2">The Board did not provide a conclusion specific to this question. The Discussion section covers the Board&rsquo;s reasoning across all questions.</p>
+        {% endif %}
+        {% if all_subs %}
+        <div class="mt-3">
+          <a class="qc-sub-toggle text-decoration-none" data-bs-toggle="collapse" href="#synth-qc-sub-{{ bq_num }}" role="button" aria-expanded="false">
+            <i class="bi bi-chevron-right me-1 qc-sub-chevron"></i>
+            Show {{ all_subs|length }} analytical question{{ 's' if all_subs|length != 1 }}
+          </a>
+          <div class="collapse" id="synth-qc-sub-{{ bq_num }}">
+            <div class="qc-sub-questions">
+              {% for type_key, type_label in [('implicit', 'Implicit'), ('principle_tension', 'Principle tension'), ('theoretical', 'Theoretical'), ('counterfactual', 'Counterfactual')] %}
+              {% set typed_subs = all_subs | selectattr('question_type', 'equalto', type_key) | list %}
+              {% if typed_subs %}
+              <h6 class="qc-sub-group-header"><span class="qc-sub-type-chip qc-type-{{ type_key }}">{{ type_label }}</span> <span class="text-muted">({{ typed_subs|length }})</span></h6>
+              {% for sq in typed_subs %}
+              <div class="qc-sub-question">
+                <p class="small mb-1">{{ sq.question_text }}</p>
+                {% for c in sq.linked_conclusions %}
+                <div class="qc-conclusion qc-conclusion-analytical">
+                  <div class="d-flex align-items-start">
+                    <span class="qc-conclusion-arrow"><i class="bi bi-arrow-return-right"></i></span>
+                    <div><span class="badge bg-secondary me-1" style="font-size: 0.6rem;">Analytical</span><span class="small">{{ c.text }}</span></div>
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+              {% endfor %}
+              {% endif %}
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+
+  {% if view.cross_cutting %}
+  <div class="qc-cross-cutting mt-4">
+    <h6><i class="bi bi-collection me-1"></i>Cross-cutting analytical questions ({{ view.cross_cutting|length }})</h6>
+    <p class="section-helper">These questions consider the case as a whole rather than a specific board question above.</p>
+    <a class="qc-sub-toggle text-decoration-none" data-bs-toggle="collapse" href="#synth-qc-cross-cutting" role="button" aria-expanded="false">
+      <i class="bi bi-chevron-right me-1 qc-sub-chevron"></i>
+      Show {{ view.cross_cutting|length }} cross-cutting question{{ 's' if view.cross_cutting|length != 1 }}
+    </a>
+    <div class="collapse" id="synth-qc-cross-cutting">
+      <div class="qc-sub-questions">
+        {% for type_key, type_label in [('implicit', 'Implicit'), ('principle_tension', 'Principle tension'), ('theoretical', 'Theoretical'), ('counterfactual', 'Counterfactual')] %}
+        {% set typed_subs = view.cross_cutting | selectattr('question_type', 'equalto', type_key) | list %}
+        {% if typed_subs %}
+        <h6 class="qc-sub-group-header"><span class="qc-sub-type-chip qc-type-{{ type_key }}">{{ type_label }}</span> <span class="text-muted">({{ typed_subs|length }})</span></h6>
+        {% for sq in typed_subs %}
+        <div class="qc-sub-question">
+          <p class="small mb-1">{{ sq.question_text }}</p>
+          {% for c in sq.linked_conclusions %}
+          <div class="qc-conclusion qc-conclusion-analytical">
+            <div class="d-flex align-items-start">
+              <span class="qc-conclusion-arrow"><i class="bi bi-arrow-return-right"></i></span>
+              <div><span class="badge bg-secondary me-1" style="font-size: 0.6rem;">Analytical</span><span class="small">{{ c.text }}</span></div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+{% else %}
+  <p class="text-muted mb-0">No questions extracted for this case.</p>
+{% endif %}
+</div>

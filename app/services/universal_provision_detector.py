@@ -186,6 +186,26 @@ class UniversalProvisionDetector:
                 match_type='prefixed'
             ))
 
+        # Pattern 6: Historical pre-1981 numbered Canons / Rules of Professional
+        # Conduct ("Canon 15", "Rule 13"). Cases adjudicated before the current
+        # three-part I/II/III Code (adopted January 1981) cite these instead of
+        # Roman-numeral sections. Modern cases never use this form, so the
+        # pattern is additive. Normalized code = "Canon 15" / "Rule 13".
+        historical_pattern = r'\b(Canon|Rule)\s+(\d+)\b'
+        for match in re.finditer(historical_pattern, section_text, re.IGNORECASE):
+            provision_code = f"{match.group(1).capitalize()} {match.group(2)}"
+
+            excerpt = self._extract_context(section_text, match.start(), match.end())
+
+            mentions.append(ProvisionMention(
+                mentioned_provision=provision_code,
+                section=section_name,
+                excerpt=excerpt,
+                citation_text=match.group(0),
+                position=match.start(),
+                match_type='historical'
+            ))
+
         logger.info(f"Found {len(mentions)} mentions in {section_name}")
 
         return mentions

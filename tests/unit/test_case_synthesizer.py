@@ -162,6 +162,7 @@ def resolution_pattern():
         determinative_facts=["AI was used", "Client was not informed"],
         cited_provisions=["NSPE II.1.c"],
         weighing_process="Disclosure obligation outweighed efficiency concerns",
+        resolution_conditions="Holds when AI use materially affects the work; would not hold if the client had been informed",
         resolution_narrative="The Board weighed transparency against efficiency",
         confidence=0.95
     )
@@ -462,6 +463,8 @@ class TestResolutionPatternAnalysis:
         assert len(resolution_pattern.determinative_principles) == 2
         assert len(resolution_pattern.cited_provisions) == 1
         assert resolution_pattern.weighing_process != ""
+        # B5: defeasible activating/defeating conditions are captured
+        assert "Holds when" in resolution_pattern.resolution_conditions
 
     def test_resolution_pattern_to_dict(self, resolution_pattern):
         """Test ResolutionPatternAnalysis serialization."""

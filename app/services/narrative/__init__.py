@@ -31,9 +31,12 @@ Usage:
     insights = derive_insights(case_id, elements, timeline, seeds)
 """
 
+import logging
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 # Stage 4.1: Narrative Element Extraction
 from app.services.narrative.narrative_element_extractor import (

@@ -249,6 +249,7 @@ class ResolutionPatternAnalysis:
     determinative_facts: List[str] = field(default_factory=list)
     cited_provisions: List[str] = field(default_factory=list)
     weighing_process: str = ""  # How competing obligations were weighed
+    resolution_conditions: str = ""  # Defeasible activating/defeating conditions ("holds when ...; not unless ...")
     resolution_narrative: str = ""
     confidence: float = 0.0
 

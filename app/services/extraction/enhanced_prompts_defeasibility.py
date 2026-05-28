@@ -221,17 +221,3 @@ def create_defeasibility_prompt(
         "an exact IRI match for an entity you would like to reference, omit "
         "that edge."
     )
-
-
-# ---------------------------------------------------------------------------
-# Lightweight axiom citation for tests / debugging
-# ---------------------------------------------------------------------------
-
-DEFEASIBILITY_LITERATURE = {
-    "Ganascia2007": "Defeasible logic foundations for normative reasoning",
-    "GovindarajuluBringsjord2017": (
-        "Obligation presupposes capacity -- defeasibleUnder grounds the "
-        "yielding-state pattern"
-    ),
-    "KI2026Fig1": "Worked-example competition pattern (Case 72)",
-}

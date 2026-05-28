@@ -20,6 +20,7 @@ from dataclasses import dataclass, field, asdict
 from enum import Enum
 
 from app.utils.llm_utils import get_llm_client
+from app.services.prompt_style import STYLE_FORMATTING_LINE
 from model_config import ModelConfig
 from app.academic_references.frameworks.declarative_ethics import (
     get_event_trace_template,
@@ -610,6 +611,8 @@ For each event, provide a clearer 1-2 sentence description that:
 1. Uses professional but accessible language
 2. Explains the significance of the event
 3. Maintains objective tone
+
+{STYLE_FORMATTING_LINE}
 
 Output as JSON array:
 ```json

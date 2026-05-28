@@ -20,6 +20,7 @@ from app.models import TemporaryRDFStorage
 from app.utils.llm_utils import get_llm_client, streaming_completion
 from app.utils.llm_json_utils import parse_json_response
 from app.utils.entity_prompt_utils import format_entities_compact, resolve_labels_flat
+from app.services.prompt_style import STYLE_FORMATTING_LINE
 from model_config import ModelConfig
 
 from app.services.case_synthesis_models import (
@@ -155,7 +156,9 @@ Use exact entity labels from the entity list. Output as JSON array:
 ]
 ```
 
-Include all {len(batch_actions)} actions even if they have empty relationships."""
+Include all {len(batch_actions)} actions even if they have empty relationships.
+
+{STYLE_FORMATTING_LINE}"""
 
         max_retries = 3
         last_error = None
@@ -313,7 +316,9 @@ For EACH question, use exact entity labels from the list above. Output JSON:
 ]
 ```
 
-Include all questions in this batch."""
+Include all questions in this batch.
+
+{STYLE_FORMATTING_LINE}"""
 
         max_retries = 3
         last_error = None
@@ -472,13 +477,23 @@ Include all questions in this batch."""
 ## CODE PROVISIONS (that could be cited)
 {provisions_text}
 
+A board resolution is DEFEASIBLE: it holds only under the facts and conditions
+that obtained in this case, and would not hold (or would reverse) if those
+conditions changed. Express each resolution conditionally, not as an absolute
+rule. State the activating conditions ("holds WHEN ...") and, where the board
+signalled them, the defeating conditions ("would NOT hold UNLESS ..." / "absent ...").
+
 For EACH conclusion above, analyze:
 1. Which QUESTIONS does it answer? (by Q number)
 2. What PRINCIPLES were determinative? (up to 3 key principles)
 3. What FACTS were determinative? (up to 3 key facts)
 4. What PROVISIONS were cited? (by P number)
 5. How were COMPETING OBLIGATIONS weighed? (1 sentence)
-6. A 1-2 sentence NARRATIVE explaining how the board reached this conclusion
+6. Under WHAT CONDITIONS does this resolution hold, and what would defeat or
+   reverse it? Phrase as "Holds when <conditions>; would not hold if/unless
+   <defeating conditions>." (1-2 sentences)
+7. A 1-2 sentence NARRATIVE explaining how the board reached this conclusion,
+   framed conditionally on the determinative facts above (not as a universal rule)
 
 Output as JSON array:
 ```json
@@ -490,13 +505,16 @@ Output as JSON array:
     "determinative_facts": ["fact 1", "fact 2"],
     "cited_provisions": [1, 3],
     "weighing_process": "One sentence on how competing obligations were balanced.",
-    "resolution_narrative": "The board concluded X because...",
+    "resolution_conditions": "Holds when the engineer disclosed the conflict in writing; would not hold if the disclosure were withheld.",
+    "resolution_narrative": "Given that X obtained, the board concluded Y because...",
     "confidence": 0.8
   }}
 ]
 ```
 
-Include all {len(batch_conclusions)} conclusions in this batch."""
+Include all {len(batch_conclusions)} conclusions in this batch.
+
+{STYLE_FORMATTING_LINE}"""
 
         max_retries = 3
         last_error = None
@@ -594,6 +612,7 @@ Include all {len(batch_conclusions)} conclusions in this batch."""
                 determinative_facts=p.get('determinative_facts', []),
                 cited_provisions=cited_p,
                 weighing_process=p.get('weighing_process', ''),
+                resolution_conditions=p.get('resolution_conditions', ''),
                 resolution_narrative=p.get('resolution_narrative', ''),
                 confidence=p.get('confidence', 0.5)
             ))
@@ -702,6 +721,7 @@ Include all {len(batch_conclusions)} conclusions in this batch."""
                         'determinative_facts': rp.determinative_facts,
                         'cited_provisions': rp.cited_provisions,
                         'weighing_process': rp.weighing_process,
+                        'resolution_conditions': rp.resolution_conditions,
                         'resolution_narrative': rp.resolution_narrative,
                         'confidence': rp.confidence
                     },
@@ -787,6 +807,7 @@ Include all {len(batch_conclusions)} conclusions in this batch."""
                     determinative_facts=data.get('determinative_facts', []),
                     cited_provisions=data.get('cited_provisions', []),
                     weighing_process=data.get('weighing_process', ''),
+                    resolution_conditions=data.get('resolution_conditions', ''),
                     resolution_narrative=data.get('resolution_narrative', ''),
                     confidence=data.get('confidence', 0.0)
                 ))

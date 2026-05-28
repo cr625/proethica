@@ -1,0 +1,170 @@
+/*
+ * Synthesis view presentation styles, shared by the validation-study case
+ * evaluation interface (validation_study/case_evaluation.html) and the Step-4
+ * review tabs (scenario_pipeline/step4_review.html + _review_tab_*.html).
+ *
+ * These two surfaces present the same five SynthesisViewBuilder views
+ * (Narrative, Timeline, Q&C, Decisions, Provisions). The markup is shared via
+ * app/templates/shared/synthviews/_*.html; this file holds the view-body
+ * styling so the two surfaces stay in visual parity instead of drifting. Study-
+ * only chrome (Likert blocks, segue cards, tab rating stars, comprehension /
+ * reveal sections) stays inline in case_evaluation.html and is NOT here.
+ */
+
+/* ---- View card frame ---- */
+.synthview .view-card { border: 1px solid #dee2e6; border-radius: 8px; margin-bottom: 1rem; }
+.synthview .view-card .card-header { font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+
+/* ---- Helper / instruction voice ---- */
+.synthview .section-helper { color: #5a6675; font-size: 0.875rem; font-style: italic; line-height: 1.5; margin-bottom: 0.75rem; }
+.synthview .instruction-box { border: 1px solid #cdd5dc; border-radius: 6px; background: #f4f6f8; overflow: hidden; margin-bottom: 1rem; }
+.synthview .instruction-header { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 0.55rem 0.95rem; background: transparent; border: none; color: #2d3848; font-weight: 600; font-size: 0.95rem; cursor: pointer; text-align: left; transition: background 0.15s; }
+.synthview .instruction-header:hover { background: rgba(0,0,0,0.04); }
+.synthview .instruction-header[aria-expanded="true"] { border-bottom: 1px solid #cdd5dc; }
+.synthview .instruction-chevron { color: #6c757d; transition: transform 0.2s; }
+.synthview .instruction-header[aria-expanded="false"] .instruction-chevron { transform: rotate(180deg); }
+.synthview .instruction-body { padding: 0.9rem 1rem; color: #3d4757; font-size: 1rem; line-height: 1.55; font-weight: 500; }
+
+/* ---- Entity / provision / question / decision accents ---- */
+.synthview .entity-badge { font-size: 0.75rem; padding: 0.2rem 0.5rem; margin-right: 0.25rem; margin-bottom: 0.25rem; display: inline-block; }
+.synthview .provision-item { border-left: 3px solid #0d6efd; padding-left: 1rem; margin-bottom: 1rem; }
+.synthview .question-item { border-left: 3px solid #6f42c1; padding-left: 1rem; margin-bottom: 1rem; }
+.synthview .decision-item { border-left: 3px solid #fd7e14; padding-left: 1rem; margin-bottom: 1rem; }
+
+/* ---- Character mention link (opening context + Main characters list) ---- */
+.synthview .char-mention { text-decoration: underline; text-decoration-style: dotted; text-decoration-color: #64748b; text-underline-offset: 2px; cursor: help; color: inherit; }
+.synthview .char-mention:hover, .synthview .char-mention:focus { color: #475569; text-decoration-style: solid; outline: none; }
+
+/* ---- Provision-code badges (Conclusions / Provisions views) ---- */
+.synthview .provision-badge { cursor: help; }
+.synthview .provision-badge:focus { outline: 2px solid #93c5fd; outline-offset: 1px; }
+.popover-header { font-size: 0.7rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; padding: 0.3rem 0.75rem; background-color: #f1f5f9; color: #64748b; }
+
+/* ---- Tension rows: collapsed summary with rotating chevron ---- */
+.synthview .tension-row-header:hover { background: #f8f9fa; }
+.synthview .tension-row-header[aria-expanded="true"] .tension-chevron { transform: rotate(90deg); transition: transform 0.15s ease; }
+.synthview .tension-chevron { transition: transform 0.15s ease; display: inline-block; }
+
+/* ---- Per-character "Show all tensions" toggle ---- */
+.synthview .char-show-all-toggle .char-show-chevron { transition: transform 0.15s ease; display: inline-block; }
+.synthview .char-show-all-toggle[aria-expanded="true"] .char-show-chevron { transform: rotate(90deg); }
+.synthview .char-show-all-toggle:hover { color: #198754 !important; }
+
+/* ---- Section-level toggles (additional characters, other tensions) ---- */
+.synthview .narrative-section-toggle .narrative-section-chevron { transition: transform 0.15s ease; display: inline-block; }
+.synthview .narrative-section-toggle[aria-expanded="true"] .narrative-section-chevron { transform: rotate(90deg); }
+.synthview .narrative-section-toggle { color: #198754; }
+.synthview .narrative-section-toggle:hover { color: #146c43; }
+
+/* ============================================================================
+ * Timeline view: compact node list with obligation nesting.
+ * ========================================================================== */
+.synthview .tl-compact { position: relative; margin-left: 10px; padding-left: 32px; border-left: 3px solid #e2e8f0; margin-bottom: 1rem; }
+.synthview .tl-compact-node { position: relative; display: flex; align-items: center; gap: 6px; padding: 4px 8px; margin-bottom: 1px; border-radius: 4px; font-size: 0.82rem; background: #f8fafc; border: 1px solid transparent; min-height: 30px; flex-wrap: wrap; row-gap: 2px; }
+.synthview .tl-compact-node:hover { background: #f1f5f9; border-color: #e2e8f0; }
+.synthview .tl-compact-icon { position: absolute; left: -24px; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; background: #fff; border-radius: 50%; z-index: 1; color: #858796; }
+.synthview .tl-compact-node::after { content: ''; position: absolute; left: -12px; top: 50%; transform: translateY(-50%); width: 12px; height: 1px; background: #e2e8f0; }
+.synthview .tl-compact-node.tl-action .tl-compact-icon { color: #0d6efd; }
+.synthview .tl-compact-node.tl-event .tl-compact-icon { color: #6f42c1; }
+.synthview .tl-compact-seq { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; background: #0d6efd; color: #fff; font-size: 0.6rem; font-weight: 600; flex-shrink: 0; }
+.synthview .tl-compact-node.tl-event .tl-compact-seq { background: #6f42c1; }
+.synthview .tl-compact-label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.synthview .tl-compact-label strong { font-size: 0.82rem; }
+.synthview .tl-compact-marker { flex-basis: 100%; margin-left: 28px; font-size: 0.7rem; line-height: 1.35; color: #6c757d; white-space: normal; }
+.synthview .tl-has-expand { cursor: pointer; }
+.synthview .tl-compact-agent { flex-shrink: 0; font-size: 0.72rem; }
+.synthview .tl-dp-collapse { margin-left: 30px; margin-bottom: 4px; }
+.synthview .tl-obl-nest { padding: 6px 10px 6px 12px; margin-bottom: 4px; border-radius: 4px; border-left: 3px solid; font-size: 0.78rem; }
+.synthview .tl-obl-nest.tl-fulfills { background: #f0f9f4; border-left-color: #198754; }
+.synthview .tl-obl-nest.tl-violates { background: #fdf3f4; border-left-color: #dc3545; }
+.synthview .tl-obl-nest.tl-raises   { background: #fffbe6; border-left-color: #d6a405; }
+.synthview .tl-obl-header { font-weight: 600; margin-bottom: 3px; display: inline-flex; align-items: center; gap: 4px; }
+.synthview .tl-obl-nest.tl-fulfills .tl-obl-header { color: #146c43; }
+.synthview .tl-obl-nest.tl-violates .tl-obl-header { color: #b02a37; }
+.synthview .tl-obl-nest.tl-raises   .tl-obl-header { color: #8a6100; }
+.synthview .tl-obl-list { margin: 0; padding-left: 1.1rem; line-height: 1.45; color: #2d3848; }
+.synthview .tl-obl-list li { margin-bottom: 2px; }
+.synthview .tl-description { padding: 8px 12px; margin-bottom: 6px; background: #fff; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.82rem; line-height: 1.5; color: #2d3848; }
+.synthview .tl-entry-chevron { transition: transform 0.2s ease; flex-shrink: 0; }
+.synthview .tl-compact-node[aria-expanded="true"] .tl-entry-chevron { transform: rotate(90deg); }
+@media (max-width: 640px) {
+  .synthview .tl-compact-node { align-items: flex-start; padding: 6px 8px; }
+  .synthview .tl-compact-label { flex-basis: 100%; white-space: normal; overflow: visible; text-overflow: clip; }
+  .synthview .tl-compact-agent { flex-shrink: 1; }
+}
+
+/* ============================================================================
+ * Provisions view: code section + text + mapping rows + type chips.
+ * ========================================================================== */
+.synthview .provision-card { border: 1px solid #d0d7de; border-left: 4px solid #0d6efd; border-radius: 6px; padding: 0.85rem 1.1rem; background: #fff; }
+.synthview .provision-card .provision-header { display: flex; align-items: baseline; gap: 0.65rem; margin-bottom: 0.35rem; }
+.synthview .provision-card .provision-code { font-weight: 700; font-size: 0.95rem; color: #0d6efd; flex-shrink: 0; }
+.synthview .provision-card .provision-text { color: #1f2937; }
+.synthview .provision-card .provision-excerpt { font-style: italic; color: #6c757d; font-size: 0.85rem; margin-bottom: 0.5rem; padding-left: 0.5rem; border-left: 2px solid #e2e8f0; }
+.synthview .provision-card .provision-mappings { margin-top: 0.6rem; }
+.synthview .provision-card .provision-mappings-label { font-size: 0.78rem; font-weight: 600; color: #495057; margin-bottom: 0.4rem; }
+.synthview .provision-card .provision-mapping-row { display: flex; align-items: flex-start; gap: 0.55rem; padding: 0.4rem 0.6rem; margin-bottom: 0.3rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; }
+.synthview .provision-card .provision-mapping-type { font-size: 0.65rem; flex-shrink: 0; align-self: flex-start; margin-top: 1px; }
+.synthview .provision-card .provision-mapping-content { min-width: 0; }
+.synthview .provision-card .provision-mapping-label { font-size: 0.85rem; font-weight: 600; color: #1f2937; }
+.synthview .provision-card .provision-mapping-reasoning { font-size: 0.8rem; color: #495057; line-height: 1.4; margin-top: 2px; }
+.synthview .provision-card .provision-show-all { display: inline-flex; align-items: center; font-size: 0.82rem; color: #6c757d; cursor: pointer; text-decoration: none; margin-top: 0.4rem; }
+.synthview .provision-card .provision-show-all:hover { color: #0d6efd; }
+.synthview .provision-card .provision-show-all .provision-chevron { transition: transform 0.15s ease; display: inline-block; }
+.synthview .provision-card .provision-show-all[aria-expanded="true"] .provision-chevron { transform: rotate(90deg); }
+.synthview .provision-card .provision-all-mappings { margin-top: 0.6rem; padding: 0.5rem 0.75rem; background: #f8fafc; border-radius: 4px; }
+.synthview .provision-card .provision-all-group { margin-bottom: 0.5rem; }
+.synthview .provision-card .provision-all-group:last-child { margin-bottom: 0; }
+.synthview .provision-card .provision-all-group-header { font-size: 0.78rem; margin-bottom: 0.25rem; }
+.synthview .provision-card .provision-all-list { list-style: none; padding-left: 0.5rem; margin: 0; }
+.synthview .provision-card .provision-all-list li { font-size: 0.8rem; margin-bottom: 0.25rem; }
+.synthview .provision-card .provision-all-label { font-weight: 500; color: #1f2937; }
+.synthview .provision-card .provision-all-reasoning { font-size: 0.75rem; color: #6c757d; line-height: 1.35; margin-top: 1px; }
+.synthview .onto-type-role        { background: #1f77b4; color: #fff; }
+.synthview .onto-type-principle   { background: #ff7f0e; color: #fff; }
+.synthview .onto-type-obligation  { background: #2ca02c; color: #fff; }
+.synthview .onto-type-state       { background: #9467bd; color: #fff; }
+.synthview .onto-type-resource    { background: #8c564b; color: #fff; }
+.synthview .onto-type-action      { background: #0dcaf0; color: #212529; }
+.synthview .onto-type-event       { background: #dc3545; color: #fff; }
+.synthview .onto-type-capability  { background: #17a2b8; color: #fff; }
+.synthview .onto-type-constraint  { background: #6c757d; color: #fff; }
+.synthview .onto-type-entity      { background: #adb5bd; color: #212529; }
+
+/* ============================================================================
+ * Q&C view: board questions, conclusions, analytical sub-questions.
+ * ========================================================================== */
+.synthview .qc-board-question { margin-bottom: 1.25rem; }
+.synthview .qc-board-question > .card { border-left: 4px solid #6f42c1; }
+.synthview .qc-sub-questions { margin-left: 1rem; margin-top: 0.5rem; }
+.synthview .qc-sub-question { border-left: 3px solid #dee2e6; padding-left: 0.75rem; margin-bottom: 0.6rem; }
+.synthview .qc-conclusion { border-left: 4px solid #28A745; background-color: #f8fff8; padding: 0.6rem 0.85rem; margin-top: 0.5rem; margin-bottom: 0.5rem; border-radius: 4px; }
+.synthview .qc-conclusion.qc-conclusion-analytical { border-left-color: #6c757d; background-color: #fafafa; }
+.synthview .qc-conclusion-arrow { color: #28A745; font-size: 0.85rem; margin-right: 0.25rem; }
+.synthview .qc-sub-toggle { font-size: 0.85rem; cursor: pointer; color: #6c757d; display: inline-flex; align-items: center; }
+.synthview .qc-sub-toggle:hover { color: #6f42c1; }
+.synthview .qc-sub-toggle .qc-sub-chevron { transition: transform 0.15s ease; display: inline-block; }
+.synthview .qc-sub-toggle[aria-expanded="true"] .qc-sub-chevron { transform: rotate(90deg); }
+.synthview .qc-sub-group-header { font-size: 0.78rem; font-weight: 600; margin-top: 0.6rem; margin-bottom: 0.35rem; }
+.synthview .qc-sub-group-header:first-child { margin-top: 0.25rem; }
+.synthview .qc-sub-type-chip { display: inline-block; font-size: 0.68rem; font-weight: 600; padding: 1px 6px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.04em; }
+.synthview .qc-sub-type-chip.qc-type-implicit          { background: #e9ecef; color: #495057; }
+.synthview .qc-sub-type-chip.qc-type-principle_tension { background: #cff4fc; color: #055160; }
+.synthview .qc-sub-type-chip.qc-type-theoretical       { background: #e2d9f3; color: #4b2e83; }
+.synthview .qc-sub-type-chip.qc-type-counterfactual    { background: #fff3cd; color: #664d03; }
+
+/* ============================================================================
+ * Decisions view: collapsible decision cards with options + Toulmin structure.
+ * ========================================================================== */
+.synthview .dp-card { margin-bottom: 0.5rem; }
+.synthview .dp-header { cursor: pointer; padding: 0.5rem 0.75rem; border-radius: 4px; border: 1px solid #dee2e6; transition: background-color 0.15s ease; display: flex; align-items: flex-start; gap: 0.5rem; }
+.synthview .dp-header:hover { background-color: #f8f9fa; border-color: #ced4da; }
+.synthview .dp-chevron { transition: transform 0.2s ease; font-size: 0.8rem; }
+.synthview .dp-header[aria-expanded="true"] .dp-chevron { transform: rotate(90deg); }
+.synthview .dp-body { padding: 0.75rem; }
+.synthview .dp-option { padding: 0.4rem 0.6rem; margin-bottom: 0.25rem; border-radius: 4px; font-size: 0.85rem; border: 1px solid #dee2e6; }
+.synthview .dp-option-chosen { background-color: #d1e7dd; border-color: #a3cfbb; }
+.synthview .dp-toulmin-card { padding: 0.5rem 0.75rem; margin-bottom: 0.5rem; border-radius: 4px; font-size: 0.85rem; }
+.synthview .dp-toulmin-warrants { border-left: 3px solid #198754; background: #f0faf4; }
+.synthview .dp-toulmin-rebuttals { border-left: 3px solid #dc3545; background: #fdf0f0; }
+.synthview .dp-toulmin-grounds { border-left: 3px solid #0d6efd; background: #f0f4fa; }

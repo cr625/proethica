@@ -27,38 +27,36 @@ CITATION_SHORT = "Oakley & Cocking (2001)"
 
 # Core theoretical framework
 SOURCE_CONTEXT = """
-From Oakley & Cocking's theoretical framework:
+Oakley & Cocking's regulative-ideals account of professional role ethics
+(paraphrased; the wording below is not quoted from the source):
 
-"Professional roles carry distinctive moral obligations that general moral theories
-do not capture with precision. These obligations arise from specialized knowledge
-and training that create a higher standard of care than that expected of the
-general public." (Chapter 1)
+Professional roles carry distinctive moral obligations grounded in the role's
+proper goals, and a profession's virtues are the traits that serve its regulative
+ideal (in medicine, health; in law, justice). Role morality can justify conduct
+that would be impermissible for ordinary agents -- their example is a lawyer's
+zealous advocacy for a client -- but only within the limits set by the role's
+proper goals.
 
-"Role morality justifies behaviors within professional contexts that might be
-unacceptable otherwise, though not without limits. A lawyer's obligation to
-zealously advocate for a client, for example, permits certain actions that would
-be impermissible for ordinary citizens." (Chapter 4)
-
-The authors distinguish between:
-1. REGULATIVE IDEALS - aspirational standards that guide professional conduct
-2. ROLE VIRTUES - character traits appropriate to the professional role
+The account distinguishes:
+1. REGULATIVE IDEALS - the role's proper goals, which both guide and constrain conduct
+2. ROLE VIRTUES - character traits that serve the regulative ideal
 3. ROLE OBLIGATIONS - specific duties arising from role occupancy
 
-Central Thesis (p. 74):
-"A good professional is someone who possesses the virtues appropriate to their
-role and exercises them in service of the role's proper goals."
+Scope note: Oakley & Cocking analyze medicine and law and do not treat
+engineering. The engineering-specific framing below is drawn from the NSPE Code
+of Ethics and the professional-codes literature (Kong et al. 2020), not from
+Oakley & Cocking.
 """
 
 # From Kong et al. (2020) analysis of professional codes
 PROFESSIONAL_VIRTUES: Dict[str, Dict] = {
     'integrity': {
         'definition': "Adherence to moral and professional standards even under pressure",
-        'source_text': """From Oakley & Cocking: "Professional integrity requires maintaining
-moral standards even when doing so conflicts with personal interest or external pressure.
-The professional must be trustworthy in their role-specific domain."
-
-Kong et al. (2020) found integrity mentioned in 94% of engineering codes analyzed,
-making it the most frequently cited professional virtue.""",
+        'source_text': """Reflecting Oakley & Cocking's regulative-ideal account, integrity is
+the disposition to hold to professional standards even when doing so conflicts with
+personal interest or external pressure. Kong et al. (2020), in a corpus-based study of
+professional codes, identify integrity among the most frequently cited virtues in
+engineering codes.""",
         'indicators': [
             "acted with integrity",
             "maintained standards",
@@ -72,13 +70,11 @@ making it the most frequently cited professional virtue.""",
     },
     'competence': {
         'definition': "Possession and exercise of knowledge, skill, and judgment appropriate to role",
-        'source_text': """From Oakley & Cocking: "Competence is not merely technical skill but
-includes the judgment to know when one's expertise is sufficient and when to seek help.
-The competent professional knows the limits of their knowledge."
-
-This connects to legal standards: Restatement (Third) of Torts requires professionals to
-exercise "the skill and knowledge normally possessed by members of that profession
-or trade in good standing" (ALI, 2010, S 299A).""",
+        'source_text': """Competence as a role virtue is not merely technical skill but the
+judgment to recognize the limits of one's expertise and to seek help accordingly. The
+corresponding legal standard of care requires professionals to exercise "the skill and
+knowledge normally possessed by members of that profession or trade in good standing"
+(Restatement (Third) of Torts, ALI 2010, S 299A).""",
         'indicators': [
             "within expertise",
             "qualified to",
@@ -92,13 +88,11 @@ or trade in good standing" (ALI, 2010, S 299A).""",
     },
     'responsibility': {
         'definition': "Accountability for actions and their consequences within professional scope",
-        'source_text': """From Oakley & Cocking: "Professional responsibility extends beyond
-immediate actions to foreseeable consequences. The professional must consider how
-their work affects others and take ownership of outcomes."
-
-This creates prospective and retrospective dimensions:
-- Prospective: Duty to consider consequences before acting
-- Retrospective: Accountability for past professional judgments""",
+        'source_text': """Professional responsibility extends from immediate acts to their
+foreseeable consequences: the professional must consider how their work affects others
+and take ownership of outcomes. This has two dimensions:
+- Prospective: a duty to consider consequences before acting
+- Retrospective: accountability for past professional judgments""",
         'indicators': [
             "responsible for",
             "accountable to",
@@ -111,12 +105,12 @@ This creates prospective and retrospective dimensions:
     },
     'public_welfare_priority': {
         'definition': "Prioritizing public safety and welfare above private interests",
-        'source_text': """Engineering-specific from NSPE Code: "Engineers shall hold paramount
-the safety, health, and welfare of the public."
-
-Oakley & Cocking frame this as a regulative ideal that shapes how other obligations
-are interpreted. When duties conflict, public welfare provides priority ordering.
-This is operationalized through precedent cases (McLaren, 2003).""",
+        'source_text': """Engineering-specific (NSPE Code of Ethics): "Engineers shall hold
+paramount the safety, health, and welfare of the public." Functioning as a regulative
+ideal for the role, public welfare shapes how other obligations are interpreted; when
+duties conflict, it provides a priority ordering. This is operationalized through
+precedent cases (McLaren, 2003). (This priority is a feature of the engineering codes;
+Oakley & Cocking analyze medicine and law, not engineering.)""",
         'indicators': [
             "public safety",
             "paramount",
@@ -133,12 +127,11 @@ This is operationalized through precedent cases (McLaren, 2003).""",
 ROLE_OBLIGATIONS: Dict[str, Dict] = {
     'confidentiality': {
         'definition': "Duty to protect client/employer information from unauthorized disclosure",
-        'source_text': """Oakley & Cocking note that confidentiality obligations vary by role:
-"The lawyer's duty of confidentiality is near-absolute, while the engineer's duty
-may be overridden by public safety concerns."
-
-This creates potential for obligation conflict when confidential information
-reveals safety risks.""",
+        'source_text': """Confidentiality obligations vary by role and domain. In engineering,
+the duty to protect client/employer information yields to public-safety concerns under
+the NSPE Code, which creates potential for obligation conflict when confidential
+information reveals safety risks. (Oakley & Cocking discuss confidentiality in medicine
+and law, not engineering.)""",
         'scope': "client_employer",
         'typical_conflicts': ["public_safety", "disclosure_to_authorities"],
         'indicators': [
@@ -151,13 +144,10 @@ reveals safety risks.""",
     },
     'loyalty': {
         'definition': "Duty to act in the interests of client/employer within ethical bounds",
-        'source_text': """From Oakley & Cocking: "Professional loyalty is not unlimited.
-The professional owes loyalty to clients but this does not extend to assisting
-in unlawful or unethical conduct."
-
-Engineering codes typically subordinate loyalty to public welfare:
-"Engineers shall not be bound by their allegiance to client/employer when
-violation of their professional integrity or public safety would result." """,
+        'source_text': """On Oakley & Cocking's account, role-based loyalty is bounded: the
+professional owes loyalty to clients, but not to the point of assisting in unlawful or
+unethical conduct. Engineering codes make this explicit by subordinating loyalty to
+public welfare and professional integrity (NSPE Code).""",
         'scope': "client_employer",
         'typical_conflicts': ["public_safety", "professional_integrity"],
         'indicators': [
@@ -189,12 +179,10 @@ judgment about which obligation prevails.""",
     },
     'diligence': {
         'definition': "Duty to pursue professional work with appropriate care and attention",
-        'source_text': """From Oakley & Cocking: "Diligence requires not merely completing
-tasks but doing so with appropriate thoroughness. The diligent professional
-investigates adequately, documents carefully, and follows through."
-
-This connects to negligence standards - failure of diligence may constitute
-breach of professional duty.""",
+        'source_text': """Diligence as a role virtue requires not merely completing tasks but
+doing so with appropriate thoroughness: investigating adequately, documenting carefully,
+and following through. Failure of diligence may constitute breach of professional duty
+under negligence standards.""",
         'scope': "professional_work",
         'typical_conflicts': ["resource_constraints", "time_pressure"],
         'indicators': [

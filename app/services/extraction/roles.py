@@ -1,6 +1,10 @@
 """
 Roles Extractor - Focused extraction of professional and stakeholder roles from guidelines.
 
+GUIDELINE-analysis stack (dormant; gated by GUIDELINE_EXTRACTION_ENABLED, default off).
+This is NOT the case-extraction pipeline -- cases are extracted by UnifiedDualExtractor
+(app.services.extraction.concept_extraction_service). See guideline_analysis_service.
+
 This implements the first pass of the two-pass extraction approach outlined in 
 ROLE_EXTRACTION_AND_MATCHING_INTEGRATED_PLAN.md.
 """
@@ -78,7 +82,15 @@ class RolesExtractor(Extractor, AtomicExtractionMixin):
             
             # Post-process to ensure all are roles
             candidates = self._ensure_roles_only(candidates)
-            
+
+            # Drop phantom actors pulled from cited precedent cases (e.g.
+            # "Defendant Attorney BER Case 19-3"): they belong to the precedent,
+            # not the case under analysis. Same rule as the Step-4 narrative pass.
+            from app.services.extraction.precedent_filter import drop_precedent_entities
+            candidates, dropped = drop_precedent_entities(candidates, lambda c: c.label)
+            if dropped:
+                logger.info(f"Dropped {len(dropped)} precedent-derived role(s): {dropped}")
+
             logger.info(f"Extracted {len(candidates)} role candidates")
             
             # Enhanced splitting now handled at unified level in guideline_analysis_service.py

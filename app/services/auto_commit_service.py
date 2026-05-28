@@ -546,6 +546,16 @@ class AutoCommitService:
             logger.warning(f"Could not load OntServe classes: {e}")
             self._ontserve_classes_cache = {}
 
+    def _case_title(self, case_id: int) -> Optional[str]:
+        """Human case title for the case id, or None if the document is absent.
+        Emitted as dcterms:title in the TTL header so OntServe can read it into
+        display_name on sync (see OntServeCommitService._case_title)."""
+        from app.models.document import Document
+        from app.models import db
+        doc = db.session.get(Document, case_id)
+        title = (doc.title or '').strip() if doc else ''
+        return title or None
+
     def _generate_case_ttl(
         self,
         case_id: int,
@@ -586,6 +596,9 @@ class AutoCommitService:
                 case_ontology_uri = URIRef(f"http://proethica.org/ontology/case/{case_id}")
                 g.add((case_ontology_uri, RDF.type, OWL.Ontology))
                 g.add((case_ontology_uri, RDFS.label, Literal(f"ProEthica Case {case_id} Ontology")))
+                _title = self._case_title(case_id)
+                if _title:
+                    g.add((case_ontology_uri, DCTERMS.title, Literal(_title)))
                 g.add((case_ontology_uri, OWL.imports, URIRef("http://proethica.org/ontology/intermediate")))
                 g.add((case_ontology_uri, DCTERMS.created, Literal(datetime.utcnow())))
 
@@ -666,93 +679,17 @@ class AutoCommitService:
             g.serialize(destination=case_file, format='turtle')
             logger.info(f"Generated case TTL: {individuals_added} new, {individuals_merged} merged: {case_file}")
 
-            self._apply_defeasibility_edges(case_id, case_file)
-            self._apply_cites_provision_edges(case_file)
-
+            # NOTE: edge materialization (defeasibility + R->P->O + cites-provision)
+            # is NOT run here. In the default versioned path this TTL is rewritten
+            # by commit_case_versioned -> _write_case_ttl_fresh (which overwrites),
+            # so edges added here would be clobbered. Materialization runs on the
+            # FINAL persisted TTL: in commit_case_versioned (versioned) or in
+            # _sync_to_ontserve (non-versioned). See edge_materialization.py.
             return str(case_file)
 
         except Exception as e:
             logger.error(f"Error generating case TTL for case {case_id}: {e}")
             return None
-
-    def _apply_defeasibility_edges(self, case_id: int, case_file) -> None:
-        """Run the defeasibility edge extractor over the just-written TTL.
-
-        This is the live-pipeline counterpart to the corpus backfill
-        script: after the case TTL is committed, we re-parse the file,
-        ask the LLM for proethica-core competesWith / prevailsOver /
-        defeasibleUnder edges between the obligations and states, and
-        re-serialize with those edges added.
-
-        Runs unconditionally (study-corrections A4, 2026-05-25). The
-        former `DEFEASIBILITY_AUTOEXTRACT` env gate is removed: the
-        corpus is now uniformly expected to carry defeasibility edges,
-        so every commit materializes them rather than depending on an
-        opt-in flag. Failures are swallowed below so the hook can never
-        fail a commit; the backfill script remains the corpus-level
-        safety net.
-        """
-        from pathlib import Path
-
-        try:
-            from app.services.extraction.defeasibility_pipeline import (
-                apply_defeasibility_edges,
-            )
-        except Exception as e:
-            logger.warning(
-                "Defeasibility hook: pipeline import failed (%s); skipping",
-                e,
-            )
-            return
-
-        try:
-            result = apply_defeasibility_edges(
-                case_id=case_id,
-                ttl_path=Path(case_file),
-                write_back=True,
-            )
-            logger.info(
-                "Defeasibility hook for case %s: %s", case_id, result
-            )
-        except Exception as e:
-            # Never let the hook fail the commit. Backfill remains the
-            # corpus-level safety net.
-            logger.exception(
-                "Defeasibility hook for case %s raised: %s", case_id, e
-            )
-
-    def _apply_cites_provision_edges(self, case_file) -> None:
-        """Resolve board-conclusion citedProvisionN dotted-code literals in the
-        just-written TTL to nspe: CodeProvision IRIs and add
-        proeth-core:citesProvision edges. Deterministic (no LLM); the corpus
-        counterpart is docs-internal/scripts/backfill_cites_provision_edges.py.
-        Failures are swallowed so the hook can never fail a commit.
-        """
-        try:
-            from rdflib import Graph as _Graph
-            from sqlalchemy import text
-            from app.models import db
-            from app.services.extraction.provision_citation_resolver import (
-                ProvisionCitationResolver, apply_cites_provision_edges,
-                valid_fragments_from_codes,
-            )
-
-            codes = [r[0] for r in db.session.execute(
-                text("SELECT section_code FROM guideline_sections WHERE guideline_id = 1")
-            ).fetchall()]
-            if not codes:
-                logger.warning("citesProvision hook: no NSPE guideline sections; skipping")
-                return
-            resolver = ProvisionCitationResolver(valid_fragments_from_codes(codes))
-
-            g = _Graph()
-            g.parse(case_file, format="turtle")
-            added = apply_cites_provision_edges(g, resolver)
-            if added:
-                g.serialize(destination=case_file, format="turtle")
-            logger.info("citesProvision hook %s: +%d edges", case_file, added)
-        except Exception as e:
-            logger.exception("citesProvision hook raised: %s", e)
 
     def _merge_entity_properties(
         self,
@@ -976,23 +913,19 @@ class AutoCommitService:
         For versioned commits, also stores version history in OntServe concepts table.
         Calls OntServe scripts via subprocess to register/update the case ontology.
         """
-        import subprocess
-
-        ontserve_path = get_ontserve_base_path()
-        ontserve_venv_python = str(ontserve_path / "venv-ontserve" / "bin" / "python")
-        refresh_script = str(ontserve_path / "scripts" / "refresh_entity_extraction.py")
+        from app.services.ontserve_commit_service import OntServeCommitService
 
         versioned = getattr(self, '_versioned_commit', True)
         versioned_refresh_done = False
 
         try:
-            # For versioned commits, also update OntServe concepts table with version info
+            commit_service = OntServeCommitService()
+
+            # For versioned commits, store version history in OntServe and write
+            # the final TTL. commit_case_versioned now materializes edges on the
+            # final TTL and syncs disk->DB itself.
             if versioned:
                 try:
-                    from app.services.ontserve_commit_service import OntServeCommitService
-                    commit_service = OntServeCommitService()
-
-                    # Get entities that were just committed
                     entities = TemporaryRDFStorage.query.filter_by(
                         case_id=case_id,
                         is_published=True
@@ -1000,8 +933,6 @@ class AutoCommitService:
 
                     if entities:
                         entity_ids = [e.id for e in entities]
-                        # Use versioned commit to store in OntServe DB with version history
-                        # (commit_case_versioned internally calls _refresh_case_ontology)
                         result = commit_service.commit_case_versioned(case_id, entity_ids)
                         if result.get('success'):
                             logger.info(f"Versioned commit to OntServe DB: v{result.get('new_version')}, "
@@ -1011,29 +942,25 @@ class AutoCommitService:
                             logger.warning(f"Versioned commit warning: {result.get('error')}")
                 except Exception as e:
                     logger.warning(f"Versioned commit to OntServe DB failed: {e}")
-                    # Continue with TTL sync even if DB commit fails
+                    # Fall through to materialize + sync the _generate_case_ttl TTL.
 
-            # Refresh entity extraction for this specific case.
-            # Skip if commit_case_versioned already refreshed successfully.
+            # Non-versioned path (or versioned-commit failure): the persisted TTL
+            # is the one _generate_case_ttl wrote (no edges yet). Materialize the
+            # edge layer on it, then sync disk->DB via the shared CLI wrapper.
             if not versioned_refresh_done:
                 logger.info(f"Syncing case {case_id} TTL to OntServe...")
-                result = subprocess.run(
-                    [ontserve_venv_python, refresh_script, f"proethica-case-{case_id}"],
-                    capture_output=True,
-                    text=True,
-                    timeout=60,
-                    cwd=str(ontserve_path)
-                )
-
-                if result.returncode == 0:
+                case_file = self.ontologies_dir / f"proethica-case-{case_id}.ttl"
+                try:
+                    from app.services.extraction.edge_materialization import materialize_edges_on_ttl
+                    materialize_edges_on_ttl(case_id, case_file)
+                except Exception as e:
+                    logger.exception(f"Edge materialization failed for case {case_id}: {e}")
+                sync_result = commit_service._sync_ontology_to_db(f"proethica-case-{case_id}")
+                if sync_result.get('success'):
                     logger.info(f"OntServe TTL sync successful for case {case_id}")
                 else:
-                    logger.warning(f"OntServe sync returned non-zero: {result.stderr}")
+                    logger.warning(f"OntServe sync warning: {sync_result.get('error')}")
 
-        except subprocess.TimeoutExpired:
-            logger.warning(f"OntServe sync timed out for case {case_id}")
-        except FileNotFoundError:
-            logger.warning("OntServe scripts not found - skipping sync")
         except Exception as e:
             logger.warning(f"OntServe sync failed for case {case_id}: {e}")
             # Don't fail the commit if OntServe sync fails
@@ -1237,6 +1164,9 @@ class AutoCommitService:
                 case_ontology_uri = URIRef(f"http://proethica.org/ontology/case/{case_id}")
                 g.add((case_ontology_uri, RDF.type, OWL.Ontology))
                 g.add((case_ontology_uri, RDFS.label, Literal(f"ProEthica Case {case_id} Ontology")))
+                _title = self._case_title(case_id)
+                if _title:
+                    g.add((case_ontology_uri, DCTERMS.title, Literal(_title)))
                 g.add((case_ontology_uri, OWL.imports, URIRef("http://proethica.org/ontology/intermediate")))
                 g.add((case_ontology_uri, DCTERMS.created, Literal(datetime.utcnow())))
 

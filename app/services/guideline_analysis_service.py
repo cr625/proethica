@@ -24,6 +24,23 @@ from model_config import ModelConfig
 
 logger = logging.getLogger(__name__)
 
+
+class GuidelineExtractionDisabled(RuntimeError):
+    """Raised when the dormant guideline-extraction stack is invoked while gated off."""
+
+
+def guideline_extraction_enabled() -> bool:
+    """Whether the GUIDELINE-analysis extraction stack is enabled.
+
+    Default OFF: guideline extraction is dormant (no guidelines are being extracted
+    for the foreseeable future). The CASE-extraction pipeline is unrelated and always
+    runs -- it uses UnifiedDualExtractor (app.services.extraction.concept_extraction_service),
+    NOT this service. Re-enable with GUIDELINE_EXTRACTION_ENABLED=true.
+    """
+    return os.environ.get("GUIDELINE_EXTRACTION_ENABLED", "false").strip().lower() in (
+        "1", "true", "yes", "on")
+
+
 # MCP Integration
 try:
     from app.services.ontserve_mcp_client import get_ontserve_mcp_client, MCPClientError, ONTSERVE_MCP_TOOLS
@@ -34,12 +51,23 @@ except ImportError:
 
 
 class GuidelineAnalysisService:
-    """
-    Enhanced version of GuidelineAnalysisService with:
-    - Ontology-aware concept extraction
-    - Term candidate identification
-    - Semantic triple generation
-    - Embedding-based similarity matching
+    """GUIDELINE-analysis extraction stack (currently DORMANT, gated off by default).
+
+    Extracts concepts from NSPE *guideline* text via the per-type extractors
+    (RolesExtractor, StatesExtractor, ... in app.services.extraction.{roles,states,...}).
+
+    DO NOT CONFUSE with the CASE-extraction pipeline. Cases are extracted by
+    UnifiedDualExtractor (app.services.extraction.concept_extraction_service ->
+    unified_dual_extractor.py), orchestrated by app.tasks.pipeline_tasks. That path is
+    always live and does NOT use this service or the per-type extractors. The two
+    stacks extract the same concept vocabulary by different code; any extraction
+    guardrail must be applied in BOTH.
+
+    This service is gated by GUIDELINE_EXTRACTION_ENABLED (default false); the
+    extraction methods raise GuidelineExtractionDisabled when off.
+
+    Features: ontology-aware extraction, term-candidate identification, semantic triple
+    generation, embedding-based similarity matching.
     """
     
     def __init__(self):
@@ -71,9 +99,15 @@ class GuidelineAnalysisService:
         Returns:
             Dict with extracted concepts, ontology matches, new term candidates, and session_id
         """
+        if not guideline_extraction_enabled():
+            raise GuidelineExtractionDisabled(
+                "Guideline extraction is disabled (GUIDELINE_EXTRACTION_ENABLED=false). "
+                "This dormant stack extracts NSPE guideline text via the per-type "
+                "extractors; the case pipeline (UnifiedDualExtractor) is unaffected. "
+                "Set GUIDELINE_EXTRACTION_ENABLED=true to re-enable.")
         try:
             logger.info(f"Starting v2 concept extraction for guideline {guideline_id}")
-            
+
             # Load ontology for the world
             if not world_id:
                 world_id = 1  # Default to Engineering World
@@ -1752,8 +1786,12 @@ class GuidelineAnalysisService:
         Returns:
             Dict with triples in various formats
         """
+        if not guideline_extraction_enabled():
+            raise GuidelineExtractionDisabled(
+                "Guideline extraction is disabled (GUIDELINE_EXTRACTION_ENABLED=false). "
+                "Set GUIDELINE_EXTRACTION_ENABLED=true to re-enable.")
         triples = []
-        
+
         # Generate concept triples
         for concept in concepts:
             uri = concept.get('ontology_match', {}).get('uri', self._generate_uri(concept['label']))

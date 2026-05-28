@@ -18,6 +18,50 @@ from app.models.extraction_prompt import ExtractionPrompt
 from app.models.document_section import DocumentSection
 
 
+# A reference to a prior BER opinion, e.g. "Case 76-4", "BER Case 19-3",
+# "Case 20-1". Matched ANYWHERE in a label, not just at the start, because the
+# extractor emits the citation as a prefix ("BER Case 04-11 Engineer ..."), a
+# suffix ("Engineer Intern BER Case 20-1"), or mid-label ("Engineer A BER Case
+# 19-3 Standards Chair"). The "BER" token is optional; the "Case NN-N(N)" core
+# carries the signal. Present-case people never carry this token.
+_CITATION_RE = re.compile(r'\b(?:BER\s+)?Case\s+\d{2}-\d{1,2}\b', re.IGNORECASE)
+
+# Tokens too generic to disambiguate one actor from another when matching a
+# Step-3 timeline agent to a role-derived narrative character. Standard English
+# stopwords plus connective noise left in eventRoleContext / professional_position.
+_MATCH_STOPWORDS = frozenset({
+    'a', 'an', 'and', 'or', 'the', 'of', 'to', 'in', 'on', 'for', 'with',
+    'as', 'at', 'by', 'from', 'who', 'whose', 'while', 'both', 'his', 'her',
+    'their', 'its', 'this', 'that', 'under', 'is', 'are', 'be', 'but', 'not',
+    'no', 'all', 'any', 'some', 'such', 'than', 'then', 'also', 'may', 'will',
+    'represented', 'body', 'unnamed', 'multiple', 'single', 'general',
+})
+
+
+def _match_tokens(text: str) -> set:
+    """Lowercased alphanumeric tokens of `text`, minus generic stopwords.
+
+    Hyphenated compounds are split (``part-time`` -> ``part``, ``time``) so a
+    timeline agent's ``eventRoleContext`` and a character's label/position align
+    on the same atoms. Single characters are dropped except a lone uppercase
+    letter used as an NSPE disambiguator (``A`` in "Engineer A")."""
+    if not text:
+        return set()
+    tokens = set()
+    for raw in re.split(r'[^A-Za-z0-9]+', text):
+        if not raw:
+            continue
+        if len(raw) == 1 and not raw.isalpha():
+            continue
+        low = raw.lower()
+        if low in _MATCH_STOPWORDS:
+            continue
+        if len(low) == 1 and not raw.isupper():
+            continue
+        tokens.add(low)
+    return tokens
+
+
 class SynthesisViewBuilder:
     """Build synthesis views for the user-study interface.
 
@@ -665,6 +709,134 @@ class SynthesisViewBuilder:
             counts[short] += 1
         return dict(counts)
 
+    def _timeline_main_character_labels(
+        self, case_id: int, characters: List[Dict[str, Any]]
+    ) -> Dict[str, int]:
+        """Resolve multi-action timeline agents to narrative characters.
+
+        Returns ``{character_label: action_count}`` for every character that is
+        the agent of >=2 timeline Actions, so the caller can mark it ``is_main``
+        (study-corrections A9). This supersedes the old first-two-words label
+        match in the promotion loop: Step-3 emits clean generic agent names
+        ("City Council", "Professional Engineer") while Phase-4 characters carry
+        descriptive role-derived labels ("City Municipal Government Client",
+        "Part-Time City Engineer Advisory Design") that share no reliable key,
+        so a raw label match promotes nothing (case 103 surfaced this).
+
+        Two stages per agent:
+          1. **Prefix match** — a character whose short-name (first two words,
+             or three when word three is a single-letter NSPE disambiguator)
+             equals the agent's short-name, or whose label starts with the
+             agent string. This reproduces the prior behaviour for clean labels
+             (case 60 "Engineer A", the existing fixtures).
+          2. **Token-overlap fallback** (only when stage 1 finds nothing) —
+             score each character by shared tokens between the agent text
+             (``hasAgent`` + its ``eventRoleContext``) and the character text
+             (label + role_type + professional_position). ``eventRoleContext``
+             is what bridges the synonym gap ("municipal decision-making body"
+             links "City Council" to "...Municipal Government Client"). Promote
+             the argmax plus exact ties, requiring a minimum overlap and at most
+             two ties so a non-distinctive match (e.g. the bare token "engineer"
+             shared by every engineer character) promotes nobody.
+
+        Cited-precedent agents ("Engineer A in BER Case 19-3") are skipped: they
+        name actors from other opinions, not present-case agents. `characters`
+        is the already-spurious-filtered list, so cited-case characters are not
+        candidates either.
+        """
+        MIN_OVERLAP = 2
+        MAX_TIES = 2
+
+        rows = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id, extraction_type='temporal_dynamics_enhanced'
+        ).all()
+
+        # Aggregate per distinct agent string: count + union of role contexts.
+        agent_counts: Dict[str, int] = {}
+        agent_contexts: Dict[str, set] = {}
+        for r in rows:
+            rdf = r.rdf_json_ld or {}
+            if 'Action' not in (rdf.get('@type', '') or ''):
+                continue
+            agent = (rdf.get('proeth:hasAgent') or '').strip()
+            if not agent or agent.lower() == 'unknown':
+                continue
+            low = agent.lower()
+            if '(' in agent or ' and ' in low or ' and/or ' in low or '/' in agent:
+                continue  # composite / conjunctive: names >1 actor
+            if _CITATION_RE.search(agent):
+                continue  # cited-precedent actor, not a present-case agent
+            agent_counts[agent] = agent_counts.get(agent, 0) + 1
+            ctx = (rdf.get('proeth:eventRoleContext') or '').strip()
+            agent_contexts.setdefault(agent, set())
+            if ctx:
+                agent_contexts[agent].add(ctx)
+
+        def _char_short(label: str) -> str:
+            parts = label.split()
+            if len(parts) >= 3 and len(parts[2]) == 1 and parts[2].isupper():
+                return ' '.join(parts[:3]).lower()
+            if len(parts) >= 2:
+                return ' '.join(parts[:2]).lower()
+            return label.lower()
+
+        char_records = []
+        for ch in characters:
+            label = (ch.get('label') or '').strip()
+            if not label:
+                continue
+            blob = ' '.join([
+                label,
+                ch.get('role_type') or '',
+                ch.get('professional_position') or '',
+            ])
+            char_records.append({
+                'label': label,
+                'short': _char_short(label),
+                'tokens': _match_tokens(blob),
+            })
+
+        promoted: Dict[str, int] = {}
+
+        def _promote(label: str, count: int) -> None:
+            promoted[label] = max(promoted.get(label, 0), count)
+
+        for agent, count in agent_counts.items():
+            if count < 2:
+                continue
+            agent_low = agent.lower()
+            agent_short = ' '.join(agent.split()[:2]).lower()
+
+            # Stage 1: prefix / short-name match.
+            stage1 = [
+                c for c in char_records
+                if c['short'] == agent_short or c['label'].lower().startswith(agent_low)
+            ]
+            if stage1:
+                for c in stage1:
+                    _promote(c['label'], count)
+                continue
+
+            # Stage 2: token-overlap fallback bridged by eventRoleContext.
+            agent_tokens = _match_tokens(
+                agent + ' ' + ' '.join(sorted(agent_contexts.get(agent, set())))
+            )
+            if not agent_tokens:
+                continue
+            scored = [
+                (len(agent_tokens & c['tokens']), c['label']) for c in char_records
+            ]
+            best = max((s for s, _ in scored), default=0)
+            if best < MIN_OVERLAP:
+                continue
+            winners = [lbl for s, lbl in scored if s == best]
+            if len(winners) > MAX_TIES:
+                continue  # too ambiguous to attribute
+            for lbl in winners:
+                _promote(lbl, count)
+
+        return promoted
+
     def get_narrative_view(self, case_id: int) -> Dict[str, Any]:
         """Get Narrative view content per paper \u00a73.2 (integrative view).
 
@@ -706,20 +878,21 @@ class SynthesisViewBuilder:
         # jurisdictions, cities) into the character set. These should
         # never reach a participant-facing Narrative card.
         #
-        # Citation pattern: labels starting with 'Case NN-NN' (the BER
-        # numbering scheme) are references to other opinions, not present-
-        # case people. Place / jurisdiction patterns: labels beginning
-        # with 'State ', 'City of ', 'Jurisdiction', 'Country' identify
-        # a place rather than a person.
-        import re as _re
-        _CITATION_RE = _re.compile(r'^\s*Case\s+\d{2}-\d{2}\b', _re.IGNORECASE)
+        # Citation pattern: a label that references a prior BER opinion
+        # ('Case NN-N', 'BER Case 19-3') anywhere -- as a prefix, suffix, or
+        # mid-label -- names an actor from another opinion, not a present-case
+        # person (case 60: "BER Case 04-11 Engineer State E Business Card",
+        # "Engineer A BER Case 19-3 Standards Chair", "Engineer Intern BER Case
+        # 20-1"). Place / jurisdiction patterns: labels beginning with 'State ',
+        # 'City of ', 'Jurisdiction', 'Country' identify a place rather than a
+        # person. See module-level _CITATION_RE.
         _PLACE_PREFIXES = ('state ', 'city of ', 'jurisdiction', 'country ')
 
         def _is_spurious_character(ch: Dict[str, Any]) -> bool:
             label = (ch.get('label') or '').strip()
             if not label:
                 return False
-            if _CITATION_RE.match(label):
+            if _CITATION_RE.search(label):
                 return True
             if label.lower().startswith(_PLACE_PREFIXES):
                 return True
@@ -873,7 +1046,11 @@ class SynthesisViewBuilder:
         # institutional one-offs are excluded by the agent-count helper and the
         # >=2 threshold.
         import re
-        agent_action_counts = self._timeline_agent_action_counts(case_id)
+        # Resolve multi-action timeline agents to characters (A9). Returns the
+        # set of character labels promoted by the >=2-action rule, matched on the
+        # agent's role-context rather than the raw label string so descriptive
+        # role-derived labels (case 103) resolve to their clean Step-3 agents.
+        timeline_main_labels = self._timeline_main_character_labels(case_id, characters)
         main_short_names: set = set()
         main_short_name_order: Dict[str, int] = {}  # short-name -> first-occurrence index
         for idx, ch in enumerate(characters):
@@ -883,7 +1060,7 @@ class SynthesisViewBuilder:
                 continue
             short_name = ' '.join(label.split()[:2])
             in_opening = bool(short_name and opening_context and short_name in opening_context)
-            acts_twice = agent_action_counts.get(short_name.lower(), 0) >= 2
+            acts_twice = label in timeline_main_labels
             if in_opening or acts_twice:
                 ch['is_main'] = True
                 main_short_names.add(short_name)

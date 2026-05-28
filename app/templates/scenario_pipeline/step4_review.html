@@ -9,6 +9,7 @@
 {% block step_styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/ontology-labels.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/step4-review.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/synthesis_views.css') }}">
 {% if print_mode %}
 <style>
     /* ── Print mode: hide all chrome ── */
@@ -285,6 +286,9 @@ window.ENTITY_LOOKUP = {
 <script src="{{ url_for('static', filename='js/step4-flow-graph.js') }}"></script>
 <script src="{{ url_for('static', filename='js/step4-entity-graph.js') }}"></script>
 <script src="{{ url_for('static', filename='js/step4-toulmin-arguments.js') }}"></script>
+<!-- Shared synthesis-view behaviors (popovers, collapse chevrons) for the
+     templates/shared/synthviews/ partials -->
+<script src="{{ url_for('static', filename='js/synthesis_views.js') }}"></script>
 <!-- Tab Hash Activation -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {

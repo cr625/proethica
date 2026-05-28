@@ -13,6 +13,7 @@ import logging
 import os
 
 from model_config import ModelConfig
+from app.services.prompt_style import STYLE_FORMATTING_LINE
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -280,8 +281,13 @@ COMPETING PRIORITIES:
 {source_text_section}{narrative_section}{temporal_context}
 
 For each ACTION, extract:
-1. label: Concise name (3-5 words)
-2. description: 1-2 sentences
+1. label: A SHORT, GENERAL action name of AT MOST 4 words. Name the KIND of action,
+   not the case scenario: write "Advisory Recommendation", NOT "Advising City on
+   Projects Generating Personal Commissions"; write "Task Assignment", NOT "Assigning
+   Complex Bridge Analysis to Inexperienced Intern". All case-specific detail (who,
+   what, where, conditions) goes in description / agent / temporal_marker below, never
+   in the label. The label becomes the action's entity URI, so keep it terse and reusable.
+2. description: 1-2 sentences (put the case-specific detail HERE)
 3. agent: Person and role
 4. temporal_marker: When it occurred
 5. source_section: "facts" or "discussion"
@@ -329,6 +335,8 @@ Return JSON:
 
 Only extract volitional decisions, not occurrences/events. Be specific with obligations and principles.
 
+{STYLE_FORMATTING_LINE}
+
 JSON:"""
 
 
@@ -357,6 +365,8 @@ For each action (by number), provide scenario_metadata:
 - is_decision_point: true/false - Could the story branch here?
 - alternative_actions: 2-3 other realistic choices
 - consequences_if_alternative: What would have happened for each alternative
+
+{STYLE_FORMATTING_LINE}
 
 Return JSON:
 ```json

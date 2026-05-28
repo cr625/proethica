@@ -277,3 +277,231 @@ def add_edges_to_graph(g: Graph, edges: List[Dict[str, Any]], case_id: int) -> i
             g.add((prov, PROV.value, Literal(e["source_text"])))
         g.add((prov, RDFS.label, Literal(f"R->P->O edge: {e['predicate']}")))
     return added
+
+
+# ---------------------------------------------------------------------------
+# Pellet-safety guard + TTL-level applier
+# ---------------------------------------------------------------------------
+#
+# RPOEdgeExtractor.extract validates endpoints against the proeth:conceptCategory
+# literal. That literal can disagree with the reasoner-visible type->subClassOf*
+# chain (e.g. an individual tagged conceptCategory "Principle" whose rdf:type
+# resolves through proethica-intermediate to Capability). A range-bearing edge
+# then forces the individual into a disjoint core class under the nine-way
+# AllDisjointClasses axiom and the case ontology goes OWL-DL inconsistent.
+#
+# The guard below re-validates the just-emitted edges against the MERGED
+# (core + intermediate + case) graph and drops any whose endpoint's resolved
+# core category conflicts with the property domain/range. It is the commit-time
+# equivalent of OntServe/docs-internal/scripts/repair_rpo_type_violations.py
+# (the camera-ready batch repair), folded into the applier so re-extraction can
+# never reintroduce the 46-edge class of violations that repair removed.
+
+_CORE_NS = "http://proethica.org/ontology/core#"
+_CATEGORY_TO_CORE = {
+    cat: URIRef(_CORE_NS + cat)
+    for cat in ("Role", "Principle", "Obligation", "State", "Resource",
+                "Action", "Event", "Capability", "Constraint")
+}
+_CORECLASSES = {v: k for k, v in _CATEGORY_TO_CORE.items()}
+
+# predicate URI -> (expected subject core category, expected object core category)
+_EDGE_RANGE = {
+    HAS_OBLIGATION: ("Role", "Obligation"),
+    ADHERES_TO: ("Role", "Principle"),
+    DERIVED_FROM: ("Obligation", "Principle"),
+}
+
+# Defeasibility object properties (proeth-core) carry domain/range too, so an
+# obligation-tagged endpoint whose type chain resolves to a different core class
+# makes the case inconsistent the same way a bad R->P->O edge does. The unified
+# guard (run once over the final TTL by materialize_edges_on_ttl) covers all six.
+_COMPETES_WITH = PROETH_CORE.competesWith
+_PREVAILS_OVER = PROETH_CORE.prevailsOver
+_DEFEASIBLE_UNDER = PROETH_CORE.defeasibleUnder
+_DEFEASIBILITY_RANGE = {
+    _COMPETES_WITH: ("Obligation", "Obligation"),
+    _PREVAILS_OVER: ("Obligation", "Obligation"),
+    _DEFEASIBLE_UNDER: ("Obligation", "State"),
+}
+ALL_EDGE_RANGE = {**_EDGE_RANGE, **_DEFEASIBILITY_RANGE}
+
+
+def _default_ontology_paths() -> Tuple[Any, Any]:
+    """Locate proethica-core.ttl / proethica-intermediate.ttl on the OntServe
+    disk relative to this file (/home/chris/onto/OntServe/ontologies)."""
+    from pathlib import Path
+    onto_root = Path(__file__).resolve().parents[4]  # .../onto
+    ont_dir = onto_root / "OntServe" / "ontologies"
+    return ont_dir / "proethica-core.ttl", ont_dir / "proethica-intermediate.ttl"
+
+
+def _add_missing_subclass_declarations(g: Graph) -> int:
+    """Mirror pellet_validate._add_missing_subclass_declarations: for each
+    LLM-generated class used as rdf:type but lacking an rdfs:subClassOf, derive
+    the parent core class from an instance's conceptCategory and add it. Classes
+    that already carry a real subClassOf (e.g. an intermediate class) are left
+    alone, so their genuine chain takes precedence over the literal."""
+    from rdflib import OWL
+    class_categories: Dict[Any, str] = {}
+    for ind in g.subjects(RDF.type, OWL.NamedIndividual):
+        for cls in g.objects(ind, RDF.type):
+            if cls == OWL.NamedIndividual:
+                continue
+            if list(g.objects(cls, RDFS.subClassOf)):
+                continue
+            if cls not in class_categories:
+                cats = list(g.objects(ind, PROETH.conceptCategory))
+                if cats:
+                    class_categories[cls] = str(cats[0])
+    added = 0
+    for cls_uri, cat in class_categories.items():
+        core_parent = _CATEGORY_TO_CORE.get(cat)
+        if core_parent:
+            g.add((cls_uri, RDF.type, OWL.Class))
+            g.add((cls_uri, RDFS.subClassOf, core_parent))
+            added += 1
+    return added
+
+
+def _build_merged_graph(case_graph: Graph, core_ttl, intermediate_ttl) -> Graph:
+    """core + intermediate + intermediate-extended + case, owl:imports stripped,
+    missing subclass chains filled from conceptCategory.
+
+    intermediate-extended carries the "discovered" classes (their established
+    subClassOf-core chains) that committed cases type individuals to; loading it
+    here means the guard resolves an endpoint's core category the same way the
+    persisted case does, instead of falling back to the conceptCategory literal."""
+    from pathlib import Path
+    from rdflib import OWL
+    g = Graph()
+    g.parse(str(core_ttl), format="turtle")
+    g.parse(str(intermediate_ttl), format="turtle")
+    extended = Path(intermediate_ttl).with_name("proethica-intermediate-extended.ttl")
+    if extended.exists():
+        g.parse(str(extended), format="turtle")
+    for t in case_graph:
+        g.add(t)
+    for t in list(g.triples((None, OWL.imports, None))):
+        g.remove(t)
+    _add_missing_subclass_declarations(g)
+    return g
+
+
+def _core_categories(merged: Graph, ind) -> Set[str]:
+    """All core categories reachable from an individual via type->subClassOf*."""
+    cats: Set[str] = set()
+    seen: Set[Any] = set()
+    stack = list(merged.objects(ind, RDF.type))
+    while stack:
+        c = stack.pop()
+        if c in seen:
+            continue
+        seen.add(c)
+        if c in _CORECLASSES:
+            cats.add(_CORECLASSES[c])
+        for sup in merged.objects(c, RDFS.subClassOf):
+            stack.append(sup)
+    return cats
+
+
+def drop_domain_range_violations(g: Graph, case_id: int,
+                                 core_ttl=None, intermediate_ttl=None,
+                                 edge_range=None) -> int:
+    """Remove edges from ``g`` (in place) whose endpoint's resolved core category
+    violates the property domain/range, plus their PROV-O Derivation nodes.
+
+    ``edge_range`` maps predicate URI -> (subject category, object category) and
+    defaults to the three R->P->O properties. Pass ALL_EDGE_RANGE to also guard
+    the defeasibility properties (the unified guard used at materialization).
+
+    Endpoints with no resolved core category cannot be proven to violate and are
+    kept (mirrors repair_rpo_type_violations). Returns the triples removed."""
+    if core_ttl is None or intermediate_ttl is None:
+        dc, di = _default_ontology_paths()
+        core_ttl = core_ttl or dc
+        intermediate_ttl = intermediate_ttl or di
+    if edge_range is None:
+        edge_range = _EDGE_RANGE
+
+    merged = _build_merged_graph(g, core_ttl, intermediate_ttl)
+    bad = []
+    for pred, (dom_exp, rng_exp) in edge_range.items():
+        for s, o in merged.subject_objects(pred):
+            sc = _core_categories(merged, s)
+            oc = _core_categories(merged, o)
+            if (sc and dom_exp not in sc) or (oc and rng_exp not in oc):
+                bad.append((s, pred, o))
+    if not bad:
+        return 0
+
+    removed = 0
+    badset = set(bad)
+    for s, p, o in bad:
+        if (s, p, o) in g:
+            g.remove((s, p, o))
+            removed += 1
+    # Drop the dedicated PROV-O Derivation node for each removed edge. Both the
+    # R->P->O and defeasibility extractors mint one Derivation per edge with both
+    # endpoints as prov:wasDerivedFrom, so match generically on that pair.
+    for prov in list(g.subjects(RDF.type, PROV.Derivation)):
+        derived = set(g.objects(prov, PROV.wasDerivedFrom))
+        for s, p, o in badset:
+            if s in derived and o in derived:
+                for pp, oo in list(g.predicate_objects(prov)):
+                    g.remove((prov, pp, oo))
+                    removed += 1
+                break
+    logger.info("Case %s: dropped %d domain/range-violating edge triple(s) over %d propert(ies)",
+                case_id, removed, len(edge_range))
+    return removed
+
+
+def apply_rpo_edges(case_id: int, ttl_path, extractor: Optional["RPOEdgeExtractor"] = None,
+                    write_back: bool = True, core_ttl=None, intermediate_ttl=None) -> Dict[str, Any]:
+    """Materialize R->P->O dependency edges on one case TTL.
+
+    Mirrors defeasibility_pipeline.apply_defeasibility_edges: parse the TTL,
+    gather Role/Principle/Obligation individuals, call the extractor, add the
+    edges + PROV-O, then drop any edge that violates domain/range against the
+    reasoner-visible type chain, and optionally re-serialize.
+
+    Returns a status dict (one of: missing_ttl, insufficient_entities, no_edges,
+    ok). Successful runs include emitted/added/dropped counts.
+    """
+    from pathlib import Path
+    ttl_path = Path(ttl_path)
+    if not ttl_path.exists():
+        return {"case_id": case_id, "status": "missing_ttl"}
+
+    g = Graph()
+    g.parse(str(ttl_path), format="turtle")
+
+    roles, principles, obligations = gather(g)
+    if not roles or (not obligations and not principles):
+        return {"case_id": case_id, "status": "insufficient_entities",
+                "roles": len(roles), "principles": len(principles),
+                "obligations": len(obligations)}
+
+    if extractor is None:
+        extractor = RPOEdgeExtractor()
+    edges = extractor.extract(case_id, roles, principles, obligations)
+    if not edges:
+        return {"case_id": case_id, "status": "no_edges",
+                "roles": len(roles), "principles": len(principles),
+                "obligations": len(obligations)}
+
+    added = add_edges_to_graph(g, edges, case_id)
+    dropped = drop_domain_range_violations(g, case_id, core_ttl, intermediate_ttl)
+
+    if write_back:
+        g.bind("proeth", PROETH)
+        g.bind("proeth-core", PROETH_CORE)
+        g.bind("prov", PROV)
+        g.serialize(destination=str(ttl_path), format="turtle")
+
+    return {"case_id": case_id, "status": "ok",
+            "roles": len(roles), "principles": len(principles),
+            "obligations": len(obligations),
+            "edges_emitted": len(edges), "triples_added": added,
+            "triples_dropped": dropped}
