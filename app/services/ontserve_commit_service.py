@@ -65,9 +65,11 @@ class OntServeCommitService:
         # Ensure directories exist
         self.ontologies_dir.mkdir(parents=True, exist_ok=True)
 
-        # Lazily-built map: intermediate class local-name -> its established core
-        # category (resolved via subClassOf* in proethica-intermediate[-extended]).
-        self._intermediate_core_parents: Optional[Dict[str, str]] = None
+        # Lazily-built resolver: intermediate class local-name -> its established
+        # core category (resolved via subClassOf* in
+        # proethica-core+intermediate[-extended]). Shared implementation with the
+        # matcher cross-category gate (app.services.extraction.category_resolver).
+        self._category_resolver = None
 
     def _case_title(self, case_id: int) -> Optional[str]:
         """Return the human case title for a case id, or None if the document is
@@ -93,49 +95,14 @@ class OntServeCommitService:
         makes the case OWL-DL inconsistent. The ontology definition wins over the
         (lie-prone) literal. Mirrors pellet_validate's skip-if-parent-exists rule
         at commit time rather than as an after-the-fact in-memory patch.
+
+        Delegates to the shared CategoryResolver (one implementation, shared with
+        the matcher cross-category gate), pinned to this service's ontologies_dir.
         """
-        if self._intermediate_core_parents is None:
-            self._intermediate_core_parents = self._load_intermediate_core_parents()
-        return self._intermediate_core_parents.get(class_local_name)
-
-    def _load_intermediate_core_parents(self) -> Dict[str, str]:
-        core_names = {
-            "Role", "Principle", "Obligation", "State", "Resource",
-            "Action", "Event", "Capability", "Constraint",
-        }
-        g = Graph()
-        for fname in ("proethica-core.ttl", "proethica-intermediate.ttl",
-                      "proethica-intermediate-extended.ttl"):
-            p = self.ontologies_dir / fname
-            if p.exists():
-                try:
-                    g.parse(str(p), format="turtle")
-                except Exception as e:
-                    logger.warning("Could not parse %s for core-parent map: %s", fname, e)
-
-        def reach_core(cls) -> Optional[str]:
-            seen, stack = set(), [cls]
-            while stack:
-                c = stack.pop()
-                if c in seen:
-                    continue
-                seen.add(c)
-                local = str(c).rsplit("#", 1)[-1]
-                if str(c).startswith(str(PROETHICA_CORE)) and local in core_names:
-                    return local
-                for sup in g.objects(c, RDFS.subClassOf):
-                    stack.append(sup)
-            return None
-
-        out: Dict[str, str] = {}
-        for cls in set(g.subjects(RDFS.subClassOf, None)):
-            local = str(cls).rsplit("#", 1)[-1]
-            if str(cls).startswith(str(PROETHICA)):
-                core = reach_core(cls)
-                if core:
-                    out[local] = core
-        logger.info("Loaded %d intermediate class -> core-category mappings", len(out))
-        return out
+        if self._category_resolver is None:
+            from app.services.extraction.category_resolver import CategoryResolver
+            self._category_resolver = CategoryResolver(self.ontologies_dir)
+        return self._category_resolver.resolve(class_local_name)
 
     def commit_selected_entities(self, case_id: int, entity_ids: List[int]) -> Dict[str, Any]:
         """

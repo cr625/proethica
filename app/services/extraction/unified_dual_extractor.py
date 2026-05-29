@@ -26,6 +26,22 @@ from app.utils.llm_utils import extract_json_from_response
 logger = logging.getLogger(__name__)
 
 
+# Maps the extractor's concept_type to the core D-tuple category a candidate of
+# that type belongs to. Mirrors the category_map in _load_existing_classes; the
+# cross-category matcher gate uses it as the candidate's category.
+CONCEPT_TYPE_TO_CORE_CATEGORY: Dict[str, str] = {
+    'roles': 'Role',
+    'states': 'State',
+    'resources': 'Resource',
+    'principles': 'Principle',
+    'obligations': 'Obligation',
+    'constraints': 'Constraint',
+    'capabilities': 'Capability',
+    'actions': 'Action',
+    'events': 'Event',
+}
+
+
 # ---------------------------------------------------------------------------
 # Per-concept configuration
 # ---------------------------------------------------------------------------
@@ -877,18 +893,7 @@ class UnifiedDualExtractor:
         try:
             # The PromptVariableResolver has the concept->MCP method mapping.
             # For simplicity, use get_entities_by_category which works for all.
-            category_map = {
-                'roles': 'Role',
-                'states': 'State',
-                'resources': 'Resource',
-                'principles': 'Principle',
-                'obligations': 'Obligation',
-                'constraints': 'Constraint',
-                'capabilities': 'Capability',
-                'actions': 'Action',
-                'events': 'Event',
-            }
-            category = category_map[self.concept_type]
+            category = CONCEPT_TYPE_TO_CORE_CATEGORY[self.concept_type]
 
             # Some concepts have dedicated methods on the MCP client
             method_name = f'get_all_{self.concept_type[:-1] if self.concept_type.endswith("s") else self.concept_type}_entities'
@@ -1601,6 +1606,72 @@ class UnifiedDualExtractor:
                 candidate.match_decision.matched_label = None
                 candidate.match_decision.reasoning = None
 
+        # Cross-category gate (Layer 1). Both branches above can establish a
+        # match the LLM or a label match proposed; deterministically reject any
+        # match whose matched class chains (via the curated subClassOf* chain) to
+        # a core category disjoint from this candidate's category. This stops a
+        # genuine Obligation being merged into a class an earlier extraction
+        # mis-established as a Principle, which otherwise forces a Pellet
+        # disjointness clash. Runs LAST so its rejection reasoning survives the
+        # orphan-cleanup pass above. See
+        # docs-internal/reextraction/matcher-category-authority-design.md.
+        for candidate in classes:
+            self._reject_cross_category_match(candidate)
+
+    def _candidate_core_category(self) -> Optional[str]:
+        """The core category a candidate of this extractor's concept_type is."""
+        return CONCEPT_TYPE_TO_CORE_CATEGORY.get(self.concept_type)
+
+    def _reject_cross_category_match(self, candidate: BaseModel) -> None:
+        """Reject a prefer-existing match that crosses a disjoint core category.
+
+        Resolves the matched class's curated subClassOf* CHAIN core category
+        (anchored in proethica-core+intermediate[-extended], NOT the stored
+        OntServe entity-table category or conceptCategory literal, which are
+        extraction-derived and can lie) and compares it to the candidate's core
+        category. Two distinct core categories are mutually disjoint under the
+        nine-way AllDisjointClasses, so the match would force an OWL-DL clash;
+        drop it and let the candidate be treated as a new class. A same-category
+        match, or a match whose chain category cannot be resolved, is left
+        unchanged.
+        """
+        md = candidate.match_decision
+        if not md.matches_existing:
+            return
+
+        matched_ref = md.matched_uri or md.matched_label
+        if not matched_ref:
+            return
+
+        candidate_cat = self._candidate_core_category()
+        if not candidate_cat:
+            return
+
+        from app.services.extraction.category_resolver import resolve_core_category
+        chain_cat = resolve_core_category(matched_ref)
+        if not chain_cat:
+            # Chain category unknown (class not in the curated tiers); cannot
+            # prove a conflict, so leave the match in place.
+            return
+
+        if chain_cat == candidate_cat:
+            return
+
+        logger.warning(
+            "Matcher rejected cross-category match for '%s': existing class %s "
+            "chains to %s but candidate is %s",
+            getattr(candidate, 'label', None) or getattr(candidate, 'identifier', '?'),
+            matched_ref, chain_cat, candidate_cat,
+        )
+        md.matches_existing = False
+        md.matched_uri = None
+        md.matched_label = None
+        md.confidence = 0.0
+        md.reasoning = (
+            f"rejected cross-category match: existing class chains to "
+            f"{chain_cat} but candidate is {candidate_cat}"
+        )
+
     def _collect_ontology_definitions(
         self, classes: List[BaseModel],
     ) -> Dict[str, Dict[str, str]]:
@@ -1750,6 +1821,12 @@ class UnifiedDualExtractor:
                     f"Individual '{individual.identifier}' directly references "
                     f"existing class '{matched_existing.get('label')}'"
                 )
+                # Apply the same chain-category gate as _check_existing_matches:
+                # existing_by_label is keyed off get_entities_by_category (the
+                # STORED category), which can disagree with the curated subClassOf
+                # CHAIN (the F2 root cause), so a direct individual->existing-class
+                # link can still cross a disjoint category. Reject if so.
+                self._reject_cross_category_match(individual)
 
     # ------------------------------------------------------------------
     # JSON repair
