@@ -1009,7 +1009,17 @@ class UnifiedDualExtractor:
     # ------------------------------------------------------------------
 
     def _load_existing_classes(self) -> List[Dict[str, Any]]:
-        """Load existing classes from MCP for ontology awareness."""
+        """Load the CURATED existing classes from MCP for ontology awareness.
+
+        Restricted to the curated vocabulary (core + intermediate + intermediate-
+        extended + external references) and de-duplicated by URI; per-case
+        self-containment copies are excluded. self.existing_classes feeds THREE
+        paths -- the prompt injection (format_existing_entities), the class matcher
+        (_check_existing_matches), and the definition collection
+        (_collect_ontology_definitions, which feeds the case-tagged scopeNote) --
+        so filtering here is what keeps matches and definitions consolidating onto a
+        curated class with its real definition, instead of a case copy's "Ontology
+        class for Role" fallback. Mirrors the prompt-side filter."""
         if not self.mcp_client:
             return []
 
@@ -1022,17 +1032,24 @@ class UnifiedDualExtractor:
             method_name = f'get_all_{self.concept_type[:-1] if self.concept_type.endswith("s") else self.concept_type}_entities'
             # e.g. get_all_obligation_entities, get_all_role_entities
 
+            entities: List[Dict[str, Any]] = []
             if hasattr(self.mcp_client, method_name):
-                entities = getattr(self.mcp_client, method_name)()
-                if isinstance(entities, list):
-                    return entities
+                got = getattr(self.mcp_client, method_name)()
+                if isinstance(got, list):
+                    entities = got
+            if not entities:
+                # Fallback: generic category query
+                result = self.mcp_client.get_entities_by_category(category)
+                if result.get('success') and result.get('result'):
+                    entities = result['result'].get('entities', [])
 
-            # Fallback: generic category query
-            result = self.mcp_client.get_entities_by_category(category)
-            if result.get('success') and result.get('result'):
-                return result['result'].get('entities', [])
-
-            return []
+            # Restrict to the curated vocabulary (drop per-case copies) and collapse
+            # duplicate URIs to the highest-authority source, so the matcher and the
+            # definition lookup never resolve to a case copy.
+            from app.services.prompt_variable_resolver import (
+                _curated_only, _dedup_entities_by_uri,
+            )
+            return _dedup_entities_by_uri(_curated_only(entities))
 
         except Exception as e:
             logger.error(
