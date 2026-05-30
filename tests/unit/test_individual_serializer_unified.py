@@ -250,6 +250,24 @@ def test_relationship_edge_carries_prov_derivation():
     assert (d, PROV.value, Literal('Engineer A was retained by the Owner')) in g
 
 
+def test_role_individual_occupational_archetype_divergent_type():
+    """Layer-1 convergence: the class a role individual is typed under gets its
+    OCCUPATIONAL archetype even when its name diverges from the role_class entity.
+    Only the occupational axis is attached (one side of the ProfessionalRole/
+    ParticipantRole disjointness), so no unsatisfiable pairing is created."""
+    svc = _svc()
+    ENGINEER = str(PROETHICA['EngineerRole'])
+    CLIENT = str(PROETHICA['ClientRole'])
+    # Divergent compound engineering type-class -> EngineerRole.
+    assert svc._role_individual_occupational_archetype(
+        'OriginalDesignEngineerSubjecttoPeerReview') == [ENGINEER]
+    # De-camelCased "Developer Client" -> ClientRole.
+    assert svc._role_individual_occupational_archetype('DeveloperClient') == [CLIENT]
+    # Unmapped occupational label -> empty (the tail the RoleArchetypeShape flags,
+    # never a spurious parent).
+    assert svc._role_individual_occupational_archetype('Confidentiality-BoundPeerReviewer') == []
+
+
 def test_rel_property_mapping_orientations():
     """Direct mapping coverage: (proeth-core property, swap) per relationship type.
     Locks the orientation contract the directional vocabulary depends on."""
