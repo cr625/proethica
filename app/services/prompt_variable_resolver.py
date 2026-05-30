@@ -301,6 +301,32 @@ def _entity_source(entity: Dict[str, Any]) -> str:
     )
 
 
+def _is_case_copy(entity: Dict[str, Any]) -> bool:
+    """True when the entity's source is a per-case ontology (proethica-case-N)."""
+    return str(_entity_source(entity) or '').startswith('proethica-case-')
+
+
+def _curated_only(entities: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Keep only the CURATED matching vocabulary; drop per-case self-containment copies.
+
+    The injected existing-class list is the dictionary the extractor matches against,
+    so it must be the curated layers (proethica-core + proethica-intermediate +
+    intermediate-extended + external reference standards), NOT every case's standalone
+    copy of a class. The case ontologies hold a copy of each class they use under the
+    same canonical URI; corpus-wide those copies dominate the MCP result (case 15
+    roles: 618 distinct from case copies vs 61 from intermediate-extended) and a class
+    that exists only in case ontologies is one of the ~4.8k discovered classes that
+    were never consolidated, which we deliberately do not offer for matching. Genuine
+    reusable classes live in intermediate / intermediate-extended."""
+    kept = [e for e in entities if not _is_case_copy(e)]
+    if len(kept) < len(entities):
+        logger.info(
+            "format_existing_entities: excluded %d per-case class copies from the "
+            "matching vocabulary (%d curated entries remain before dedup)",
+            len(entities) - len(kept), len(kept))
+    return kept
+
+
 # Source priority for collapsing duplicate URIs: a class is canonically defined in
 # core/intermediate, else in intermediate-extended (the consolidated discovered
 # store), else an external standard; a per-case ontology is only ever a self-contained
@@ -396,9 +422,11 @@ def format_existing_entities(entities: List[Dict[str, Any]],
     if not entities:
         return f"No existing {concept_type} classes found in ontology."
 
-    # Collapse the redundant per-case copies the MCP returns (each case ontology
-    # self-contains a copy of every class it uses under the same canonical URI) so
-    # the injected list is one entry per class, not one per (case, class).
+    # Restrict to the curated matching vocabulary (drop per-case self-containment
+    # copies), then collapse any remaining duplicate URIs to one entry per class.
+    entities = _curated_only(entities)
+    if not entities:
+        return f"No existing {concept_type} classes found in ontology."
     entities = _dedup_entities_by_uri(entities)
 
     # Classify entities by source ontology tier.

@@ -8,11 +8,42 @@ the highest-authority source so the survivor classifies into the right tier.
 """
 from app.services.prompt_variable_resolver import (
     _dedup_entities_by_uri,
+    _curated_only,
+    _is_case_copy,
     format_existing_entities,
 )
 
 CANON_URI = "http://proethica.org/ontology/intermediate#StakeholderRole"
 EXT_URI = "http://proethica.org/ontology/intermediate#DiscoveredEngineerRole"
+
+
+def test_curated_only_drops_case_copies_keeps_curated():
+    """The injected matching vocabulary is the curated layers only; per-case
+    self-containment copies are excluded even though they carry a canonical URI."""
+    rows = [
+        {"uri": CANON_URI, "label": "Stakeholder Role", "ontology_name": "proethica-intermediate"},
+        {"uri": CANON_URI, "label": "StakeholderRole", "ontology_name": "proethica-case-15"},
+        {"uri": EXT_URI, "label": "Discovered Engineer Role",
+         "ontology_name": "proethica-intermediate-extended"},
+        {"uri": "http://x#CaseOnly", "label": "Case Only Compound Role",
+         "ontology_name": "proethica-case-72"},
+    ]
+    assert _is_case_copy(rows[1]) and not _is_case_copy(rows[0])
+    cur = _curated_only(rows)
+    srcs = sorted(r["ontology_name"] for r in cur)
+    # both case-sourced rows dropped (incl. the case-only compound class)
+    assert srcs == ["proethica-intermediate", "proethica-intermediate-extended"]
+
+
+def test_format_excludes_case_copies_end_to_end():
+    rows = [
+        {"uri": CANON_URI, "label": "Stakeholder Role", "ontology_name": "proethica-intermediate"},
+        {"uri": "http://x#C1", "label": "Compound One", "ontology_name": "proethica-case-1"},
+        {"uri": "http://x#C2", "label": "Compound Two", "ontology_name": "proethica-case-2"},
+    ]
+    block = format_existing_entities(rows, "roles")
+    assert "Stakeholder Role" in block
+    assert "Compound One" not in block and "Compound Two" not in block
 
 
 def test_dedup_collapses_per_case_copies_losslessly():
@@ -56,13 +87,13 @@ def test_dedup_keeps_no_uri_entities_by_label():
 
 
 def test_format_existing_entities_has_no_duplicate_lines():
-    """The formatted block (what the prompt injects) carries no duplicate class lines
-    and routes the extended class into PREVIOUSLY EXTRACTED, the case-only archetype
-    into CANONICAL."""
+    """Within the curated vocabulary the formatted block carries no duplicate class
+    lines: the same URI in intermediate and intermediate-extended collapses (kept in
+    the canonical tier), and the extended-only class lands in PREVIOUSLY EXTRACTED."""
     rows = [
-        {"uri": CANON_URI, "label": "StakeholderRole", "ontology_name": "proethica-case-1"},
-        {"uri": CANON_URI, "label": "StakeholderRole", "ontology_name": "proethica-case-2"},
-        {"uri": EXT_URI, "label": "DiscoveredEngineerRole",
+        {"uri": CANON_URI, "label": "Stakeholder Role", "ontology_name": "proethica-intermediate"},
+        {"uri": CANON_URI, "label": "Stakeholder Role", "ontology_name": "proethica-intermediate-extended"},
+        {"uri": EXT_URI, "label": "Discovered Engineer Role",
          "ontology_name": "proethica-intermediate-extended"},
     ]
     block = format_existing_entities(rows, "roles")
