@@ -51,7 +51,21 @@ def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
         logger.exception("materialize: defeasibility applier failed for case %s", case_id)
         results["defeasibility"] = {"error": str(e)}
 
-    # 2. R->P->O dependency edges (LLM) with the domain/range Pellet guard.
+    # 2. State-anchored edges (DB-driven, embedding-resolved): the state
+    # extractor's obligation_activation / action_constraints / activation+
+    # termination_conditions become activatesObligation / activatesConstraint /
+    # activatedByEvent / terminatedByEvent, plus a principleTransformation
+    # annotation. Runs before R->P->O so the annotation can ground that derivation.
+    try:
+        from app.services.extraction.state_edges import apply_state_edges
+        results["state_edges"] = apply_state_edges(
+            case_id=case_id, ttl_path=ttl_path, write_back=True,
+        )
+    except Exception as e:
+        logger.exception("materialize: state-edge applier failed for case %s", case_id)
+        results["state_edges"] = {"error": str(e)}
+
+    # 3. R->P->O dependency edges (LLM) with the domain/range Pellet guard.
     try:
         from app.services.extraction.rpo_edges import apply_rpo_edges
         results["rpo"] = apply_rpo_edges(

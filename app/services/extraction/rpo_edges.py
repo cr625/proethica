@@ -130,12 +130,27 @@ def _fmt(items: List[Indiv]) -> str:
     return "\n\n".join(out)
 
 
-def build_prompt(roles, principles, obligations, case_id) -> str:
+def _fmt_transformations(transformations) -> str:
+    if not transformations:
+        return ""
+    lines = [f"- {lbl}: {txt[:300]}" for lbl, txt in transformations if txt]
+    if not lines:
+        return ""
+    return (
+        "\nSTATE TRANSFORMATIONS (the state extraction's S->P->O account of how a "
+        "state turns an abstract principle into a concrete obligation; use as "
+        "grounding for derivedFromPrinciple, do NOT invent IRIs from it):\n"
+        + "\n".join(lines) + "\n"
+    )
+
+
+def build_prompt(roles, principles, obligations, case_id, state_transformations=None) -> str:
     return (
         f"Extract R->P->O dependency edges for case {case_id}.\n\n"
         f"ROLES (subject of hasObligation / adheresToPrinciple):\n{_fmt(roles)}\n\n"
         f"PRINCIPLES (object of adheresToPrinciple / derivedFromPrinciple):\n{_fmt(principles)}\n\n"
         f"OBLIGATIONS (object of hasObligation; subject of derivedFromPrinciple):\n{_fmt(obligations)}\n\n"
+        f"{_fmt_transformations(state_transformations)}"
         "TASK: Assert hasObligation (which role bears which obligation), adheresToPrinciple "
         "(which role is guided by which principle), and derivedFromPrinciple (which obligation "
         "operationalizes which principle), using the narrative fields as evidence. "
@@ -210,10 +225,12 @@ class RPOEdgeExtractor:
             logger.info("R->P->O partial-recovery salvaged %d edge(s)", len(out))
         return out
 
-    def extract(self, case_id, roles, principles, obligations) -> List[Dict[str, Any]]:
+    def extract(self, case_id, roles, principles, obligations,
+                state_transformations=None) -> List[Dict[str, Any]]:
         if not roles or (not obligations and not principles):
             return []
-        raw = self._call(build_prompt(roles, principles, obligations, case_id))
+        raw = self._call(build_prompt(roles, principles, obligations, case_id,
+                                      state_transformations=state_transformations))
         if not raw:
             return []
         from app.utils.llm_utils import extract_json_from_response
@@ -324,7 +341,16 @@ _DEFEASIBILITY_RANGE = {
     _PREVAILS_OVER: ("Obligation", "Obligation"),
     _DEFEASIBLE_UNDER: ("Obligation", "State"),
 }
-ALL_EDGE_RANGE = {**_EDGE_RANGE, **_DEFEASIBILITY_RANGE}
+# State-anchored properties (proeth-core) materialized by state_edges.py. Their
+# targets are embedding-resolved, so a low-confidence match could land on an
+# endpoint of the wrong core category; the unified guard drops any such edge.
+_STATE_EDGE_RANGE = {
+    PROETH_CORE.activatesObligation: ("State", "Obligation"),
+    PROETH_CORE.activatesConstraint: ("State", "Constraint"),
+    PROETH_CORE.activatedByEvent: ("State", "Event"),
+    PROETH_CORE.terminatedByEvent: ("State", "Event"),
+}
+ALL_EDGE_RANGE = {**_EDGE_RANGE, **_DEFEASIBILITY_RANGE, **_STATE_EDGE_RANGE}
 
 
 def _default_ontology_paths() -> Tuple[Any, Any]:
@@ -483,9 +509,18 @@ def apply_rpo_edges(case_id: int, ttl_path, extractor: Optional["RPOEdgeExtracto
                 "roles": len(roles), "principles": len(principles),
                 "obligations": len(obligations)}
 
+    # Grounding: the state-edge applier (run first) annotates state individuals
+    # with proeth:principleTransformation (the S->P->O account). Feed those into
+    # the derivedFromPrinciple derivation instead of re-deriving blind.
+    state_transformations = []
+    for s, t in g.subject_objects(PROETH.principleTransformation):
+        lbl = next(g.objects(s, RDFS.label), None)
+        state_transformations.append((str(lbl) if lbl else str(s).split("#")[-1], str(t)))
+
     if extractor is None:
         extractor = RPOEdgeExtractor()
-    edges = extractor.extract(case_id, roles, principles, obligations)
+    edges = extractor.extract(case_id, roles, principles, obligations,
+                              state_transformations=state_transformations)
     if not edges:
         return {"case_id": case_id, "status": "no_edges",
                 "roles": len(roles), "principles": len(principles),

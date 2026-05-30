@@ -99,7 +99,7 @@ class _StubExtractor:
     def __init__(self, edges):
         self._edges = edges
 
-    def extract(self, case_id, roles, principles, obligations):
+    def extract(self, case_id, roles, principles, obligations, state_transformations=None):
         return self._edges
 
 
