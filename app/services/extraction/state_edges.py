@@ -45,10 +45,22 @@ CORE = Namespace("http://proethica.org/ontology/core#")
 PROETH = Namespace("http://proethica.org/ontology/intermediate#")
 PROV = Namespace("http://www.w3.org/ns/prov#")
 
-# Cosine threshold for resolving a free-text linkage description to a case
-# individual. Tuned conservatively; unresolved descriptions are logged with their
-# best similarity so the threshold can be calibrated on real output.
-EMBED_MATCH_MIN = 0.45
+# Cosine thresholds for resolving a free-text linkage description to a case
+# individual, calibrated on 483 descriptions across cases 5/7/8/15/17 (the local
+# all-MiniLM-L6-v2 model). Two regimes were found: abstract obligation/constraint
+# descriptions match their specific individual (whose label carries actor names,
+# diluting the cosine) at ~0.85-0.90 precision down to ~0.53; event resolution is
+# noisier (activation/termination conditions are often hypothetical and the
+# embedding is polarity-blind, e.g. "risk mitigated" matches the risk-emergence
+# event), so it needs a higher bar (~0.60). Unresolved descriptions are logged
+# with their best similarity.
+EMBED_MATCH_MIN = 0.53  # default / obligation+constraint resolution
+_FIELD_THRESHOLD = {
+    "activatesObligation": 0.53,
+    "activatesConstraint": 0.53,
+    "activatedByEvent": 0.60,
+    "terminatedByEvent": 0.60,
+}
 
 
 # --- embedding helpers -----------------------------------------------------
@@ -257,10 +269,11 @@ def apply_state_edges(case_id: int, ttl_path, write_back: bool = True,
         return best
 
     def _emit(subj, prop, desc, pool):
-        tgt, sim = _resolve(svc, desc, pool, threshold)
+        thr = _FIELD_THRESHOLD.get(prop, threshold)
+        tgt, sim = _resolve(svc, desc, pool, thr)
         if tgt is None:
             res["unresolved"] += 1
-            logger.info("state_edges: %s unresolved (best sim %.2f): %r", prop, sim, (desc or "")[:80])
+            logger.info("state_edges: %s unresolved (best sim %.2f < %.2f): %r", prop, sim, thr, (desc or "")[:80])
             return
         if (subj, CORE[prop], tgt) in g:
             return
