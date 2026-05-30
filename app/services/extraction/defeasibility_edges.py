@@ -142,8 +142,10 @@ class DefeasibilityEdgeExtractor:
     def _resolve_model(self) -> str:
         if self.model:
             return self.model
+        # Defeasibility edges are a paper-critical, relational reasoning task and a
+        # bounded one call per case, so they run on the powerful tier (Opus).
         from model_config import ModelConfig
-        return ModelConfig.get_default_model()
+        return ModelConfig.get_claude_model("powerful")
 
     def _call_llm(self, user_prompt: str) -> Optional[str]:
         """Invoke the configured LLM via Anthropic streaming.

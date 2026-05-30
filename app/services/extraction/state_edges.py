@@ -205,8 +205,10 @@ def _llm_select(items: List[Dict[str, Any]], client=None, model=None):
             from app.utils.llm_utils import get_llm_client
             client = get_llm_client()
         if model is None:
+            # Constrained pick-from-shortlist task: the fast tier (Haiku) is the
+            # right fit; a heavier model adds nothing over a small selection prompt.
             from model_config import ModelConfig
-            model = ModelConfig.get_default_model()
+            model = ModelConfig.get_claude_model("fast")
         if not (hasattr(client, "messages") and hasattr(client.messages, "stream")):
             logger.warning("state_edges: no Anthropic streaming client; embedding fallback")
             return None

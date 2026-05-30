@@ -176,8 +176,10 @@ class RPOEdgeExtractor:
     def _resolve_model(self):
         if self.model:
             return self.model
+        # R->P->O is a paper-critical, relational reasoning task and a bounded one
+        # call per case, so it runs on the powerful tier (Opus).
         from model_config import ModelConfig
-        return ModelConfig.get_default_model()
+        return ModelConfig.get_claude_model("powerful")
 
     def _call(self, prompt) -> Optional[str]:
         client = self._client()

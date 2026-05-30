@@ -411,7 +411,8 @@ Return your analysis as JSON:
             from app.utils.llm_utils import streaming_completion
             response_text = streaming_completion(
                 self.llm_client,
-                model=ModelConfig.get_claude_model("default"),
+                # Transformation analysis is a core Step-4 reasoning task -> powerful tier (Opus).
+                model=ModelConfig.get_claude_model("powerful"),
                 max_tokens=1500,
                 prompt=prompt,
                 temperature=0.2,

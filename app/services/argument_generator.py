@@ -181,7 +181,8 @@ class ArgumentGenerator:
 
         try:
             response = self.llm_client.messages.create(
-                model=ModelConfig.get_claude_model("default"),
+                # Toulmin argument generation is the core Step-4 reasoning output -> powerful tier (Opus).
+                model=ModelConfig.get_claude_model("powerful"),
                 max_tokens=4000,
                 temperature=0.3,
                 messages=[{"role": "user", "content": prompt}]
