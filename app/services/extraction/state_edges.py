@@ -62,6 +62,21 @@ _FIELD_THRESHOLD = {
     "terminatedByEvent": 0.60,
 }
 
+# Hybrid resolution: embedding shortlists the top-K candidates above a low floor
+# (cheap pre-filter that keeps the LLM prompt small), then one batched LLM call
+# per case selects the right candidate (or "none") with direction/polarity
+# awareness that embedding cosines lack. Falls back to the calibrated embedding
+# threshold above if the LLM is unavailable.
+SHORTLIST_FLOOR = 0.40
+SHORTLIST_K = 5
+
+_PROP_SEMANTICS = {
+    "activatesObligation": "the OBLIGATION this state makes applicable (S->O)",
+    "activatesConstraint": "the CONSTRAINT this state activates (S->Cs)",
+    "activatedByEvent": "the EVENT whose occurrence STARTS/initiates this state",
+    "terminatedByEvent": "the EVENT whose occurrence ENDS/terminates this state",
+}
+
 
 # --- embedding helpers -----------------------------------------------------
 
@@ -142,6 +157,94 @@ def _resolve(svc, description: str, pool, threshold: float) -> Tuple[Optional[UR
     return None, best_sim
 
 
+def _shortlist(svc, description: str, pool, floor: float, k: int):
+    """Top-k (iri, label, sim) candidates above `floor`, best first. The cheap
+    embedding pre-filter that keeps the LLM confirm prompt small."""
+    qv = _embed(svc, description)
+    if not qv or not pool:
+        return []
+    scored = sorted(((iri, txt, _cosine(qv, ev)) for iri, txt, ev in pool),
+                    key=lambda x: -x[2])
+    return [(iri, txt, sim) for iri, txt, sim in scored[:k] if sim >= floor]
+
+
+# --- batched LLM confirm/select (the hybrid precision layer) ----------------
+
+def _build_select_prompt(items: List[Dict[str, Any]]) -> str:
+    blocks = []
+    for it in items:
+        cands = "; ".join(f"{i + 1}) {lbl[:90]}" for i, (iri, lbl, sim) in enumerate(it["shortlist"]))
+        blocks.append(
+            f"[{it['id']}] {_PROP_SEMANTICS.get(it['prop'], it['prop'])}\n"
+            f"  description: \"{(it['desc'] or '')[:200]}\"\n"
+            f"  candidates: {cands}"
+        )
+    return (
+        "For each REQUEST, choose the ONE candidate its description refers to, or "
+        "\"none\" when no candidate truly fits.\n"
+        "Respect DIRECTION and POLARITY: a 'STARTS/initiates' request needs the "
+        "event whose occurrence brings the state into being; an 'ENDS/terminates' "
+        "request needs the event that removes it. Do NOT match an ending or "
+        "mitigation condition to an onset event merely because they share a topic "
+        "(e.g. 'risk is mitigated' is NOT 'risk emerges'). Choose \"none\" when the "
+        "description is hypothetical or no candidate genuinely matches.\n\n"
+        "REQUESTS:\n" + "\n\n".join(blocks) +
+        "\n\nOUTPUT strict JSON only, one entry per request id: "
+        "{\"<id>\": <candidate number>|\"none\", ...}"
+    )
+
+
+def _llm_select(items: List[Dict[str, Any]], client=None, model=None):
+    """Map each item id -> chosen candidate IRI (or None) via one LLM call.
+    Returns the selection dict, or None if the LLM is unavailable / the call fails
+    (the caller then falls back to the embedding threshold)."""
+    if not items:
+        return {}
+    try:
+        if client is None:
+            from app.utils.llm_utils import get_llm_client
+            client = get_llm_client()
+        if model is None:
+            from model_config import ModelConfig
+            model = ModelConfig.get_default_model()
+        if not (hasattr(client, "messages") and hasattr(client.messages, "stream")):
+            logger.warning("state_edges: no Anthropic streaming client; embedding fallback")
+            return None
+        prompt = _build_select_prompt(items)
+        chunks: List[str] = []
+        with client.messages.stream(
+            model=model, max_tokens=4096, temperature=0.0,
+            system=("You select the single matching entity for each request, "
+                    "respecting the relation's direction and polarity. Output strict JSON only."),
+            messages=[{"role": "user", "content": prompt}],
+        ) as stream:
+            for t in stream.text_stream:
+                chunks.append(t)
+        from app.utils.llm_utils import extract_json_from_response
+        data = extract_json_from_response("".join(chunks))
+        if not isinstance(data, dict):
+            return None
+        by_id = {str(it["id"]): it for it in items}
+        out: Dict[str, Any] = {}
+        for k, v in data.items():
+            it = by_id.get(str(k))
+            if it is None:
+                continue
+            if isinstance(v, str) and v.strip().lower() in ("none", "0", ""):
+                out[str(k)] = None
+                continue
+            try:
+                n = int(v)
+            except (TypeError, ValueError):
+                out[str(k)] = None
+                continue
+            out[str(k)] = it["shortlist"][n - 1][0] if 1 <= n <= len(it["shortlist"]) else None
+        return out
+    except Exception as e:
+        logger.warning("state_edges: LLM select failed (%s); embedding fallback", e)
+        return None
+
+
 # --- temp_rdf (DB) linkage read --------------------------------------------
 
 def _state_linkage_from_db(case_id: int):
@@ -207,22 +310,25 @@ def _emit_prov(g: Graph, case_id: int, subj, prop: str, obj, desc: str) -> None:
     g.add((prov_iri, RDFS.label, Literal(f"State edge ({prop})")))
     if desc:
         g.add((prov_iri, PROV.value, Literal(str(desc))))
-    g.add((prov_iri, RDFS.comment, Literal(f"property={prop}; resolved by embedding similarity")))
+    g.add((prov_iri, RDFS.comment, Literal(f"property={prop}; description resolved to the endpoint by embedding shortlist + LLM select")))
 
 
 # --- main applier ----------------------------------------------------------
 
 def apply_state_edges(case_id: int, ttl_path, write_back: bool = True,
-                      threshold: float = EMBED_MATCH_MIN) -> Dict[str, Any]:
+                      threshold: float = EMBED_MATCH_MIN, use_llm: bool = True,
+                      llm_client=None, model=None) -> Dict[str, Any]:
     """Materialize state-anchored edges on a just-written case TTL (in place).
 
     Reads the extracted state linkage fields from temporary_rdf_storage, resolves
-    each description to a case individual by embedding similarity, and adds the
-    proeth-core State edges + provenance. Returns per-property counts and the
-    number of unresolved descriptions (logged individually)."""
+    each free-text description to a case individual (embedding shortlist + one
+    batched LLM confirm/select per case; embedding-threshold fallback when the LLM
+    is unavailable or use_llm=False), and adds the proeth-core State edges +
+    provenance. Returns per-property counts, the resolver used, and the number of
+    unresolved descriptions (logged individually)."""
     ttl_path = Path(ttl_path)
     res: Dict[str, Any] = {
-        "case_id": case_id, "status": "ok",
+        "case_id": case_id, "status": "ok", "resolver": None,
         "activatesObligation": 0, "activatesConstraint": 0,
         "activatedByEvent": 0, "terminatedByEvent": 0,
         "principleTransformation": 0, "unresolved": 0,
@@ -239,9 +345,12 @@ def apply_state_edges(case_id: int, ttl_path, write_back: bool = True,
     g.parse(str(ttl_path), format="turtle")
     svc = _embedding_service()
 
-    obl_pool = _candidate_pool(g, svc, "Obligation", ["obligationstatement", "obligationclass"])
-    cons_pool = _candidate_pool(g, svc, "Constraint", ["constraintstatement", "constraintclass"])
-    evt_pool = _candidate_pool(g, svc, "Event", ["eventclass", "description"])
+    pools = {
+        "activatesObligation": _candidate_pool(g, svc, "Obligation", ["obligationstatement", "obligationclass"]),
+        "activatesConstraint": _candidate_pool(g, svc, "Constraint", ["constraintstatement", "constraintclass"]),
+        "activatedByEvent": _candidate_pool(g, svc, "Event", ["eventclass", "description"]),
+        "terminatedByEvent": _candidate_pool(g, svc, "Event", ["eventclass", "description"]),
+    }
 
     state_iris: Dict[str, URIRef] = {}
     for ind in _individuals_in_category(g, "State"):
@@ -268,18 +377,24 @@ def apply_state_edges(case_id: int, ttl_path, write_back: bool = True,
                 best, bs = c, sim
         return best
 
-    def _emit(subj, prop, desc, pool):
-        thr = _FIELD_THRESHOLD.get(prop, threshold)
-        tgt, sim = _resolve(svc, desc, pool, thr)
-        if tgt is None:
-            res["unresolved"] += 1
-            logger.info("state_edges: %s unresolved (best sim %.2f < %.2f): %r", prop, sim, thr, (desc or "")[:80])
-            return
-        if (subj, CORE[prop], tgt) in g:
-            return
-        g.add((subj, CORE[prop], tgt))
-        _emit_prov(g, case_id, subj, prop, tgt, desc)
-        res[prop] += 1
+    # Pass A: build resolution items (description + embedding shortlist).
+    items: List[Dict[str, Any]] = []
+    next_id = 1
+
+    def _collect(subj, prop, descs):
+        nonlocal next_id
+        pool = pools[prop]
+        for desc in descs:
+            if not desc:
+                continue
+            sl = _shortlist(svc, desc, pool, SHORTLIST_FLOOR, SHORTLIST_K)
+            if not sl:
+                res["unresolved"] += 1
+                logger.info("state_edges: %s no candidate above floor %.2f: %r",
+                            prop, SHORTLIST_FLOOR, desc[:80])
+                continue
+            items.append({"id": next_id, "prop": prop, "subj": subj, "desc": desc, "shortlist": sl})
+            next_id += 1
 
     for indiv in individuals:
         subj = state_iris.get(_norm(indiv["label"]))
@@ -288,23 +403,42 @@ def apply_state_edges(case_id: int, ttl_path, write_back: bool = True,
         cls = _best_class(indiv)
         if cls is None:
             continue
-        for desc in cls["obligation_activation"]:
-            _emit(subj, "activatesObligation", desc, obl_pool)
-        for desc in cls["action_constraints"]:
-            _emit(subj, "activatesConstraint", desc, cons_pool)
+        _collect(subj, "activatesObligation", cls["obligation_activation"])
+        _collect(subj, "activatesConstraint", cls["action_constraints"])
         init_descs = list(cls["activation_conditions"])
         if indiv["triggering_event"]:
             init_descs.append(indiv["triggering_event"])
-        for desc in init_descs:
-            _emit(subj, "activatedByEvent", desc, evt_pool)
+        _collect(subj, "activatedByEvent", init_descs)
         term_descs = list(cls["termination_conditions"])
         if indiv["terminated_by"]:
             term_descs.append(indiv["terminated_by"])
-        for desc in term_descs:
-            _emit(subj, "terminatedByEvent", desc, evt_pool)
+        _collect(subj, "terminatedByEvent", term_descs)
         if cls["principle_transformation"] and (subj, PROETH.principleTransformation, None) not in g:
             g.add((subj, PROETH.principleTransformation, Literal(cls["principle_transformation"])))
             res["principleTransformation"] += 1
+
+    # Pass B: batched LLM confirm/select over the shortlists (hybrid precision
+    # layer); embedding-threshold fallback when the LLM is unavailable.
+    selections = _llm_select(items, client=llm_client, model=model) if use_llm else None
+    res["resolver"] = "llm" if selections is not None else "embedding"
+
+    # Pass C: emit the resolved edges + provenance.
+    for it in items:
+        subj, prop, desc, sl = it["subj"], it["prop"], it["desc"], it["shortlist"]
+        if selections is not None:
+            tgt = selections.get(str(it["id"]))
+        else:
+            thr = _FIELD_THRESHOLD.get(prop, threshold)
+            tgt = sl[0][0] if (sl and sl[0][2] >= thr) else None
+        if tgt is None:
+            res["unresolved"] += 1
+            logger.info("state_edges: %s unresolved (resolver=%s): %r", prop, res["resolver"], desc[:80])
+            continue
+        if (subj, CORE[prop], tgt) in g:
+            continue
+        g.add((subj, CORE[prop], tgt))
+        _emit_prov(g, case_id, subj, prop, tgt, desc)
+        res[prop] += 1
 
     added = sum(res[k] for k in ("activatesObligation", "activatesConstraint",
                                  "activatedByEvent", "terminatedByEvent", "principleTransformation"))
