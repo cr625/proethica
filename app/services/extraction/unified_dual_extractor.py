@@ -761,6 +761,11 @@ class UnifiedDualExtractor:
             prior_text = self._format_prior_section_classes(case_id, section_type)
             if prior_text:
                 existing_text += prior_text
+            # Roles: also carry forward prior-section ACTORS so the discussion
+            # pass reuses an actor identity instead of fragmenting it (Option C).
+            prior_actors = self._format_prior_section_individuals(case_id, section_type)
+            if prior_actors:
+                existing_text += prior_actors
 
         # Load cross-concept context (e.g., roles for principles, etc.)
         cross_context = ''
@@ -879,6 +884,84 @@ class UnifiedDualExtractor:
 
         except Exception as e:
             logger.warning(f"Could not load prior-section classes: {e}")
+            return ''
+
+    def _format_prior_section_individuals(
+        self, case_id: int, current_section: str,
+    ) -> str:
+        """Format role ACTORS already extracted as individuals in earlier
+        sections, so the discussion pass reuses the same actor identity rather
+        than minting a parallel, unlinked individual for the same person.
+
+        Roles only (the Agent layer is role-scoped). An actor (e.g. "Engineer A")
+        is stable across sections; each section may surface a different role facet
+        of that actor. The block lists the actor, the facet seen, the section, and
+        a one-line involvement so the LLM can tie a new facet to the existing
+        actor via the role individual's ``actor`` field.
+        """
+        if (self.concept_type or '').lower() != 'roles':
+            return ''
+        try:
+            from app.models.temporary_rdf_storage import TemporaryRDFStorage
+            from app.models.extraction_prompt import ExtractionPrompt
+
+            section_order = ['facts', 'discussion', 'questions', 'conclusions']
+            current_idx = section_order.index(current_section) if current_section in section_order else 0
+            prior_sections = section_order[:current_idx]
+            if not prior_sections:
+                return ''
+
+            prior_sessions = [
+                p.extraction_session_id
+                for p in ExtractionPrompt.query.filter_by(
+                    case_id=case_id, concept_type=self.concept_type, is_active=True,
+                ).all()
+                if p.extraction_session_id and p.section_type in prior_sections
+            ]
+            if not prior_sessions:
+                return ''
+
+            prior_individuals = TemporaryRDFStorage.query.filter(
+                TemporaryRDFStorage.case_id == case_id,
+                TemporaryRDFStorage.extraction_type == self.concept_type,
+                TemporaryRDFStorage.storage_type == 'individual',
+                TemporaryRDFStorage.extraction_session_id.in_(prior_sessions),
+            ).all()
+            if not prior_individuals:
+                return ''
+
+            lines = [
+                '\n\n--- ACTORS ALREADY IDENTIFIED IN PRIOR SECTIONS ---',
+                'These actors (people / organizations filling roles) were identified',
+                'in earlier sections. If a role here is the SAME actor, set the role',
+                'individual\'s "actor" field to the SAME actor identity shown below,',
+                'and create a new role facet only if the role genuinely differs. Do',
+                'NOT invent a parallel actor for someone already listed.\n',
+            ]
+            for ind in prior_individuals:
+                json_ld = ind.rdf_json_ld or {}
+                props = json_ld.get('properties', {}) or {}
+                actor_vals = props.get('actor')
+                actor = (actor_vals[0] if isinstance(actor_vals, list) and actor_vals
+                         else actor_vals) or ind.entity_label
+                sections = json_ld.get('section_sources') or []
+                section_tag = ', '.join(sections) if sections else 'prior'
+                involvement = (ind.entity_definition or '').strip()
+                if len(involvement) > 160:
+                    involvement = involvement[:157] + '...'
+                line = f'- actor "{actor}" | role facet: {ind.entity_label} | section: {section_tag}'
+                if involvement:
+                    line += f' | {involvement}'
+                lines.append(line)
+
+            logger.info(
+                f"Added {len(prior_individuals)} prior-section role actors "
+                f"to prompt for case {case_id}"
+            )
+            return '\n'.join(lines)
+
+        except Exception as e:
+            logger.warning(f"Could not load prior-section individuals: {e}")
             return ''
 
     # ------------------------------------------------------------------

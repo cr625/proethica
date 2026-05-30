@@ -297,6 +297,13 @@ class OntServeCommitService:
                 if (class_uri, RDF.type, OWL.Class) in g:
                     # Accumulate: add new case's discoveredInCase and context
                     self._accumulate_class_context(g, class_uri, entity, rdf_data, PROETHICA_PROV)
+                    # Reconcile subClassOf parents a prior commit may be missing --
+                    # notably the occupational archetype on role classes minted
+                    # before the resolver was wired. Additive only (archetype parents
+                    # all chain to the same core class, so no disjointness risk).
+                    for sc_uri in self._resolve_subclass_uris(entity, rdf_data):
+                        if (class_uri, RDFS.subClassOf, URIRef(sc_uri)) not in g:
+                            g.add((class_uri, RDFS.subClassOf, URIRef(sc_uri)))
                     continue
 
                 # Add class triple
@@ -509,6 +516,28 @@ class OntServeCommitService:
 
             case_ns = Namespace(f"http://proethica.org/ontology/case/{case_id}#")
 
+            # First pass: label -> individual URI index, so role relationship
+            # targets (short actor names like "Engineer A") resolve to real edges
+            # in _add_individual_properties. Mirrors _write_case_ttl_fresh.
+            self._rel_label_index = {}
+            for _ent, _rdf in individuals:
+                _lbl = getattr(_ent, 'entity_label', None)
+                if _lbl:
+                    self._rel_label_index[self._norm_label(_lbl)] = case_ns[self._safe_label(_lbl)]
+            # Append path only: also seed from individuals already on disk (the
+            # loaded graph), so a later-section commit can still resolve targets
+            # against actors an earlier-section commit wrote. The current batch
+            # (authoritative fresh URIs) wins via setdefault. The versioned path
+            # overwrites and has no prior graph, so it does not need this.
+            for _s in g.subjects(RDF.type, OWL.NamedIndividual):
+                for _lbl_lit in g.objects(_s, RDFS.label):
+                    self._rel_label_index.setdefault(self._norm_label(str(_lbl_lit)), _s)
+
+            # Agent layer (Option C): map each role facet to one proeth-core:Agent
+            # per distinct actor (must precede the loop so the relationships branch
+            # can attach actor relations at the Agent level).
+            self._build_agent_indices(individuals, case_ns)
+
             count = 0
             for entity, rdf_data in individuals:
                 extraction_type = entity.extraction_type or ''
@@ -532,9 +561,7 @@ class OntServeCommitService:
                     full_description = None
 
                 # Sanitize label for valid URI: remove quotes, parens, and other special chars
-                safe_label = label.replace(" ", "_").replace("(", "").replace(")", "")
-                safe_label = safe_label.replace('"', '').replace("'", "").replace(",", "")
-                safe_label = safe_label.replace("<", "").replace(">", "").replace("&", "")
+                safe_label = self._safe_label(label)
                 individual_uri = case_ns[safe_label]
 
                 # Check if individual already exists
@@ -619,185 +646,17 @@ class OntServeCommitService:
                 if resolved_cat:
                     g.add((individual_uri, PROETHICA['conceptCategory'], Literal(resolved_cat)))
 
-                # Step-3 temporal dynamics (Actions/Events): emit the JSON-LD
-                # descriptive fields (same helper as the versioned path).
-                if 'temporal_dynamics' in (entity.extraction_type or '') and rdf_data:
-                    self._add_temporal_fields(g, individual_uri, rdf_data)
-
-                # Check if this is an argument entity (Toulmin structure)
-                extraction_type = entity.extraction_type or ''
-                if extraction_type == 'argument_generated' and rdf_data:
-                    # Add Argument type
-                    g.add((individual_uri, RDF.type, PROETHICA_CASES.Argument))
-
-                    # Serialize Toulmin structure
-                    if rdf_data.get('argument_type'):
-                        g.add((individual_uri, PROETHICA['argumentType'], Literal(rdf_data['argument_type'])))
-                    if rdf_data.get('decision_point_id'):
-                        g.add((individual_uri, PROETHICA['decisionPointId'], Literal(rdf_data['decision_point_id'])))
-                    if rdf_data.get('option_description'):
-                        g.add((individual_uri, PROETHICA['optionDescription'], Literal(rdf_data['option_description'])))
-                    if rdf_data.get('confidence_score'):
-                        g.add((individual_uri, PROETHICA['confidenceScore'], Literal(float(rdf_data['confidence_score']), datatype=XSD.decimal)))
-
-                    # Claim
-                    claim = rdf_data.get('claim', {})
-                    if isinstance(claim, dict) and claim.get('text'):
-                        g.add((individual_uri, PROETHICA['claimText'], Literal(claim['text'])))
-                        if claim.get('entity_label'):
-                            g.add((individual_uri, PROETHICA['claimEntity'], Literal(claim['entity_label'])))
-
-                    # Warrant(s)
-                    warrant = rdf_data.get('warrant', {})
-                    if isinstance(warrant, dict) and warrant.get('entity_label'):
-                        g.add((individual_uri, PROETHICA['warrantEntity'], Literal(warrant['entity_label'])))
-                        if warrant.get('entity_type'):
-                            g.add((individual_uri, PROETHICA['warrantType'], Literal(warrant['entity_type'])))
-
-                    # Backing (code provision)
-                    backing = rdf_data.get('backing', {})
-                    if isinstance(backing, dict) and backing.get('entity_label'):
-                        g.add((individual_uri, PROETHICA['backingProvision'], Literal(backing['entity_label'])))
-
-                    # Qualifier (constraint)
-                    qualifier = rdf_data.get('qualifier', {})
-                    if isinstance(qualifier, dict) and qualifier.get('entity_label'):
-                        g.add((individual_uri, PROETHICA['qualifierConstraint'], Literal(qualifier['entity_label'])))
-
-                    # Role
-                    if rdf_data.get('role_label'):
-                        g.add((individual_uri, PROETHICA['roleLabel'], Literal(rdf_data['role_label'])))
-
-                    # Founding good analysis
-                    if rdf_data.get('founding_good_analysis'):
-                        g.add((individual_uri, PROETHICA['foundingGoodAnalysis'], Literal(rdf_data['founding_good_analysis'])))
-
-                # Check if this is an argument validation entity
-                elif extraction_type == 'argument_validation' and rdf_data:
-                    # Add ArgumentValidation type
-                    g.add((individual_uri, RDF.type, PROETHICA_CASES.ArgumentValidation))
-
-                    # Link to the argument being validated
-                    if rdf_data.get('argument_id'):
-                        arg_id = rdf_data['argument_id']
-                        argument_uri = case_ns[arg_id]
-                        g.add((individual_uri, PROETHICA['validatesArgument'], argument_uri))
-                        g.add((individual_uri, PROETHICA['argumentId'], Literal(arg_id)))
-
-                    # Basic argument context
-                    if rdf_data.get('decision_point_id'):
-                        g.add((individual_uri, PROETHICA['decisionPointId'], Literal(rdf_data['decision_point_id'])))
-                    if rdf_data.get('argument_type'):
-                        g.add((individual_uri, PROETHICA['argumentType'], Literal(rdf_data['argument_type'])))
-
-                    # Overall validation results
-                    if 'is_valid' in rdf_data:
-                        g.add((individual_uri, PROETHICA['isValid'], Literal(rdf_data['is_valid'], datatype=XSD.boolean)))
-                    if rdf_data.get('validation_score') is not None:
-                        g.add((individual_uri, PROETHICA['validationScore'], Literal(float(rdf_data['validation_score']), datatype=XSD.decimal)))
-
-                    # Validation notes
-                    notes = rdf_data.get('validation_notes', [])
-                    if notes:
-                        for i, note in enumerate(notes):
-                            g.add((individual_uri, PROETHICA[f'validationNote{i+1}'], Literal(note)))
-
-                    # Entity validation results
-                    entity_val = rdf_data.get('entity_validation', {})
-                    if entity_val:
-                        if 'is_valid' in entity_val:
-                            g.add((individual_uri, PROETHICA['entityValidationPassed'], Literal(entity_val['is_valid'], datatype=XSD.boolean)))
-                        missing = entity_val.get('missing_entities', [])
-                        for i, m in enumerate(missing):
-                            g.add((individual_uri, PROETHICA[f'missingEntity{i+1}'], Literal(m)))
-
-                    # Founding value validation
-                    founding_val = rdf_data.get('founding_value_validation', {})
-                    if founding_val:
-                        if 'is_compliant' in founding_val:
-                            g.add((individual_uri, PROETHICA['foundingValueCompliant'], Literal(founding_val['is_compliant'], datatype=XSD.boolean)))
-                        if founding_val.get('founding_good'):
-                            g.add((individual_uri, PROETHICA['foundingGood'], Literal(founding_val['founding_good'])))
-                        if founding_val.get('analysis'):
-                            g.add((individual_uri, PROETHICA['foundingValueAnalysis'], Literal(founding_val['analysis'])))
-
-                    # Virtue validation
-                    virtue_val = rdf_data.get('virtue_validation', {})
-                    if virtue_val:
-                        if 'is_valid' in virtue_val:
-                            g.add((individual_uri, PROETHICA['virtueValidationPassed'], Literal(virtue_val['is_valid'], datatype=XSD.boolean)))
-                        missing_virtues = virtue_val.get('missing_virtues', [])
-                        for i, v in enumerate(missing_virtues):
-                            g.add((individual_uri, PROETHICA[f'missingVirtue{i+1}'], Literal(v)))
-
-                # Check if this is a decision point
-                elif extraction_type == 'canonical_decision_point' and rdf_data:
-                    g.add((individual_uri, RDF.type, PROETHICA_CASES.DecisionPoint))
-                    # Add decision point ID
-                    if rdf_data.get('focus_id'):
-                        g.add((individual_uri, PROETHICA['decisionPointId'], Literal(rdf_data['focus_id'])))
-                    # Use 'description' field as focus (the full text description)
-                    if rdf_data.get('description'):
-                        g.add((individual_uri, PROETHICA['focus'], Literal(rdf_data['description'])))
-                    elif rdf_data.get('focus'):
-                        g.add((individual_uri, PROETHICA['focus'], Literal(rdf_data['focus'])))
-                    # Decision question
-                    if rdf_data.get('decision_question'):
-                        g.add((individual_uri, PROETHICA['decisionQuestion'], Literal(rdf_data['decision_question'])))
-                    if rdf_data.get('context'):
-                        g.add((individual_uri, PROETHICA['context'], Literal(rdf_data['context'])))
-                    # Role involved
-                    if rdf_data.get('role_label'):
-                        g.add((individual_uri, PROETHICA['roleLabel'], Literal(rdf_data['role_label'])))
-                    # Serialize options
-                    options = rdf_data.get('options', [])
-                    for i, opt in enumerate(options):
-                        if isinstance(opt, dict) and opt.get('description'):
-                            g.add((individual_uri, PROETHICA[f'option{i+1}'], Literal(opt['description'])))
-
-                # Check if this is an ethical conclusion
-                elif extraction_type == 'ethical_conclusion' and rdf_data:
-                    g.add((individual_uri, RDF.type, PROETHICA_CASES.EthicalConclusion))
-                    if rdf_data.get('conclusionText'):
-                        g.add((individual_uri, PROETHICA['conclusionText'], Literal(rdf_data['conclusionText'])))
-                    if rdf_data.get('conclusionType'):
-                        g.add((individual_uri, PROETHICA['conclusionType'], Literal(rdf_data['conclusionType'])))
-                    if rdf_data.get('conclusionNumber'):
-                        g.add((individual_uri, PROETHICA['conclusionNumber'], Literal(int(rdf_data['conclusionNumber']), datatype=XSD.integer)))
-                    if rdf_data.get('extractionReasoning'):
-                        g.add((individual_uri, PROETHICA['extractionReasoning'], Literal(rdf_data['extractionReasoning'])))
-                    # Cited provisions
-                    cited = rdf_data.get('citedProvisions', [])
-                    for i, prov in enumerate(cited):
-                        g.add((individual_uri, PROETHICA[f'citedProvision{i+1}'], Literal(prov)))
-                    # Answers questions
-                    answers = rdf_data.get('answersQuestions', [])
-                    for i, q in enumerate(answers):
-                        g.add((individual_uri, PROETHICA[f'answersQuestion{i+1}'], Literal(str(q))))
-
-                # Check if this is an ethical question
-                elif extraction_type == 'ethical_question' and rdf_data:
-                    g.add((individual_uri, RDF.type, PROETHICA_CASES.EthicalQuestion))
-                    if rdf_data.get('questionText'):
-                        g.add((individual_uri, PROETHICA['questionText'], Literal(rdf_data['questionText'])))
-                    if rdf_data.get('questionType'):
-                        g.add((individual_uri, PROETHICA['questionType'], Literal(rdf_data['questionType'])))
-                    if rdf_data.get('questionNumber'):
-                        g.add((individual_uri, PROETHICA['questionNumber'], Literal(int(rdf_data['questionNumber']), datatype=XSD.integer)))
-                    if rdf_data.get('emergence'):
-                        g.add((individual_uri, PROETHICA['emergence'], Literal(rdf_data['emergence'])))
-
-                # Standard properties handling for other entity types
-                elif rdf_data and rdf_data.get('properties'):
-                    properties = rdf_data['properties']
-                    for prop_name, prop_values in properties.items():
-                        if not isinstance(prop_values, list):
-                            prop_values = [prop_values]
-                        safe_prop = self._camelCase(prop_name)
-                        prop_uri = PROETHICA[safe_prop]
-                        for value in prop_values:
-                            if value:
-                                g.add((individual_uri, prop_uri, Literal(value)))
+                # Per-individual property serialization. SINGLE shared serializer
+                # for both commit paths (see _add_individual_properties): emits the
+                # rich Step-4 synthesis handlers (arguments/validations/decision
+                # points/conclusions/questions), the Step-3 temporal fields, and the
+                # Step-1/2 generic handler that turns `attributes` into per-key
+                # triples and `relationships` into real proeth-core actor edges
+                # (resolved via the _rel_label_index built in the first pass below).
+                # This replaced an inline if/elif copy that had drifted from the
+                # versioned path and emitted relationships/attributes as dead-text
+                # literals.
+                self._add_individual_properties(g, individual_uri, entity, rdf_data, case_ns)
 
                 # Add provenance
                 g.add((individual_uri, PROV.generatedAtTime, Literal(datetime.utcnow())))
@@ -818,6 +677,10 @@ class OntServeCommitService:
                     g.add((individual_uri, PROV.wasAttributedTo, Literal(entity.extraction_model)))
 
                 count += 1
+
+            # Emit the Agent layer (one proeth-core:Agent per actor + hasRole to
+            # each role facet) once all facets have been written.
+            self._emit_agent_layer(g)
 
             # Save the graph
             g.serialize(destination=case_file, format='turtle')
@@ -1059,6 +922,20 @@ class OntServeCommitService:
             elif fallback_uri:
                 # No category info (legacy data) -- use core class
                 result.append(fallback_uri)
+
+        # Occupational archetype axis for roles. The relational axis is handled above via
+        # role_category; a role class chains through BOTH an occupational and a relational
+        # archetype (multi-inheritance). The label carries the occupational signal. The
+        # occupational archetype subClassOf*-chains to core:Role, so a bare core:Role
+        # fallback becomes redundant and is dropped.
+        if concept_type == 'roles':
+            from app.services.extraction.role_archetype_resolver import resolve_occupational_archetype
+            occ = resolve_occupational_archetype(entity.entity_label)
+            if occ:
+                core_role = f'{PROETHICA_CORE}Role'
+                result = [r for r in result if r != core_role]
+                if occ not in result:
+                    result.append(occ)
 
         return result
 
@@ -1477,6 +1354,17 @@ class OntServeCommitService:
             g.bind("iao", IAO)
             g.bind("prov", PROV)
 
+            # Label -> individual URI index (first pass) so role relationship targets,
+            # which are short actor names like "Engineer A", resolve to real edges.
+            self._rel_label_index = {}
+            for _ent, _rdf in individuals:
+                _lbl = getattr(_ent, 'entity_label', None)
+                if _lbl:
+                    self._rel_label_index[self._norm_label(_lbl)] = case_ns[self._safe_label(_lbl)]
+
+            # Agent layer (Option C): one proeth-core:Agent per distinct actor.
+            self._build_agent_indices(individuals, case_ns)
+
             count = 0
             for entity, rdf_data in individuals:
                 # Use the existing individual serialization logic
@@ -1492,9 +1380,7 @@ class OntServeCommitService:
                 else:
                     label = entity.entity_label or 'UnknownIndividual'
 
-                safe_label = label.replace(" ", "_").replace("(", "").replace(")", "")
-                safe_label = safe_label.replace('"', '').replace("'", "").replace(",", "")
-                safe_label = safe_label.replace("<", "").replace(">", "").replace("&", "")
+                safe_label = self._safe_label(label)
                 individual_uri = case_ns[safe_label]
 
                 # Add individual
@@ -1526,6 +1412,9 @@ class OntServeCommitService:
 
                 count += 1
 
+            # Emit the Agent layer (one proeth-core:Agent per actor + hasRole).
+            self._emit_agent_layer(g)
+
             # Write file (overwrites existing)
             g.serialize(destination=case_file, format='turtle')
             logger.info(f"Wrote fresh TTL file with {count} individuals to {case_file}")
@@ -1536,9 +1425,203 @@ class OntServeCommitService:
             logger.error(f"Error writing fresh case TTL: {e}")
             return {'count': 0, 'error': str(e)}
 
+    def _safe_label(self, label: str) -> str:
+        """URI-safe local name from a label (single source of truth for minting
+        individual URIs and for the relationship target index)."""
+        s = (label or '').replace(" ", "_").replace("(", "").replace(")", "")
+        s = s.replace('"', '').replace("'", "").replace(",", "")
+        s = s.replace("<", "").replace(">", "").replace("&", "")
+        return s
+
+    @staticmethod
+    def _norm_label(label: str) -> str:
+        return ' '.join((label or '').lower().split())
+
+    # LLM relationship type -> proeth-core actor relation; relatedTo is the fallback.
+    # Ordered: the passive/subject review forms (the role-bearer whose work is
+    # reviewed) must precede the generic 'review' needle, otherwise substring
+    # matching would route them to reviewsWorkOf and assert the edge backwards.
+    # (substring needle, proeth-core property, swap). The proeth-core actor
+    # properties hasClient/employedBy/workReviewedBy are DIRECTIONAL, but the LLM
+    # emits a relationship from each role-bearer's own perspective, so the same
+    # edge is seen from both endpoints. `swap` records which perspective a needle
+    # encodes: swap=False means the role-bearer is the subject of the property
+    # (provider / employee / reviewed party); swap=True means it is the object
+    # (client naming its provider, employer naming its employee), so the edge is
+    # asserted target->subject. Ordered most-specific-first: directional and
+    # passive forms precede their generic stems so substring matching neither
+    # mis-routes nor mis-orients them.
+    _REL_TYPE_TO_PROP = (
+        ('has_provider', 'hasClient', True),
+        ('has provider', 'hasClient', True),
+        ('is_client_of', 'hasClient', True),
+        ('client_of', 'hasClient', True),
+        ('has_client', 'hasClient', False),
+        ('has client', 'hasClient', False),
+        ('provider_of', 'hasClient', False),
+        ('retained_by', 'hasClient', False),
+        ('retained by', 'hasClient', False),
+        ('employer_of', 'employedBy', True),
+        ('employs', 'employedBy', True),
+        ('employed_by', 'employedBy', False),
+        ('employed by', 'employedBy', False),
+        ('employ', 'employedBy', False),
+        ('subject_of_review', 'workReviewedBy', False),
+        ('subject of review', 'workReviewedBy', False),
+        ('reviewed_by', 'workReviewedBy', False),
+        ('reviewed by', 'workReviewedBy', False),
+        ('being_reviewed', 'workReviewedBy', False),
+        ('being reviewed', 'workReviewedBy', False),
+        ('reviewee', 'workReviewedBy', False),
+        ('reviewer_of', 'reviewsWorkOf', False),
+        ('reviews', 'reviewsWorkOf', False),
+        ('review', 'reviewsWorkOf', False),
+        ('peer', 'professionalPeerOf', False),
+        ('client', 'hasClient', False),
+    )
+
+    def _rel_property_for(self, rel_type: str):
+        """(proeth-core property, swap) for an LLM relationship type. swap=True
+        means the edge is asserted target->subject (the role-bearer is on the
+        receiving side of a directional relation). professionalPeerOf is symmetric,
+        so swap is immaterial there. relatedTo is the controlled fallback."""
+        t = (rel_type or '').lower()
+        for needle, prop, swap in self._REL_TYPE_TO_PROP:
+            if needle in t:
+                return prop, swap
+        return 'relatedTo', False
+
+    def _resolve_rel_target(self, target: str):
+        """Resolve an actor-relationship target label to a case individual URI via
+        the first-pass index. Actor relationships hold between role-bearers, so a
+        role facet (a key of _facet_to_agent) is always preferred over a same-named
+        non-role individual; otherwise a bare actor name like "Owner" can substring
+        -match a non-role node (e.g. an action "Owner Covert Review Instruction").
+        Match tiers: exact, then prefix/substring. Returns the URI or None."""
+        index = getattr(self, '_rel_label_index', None)
+        if not index or not target:
+            return None
+        nt = self._norm_label(target)
+        role_facets = set(getattr(self, '_facet_to_agent', {}) or {})
+
+        def _pick(cands):
+            cands = sorted(set(cands), key=str)
+            role_cands = [u for u in cands if u in role_facets]
+            return role_cands[0] if role_cands else (cands[0] if cands else None)
+
+        exact = _pick([uri for nl, uri in index.items() if nl == nt])
+        if exact is not None:
+            return exact
+        return _pick([uri for nl, uri in index.items() if nl.startswith(nt) or nt in nl])
+
+    # --- Agent layer (Option C: cross-section actor identity) -----------------
+    # A role facet (e.g. "Engineer A Original Design Engineer" in facts,
+    # "Cooperation-Refusing Design Engineer" in discussion) is a role the same
+    # underlying actor bears. We mint ONE proeth-core:Agent per distinct actor
+    # and link each facet to it via proeth-core:hasRole, so the actor is not
+    # fragmented across sections. The actor identity is the LLM-declared `actor`
+    # field (rules-as-data); when absent it falls back to the facet's own label
+    # (so every role still gets an Agent, but only a shared `actor` merges
+    # facets). The Agent URI is deterministic from the actor label, so separate
+    # section commits on the append path converge on the same Agent node.
+
+    @staticmethod
+    def _is_role_individual(entity) -> bool:
+        return (getattr(entity, 'extraction_type', '') or '').lower() == 'roles'
+
+    def _actor_key_and_label(self, entity, rdf_data: Dict):
+        """(normalized key, display label) of a role individual's underlying
+        actor, or (None, None) if it cannot be determined."""
+        props = (rdf_data or {}).get('properties', {}) or {}
+        actor_vals = props.get('actor')
+        actor = None
+        if actor_vals:
+            actor = actor_vals[0] if isinstance(actor_vals, list) else actor_vals
+        if not actor:
+            actor = getattr(entity, 'entity_label', None)
+        if not actor:
+            return None, None
+        return self._norm_label(str(actor)), str(actor)
+
+    def _build_agent_indices(self, individuals, case_ns: Namespace) -> None:
+        """First-pass build of the Agent layer maps over the batch:
+        - self._agent_index: actor_key -> Agent URI
+        - self._facet_to_agent: role-facet URI -> Agent URI
+        - self._agent_facets: Agent URI -> (actor_label, set(facet URIs))
+        Used by _emit_agent_layer (mints the Agents + hasRole) and by the
+        relationships branch (attaches actor relations at the Agent level)."""
+        self._agent_index = {}
+        self._facet_to_agent = {}
+        self._agent_facets = {}
+        for _ent, _rdf in individuals:
+            if not self._is_role_individual(_ent):
+                continue
+            akey, alabel = self._actor_key_and_label(_ent, _rdf)
+            if not akey:
+                continue
+            facet_uri = case_ns[self._safe_label(getattr(_ent, 'entity_label', '') or '')]
+            agent_uri = self._agent_index.get(akey)
+            if agent_uri is None:
+                agent_uri = case_ns['Agent_' + self._safe_label(alabel)]
+                self._agent_index[akey] = agent_uri
+                self._agent_facets[agent_uri] = (alabel, set())
+            self._facet_to_agent[facet_uri] = agent_uri
+            self._agent_facets[agent_uri][1].add(facet_uri)
+
+    def _emit_agent_layer(self, g: Graph) -> None:
+        """Emit one proeth-core:Agent per distinct actor and a hasRole edge to
+        each role facet it bears. Idempotent: re-emitting the same Agent URI on a
+        later-section append commit just re-asserts the same triples."""
+        for agent_uri, (alabel, facet_uris) in getattr(self, '_agent_facets', {}).items():
+            g.add((agent_uri, RDF.type, OWL.NamedIndividual))
+            g.add((agent_uri, RDF.type, PROETHICA_CORE.Agent))
+            g.add((agent_uri, RDFS.label, Literal(alabel)))
+            for f in sorted(facet_uris):
+                g.add((agent_uri, PROETHICA_CORE.hasRole, f))
+
+    @staticmethod
+    def _safe_frag(iri) -> str:
+        """Sanitized local name of an IRI, for building a derived provenance-node
+        fragment (mirrors defeasibility_pipeline._safe_frag)."""
+        frag = str(iri).rsplit('#', 1)[-1].rsplit('/', 1)[-1]
+        return ''.join(c if c.isalnum() or c in '_-' else '_' for c in frag)[:60]
+
+    def _emit_relationship_provenance(self, g: Graph, case_ns: Namespace, subj,
+                                      relprop: str, obj, rtype, quote) -> None:
+        """PROV-O Derivation for an actor relationship edge, mirroring the
+        defeasibility-edge provenance: a prov:Derivation node linking the two
+        endpoints, carrying the triggering quote in prov:value when the roles
+        prompt supplied one. Best-effort and additive; never blocks the edge."""
+        try:
+            frag = f"{self._safe_frag(subj)}_{relprop}_{self._safe_frag(obj)}"
+            prov_iri = case_ns['relationship_edge_provenance_' + frag]
+            g.add((prov_iri, RDF.type, PROV.Derivation))
+            g.add((prov_iri, PROV.wasDerivedFrom, subj))
+            g.add((prov_iri, PROV.wasDerivedFrom, obj))
+            g.add((prov_iri, RDFS.label, Literal(f"Actor relationship edge ({rtype or relprop})")))
+            if quote:
+                g.add((prov_iri, PROV.value, Literal(str(quote))))
+            g.add((prov_iri, RDFS.comment, Literal(f"relation_type={rtype}; property={relprop}")))
+            g.add((prov_iri, PROV.generatedAtTime, Literal(
+                datetime.now(timezone.utc).isoformat(), datatype=XSD.dateTime)))
+        except Exception as e:
+            logger.info(f"relationship provenance skipped: {e}")
+
     def _add_individual_properties(self, g: Graph, uri: URIRef, entity: Any,
                                    rdf_data: Dict, case_ns: Namespace):
-        """Add type-specific properties to an individual in the graph."""
+        """Add type-specific properties to an individual in the graph.
+
+        SINGLE per-individual serializer shared by BOTH commit paths: the live
+        append path (`_commit_individuals_to_case_ontology`, used by the pipeline
+        / staged re-extraction / entity-review commit) and the versioned path
+        (`_write_case_ttl_fresh`). It is the union of what the two paths had
+        drifted into emitting separately: the rich Step-4 synthesis handlers
+        (arguments, validations, decision points, conclusions, questions) AND the
+        Step-1/2 generic handler that turns `attributes` into per-key triples and
+        `relationships` into real proeth-core actor edges (resolved via
+        `_rel_label_index`). Keeping one serializer is what stops the two paths
+        re-drifting; do not reintroduce an inline copy in either caller.
+        """
         extraction_type = entity.extraction_type or ''
 
         if extraction_type == 'argument_generated' and rdf_data:
@@ -1547,7 +1630,67 @@ class OntServeCommitService:
                 g.add((uri, PROETHICA['argumentType'], Literal(rdf_data['argument_type'])))
             if rdf_data.get('decision_point_id'):
                 g.add((uri, PROETHICA['decisionPointId'], Literal(rdf_data['decision_point_id'])))
-            # ... (other argument properties handled similarly)
+            if rdf_data.get('option_description'):
+                g.add((uri, PROETHICA['optionDescription'], Literal(rdf_data['option_description'])))
+            if rdf_data.get('confidence_score'):
+                g.add((uri, PROETHICA['confidenceScore'], Literal(float(rdf_data['confidence_score']), datatype=XSD.decimal)))
+            claim = rdf_data.get('claim', {})
+            if isinstance(claim, dict) and claim.get('text'):
+                g.add((uri, PROETHICA['claimText'], Literal(claim['text'])))
+                if claim.get('entity_label'):
+                    g.add((uri, PROETHICA['claimEntity'], Literal(claim['entity_label'])))
+            warrant = rdf_data.get('warrant', {})
+            if isinstance(warrant, dict) and warrant.get('entity_label'):
+                g.add((uri, PROETHICA['warrantEntity'], Literal(warrant['entity_label'])))
+                if warrant.get('entity_type'):
+                    g.add((uri, PROETHICA['warrantType'], Literal(warrant['entity_type'])))
+            backing = rdf_data.get('backing', {})
+            if isinstance(backing, dict) and backing.get('entity_label'):
+                g.add((uri, PROETHICA['backingProvision'], Literal(backing['entity_label'])))
+            qualifier = rdf_data.get('qualifier', {})
+            if isinstance(qualifier, dict) and qualifier.get('entity_label'):
+                g.add((uri, PROETHICA['qualifierConstraint'], Literal(qualifier['entity_label'])))
+            if rdf_data.get('role_label'):
+                g.add((uri, PROETHICA['roleLabel'], Literal(rdf_data['role_label'])))
+            if rdf_data.get('founding_good_analysis'):
+                g.add((uri, PROETHICA['foundingGoodAnalysis'], Literal(rdf_data['founding_good_analysis'])))
+
+        elif extraction_type == 'argument_validation' and rdf_data:
+            g.add((uri, RDF.type, PROETHICA_CASES.ArgumentValidation))
+            if rdf_data.get('argument_id'):
+                arg_id = rdf_data['argument_id']
+                g.add((uri, PROETHICA['validatesArgument'], case_ns[arg_id]))
+                g.add((uri, PROETHICA['argumentId'], Literal(arg_id)))
+            if rdf_data.get('decision_point_id'):
+                g.add((uri, PROETHICA['decisionPointId'], Literal(rdf_data['decision_point_id'])))
+            if rdf_data.get('argument_type'):
+                g.add((uri, PROETHICA['argumentType'], Literal(rdf_data['argument_type'])))
+            if 'is_valid' in rdf_data:
+                g.add((uri, PROETHICA['isValid'], Literal(rdf_data['is_valid'], datatype=XSD.boolean)))
+            if rdf_data.get('validation_score') is not None:
+                g.add((uri, PROETHICA['validationScore'], Literal(float(rdf_data['validation_score']), datatype=XSD.decimal)))
+            for i, note in enumerate(rdf_data.get('validation_notes', []) or []):
+                g.add((uri, PROETHICA[f'validationNote{i+1}'], Literal(note)))
+            entity_val = rdf_data.get('entity_validation', {}) or {}
+            if entity_val:
+                if 'is_valid' in entity_val:
+                    g.add((uri, PROETHICA['entityValidationPassed'], Literal(entity_val['is_valid'], datatype=XSD.boolean)))
+                for i, m in enumerate(entity_val.get('missing_entities', []) or []):
+                    g.add((uri, PROETHICA[f'missingEntity{i+1}'], Literal(m)))
+            founding_val = rdf_data.get('founding_value_validation', {}) or {}
+            if founding_val:
+                if 'is_compliant' in founding_val:
+                    g.add((uri, PROETHICA['foundingValueCompliant'], Literal(founding_val['is_compliant'], datatype=XSD.boolean)))
+                if founding_val.get('founding_good'):
+                    g.add((uri, PROETHICA['foundingGood'], Literal(founding_val['founding_good'])))
+                if founding_val.get('analysis'):
+                    g.add((uri, PROETHICA['foundingValueAnalysis'], Literal(founding_val['analysis'])))
+            virtue_val = rdf_data.get('virtue_validation', {}) or {}
+            if virtue_val:
+                if 'is_valid' in virtue_val:
+                    g.add((uri, PROETHICA['virtueValidationPassed'], Literal(virtue_val['is_valid'], datatype=XSD.boolean)))
+                for i, v in enumerate(virtue_val.get('missing_virtues', []) or []):
+                    g.add((uri, PROETHICA[f'missingVirtue{i+1}'], Literal(v)))
 
         elif extraction_type == 'canonical_decision_point' and rdf_data:
             g.add((uri, RDF.type, PROETHICA_CASES.DecisionPoint))
@@ -1557,6 +1700,15 @@ class OntServeCommitService:
                 g.add((uri, PROETHICA['focus'], Literal(rdf_data['description'])))
             elif rdf_data.get('focus'):
                 g.add((uri, PROETHICA['focus'], Literal(rdf_data['focus'])))
+            if rdf_data.get('decision_question'):
+                g.add((uri, PROETHICA['decisionQuestion'], Literal(rdf_data['decision_question'])))
+            if rdf_data.get('context'):
+                g.add((uri, PROETHICA['context'], Literal(rdf_data['context'])))
+            if rdf_data.get('role_label'):
+                g.add((uri, PROETHICA['roleLabel'], Literal(rdf_data['role_label'])))
+            for i, opt in enumerate(rdf_data.get('options', []) or []):
+                if isinstance(opt, dict) and opt.get('description'):
+                    g.add((uri, PROETHICA[f'option{i+1}'], Literal(opt['description'])))
 
         elif extraction_type == 'ethical_conclusion' and rdf_data:
             g.add((uri, RDF.type, PROETHICA_CASES.EthicalConclusion))
@@ -1564,6 +1716,14 @@ class OntServeCommitService:
                 g.add((uri, PROETHICA['conclusionText'], Literal(rdf_data['conclusionText'])))
             if rdf_data.get('conclusionType'):
                 g.add((uri, PROETHICA['conclusionType'], Literal(rdf_data['conclusionType'])))
+            if rdf_data.get('conclusionNumber'):
+                g.add((uri, PROETHICA['conclusionNumber'], Literal(int(rdf_data['conclusionNumber']), datatype=XSD.integer)))
+            if rdf_data.get('extractionReasoning'):
+                g.add((uri, PROETHICA['extractionReasoning'], Literal(rdf_data['extractionReasoning'])))
+            for i, prov in enumerate(rdf_data.get('citedProvisions', []) or []):
+                g.add((uri, PROETHICA[f'citedProvision{i+1}'], Literal(prov)))
+            for i, q in enumerate(rdf_data.get('answersQuestions', []) or []):
+                g.add((uri, PROETHICA[f'answersQuestion{i+1}'], Literal(str(q))))
 
         elif extraction_type == 'ethical_question' and rdf_data:
             g.add((uri, RDF.type, PROETHICA_CASES.EthicalQuestion))
@@ -1571,6 +1731,10 @@ class OntServeCommitService:
                 g.add((uri, PROETHICA['questionText'], Literal(rdf_data['questionText'])))
             if rdf_data.get('questionType'):
                 g.add((uri, PROETHICA['questionType'], Literal(rdf_data['questionType'])))
+            if rdf_data.get('questionNumber'):
+                g.add((uri, PROETHICA['questionNumber'], Literal(int(rdf_data['questionNumber']), datatype=XSD.integer)))
+            if rdf_data.get('emergence'):
+                g.add((uri, PROETHICA['emergence'], Literal(rdf_data['emergence'])))
 
         # Step-3 temporal dynamics (Actions / Events). These arrive as a
         # JSON-LD record (@type + proeth:* predicates) from the LangGraph
@@ -1582,6 +1746,75 @@ class OntServeCommitService:
         # Generic properties fallback
         elif rdf_data and rdf_data.get('properties'):
             for prop_name, prop_values in rdf_data['properties'].items():
+                # The attributes dict (qualifications/credentials/rights) is emitted
+                # as one queryable triple per key, not one opaque stringified-dict
+                # literal. Mirrors the per-key convention already in rdf_service /
+                # entity_triple_service (PROETHICA[key]).
+                if prop_name == 'attributes':
+                    import ast
+                    attr_dict = prop_values
+                    # Stored shape is a single-element list holding the attributes
+                    # dict, usually stringified (the storage layer str()s dict
+                    # values). Unwrap the list, then literal_eval a stringified dict
+                    # -- mirrors the relationships branch below. A non-dict result
+                    # falls through to the generic literal so nothing is lost.
+                    if isinstance(attr_dict, list) and len(attr_dict) == 1:
+                        attr_dict = attr_dict[0]
+                    if isinstance(attr_dict, str):
+                        try:
+                            attr_dict = ast.literal_eval(attr_dict)
+                        except Exception:
+                            attr_dict = None
+                    if isinstance(attr_dict, dict):
+                        for attr_key, attr_val in attr_dict.items():
+                            if attr_val in (None, '', [], {}):
+                                continue
+                            attr_uri = PROETHICA[self._camelCase(attr_key)]
+                            for v in (attr_val if isinstance(attr_val, list) else [attr_val]):
+                                if v not in (None, ''):
+                                    lit = v if isinstance(v, (str, int, float, bool)) else str(v)
+                                    g.add((uri, attr_uri, Literal(lit)))
+                        continue
+                # Relationships (actor-to-actor) become real edges via a
+                # proeth-core relation, instead of opaque stringified dicts.
+                # Attached at the AGENT level when both endpoints have an Agent
+                # (the relationship is between the persons, not the role facets);
+                # falls back to the facet endpoints otherwise. Unresolvable
+                # targets are logged and skipped so nothing becomes dead text.
+                if prop_name == 'relationships':
+                    import ast
+                    facet_to_agent = getattr(self, '_facet_to_agent', {}) or {}
+                    subj = facet_to_agent.get(uri, uri)
+                    rels = prop_values if isinstance(prop_values, list) else [prop_values]
+                    for rel in rels:
+                        r = rel
+                        if isinstance(r, str):
+                            try:
+                                r = ast.literal_eval(r)
+                            except Exception:
+                                r = None
+                        if not isinstance(r, dict):
+                            continue
+                        rtype = r.get('type') or r.get('relation') or ''
+                        tgt = r.get('target') or r.get('to') or ''
+                        if not tgt:
+                            continue
+                        tgt_uri = self._resolve_rel_target(str(tgt))
+                        if tgt_uri is None:
+                            logger.info(f"relationship target unresolved, skipped: type={rtype!r} target={tgt!r}")
+                            continue
+                        obj = facet_to_agent.get(tgt_uri, tgt_uri)
+                        relprop, swap = self._rel_property_for(str(rtype))
+                        # Orient the directional property: swap=True means the
+                        # role-bearer is the object (e.g. a client naming its
+                        # provider), so the edge runs target->subject.
+                        edge_subj, edge_obj = (obj, subj) if swap else (subj, obj)
+                        g.add((edge_subj, PROETHICA_CORE[relprop], edge_obj))
+                        # PROV-O derivation for the edge (mirrors defeasibility edges);
+                        # carries the per-relationship quote when the prompt supplied one.
+                        self._emit_relationship_provenance(
+                            g, case_ns, edge_subj, relprop, edge_obj, rtype, r.get('quote'))
+                    continue
                 if not isinstance(prop_values, list):
                     prop_values = [prop_values]
                 safe_prop = self._camelCase(prop_name)

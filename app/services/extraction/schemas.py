@@ -76,10 +76,6 @@ class BaseCandidate(BaseModel):
     )
     source_text: Optional[str] = Field(None, max_length=500)
     confidence: float = Field(0.0, ge=0.0, le=1.0)
-    importance: Optional[str] = Field(
-        None,
-        description="Extraction priority: high, medium, low",
-    )
     match_decision: MatchDecision = Field(default_factory=MatchDecision)
 
 
@@ -91,10 +87,6 @@ class BaseIndividual(BaseModel):
     text_references: List[str] = Field(
         default_factory=list,
         description="Direct quotes from case text where this individual appears",
-    )
-    importance: Optional[str] = Field(
-        None,
-        description="Extraction priority: high, medium, low",
     )
     source_text: Optional[str] = Field(None, max_length=500)
     confidence: float = Field(0.0, ge=0.0, le=1.0)
@@ -145,17 +137,22 @@ class RoleCategory(str, Enum):
 class CandidateRoleClass(BaseCandidate):
     """A new role class discovered in case text."""
     role_category: Optional[RoleCategory] = None
-    distinguishing_features: List[str] = Field(default_factory=list)
-    professional_scope: Optional[str] = None
-    obligations_generated: List[str] = Field(
-        default_factory=list,
-        description="Obligations this role generates (R->O linkage)"
-    )
 
 
 class RoleIndividual(BaseIndividual):
     """A specific person or entity filling a role in the case."""
     name: str = Field("", description="Person/entity identifier")
+    actor: Optional[str] = Field(
+        None,
+        description=(
+            "The stable underlying agent this role facet belongs to, e.g. "
+            "'Engineer A', 'Owner', 'City of X'. The SAME actor seen in a "
+            "different section under a different role facet must reuse this "
+            "exact value. Used to mint one proeth-core:Agent per actor that "
+            "bears each facet via hasRole; do not invent a parallel actor for "
+            "someone already identified in an earlier section."
+        ),
+    )
     role_class: str = Field(
         "", description="Role class label or URI",
         alias="instance_of",
