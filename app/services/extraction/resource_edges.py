@@ -173,10 +173,14 @@ def _llm_select_multi(items: List[Dict[str, Any]], client=None, model=None):
             from app.utils.llm_utils import get_llm_client
             client = get_llm_client()
         if model is None:
-            # Constrained pick-from-shortlist task: the fast tier (Haiku) fits; a
-            # heavier model adds nothing over a small multi-select prompt.
+            # This is subtler than a constrained pick: a used_by value can be a
+            # narrative sentence naming several actors (the user as grammatical
+            # subject plus others mentioned as objects/affected parties), and the
+            # resolver must pick the USER. The fast tier (Haiku) mis-attributed to
+            # the wrong actor on such text, so use the default tier (Sonnet) which
+            # reads subject-vs-object reliably. Cheap because the prompt is small.
             from model_config import ModelConfig
-            model = ModelConfig.get_claude_model("fast")
+            model = ModelConfig.get_claude_model("default")
         if not (hasattr(client, "messages") and hasattr(client.messages, "stream")):
             logger.warning("resource_edges: no Anthropic streaming client; embedding fallback")
             return None
