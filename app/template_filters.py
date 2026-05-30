@@ -45,6 +45,31 @@ def init_app(app):
             return list(iterable)[start:]
         return list(iterable)[start:end]
     
+    @app.template_filter('parse_entries')
+    def parse_entries_filter(value):
+        """Parse stored role-individual ``relationships`` / ``attributes`` into Python
+        objects for readable rendering in the review UI.
+
+        They are stored as stringified Python dicts (single-quoted, e.g.
+        "{'type': 'has_provider', 'target': 'Engineer A'}"), sometimes wrapped in a
+        one-element list, so they are NOT valid JSON; ast.literal_eval is used rather
+        than json.loads. Always returns a list of parsed objects, dropping anything
+        unparseable (the commit serializer logs the same drops on its side)."""
+        import ast
+        if value is None:
+            return []
+        items = value if isinstance(value, list) else [value]
+        out = []
+        for it in items:
+            if isinstance(it, (dict, list)):
+                out.append(it)
+            elif isinstance(it, str):
+                try:
+                    out.append(ast.literal_eval(it))
+                except (ValueError, SyntaxError):
+                    continue
+        return out
+
     @app.template_filter('camel_to_readable')
     def camel_to_readable_filter(text):
         """Convert camelCase or PascalCase to readable format with spaces.
