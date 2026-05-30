@@ -352,7 +352,16 @@ _STATE_EDGE_RANGE = {
     PROETH_CORE.activatedByEvent: ("State", "Event"),
     PROETH_CORE.terminatedByEvent: ("State", "Event"),
 }
-ALL_EDGE_RANGE = {**_EDGE_RANGE, **_DEFEASIBILITY_RANGE, **_STATE_EDGE_RANGE}
+# Resource-anchored property (proeth-core) materialized by resource_edges.py from
+# the resource `used_by` field. Range is Agent, which is NOT one of the nine
+# disjoint core categories, so an Agent object resolves to no category and the
+# range clause is skipped (kept); the guard still validates the Resource subject,
+# dropping any edge whose subject's type chain does not resolve to Resource.
+_RESOURCE_EDGE_RANGE = {
+    PROETH_CORE.availableTo: ("Resource", "Agent"),
+}
+ALL_EDGE_RANGE = {**_EDGE_RANGE, **_DEFEASIBILITY_RANGE, **_STATE_EDGE_RANGE,
+                  **_RESOURCE_EDGE_RANGE}
 
 
 def _default_ontology_paths() -> Tuple[Any, Any]:

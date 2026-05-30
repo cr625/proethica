@@ -65,6 +65,19 @@ def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
         logger.exception("materialize: state-edge applier failed for case %s", case_id)
         results["state_edges"] = {"error": str(e)}
 
+    # 2b. Resource-anchored edges (DB-driven, embedding-resolved): the resource
+    # `used_by` field becomes Resource proeth-core:availableTo Agent edges, naming
+    # the case actor(s) that use each resource. Mirrors the state-edge applier
+    # (embedding shortlist + batched LLM multi-select, prov:Derivation).
+    try:
+        from app.services.extraction.resource_edges import apply_resource_edges
+        results["resource_edges"] = apply_resource_edges(
+            case_id=case_id, ttl_path=ttl_path, write_back=True,
+        )
+    except Exception as e:
+        logger.exception("materialize: resource-edge applier failed for case %s", case_id)
+        results["resource_edges"] = {"error": str(e)}
+
     # 3. R->P->O dependency edges (LLM) with the domain/range Pellet guard.
     try:
         from app.services.extraction.rpo_edges import apply_rpo_edges
