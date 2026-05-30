@@ -250,22 +250,28 @@ def test_relationship_edge_carries_prov_derivation():
     assert (d, PROV.value, Literal('Engineer A was retained by the Owner')) in g
 
 
-def test_role_individual_occupational_archetype_divergent_type():
-    """Layer-1 convergence: the class a role individual is typed under gets its
-    OCCUPATIONAL archetype even when its name diverges from the role_class entity.
-    Only the occupational axis is attached (one side of the ProfessionalRole/
-    ParticipantRole disjointness), so no unsatisfiable pairing is created."""
+def test_role_individual_archetype_parents_divergent_type():
+    """Layer-1 convergence: the class a role individual is typed under gets BOTH
+    archetype axes even when its name diverges from the role_class entity. The
+    relational archetype sits under RelationalRole, decoupled from the
+    ProfessionalRole/ParticipantRole disjointness, so pairing it with a
+    Participant-side occupational archetype (ClientRole) is satisfiable."""
     svc = _svc()
+    PROVIDER_CLIENT = str(PROETHICA['ProviderClientRole'])
     ENGINEER = str(PROETHICA['EngineerRole'])
     CLIENT = str(PROETHICA['ClientRole'])
-    # Divergent compound engineering type-class -> EngineerRole.
-    assert svc._role_individual_occupational_archetype(
-        'OriginalDesignEngineerSubjecttoPeerReview') == [ENGINEER]
-    # De-camelCased "Developer Client" -> ClientRole.
-    assert svc._role_individual_occupational_archetype('DeveloperClient') == [CLIENT]
-    # Unmapped occupational label -> empty (the tail the RoleArchetypeShape flags,
-    # never a spurious parent).
-    assert svc._role_individual_occupational_archetype('Confidentiality-BoundPeerReviewer') == []
+    # Divergent compound engineering type-class + provider_client category.
+    p1 = svc._role_individual_archetype_parents(
+        {'properties': {'roleCategory': ['provider_client']}},
+        'OriginalDesignEngineerSubjecttoPeerReview')
+    assert ENGINEER in p1 and PROVIDER_CLIENT in p1, p1
+    # The Participant-side ClientRole composes with the relational ProviderClientRole.
+    p2 = svc._role_individual_archetype_parents(
+        {'properties': {'roleCategory': ['provider_client']}}, 'DeveloperClient')
+    assert CLIENT in p2 and PROVIDER_CLIENT in p2, p2
+    # No roleCategory and an unmapped occupational label -> empty (the tail the
+    # RoleArchetypeShape flags, never a spurious parent).
+    assert svc._role_individual_archetype_parents({'properties': {}}, 'Confidentiality-BoundPeerReviewer') == []
 
 
 def test_rel_property_mapping_orientations():

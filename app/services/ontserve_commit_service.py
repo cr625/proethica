@@ -640,14 +640,14 @@ class OntServeCommitService:
                                         safe_class, prior, concept_cat, prior,
                                     )
 
-                        # Layer-1 convergence: attach the occupational archetype to
-                        # the class the individual is actually typed under (it can
-                        # diverge from the role_class entity, which already carries
-                        # the archetype). One occupational archetype sits on a single
-                        # side of the ProfessionalRole/ParticipantRole disjointness,
-                        # so the additive subClassOf carries no disjointness risk.
+                        # Layer-1 convergence: attach both archetype axes
+                        # (occupational + relational) to the class the individual is
+                        # actually typed under (it can diverge from the role_class
+                        # entity, which already carries them). The axes are orthogonal
+                        # (relational archetypes sit under RelationalRole), so the
+                        # additive subClassOf carries no disjointness risk.
                         if self._is_role_individual(entity):
-                            for arch_uri in self._role_individual_occupational_archetype(class_name):
+                            for arch_uri in self._role_individual_archetype_parents(rdf_data, class_name):
                                 g.add((class_uri, RDF.type, OWL.Class))
                                 if (class_uri, RDFS.subClassOf, URIRef(arch_uri)) not in g:
                                     g.add((class_uri, RDFS.subClassOf, URIRef(arch_uri)))
@@ -951,30 +951,37 @@ class OntServeCommitService:
 
         return result
 
-    def _role_individual_occupational_archetype(self, type_class_name: str) -> list[str]:
-        """Occupational-archetype URI(s) for the class a role INDIVIDUAL is typed
-        under.
+    def _role_individual_archetype_parents(self, rdf_data: Dict, type_class_name: str) -> list[str]:
+        """Occupational + relational archetype URIs for the class a role INDIVIDUAL
+        is typed under.
 
         The matcher sometimes types a role individual under a compound class that
         diverges from its own role_class entity (the entity gets the archetype via
         _resolve_subclass_uris, but the individual's type is a different, often
-        matched-existing, class). This attaches the occupational archetype to the
-        class the individual is really typed with, resolved from the (de-camelCased)
-        type-class name, so every role individual is reasoner-visible under its
-        occupational archetype regardless of the label divergence.
-
-        Only the occupational axis is attached. The occupational archetypes sit on
-        one side of the ProfessionalRole/ParticipantRole disjointness, so a single
-        one composes cleanly. The relational archetypes currently sit UNDER
-        ProfessionalRole, so pairing one (e.g. ProviderClientRole) with a
-        Participant-side occupational archetype (e.g. ClientRole) is unsatisfiable;
-        adding the relational axis here is deferred to the archetype-model fix that
-        decouples the relational axis from that disjointness."""
+        matched-existing, class). This attaches both archetype axes to the class the
+        individual really bears: the occupational axis resolved from the
+        (de-camelCased) type-class name, the relational axis from the individual's
+        roleCategory. The two axes are orthogonal -- the relational archetypes sit
+        under RelationalRole, decoupled from the ProfessionalRole/ParticipantRole
+        disjointness -- so the additive subClassOf carries no disjointness risk."""
         import re
-        label = re.sub(r'(?<=[a-z0-9])(?=[A-Z])', ' ', type_class_name or '')
+        parents: list[str] = []
+        props = (rdf_data or {}).get('properties', {}) or {}
+        rc = (props.get('roleCategory') or props.get('role_category')
+              or (rdf_data or {}).get('role_category'))
+        if isinstance(rc, list):
+            rc = rc[0] if rc else None
+        if rc:
+            norm = str(rc).lower().replace(' ', '_').replace('-', '_')
+            iri = CATEGORY_TO_ONTOLOGY_IRI.get('roles', {}).get(norm)
+            if iri:
+                parents.append(iri)
         from app.services.extraction.role_archetype_resolver import resolve_occupational_archetype
+        label = re.sub(r'(?<=[a-z0-9])(?=[A-Z])', ' ', type_class_name or '')
         occ = resolve_occupational_archetype(label)
-        return [occ] if occ else []
+        if occ and occ not in parents:
+            parents.append(occ)
+        return parents
 
     def _camelCase(self, text: str) -> str:
         """Convert text to camelCase for property names."""
@@ -1434,11 +1441,11 @@ class OntServeCommitService:
                         safe_class = class_name.replace(" ", "").replace("(", "").replace(")", "")
                         class_uri = PROETHICA[safe_class]
                         g.add((individual_uri, RDF.type, class_uri))
-                        # Layer-1 convergence: occupational archetype on the
+                        # Layer-1 convergence: both archetype axes on the
                         # individual's own type-class (see
                         # _commit_individuals_to_case_ontology).
                         if self._is_role_individual(entity):
-                            for arch_uri in self._role_individual_occupational_archetype(class_name):
+                            for arch_uri in self._role_individual_archetype_parents(rdf_data, class_name):
                                 g.add((class_uri, RDF.type, OWL.Class))
                                 if (class_uri, RDFS.subClassOf, URIRef(arch_uri)) not in g:
                                     g.add((class_uri, RDFS.subClassOf, URIRef(arch_uri)))

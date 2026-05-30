@@ -1026,8 +1026,13 @@ CATEGORY_TO_ONTOLOGY_IRI: Dict[str, Dict[str, str]] = {
         'professional_peer': f'{INTERMEDIATE_NS}ProfessionalPeerRole',
         'employer_relationship': f'{INTERMEDIATE_NS}EmployerRelationshipRole',
         'public_responsibility': f'{INTERMEDIATE_NS}PublicResponsibilityRole',
-        'participant': f'{INTERMEDIATE_NS}ParticipantRole',
-        'stakeholder': f'{INTERMEDIATE_NS}StakeholderRole',
+        # participant/stakeholder are generic involvement, not duty-relationships,
+        # and ParticipantRole/StakeholderRole live on the (occupational) Participant
+        # side, which is disjoint with ProfessionalRole. Map them to the generic
+        # relational head so the occupational archetype carries the classification
+        # and the relational parent never crosses the occupational disjointness.
+        'participant': f'{INTERMEDIATE_NS}RelationalRole',
+        'stakeholder': f'{INTERMEDIATE_NS}RelationalRole',
     },
     # P: Principle categories -> intermediate subclass IRIs
     'principles': {
