@@ -1566,6 +1566,21 @@ class OntServeCommitService:
             return exact
         return _pick([uri for nl, uri in index.items() if nl.startswith(nt) or nt in nl])
 
+    def _target_agent(self, g: Graph, facet_to_agent: dict, tgt_uri):
+        """Agent URI for a resolved relationship target, or None when the target is
+        not a role-bearer. Actor relations hold between role-bearers, so a target
+        that resolved to a non-role node (an Action/State/Event that happened to
+        substring-match a bare actor name) must NOT receive an actor edge. Checks
+        the current batch's facet->Agent map, then on-disk role facets (objects of
+        core:hasRole) so the section-by-section append path still resolves an actor
+        an earlier-section commit wrote."""
+        agent = facet_to_agent.get(tgt_uri)
+        if agent is not None:
+            return agent
+        for ag in g.subjects(PROETHICA_CORE.hasRole, tgt_uri):
+            return ag
+        return None
+
     # --- Agent layer (Option C: cross-section actor identity) -----------------
     # A role facet (e.g. "Engineer A Original Design Engineer" in facts,
     # "Cooperation-Refusing Design Engineer" in discussion) is a role the same
@@ -1647,6 +1662,12 @@ class OntServeCommitService:
         try:
             frag = f"{self._safe_frag(subj)}_{relprop}_{self._safe_frag(obj)}"
             prov_iri = case_ns['relationship_edge_provenance_' + frag]
+            # Idempotent: the prov-node IRI is deterministic from (subj, relprop,
+            # obj), and the same actor edge is emitted once per facet the actor
+            # bears (and again on a re-commit). Emit the node once; re-emission
+            # would otherwise multi-value generatedAtTime / comment / value.
+            if (prov_iri, RDF.type, PROV.Derivation) in g:
+                return
             g.add((prov_iri, RDF.type, PROV.Derivation))
             g.add((prov_iri, PROV.wasDerivedFrom, subj))
             g.add((prov_iri, PROV.wasDerivedFrom, obj))
@@ -1843,20 +1864,38 @@ class OntServeCommitService:
                         if isinstance(r, str):
                             try:
                                 r = ast.literal_eval(r)
-                            except Exception:
-                                r = None
+                            except Exception as e:
+                                logger.warning(f"relationship parse failed, dropped: {rel!r} ({e})")
+                                continue
                         if not isinstance(r, dict):
+                            logger.warning(f"relationship entry not a dict, dropped: {rel!r}")
                             continue
                         rtype = r.get('type') or r.get('relation') or ''
                         tgt = r.get('target') or r.get('to') or ''
                         if not tgt:
+                            logger.warning(f"relationship missing target, dropped: {r!r}")
+                            continue
+                        if not rtype:
+                            logger.warning(f"relationship missing type, dropped: target={tgt!r}")
                             continue
                         tgt_uri = self._resolve_rel_target(str(tgt))
                         if tgt_uri is None:
                             logger.info(f"relationship target unresolved, skipped: type={rtype!r} target={tgt!r}")
                             continue
-                        obj = facet_to_agent.get(tgt_uri, tgt_uri)
+                        # Actor relations hold between role-bearers: reject a target
+                        # that resolved to a non-role node (no Agent) instead of
+                        # emitting a domain/range-violating edge.
+                        obj = self._target_agent(g, facet_to_agent, tgt_uri)
+                        if obj is None:
+                            logger.warning(
+                                f"relationship target is not a role-bearer, skipped: "
+                                f"type={rtype!r} target={tgt!r} resolved={str(tgt_uri).split('#')[-1]}")
+                            continue
                         relprop, swap = self._rel_property_for(str(rtype))
+                        if relprop == 'relatedTo':
+                            logger.info(
+                                f"relationship type {rtype!r} not in the actor-relation "
+                                f"vocabulary; emitted as generic relatedTo")
                         # Orient the directional property: swap=True means the
                         # role-bearer is the object (e.g. a client naming its
                         # provider), so the edge runs target->subject.

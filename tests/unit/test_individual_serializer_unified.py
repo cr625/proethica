@@ -60,17 +60,13 @@ def test_attributes_become_per_key_triples():
 
 
 def test_relationships_become_resolved_actor_edges():
-    target = CASE['OwnerTowerDevelopmentClient']
-    svc = _svc({'owner tower development client': target})
-    g = Graph()
-    uri = CASE['EngineerAOriginalDesignEngineer']
-    rdf_data = {'properties': {
-        'relationships': ["{'type': 'client', 'target': 'Owner Tower Development Client'}"],
-    }}
-    svc._add_individual_properties(g, uri, _entity('roles'), rdf_data, CASE)
-    assert (uri, CORE['hasClient'], target) in g
+    svc = _svc()
+    g, subj_uri = _rel_fixture(svc, 'Engineer A Original Design Engineer', 'Engineer A',
+                               'client', 'Owner Tower Development Client', 'Owner')
+    # Edge is between the AGENTS (actor relations hold between role-bearers).
+    assert (CASE['Agent_Engineer_A'], CORE['hasClient'], CASE['Agent_Owner']) in g
     # No opaque literal fallback for a resolved relationship.
-    assert (uri, PROETHICA['relationships'],
+    assert (subj_uri, PROETHICA['relationships'],
             Literal("{'type': 'client', 'target': 'Owner Tower Development Client'}")) not in g
 
 
@@ -87,15 +83,10 @@ def test_relationship_unresolved_target_skipped_not_deadtext():
 
 
 def test_peer_relationship_maps_to_symmetric_property():
-    target = CASE['EngineerBPeerReviewer']
-    svc = _svc({'engineer b peer reviewer': target})
-    g = Graph()
-    uri = CASE['EngineerAOriginalDesignEngineer']
-    rdf_data = {'properties': {
-        'relationships': ["{'type': 'peer', 'target': 'Engineer B Peer Reviewer'}"],
-    }}
-    svc._add_individual_properties(g, uri, _entity('roles'), rdf_data, CASE)
-    assert (uri, CORE['professionalPeerOf'], target) in g
+    svc = _svc()
+    g, _ = _rel_fixture(svc, 'Engineer A Original Design Engineer', 'Engineer A',
+                        'peer', 'Engineer B Peer Reviewer', 'Engineer B')
+    assert (CASE['Agent_Engineer_A'], CORE['professionalPeerOf'], CASE['Agent_Engineer_B']) in g
 
 
 def test_argument_validation_rich_handler_emits():
@@ -368,3 +359,41 @@ def test_target_resolver_prefers_role_facet_over_nonrole():
     agent_owner = CASE['Agent_Owner']
     assert (agent_a, CORE['hasClient'], agent_owner) in g2
     assert (agent_a, CORE['hasClient'], action_uri) not in g2
+
+
+def test_actor_edge_to_non_role_target_is_skipped():
+    """Hardening: a target that resolves ONLY to a non-role node (no Agent, e.g. an
+    Action) gets no actor edge. Actor relations hold between role-bearers, so an
+    edge to a non-Agent node would violate domain/range."""
+    svc = _svc()
+    subj_facet = _role_entity('Engineer A Original Design Engineer')
+    subj_rdf = {'properties': {
+        'actor': ['Engineer A'],
+        'relationships': ["{'type': 'has_client', 'target': 'Owner Covert Review Instruction'}"],
+    }}
+    svc._build_agent_indices([(subj_facet, subj_rdf)], CASE)
+    subj_uri = CASE[svc._safe_label('Engineer A Original Design Engineer')]
+    action_uri = CASE[svc._safe_label('Owner Covert Review Instruction')]
+    # The only candidate for the target label is the non-role action node.
+    svc._rel_label_index = {
+        svc._norm_label('Engineer A Original Design Engineer'): subj_uri,
+        svc._norm_label('Owner Covert Review Instruction'): action_uri,
+    }
+    g = Graph()
+    svc._add_individual_properties(g, subj_uri, subj_facet, subj_rdf, CASE)
+    assert len(list(g.triples((None, CORE['hasClient'], None)))) == 0
+
+
+def test_relationship_provenance_idempotent():
+    """Hardening: the prov-node IRI is deterministic from (subj, relprop, obj), so
+    re-emitting the same edge (the actor bears it on multiple facets, or a re-commit)
+    must not multi-value generatedAtTime / value / comment."""
+    svc = _svc()
+    g = Graph()
+    a, b = CASE['Agent_Engineer_A'], CASE['Agent_Owner']
+    svc._emit_relationship_provenance(g, CASE, a, 'hasClient', b, 'has_client', 'a quote')
+    svc._emit_relationship_provenance(g, CASE, a, 'hasClient', b, 'has_client', 'a quote')
+    prov = list(g.subjects(RDF.type, PROV.Derivation))
+    assert len(prov) == 1, prov
+    assert len(list(g.objects(prov[0], PROV.generatedAtTime))) == 1
+    assert len(list(g.objects(prov[0], PROV.value))) == 1
