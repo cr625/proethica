@@ -693,6 +693,46 @@ class UnifiedDualExtractor:
         # 6. Link individuals to classes
         self._link_individuals_to_classes(individuals, classes)
 
+        # 6b. Drop TYPES emitted as individuals: an individual that is a relabeling of
+        # its own class (a self-instance), or content that belongs to another
+        # component. The multi-purpose individual/type filter is generic across
+        # concept types via a CRITERIA row (it only runs for a type that has one),
+        # deterministic-first with one batched LLM call over the ambiguous remainder
+        # only. Runs here at extraction time so the dropped types never reach
+        # temporary_rdf_storage and the review UI shows the filtered set. Best-effort,
+        # like the precedent filter above: a failure never breaks extraction.
+        try:
+            from app.services.extraction.individual_type_filter import filter_individuals, CRITERIA
+            if self.concept_type in CRITERIA and individuals:
+                def _fdict(ind):
+                    cls = ''
+                    for k in ('resource_class', 'instance_of', 'state_class', 'role_class',
+                              'principle_class', 'obligation_class', 'constraint_class',
+                              'capability_class'):
+                        v = getattr(ind, k, None)
+                        if v:
+                            cls = str(v)
+                            break
+                    return {
+                        'label': (getattr(ind, 'identifier', None) or getattr(ind, 'name', None)
+                                  or getattr(ind, 'label', '') or ''),
+                        'instance_of': cls,
+                        'definition': (getattr(ind, 'used_in_context', None)
+                                       or getattr(ind, 'description', None) or ''),
+                    }
+                _dicts = [_fdict(ind) for ind in individuals]
+                _fres = filter_individuals(_dicts, self.concept_type)
+                if _fres['dropped']:
+                    _kept_ids = {id(d) for d in _fres['kept']}
+                    individuals = [ind for ind, d in zip(individuals, _dicts) if id(d) in _kept_ids]
+                    logger.info(
+                        f"Individual/type filter ({self.concept_type}): dropped "
+                        f"{len(_fres['dropped'])} type-as-individual "
+                        f"(resolver={_fres['resolver']}, llm_items={_fres['llm_items']}): "
+                        f"{[it.get('label') for it, _why in _fres['dropped']]}")
+        except Exception as e:
+            logger.warning(f"individual/type filter skipped for {self.concept_type}: {e}")
+
         elapsed = time.time() - start
         logger.info(
             f"Extracted {len(classes)} classes, {len(individuals)} individuals "
