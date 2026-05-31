@@ -123,6 +123,19 @@ def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
         logger.exception("materialize: fluent-edge applier failed for case %s", case_id)
         results["fluent_edges"] = {"error": str(e)}
 
+    # 2f. OWL-Time anchors (deterministic): mint a time:Instant / time:ProperInterval
+    # individual per happening (from its proeth:temporalExtent) and link via time:hasTime.
+    # The OWL-Time "when" complement to the Event Calculus fluent layer; Allen-relation
+    # individuals supply the ordering. Outside the nine disjoint categories, so guard-neutral.
+    try:
+        from app.services.extraction.time_anchor import apply_time_anchors
+        results["time_anchors"] = apply_time_anchors(
+            case_id=case_id, ttl_path=ttl_path, write_back=True,
+        )
+    except Exception as e:
+        logger.exception("materialize: time-anchor applier failed for case %s", case_id)
+        results["time_anchors"] = {"error": str(e)}
+
     # 3. R->P->O dependency edges (LLM) with the domain/range Pellet guard.
     try:
         from app.services.extraction.rpo_edges import apply_rpo_edges
