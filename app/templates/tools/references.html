@@ -345,18 +345,33 @@
                                 historical context and anticipated future.</p>
                             <h6>Key Literature (Table 2.1)</h6>
                             <ul class="mb-2">
-                                <li><strong>Berreby et al. (2017)</strong>. Exogenous occurrences - automatic events
-                                    that occur when preconditions hold without agent input</li>
+                                <li><strong>Berreby et al. (2017)</strong>. The Event Calculus distinction between
+                                    agent-caused outcomes and exogenous / automatic occurrences (events that fire when
+                                    preconditions hold without agent input). This is the basis of the event-type
+                                    classification described below.</li>
                                 <li><strong>Event Calculus formalism</strong>. Mathematical foundation for modeling
-                                    temporal dynamics - events modify fluents and trigger state transitions</li>
-                                <li><strong>Arkin (2008)</strong>. Emergency overrides - events can temporarily override
-                                    normal constraints reflecting prima facie duties</li>
+                                    temporal dynamics - events modify fluents and trigger state transitions (see the
+                                    Fluents and OWL-Time entries below for how this is materialized)</li>
+                                <li><strong>Arkin (2008)</strong>. Emergency overrides - an emergency can temporarily
+                                    override normal constraints reflecting prima facie duties</li>
                             </ul>
                             <h6>Additional References</h6>
-                            <ul class="mb-0">
+                            <ul class="mb-2">
                                 <li><strong>Anderson & Anderson (2018)</strong>. Event sequence evaluation</li>
                                 <li><strong>Govindarajulu & Bringsjord (2017)</strong>. Temporal modal logic</li>
                             </ul>
+                            <h6>Implementation note: classification vs. severity</h6>
+                            <p class="mb-0">An event carries two distinct labels. <strong>Event type</strong>
+                                (<code>outcome</code>, a consequence of an agent action; <code>exogenous</code>, external
+                                and not caused by a case agent; <code>automatic_trigger</code>, fires when preconditions
+                                hold) is the literature-grounded Event Calculus classification above (Berreby et al.
+                                2017), and it carries weight for responsibility attribution. <strong>Severity</strong>
+                                (critical / high / medium / low / routine) is a deliberately heuristic triage indicator,
+                                <em>not</em> a formal ontology category. Arkin's emergency-override is realized not as a
+                                standalone event flag but through the fluent path: the event <em>initiates</em> a State
+                                (for example an elevated public-safety risk) that in turn activates the overriding
+                                obligation or constraint, so the override is a queryable consequence of the state
+                                transition rather than a property asserted on the event.</p>
                         </div>
                     </div>
                 </div>
@@ -909,11 +924,20 @@
                     <span class="text-warning-emphasis">raises</span> an obligation just as a State activates one.
                 </p>
                 <div class="alert alert-light border mt-2 mb-0">
-                    <p class="small mb-0">
+                    <p class="small mb-1">
                         <strong>Application:</strong> The Analysis and Timeline tabs display causal-normative links showing,
                         per action, the obligations it <span class="text-success">fulfills</span>,
                         <span class="text-danger">violates</span>, or <span class="text-warning-emphasis">raises</span>
                         (puts at stake), enabling systematic evaluation of professional conduct across the case timeline.
+                    </p>
+                    <p class="small mb-0">
+                        These are not free-text annotations. Each is materialized as an object-property edge from the
+                        Action to the actual extracted Obligation individual (<code>fulfillsObligation</code> /
+                        <code>violatesObligation</code> / <code>raisesObligation</code>), and the guiding principle as
+                        <code>guidedByPrinciple</code> to the extracted Principle, resolved to the case individuals rather
+                        than restated as prose. This closes the loop the fluent layer begins: the Action initiates a
+                        State, the State activates the real Obligation or Constraint, and the Action fulfills, violates,
+                        or raises that same obligation individual, so the whole chain is queryable.
                     </p>
                 </div>
             </div>
