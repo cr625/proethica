@@ -918,13 +918,19 @@
                 </div>
             </div>
 
-            <h6 id="initial-fluents">Initial Fluents (Event Calculus)</h6>
+            <h6 id="initial-fluents">Fluents and Fluent Transitions (Event Calculus)</h6>
             <div class="border-start border-3 border-success ps-3 mb-3">
                 <p class="small mt-2 mb-2">
-                    <strong>Definition:</strong> Fluents are time-varying properties that represent the state of the
-                    ethical situation. Initial fluents capture the conditions at case start that persist until
-                    changed by actions or events.
+                    <strong>Definition:</strong> A State is a fluent, a time-varying property that holds over an
+                    interval of the case. A happening (an Action, volitional, or an Event, non-volitional) changes
+                    what holds: it <em>initiates</em> a fluent (brings it into force) or <em>terminates</em> it
+                    (ends it). Inertial fluents persist by default until terminated. The fluent layer is what
+                    connects the temporal components to the normative ones: a happening initiates a State, and the
+                    State activates obligations and constraints.
                 </p>
+                <p class="mb-1"><strong>Kowalski, R., & Sergot, M. (1986)</strong></p>
+                <p class="fst-italic mb-1">A Logic-Based Calculus of Events</p>
+                <p class="small text-muted mb-2"><em>New Generation Computing</em>, 4(1), pp. 67-95.</p>
                 <p class="mb-1"><strong>Berreby, F., Bourgne, G., & Ganascia, J.-G. (2017)</strong></p>
                 <p class="fst-italic mb-1">A Declarative Modular Framework for Representing and Applying Ethical Principles</p>
                 <p class="small text-muted mb-2">
@@ -933,15 +939,53 @@
                     <a href="https://www.ifaamas.org/Proceedings/aamas2017/pdfs/p96.pdf" target="_blank">PDF</a>
                 </p>
                 <p class="small mb-2">
-                    Employs <strong>Event Calculus</strong> formalism where fluents are properties that hold at
-                    particular time points. Actions and events <em>initiate</em> or <em>terminate</em> fluents,
-                    creating state transitions. Fluents persist by default (law of inertia) until explicitly changed.
+                    Kowalski &amp; Sergot introduce the <strong>Event Calculus</strong>: a happening
+                    <em>initiates</em> or <em>terminates</em> a fluent, and a fluent <em>holds</em> at a time if it was
+                    initiated and not since terminated. Berreby et al. apply this to machine ethics, distinguishing
+                    inertial fluents (persist until terminated) from non-inertial ones (hold momentarily) and agent
+                    actions from automatic events.
                 </p>
                 <div class="alert alert-light border mt-2 mb-0">
                     <p class="small mb-0">
-                        <strong>Application:</strong> The Narrative tab displays initial fluents as state conditions
-                        at case start (e.g., "Engineer_A hasEmploymentWith Firm_X", "Project_Y hasStatus active").
-                        These provide the baseline context for evaluating subsequent actions and events.
+                        <strong>Application:</strong> Step 3 records, per Action/Event, the States it brings into or
+                        out of holding, materialized at commit as <code>proeth-core:initiates</code> and
+                        <code>proeth-core:terminates</code> edges (Action/Event to State). These generalize the
+                        State-side <code>activatedByEvent</code> / <code>terminatedByEvent</code> to both happening
+                        kinds in the canonical happening-to-fluent direction.
+                    </p>
+                </div>
+            </div>
+
+            <h6 id="owl-time">Temporal Position and Ordering (OWL-Time / Allen)</h6>
+            <div class="border-start border-3 border-success ps-3 mb-3">
+                <p class="small mt-2 mb-2">
+                    <strong>Definition:</strong> Where the Event Calculus says what holds and why it changed, OWL-Time
+                    says <em>when</em>. Each happening is anchored to a temporal entity, and happenings are ordered by
+                    the thirteen Allen interval relations, standardized as OWL-Time object properties.
+                </p>
+                <p class="mb-1"><strong>Allen, J. F. (1983)</strong></p>
+                <p class="fst-italic mb-1">Maintaining Knowledge about Temporal Intervals</p>
+                <p class="small text-muted mb-2"><em>Communications of the ACM</em>, 26(11), pp. 832-843.</p>
+                <p class="mb-1"><strong>Cox, S., & Little, C. (2017)</strong></p>
+                <p class="fst-italic mb-1">Time Ontology in OWL</p>
+                <p class="small text-muted mb-2">
+                    W3C Recommendation (namespace <code>http://www.w3.org/2006/time#</code>).
+                    <a href="https://www.w3.org/TR/owl-time/" target="_blank">W3C</a>
+                </p>
+                <p class="small mb-2">
+                    Allen's interval algebra defines the thirteen relations between intervals (before, meets, overlaps,
+                    during, starts, finishes, equals, and inverses); OWL-Time provides them as
+                    <code>time:intervalBefore</code>, <code>time:intervalMeets</code>, and so on, over
+                    <code>time:ProperInterval</code>, plus <code>time:Instant</code> for point occurrences and
+                    <code>time:hasTime</code> to anchor any entity to a temporal entity.
+                </p>
+                <div class="alert alert-light border mt-2 mb-0">
+                    <p class="small mb-0">
+                        <strong>Application:</strong> Each Action/Event carries a <code>proeth:temporalExtent</code>
+                        (instant or interval) and is anchored via <code>time:hasTime</code> to a minted
+                        <code>time:Instant</code> or <code>time:ProperInterval</code>; the Allen relations between
+                        happenings are stored as <code>time:interval*</code> object properties, and
+                        <code>proeth:temporalSequence</code> gives the discrete chronological order shown in the Timeline.
                     </p>
                 </div>
             </div>
