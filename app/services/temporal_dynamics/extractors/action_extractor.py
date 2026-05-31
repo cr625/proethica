@@ -295,6 +295,16 @@ For each ACTION, extract:
 7. ethical_context: {{obligations_fulfilled, obligations_violated, guiding_principles, active_constraints, competing_obligations}}
 8. competing_priorities: {{has_tradeoffs, priority_conflict, conflicting_factors, resolution_reasoning}}
 9. professional_context: {{within_competence, required_capabilities, required_resources}}
+10. initiates: list of STATES (fluents) this action brings into holding. In the Event
+    Calculus (Kowalski & Sergot 1986; Berreby et al. 2017) a happening initiates a fluent
+    that then holds until terminated. Name the conditions/states that become true because
+    of this action (for example "Conflict of Interest", "Public Safety Risk Disclosed"),
+    using the same state names used elsewhere in the case. Empty list if it changes no state.
+11. terminates: list of STATES (fluents) this action ends (conditions that stop holding).
+    Empty list if none.
+12. temporal_extent: "instant" if the action is a point occurrence, "interval" if it
+    extends over a period. This anchors the action in OWL-Time; temporal_marker stays the
+    textual when.
 
 Return JSON:
 ```json
@@ -328,7 +338,10 @@ Return JSON:
       "within_competence": true,
       "required_capabilities": ["Engineering judgment"],
       "required_resources": ["Specifications"]
-    }}
+    }},
+    "initiates": ["Quality Risk State"],
+    "terminates": [],
+    "temporal_extent": "instant"
   }}
 ]}}
 ```

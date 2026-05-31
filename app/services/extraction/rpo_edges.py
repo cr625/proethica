@@ -378,9 +378,18 @@ _PARTICIPANT_EDGE_RANGE = {
     PROETH_CORE.possessedBy: ("Capability", "Agent"),
     PROETH_CORE.invokedBy: ("Principle", "Agent"),
 }
+# Fluent transitions materialized by fluent_edges.py (Event Calculus initiates/terminates).
+# The subject is a happening, which is an Action OR an Event, so the subject slot is a SET
+# of allowed categories (the guard normalises a single string to a singleton, so only these
+# need the set form). Object is State. A happening whose type resolves to neither Action nor
+# Event, or an object that is not a State, is dropped by the guard.
+_FLUENT_EDGE_RANGE = {
+    PROETH_CORE.initiates: ({"Action", "Event"}, "State"),
+    PROETH_CORE.terminates: ({"Action", "Event"}, "State"),
+}
 ALL_EDGE_RANGE = {**_EDGE_RANGE, **_DEFEASIBILITY_RANGE, **_STATE_EDGE_RANGE,
                   **_RESOURCE_EDGE_RANGE, **_STATE_AFFECTS_RANGE,
-                  **_PARTICIPANT_EDGE_RANGE}
+                  **_PARTICIPANT_EDGE_RANGE, **_FLUENT_EDGE_RANGE}
 
 
 def _default_ontology_paths() -> Tuple[Any, Any]:
@@ -480,9 +489,16 @@ def drop_domain_range_violations(g: Graph, case_id: int,
     if edge_range is None:
         edge_range = _EDGE_RANGE
 
+    # A category slot is either a single category string or a set of allowed categories
+    # (a union domain/range, e.g. initiates/terminates whose subject may be Action OR
+    # Event). Normalise to a set so the disjointness test below is uniform.
+    def _allowed(slot):
+        return slot if isinstance(slot, (set, frozenset)) else {slot}
+
     merged = _build_merged_graph(g, core_ttl, intermediate_ttl)
     bad = []
     for pred, (dom_exp, rng_exp) in edge_range.items():
+        dom_allowed, rng_allowed = _allowed(dom_exp), _allowed(rng_exp)
         for s, o in merged.subject_objects(pred):
             sc = _core_categories(merged, s)
             oc = _core_categories(merged, o)
@@ -496,7 +512,7 @@ def drop_domain_range_violations(g: Graph, case_id: int,
             # with no resolved core category, or whose required category is outside
             # the nine (e.g. Agent for availableTo/affects), yield an empty set
             # difference and are kept.
-            if (sc - {dom_exp}) or (oc - {rng_exp}):
+            if (sc - dom_allowed) or (oc - rng_allowed):
                 bad.append((s, pred, o))
     if not bad:
         return 0

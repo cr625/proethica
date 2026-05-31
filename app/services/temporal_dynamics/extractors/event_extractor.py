@@ -177,6 +177,17 @@ For each event, identify:
    - Deactivates constraints (list if any)
    - State change description
 
+4b. FLUENT TRANSITIONS (Event Calculus; Kowalski & Sergot 1986, Berreby et al. 2017):
+   - initiates: list of STATES (fluents) this event brings into holding. An event does not
+     create an obligation directly; it initiates a STATE (fluent) that then makes
+     obligations or constraints apply. Name the conditions/states that become true (for
+     example "Public Safety Risk", "Project Suspended"), using the same state names used
+     elsewhere in the case. The constraints/obligations above are the consequences of these
+     initiated states. Empty list if the event changes no state.
+   - terminates: list of STATES (fluents) this event ends (conditions that stop holding).
+   - temporal_extent: "instant" if the event is a point occurrence, "interval" if it
+     extends over a period (anchors the event in OWL-Time; temporal_marker stays the textual when).
+
 5. CAUSAL CONTEXT:
    - Caused by action (reference action label if applicable)
    - Causal chain summary (brief sequence leading to this event)
@@ -227,6 +238,10 @@ Return your analysis as a JSON array:
         "deactivates_constraints": [],
         "state_change": "Project halted; safety review initiated; stakeholders notified"
       }},
+
+      "initiates": ["Public Safety Risk", "Project Halted State"],
+      "terminates": [],
+      "temporal_extent": "instant",
 
       "causal_context": {{
         "caused_by_action": "Task Assignment Decision",
