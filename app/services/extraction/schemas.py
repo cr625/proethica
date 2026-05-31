@@ -363,9 +363,18 @@ class ObligationExtractionResult(BaseModel):
 # ---------------------------------------------------------------------------
 
 class StateCategory(str, Enum):
-    """proethica-intermediate.ttl State groupings.
+    """proethica-intermediate.ttl State archetypes (deontic-function axis).
 
-    Jones (1991) moral intensity factors, extended with ontology groups.
+    A state's kind is grounded by its deontic function on a role-derived obligation:
+    activating it (risk, emergency), constraining the action it governs (regulatory),
+    putting obligations in conflict/defeat (conflict), conditioning a duty on capacity
+    (competence) or on knowledge (information), scoping it to a relationship
+    (relationship), bounding it in time (temporal), or conditioning its feasibility
+    (resource). Grounding: Berreby et al. (2017) Event-Calculus fluents that trigger/
+    terminate obligations, Almpani et al. (2023) context-driven obligation priorities,
+    Stenseke (2024) obligation-presupposes-capacity, Govindarajulu & Bringsjord (2017)
+    obligation-depends-on-knowledge -- NOT Jones (1991), whose moral intensity SCORES a
+    situation's salience (a state attribute, e.g. urgency_level) rather than typing it.
     """
     conflict = "conflict"
     risk = "risk"
@@ -1064,15 +1073,17 @@ CATEGORY_TO_ONTOLOGY_IRI: Dict[str, Dict[str, str]] = {
     # The match_decision field handles mapping to specific state subclasses
     # (ConflictOfInterest, PublicSafetyAtRisk, etc.)
     'states': {
-        'conflict': f'{CORE_NS}State',
-        'risk': f'{CORE_NS}State',
-        'competence': f'{CORE_NS}State',
-        'relationship': f'{CORE_NS}State',
-        'information': f'{CORE_NS}State',
-        'emergency': f'{CORE_NS}State',
-        'regulatory': f'{CORE_NS}State',
-        'temporal': f'{CORE_NS}State',
-        'resource': f'{CORE_NS}State',
+        # Deontic-function state archetypes (proethica-intermediate, 2026-05-30): a
+        # state's kind is its function on a role-derived obligation. Was all -> core:State.
+        'conflict': f'{INTERMEDIATE_NS}ConflictState',
+        'risk': f'{INTERMEDIATE_NS}RiskState',
+        'competence': f'{INTERMEDIATE_NS}CompetenceState',
+        'relationship': f'{INTERMEDIATE_NS}RelationshipState',
+        'information': f'{INTERMEDIATE_NS}InformationState',
+        'emergency': f'{INTERMEDIATE_NS}EmergencyState',
+        'regulatory': f'{INTERMEDIATE_NS}RegulatoryState',
+        'temporal': f'{INTERMEDIATE_NS}TemporalState',
+        'resource': f'{INTERMEDIATE_NS}ResourceAvailabilityState',
     },
     # Rs: Resource categories -> intermediate subclass IRIs
     'resources': {
