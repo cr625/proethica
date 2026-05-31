@@ -300,7 +300,32 @@
                             <p><strong>Description:</strong> {{ action.description }}</p>
 
                             {% if action.temporal_marker %}
-                            <p><strong>Temporal Marker:</strong> <span class="badge bg-secondary">{{ action.temporal_marker }}</span></p>
+                            <p><strong>Temporal Marker:</strong> <span class="badge bg-secondary">{{ action.temporal_marker }}</span>
+                            {% if action.temporal_extent %}<span class="badge bg-light text-dark border ms-1" title="OWL-Time extent">{{ action.temporal_extent }}</span>{% endif %}</p>
+                            {% endif %}
+
+                            {% if action.initiates or action.terminates %}
+                            <div class="mt-2">
+                                <h6 title="Event Calculus fluent transitions">Fluent Transitions:</h6>
+                                <div class="row g-2">
+                                    {% if action.initiates %}
+                                    <div class="col-md-6">
+                                        <div class="border-start border-3 border-info ps-2">
+                                            <small class="fw-semibold text-info-emphasis"><i class="bi bi-play-circle-fill"></i> Initiates ({{ action.initiates|length }})</small>
+                                            <ul class="mb-0 small">{% for s in action.initiates %}<li>{{ s }}</li>{% endfor %}</ul>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                    {% if action.terminates %}
+                                    <div class="col-md-6">
+                                        <div class="border-start border-3 border-secondary ps-2">
+                                            <small class="fw-semibold text-secondary"><i class="bi bi-stop-circle-fill"></i> Terminates ({{ action.terminates|length }})</small>
+                                            <ul class="mb-0 small">{% for s in action.terminates %}<li>{{ s }}</li>{% endfor %}</ul>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
                             {% endif %}
 
                             {% if action.mental_state %}
@@ -494,7 +519,32 @@
                             <p><strong>Description:</strong> {{ event.description }}</p>
 
                             {% if event.temporal_marker %}
-                            <p><strong>Temporal Marker:</strong> <span class="badge bg-secondary">{{ event.temporal_marker }}</span></p>
+                            <p><strong>Temporal Marker:</strong> <span class="badge bg-secondary">{{ event.temporal_marker }}</span>
+                            {% if event.temporal_extent %}<span class="badge bg-light text-dark border ms-1" title="OWL-Time extent">{{ event.temporal_extent }}</span>{% endif %}</p>
+                            {% endif %}
+
+                            {% if event.initiates or event.terminates %}
+                            <div class="mt-2">
+                                <h6 title="Event Calculus fluent transitions">Fluent Transitions:</h6>
+                                <div class="row g-2">
+                                    {% if event.initiates %}
+                                    <div class="col-md-6">
+                                        <div class="border-start border-3 border-info ps-2">
+                                            <small class="fw-semibold text-info-emphasis"><i class="bi bi-play-circle-fill"></i> Initiates ({{ event.initiates|length }})</small>
+                                            <ul class="mb-0 small">{% for s in event.initiates %}<li>{{ s }}</li>{% endfor %}</ul>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                    {% if event.terminates %}
+                                    <div class="col-md-6">
+                                        <div class="border-start border-3 border-secondary ps-2">
+                                            <small class="fw-semibold text-secondary"><i class="bi bi-stop-circle-fill"></i> Terminates ({{ event.terminates|length }})</small>
+                                            <ul class="mb-0 small">{% for s in event.terminates %}<li>{{ s }}</li>{% endfor %}</ul>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
                             {% endif %}
 
                             {% if event.causes_state_change %}

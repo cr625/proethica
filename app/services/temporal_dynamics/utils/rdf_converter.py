@@ -128,7 +128,37 @@ def convert_action_to_rdf(action: Dict, case_id: int) -> Dict:
         if scenario_meta.get('consequences_if_alternative'):
             rdf_entity['proeth-scenario:consequencesIfAlternative'] = scenario_meta['consequences_if_alternative']
 
+    _add_fluent_and_time(rdf_entity, action)
     return rdf_entity
+
+
+def _add_fluent_and_time(rdf_entity: Dict, src: Dict) -> None:
+    """Attach the Event-Calculus fluent transitions and the OWL-Time anchor a happening
+    (action or event) carries, shared by the action and event converters.
+
+    - proeth:initiates / proeth:terminates: the State (fluent) labels this happening brings
+      into / takes out of holding (Kowalski & Sergot 1986; Berreby et al. 2017). Kept as the
+      raw label lists; fluent_edges.py resolves them to the case State individuals and
+      materialises proeth-core:initiates / terminates edges at commit.
+    - proeth:temporalExtent: the OWL-Time extent classification, "instant" (point
+      occurrence, OWL-Time time:Instant) or "interval" (extended, time:ProperInterval). The
+      relational ordering is carried by the Allen-relation individuals (time:intervalBefore
+      etc., separate individuals) and the discrete order by temporalSequence. A proper
+      per-happening time:hasTime -> time:Instant/Interval individual is a deferred follow-on:
+      the commit serializer emits only literal and IRI property values, so a nested anonymous
+      time entity does not survive (the same reason proeth:hasCompetingPriorities does not
+      land); landing it needs a separately-minted time individual, not a nested blank node.
+    """
+    initiates = src.get('initiates') or []
+    terminates = src.get('terminates') or []
+    if isinstance(initiates, list) and initiates:
+        rdf_entity['proeth:initiates'] = [str(x).strip() for x in initiates if str(x).strip()]
+    if isinstance(terminates, list) and terminates:
+        rdf_entity['proeth:terminates'] = [str(x).strip() for x in terminates if str(x).strip()]
+
+    extent = (src.get('temporal_extent') or '').strip().lower()
+    if extent in ('instant', 'interval'):
+        rdf_entity['proeth:temporalExtent'] = extent
 
 
 def convert_event_to_rdf(event: Dict, case_id: int) -> Dict:
@@ -200,6 +230,7 @@ def convert_event_to_rdf(event: Dict, case_id: int) -> Dict:
             rdf_entity['proeth-scenario:discussionPrompts'] = scenario_meta['discussion_prompts']
         rdf_entity['proeth-scenario:ethicalImplications'] = scenario_meta.get('ethical_implications', '')
 
+    _add_fluent_and_time(rdf_entity, event)
     return rdf_entity
 
 

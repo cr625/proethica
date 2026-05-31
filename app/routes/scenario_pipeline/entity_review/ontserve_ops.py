@@ -223,6 +223,12 @@ def register_ontserve_ops_routes(bp):
                         'competing_priorities': rdf_data.get('proeth:hasCompetingPriorities', {}),
                         'within_competence': rdf_data.get('proeth:withinCompetence', False),
                         'requires_capability': rdf_data.get('proeth:requiresCapability', []),
+                        # Event Calculus fluent transitions: the States this action brings
+                        # into / takes out of holding (committed as proeth-core:initiates /
+                        # terminates edges). temporal_extent = OWL-Time instant|interval.
+                        'initiates': rdf_data.get('proeth:initiates', []),
+                        'terminates': rdf_data.get('proeth:terminates', []),
+                        'temporal_extent': rdf_data.get('proeth:temporalExtent', ''),
                         'rdf_json': rdf_data
                     })
 
@@ -248,6 +254,11 @@ def register_ontserve_ops_routes(bp):
                         'creates_obligation': rdf_data.get('proeth:createsObligation', []),
                         'causes_state_change': rdf_data.get('proeth:causesStateChange', ''),
                         'caused_by_action': rdf_data.get('proeth:causedByAction', ''),
+                        # Event Calculus fluent transitions (proeth-core:initiates /
+                        # terminates edges at commit). temporal_extent = OWL-Time instant|interval.
+                        'initiates': rdf_data.get('proeth:initiates', []),
+                        'terminates': rdf_data.get('proeth:terminates', []),
+                        'temporal_extent': rdf_data.get('proeth:temporalExtent', ''),
                         'rdf_json': rdf_data
                     })
 

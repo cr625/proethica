@@ -108,6 +108,21 @@ def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
         logger.exception("materialize: participant-edge applier failed for case %s", case_id)
         results["participant_edges"] = {"error": str(e)}
 
+    # 2e. Fluent-transition edges (DB-driven, embedding-resolved): the Step-3 temporal
+    # happenings' initiates / terminates State labels become Action/Event -> State edges
+    # (proeth-core:initiates / terminates), the canonical Event Calculus direction. Restores
+    # the fluent as the middle term between the temporal and normative components. Mirrors
+    # the state-affects / participant appliers (embedding shortlist + batched LLM select,
+    # prov:Derivation). No-op for cases with no committed temporal individuals.
+    try:
+        from app.services.extraction.fluent_edges import apply_fluent_edges
+        results["fluent_edges"] = apply_fluent_edges(
+            case_id=case_id, ttl_path=ttl_path, write_back=True,
+        )
+    except Exception as e:
+        logger.exception("materialize: fluent-edge applier failed for case %s", case_id)
+        results["fluent_edges"] = {"error": str(e)}
+
     # 3. R->P->O dependency edges (LLM) with the domain/range Pellet guard.
     try:
         from app.services.extraction.rpo_edges import apply_rpo_edges
