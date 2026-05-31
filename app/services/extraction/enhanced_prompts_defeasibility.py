@@ -145,9 +145,9 @@ def _format_states(states: List[StateContext]) -> str:
     for st in states:
         block = [f"- IRI: <{st.iri}>", f"  label: {st.label}"]
         if st.state_class:
-            block.append(f"  stateclass: {st.state_class}")
+            block.append(f"  stateClass: {st.state_class}")
         if st.triggering_event:
-            block.append(f"  triggeringevent: {st.triggering_event}")
+            block.append(f"  triggeringEvent: {st.triggering_event}")
         if st.subject:
             block.append(f"  subject: {st.subject}")
         lines.append("\n".join(block))

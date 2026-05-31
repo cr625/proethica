@@ -162,10 +162,13 @@ def _build_multi_select_prompt(items: List[Dict[str, Any]]) -> str:
     )
 
 
-def _llm_select_multi(items: List[Dict[str, Any]], client=None, model=None):
+def _llm_select_multi(items: List[Dict[str, Any]], client=None, model=None,
+                      prompt_builder=None):
     """Map each item id -> list of chosen Agent IRIs via one LLM call. Returns the
     selection dict, or None if the LLM is unavailable / the call fails (the caller
-    then falls back to the embedding threshold)."""
+    then falls back to the embedding threshold). `prompt_builder` lets a sibling
+    applier (e.g. state_affects_edges) supply its own request wording while reusing
+    the streaming + JSON-parse + index-mapping logic here."""
     if not items:
         return {}
     try:
@@ -184,7 +187,7 @@ def _llm_select_multi(items: List[Dict[str, Any]], client=None, model=None):
         if not (hasattr(client, "messages") and hasattr(client.messages, "stream")):
             logger.warning("resource_edges: no Anthropic streaming client; embedding fallback")
             return None
-        prompt = _build_multi_select_prompt(items)
+        prompt = (prompt_builder or _build_multi_select_prompt)(items)
         chunks: List[str] = []
         with client.messages.stream(
             model=model, max_tokens=4096, temperature=0.0,

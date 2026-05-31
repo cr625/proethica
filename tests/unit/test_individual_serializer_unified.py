@@ -18,9 +18,12 @@ Unification put one serializer in place. These tests lock two contracts:
 """
 import types
 
-from rdflib import Graph, Namespace, RDF, Literal
+from rdflib import Graph, Namespace, RDF, RDFS, OWL, Literal, URIRef
+from rdflib.namespace import SKOS, XSD
 
 from app.services.ontserve_commit_service import OntServeCommitService
+
+PROV_NS = Namespace('http://proethica.org/provenance#')
 
 CASE = Namespace('http://proethica.org/ontology/case/15#')
 CORE = Namespace('http://proethica.org/ontology/core#')
@@ -397,3 +400,130 @@ def test_relationship_provenance_idempotent():
     assert len(prov) == 1, prov
     assert len(list(g.objects(prov[0], PROV.generatedAtTime))) == 1
     assert len(list(g.objects(prov[0], PROV.value))) == 1
+
+
+# --- Individual definitions (symmetric with the class path) ---------------------
+
+def test_individual_definition_emits_comment_and_skos():
+    """Individuals previously received NO rdfs:comment/skos:definition; their
+    definition survived only as a duplicated property literal. _emit_definitions
+    (shared with the class path) restores symmetry."""
+    svc = _svc()
+    g = Graph()
+    uri = CASE['Engineer_A_Design_Engineer']
+    entity = types.SimpleNamespace(extraction_type='roles', entity_definition=None)
+    rdf_data = {'definitions': [
+        {'text': 'Created the original plans and designs for both towers.',
+         'is_primary': True, 'source_section': 'facts'},
+        {'text': 'Occupational archetype head for engineer specializations.',
+         'is_primary': False,
+         'source_uri': 'http://proethica.org/ontology/intermediate#EngineerRole',
+         'source_ontology': 'proethica-intermediate', 'source_type': 'ontology'},
+    ]}
+    svc._emit_definitions(g, uri, entity, rdf_data)
+    primary = 'Created the original plans and designs for both towers.'
+    assert (uri, RDFS.comment, Literal(primary)) in g
+    assert (uri, SKOS.definition, Literal(primary)) in g
+    # Alternate definition -> skos:scopeNote tagged with the source CLASS (from
+    # source_uri), not the source ontology, so it reads "Inherited from EngineerRole".
+    assert (uri, SKOS.scopeNote,
+            Literal('[EngineerRole] Occupational archetype head for engineer specializations.')) in g
+    assert len(list(g.objects(uri, RDFS.comment))) == 1
+
+
+def test_scopenote_tag_falls_back_to_ontology_then_section():
+    """Without a source_uri the scope-note tag falls back to the source ontology,
+    then the section (a second extraction definition from another pass)."""
+    svc = _svc()
+    g = Graph()
+    uri = CASE['X']
+    entity = types.SimpleNamespace(extraction_type='roles', entity_definition=None)
+    rdf_data = {'definitions': [
+        {'text': 'primary', 'is_primary': True, 'source_section': 'facts'},
+        {'text': 'onto def', 'is_primary': False, 'source_ontology': 'proethica-intermediate'},
+        {'text': 'discussion def', 'is_primary': False, 'source_section': 'discussion'},
+    ]}
+    svc._emit_definitions(g, uri, entity, rdf_data)
+    assert (uri, SKOS.scopeNote, Literal('[proethica-intermediate] onto def')) in g
+    assert (uri, SKOS.scopeNote, Literal('[discussion] discussion def')) in g
+
+
+def test_individual_definition_falls_back_to_entity_definition():
+    svc = _svc()
+    g = Graph()
+    uri = CASE['SomeIndividual']
+    entity = types.SimpleNamespace(extraction_type='states', entity_definition='Fallback text.')
+    svc._emit_definitions(g, uri, entity, {})  # no definitions[] array
+    assert (uri, RDFS.comment, Literal('Fallback text.')) in g
+    assert (uri, SKOS.definition, Literal('Fallback text.')) in g
+
+
+# --- match_decision persisted as XAI annotation provenance ----------------------
+
+def test_match_decision_persisted_as_annotations():
+    svc = _svc()
+    g = Graph()
+    uri = CASE['Engineer_A_Design_Engineer']
+    rdf_data = {'match_decision': {
+        'reasoning': 'Design Engineer is a specialization of Engineer Role.',
+        'confidence': 0.75,
+        'matched_uri': 'http://proethica.org/ontology/intermediate#EngineerRole',
+        'matched_label': 'Engineer Role',
+        'matches_existing': True,
+    }}
+    svc._emit_match_decision(g, uri, rdf_data, PROV_NS)
+    assert (uri, PROV_NS['matchedOntologyClass'], PROETHICA['EngineerRole']) in g
+    assert (uri, PROV_NS['matchedOntologyLabel'], Literal('Engineer Role')) in g
+    assert (uri, PROV_NS['matchConfidence'], Literal(0.75, datatype=XSD.decimal)) in g
+    assert (uri, PROV_NS['matchesExisting'], Literal(True, datatype=XSD.boolean)) in g
+    assert (uri, PROV_NS['matchReasoning'],
+            Literal('Design Engineer is a specialization of Engineer Role.')) in g
+    # The IRI-valued property MUST be declared owl:AnnotationProperty inline, or
+    # Pellet auto-types it ObjectProperty and puns the target class.
+    assert (PROV_NS['matchedOntologyClass'], RDF.type, OWL.AnnotationProperty) in g
+
+
+def test_match_decision_minted_class_records_negative_evidence():
+    """A 'no match' decision (the matcher minted a new class) still records the
+    negative evidence -- itself XAI-useful -- without dangling matchedOntologyClass."""
+    svc = _svc()
+    g = Graph()
+    uri = CASE['Engineer_A_Known_Design_Defect']
+    rdf_data = {'match_decision': {'confidence': 0.0, 'matches_existing': False}}
+    svc._emit_match_decision(g, uri, rdf_data, PROV_NS)
+    assert (uri, PROV_NS['matchesExisting'], Literal(False, datatype=XSD.boolean)) in g
+    assert len(list(g.objects(uri, PROV_NS['matchedOntologyClass']))) == 0
+
+
+def test_category_disambiguation_on_cross_layer_collision():
+    """A class IRI the immutable base reserves for a disjoint category must be
+    disambiguated by appending the entity's category, so a Principle is never minted
+    onto a Capability IRI (the pass-2 ProfessionalCompetence collision). No-op when
+    there is no collision, the IRI is not in the base, or no category is given."""
+    svc = _svc()
+    # Stand in for the core+intermediate base map (avoids parsing TTLs in the test).
+    svc._base_cat_cache = {'ProfessionalCompetence': 'Capability', 'EngineerRole': 'Role'}
+    # Collision: a Principle onto a base Capability IRI -> disambiguated.
+    assert svc._category_safe_class_local('ProfessionalCompetence', 'Principle') == 'ProfessionalCompetencePrinciple'
+    # Same category as the base -> unchanged (legit reuse of an existing class).
+    assert svc._category_safe_class_local('EngineerRole', 'Role') == 'EngineerRole'
+    # Not in the base (a fresh discovered class) -> unchanged.
+    assert svc._category_safe_class_local('NovelPrincipleClass', 'Principle') == 'NovelPrincipleClass'
+    # No category (non-concept entity) -> unchanged.
+    assert svc._category_safe_class_local('ProfessionalCompetence', None) == 'ProfessionalCompetence'
+
+
+def test_match_decision_rejects_per_case_matched_uri():
+    """A per-case copy IRI must not be recorded as the canonical match (it would
+    re-introduce the injection pollution the curated filter removed)."""
+    svc = _svc()
+    g = Graph()
+    uri = CASE['SomeIndividual']
+    rdf_data = {'match_decision': {
+        'matched_uri': 'http://proethica.org/ontology/case/8#JunkCopy',
+        'matches_existing': True,
+    }}
+    svc._emit_match_decision(g, uri, rdf_data, PROV_NS)
+    assert len(list(g.objects(uri, PROV_NS['matchedOntologyClass']))) == 0
+    # matches_existing is still recorded.
+    assert (uri, PROV_NS['matchesExisting'], Literal(True, datatype=XSD.boolean)) in g

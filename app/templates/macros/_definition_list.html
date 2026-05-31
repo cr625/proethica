@@ -1,0 +1,37 @@
+{# Render a list of definition objects with clear source demarcation.
+
+   Each definition carries: text, is_primary, source_type ('extraction' | 'ontology'),
+   plus source_section (extraction) or source_uri / source_ontology (ontology).
+
+   The primary definition is the entity's own canonical definition and is committed
+   to OntServe as rdfs:comment + skos:definition. A non-primary definition is
+   contextual (typically the definition inherited from the matched parent/anchor
+   class) and is committed as skos:scopeNote, tagged with its source. This view
+   mirrors that distinction so the two are not confused when stacked:
+     - "Extracted from <section>"  -> the LLM's definition for THIS case (bold)
+     - "Inherited from <Class>"    -> the parent class's definition, for context (muted)
+#}
+{% macro render_definition_list(definitions) %}
+    {% for defn in definitions %}
+    {% set is_onto = defn.source_type == 'ontology' %}
+    <div class="ps-2 mb-2 border-start border-3 {{ 'border-info' if is_onto else 'border-primary' }}">
+        <div class="text-uppercase text-muted" style="font-size: 0.62em; letter-spacing: 0.04em;">
+            {%- if is_onto -%}
+                Inherited{% if defn.source_uri %} from {{ defn.source_uri.split('#')[-1] }}{% elif defn.source_ontology %} ({{ defn.source_ontology }}){% endif %}
+            {%- elif defn.source_type == 'extraction' -%}
+                Extracted{% if defn.source_section %} from {{ defn.source_section }}{% endif %}
+            {%- else -%}
+                {{ defn.source_type or 'definition' }}
+            {%- endif -%}
+            {% if defn.is_primary %}
+                <span class="badge bg-secondary ms-1" title="canonical definition (committed as rdfs:comment / skos:definition)">primary</span>
+            {% else %}
+                <span class="ms-1" title="contextual note (committed as skos:scopeNote)">&middot; note</span>
+            {% endif %}
+        </div>
+        <div class="small{% if not defn.is_primary %} text-muted fst-italic{% endif %}">
+            {% if defn.is_primary %}<strong>{{ defn.text }}</strong>{% else %}{{ defn.text }}{% endif %}
+        </div>
+    </div>
+    {% endfor %}
+{% endmacro %}

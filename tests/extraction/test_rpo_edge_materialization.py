@@ -95,6 +95,35 @@ def test_guard_noop_when_all_valid():
     assert drop_domain_range_violations(g, 9999) == 0
 
 
+def test_guard_drops_endpoint_reaching_range_and_conflicting_category():
+    """Pass-2 regression: an object that reaches the property range AND a conflicting
+    disjoint category must be dropped. This is the class name-collision case (a
+    principle class sharing an IRI with a capability class left the node subClassOf
+    both Principle and Capability). The old 'range absent' condition kept the edge
+    because Principle WAS reachable; the strengthened 'reaches any other category'
+    condition drops it, matching what Pellet rejects."""
+    g = _fixture_graph()
+    dual = "http://proethica.org/ontology/case/9999#dual_indiv"
+    g.parse(data=textwrap.dedent("""\
+        @prefix case: <http://proethica.org/ontology/case/9999#> .
+        @prefix proeth: <http://proethica.org/ontology/intermediate#> .
+        @prefix proeth-core: <http://proethica.org/ontology/core#> .
+        @prefix owl: <http://www.w3.org/2002/07/owl#> .
+        @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+        proeth:CollidedClass a owl:Class ;
+            rdfs:subClassOf proeth-core:Principle, proeth-core:Capability .
+        case:dual_indiv a owl:NamedIndividual, proeth:CollidedClass ;
+            proeth:conceptCategory "Principle" .
+    """), format="turtle")
+    add_edges_to_graph(g, [
+        {"predicate": "adheresToPrinciple", "subject_iri": ROLE, "object_iri": dual,
+         "source_text": "object reaches Principle AND Capability", "confidence": 0.9},
+    ], 9999)
+    removed = drop_domain_range_violations(g, 9999)
+    assert removed >= 1
+    assert (URIRef(ROLE), ADHERES_TO, URIRef(dual)) not in g
+
+
 class _StubExtractor:
     def __init__(self, edges):
         self._edges = edges

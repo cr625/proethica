@@ -49,6 +49,7 @@ TIME = Namespace("http://www.w3.org/2006/time#")
 BFO = Namespace("http://purl.obolibrary.org/obo/BFO_")
 IAO = Namespace("http://purl.obolibrary.org/obo/IAO_")
 PROV = Namespace("http://www.w3.org/ns/prov#")
+PROETHICA_PROV = Namespace("http://proethica.org/provenance#")
 
 
 class OntServeCommitService:
@@ -103,6 +104,76 @@ class OntServeCommitService:
             from app.services.extraction.category_resolver import CategoryResolver
             self._category_resolver = CategoryResolver(self.ontologies_dir)
         return self._category_resolver.resolve(class_local_name)
+
+    def _base_core_category(self, class_local_name: str) -> Optional[str]:
+        """Core category an IRI is reserved for in the IMMUTABLE base (core +
+        intermediate ONLY, NOT the extended store).
+
+        `_established_core_category` includes proethica-intermediate-extended, which
+        a re-extraction is actively writing -- so once a colliding class is written
+        there it masks the conflict (it would report the just-written category).
+        The base is fixed during a run, so it is the authority for deciding whether
+        a label collides with a reserved category. Cached per instance. e.g.
+        ProfessionalCompetence -> Capability (reserved by proethica-intermediate),
+        regardless of what a principle pass tries to write to the same IRI.
+        """
+        cache = getattr(self, '_base_cat_cache', None)
+        if cache is None:
+            cache = {}
+            from rdflib import Graph as _G
+            base = _G()
+            for fn in ('proethica-core.ttl', 'proethica-intermediate.ttl'):
+                p = self.ontologies_dir / fn
+                if p.exists():
+                    try:
+                        base.parse(str(p), format='turtle')
+                    except Exception as e:
+                        logger.warning("base-category map: could not parse %s: %s", fn, e)
+            core_ns = str(PROETHICA_CORE)
+            nine = {'Role', 'Principle', 'Obligation', 'State', 'Resource',
+                    'Action', 'Event', 'Capability', 'Constraint'}
+
+            def reach(cls, seen):
+                if cls in seen:
+                    return None
+                seen.add(cls)
+                s = str(cls)
+                if s.startswith(core_ns) and s.split('#')[-1] in nine:
+                    return s.split('#')[-1]
+                for sup in base.objects(cls, RDFS.subClassOf):
+                    r = reach(sup, seen)
+                    if r:
+                        return r
+                return None
+
+            for cls in set(base.subjects(RDF.type, OWL.Class)):
+                local = str(cls).split('#')[-1].split('/')[-1]
+                cat = reach(cls, set())
+                if cat:
+                    cache[local] = cat
+            self._base_cat_cache = cache
+        return cache.get(class_local_name)
+
+    def _category_safe_class_local(self, class_local_name: str, concept_category: Optional[str]) -> str:
+        """Disambiguate a class local name when it collides, in the immutable base,
+        with a DIFFERENT (disjoint) core category than the entity's own.
+
+        The nine core categories are mutually disjoint, so a Principle minted onto
+        proeth:ProfessionalCompetence (reserved by the base for Capability) makes the
+        case OWL-DL inconsistent. Rather than dual-class one IRI, give the new
+        concept its own IRI by appending its category (ProfessionalCompetencePrinciple).
+        No-op when there is no collision (the common case) or no category."""
+        if not concept_category:
+            return class_local_name
+        base_cat = self._base_core_category(class_local_name)
+        if base_cat and base_cat != concept_category:
+            disambiguated = f"{class_local_name}{concept_category}"
+            logger.info(
+                "Cross-category IRI collision: %s is reserved for %s in the base but "
+                "carries conceptCategory %s; minting %s instead.",
+                class_local_name, base_cat, concept_category, disambiguated)
+            return disambiguated
+        return class_local_name
 
     def commit_selected_entities(self, case_id: int, entity_ids: List[int]) -> Dict[str, Any]:
         """
@@ -291,6 +362,10 @@ class OntServeCommitService:
                 safe_label = label.replace(" ", "").replace("(", "").replace(")", "")
                 safe_label = safe_label.replace('"', '').replace("'", "").replace(",", "")
                 safe_label = safe_label.replace("<", "").replace(">", "").replace("&", "")
+                # Category-aware disambiguation: never mint a class IRI that the
+                # immutable base reserves for a disjoint category (e.g. a Principle
+                # onto proeth:ProfessionalCompetence, a base Capability).
+                safe_label = self._category_safe_class_local(safe_label, self._get_concept_category(entity))
                 class_uri = PROETHICA[safe_label]
 
                 # Check if class already exists
@@ -310,27 +385,14 @@ class OntServeCommitService:
                 g.add((class_uri, RDF.type, OWL.Class))
                 g.add((class_uri, RDFS.label, Literal(label)))
 
-                # Add definitions with multi-source SKOS support
-                definitions = (rdf_data or {}).get('definitions', [])
-                if definitions:
-                    # Primary definition -> skos:definition + rdfs:comment
-                    primary = next((d for d in definitions if d.get('is_primary')), definitions[0])
-                    if primary.get('text'):
-                        g.add((class_uri, RDFS.comment, Literal(primary['text'])))
-                        g.add((class_uri, SKOS.definition, Literal(primary['text'])))
-                    # Alternate definitions -> skos:scopeNote with source tag
-                    for defn in definitions:
-                        if defn is primary:
-                            continue
-                        text = defn.get('text', '')
-                        if not text:
-                            continue
-                        source_tag = defn.get('source_section') or defn.get('source_ontology') or defn.get('source_type', '')
-                        tagged_text = f"[{source_tag}] {text}" if source_tag else text
-                        g.add((class_uri, SKOS.scopeNote, Literal(tagged_text)))
-                elif entity.entity_definition:
-                    g.add((class_uri, RDFS.comment, Literal(entity.entity_definition)))
-                    g.add((class_uri, SKOS.definition, Literal(entity.entity_definition)))
+                # Definitions: rdfs:comment + skos:definition (primary) and
+                # skos:scopeNote (alternates), via the shared serializer that the
+                # individual path also calls (single source of truth).
+                self._emit_definitions(g, class_uri, entity, rdf_data)
+
+                # XAI: persist the matcher's type/match decision as annotation
+                # provenance (which canonical class, confidence, rationale).
+                self._emit_match_decision(g, class_uri, rdf_data, PROETHICA_PROV)
 
                 # Add subclass relationship using CATEGORY_TO_ONTOLOGY_IRI when
                 # category info is available, otherwise fall back to core class.
@@ -338,56 +400,11 @@ class OntServeCommitService:
                 for sc_uri in subclass_uris:
                     g.add((class_uri, RDFS.subClassOf, URIRef(sc_uri)))
 
-                # Add provenance from rdf_json_ld if available
+                # Provenance from rdf_json_ld, via the shared serializer (single
+                # source of truth with the individual path).
                 if rdf_data and 'properties' in rdf_data:
+                    self._emit_provenance(g, class_uri, rdf_data)
                     props = rdf_data['properties']
-
-                    # Standard W3C PROV-O
-                    if 'generatedAtTime' in props and props['generatedAtTime']:
-                        for timestamp_str in props['generatedAtTime']:
-                            try:
-                                # Parse ISO format timestamp (datetime.fromisoformat works in Python 3.7+)
-                                timestamp_str_clean = timestamp_str.replace('Z', '+00:00') if timestamp_str.endswith('Z') else timestamp_str
-                                timestamp = datetime.fromisoformat(timestamp_str_clean)
-                                g.add((class_uri, PROV.generatedAtTime, Literal(timestamp, datatype=XSD.dateTime)))
-                            except Exception as e:
-                                logger.warning(f"Could not parse timestamp {timestamp_str}: {e}")
-
-                    if 'wasAttributedTo' in props and props['wasAttributedTo']:
-                        for attribution in props['wasAttributedTo']:
-                            g.add((class_uri, PROV.wasAttributedTo, Literal(attribution)))
-
-                    # ProEthica-specific provenance (Phase 1 Architecture)
-                    if 'firstDiscoveredInCase' in props and props['firstDiscoveredInCase']:
-                        case_id_val = props['firstDiscoveredInCase'][0]
-                        g.add((class_uri, PROETHICA_PROV.firstDiscoveredInCase, Literal(int(case_id_val), datatype=XSD.integer)))
-
-                    if 'firstDiscoveredAt' in props and props['firstDiscoveredAt']:
-                        timestamp_str = props['firstDiscoveredAt'][0]
-                        try:
-                            # Parse ISO format timestamp
-                            timestamp_str_clean = timestamp_str.replace('Z', '+00:00') if timestamp_str.endswith('Z') else timestamp_str
-                            timestamp = datetime.fromisoformat(timestamp_str_clean)
-                            g.add((class_uri, PROETHICA_PROV.firstDiscoveredAt, Literal(timestamp, datatype=XSD.dateTime)))
-                        except Exception as e:
-                            logger.warning(f"Could not parse timestamp {timestamp_str}: {e}")
-
-                    if 'discoveredInCase' in props and props['discoveredInCase']:
-                        for case_id_val in props['discoveredInCase']:
-                            g.add((class_uri, PROETHICA_PROV.discoveredInCase, Literal(int(case_id_val), datatype=XSD.integer)))
-
-                    if 'discoveredInSection' in props and props['discoveredInSection']:
-                        section = props['discoveredInSection'][0]
-                        g.add((class_uri, PROETHICA_PROV.discoveredInSection, Literal(section)))
-
-                    if 'discoveredInPass' in props and props['discoveredInPass']:
-                        pass_num = props['discoveredInPass'][0]
-                        g.add((class_uri, PROETHICA_PROV.discoveredInPass, Literal(int(pass_num), datatype=XSD.integer)))
-
-                    if 'sourceText' in props and props['sourceText']:
-                        source_text = props['sourceText'][0]
-                        if source_text:
-                            g.add((class_uri, PROETHICA_PROV.sourceText, Literal(source_text)))
 
                     # Domain properties: everything the class card displays beyond the
                     # provenance keys handled above (e.g. valueBasis, obligationType,
@@ -396,13 +413,8 @@ class OntServeCommitService:
                     # the entire "Properties" column was dropped at commit. Emit each
                     # remaining key as a literal, mirroring the individual generic path
                     # (same _camelCase predicate convention) so the class round-trips.
-                    _class_prov_skip = {
-                        'generatedAtTime', 'wasAttributedTo', 'wasGeneratedBy',
-                        'firstDiscoveredInCase', 'firstDiscoveredAt', 'discoveredInCase',
-                        'discoveredInSection', 'discoveredInPass', 'sourceText',
-                    }
                     for prop_name, prop_values in props.items():
-                        if prop_name in _class_prov_skip:
+                        if prop_name in self._PROV_PROP_KEYS:
                             continue
                         values = prop_values if isinstance(prop_values, list) else [prop_values]
                         prop_uri = PROETHICA[self._camelCase(prop_name)]
@@ -636,6 +648,12 @@ class OntServeCommitService:
                         else:
                             class_name = type_uri.split('/')[-1]
                         safe_class = class_name.replace(" ", "").replace("(", "").replace(")", "")
+                        # Category-aware disambiguation (mirrors the class-commit
+                        # path): a Principle individual must not be typed to an IRI
+                        # the base reserves for a disjoint category. Disambiguating
+                        # here and in _commit_classes_to_intermediate with the same
+                        # rule keeps the individual's type IRI == the minted class IRI.
+                        safe_class = self._category_safe_class_local(safe_class, concept_cat)
                         class_uri = PROETHICA[safe_class]
                         g.add((individual_uri, RDF.type, class_uri))
                         # Emit the subClassOf chain to the core category so the
@@ -699,20 +717,19 @@ class OntServeCommitService:
                 if resolved_cat:
                     g.add((individual_uri, PROETHICA['conceptCategory'], Literal(resolved_cat)))
 
-                # Per-individual property serialization. SINGLE shared serializer
-                # for both commit paths (see _add_individual_properties): emits the
-                # rich Step-4 synthesis handlers (arguments/validations/decision
-                # points/conclusions/questions), the Step-3 temporal fields, and the
-                # Step-1/2 generic handler that turns `attributes` into per-key
-                # triples and `relationships` into real proeth-core actor edges
-                # (resolved via the _rel_label_index built in the first pass below).
-                # This replaced an inline if/elif copy that had drifted from the
-                # versioned path and emitted relationships/attributes as dead-text
-                # literals.
+                # Per-individual property serialization. SINGLE shared serializer for
+                # both commit paths (see _add_individual_properties): typed provenance,
+                # the matcher XAI decision (D16), the definition (rdfs:comment +
+                # skos:definition), the rich Step-4 synthesis handlers, the Step-3
+                # temporal fields, and the Step-1/2 generic handler that turns
+                # `attributes` into per-key triples and `relationships` into real
+                # proeth-core actor edges (resolved via the _rel_label_index).
                 self._add_individual_properties(g, individual_uri, entity, rdf_data, case_ns)
 
-                # Add provenance
-                g.add((individual_uri, PROV.generatedAtTime, Literal(datetime.utcnow())))
+                # Commit-time generation marker. The extraction-time generatedAtTime
+                # (from the extracted props) is emitted as prov:generatedAtTime by
+                # _emit_provenance, so only wasGeneratedBy is added here to avoid a
+                # second, conflicting prov:generatedAtTime value.
                 g.add((individual_uri, PROV.wasGeneratedBy, Literal(f"ProEthica Case {case_id} Extraction")))
 
                 # IAO document references
@@ -1025,7 +1042,17 @@ class OntServeCommitService:
         return parents
 
     def _camelCase(self, text: str) -> str:
-        """Convert text to camelCase for property names."""
+        """Convert a snake_case / spaced key to camelCase for a property local name.
+
+        Idempotent on an already-camelCase single token: the generic `properties`
+        keys arrive already camelCase (roleClass, obligationStatement, activePeriod)
+        and must be preserved, not lowercased -- lowercasing them is the predicate-
+        mangling bug (`activePeriod` -> `activeperiod`). Only snake_case keys (the
+        `attributes` dict, e.g. `decision_authority`) need conversion. So a token
+        with no separator is returned unchanged; only multi-word input is folded.
+        """
+        if '_' not in text and ' ' not in text:
+            return text
         words = text.replace('_', ' ').split()
         if not words:
             return text
@@ -1036,6 +1063,162 @@ class OntServeCommitService:
             result += word.capitalize()
 
         return result
+
+    # Synthesis / temporal individuals carry their text in dedicated predicates
+    # (proeth:focus / questionText / conclusionText / description), so they are
+    # skipped by the generic definition emitter to avoid a redundant comment.
+    _DEF_SKIP_TYPES = frozenset({
+        'argument_generated', 'argument_validation', 'canonical_decision_point',
+        'ethical_conclusion', 'ethical_question',
+    })
+
+    # Matcher-provenance annotation properties (declared in proethica-provenance.ttl).
+    _MATCH_ANNOTATION_PROPS = (
+        'matchedOntologyClass', 'matchedOntologyLabel', 'matchConfidence',
+        'matchesExisting', 'matchReasoning',
+    )
+
+    def _emit_definitions(self, g: Graph, subject_uri: URIRef, entity, rdf_data: Dict) -> None:
+        """Emit rdfs:comment + skos:definition (primary) and skos:scopeNote
+        (alternates) for a class OR an individual.
+
+        Single source of truth for definition serialization, shared by the class
+        path and the individual path so the two cannot drift. Individuals
+        previously received no definition triple at all: their definition survived
+        only when it happened to be duplicated into a `properties` key
+        (caseInvolvement / usedInContext / subject), under a non-canonical
+        predicate. This restores symmetry with the class path.
+        """
+        definitions = (rdf_data or {}).get('definitions', [])
+        if definitions:
+            primary = next((d for d in definitions if d.get('is_primary')), definitions[0])
+            if primary.get('text'):
+                g.add((subject_uri, RDFS.comment, Literal(primary['text'])))
+                g.add((subject_uri, SKOS.definition, Literal(primary['text'])))
+            for defn in definitions:
+                if defn is primary:
+                    continue
+                text = defn.get('text', '')
+                if not text:
+                    continue
+                # Tag the scope note with its source so the review UI and OntServe
+                # both read "Inherited from <X>". Prefer the source CLASS (e.g.
+                # EngineerRole, the matched parent whose definition this is) so the
+                # specific class survives the commit, not just the source ontology.
+                # Fall back to the section (a second extraction definition), then the
+                # source ontology, then the type.
+                src_uri = defn.get('source_uri')
+                src_class = src_uri.rsplit('#', 1)[-1].rsplit('/', 1)[-1] if src_uri else None
+                source_tag = src_class or defn.get('source_section') or defn.get('source_ontology') or defn.get('source_type', '')
+                tagged_text = f"[{source_tag}] {text}" if source_tag else text
+                g.add((subject_uri, SKOS.scopeNote, Literal(tagged_text)))
+        elif getattr(entity, 'entity_definition', None):
+            g.add((subject_uri, RDFS.comment, Literal(entity.entity_definition)))
+            g.add((subject_uri, SKOS.definition, Literal(entity.entity_definition)))
+
+    def _ensure_match_annotation_decls(self, g: Graph, prov_ns: Namespace) -> None:
+        """Emit the owl:AnnotationProperty declarations for the matcher-provenance
+        predicates inline into the graph. The Pellet harness loads only
+        core+intermediate+case (not provenance), so the IRI-valued
+        matchedOntologyClass must be declared an annotation property in the graph
+        it reads, or it would be auto-typed an ObjectProperty (punning the target
+        class as an individual). Idempotent."""
+        for local in self._MATCH_ANNOTATION_PROPS:
+            decl = (prov_ns[local], RDF.type, OWL.AnnotationProperty)
+            if decl not in g:
+                g.add(decl)
+
+    def _emit_match_decision(self, g: Graph, subject_uri: URIRef, rdf_data: Dict,
+                             prov_ns: Namespace) -> None:
+        """Persist the extraction matcher's decision as XAI annotation provenance
+        on the subject (individual or class): which canonical class it matched, the
+        confidence, whether it reused an existing class, and the rationale. All
+        owl:AnnotationProperty, so this records WHY the rdf:type was chosen without
+        affecting OWL-DL reasoning."""
+        md = (rdf_data or {}).get('match_decision')
+        if not isinstance(md, dict):
+            return
+        self._ensure_match_annotation_decls(g, prov_ns)
+        if 'matches_existing' in md:
+            g.add((subject_uri, prov_ns['matchesExisting'],
+                   Literal(bool(md['matches_existing']), datatype=XSD.boolean)))
+        matched_uri = md.get('matched_uri')
+        # Record only a canonical (shared-layer) class IRI; a per-case copy would
+        # re-introduce the injection pollution the curated-vocabulary filter removed.
+        if matched_uri and '/ontology/case/' not in str(matched_uri):
+            g.add((subject_uri, prov_ns['matchedOntologyClass'], URIRef(matched_uri)))
+        if md.get('matched_label'):
+            g.add((subject_uri, prov_ns['matchedOntologyLabel'], Literal(md['matched_label'])))
+        conf = md.get('confidence')
+        if conf is not None:
+            try:
+                g.add((subject_uri, prov_ns['matchConfidence'],
+                       Literal(float(conf), datatype=XSD.decimal)))
+            except (TypeError, ValueError):
+                pass
+        if md.get('reasoning'):
+            g.add((subject_uri, prov_ns['matchReasoning'], Literal(md['reasoning'])))
+
+    # Provenance keys handled by _emit_provenance as typed prov:/proeth-prov:
+    # triples. The generic property loops (class and individual) skip these so
+    # they are not also emitted as untyped (and, pre-fix, lowercased) proeth:
+    # literals -- the double-emission the individual path produced.
+    _PROV_PROP_KEYS = frozenset({
+        'generatedAtTime', 'wasAttributedTo', 'wasGeneratedBy',
+        'firstDiscoveredInCase', 'firstDiscoveredAt', 'discoveredInCase',
+        'discoveredInSection', 'discoveredInPass', 'sourceText',
+    })
+
+    def _emit_provenance(self, g: Graph, subject_uri: URIRef, rdf_data: Dict) -> None:
+        """Typed PROV-O / proeth-prov provenance from the extracted properties,
+        shared by the class and individual paths (single source of truth). The
+        individual path previously emitted these via the generic loop as untyped,
+        lowercased proeth: literals (e.g. proeth:generatedattime), duplicating and
+        mismatching the typed triples the class path emits. Routing both paths
+        through this helper de-duplicates and types them consistently. Also emits
+        per-section sourceText so the facts and discussion snippets both survive
+        (the top-level source_texts dict that previously collapsed to one literal).
+        """
+        PP = PROETHICA_PROV
+        props = (rdf_data or {}).get('properties', {}) or {}
+
+        for ts in (props.get('generatedAtTime') or []):
+            try:
+                clean = ts.replace('Z', '+00:00') if ts.endswith('Z') else ts
+                g.add((subject_uri, PROV.generatedAtTime, Literal(datetime.fromisoformat(clean), datatype=XSD.dateTime)))
+            except Exception as e:
+                logger.warning(f"Could not parse generatedAtTime {ts}: {e}")
+        for attribution in (props.get('wasAttributedTo') or []):
+            g.add((subject_uri, PROV.wasAttributedTo, Literal(attribution)))
+        if props.get('firstDiscoveredInCase'):
+            g.add((subject_uri, PP.firstDiscoveredInCase, Literal(int(props['firstDiscoveredInCase'][0]), datatype=XSD.integer)))
+        if props.get('firstDiscoveredAt'):
+            ts = props['firstDiscoveredAt'][0]
+            try:
+                clean = ts.replace('Z', '+00:00') if ts.endswith('Z') else ts
+                g.add((subject_uri, PP.firstDiscoveredAt, Literal(datetime.fromisoformat(clean), datatype=XSD.dateTime)))
+            except Exception as e:
+                logger.warning(f"Could not parse firstDiscoveredAt {ts}: {e}")
+        for case_id_val in (props.get('discoveredInCase') or []):
+            g.add((subject_uri, PP.discoveredInCase, Literal(int(case_id_val), datatype=XSD.integer)))
+        if props.get('discoveredInSection'):
+            g.add((subject_uri, PP.discoveredInSection, Literal(props['discoveredInSection'][0])))
+        if props.get('discoveredInPass'):
+            g.add((subject_uri, PP.discoveredInPass, Literal(int(props['discoveredInPass'][0]), datatype=XSD.integer)))
+
+        # sourceText: the props value plus every distinct per-section snippet from
+        # the top-level source_texts dict (section attribution is on discoveredInSection).
+        emitted_src = set()
+        st = props.get('sourceText')
+        if st:
+            val = st[0] if isinstance(st, list) else st
+            if val:
+                g.add((subject_uri, PP.sourceText, Literal(val)))
+                emitted_src.add(str(val).strip())
+        for _section, text in ((rdf_data or {}).get('source_texts', {}) or {}).items():
+            if text and str(text).strip() not in emitted_src:
+                g.add((subject_uri, PP.sourceText, Literal(text)))
+                emitted_src.add(str(text).strip())
 
     def get_commit_status(self, case_id: int) -> Dict[str, Any]:
         """
@@ -1319,6 +1502,8 @@ class OntServeCommitService:
                     safe_label = label.replace(" ", "").replace("(", "").replace(")", "")
                     safe_label = safe_label.replace('"', '').replace("'", "").replace(",", "")
                     safe_label = safe_label.replace("<", "").replace(">", "").replace("&", "")
+                    # Category-aware disambiguation (same rule as the TTL commit paths).
+                    safe_label = self._category_safe_class_local(safe_label, self._get_concept_category(entity))
 
                     uri = f"http://proethica.org/ontology/intermediate#{safe_label}"
 
@@ -1480,6 +1665,10 @@ class OntServeCommitService:
                         else:
                             class_name = type_uri.split('/')[-1]
                         safe_class = class_name.replace(" ", "").replace("(", "").replace(")", "")
+                        # Category-aware disambiguation (same rule as the append +
+                        # class-commit paths): never type to an IRI the base reserves
+                        # for a disjoint category.
+                        safe_class = self._category_safe_class_local(safe_class, self._get_concept_category(entity))
                         class_uri = PROETHICA[safe_class]
                         g.add((individual_uri, RDF.type, class_uri))
                         # Layer-1 convergence: both archetype axes on the
@@ -1499,8 +1688,8 @@ class OntServeCommitService:
                 # Add type-specific properties (reuse existing logic)
                 self._add_individual_properties(g, individual_uri, entity, rdf_data, case_ns)
 
-                # Provenance
-                g.add((individual_uri, PROV.generatedAtTime, Literal(datetime.now(timezone.utc))))
+                # Commit-time marker only; extraction-time prov:generatedAtTime is
+                # emitted by _emit_provenance (inside _add_individual_properties).
                 g.add((individual_uri, PROV.wasGeneratedBy, Literal(f"ProEthica Case {case_id} Extraction")))
 
                 count += 1
@@ -1738,6 +1927,17 @@ class OntServeCommitService:
         """
         extraction_type = entity.extraction_type or ''
 
+        # Universal per-individual serialization. Lives here (not in a caller) so
+        # BOTH commit paths -- the append path (_commit_individuals_to_case_ontology)
+        # and the versioned path (_write_case_ttl_fresh) -- emit them identically:
+        # typed provenance, the matcher XAI decision (D16), and the definition
+        # (rdfs:comment + skos:definition, symmetric with the class path; gated for
+        # the synthesis/temporal types that carry their text in dedicated predicates).
+        self._emit_provenance(g, uri, rdf_data)
+        self._emit_match_decision(g, uri, rdf_data, PROETHICA_PROV)
+        if extraction_type not in self._DEF_SKIP_TYPES and 'temporal_dynamics' not in extraction_type:
+            self._emit_definitions(g, uri, entity, rdf_data)
+
         if extraction_type == 'argument_generated' and rdf_data:
             g.add((uri, RDF.type, PROETHICA_CASES.Argument))
             if rdf_data.get('argument_type'):
@@ -1860,6 +2060,11 @@ class OntServeCommitService:
         # Generic properties fallback
         elif rdf_data and rdf_data.get('properties'):
             for prop_name, prop_values in rdf_data['properties'].items():
+                # Provenance keys are emitted as typed prov:/proeth-prov: triples by
+                # _emit_provenance above; skip them here so they are not also emitted
+                # as untyped proeth: literals (the double-emission this fixes).
+                if prop_name in self._PROV_PROP_KEYS:
+                    continue
                 # The attributes dict (qualifications/credentials/rights) is emitted
                 # as one queryable triple per key, not one opaque stringified-dict
                 # literal. Mirrors the per-key convention already in rdf_service /

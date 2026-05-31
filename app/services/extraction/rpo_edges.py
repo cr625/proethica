@@ -110,10 +110,10 @@ def gather(g: Graph) -> Tuple[List[Indiv], List[Indiv], List[Indiv]]:
     def mk(ind, names):
         lbl = g.value(ind, RDFS.label)
         return Indiv(str(ind), str(lbl) if lbl else str(ind).split("#")[-1], _fields(g, ind, names))
-    roles = [mk(r, ["roleclass", "casecontext", "relationships"]) for r in _individuals_in_category(g, "Role")]
-    principles = [mk(p, ["principleclass", "invokedby", "appliedto", "concreteexpression"])
+    roles = [mk(r, ["roleClass", "caseContext", "relationships"]) for r in _individuals_in_category(g, "Role")]
+    principles = [mk(p, ["principleClass", "invokedBy", "appliedTo", "concreteExpression"])
                   for p in _individuals_in_category(g, "Principle")]
-    obligations = [mk(o, ["obligationclass", "obligatedparty", "obligationstatement"])
+    obligations = [mk(o, ["obligationClass", "obligatedParty", "obligationStatement"])
                    for o in _individuals_in_category(g, "Obligation")]
     return roles, principles, obligations
 
@@ -360,8 +360,15 @@ _STATE_EDGE_RANGE = {
 _RESOURCE_EDGE_RANGE = {
     PROETH_CORE.availableTo: ("Resource", "Agent"),
 }
+# State-anchored actor edge materialized by state_affects_edges.py from the state
+# `affectedParties` field. Range is Agent (outside the nine disjoint categories),
+# so the object resolves to no category and the range clause is skipped; the guard
+# still validates the State subject.
+_STATE_AFFECTS_RANGE = {
+    PROETH_CORE.affects: ("State", "Agent"),
+}
 ALL_EDGE_RANGE = {**_EDGE_RANGE, **_DEFEASIBILITY_RANGE, **_STATE_EDGE_RANGE,
-                  **_RESOURCE_EDGE_RANGE}
+                  **_RESOURCE_EDGE_RANGE, **_STATE_AFFECTS_RANGE}
 
 
 def _default_ontology_paths() -> Tuple[Any, Any]:
@@ -467,7 +474,17 @@ def drop_domain_range_violations(g: Graph, case_id: int,
         for s, o in merged.subject_objects(pred):
             sc = _core_categories(merged, s)
             oc = _core_categories(merged, o)
-            if (sc and dom_exp not in sc) or (oc and rng_exp not in oc):
+            # The nine core categories are mutually disjoint, so an endpoint that
+            # reaches ANY core category OTHER than the property's required one would
+            # be forced (by the edge's domain/range) into two disjoint categories ->
+            # inconsistent. Drop on that condition, not merely when the required
+            # category is absent: an endpoint can reach the required category AND a
+            # conflicting one (e.g. a class name-collision left it subClassOf both
+            # Principle and Capability), which the reasoner still rejects. Endpoints
+            # with no resolved core category, or whose required category is outside
+            # the nine (e.g. Agent for availableTo/affects), yield an empty set
+            # difference and are kept.
+            if (sc - {dom_exp}) or (oc - {rng_exp}):
                 bad.append((s, pred, o))
     if not bad:
         return 0
