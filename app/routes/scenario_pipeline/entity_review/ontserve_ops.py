@@ -234,15 +234,15 @@ def register_ontserve_ops_routes(bp):
 
                 elif 'Event' in entity_type:
                     # Field names match what convert_event_to_rdf actually emits
-                    # (rdf_converter.py). The earlier projection read affectsEntity /
-                    # triggersState / transformsObligation / emergencyLevel, none of
-                    # which the converter writes, so those fields always rendered empty
-                    # while eventType / urgencyLevel / causesStateChange were never
-                    # surfaced. causesStateChange and caused_by_action are scalars.
-                    # The direct proeth:activatesConstraint / proeth:createsObligation
-                    # event links were dropped 2026-05-31 (redundant with the grounded
-                    # initiates -> State -> activatesConstraint/activatesObligation path);
-                    # the event now carries its world-change as initiates / terminates.
+                    # (rdf_converter.py). event_type is the Event Calculus agent-caused /
+                    # exogenous / automatic distinction (Berreby et al. 2017); severity is a
+                    # heuristic triage indicator (renamed from emergency_status 2026-05-31,
+                    # NOT a formal ontology category). The duplicate urgency_level field and
+                    # the direct proeth:activatesConstraint / proeth:createsObligation event
+                    # links were dropped 2026-05-31 (urgency_level always equalled severity;
+                    # the norm links were redundant with the grounded initiates -> State ->
+                    # activatesConstraint/activatesObligation path). The event now carries its
+                    # world-change as initiates / terminates.
                     events.append({
                         'id': entity.id,
                         'label': entity.entity_label,
@@ -251,8 +251,7 @@ def register_ontserve_ops_routes(bp):
                         'temporal_marker': rdf_data.get('proeth:temporalMarker', ''),
                         'temporal_sequence': rdf_data.get('proeth:temporalSequence'),
                         'event_type': rdf_data.get('proeth:eventType', ''),
-                        'emergency_status': rdf_data.get('proeth:emergencyStatus', ''),
-                        'urgency_level': rdf_data.get('proeth:urgencyLevel', ''),
+                        'severity': rdf_data.get('proeth:severity', ''),
                         'causes_state_change': rdf_data.get('proeth:causesStateChange', ''),
                         'caused_by_action': rdf_data.get('proeth:causedByAction', ''),
                         # Event Calculus fluent transitions (proeth-core:initiates /

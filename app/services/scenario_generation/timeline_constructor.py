@@ -160,15 +160,19 @@ class TimelineConstructor:
         events = []
         for row in results:
             json_ld = row.rdf_json_ld or {}
-            classification = json_ld.get('proeth:classification', {})
+            # The temporal converter emits a FLAT proeth:severity (a heuristic triage
+            # indicator), not the nested proeth:classification / proeth:urgency structures
+            # this previously read (which never existed, so urgency/emergency were always
+            # null/false). severity is the renamed former emergency_status / urgency_level.
+            severity = json_ld.get('proeth:severity')
 
             events.append({
                 'uri': row.entity_uri,
                 'label': row.entity_label,
                 'description': row.entity_definition or '',
                 'temporal_marker': json_ld.get('proeth:temporalMarker', 'Unknown time'),
-                'urgency': json_ld.get('proeth:urgency', {}).get('proeth:urgencyLevel'),
-                'emergency': classification.get('proeth:isEmergency', False),
+                'urgency': severity,
+                'emergency': (severity or '').lower() in ('critical', 'high'),
                 'type': 'event'
             })
 

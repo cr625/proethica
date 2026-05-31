@@ -42,19 +42,20 @@ def build_timeline(
             'description': action.get('description', ''),
             'agent': action.get('agent', 'Unknown'),
             'temporal_marker': action.get('temporal_marker', 'Unknown time'),
-            'urgency': None  # Actions don't have urgency
+            'severity': None  # Actions don't carry a severity
         })
 
-    # Add events
+    # Add events. Severity is the event's heuristic triage indicator (renamed from the
+    # former urgency_level / emergency_status, which always duplicated each other).
     for event in events:
-        urgency = event.get('urgency', {}).get('urgency_level', None)
+        severity = event.get('classification', {}).get('severity', None)
         timeline_elements.append({
             'type': 'event',
             'id': event.get('label', 'Unknown Event'),
             'label': event.get('label', 'Unknown'),
             'description': event.get('description', ''),
             'temporal_marker': event.get('temporal_marker', 'Unknown time'),
-            'urgency': urgency
+            'severity': severity
         })
 
     # Group by temporal marker

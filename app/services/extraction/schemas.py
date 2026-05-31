@@ -716,18 +716,22 @@ class EventIndividual(BaseModel):
     description: Optional[str] = Field(None, alias="proeth:description")
     temporal_marker: Optional[str] = Field(None, alias="proeth:temporalMarker")
 
-    # Classification
+    # Classification. eventType is the Event Calculus agent-caused (outcome) / external
+    # (exogenous) / precondition-triggered (automatic_trigger) distinction (Berreby et al.
+    # 2017). severity is a heuristic triage indicator of how serious the occurrence is, NOT
+    # a formal ontology category. The former emergency_status was renamed to severity and
+    # the separate urgency_level field dropped 2026-05-31 (it duplicated severity in every
+    # case).
     event_type: Optional[str] = Field(None, alias="proeth:eventType")
-    emergency_status: Optional[str] = Field(None, alias="proeth:emergencyStatus")
+    severity: Optional[str] = Field(None, alias="proeth:severity")
 
-    # Urgency / state change. The former proeth:activatesConstraint and
-    # proeth:createsObligation event links were dropped 2026-05-31: an event activates a
-    # constraint or makes an obligation apply only via the State it initiates (the
-    # Event-Calculus path State proeth-core:activatesConstraint / activatesObligation,
-    # materialised by fluent_edges.py + state_edges.py), so the direct event links named
-    # free-text obligations/constraints that resolved to no extracted individual and
-    # duplicated that grounded path. See rdf_converter._add_fluent_and_time.
-    urgency_level: Optional[str] = Field(None, alias="proeth:urgencyLevel")
+    # State change. The former proeth:activatesConstraint and proeth:createsObligation
+    # event links were dropped 2026-05-31: an event activates a constraint or makes an
+    # obligation apply only via the State it initiates (the Event-Calculus path State
+    # proeth-core:activatesConstraint / activatesObligation, materialised by fluent_edges.py
+    # + state_edges.py), so the direct event links named free-text obligations/constraints
+    # that resolved to no extracted individual and duplicated that grounded path. See
+    # rdf_converter._add_fluent_and_time.
     causes_state_change: Optional[str] = Field(None, alias="proeth:causesStateChange")
     caused_by_action: Optional[str] = Field(None, alias="proeth:causedByAction")
 

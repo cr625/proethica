@@ -174,24 +174,24 @@ def convert_event_to_rdf(event: Dict, case_id: int) -> Dict:
         'proeth:temporalMarker': event.get('temporal_marker', 'Unknown time')
     }
 
-    # Add classification
+    # Add classification. eventType is the Event Calculus distinction between agent-caused
+    # (outcome), external (exogenous), and precondition-triggered (automatic_trigger)
+    # occurrences (Berreby et al. 2017). severity is a heuristic triage indicator of how
+    # serious the occurrence is, NOT a formal ontology category. The former separate
+    # urgencyLevel field was dropped 2026-05-31: it duplicated severity in every case.
     classification = event.get('classification', {})
     if classification:
         rdf_entity['proeth:eventType'] = classification.get('event_type', 'unknown')
-        rdf_entity['proeth:emergencyStatus'] = classification.get('emergency_status', 'routine')
+        rdf_entity['proeth:severity'] = classification.get('severity', 'routine')
 
-    # Add urgency (level only). The constraint/obligation consequences of an event
-    # are NOT emitted as direct event links: in the Event Calculus an event does not
-    # activate a constraint or create an obligation directly, it initiates a STATE
-    # (fluent) that then makes the constraint/obligation apply. That grounded two-step
-    # path is materialised by fluent_edges.py (Event -> State) + state_edges.py
-    # (State proeth-core:activatesConstraint / activatesObligation -> the real Cs/O
-    # individual). The former proeth:activatesConstraint / proeth:createsObligation
-    # literals here named free-text obligations/constraints that resolved to no
-    # extracted individual and duplicated that path, so they were dropped 2026-05-31.
-    urgency = event.get('urgency', {})
-    if urgency:
-        rdf_entity['proeth:urgencyLevel'] = urgency.get('urgency_level', 'low')
+    # The constraint/obligation consequences of an event are NOT emitted as direct event
+    # links: in the Event Calculus an event does not activate a constraint or create an
+    # obligation directly, it initiates a STATE (fluent) that then makes the
+    # constraint/obligation apply. That grounded two-step path is materialised by
+    # fluent_edges.py (Event -> State) + state_edges.py (State activatesConstraint /
+    # activatesObligation -> the real Cs/O individual). The former proeth:activatesConstraint
+    # / proeth:createsObligation literals named free-text obligations/constraints that
+    # resolved to no extracted individual and duplicated that path, dropped 2026-05-31.
 
     # State change (prose summary of what changed; the structured, grounded form is
     # initiates / terminates, added by _add_fluent_and_time below).
