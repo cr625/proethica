@@ -286,9 +286,12 @@
                 <div class="accordion-item">
                     <h2 class="accordion-header" id="action-{{ action.id }}">
                         <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#action-collapse-{{ action.id }}">
+                            {% if action.temporal_sequence %}
+                            <span class="badge bg-light text-dark border me-2" title="Chronological sequence">#{{ action.temporal_sequence }}</span>
+                            {% endif %}
                             <strong>{{ action.label }}</strong>
                             {% if action.agent %}
-                            <span class="badge bg-primary ms-2">{{ action.agent }}</span>
+                            <span class="badge bg-primary ms-2">{{ action.agent }}{% if action.event_role_context %} ({{ action.event_role_context }}){% endif %}</span>
                             {% endif %}
                         </button>
                     </h2>
@@ -308,28 +311,72 @@
                             <p><strong>Intended Outcome:</strong> {{ action.intended_outcome }}</p>
                             {% endif %}
 
-                            <div class="row mt-3">
-                                <div class="col-md-6">
-                                    {% if action.fulfills_obligation %}
-                                    <h6>Fulfills Obligations:</h6>
-                                    <ul>
-                                        {% for obligation in action.fulfills_obligation %}
-                                        <li>{{ obligation }}</li>
-                                        {% endfor %}
-                                    </ul>
+                            {% if action.foreseen_unintended_effects %}
+                            <p class="mb-1"><strong>Foreseen Unintended Effects:</strong></p>
+                            <ul>
+                                {% for effect in action.foreseen_unintended_effects %}
+                                <li>{{ effect }}</li>
+                                {% endfor %}
+                            </ul>
+                            {% endif %}
+
+                            {# Obligation engagement: the three buckets the obligation-engagement
+                               post-step produces (At stake / Fulfills / Violates), color-coded as
+                               in the study timeline. Showing only "fulfills" hid two thirds. #}
+                            {% if action.raises_obligation or action.fulfills_obligation or action.violates_obligation %}
+                            <div class="mt-3">
+                                <h6>Obligation Engagement:</h6>
+                                <div class="row g-2">
+                                    {% if action.raises_obligation %}
+                                    <div class="col-md-4">
+                                        <div class="border-start border-3 border-warning ps-2">
+                                            <small class="fw-semibold text-warning-emphasis"><i class="bi bi-exclamation-triangle-fill"></i> At stake ({{ action.raises_obligation|length }})</small>
+                                            <ul class="mb-0 small">{% for o in action.raises_obligation %}<li>{{ o }}</li>{% endfor %}</ul>
+                                        </div>
+                                    </div>
                                     {% endif %}
-                                </div>
-                                <div class="col-md-6">
-                                    {% if action.guided_by_principle %}
-                                    <h6>Guided By Principles:</h6>
-                                    <ul>
-                                        {% for principle in action.guided_by_principle %}
-                                        <li>{{ principle }}</li>
-                                        {% endfor %}
-                                    </ul>
+                                    {% if action.fulfills_obligation %}
+                                    <div class="col-md-4">
+                                        <div class="border-start border-3 border-success ps-2">
+                                            <small class="fw-semibold text-success"><i class="bi bi-check-circle-fill"></i> Fulfills ({{ action.fulfills_obligation|length }})</small>
+                                            <ul class="mb-0 small">{% for o in action.fulfills_obligation %}<li>{{ o }}</li>{% endfor %}</ul>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                    {% if action.violates_obligation %}
+                                    <div class="col-md-4">
+                                        <div class="border-start border-3 border-danger ps-2">
+                                            <small class="fw-semibold text-danger"><i class="bi bi-x-circle-fill"></i> Violates ({{ action.violates_obligation|length }})</small>
+                                            <ul class="mb-0 small">{% for o in action.violates_obligation %}<li>{{ o }}</li>{% endfor %}</ul>
+                                        </div>
+                                    </div>
                                     {% endif %}
                                 </div>
                             </div>
+                            {% endif %}
+
+                            {% if action.guided_by_principle %}
+                            <div class="mt-3">
+                                <h6>Guided By Principles:</h6>
+                                <ul>
+                                    {% for principle in action.guided_by_principle %}
+                                    <li>{{ principle }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            {% endif %}
+
+                            {% if action.competing_priorities and (action.competing_priorities.get('proeth:priorityConflict') or action.competing_priorities.get('proeth:resolutionReasoning')) %}
+                            <div class="mt-3">
+                                <h6>Competing Priorities:</h6>
+                                {% if action.competing_priorities.get('proeth:priorityConflict') %}
+                                <p class="mb-1"><strong>Conflict:</strong> {{ action.competing_priorities['proeth:priorityConflict'] }}</p>
+                                {% endif %}
+                                {% if action.competing_priorities.get('proeth:resolutionReasoning') %}
+                                <p class="mb-0"><strong>Resolution:</strong> {{ action.competing_priorities['proeth:resolutionReasoning'] }}</p>
+                                {% endif %}
+                            </div>
+                            {% endif %}
 
                             {% if action.requires_capability %}
                             <div class="mt-2">
@@ -427,6 +474,9 @@
                 <div class="accordion-item">
                     <h2 class="accordion-header" id="event-{{ event.id }}">
                         <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#event-collapse-{{ event.id }}">
+                            {% if event.temporal_sequence %}
+                            <span class="badge bg-light text-dark border me-2" title="Chronological sequence">#{{ event.temporal_sequence }}</span>
+                            {% endif %}
                             <strong>{{ event.label }}</strong>
                             {% if event.event_type %}
                             <span class="badge bg-secondary ms-2">{{ event.event_type }}</span>

@@ -198,17 +198,29 @@ def register_ontserve_ops_routes(bp):
                 entity_type = rdf_data.get('@type', '')
 
                 if 'Action' in entity_type:
+                    # Surface every field convert_action_to_rdf emits so this review
+                    # faithfully represents the extraction. The obligation engagement
+                    # post-step splits the pool into three buckets (fulfills / violates
+                    # / raises); showing only fulfills hid two thirds of that analysis.
+                    # hasCompetingPriorities is a nested object; foreseenUnintendedEffects
+                    # and the obligation buckets are lists; temporalSequence is an int.
                     actions.append({
                         'id': entity.id,
                         'label': entity.entity_label,
                         'uri': entity.entity_uri,
                         'description': rdf_data.get('proeth:description', ''),
                         'agent': rdf_data.get('proeth:hasAgent', ''),
+                        'event_role_context': rdf_data.get('proeth:eventRoleContext', ''),
                         'temporal_marker': rdf_data.get('proeth:temporalMarker', ''),
+                        'temporal_sequence': rdf_data.get('proeth:temporalSequence'),
                         'mental_state': rdf_data.get('proeth:hasMentalState', ''),
                         'intended_outcome': rdf_data.get('proeth:intendedOutcome', ''),
+                        'foreseen_unintended_effects': rdf_data.get('proeth:foreseenUnintendedEffects', []),
                         'fulfills_obligation': rdf_data.get('proeth:fulfillsObligation', []),
+                        'violates_obligation': rdf_data.get('proeth:violatesObligation', []),
+                        'raises_obligation': rdf_data.get('proeth:raisesObligation', []),
                         'guided_by_principle': rdf_data.get('proeth:guidedByPrinciple', []),
+                        'competing_priorities': rdf_data.get('proeth:hasCompetingPriorities', {}),
                         'within_competence': rdf_data.get('proeth:withinCompetence', False),
                         'requires_capability': rdf_data.get('proeth:requiresCapability', []),
                         'rdf_json': rdf_data
@@ -228,6 +240,7 @@ def register_ontserve_ops_routes(bp):
                         'uri': entity.entity_uri,
                         'description': rdf_data.get('proeth:description', ''),
                         'temporal_marker': rdf_data.get('proeth:temporalMarker', ''),
+                        'temporal_sequence': rdf_data.get('proeth:temporalSequence'),
                         'event_type': rdf_data.get('proeth:eventType', ''),
                         'emergency_status': rdf_data.get('proeth:emergencyStatus', ''),
                         'urgency_level': rdf_data.get('proeth:urgencyLevel', ''),
@@ -283,6 +296,18 @@ def register_ontserve_ops_routes(bp):
                     })
 
             extraction_complete = len(temporal_entities) > 0
+
+            # Order actions and events chronologically by the temporal-sequence post-step
+            # (the same ordering the study timeline uses), falling back to DB id for rows
+            # the sequence step has not visited. A large sentinel keeps unsequenced rows last.
+            def _seq_key(item):
+                seq = item.get('temporal_sequence')
+                try:
+                    return (0, int(seq))
+                except (TypeError, ValueError):
+                    return (1, item.get('id') or 0)
+            actions.sort(key=_seq_key)
+            events.sort(key=_seq_key)
 
             # Check commit status
             uncommitted_count = sum(1 for e in temporal_entities if not e.is_published)
