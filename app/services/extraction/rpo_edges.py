@@ -367,8 +367,20 @@ _RESOURCE_EDGE_RANGE = {
 _STATE_AFFECTS_RANGE = {
     PROETH_CORE.affects: ("State", "Agent"),
 }
+# Participant edges materialized by participant_edges.py from the Pass-2 component
+# 'who' fields (obligatedParty / constrainedEntity / possessedBy / invokedBy). Range
+# is Agent (outside the nine disjoint categories), so the object resolves to no
+# category and the range clause is skipped; the guard still validates that the
+# subject's type chain resolves to the declared component category.
+_PARTICIPANT_EDGE_RANGE = {
+    PROETH_CORE.obligatedParty: ("Obligation", "Agent"),
+    PROETH_CORE.constrainedEntity: ("Constraint", "Agent"),
+    PROETH_CORE.possessedBy: ("Capability", "Agent"),
+    PROETH_CORE.invokedBy: ("Principle", "Agent"),
+}
 ALL_EDGE_RANGE = {**_EDGE_RANGE, **_DEFEASIBILITY_RANGE, **_STATE_EDGE_RANGE,
-                  **_RESOURCE_EDGE_RANGE, **_STATE_AFFECTS_RANGE}
+                  **_RESOURCE_EDGE_RANGE, **_STATE_AFFECTS_RANGE,
+                  **_PARTICIPANT_EDGE_RANGE}
 
 
 def _default_ontology_paths() -> Tuple[Any, Any]:

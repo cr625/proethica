@@ -91,6 +91,23 @@ def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
         logger.exception("materialize: state-affects applier failed for case %s", case_id)
         results["state_affects_edges"] = {"error": str(e)}
 
+    # 2d. Participant edges (DB-driven, embedding-resolved): the Pass-2 component
+    # 'who' fields (obligation obligatedParty / constraint constrainedEntity /
+    # capability possessedBy / principle invokedBy) become Component -> Agent edges
+    # (obligatedParty / constrainedEntity / possessedBy / invokedBy). Additive: the
+    # literal is kept because rpo_edges/defeasibility read it as string context.
+    # Mirrors the state-affects applier (embedding shortlist + batched LLM select,
+    # prov:Derivation). Range Agent is OWL-DL-safe; the unified guard validates the
+    # component subject.
+    try:
+        from app.services.extraction.participant_edges import apply_participant_edges
+        results["participant_edges"] = apply_participant_edges(
+            case_id=case_id, ttl_path=ttl_path, write_back=True,
+        )
+    except Exception as e:
+        logger.exception("materialize: participant-edge applier failed for case %s", case_id)
+        results["participant_edges"] = {"error": str(e)}
+
     # 3. R->P->O dependency edges (LLM) with the domain/range Pellet guard.
     try:
         from app.services.extraction.rpo_edges import apply_rpo_edges
