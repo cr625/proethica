@@ -165,17 +165,17 @@ For each event, identify:
    - Automatic trigger: true/false
    - Preconditions met (if automatic trigger)
 
-3. URGENCY & PRIORITY:
+3. URGENCY:
    - Urgency level: "critical" | "high" | "medium" | "low"
-   - Overrides obligations: true/false
-   - Activates constraints (which ones?)
-   - Emergency procedures required: true/false
 
-4. TRIGGERS & EFFECTS:
-   - Activates constraints (list constraint names)
-   - Creates obligations (list new obligations)
-   - Deactivates constraints (list if any)
-   - State change description
+4. STATE CHANGE:
+   - State change: a brief prose summary of what changed in the world.
+     Do NOT list the obligations or constraints that "become active" here. An event
+     does not create an obligation or activate a constraint directly; it initiates a
+     STATE (a fluent) that then makes those obligations/constraints apply. Capture the
+     states in 4b (initiates / terminates), not free-text obligation/constraint names.
+     The State -> Obligation and State -> Constraint links are recovered downstream
+     from the already-extracted obligation and constraint individuals.
 
 4b. FLUENT TRANSITIONS (Event Calculus; Kowalski & Sergot 1986, Berreby et al. 2017):
    - initiates: list of STATES (fluents) this event brings into holding. An event does not
@@ -216,16 +216,10 @@ Return your analysis as a JSON array:
       }},
 
       "urgency": {{
-        "urgency_level": "critical",
-        "overrides_obligations": true,
-        "activates_constraints": ["PublicSafety_Paramount_Constraint"],
-        "emergency_procedures_required": true
+        "urgency_level": "critical"
       }},
 
       "triggers": {{
-        "activates_constraints": ["PublicSafety_Paramount", "Immediate_Review_Required"],
-        "creates_obligations": ["Immediate_Correction", "Report_To_Authority", "Halt_Construction"],
-        "deactivates_constraints": [],
         "state_change": "Project halted; safety review initiated; stakeholders notified"
       }},
 
@@ -260,7 +254,8 @@ IMPORTANT:
 - Only extract occurrences (events), not volitional decisions (those are actions)
 - Use the identified actions to infer causal relationships
 - Be specific with emergency classification
-- Identify which constraints and obligations are triggered
+- Capture what changes as the STATES the event initiates / terminates (4b), not as
+  free-text obligation or constraint names
 - Use EMERGENCY_KEYWORDS: safety, urgent, critical, hazard, danger, risk, failure, accident
 
 JSON Response:"""

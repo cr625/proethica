@@ -136,6 +136,23 @@ def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
         logger.exception("materialize: time-anchor applier failed for case %s", case_id)
         results["time_anchors"] = {"error": str(e)}
 
+    # 2g. Action normative-engagement edges (DB-driven, embedding-resolved): the Step-3
+    # Action's fulfills / violates / raises obligation labels and guidedByPrinciple labels
+    # become Action -> Obligation / Principle edges (proeth-core:fulfillsObligation,
+    # proeth:violatesObligation / raisesObligation / guidedByPrinciple). Grounds the
+    # normative engagement to the real O/P individuals, closing the Event-Calculus loop
+    # begun by fluent_edges (Action -> State) + state_edges (State -> O/Cs). Mirrors the
+    # fluent applier; range Obligation/Principle is among the nine disjoint categories, so
+    # the unified guard validates both endpoints. No-op for cases with no Action individuals.
+    try:
+        from app.services.extraction.obligation_edges import apply_obligation_edges
+        results["obligation_edges"] = apply_obligation_edges(
+            case_id=case_id, ttl_path=ttl_path, write_back=True,
+        )
+    except Exception as e:
+        logger.exception("materialize: obligation-edge applier failed for case %s", case_id)
+        results["obligation_edges"] = {"error": str(e)}
+
     # 3. R->P->O dependency edges (LLM) with the domain/range Pellet guard.
     try:
         from app.services.extraction.rpo_edges import apply_rpo_edges

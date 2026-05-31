@@ -237,9 +237,12 @@ def register_ontserve_ops_routes(bp):
                     # (rdf_converter.py). The earlier projection read affectsEntity /
                     # triggersState / transformsObligation / emergencyLevel, none of
                     # which the converter writes, so those fields always rendered empty
-                    # while eventType / urgencyLevel / createsObligation / causesStateChange
-                    # were never surfaced. causesStateChange and caused_by_action are
-                    # scalars; activatesConstraint and createsObligation are lists.
+                    # while eventType / urgencyLevel / causesStateChange were never
+                    # surfaced. causesStateChange and caused_by_action are scalars.
+                    # The direct proeth:activatesConstraint / proeth:createsObligation
+                    # event links were dropped 2026-05-31 (redundant with the grounded
+                    # initiates -> State -> activatesConstraint/activatesObligation path);
+                    # the event now carries its world-change as initiates / terminates.
                     events.append({
                         'id': entity.id,
                         'label': entity.entity_label,
@@ -250,8 +253,6 @@ def register_ontserve_ops_routes(bp):
                         'event_type': rdf_data.get('proeth:eventType', ''),
                         'emergency_status': rdf_data.get('proeth:emergencyStatus', ''),
                         'urgency_level': rdf_data.get('proeth:urgencyLevel', ''),
-                        'activates_constraint': rdf_data.get('proeth:activatesConstraint', []),
-                        'creates_obligation': rdf_data.get('proeth:createsObligation', []),
                         'causes_state_change': rdf_data.get('proeth:causesStateChange', ''),
                         'caused_by_action': rdf_data.get('proeth:causedByAction', ''),
                         # Event Calculus fluent transitions (proeth-core:initiates /

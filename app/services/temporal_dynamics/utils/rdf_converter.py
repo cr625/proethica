@@ -180,20 +180,24 @@ def convert_event_to_rdf(event: Dict, case_id: int) -> Dict:
         rdf_entity['proeth:eventType'] = classification.get('event_type', 'unknown')
         rdf_entity['proeth:emergencyStatus'] = classification.get('emergency_status', 'routine')
 
-    # Add urgency
+    # Add urgency (level only). The constraint/obligation consequences of an event
+    # are NOT emitted as direct event links: in the Event Calculus an event does not
+    # activate a constraint or create an obligation directly, it initiates a STATE
+    # (fluent) that then makes the constraint/obligation apply. That grounded two-step
+    # path is materialised by fluent_edges.py (Event -> State) + state_edges.py
+    # (State proeth-core:activatesConstraint / activatesObligation -> the real Cs/O
+    # individual). The former proeth:activatesConstraint / proeth:createsObligation
+    # literals here named free-text obligations/constraints that resolved to no
+    # extracted individual and duplicated that path, so they were dropped 2026-05-31.
     urgency = event.get('urgency', {})
     if urgency:
         rdf_entity['proeth:urgencyLevel'] = urgency.get('urgency_level', 'low')
-        if urgency.get('activates_constraints'):
-            rdf_entity['proeth:activatesConstraint'] = urgency['activates_constraints']
 
-    # Add triggers
+    # State change (prose summary of what changed; the structured, grounded form is
+    # initiates / terminates, added by _add_fluent_and_time below).
     triggers = event.get('triggers', {})
-    if triggers:
-        if triggers.get('creates_obligations'):
-            rdf_entity['proeth:createsObligation'] = triggers['creates_obligations']
-        if triggers.get('state_change'):
-            rdf_entity['proeth:causesStateChange'] = triggers['state_change']
+    if triggers and triggers.get('state_change'):
+        rdf_entity['proeth:causesStateChange'] = triggers['state_change']
 
     # Add causal context
     causal = event.get('causal_context', {})

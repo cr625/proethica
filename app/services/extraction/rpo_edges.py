@@ -387,9 +387,21 @@ _FLUENT_EDGE_RANGE = {
     PROETH_CORE.initiates: ({"Action", "Event"}, "State"),
     PROETH_CORE.terminates: ({"Action", "Event"}, "State"),
 }
+# Action normative-engagement edges materialized by obligation_edges.py from the Step-3
+# Action's fulfills / violates / raises obligation labels and guidedByPrinciple labels.
+# Domain Action, range Obligation/Principle, both among the nine disjoint categories, so
+# the guard validates BOTH endpoints and drops any mis-resolved edge. fulfillsObligation is
+# declared in proeth-core; violates/raises/guidedByPrinciple are proeth-intermediate-only.
+_NORMATIVE_EDGE_RANGE = {
+    PROETH_CORE.fulfillsObligation: ("Action", "Obligation"),
+    PROETH.violatesObligation: ("Action", "Obligation"),
+    PROETH.raisesObligation: ("Action", "Obligation"),
+    PROETH.guidedByPrinciple: ("Action", "Principle"),
+}
 ALL_EDGE_RANGE = {**_EDGE_RANGE, **_DEFEASIBILITY_RANGE, **_STATE_EDGE_RANGE,
                   **_RESOURCE_EDGE_RANGE, **_STATE_AFFECTS_RANGE,
-                  **_PARTICIPANT_EDGE_RANGE, **_FLUENT_EDGE_RANGE}
+                  **_PARTICIPANT_EDGE_RANGE, **_FLUENT_EDGE_RANGE,
+                  **_NORMATIVE_EDGE_RANGE}
 
 
 def _default_ontology_paths() -> Tuple[Any, Any]:

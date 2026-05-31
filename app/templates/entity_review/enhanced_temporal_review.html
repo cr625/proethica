@@ -507,29 +507,6 @@
                             <p><strong>Caused By Action:</strong> <code>{{ event.caused_by_action.split('#')[-1] }}</code></p>
                             {% endif %}
 
-                            <div class="row mt-3">
-                                <div class="col-md-6">
-                                    {% if event.activates_constraint %}
-                                    <h6>Activates Constraints:</h6>
-                                    <ul>
-                                        {% for constraint in event.activates_constraint %}
-                                        <li>{{ constraint }}</li>
-                                        {% endfor %}
-                                    </ul>
-                                    {% endif %}
-                                </div>
-                                <div class="col-md-6">
-                                    {% if event.creates_obligation %}
-                                    <h6>Creates Obligations:</h6>
-                                    <ul>
-                                        {% for obligation in event.creates_obligation %}
-                                        <li>{{ obligation }}</li>
-                                        {% endfor %}
-                                    </ul>
-                                    {% endif %}
-                                </div>
-                            </div>
-
                             <details class="mt-3">
                                 <summary class="text-muted small">RDF JSON-LD</summary>
                                 <pre class="mt-2"><code>{{ event.rdf_json | tojson(indent=2) }}</code></pre>

@@ -215,9 +215,15 @@ For each ACTION, extract:
 4. temporal_marker: When it occurred
 5. source_section: "facts" or "discussion"
 6. intention: {{mental_state, intended_outcome, foreseen_unintended_effects, agent_knowledge}}
-7. ethical_context: {{obligations_fulfilled, obligations_violated, guiding_principles, active_constraints, competing_obligations}}
+7. ethical_context: {{obligations_fulfilled, obligations_violated, guiding_principles}}. Name
+   the obligations and principles using the SAME names they carry elsewhere in the case
+   (the obligation/principle individuals already extracted), not fresh paraphrases: these
+   are resolved downstream to those actual individuals (Action fulfillsObligation /
+   violatesObligation / guidedByPrinciple edges). Do NOT list constraints or competing
+   obligation pairs here; constraint activation is carried by the State an action
+   initiates, and obligation competition by the case's defeasibility edges.
 8. competing_priorities: {{has_tradeoffs, priority_conflict, conflicting_factors, resolution_reasoning}}
-9. professional_context: {{within_competence, required_capabilities, required_resources}}
+9. professional_context: {{within_competence, required_capabilities}}
 10. initiates: list of STATES (fluents) this action brings into holding. In the Event
     Calculus (Kowalski & Sergot 1986; Berreby et al. 2017) a happening initiates a fluent
     that then holds until terminated. Name the conditions/states that become true because
@@ -247,9 +253,7 @@ Return JSON:
     "ethical_context": {{
       "obligations_fulfilled": [],
       "obligations_violated": ["Competence", "Supervision"],
-      "guiding_principles": ["Efficiency"],
-      "active_constraints": ["Registration"],
-      "competing_obligations": [{{"obligation_1": "Deadline", "obligation_2": "Quality", "resolution": "Chose deadline"}}]
+      "guiding_principles": ["Efficiency"]
     }},
     "competing_priorities": {{
       "has_tradeoffs": true,
@@ -259,8 +263,7 @@ Return JSON:
     }},
     "professional_context": {{
       "within_competence": true,
-      "required_capabilities": ["Engineering judgment"],
-      "required_resources": ["Specifications"]
+      "required_capabilities": ["Engineering judgment"]
     }},
     "initiates": ["Quality Risk State"],
     "terminates": [],

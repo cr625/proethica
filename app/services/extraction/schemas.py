@@ -720,10 +720,14 @@ class EventIndividual(BaseModel):
     event_type: Optional[str] = Field(None, alias="proeth:eventType")
     emergency_status: Optional[str] = Field(None, alias="proeth:emergencyStatus")
 
-    # Urgency / normative dynamics
+    # Urgency / state change. The former proeth:activatesConstraint and
+    # proeth:createsObligation event links were dropped 2026-05-31: an event activates a
+    # constraint or makes an obligation apply only via the State it initiates (the
+    # Event-Calculus path State proeth-core:activatesConstraint / activatesObligation,
+    # materialised by fluent_edges.py + state_edges.py), so the direct event links named
+    # free-text obligations/constraints that resolved to no extracted individual and
+    # duplicated that grounded path. See rdf_converter._add_fluent_and_time.
     urgency_level: Optional[str] = Field(None, alias="proeth:urgencyLevel")
-    activates_constraint: List[str] = Field(default_factory=list, alias="proeth:activatesConstraint")
-    creates_obligation: List[str] = Field(default_factory=list, alias="proeth:createsObligation")
     causes_state_change: Optional[str] = Field(None, alias="proeth:causesStateChange")
     caused_by_action: Optional[str] = Field(None, alias="proeth:causedByAction")
 
