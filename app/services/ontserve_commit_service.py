@@ -388,6 +388,28 @@ class OntServeCommitService:
                         source_text = props['sourceText'][0]
                         if source_text:
                             g.add((class_uri, PROETHICA_PROV.sourceText, Literal(source_text)))
+
+                    # Domain properties: everything the class card displays beyond the
+                    # provenance keys handled above (e.g. valueBasis, obligationType,
+                    # capabilityCategory, textReferences, confidence). The class
+                    # serializer previously emitted only definitions + provenance, so
+                    # the entire "Properties" column was dropped at commit. Emit each
+                    # remaining key as a literal, mirroring the individual generic path
+                    # (same _camelCase predicate convention) so the class round-trips.
+                    _class_prov_skip = {
+                        'generatedAtTime', 'wasAttributedTo', 'wasGeneratedBy',
+                        'firstDiscoveredInCase', 'firstDiscoveredAt', 'discoveredInCase',
+                        'discoveredInSection', 'discoveredInPass', 'sourceText',
+                    }
+                    for prop_name, prop_values in props.items():
+                        if prop_name in _class_prov_skip:
+                            continue
+                        values = prop_values if isinstance(prop_values, list) else [prop_values]
+                        prop_uri = PROETHICA[self._camelCase(prop_name)]
+                        for value in values:
+                            if value not in (None, '', [], {}):
+                                lit = value if isinstance(value, (str, int, float, bool)) else str(value)
+                                g.add((class_uri, prop_uri, Literal(lit)))
                 else:
                     # Fallback to basic provenance if rdf_data not available
                     g.add((class_uri, PROV.generatedAtTime, Literal(datetime.utcnow())))
@@ -566,8 +588,27 @@ class OntServeCommitService:
 
                 # Check if individual already exists
                 if (individual_uri, RDF.type, OWL.NamedIndividual) in g:
-                    logger.info(f"Individual {label} already exists, skipping")
-                    continue
+                    # A same-label individual is already committed. If it is the SAME
+                    # concept category (the same entity re-seen in another section),
+                    # merge by skipping. If it is a DIFFERENT category (a genuine label
+                    # collision -- e.g. an obligation and a capability that happen to
+                    # share an entity_label), disambiguate the URI by category so the
+                    # second individual is not silently dropped (display-to-RDF fidelity).
+                    new_cat = self._get_concept_category(entity)
+                    existing_cats = {str(o) for o in g.objects(individual_uri, PROETHICA['conceptCategory'])}
+                    if new_cat and existing_cats and new_cat not in existing_cats:
+                        disambiguated = case_ns[f"{safe_label}_{new_cat}"]
+                        if (disambiguated, RDF.type, OWL.NamedIndividual) in g:
+                            logger.info(f"Individual {label} ({new_cat}) already exists, skipping")
+                            continue
+                        logger.info(
+                            f"Label collision for {label!r}: existing={sorted(existing_cats)} "
+                            f"new={new_cat}; minting category-disambiguated URI "
+                            f"{str(disambiguated).split('#')[-1]}")
+                        individual_uri = disambiguated
+                    else:
+                        logger.info(f"Individual {label} already exists, skipping")
+                        continue
 
                 # Add individual as NamedIndividual
                 g.add((individual_uri, RDF.type, OWL.NamedIndividual))
