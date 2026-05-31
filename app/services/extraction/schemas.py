@@ -569,15 +569,17 @@ class ActionIndividual(BaseModel):
 
     CONFORMED to the emitted vocabulary (HO-006, 2026-05-26). Step-3 temporal
     dynamics does NOT validate through this model: actions are produced by the
-    LangGraph temporal pass and serialised directly to ``proeth:`` / ``proeth-scenario:``
-    JSON-LD by ``app/services/temporal_dynamics/utils/rdf_converter.build_action_rdf``.
+    LangGraph temporal pass and serialised directly to ``proeth:`` JSON-LD by
+    ``app/services/temporal_dynamics/utils/rdf_converter.convert_action_to_rdf``.
     The committed JSON-LD (``temporary_rdf_storage.rdf_json_ld`` for
     ``extraction_type='temporal_dynamics_enhanced'``, ``entity_type='actions'``) is the
     canonical ground truth; this model mirrors those keys via aliases so it can
     round-trip committed output. The earlier snake_case fields (``performed_by``,
     ``temporal_interval``, ``sequence_order``, ``obligations_fulfilled`` ...) never
-    matched what was emitted and were removed. See memory
-    ``feedback_schema-vs-emitted-vocabulary``.
+    matched what was emitted and were removed. The ``proeth-scenario:`` scenario-metadata
+    fields were removed 2026-05-31: that narrative gloss is derivable on demand from the
+    committed entities at scenario/lesson-generation time, so the extractor no longer
+    produces it. See memory ``feedback_schema-vs-emitted-vocabulary``.
     """
     model_config = ConfigDict(populate_by_name=True, extra='allow')
 
@@ -612,17 +614,10 @@ class ActionIndividual(BaseModel):
     within_competence: Optional[bool] = Field(None, alias="proeth:withinCompetence")
     requires_capability: List[str] = Field(default_factory=list, alias="proeth:requiresCapability")
 
-    # Scenario / narrative metadata (proeth-scenario:)
-    character_motivation: Optional[str] = Field(None, alias="proeth-scenario:characterMotivation")
-    ethical_tension: Optional[str] = Field(None, alias="proeth-scenario:ethicalTension")
-    decision_significance: Optional[str] = Field(None, alias="proeth-scenario:decisionSignificance")
-    narrative_role: Optional[str] = Field(None, alias="proeth-scenario:narrativeRole")
-    stakes: Optional[str] = Field(None, alias="proeth-scenario:stakes")
-    is_decision_point: Optional[bool] = Field(None, alias="proeth-scenario:isDecisionPoint")
-    alternative_actions: List[str] = Field(default_factory=list, alias="proeth-scenario:alternativeActions")
-    consequences_if_alternative: List[str] = Field(
-        default_factory=list, alias="proeth-scenario:consequencesIfAlternative"
-    )
+    # Fluent transitions + OWL-Time extent (Event Calculus)
+    initiates: List[str] = Field(default_factory=list, alias="proeth:initiates")
+    terminates: List[str] = Field(default_factory=list, alias="proeth:terminates")
+    temporal_extent: Optional[str] = Field(None, alias="proeth:temporalExtent")
 
     # Added by the wired temporal_sequence / obligation apply-hooks at commit time
     raises_obligation: List[str] = Field(default_factory=list, alias="proeth:raisesObligation")
@@ -732,17 +727,10 @@ class EventIndividual(BaseModel):
     causes_state_change: Optional[str] = Field(None, alias="proeth:causesStateChange")
     caused_by_action: Optional[str] = Field(None, alias="proeth:causedByAction")
 
-    # Scenario / narrative metadata (proeth-scenario:)
-    emotional_impact: Optional[str] = Field(None, alias="proeth-scenario:emotionalImpact")
-    stakeholder_consequences: Optional[Dict[str, Any]] = Field(
-        None, alias="proeth-scenario:stakeholderConsequences"
-    )
-    dramatic_tension: Optional[str] = Field(None, alias="proeth-scenario:dramaticTension")
-    narrative_pacing: Optional[str] = Field(None, alias="proeth-scenario:narrativePacing")
-    crisis_identification: Optional[bool] = Field(None, alias="proeth-scenario:crisisIdentification")
-    learning_moment: Optional[str] = Field(None, alias="proeth-scenario:learningMoment")
-    discussion_prompts: List[str] = Field(default_factory=list, alias="proeth-scenario:discussionPrompts")
-    ethical_implications: Optional[str] = Field(None, alias="proeth-scenario:ethicalImplications")
+    # Fluent transitions + OWL-Time extent (Event Calculus)
+    initiates: List[str] = Field(default_factory=list, alias="proeth:initiates")
+    terminates: List[str] = Field(default_factory=list, alias="proeth:terminates")
+    temporal_extent: Optional[str] = Field(None, alias="proeth:temporalExtent")
 
     # Added by the wired temporal_sequence apply-hook at commit time
     temporal_sequence: Optional[int] = Field(None, alias="proeth:temporalSequence")
