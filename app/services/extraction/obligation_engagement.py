@@ -8,10 +8,20 @@ fulfills (directly satisfied), violates (directly breached), and raises
 `proeth:violatesObligation` so the same obligation never appears with
 contradictory polarity on adjacent steps in the chain.
 
-Driver: `docs-internal/scripts/backfill_obligation_engagement.py`.
+Literature grounding. The fulfills / violates pair is the causal-normative
+mapping of an action to the obligations it satisfies or breaches (Sarmiento et
+al. 2023, NESS causal responsibility; Berreby et al. 2017, obligations as
+fulfilled/violated fluents). The third bucket, `raises`, is the temporal
+refinement: rather than statically satisfying or breaching a duty, an action can
+PUT AN OBLIGATION IN FORCE (at stake) that a later action resolves. This is the
+Event Calculus view of an obligation as a fluent INITIATED by one happening and
+fulfilled or violated by a subsequent one (Berreby et al. 2017), under the
+defeasible/contextual account of obligations that come into force under
+conditions (Dennis et al. 2016; Dennis & del Olmo 2021). It is the action-side
+analog of the core State linkage proeth-core:activatesObligation /
+defeasibleUnder: a happening raises an obligation just as a State activates one.
 
-Reference: proethica/.claude/plans/current-application-roadmap.md
-"Action Obligation Classification: Choice vs. Execution".
+Driver: `docs-internal/scripts/backfill_obligation_engagement.py`.
 """
 from __future__ import annotations
 
@@ -40,13 +50,15 @@ SYSTEM_PROMPT = (
     "  - violates: this specific Action directly breaches the obligation. "
     "    Use when the action does the opposite of what the obligation "
     "    requires.\n"
-    "  - raises: this Action puts the obligation in play but does not "
-    "    itself resolve it. The fulfillment or violation happens at a "
-    "    downstream Action in the same chain (e.g., a choice to use a "
-    "    tool raises a competence concern that the later review either "
-    "    satisfies or breaches). Use this whenever the case opinion "
-    "    treats the obligation as 'at risk' from the choice but actually "
-    "    resolved by a subsequent step.\n\n"
+    "  - raises: this Action puts the obligation IN FORCE (at stake) but does "
+    "    not itself resolve it (the Event Calculus view of an obligation as a "
+    "    fluent the action initiates, fulfilled or violated by a later action; "
+    "    Berreby et al. 2017; Dennis et al. 2016). The fulfillment or violation "
+    "    happens at a downstream Action in the same chain (e.g., a choice to use "
+    "    a tool raises a competence concern that the later review either "
+    "    satisfies or breaches). Use this whenever the case opinion treats the "
+    "    obligation as 'at risk' from the choice but actually resolved by a "
+    "    subsequent step.\n\n"
     "Critical rules:\n"
     "- The union of fulfills + violates + raises for an Action must "
     "  EQUAL the input pool exactly. Do not invent new obligations. Do "

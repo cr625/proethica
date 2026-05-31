@@ -872,8 +872,13 @@
             <div class="border-start border-3 border-warning ps-3 mb-3">
                 <p class="small mt-2 mb-2">
                     <strong>Definition:</strong> Causal-normative links connect professional actions to the obligations
-                    they fulfill or violate. Each action is mapped to normative framework components through causal
-                    responsibility analysis.
+                    they engage. Each action engages an obligation in one of three ways: it
+                    <span class="text-success">fulfills</span> the obligation (directly satisfies it),
+                    <span class="text-danger">violates</span> it (directly breaches it), or
+                    <span class="text-warning-emphasis">raises</span> it (puts it in force, or at stake, to be resolved
+                    by a later action). The fulfills and violates assignment is grounded in causal responsibility
+                    analysis; the raises assignment is grounded in the Event Calculus treatment of an obligation as a
+                    fluent.
                 </p>
                 <p class="mb-1"><strong>Sarmiento, C., Bourgne, G., Inoue, K., & Ganascia, J.-G. (2023)</strong></p>
                 <p class="fst-italic mb-1">Action Languages Based Actual Causality in Decision Making Contexts</p>
@@ -886,13 +891,29 @@
                     Uses the <strong>NESS test</strong> (Necessary Element of a Sufficient Set) for causal responsibility
                     attribution. An action is causally responsible for an outcome if it was a necessary element in a
                     set of conditions jointly sufficient to produce that outcome. ProEthica applies NESS to determine
-                    which actions fulfill or violate specific obligations.
+                    which actions <span class="text-success">fulfill</span> or <span class="text-danger">violate</span>
+                    specific obligations.
+                </p>
+                <p class="small mb-1 mt-3"><strong>Grounding for <span class="text-warning-emphasis">raises</span> (at stake):</strong>
+                    Berreby, F., Bourgne, G., & Ganascia, J.-G. (2017), <em>A Declarative Modular Framework for
+                    Representing and Applying Ethical Principles</em> (AAMAS 2017, pp. 96-104); and Dennis, L., et al.
+                    (2016), <em>Formal Verification of Ethical Choices in Autonomous Systems</em>, with Dennis &amp; del
+                    Olmo (2021), <em>A Defeasible Logic Implementation of Ethical Reasoning</em>.
+                </p>
+                <p class="small mb-2">
+                    In the Event Calculus an obligation is a <strong>fluent</strong> that a happening initiates: the
+                    action puts the obligation in force rather than statically satisfying or breaching it, and a later
+                    action resolves it. The defeasible account treats obligations as coming into force under conditions
+                    and remaining defeasibly in play until discharged. This is the action-side analog of the core State
+                    linkage <code>activatesObligation</code> / <code>defeasibleUnder</code>: a happening
+                    <span class="text-warning-emphasis">raises</span> an obligation just as a State activates one.
                 </p>
                 <div class="alert alert-light border mt-2 mb-0">
                     <p class="small mb-0">
-                        <strong>Application:</strong> The Analysis tab displays causal-normative links showing which
-                        obligations each action <span class="text-success">fulfills</span> and which it
-                        <span class="text-danger">violates</span>, enabling systematic evaluation of professional conduct.
+                        <strong>Application:</strong> The Analysis and Timeline tabs display causal-normative links showing,
+                        per action, the obligations it <span class="text-success">fulfills</span>,
+                        <span class="text-danger">violates</span>, or <span class="text-warning-emphasis">raises</span>
+                        (puts at stake), enabling systematic evaluation of professional conduct across the case timeline.
                     </p>
                 </div>
             </div>
