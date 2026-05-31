@@ -428,8 +428,14 @@
                     <h2 class="accordion-header" id="event-{{ event.id }}">
                         <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#event-collapse-{{ event.id }}">
                             <strong>{{ event.label }}</strong>
-                            {% if event.emergency_level %}
-                            <span class="badge bg-danger ms-2">{{ event.emergency_level }}</span>
+                            {% if event.event_type %}
+                            <span class="badge bg-secondary ms-2">{{ event.event_type }}</span>
+                            {% endif %}
+                            {% if event.urgency_level %}
+                            <span class="badge ms-1 {% if event.urgency_level in ['critical', 'high'] %}bg-danger{% elif event.urgency_level == 'medium' %}bg-warning text-dark{% else %}bg-light text-dark border{% endif %}">urgency: {{ event.urgency_level }}</span>
+                            {% endif %}
+                            {% if event.emergency_status and event.emergency_status != 'routine' %}
+                            <span class="badge bg-danger ms-1">{{ event.emergency_status }}</span>
                             {% endif %}
                         </button>
                     </h2>
@@ -437,26 +443,20 @@
                         <div class="accordion-body">
                             <p><strong>Description:</strong> {{ event.description }}</p>
 
-                            {% if event.affected_entity %}
-                            <p><strong>Affected Entity:</strong> {{ event.affected_entity }}</p>
-                            {% endif %}
-
                             {% if event.temporal_marker %}
                             <p><strong>Temporal Marker:</strong> <span class="badge bg-secondary">{{ event.temporal_marker }}</span></p>
                             {% endif %}
 
+                            {% if event.causes_state_change %}
+                            <p><strong>Causes State Change:</strong> {{ event.causes_state_change }}</p>
+                            {% endif %}
+
+                            {% if event.caused_by_action %}
+                            <p><strong>Caused By Action:</strong> <code>{{ event.caused_by_action.split('#')[-1] }}</code></p>
+                            {% endif %}
+
                             <div class="row mt-3">
-                                <div class="col-md-4">
-                                    {% if event.triggers_state %}
-                                    <h6>Triggers States:</h6>
-                                    <ul>
-                                        {% for state in event.triggers_state %}
-                                        <li>{{ state }}</li>
-                                        {% endfor %}
-                                    </ul>
-                                    {% endif %}
-                                </div>
-                                <div class="col-md-4">
+                                <div class="col-md-6">
                                     {% if event.activates_constraint %}
                                     <h6>Activates Constraints:</h6>
                                     <ul>
@@ -466,11 +466,11 @@
                                     </ul>
                                     {% endif %}
                                 </div>
-                                <div class="col-md-4">
-                                    {% if event.transforms_obligation %}
-                                    <h6>Transforms Obligations:</h6>
+                                <div class="col-md-6">
+                                    {% if event.creates_obligation %}
+                                    <h6>Creates Obligations:</h6>
                                     <ul>
-                                        {% for obligation in event.transforms_obligation %}
+                                        {% for obligation in event.creates_obligation %}
                                         <li>{{ obligation }}</li>
                                         {% endfor %}
                                     </ul>

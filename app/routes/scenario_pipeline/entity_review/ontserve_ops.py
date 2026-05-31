@@ -215,17 +215,26 @@ def register_ontserve_ops_routes(bp):
                     })
 
                 elif 'Event' in entity_type:
+                    # Field names match what convert_event_to_rdf actually emits
+                    # (rdf_converter.py). The earlier projection read affectsEntity /
+                    # triggersState / transformsObligation / emergencyLevel, none of
+                    # which the converter writes, so those fields always rendered empty
+                    # while eventType / urgencyLevel / createsObligation / causesStateChange
+                    # were never surfaced. causesStateChange and caused_by_action are
+                    # scalars; activatesConstraint and createsObligation are lists.
                     events.append({
                         'id': entity.id,
                         'label': entity.entity_label,
                         'uri': entity.entity_uri,
                         'description': rdf_data.get('proeth:description', ''),
-                        'affected_entity': rdf_data.get('proeth:affectsEntity', ''),
                         'temporal_marker': rdf_data.get('proeth:temporalMarker', ''),
-                        'triggers_state': rdf_data.get('proeth:triggersState', []),
+                        'event_type': rdf_data.get('proeth:eventType', ''),
+                        'emergency_status': rdf_data.get('proeth:emergencyStatus', ''),
+                        'urgency_level': rdf_data.get('proeth:urgencyLevel', ''),
                         'activates_constraint': rdf_data.get('proeth:activatesConstraint', []),
-                        'transforms_obligation': rdf_data.get('proeth:transformsObligation', []),
-                        'emergency_level': rdf_data.get('proeth:emergencyLevel', ''),
+                        'creates_obligation': rdf_data.get('proeth:createsObligation', []),
+                        'causes_state_change': rdf_data.get('proeth:causesStateChange', ''),
+                        'caused_by_action': rdf_data.get('proeth:causedByAction', ''),
                         'rdf_json': rdf_data
                     })
 
