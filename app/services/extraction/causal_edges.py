@@ -39,7 +39,7 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List
 
-from rdflib import Graph, Literal, Namespace, RDF, RDFS, URIRef
+from rdflib import Graph, Literal, Namespace, OWL, RDF, RDFS, URIRef
 
 from app.services.extraction.state_edges import (
     _candidate_pool,
@@ -389,6 +389,50 @@ def apply_event_cause_edges(case_id: int, ttl_path, write_back: bool = True) -> 
             continue
         g.add((subj, PROETH.causedByAction, tgt))
         _emit_prov(g, case_id, "causedByAction", subj, tgt, ev["caused_by"])
+        edges += 1
+
+    res["edges"], res["unresolved"] = edges, unresolved
+    if write_back and edges:
+        g.serialize(destination=str(ttl_path), format="turtle")
+    return res
+
+
+def apply_causal_normative_link_edges(case_id: int, ttl_path, write_back: bool = True) -> Dict[str, Any]:
+    """Ground each synthesis CausalNormativeLink (reasoning) node to the committed Action it
+    analyzes, via proeth:analyzesAction.
+
+    The synthesis link node carries the normative-significance reasoning, but the commit
+    serializer drops its legacy `action_id`, leaving the reasoning ORPHANED from its action.
+    The action's obligation profile is already URI-resolved on the action itself
+    (fulfils/violates edges from obligation_edges), so the link does not need to duplicate
+    obligation references -- it just needs to point at the action. The link is named
+    "CausalLink_<action label>", so the action resolves deterministically by label; once the
+    edge exists, the reasoning -> action -> obligation-URIs chain is fully graph-reachable.
+    Best-effort; never raises."""
+    ttl_path = Path(ttl_path)
+    res: Dict[str, Any] = {"case_id": case_id, "status": "ok", "edges": 0, "unresolved": 0}
+    g = Graph()
+    g.parse(str(ttl_path), format="turtle")
+
+    action_by_norm: Dict[str, URIRef] = {}
+    for ind in _individuals_in_category(g, "Action"):
+        action_by_norm.setdefault(_norm(_label(g, ind)), ind)
+    if not action_by_norm:
+        return {"case_id": case_id, "status": "no_actions"}
+
+    edges = unresolved = 0
+    for s in set(g.subjects(RDF.type, OWL.NamedIndividual)):
+        lbl = _label(g, s)
+        if not lbl or not lbl.startswith("CausalLink"):
+            continue
+        act_lbl = re.sub(r"^CausalLink[_\s]+", "", lbl).strip()
+        tgt = action_by_norm.get(_norm(act_lbl))
+        if tgt is None:
+            unresolved += 1
+            continue
+        if (s, PROETH.analyzesAction, tgt) in g:
+            continue
+        g.add((s, PROETH.analyzesAction, tgt))
         edges += 1
 
     res["edges"], res["unresolved"] = edges, unresolved

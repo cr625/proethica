@@ -180,6 +180,17 @@ def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
         logger.exception("materialize: event-cause-edge applier failed for case %s", case_id)
         results["event_cause_edges"] = {"error": str(e)}
 
+    # 2j. Ground synthesis CausalNormativeLink reasoning nodes to the Action they analyze
+    # (proeth:analyzesAction), so the reasoning -> action -> obligation-URI chain is reachable.
+    try:
+        from app.services.extraction.causal_edges import apply_causal_normative_link_edges
+        results["causal_normative_link_edges"] = apply_causal_normative_link_edges(
+            case_id=case_id, ttl_path=ttl_path, write_back=True,
+        )
+    except Exception as e:
+        logger.exception("materialize: causal-normative-link applier failed for case %s", case_id)
+        results["causal_normative_link_edges"] = {"error": str(e)}
+
     # 3. R->P->O dependency edges (LLM) with the domain/range Pellet guard.
     try:
         from app.services.extraction.rpo_edges import apply_rpo_edges

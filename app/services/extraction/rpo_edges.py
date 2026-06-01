@@ -416,6 +416,9 @@ _CAUSAL_EDGE_RANGE = {
     # the converter's legacy causedByAction IRI). Both endpoints are disjoint categories,
     # so the guard validates both.
     PROETH.causedByAction: ("Event", "Action"),
+    # CausalNormativeLink (reasoning node) -> the Action it analyzes. Subject is a non-D-tuple
+    # analysis node (empty domain clause -> never dropped on the subject); range Action.
+    PROETH.analyzesAction: ("CausalNormativeLink", "Action"),
 }
 ALL_EDGE_RANGE = {**_EDGE_RANGE, **_DEFEASIBILITY_RANGE, **_STATE_EDGE_RANGE,
                   **_RESOURCE_EDGE_RANGE, **_STATE_AFFECTS_RANGE,
