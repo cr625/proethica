@@ -35,6 +35,7 @@ empty-set and never drops on the subject. Best-effort: failures are logged, neve
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -126,6 +127,28 @@ def _build_causal_prompt(prop: str, verb: str):
     return builder
 
 
+def _split_conjuncts(desc: str) -> List[str]:
+    """Split a compound cause/effect label ("X (Event 2) + Y (Event 3)") into its conjuncts
+    so each resolves to its own edge, instead of silently keeping only the first. Strips the
+    trailing "(Event N)"/"(Action N)" annotations the converter adds, for cleaner matching."""
+    parts = re.split(r"\s+\+\s+", desc)
+    out = []
+    for p in parts:
+        p = re.sub(r"\s*\([^)]*\)\s*$", "", p).strip()
+        if p:
+            out.append(p)
+    return out or [desc]
+
+
+def _remove_prov(g: Graph, case_id: int, prop: str, subj, obj) -> None:
+    """Remove the deterministic PROV-O node emitted for a (subj, prop, obj) causal edge, so a
+    dropped edge does not leave an orphaned derivation node behind."""
+    case_ns = Namespace(f"http://proethica.org/ontology/case/{case_id}#")
+    prov_iri = case_ns["causal_edge_provenance_" + _safe_frag(subj) + "_" + prop + "_" + _safe_frag(obj)]
+    for t in list(g.triples((prov_iri, None, None))):
+        g.remove(t)
+
+
 def _emit_prov(g: Graph, case_id: int, prop: str, subj, obj, desc: str) -> None:
     case_ns = Namespace(f"http://proethica.org/ontology/case/{case_id}#")
     prov_iri = case_ns["causal_edge_provenance_" + _safe_frag(subj) + "_" + prop + "_" + _safe_frag(obj)]
@@ -196,13 +219,17 @@ def apply_causal_edges(case_id: int, ttl_path, write_back: bool = True,
                 logger.info("causal_edges[%s]: chain %r not in committed graph; skipped",
                             prop, (c["label"] or "")[:80])
                 continue
-            sl = _shortlist(svc, desc, pool, SHORTLIST_FLOOR, SHORTLIST_K)
-            if not sl:
-                unresolved += 1
-                continue
-            items.append({"id": next_id, "subj": subj, "desc": desc,
-                          "subj_label": c["label"], "shortlist": sl})
-            next_id += 1
+            # cause/effect may be compound ("X + Y"); resolve each conjunct to its own edge
+            # instead of keeping only the first (which can be the wrong / backwards one).
+            sub_descs = _split_conjuncts(desc) if prop in ("cause", "effect") else [desc]
+            for sd in sub_descs:
+                sl = _shortlist(svc, sd, pool, SHORTLIST_FLOOR, SHORTLIST_K)
+                if not sl:
+                    unresolved += 1
+                    continue
+                items.append({"id": next_id, "subj": subj, "desc": sd,
+                              "subj_label": c["label"], "shortlist": sl})
+                next_id += 1
 
         selections = _llm_select_multi(
             items, client=llm_client, model=model, prompt_builder=_build_causal_prompt(prop, verb)
@@ -230,9 +257,54 @@ def apply_causal_edges(case_id: int, ttl_path, write_back: bool = True,
         res[prop] = {"edges": edges, "resolver": "llm" if selections is not None else "embedding",
                      "unresolved": unresolved}
 
-    total = sum(v.get("edges", 0) for v in res.values() if isinstance(v, dict))
+    # Temporal-precedence guard: a cause must precede its effect. Using the temporalSequence
+    # post-step ordering on the Action/Event endpoints, drop any effect edge sequenced at or
+    # before the chain's EARLIEST cause (an effect cannot occur before the chain begins), and
+    # any cause edge sequenced at or after the chain's LATEST effect. This catches the
+    # compound-conflation failure where a backwards conjunct (e.g. an effect that predates the
+    # cause) was materialized; the LLM causal stage is not checked against the sequencing stage
+    # anywhere else, so this is the only place the two are reconciled.
+    def _seq(ind):
+        for o in g.objects(ind, PROETH.temporalSequence):
+            try:
+                return int(o)
+            except (TypeError, ValueError):
+                pass
+        return None
+
+    precedence_dropped = 0
+    for subj in set(g.subjects(RDF.type, PROETH.CausalChain)):
+        causes = list(g.objects(subj, PROETH.cause))
+        effects = list(g.objects(subj, PROETH.effect))
+        cseqs = [s for s in (_seq(x) for x in causes) if s is not None]
+        eseqs = [s for s in (_seq(x) for x in effects) if s is not None]
+        if not cseqs or not eseqs:
+            continue
+        min_c, max_e = min(cseqs), max(eseqs)
+        for e in effects:
+            es = _seq(e)
+            if es is not None and es <= min_c:
+                g.remove((subj, PROETH.effect, e))
+                _remove_prov(g, case_id, "effect", subj, e)
+                precedence_dropped += 1
+                logger.info("causal_edges: dropped effect %s (seq %s) <= earliest cause (seq %s) "
+                            "on chain %s (temporal precedence)",
+                            str(e).split("#")[-1], es, min_c, str(subj).split("#")[-1])
+        for x in causes:
+            cs = _seq(x)
+            if cs is not None and cs >= max_e:
+                g.remove((subj, PROETH.cause, x))
+                _remove_prov(g, case_id, "cause", subj, x)
+                precedence_dropped += 1
+                logger.info("causal_edges: dropped cause %s (seq %s) >= latest effect (seq %s) "
+                            "on chain %s (temporal precedence)",
+                            str(x).split("#")[-1], cs, max_e, str(subj).split("#")[-1])
+    if precedence_dropped:
+        res["precedence_dropped"] = precedence_dropped
+
+    total = sum(v.get("edges", 0) for v in res.values() if isinstance(v, dict)) - precedence_dropped
     res["total"] = total
-    if write_back and total:
+    if write_back and (total or precedence_dropped):
         g.serialize(destination=str(ttl_path), format="turtle")
     return res
 
