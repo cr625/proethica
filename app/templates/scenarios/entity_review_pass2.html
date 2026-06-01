@@ -1276,19 +1276,12 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
         <div class="d-flex gap-2">
             {% if section_type == 'discussion' %}
-                {# Smart URL: go to review if Step 3 already complete, extraction if not #}
-                {% set step3_done = pipeline_status.step3.complete if pipeline_status else false %}
-                {% if step3_done %}
+                {# Always link to the temporal review; it renders an empty state when there
+                   is no Step-3 data yet (do NOT fall back to the incomplete pipeline page). #}
                 <a href="{{ url_for('entity_review.review_enhanced_temporal', case_id=case.id) }}"
                    class="btn btn-primary btn-lg">
                     Continue to Temporal Analysis <i class="bi bi-arrow-right"></i>
                 </a>
-                {% else %}
-                <a href="{{ url_for('cases.case_pipeline', case_id=case.id) }}"
-                   class="btn btn-primary btn-lg">
-                    Continue to Temporal Analysis <i class="bi bi-arrow-right"></i>
-                </a>
-                {% endif %}
             {% else %}
                 {# Smart URL: go to review if Step 2 already complete, extraction if not #}
                 {% set step2_disc_done = pipeline_status.step2.discussion_complete if pipeline_status else false %}
