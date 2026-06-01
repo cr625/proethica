@@ -222,16 +222,15 @@ For each ACTION, extract:
    violatesObligation / guidedByPrinciple edges). Do NOT list constraints or competing
    obligation pairs here; constraint activation is carried by the State an action
    initiates, and obligation competition by the case's defeasibility edges.
-8. competing_priorities: {{has_tradeoffs, priority_conflict, conflicting_factors, resolution_reasoning}}
-9. professional_context: {{within_competence, required_capabilities}}
-10. initiates: list of STATES (fluents) this action brings into holding. In the Event
-    Calculus (Kowalski & Sergot 1986; Berreby et al. 2017) a happening initiates a fluent
-    that then holds until terminated. Name the conditions/states that become true because
-    of this action (for example "Conflict of Interest", "Public Safety Risk Disclosed"),
-    using the same state names used elsewhere in the case. Empty list if it changes no state.
-11. terminates: list of STATES (fluents) this action ends (conditions that stop holding).
+8. professional_context: {{within_competence, required_capabilities}}
+9. initiates: list of STATES (fluents) this action brings into holding. In the Event
+   Calculus (Kowalski & Sergot 1986; Berreby et al. 2017) a happening initiates a fluent
+   that then holds until terminated. Name the conditions/states that become true because
+   of this action (for example "Conflict of Interest", "Public Safety Risk Disclosed"),
+   using the same state names used elsewhere in the case. Empty list if it changes no state.
+10. terminates: list of STATES (fluents) this action ends (conditions that stop holding).
     Empty list if none.
-12. temporal_extent: "instant" if the action is a point occurrence, "interval" if it
+11. temporal_extent: "instant" if the action is a point occurrence, "interval" if it
     extends over a period. This anchors the action in OWL-Time; temporal_marker stays the
     textual when.
 
@@ -254,12 +253,6 @@ Return JSON:
       "obligations_fulfilled": [],
       "obligations_violated": ["Competence", "Supervision"],
       "guiding_principles": ["Efficiency"]
-    }},
-    "competing_priorities": {{
-      "has_tradeoffs": true,
-      "priority_conflict": "Urgency vs Competence",
-      "conflicting_factors": ["Time", "Quality"],
-      "resolution_reasoning": "Deadline prioritized"
     }},
     "professional_context": {{
       "within_competence": true,

@@ -97,14 +97,12 @@ def convert_action_to_rdf(action: Dict, case_id: int) -> Dict:
         if ethical_context.get('guiding_principles'):
             rdf_entity['proeth:guidedByPrinciple'] = ethical_context['guiding_principles']
 
-    # Add competing priorities
-    competing = action.get('competing_priorities', {})
-    if competing.get('has_tradeoffs'):
-        rdf_entity['proeth:hasCompetingPriorities'] = {
-            '@type': 'proeth:CompetingPriorities',
-            'proeth:priorityConflict': competing.get('priority_conflict', ''),
-            'proeth:resolutionReasoning': competing.get('resolution_reasoning', '')
-        }
+    # competing_priorities (priority_conflict / resolution_reasoning) was dropped from
+    # Step-3 extraction 2026-06-01: a utility audit found it had no real consumer (only a
+    # degenerate empty-definition fallback), it was a nested object dropped at commit, and
+    # its tension is durably captured by the obligation-level defeasibility edges
+    # (competesWith / prevailsOver) + the action's fulfils/violates. See
+    # docs-internal/reextraction/review-vs-synthesis-fields.md.
 
     # Add professional context
     prof_context = action.get('professional_context', {})
@@ -129,10 +127,10 @@ def _add_fluent_and_time(rdf_entity: Dict, src: Dict) -> None:
       occurrence, OWL-Time time:Instant) or "interval" (extended, time:ProperInterval). The
       relational ordering is carried by the Allen-relation individuals (time:intervalBefore
       etc., separate individuals) and the discrete order by temporalSequence. A proper
-      per-happening time:hasTime -> time:Instant/Interval individual is a deferred follow-on:
-      the commit serializer emits only literal and IRI property values, so a nested anonymous
-      time entity does not survive (the same reason proeth:hasCompetingPriorities does not
-      land); landing it needs a separately-minted time individual, not a nested blank node.
+      per-happening time:hasTime -> time:Instant/Interval individual is materialised at
+      commit by time_anchor.py: the commit serializer emits only literal and IRI property
+      values, so a nested anonymous time entity would not survive (which is why the anchor is
+      minted as a separate first-class time individual rather than a nested blank node).
     """
     initiates = src.get('initiates') or []
     terminates = src.get('terminates') or []

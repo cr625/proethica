@@ -605,10 +605,9 @@ class ActionIndividual(BaseModel):
     fulfills_obligation: List[str] = Field(default_factory=list, alias="proeth:fulfillsObligation")
     violates_obligation: List[str] = Field(default_factory=list, alias="proeth:violatesObligation")
     guided_by_principle: List[str] = Field(default_factory=list, alias="proeth:guidedByPrinciple")
-    has_competing_priorities: Optional[Dict[str, Any]] = Field(
-        None, alias="proeth:hasCompetingPriorities",
-        description="Nested proeth:CompetingPriorities object (priorityConflict + resolutionReasoning)"
-    )
+    # has_competing_priorities (proeth:hasCompetingPriorities) was dropped from Step-3
+    # extraction 2026-06-01 (no real consumer; nested object dropped at commit; tension is
+    # durably captured by the defeasibility edges). See review-vs-synthesis-fields.md.
 
     # Professional context
     within_competence: Optional[bool] = Field(None, alias="proeth:withinCompetence")

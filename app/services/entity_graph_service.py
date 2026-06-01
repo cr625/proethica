@@ -99,10 +99,11 @@ def build_entity_graph(case_id: int, show_type_hubs: bool = False) -> dict:
                         definition = tension[0] if isinstance(tension, list) else tension
                 if not definition and rdf.get('source_text'):
                     definition = rdf.get('source_text')
-                if not definition and rdf.get('proeth:hasCompetingPriorities'):
-                    cp = rdf.get('proeth:hasCompetingPriorities', {})
-                    if isinstance(cp, dict):
-                        definition = cp.get('proeth:priorityConflict', '')
+                # Last resort: the entity's own label. (Replaced the action
+                # competing_priorities/priorityConflict fallback, dropped 2026-06-01 with
+                # that field; the node already carries the label.)
+                if not definition:
+                    definition = entity.entity_label or ''
 
             agent = rdf.get('proeth:hasAgent')
             temporal_marker = rdf.get('proeth:temporalMarker')

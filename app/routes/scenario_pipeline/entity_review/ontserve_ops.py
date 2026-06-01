@@ -203,8 +203,10 @@ def register_ontserve_ops_routes(bp):
                     # faithfully represents the extraction. The obligation engagement
                     # post-step splits the pool into three buckets (fulfills / violates
                     # / raises); showing only fulfills hid two thirds of that analysis.
-                    # hasCompetingPriorities is a nested object; foreseenUnintendedEffects
-                    # and the obligation buckets are lists; temporalSequence is an int.
+                    # foreseenUnintendedEffects and the obligation buckets are lists;
+                    # temporalSequence is an int. (competing_priorities was dropped from
+                    # Step-3 extraction 2026-06-01 -- no consumer; tension is in the
+                    # defeasibility edges.)
                     actions.append({
                         'field_groups': group_properties(rdf_data),
                         'id': entity.id,
@@ -222,7 +224,6 @@ def register_ontserve_ops_routes(bp):
                         'violates_obligation': rdf_data.get('proeth:violatesObligation', []),
                         'raises_obligation': rdf_data.get('proeth:raisesObligation', []),
                         'guided_by_principle': rdf_data.get('proeth:guidedByPrinciple', []),
-                        'competing_priorities': rdf_data.get('proeth:hasCompetingPriorities', {}),
                         'within_competence': rdf_data.get('proeth:withinCompetence', False),
                         'requires_capability': rdf_data.get('proeth:requiresCapability', []),
                         # Event Calculus fluent transitions: the States this action brings

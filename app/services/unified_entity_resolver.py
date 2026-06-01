@@ -247,11 +247,11 @@ class UnifiedEntityResolver:
                 # Try source_text as last resort
                 if not definition and rdf.get('source_text'):
                     definition = rdf.get('source_text')
-                # For competing priorities
-                if not definition and rdf.get('proeth:hasCompetingPriorities'):
-                    cp = rdf.get('proeth:hasCompetingPriorities', {})
-                    if isinstance(cp, dict):
-                        definition = cp.get('proeth:priorityConflict', '')
+                # Last resort: the entity's own label. (Replaced the action
+                # competing_priorities/priorityConflict fallback, dropped 2026-06-01 with
+                # that field.)
+                if not definition:
+                    definition = entity.entity_label or ''
 
             # Extract textReferences for alias detection
             text_refs = []
