@@ -98,3 +98,32 @@ def test_partition_groups_by_kind():
     assert groups[FieldKind.CONTENT.value] == ["proeth:necessaryFactors"]
     assert groups[FieldKind.DERIVED.value] == ["proeth:totalElements"]
     assert groups[FieldKind.PROVENANCE.value] == ["sourceText"]
+
+
+def test_group_properties_temporal_shape():
+    from app.services.extraction.field_classification import group_properties
+    g = group_properties({
+        "@type": "proeth:CausalChain", "rdfs:label": "X",
+        "proeth:cause": "Assignment", "proeth:necessaryFactors": ["a", "b"],
+        "proeth:responsibilityType": "direct", "proeth:totalElements": 5,
+        "proeth:description": "",  # empty -> skipped
+    })
+    assert g[FieldKind.RELATION.value] == [("proeth:cause", "Assignment")]
+    assert g[FieldKind.CONTENT.value] == [("proeth:necessaryFactors", ["a", "b"])]
+    assert g[FieldKind.ASSESSMENT.value] == [("proeth:responsibilityType", "direct")]
+    assert g[FieldKind.DERIVED.value] == [("proeth:totalElements", 5)]
+
+
+def test_group_properties_pass12_shape():
+    from app.services.extraction.field_classification import group_properties
+    g = group_properties({
+        "label": "Y",
+        "properties": {
+            "obligationStatement": ["must X"],
+            "confidence": [0.9],
+            "obligatedParty": ["Engineer A"],
+        },
+    })
+    assert g[FieldKind.RELATION.value] == [("obligatedParty", ["Engineer A"])]
+    assert g[FieldKind.CONTENT.value] == [("obligationStatement", ["must X"])]
+    assert g[FieldKind.ASSESSMENT.value] == [("confidence", [0.9])]

@@ -1220,6 +1220,33 @@ class OntServeCommitService:
                 g.add((subject_uri, PP.sourceText, Literal(text)))
                 emitted_src.add(str(text).strip())
 
+    def _emit_synthesis_literal_marker(self, g: Graph, subject_uri: URIRef,
+                                       rdf_data: Dict, prov_ns: Namespace) -> None:
+        """Mark which of an individual's literal fields are kept synthesis inputs
+        (CONTENT / ASSESSMENT in field_classification) as opposed to structural relations,
+        derived literals, or provenance. Emitted as an owl:AnnotationProperty
+        (proeth-prov:synthesisLiteral, one value per kept-literal local name), so the
+        triple-vs-literal distinction is captured in the committed provenance and the
+        synthesis layer can collect the kept literals by query rather than re-deriving the
+        classification. Pellet-neutral (annotation property, like the matcher decision)."""
+        from app.services.extraction.field_classification import synthesis_literals, _normalize
+        # Predicate names this individual carries, across the two storage shapes:
+        # pass-1/2 keep them under 'properties'; temporal keeps proeth: keys at top level.
+        preds = list(((rdf_data or {}).get('properties', {}) or {}).keys())
+        preds += [k for k in (rdf_data or {}).keys() if isinstance(k, str) and k.startswith('proeth:')]
+        kept = synthesis_literals(preds)
+        if not kept:
+            return
+        decl = (prov_ns['synthesisLiteral'], RDF.type, OWL.AnnotationProperty)
+        if decl not in g:
+            g.add(decl)
+        emitted = set()
+        for p in kept:
+            local = _normalize(p)
+            if local and local not in emitted:
+                g.add((subject_uri, prov_ns['synthesisLiteral'], Literal(local)))
+                emitted.add(local)
+
     def get_commit_status(self, case_id: int) -> Dict[str, Any]:
         """
         Get the commit status for a case.
@@ -1935,6 +1962,7 @@ class OntServeCommitService:
         # the synthesis/temporal types that carry their text in dedicated predicates).
         self._emit_provenance(g, uri, rdf_data)
         self._emit_match_decision(g, uri, rdf_data, PROETHICA_PROV)
+        self._emit_synthesis_literal_marker(g, uri, rdf_data, PROETHICA_PROV)
         if extraction_type not in self._DEF_SKIP_TYPES and 'temporal_dynamics' not in extraction_type:
             self._emit_definitions(g, uri, entity, rdf_data)
 

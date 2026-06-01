@@ -192,3 +192,36 @@ def partition(predicates: Iterable[str]) -> Dict[str, List[str]]:
     for p in predicates:
         groups[classify(p).value].append(p)
     return groups
+
+
+# JSON-LD framing / identity keys that are not extracted predicates.
+_STRUCTURAL_KEYS = frozenset({
+    "@context", "@id", "@type", "rdfs:label", "rdfs:comment", "label", "id", "uri",
+    "type", "name", "identifier", "definition", "rdf_turtle", "section_sources",
+})
+
+
+def group_properties(rdf_json_ld: dict) -> Dict[str, List[tuple]]:
+    """Extract ``(predicate, value)`` pairs from a temporary_rdf_storage JSON-LD record and
+    group them by FieldKind value. Handles both storage shapes: the pass-1/2 ``properties``
+    wrapper and the temporal / step-4 top-level keys. Skips JSON-LD framing/identity keys
+    and empty values. The review and provenance surfaces use this to render Relations vs
+    Literal extractions (and to label each literal by kind) without bespoke per-field code."""
+    groups: Dict[str, List[tuple]] = {k.value: [] for k in FieldKind}
+    if not isinstance(rdf_json_ld, dict):
+        return groups
+
+    def _add(pred, val):
+        if val in (None, "", [], {}):
+            return
+        groups[classify(pred).value].append((pred, val))
+
+    for k, v in rdf_json_ld.items():
+        if k in _STRUCTURAL_KEYS:
+            continue
+        if k == "properties" and isinstance(v, dict):
+            for pk, pv in v.items():
+                _add(pk, pv)
+            continue
+        _add(k, v)
+    return groups
