@@ -2,6 +2,7 @@
    Included from entity_review.html and entity_review_pass2.html.
    Expects parent context: type_data, concept_type, concept_colors, ontserve_web_url, case #}
 {% from 'macros/_definition_list.html' import render_definition_list %}
+{% from 'macros/_field_classification.html' import field_classification %}
 
 {% set color = concept_colors.get(concept_type, '#dee2e6') %}
 
@@ -246,6 +247,9 @@
             <div class="text-info"><i class="bi bi-quote"></i> "{{ indiv.rdf_json_ld.get('source_text')[:200] }}{% if indiv.rdf_json_ld.get('source_text')|length > 200 %}...{% endif %}"</div>
         </div>
         {% endif %}
+
+        {# Triple-vs-literal field classification (same lens as the temporal review). #}
+        {{ field_classification((indiv.rdf_json_ld or {}).get('properties') | group_properties) }}
     </div>
 </div>
 {% endfor %}

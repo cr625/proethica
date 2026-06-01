@@ -12,7 +12,15 @@ from app.services.concept_hierarchy_service import ConceptHierarchyService
 
 def init_app(app):
     """Initialize template filters for the application."""
-    
+
+    @app.template_filter('group_properties')
+    def group_properties_filter(rdf_json_ld):
+        """Partition an entity's emitted fields into relations / content / assessment /
+        derived / provenance (field_classification.group_properties), for the triple-vs-
+        literal breakdown shown on the review pages."""
+        from app.services.extraction.field_classification import group_properties
+        return group_properties(rdf_json_ld or {})
+
     @app.template_filter('basename')
     def basename_filter(path):
         """Return the basename of a file path."""

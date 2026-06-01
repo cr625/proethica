@@ -2,46 +2,8 @@
 
 {% block title %}Enhanced Temporal Review - Case {{ case.id }}{% endblock %}
 
-{# Render one extracted value (string / list / nested dict) safely. #}
-{% macro _fmt(v) %}{% if v is mapping %}{{ v | tojson }}{% elif v is sequence and v is not string %}{{ v | join('; ') }}{% else %}{{ v }}{% endif %}{% endmacro %}
-
-{# Triple-vs-literal field classification for a card (field_classification.group_properties).
-   Distinguishes structural relations (edges) from the kept literal extractions (CONTENT /
-   ASSESSMENT, carried to synthesis) and the derived/duplicate literals. #}
-{% macro field_classification(groups) %}
-{% if groups %}
-{% set rels = groups.get('relation', []) %}
-{% set content = groups.get('content', []) %}
-{% set assess = groups.get('assessment', []) %}
-{% set derived = groups.get('derived', []) %}
-<details class="mt-2">
-    <summary class="text-muted small"><i class="bi bi-tags"></i> Field classification (triples vs literals)</summary>
-    <div class="mt-2 small">
-        {% if rels %}
-        <div class="mb-2">
-            <span class="badge bg-primary">Relations &mdash; structural triples (edges)</span>
-            <ul class="mb-1">{% for p, v in rels %}<li><code>{{ p.split(':')[-1] }}</code>: {{ _fmt(v) }}</li>{% endfor %}</ul>
-        </div>
-        {% endif %}
-        {% if content or assess %}
-        <div class="mb-2">
-            <span class="badge bg-success">Literal extractions &mdash; kept for synthesis</span>
-            <ul class="mb-1">
-                {% for p, v in content %}<li><code>{{ p.split(':')[-1] }}</code> <span class="badge bg-light text-dark border">content</span>: {{ _fmt(v) }}</li>{% endfor %}
-                {% for p, v in assess %}<li><code>{{ p.split(':')[-1] }}</code> <span class="badge bg-light text-dark border">assessment</span>: {{ _fmt(v) }}</li>{% endfor %}
-            </ul>
-        </div>
-        {% endif %}
-        {% if derived %}
-        <div class="mb-0">
-            <span class="badge bg-secondary">Derived &mdash; reconstructable from the graph</span>
-            <ul class="mb-0">{% for p, v in derived %}<li class="text-muted"><code>{{ p.split(':')[-1] }}</code>: {{ _fmt(v) }}</li>{% endfor %}</ul>
-        </div>
-        {% endif %}
-    </div>
-</details>
-{% endif %}
-{% endmacro %}
+{# Triple-vs-literal field classification macro (shared with the Pass 1/2 reviews). #}
+{% from 'macros/_field_classification.html' import field_classification %}
 
 {% block styles %}
 <style>
