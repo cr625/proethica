@@ -188,10 +188,13 @@ class RPOEdgeExtractor:
             logger.error("RPOEdgeExtractor requires an Anthropic streaming client")
             return None
         chunks: List[str] = []
-        with client.messages.stream(
-            model=model, max_tokens=self.max_tokens, temperature=self.temperature,
+        stream_kwargs = dict(
+            model=model, max_tokens=self.max_tokens,
             system=SYSTEM_PROMPT, messages=[{"role": "user", "content": prompt}],
-        ) as stream:
+        )
+        if ModelConfig.supports_temperature(model):  # Opus 4.8 rejects temperature
+            stream_kwargs["temperature"] = self.temperature
+        with client.messages.stream(**stream_kwargs) as stream:
             for t in stream.text_stream:
                 chunks.append(t)
             final_msg = stream.get_final_message()

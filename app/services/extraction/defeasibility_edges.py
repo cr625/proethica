@@ -169,13 +169,15 @@ class DefeasibilityEdgeExtractor:
 
         try:
             chunks: List[str] = []
-            with client.messages.stream(
+            stream_kwargs = dict(
                 model=model,
                 max_tokens=self.max_tokens,
-                temperature=self.temperature,
                 system=SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": user_prompt}],
-            ) as stream:
+            )
+            if ModelConfig.supports_temperature(model):  # Opus 4.8 rejects temperature
+                stream_kwargs["temperature"] = self.temperature
+            with client.messages.stream(**stream_kwargs) as stream:
                 for text in stream.text_stream:
                     chunks.append(text)
                 final_msg = stream.get_final_message()

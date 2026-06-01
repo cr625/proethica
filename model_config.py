@@ -41,11 +41,23 @@ class ModelConfig:
         "embedding": os.getenv("LOCAL_EMBEDDING_MODEL", "all-MiniLM-L6-v2"),
     }
     
+    # Models that reject the `temperature` sampling parameter (they manage sampling
+    # internally and return HTTP 400 "temperature is deprecated for this model" if it is
+    # passed). Callers should omit temperature for these. Opus 4.8 is the first such model.
+    TEMPERATURE_UNSUPPORTED = {
+        "claude-opus-4-8",
+    }
+
     # Model selection based on use case
     @classmethod
     def get_claude_model(cls, use_case="default"):
         """Get the appropriate Claude model for a use case."""
         return cls.CLAUDE_MODELS.get(use_case, cls.CLAUDE_MODELS["default"])
+
+    @classmethod
+    def supports_temperature(cls, model: str) -> bool:
+        """Whether `model` accepts the `temperature` parameter (some newer models reject it)."""
+        return model not in cls.TEMPERATURE_UNSUPPORTED
     
     @classmethod
     def get_openai_model(cls, use_case="chat"):

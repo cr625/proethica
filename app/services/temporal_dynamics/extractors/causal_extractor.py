@@ -81,12 +81,15 @@ def analyze_causal_chains(
     try:
         # Call LLM with streaming to prevent WSL2 TCP idle timeout (60s)
         logger.info("[Stage 5] Calling LLM for causal chain analysis (streaming)")
-        with llm_client.messages.stream(
+        stream_kwargs = dict(
             model=model_name,
             max_tokens=12000,
-            temperature=0.2,
             messages=[{"role": "user", "content": prompt}],
-        ) as stream:
+        )
+        # Opus 4.8 rejects `temperature`; pass it only for models that accept it.
+        if ModelConfig.supports_temperature(model_name):
+            stream_kwargs["temperature"] = 0.2
+        with llm_client.messages.stream(**stream_kwargs) as stream:
             response = stream.get_final_message()
 
         # Extract response content
