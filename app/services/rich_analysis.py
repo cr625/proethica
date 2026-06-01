@@ -163,6 +163,24 @@ class RichAnalyzer:
                 lines.append(f"  - {cause} -> {eff}" + (f" (responsible: {ra})" if ra else ""))
         return "\n".join(lines)
 
+    def _committed_edges_by_label(self, case_id) -> Dict[str, list]:
+        """{normalized_label: [(predicate, [target_labels]), ...]} of committed edges, for
+        format_subgraph. Surfaces the Step-3 action normative edges (fulfils / violates /
+        guided-by) so any synthesis prompt that injects the entity context also sees the
+        committed normative structure and grounds its analysis in it rather than re-finding it."""
+        edges: Dict[str, list] = {}
+        for nl, ce in self._committed_action_edges(case_id).items():
+            rels = []
+            if ce.get('fulfills'):
+                rels.append(('fulfils', ce['fulfills']))
+            if ce.get('violates'):
+                rels.append(('violates', ce['violates']))
+            if ce.get('guided'):
+                rels.append(('guided by', ce['guided']))
+            if rels:
+                edges[nl] = rels
+        return edges
+
     def _analyze_causal_batch(
         self,
         batch_actions: list,
@@ -334,7 +352,10 @@ Include all {len(batch_actions)} actions.
             return []
 
         entity_dict = foundation.to_entity_dict()
-        entities_text = format_entities_compact(entity_dict)
+        # Grounded synthesis: inject the entity subgraph (nodes + committed normative edges)
+        # so the question-emergence analysis is anchored to the committed action->obligation
+        # structure rather than re-finding it from labels alone.
+        entities_text = format_subgraph(entity_dict, self._committed_edges_by_label(foundation.case_id))
 
         # Number questions for index-based matching
         questions_text = "\n".join([
