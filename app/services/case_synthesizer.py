@@ -313,6 +313,7 @@ class CaseSynthesizer:
         Build entity foundation from all Pass 1-3 extractions.
         """
         foundation = EntityFoundation()
+        foundation.case_id = case_id
 
         # Map extraction types to foundation attributes
         type_mapping = {
