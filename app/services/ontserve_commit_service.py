@@ -2284,6 +2284,38 @@ class OntServeCommitService:
             if not key.startswith('proeth:'):
                 continue  # skip @context/@id/@type/rdfs:label and proeth-scenario:*
             local = key.split(':', 1)[1]
+            if local == 'causalSequence':
+                # The causal sequence is a nested list of step dicts that the generic
+                # dict-skip below would drop. Flatten it to numbered literals
+                # (proeth:causalStep1..N = "element -- description") so the step-by-step
+                # chain survives commit (the decision-point option1..N convention).
+                seq = value if isinstance(value, list) else [value]
+                step_no = 0
+                for step in seq:
+                    if not isinstance(step, dict):
+                        continue
+                    element = str(step.get('proeth:element') or step.get('element') or '').strip()
+                    desc = str(step.get('proeth:description') or step.get('description') or '').strip()
+                    text = ' -- '.join(p for p in (element, desc) if p)
+                    if text:
+                        step_no += 1
+                        g.add((uri, PROETHICA[f'causalStep{step_no}'], Literal(text)))
+                continue
+            if local in ('discoveredInSection', 'sourceText', 'discoveredInPass'):
+                # Temporal individuals carry provenance inline (no 'properties' wrapper for
+                # _emit_provenance to read), so route these to the typed PROV-O predicates
+                # here, giving the causal / temporal claims auditable source provenance.
+                for v in (value if isinstance(value, list) else [value]):
+                    if v in (None, ''):
+                        continue
+                    if local == 'discoveredInPass':
+                        try:
+                            g.add((uri, PROETHICA_PROV.discoveredInPass, Literal(int(v), datatype=XSD.integer)))
+                        except (TypeError, ValueError):
+                            pass
+                    else:
+                        g.add((uri, PROETHICA_PROV[local], Literal(str(v))))
+                continue
             values = value if isinstance(value, list) else [value]
             for v in values:
                 if v is None or v == '' or isinstance(v, dict):

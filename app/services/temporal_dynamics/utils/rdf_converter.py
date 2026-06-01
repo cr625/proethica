@@ -237,6 +237,13 @@ def convert_causal_chain_to_rdf(chain: Dict, case_id: int) -> Dict:
         'proeth:causalLanguage': chain.get('causal_language', '')
     }
 
+    # Source-section provenance: which case section grounds this causal claim, so the
+    # (irreducible) NESS analysis can be audited against the original text. Emitted under
+    # proeth:discoveredInSection; the commit serializer routes it to the typed PROV-O
+    # predicate. The causalLanguage quote above is the supporting span.
+    if chain.get('source_section'):
+        rdf_entity['proeth:discoveredInSection'] = chain['source_section']
+
     # Add NESS test
     ness = chain.get('ness_test', {})
     if ness:

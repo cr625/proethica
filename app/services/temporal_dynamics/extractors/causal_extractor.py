@@ -155,6 +155,8 @@ For each significant causal relationship, identify:
    - Cause (which action or event)
    - Effect (which event or subsequent action)
    - Causal language (quote from text showing causation)
+   - Source section: "facts" or "discussion" -- which case section grounds this causal
+     claim, so the NESS analysis can be audited against the original text
 
 2. NESS TEST ANALYSIS (Necessary Element of Sufficient Set):
    - Necessary factors: What elements were REQUIRED for the outcome?
@@ -188,6 +190,7 @@ Return your analysis as a JSON array:
       "cause": "Task Assignment Decision",
       "effect": "Design Structural Failure",
       "causal_language": "The assignment of this complex task to an inexperienced intern without proper supervision led directly to the structural flaw",
+      "source_section": "facts",
 
       "ness_test": {{
         "necessary_factors": [

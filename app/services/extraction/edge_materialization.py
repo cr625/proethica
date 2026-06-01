@@ -153,6 +153,21 @@ def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
         logger.exception("materialize: obligation-edge applier failed for case %s", case_id)
         results["obligation_edges"] = {"error": str(e)}
 
+    # 2h. Causal-chain endpoint edges (DB-driven, embedding-resolved): the Step-3 causal
+    # analysis' cause / effect labels become CausalChain -> Action/Event edges and the
+    # responsibleAgent label(s) become CausalChain -> Agent edges. Wires the causal chain
+    # (the irreducible NESS analysis stays as literal content) into the graph so it is
+    # traversable. Mirrors the fluent/obligation appliers; CausalChain is a non-core domain,
+    # so the unified guard validates only the object endpoints.
+    try:
+        from app.services.extraction.causal_edges import apply_causal_edges
+        results["causal_edges"] = apply_causal_edges(
+            case_id=case_id, ttl_path=ttl_path, write_back=True,
+        )
+    except Exception as e:
+        logger.exception("materialize: causal-edge applier failed for case %s", case_id)
+        results["causal_edges"] = {"error": str(e)}
+
     # 3. R->P->O dependency edges (LLM) with the domain/range Pellet guard.
     try:
         from app.services.extraction.rpo_edges import apply_rpo_edges

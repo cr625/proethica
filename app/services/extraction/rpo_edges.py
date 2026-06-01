@@ -398,10 +398,20 @@ _NORMATIVE_EDGE_RANGE = {
     PROETH.raisesObligation: ("Action", "Obligation"),
     PROETH.guidedByPrinciple: ("Action", "Principle"),
 }
+# Causal-chain endpoint edges materialized by causal_edges.py. Domain CausalChain is NOT
+# one of the nine disjoint core categories, so the subject resolves to an empty core-set
+# and the domain clause never fires (the chain is never dropped on its subject). cause /
+# effect range over the happenings (Action OR Event, both disjoint -> the object is
+# validated); responsibleAgent range is Agent (outside the nine -> range clause skipped).
+_CAUSAL_EDGE_RANGE = {
+    PROETH.cause: ("CausalChain", {"Action", "Event"}),
+    PROETH.effect: ("CausalChain", {"Action", "Event"}),
+    PROETH.responsibleAgent: ("CausalChain", "Agent"),
+}
 ALL_EDGE_RANGE = {**_EDGE_RANGE, **_DEFEASIBILITY_RANGE, **_STATE_EDGE_RANGE,
                   **_RESOURCE_EDGE_RANGE, **_STATE_AFFECTS_RANGE,
                   **_PARTICIPANT_EDGE_RANGE, **_FLUENT_EDGE_RANGE,
-                  **_NORMATIVE_EDGE_RANGE}
+                  **_NORMATIVE_EDGE_RANGE, **_CAUSAL_EDGE_RANGE}
 
 
 def _default_ontology_paths() -> Tuple[Any, Any]:
