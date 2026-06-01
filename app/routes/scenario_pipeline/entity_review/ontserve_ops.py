@@ -11,6 +11,7 @@ from datetime import datetime
 from flask import render_template, request, jsonify, redirect, url_for, flash
 from app.models import Document, db, TemporaryRDFStorage
 from app.services.case_entity_storage_service import CaseEntityStorageService
+from app.services.extraction.field_classification import group_properties
 from app.utils.environment_auth import (
     auth_optional,
     auth_required_for_write
@@ -205,6 +206,7 @@ def register_ontserve_ops_routes(bp):
                     # hasCompetingPriorities is a nested object; foreseenUnintendedEffects
                     # and the obligation buckets are lists; temporalSequence is an int.
                     actions.append({
+                        'field_groups': group_properties(rdf_data),
                         'id': entity.id,
                         'label': entity.entity_label,
                         'uri': entity.entity_uri,
@@ -244,6 +246,7 @@ def register_ontserve_ops_routes(bp):
                     # activatesConstraint/activatesObligation path). The event now carries its
                     # world-change as initiates / terminates.
                     events.append({
+                        'field_groups': group_properties(rdf_data),
                         'id': entity.id,
                         'label': entity.entity_label,
                         'uri': entity.entity_uri,
@@ -264,6 +267,7 @@ def register_ontserve_ops_routes(bp):
 
                 elif 'CausalChain' in entity_type:
                     causal_chains.append({
+                        'field_groups': group_properties(rdf_data),
                         'id': entity.id,
                         'cause': rdf_data.get('proeth:cause', ''),
                         'effect': rdf_data.get('proeth:effect', ''),
