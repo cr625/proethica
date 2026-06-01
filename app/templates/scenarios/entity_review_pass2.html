@@ -375,11 +375,14 @@
             <div class="row mb-5">
                 <div class="col-12">
                     <!-- Panel Header for {{ concept_type|title }} -->
-                    <div class="card {% if concept_type == 'principles' %}border-success{% elif concept_type == 'obligations' %}border-warning{% elif concept_type == 'constraints' %}border-danger{% else %}border-info{% endif %}">
-                        <div class="card-header {% if concept_type == 'principles' %}bg-success{% elif concept_type == 'obligations' %}bg-warning{% elif concept_type == 'constraints' %}bg-danger{% else %}bg-info{% endif %} text-white">
+                    {# Neutral card header with a colored left border + letter badge, matching
+                       Pass 1 (entity_review.html). The entity-type color shows via the badge
+                       and the border-left, not a tinted header background. #}
+                    {% set concept_colors = {'roles': '#0d6efd', 'states': '#6f42c1', 'resources': '#20c997', 'principles': '#fd7e14', 'obligations': '#dc3545', 'constraints': '#6c757d', 'capabilities': '#0dcaf0', 'actions': '#198754', 'events': '#ffc107'} %}
+                    <div class="card" style="border-left: 5px solid {{ concept_colors.get(concept_type, '#dee2e6') }};">
+                        <div class="card-header">
                             <h4 class="mb-0">
                                 {% set concept_abbrevs = {'roles': 'R', 'states': 'S', 'resources': 'Rs', 'principles': 'P', 'obligations': 'O', 'constraints': 'Cs', 'capabilities': 'Ca', 'actions': 'A', 'events': 'E'} %}
-                                {% set concept_colors = {'roles': '#0d6efd', 'states': '#6f42c1', 'resources': '#20c997', 'principles': '#fd7e14', 'obligations': '#dc3545', 'constraints': '#6c757d', 'capabilities': '#0dcaf0', 'actions': '#198754', 'events': '#ffc107'} %}
                                 <span class="badge" style="background-color: {{ concept_colors.get(concept_type, '#dee2e6') }}; font-size: 0.6em; vertical-align: middle;">{{ concept_abbrevs.get(concept_type, '?') }}</span>
                                 {{ concept_type|title }}
                             </h4>
