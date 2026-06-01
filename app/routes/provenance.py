@@ -661,6 +661,34 @@ def get_case_pipeline(case_id):
     })
 
 
+def _entity_field_groups(rdf_json_ld: dict) -> dict:
+    """Partition an entity's emitted fields into structural relations vs kept literal
+    extractions for the provenance display, using the field_classification source of
+    truth. Returns {relations: [{p, v}], literals: [{p, v, kind}], derived: [{p, v}]}
+    with short, JS-ready predicate locals + stringified values."""
+    from app.services.extraction.field_classification import group_properties, FieldKind
+
+    def _fmt(v):
+        if isinstance(v, dict):
+            return json.dumps(v)
+        if isinstance(v, (list, tuple)):
+            return '; '.join(str(x) for x in v)
+        return str(v)
+
+    def _local(p):
+        return p.split('#')[-1].split('/')[-1].split(':')[-1]
+
+    groups = group_properties(rdf_json_ld or {})
+    return {
+        'relations': [{'p': _local(p), 'v': _fmt(v)} for p, v in groups[FieldKind.RELATION.value]],
+        'literals': (
+            [{'p': _local(p), 'v': _fmt(v), 'kind': 'content'} for p, v in groups[FieldKind.CONTENT.value]]
+            + [{'p': _local(p), 'v': _fmt(v), 'kind': 'assessment'} for p, v in groups[FieldKind.ASSESSMENT.value]]
+        ),
+        'derived': [{'p': _local(p), 'v': _fmt(v)} for p, v in groups[FieldKind.DERIVED.value]],
+    }
+
+
 def _get_extraction_data(case_id: int, step_number: int, section_type: str, concept_type: str) -> dict:
     """Get extraction prompt and entities for a specific step/section/concept."""
     # Get the most recent extraction prompt
@@ -692,7 +720,8 @@ def _get_extraction_data(case_id: int, step_number: int, section_type: str, conc
                 'uri': entity.entity_uri,
                 'type': entity.entity_type,
                 'is_published': entity.is_published,
-                'color': ENTITY_COLORS.get(concept_type, '#6c757d')
+                'color': ENTITY_COLORS.get(concept_type, '#6c757d'),
+                'fields': _entity_field_groups(entity.rdf_json_ld)
             })
 
     # Provenance metadata
@@ -747,7 +776,8 @@ def _get_temporal_extraction_data(case_id: int, concept_type: str) -> dict:
         'uri': e.entity_uri,
         'type': e.entity_type,
         'is_published': e.is_published,
-        'color': ENTITY_COLORS.get(concept_type, '#6c757d')
+        'color': ENTITY_COLORS.get(concept_type, '#6c757d'),
+        'fields': _entity_field_groups(e.rdf_json_ld)
     } for e in entities]
 
     # Look up provenance directly from PROV-O (no extraction_prompts for Step 3)
@@ -846,7 +876,8 @@ def _get_step4_phase_data(case_id: int, phase_def: dict) -> dict:
             'label': e.entity_label,
             'definition': e.entity_definition,
             'uri': e.entity_uri,
-            'is_published': e.is_published
+            'is_published': e.is_published,
+            'fields': _entity_field_groups(e.rdf_json_ld)
         } for e in storage_entities]
     elif concept_type == 'phase3_decision_synthesis':
         # Get canonical decision points
@@ -859,7 +890,8 @@ def _get_step4_phase_data(case_id: int, phase_def: dict) -> dict:
             'label': dp.entity_label,
             'definition': dp.entity_definition,
             'uri': dp.entity_uri,
-            'rdf_data': dp.rdf_json_ld
+            'rdf_data': dp.rdf_json_ld,
+            'fields': _entity_field_groups(dp.rdf_json_ld)
         } for dp in decision_points]
 
     # Provenance metadata

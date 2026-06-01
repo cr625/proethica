@@ -792,6 +792,24 @@ function createPassHeader(step, pass) {
     return div;
 }
 
+function renderEntityFields(fg) {
+    // Per-entity triple-vs-literal breakdown (field_classification.group_properties).
+    if (!fg) return '';
+    const rel = fg.relations || [], lit = fg.literals || [], der = fg.derived || [];
+    if (!rel.length && !lit.length && !der.length) return '';
+    const trunc = s => escapeHtml((s || '').substring(0, 80)) + ((s || '').length > 80 ? '…' : '');
+    let html = `<details class="entity-fields"><summary class="small text-muted">`
+        + `${rel.length} relation${rel.length != 1 ? 's' : ''} · ${lit.length} literal${lit.length != 1 ? 's' : ''}</summary>`;
+    if (rel.length) html += `<div class="small mt-1"><span class="badge bg-primary">Relations (structural triples)</span>`
+        + `<ul class="mb-1 ps-3">${rel.map(f => `<li><code>${escapeHtml(f.p)}</code>: ${trunc(f.v)}</li>`).join('')}</ul></div>`;
+    if (lit.length) html += `<div class="small"><span class="badge bg-success">Literal extractions (kept for synthesis)</span>`
+        + `<ul class="mb-1 ps-3">${lit.map(f => `<li><code>${escapeHtml(f.p)}</code> <span class="badge bg-light text-dark border">${escapeHtml(f.kind)}</span>: ${trunc(f.v)}</li>`).join('')}</ul></div>`;
+    if (der.length) html += `<div class="small text-muted"><span class="badge bg-secondary">Derived</span> `
+        + `${der.map(f => `<code>${escapeHtml(f.p)}</code>`).join(', ')}</div>`;
+    html += `</details>`;
+    return html;
+}
+
 function createExtractionCard(step, pass, extraction) {
     const div = document.createElement('div');
     div.className = `pipeline-card${extraction.has_data ? '' : ' empty'}`;
@@ -819,6 +837,7 @@ function createExtractionCard(step, pass, extraction) {
             <div class="entity-item" style="--entity-color: ${e.color};">
                 <div class="entity-label">${escapeHtml(e.label)}</div>
                 <div class="entity-definition">${escapeHtml((e.definition || '').substring(0, 150))}${e.definition && e.definition.length > 150 ? '...' : ''}</div>
+                ${renderEntityFields(e.fields)}
             </div>`).join('')}</div>`
         : '<p class="text-muted mb-0">No entities extracted</p>';
 
