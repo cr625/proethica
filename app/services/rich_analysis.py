@@ -530,6 +530,11 @@ Include all questions in this batch.
     ) -> List[ResolutionPatternAnalysis]:
         """Analyze a batch of conclusions for resolution patterns."""
         entity_dict = foundation.to_entity_dict() if foundation else {}
+        # Grounded synthesis: inject the committed normative subgraph so "determinative
+        # principles" and "how competing obligations were weighed" are anchored to the
+        # extracted action->obligation structure rather than re-identified from the prose.
+        norm_structure = (format_subgraph(entity_dict, self._committed_edges_by_label(foundation.case_id))
+                          if foundation else "")
 
         # Number conclusions within this batch (1-based for LLM)
         conclusions_text = "\n".join([
@@ -558,6 +563,9 @@ Include all questions in this batch.
 
 ## CODE PROVISIONS (that could be cited)
 {provisions_text}
+
+## CASE NORMATIVE STRUCTURE (already extracted -- ground the weighing in these)
+{norm_structure or '  (not available)'}
 
 A board resolution is DEFEASIBLE: it holds only under the facts and conditions
 that obtained in this case, and would not hold (or would reverse) if those
