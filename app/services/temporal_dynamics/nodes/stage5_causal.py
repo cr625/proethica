@@ -27,12 +27,17 @@ def analyze_causal_relationships(state: TemporalDynamicsState) -> Dict:
     logger.info(f"[Stage 5] Analyzing causal chains for case {state['case_id']}")
 
     try:
-        # Analyze causal relationships using actions and events
+        # Analyze causal relationships using actions and events. The full case text is
+        # already in the state (facts_text/discussion_text) -- pass it so the causal stage
+        # reasons over the source narrative (grounded NESS + verbatim causal_language quotes)
+        # instead of the 100-char action/event summaries it used before.
         causal_chains = analyze_causal_chains(
             actions=state['actions'],
             events=state['events'],
             case_id=state['case_id'],
-            llm_trace=state.get('llm_trace', [])
+            llm_trace=state.get('llm_trace', []),
+            facts_text=state.get('facts_text', ''),
+            discussion_text=state.get('discussion_text', ''),
         )
 
         logger.info(f"[Stage 5] Identified {len(causal_chains)} causal chains")

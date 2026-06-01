@@ -10,6 +10,7 @@ Analyzes causal relationships between actions and events with:
 
 from typing import Dict, List
 import logging
+import re
 from datetime import datetime
 
 import os
@@ -26,7 +27,9 @@ def analyze_causal_chains(
     actions: List[Dict],
     events: List[Dict],
     case_id: int,
-    llm_trace: List[Dict]
+    llm_trace: List[Dict],
+    facts_text: str = "",
+    discussion_text: str = "",
 ) -> List[Dict]:
     """
     Analyze causal relationships between actions and events.
@@ -36,9 +39,16 @@ def analyze_causal_chains(
         events: Events extracted in Stage 4
         case_id: Case ID for logging
         llm_trace: List to append LLM interactions to
+        facts_text: Full Facts-section text (for grounded causal reasoning + verbatim quotes)
+        discussion_text: Full Discussion-section text
 
     Returns:
         List of causal chain dictionaries
+
+    Causal analysis is the one Step-3 stage that is genuine logical reasoning (NESS test,
+    counterfactual, responsibility) rather than span enumeration, and it runs once per case,
+    so it uses the most capable model ('powerful' = Opus) over the FULL case text. The
+    deterministic precedence/type guards in causal_edges.py remain the safety net regardless.
     """
     logger.info(f"[Stage 5] Analyzing causal chains for case {case_id}")
 
@@ -49,15 +59,16 @@ def analyze_causal_chains(
         api_key = os.getenv('ANTHROPIC_API_KEY')
         if not api_key:
             raise RuntimeError("ANTHROPIC_API_KEY not found in environment")
-        llm_client = anthropic.Anthropic(api_key=api_key, timeout=180.0, max_retries=2)
-        model_name = ModelConfig.get_claude_model('default')
+        llm_client = anthropic.Anthropic(api_key=api_key, timeout=300.0, max_retries=2)
+        # Strongest model for the logic step (low volume, high value); see docstring.
+        model_name = ModelConfig.get_claude_model('powerful')
         logger.info(f"[Stage 5] Initialized Anthropic client with model {model_name}")
     except Exception as e:
         logger.error(f"[Stage 5] Failed to initialize LLM client: {e}")
         raise RuntimeError(f"No LLM client available: {e}")
 
-    # Build prompt with action/event context
-    prompt = _build_causal_analysis_prompt(actions, events)
+    # Build prompt with action/event context + the full case text
+    prompt = _build_causal_analysis_prompt(actions, events, facts_text, discussion_text)
 
     # Record prompt in trace
     trace_entry = {
@@ -72,8 +83,8 @@ def analyze_causal_chains(
         logger.info("[Stage 5] Calling LLM for causal chain analysis (streaming)")
         with llm_client.messages.stream(
             model=model_name,
-            max_tokens=8000,
-            temperature=0.4,
+            max_tokens=12000,
+            temperature=0.2,
             messages=[{"role": "user", "content": prompt}],
         ) as stream:
             response = stream.get_final_message()
@@ -89,6 +100,13 @@ def analyze_causal_chains(
 
         # Enforce maximum chain depth
         causal_chains = _enforce_max_depth(causal_chains)
+
+        # Grounded-quote check: now that the full case text is in context, causal_language
+        # should be a VERBATIM span of it. Flag each chain (causal_language_grounded) and log
+        # the rate, so a paraphrase masquerading as a quote is visible rather than silent.
+        grounded = _check_quote_grounding(causal_chains, f"{facts_text}\n{discussion_text}")
+        trace_entry['grounded_quotes'] = f"{grounded}/{len(causal_chains)}"
+        logger.info(f"[Stage 5] causal_language grounded in case text: {grounded}/{len(causal_chains)}")
 
         trace_entry['parsed_output'] = {
             'causal_chain_count': len(causal_chains),
@@ -118,7 +136,8 @@ def analyze_causal_chains(
         llm_trace.append(trace_entry)
 
 
-def _build_causal_analysis_prompt(actions: List[Dict], events: List[Dict]) -> str:
+def _build_causal_analysis_prompt(actions: List[Dict], events: List[Dict],
+                                  facts_text: str = "", discussion_text: str = "") -> str:
     """Build the LLM prompt for causal chain analysis."""
 
     # Format action summaries
@@ -137,9 +156,20 @@ def _build_causal_analysis_prompt(actions: List[Dict], events: List[Dict]) -> st
             f"{event.get('description', 'No description')[:100]}"
         )
 
+    # Full case text -- the causal/NESS reasoning must be grounded in the source narrative,
+    # not the 100-char summaries above. (When the temporal stages share a cached prefix this
+    # block becomes a prompt-cache hit; for now it is sent in full.)
+    case_text_block = ""
+    if facts_text or discussion_text:
+        case_text_block = (
+            "CASE TEXT (ground every causal claim and quote in this):\n"
+            f"--- FACTS ---\n{facts_text}\n\n"
+            f"--- DISCUSSION ---\n{discussion_text}\n\n---\n\n"
+        )
+
     prompt = f"""You are analyzing causal relationships in an engineering ethics case.
 
-ACTIONS (Volitional Decisions):
+{case_text_block}ACTIONS (Volitional Decisions):
 {chr(10).join(action_summary)}
 
 EVENTS (Occurrences):
@@ -149,12 +179,18 @@ EVENTS (Occurrences):
 
 Analyze the causal relationships between these actions and events.
 
+A cause must temporally PRECEDE its effect; never list an effect that occurs before its
+cause. Keep each cause and each effect a SINGLE action or event (do not conjoin two with
+"+"); emit separate causal relationships instead.
+
 For each significant causal relationship, identify:
 
 1. DIRECT CAUSATION:
    - Cause (which action or event)
    - Effect (which event or subsequent action)
-   - Causal language (quote from text showing causation)
+   - Causal language: a VERBATIM quote copied word-for-word from the CASE TEXT above that
+     shows the causation. Do NOT paraphrase or invent; if no explicit causal sentence
+     exists, quote the closest supporting sentence verbatim.
    - Source section: "facts" or "discussion" -- which case section grounds this causal
      claim, so the NESS analysis can be audited against the original text
 
@@ -263,6 +299,33 @@ Return your analysis as a JSON array:
 JSON Response:"""
 
     return prompt
+
+
+def _check_quote_grounding(causal_chains: List[Dict], case_text: str,
+                           min_run_words: int = 8) -> int:
+    """Flag each chain's causal_language as grounded iff a contiguous run of >= min_run_words
+    of it appears verbatim (whitespace/case-normalized) in the case text. Sets
+    chain['causal_language_grounded'] and returns the grounded count. Tolerant of leading/
+    trailing framing the model adds around the real quote, but requires a genuine span."""
+    norm = lambda s: re.sub(r"\s+", " ", (s or "").lower()).strip()
+    ct = norm(case_text)
+    grounded = 0
+    for c in causal_chains:
+        q = norm(c.get("causal_language", ""))
+        words = q.split()
+        is_g = False
+        if q and ct:
+            if len(words) < min_run_words:
+                is_g = q in ct
+            else:
+                is_g = any(
+                    " ".join(words[i:i + min_run_words]) in ct
+                    for i in range(len(words) - min_run_words + 1)
+                )
+        c["causal_language_grounded"] = is_g
+        if is_g:
+            grounded += 1
+    return grounded
 
 
 def _parse_causal_response(response_text: str) -> List[Dict]:
