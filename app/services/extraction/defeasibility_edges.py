@@ -23,6 +23,8 @@ import logging
 import os
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
+from model_config import ModelConfig
+
 from .enhanced_prompts_defeasibility import (
     NarrativeContext,
     ObligationContext,

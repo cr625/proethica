@@ -29,6 +29,8 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 from rdflib import Graph, Literal, RDF, RDFS, URIRef, Namespace
 
+from model_config import ModelConfig
+
 logger = logging.getLogger(__name__)
 
 PROETH = Namespace("http://proethica.org/ontology/intermediate#")
