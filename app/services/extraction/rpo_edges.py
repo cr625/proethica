@@ -407,6 +407,10 @@ _CAUSAL_EDGE_RANGE = {
     PROETH.cause: ("CausalChain", {"Action", "Event"}),
     PROETH.effect: ("CausalChain", {"Action", "Event"}),
     PROETH.responsibleAgent: ("CausalChain", "Agent"),
+    # Event -> causing Action (materialized by causal_edges.apply_event_cause_edges from
+    # the converter's legacy causedByAction IRI). Both endpoints are disjoint categories,
+    # so the guard validates both.
+    PROETH.causedByAction: ("Event", "Action"),
 }
 ALL_EDGE_RANGE = {**_EDGE_RANGE, **_DEFEASIBILITY_RANGE, **_STATE_EDGE_RANGE,
                   **_RESOURCE_EDGE_RANGE, **_STATE_AFFECTS_RANGE,

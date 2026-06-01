@@ -235,3 +235,91 @@ def apply_causal_edges(case_id: int, ttl_path, write_back: bool = True,
     if write_back and total:
         g.serialize(destination=str(ttl_path), format="turtle")
     return res
+
+
+def _events_causedby_from_db(case_id: int) -> List[Dict[str, Any]]:
+    """[{label, caused_by}] for each Step-3 Event individual that names a causing action.
+    caused_by is the converter's legacy IRI (http://proethica.org/cases/<id>#Action_<frag>)."""
+    from app.models.temporary_rdf_storage import TemporaryRDFStorage
+
+    rows = TemporaryRDFStorage.query.filter_by(
+        case_id=case_id, extraction_type="temporal_dynamics_enhanced", storage_type="individual"
+    ).all()
+    out = []
+    for r in rows:
+        rdf = r.rdf_json_ld or {}
+        if "Event" not in (rdf.get("@type", "") or ""):
+            continue
+        cba = rdf.get("proeth:causedByAction")
+        if isinstance(cba, list):
+            cba = cba[0] if cba else None
+        if cba:
+            out.append({"label": r.entity_label or rdf.get("rdfs:label", ""), "caused_by": str(cba)})
+    return out
+
+
+def apply_event_cause_edges(case_id: int, ttl_path, write_back: bool = True) -> Dict[str, Any]:
+    """Materialize Event proeth:causedByAction Action edges on a committed case TTL.
+
+    The converter emits causedByAction as a legacy-scheme IRI (#Action_<frag>) that the
+    commit serializer skips, so the durable graph lost the event->causing-action link
+    (which is NOT always covered by a CausalChain). This resolves it deterministically:
+    the legacy fragment minus the Action_ prefix is the committed Action's local name, so
+    the edge target is case_ns + that fragment (with a normalized-label fallback). No LLM
+    needed -- it is a precise reference, not a fuzzy description. proeth:causedByAction is a
+    declared object property (domain Event, range Action); the unified guard validates the
+    Action endpoint (registered in ALL_EDGE_RANGE). Best-effort; never raises."""
+    ttl_path = Path(ttl_path)
+    res: Dict[str, Any] = {"case_id": case_id, "status": "ok", "edges": 0, "unresolved": 0}
+    try:
+        events = _events_causedby_from_db(case_id)
+    except Exception as e:
+        logger.warning("event_cause_edges: temp_rdf read failed for case %s: %s", case_id, e)
+        return {"case_id": case_id, "status": "no_db", "error": str(e)}
+    if not events:
+        return {"case_id": case_id, "status": "no_caused_by"}
+
+    g = Graph()
+    g.parse(str(ttl_path), format="turtle")
+
+    # Subject map: Event individuals by normalized label. Target maps: committed Action
+    # individuals by local-name (exact remap) and by normalized label (fallback).
+    event_iris: Dict[str, URIRef] = {}
+    for ind in _individuals_in_category(g, "Event"):
+        event_iris.setdefault(_norm(_label(g, ind)), ind)
+    action_by_local: Dict[str, URIRef] = {}
+    action_by_norm: Dict[str, URIRef] = {}
+    case_ns = None
+    for ind in _individuals_in_category(g, "Action"):
+        s = str(ind)
+        action_by_local[s.split("#")[-1]] = ind
+        action_by_norm.setdefault(_norm(_label(g, ind)), ind)
+        if case_ns is None and "#" in s:
+            case_ns = s.rsplit("#", 1)[0] + "#"
+    if not event_iris or not action_by_local:
+        return {"case_id": case_id, "status": "no_events_or_actions"}
+
+    edges = unresolved = 0
+    for ev in events:
+        subj = event_iris.get(_norm(ev["label"]))
+        if subj is None:
+            continue
+        frag = ev["caused_by"].split("#")[-1]
+        if frag.startswith("Action_"):
+            frag = frag[len("Action_"):]
+        tgt = action_by_local.get(frag) or action_by_norm.get(_norm(frag.replace("_", " ")))
+        if tgt is None:
+            unresolved += 1
+            logger.info("event_cause_edges: caused-by action %r not committed for event %r",
+                        frag, (ev["label"] or "")[:80])
+            continue
+        if (subj, PROETH.causedByAction, tgt) in g:
+            continue
+        g.add((subj, PROETH.causedByAction, tgt))
+        _emit_prov(g, case_id, "causedByAction", subj, tgt, ev["caused_by"])
+        edges += 1
+
+    res["edges"], res["unresolved"] = edges, unresolved
+    if write_back and edges:
+        g.serialize(destination=str(ttl_path), format="turtle")
+    return res

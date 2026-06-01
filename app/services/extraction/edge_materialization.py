@@ -168,6 +168,18 @@ def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
         logger.exception("materialize: causal-edge applier failed for case %s", case_id)
         results["causal_edges"] = {"error": str(e)}
 
+    # 2i. Event -> causing Action edges (deterministic): the converter's legacy
+    # causedByAction IRI, skipped by the serializer, resolved to the committed Action
+    # individual so the event->cause link is durable (not always covered by a CausalChain).
+    try:
+        from app.services.extraction.causal_edges import apply_event_cause_edges
+        results["event_cause_edges"] = apply_event_cause_edges(
+            case_id=case_id, ttl_path=ttl_path, write_back=True,
+        )
+    except Exception as e:
+        logger.exception("materialize: event-cause-edge applier failed for case %s", case_id)
+        results["event_cause_edges"] = {"error": str(e)}
+
     # 3. R->P->O dependency edges (LLM) with the domain/range Pellet guard.
     try:
         from app.services.extraction.rpo_edges import apply_rpo_edges
