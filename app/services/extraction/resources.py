@@ -281,16 +281,18 @@ class ResourcesExtractor(Extractor, AtomicExtractionMixin):
         # Try Anthropic messages API
         try:
             if hasattr(client, 'messages') and hasattr(client.messages, 'create'):
-                model = ModelConfig.get_claude_model("powerful")  # Use Opus 4.1 for better extraction
-                resp = client.messages.create(
+                model = ModelConfig.get_claude_model("powerful")  # Opus for better extraction
+                _res_kwargs = dict(
                     model=model,
                     max_tokens=800,
-                    temperature=0,
                     system=(
                         "Extract resources and decision-making tools from text and output ONLY JSON with key 'resources'."
                     ),
                     messages=[{"role": "user", "content": prompt}],
                 )
+                if ModelConfig.supports_temperature(model):  # Opus 4.8 rejects temperature
+                    _res_kwargs["temperature"] = 0
+                resp = client.messages.create(**_res_kwargs)
                 # Newer SDK returns content list with .text
                 content = getattr(resp, 'content', None)
                 if content and isinstance(content, list) and len(content) > 0:

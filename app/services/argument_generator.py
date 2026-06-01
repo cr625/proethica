@@ -180,13 +180,16 @@ class ArgumentGenerator:
         self.last_prompt = prompt
 
         try:
-            response = self.llm_client.messages.create(
+            _arg_model = ModelConfig.get_claude_model("powerful")
+            _arg_kwargs = dict(
                 # Toulmin argument generation is the core Step-4 reasoning output -> powerful tier (Opus).
-                model=ModelConfig.get_claude_model("powerful"),
+                model=_arg_model,
                 max_tokens=4000,
-                temperature=0.3,
-                messages=[{"role": "user", "content": prompt}]
+                messages=[{"role": "user", "content": prompt}],
             )
+            if ModelConfig.supports_temperature(_arg_model):  # Opus 4.8 rejects temperature
+                _arg_kwargs["temperature"] = 0.3
+            response = self.llm_client.messages.create(**_arg_kwargs)
 
             response_text = response.content[0].text
             self.last_response = response_text
