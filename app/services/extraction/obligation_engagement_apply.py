@@ -49,6 +49,40 @@ def _norm(s: str) -> str:
     return re.sub(r"\s+", " ", (s or "").strip()).lower()
 
 
+def _reconcile_to_pool(ctx, pa):
+    """Reconcile the LLM partition to the Action's own input pool (deterministic).
+
+    Keeps the LLM's bucket choice for every obligation that is IN the pool
+    (fulfills + violates + existing raises), drops any extra the LLM invented
+    (e.g. an obligation carried from another Action), and restores any pool
+    obligation the LLM dropped to its original bucket. Guarantees the result is
+    valid (union == pool, no duplicates), so the case always gets its raises
+    buckets instead of none. Returns (fulfills, violates, raises) of original
+    strings.
+    """
+    disp = {}          # norm -> original input string (the pool is the input)
+    orig_bucket = {}   # norm -> 'fulfills' | 'violates' | 'raises'
+    for o in ctx.fulfills:
+        n = _norm(o); disp.setdefault(n, o); orig_bucket.setdefault(n, "fulfills")
+    for o in ctx.violates:
+        n = _norm(o); disp.setdefault(n, o); orig_bucket.setdefault(n, "violates")
+    for o in (getattr(ctx, "raises", None) or []):
+        n = _norm(o); disp.setdefault(n, o); orig_bucket.setdefault(n, "raises")
+
+    llm_bucket = {}    # norm -> first bucket the LLM placed it in
+    for o in pa.fulfills:
+        llm_bucket.setdefault(_norm(o), "fulfills")
+    for o in pa.violates:
+        llm_bucket.setdefault(_norm(o), "violates")
+    for o in pa.raises:
+        llm_bucket.setdefault(_norm(o), "raises")
+
+    out = {"fulfills": [], "violates": [], "raises": []}
+    for n, original in disp.items():
+        out[llm_bucket.get(n, orig_bucket[n])].append(original)
+    return out["fulfills"], out["violates"], out["raises"]
+
+
 def apply_obligation_engagement(
     case_id: int,
     extractor: Optional[Any] = None,
@@ -82,11 +116,14 @@ def apply_obligation_engagement(
             continue
         fulfills_raw = rdf.get("proeth:fulfillsObligation", []) or []
         violates_raw = rdf.get("proeth:violatesObligation", []) or []
+        raises_raw = rdf.get("proeth:raisesObligation", []) or []
         if not isinstance(fulfills_raw, list):
             fulfills_raw = []
         if not isinstance(violates_raw, list):
             violates_raw = []
-        if not fulfills_raw and not violates_raw:
+        if not isinstance(raises_raw, list):
+            raises_raw = []
+        if not fulfills_raw and not violates_raw and not raises_raw:
             continue
         seq = rdf.get("proeth:temporalSequence")
         try:
@@ -101,6 +138,7 @@ def apply_obligation_engagement(
                 sequence=seq_int,
                 fulfills=list(fulfills_raw),
                 violates=list(violates_raw),
+                raises=list(raises_raw),
             )
         )
         iri_to_row[iri] = r
@@ -122,11 +160,17 @@ def apply_obligation_engagement(
         from app.services.extraction.obligation_engagement import ObligationEngagementExtractor
         extractor = ObligationEngagementExtractor()
 
+    # Lenient: get the parsed partition even if it does not validate, then
+    # reconcile each Action to its own input pool below. This replaces the prior
+    # behaviour where a single validation failure (e.g. the LLM carrying an
+    # obligation across actions, which the system prompt invites) raised and the
+    # caller swallowed it, writing NO raises buckets for the whole case.
     result = extractor.extract(
         case_id=case_id,
         case_title=_load_case_title(case_id),
         actions=actions,
         discussion_excerpt=_load_discussion(case_id),
+        strict=False,
     )
 
     rows_updated = 0
@@ -142,19 +186,23 @@ def apply_obligation_engagement(
         row = iri_to_row[ctx.iri]
         rdf = dict(row.rdf_json_ld or {})
 
+        # Reconcile the LLM partition to this Action's own input pool so the
+        # result is always valid (drops cross-action extras, restores drops).
+        f_out, v_out, r_out = _reconcile_to_pool(ctx, pa)
+
         old_fulfills = {_norm(s) for s in ctx.fulfills}
         old_violates = {_norm(s) for s in ctx.violates}
-        new_raises_set = {_norm(s) for s in pa.raises}
+        new_raises_set = {_norm(s) for s in r_out}
         moved_from_fulfills += len(old_fulfills & new_raises_set)
         moved_from_violates += len(old_violates & new_raises_set)
 
-        rdf["proeth:fulfillsObligation"] = list(pa.fulfills)
-        rdf["proeth:violatesObligation"] = list(pa.violates)
-        rdf["proeth:raisesObligation"] = list(pa.raises)
+        rdf["proeth:fulfillsObligation"] = f_out
+        rdf["proeth:violatesObligation"] = v_out
+        rdf["proeth:raisesObligation"] = r_out
         row.rdf_json_ld = rdf
         flag_modified(row, "rdf_json_ld")
         rows_updated += 1
-        raises_emitted += len(pa.raises)
+        raises_emitted += len(r_out)
 
     db.session.commit()
 
